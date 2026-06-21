@@ -1,0 +1,766 @@
+{
+  "version": "2.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "currentViewName": null,
+  "defaultView": {
+    "detailLevel": "All",
+    "tablePositions": [
+      {
+        "name": "roles",
+        "schemaName": "public",
+        "x": 12,
+        "y": 12
+      },
+      {
+        "name": "users",
+        "schemaName": "public",
+        "x": 528.5849609375,
+        "y": 95
+      },
+      {
+        "name": "barangays",
+        "schemaName": "public",
+        "x": 12,
+        "y": 154
+      },
+      {
+        "name": "farmers",
+        "schemaName": "public",
+        "x": 1207.87255859375,
+        "y": 95
+      },
+      {
+        "name": "cooperative_officers",
+        "schemaName": "public",
+        "x": 1207.87255859375,
+        "y": 451
+      },
+      {
+        "name": "livestock_types",
+        "schemaName": "public",
+        "x": 12,
+        "y": 360
+      },
+      {
+        "name": "livestock_inventory",
+        "schemaName": "public",
+        "x": 1767.810546875,
+        "y": 95
+      },
+      {
+        "name": "production_records",
+        "schemaName": "public",
+        "x": 2397.8955078125,
+        "y": 12
+      },
+      {
+        "name": "disease_cases",
+        "schemaName": "public",
+        "x": 2397.8955078125,
+        "y": 442
+      },
+      {
+        "name": "mortality_records",
+        "schemaName": "public",
+        "x": 1691.7368867565888,
+        "y": 774.992558548204
+      },
+      {
+        "name": "slaughter_records",
+        "schemaName": "public",
+        "x": 2397.8955078125,
+        "y": 1304
+      },
+      {
+        "name": "live_animal_sales",
+        "schemaName": "public",
+        "x": 2397.8955078125,
+        "y": 1702
+      },
+      {
+        "name": "barangay_livestock_census",
+        "schemaName": "public",
+        "x": 1207.87255859375,
+        "y": 1458
+      },
+      {
+        "name": "announcements",
+        "schemaName": "public",
+        "x": 1207.87255859375,
+        "y": 722
+      },
+      {
+        "name": "notifications",
+        "schemaName": "public",
+        "x": 1207.87255859375,
+        "y": 960
+      },
+      {
+        "name": "generated_reports",
+        "schemaName": "public",
+        "x": 1207.87255859375,
+        "y": 1230
+      },
+      {
+        "name": "analytics_predictions",
+        "schemaName": "public",
+        "x": 528.5849609375,
+        "y": 461
+      },
+      {
+        "name": "analytics_insights",
+        "schemaName": "public",
+        "x": 2964.36865234375,
+        "y": 12
+      },
+      {
+        "name": "analytics_recommendations",
+        "schemaName": "public",
+        "x": 1207.87255859375,
+        "y": 1824
+      },
+      {
+        "name": "meat_movement_records",
+        "schemaName": "public",
+        "x": 2964.36865234375,
+        "y": 346
+      }
+    ],
+    "tableGroupCollapseStates": [],
+    "stickyNoteLayouts": [],
+    "referencePaths": [
+      {
+        "firstFieldNames": [
+          "role_id"
+        ],
+        "firstTableName": "users",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "role_id"
+        ],
+        "secondTableName": "roles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "farmers",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "barangay_id"
+        ],
+        "firstTableName": "farmers",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "cooperative_officers",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "barangay_id"
+        ],
+        "firstTableName": "cooperative_officers",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "farmer_id"
+        ],
+        "firstTableName": "livestock_inventory",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "farmer_id"
+        ],
+        "secondTableName": "farmers",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_type_id"
+        ],
+        "firstTableName": "livestock_inventory",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_type_id"
+        ],
+        "secondTableName": "livestock_types",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "livestock_inventory",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_id"
+        ],
+        "firstTableName": "production_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_id"
+        ],
+        "secondTableName": "livestock_inventory",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_id"
+        ],
+        "firstTableName": "disease_cases",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_id"
+        ],
+        "secondTableName": "livestock_inventory",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_id"
+        ],
+        "firstTableName": "mortality_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_id"
+        ],
+        "secondTableName": "livestock_inventory",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_id"
+        ],
+        "firstTableName": "slaughter_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_id"
+        ],
+        "secondTableName": "livestock_inventory",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_id"
+        ],
+        "firstTableName": "live_animal_sales",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_id"
+        ],
+        "secondTableName": "livestock_inventory",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "production_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "disease_cases",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "mortality_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "slaughter_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "live_animal_sales",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "reviewed_by"
+        ],
+        "firstTableName": "production_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "reviewed_by"
+        ],
+        "firstTableName": "disease_cases",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "reviewed_by"
+        ],
+        "firstTableName": "mortality_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "reviewed_by"
+        ],
+        "firstTableName": "slaughter_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "reviewed_by"
+        ],
+        "firstTableName": "live_animal_sales",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "posted_by"
+        ],
+        "firstTableName": "announcements",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "notifications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "generated_by"
+        ],
+        "firstTableName": "generated_reports",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "barangay_id"
+        ],
+        "firstTableName": "analytics_predictions",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_type_id"
+        ],
+        "firstTableName": "analytics_predictions",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_type_id"
+        ],
+        "secondTableName": "livestock_types",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "barangay_id"
+        ],
+        "firstTableName": "analytics_insights",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_type_id"
+        ],
+        "firstTableName": "analytics_insights",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_type_id"
+        ],
+        "secondTableName": "livestock_types",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "barangay_id"
+        ],
+        "firstTableName": "barangay_livestock_census",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_type_id"
+        ],
+        "firstTableName": "barangay_livestock_census",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_type_id"
+        ],
+        "secondTableName": "livestock_types",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "submitted_by"
+        ],
+        "firstTableName": "barangay_livestock_census",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "barangay_id"
+        ],
+        "firstTableName": "analytics_recommendations",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "livestock_type_id"
+        ],
+        "firstTableName": "analytics_recommendations",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "livestock_type_id"
+        ],
+        "secondTableName": "livestock_types",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "related_prediction_id"
+        ],
+        "firstTableName": "analytics_recommendations",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "prediction_id"
+        ],
+        "secondTableName": "analytics_predictions",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "source_disease_case_id"
+        ],
+        "firstTableName": "analytics_insights",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "disease_case_id"
+        ],
+        "secondTableName": "disease_cases",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "slaughter_id"
+        ],
+        "firstTableName": "meat_movement_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "slaughter_id"
+        ],
+        "secondTableName": "slaughter_records",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "origin_barangay_id"
+        ],
+        "firstTableName": "meat_movement_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "destination_barangay_id"
+        ],
+        "firstTableName": "meat_movement_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "barangay_id"
+        ],
+        "secondTableName": "barangays",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "meat_movement_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "reviewed_by"
+        ],
+        "firstTableName": "meat_movement_records",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      }
+    ]
+  },
+  "views": {}
+}
