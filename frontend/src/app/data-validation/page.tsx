@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
 
 interface PendingRecord {
@@ -98,13 +99,10 @@ export default function DataValidationPage() {
       <Sidebar role="lgu" onLogout={() => router.push('/')} />
       
       <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 md:p-6">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-2xl mb-1">Data Validation Center</h1>
-            <p className="text-gray-600">Review and approve farmer-submitted records</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Data Validation Center"
+          subtitle="Review and approve farmer-submitted records"
+        />
 
         <div className="p-4 md:p-6 max-w-7xl mx-auto">
           {/* Stats */}

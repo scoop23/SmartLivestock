@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
-import { 
-  Calendar, 
-  Clock, 
-  CheckCircle2, 
+import { PageHeader } from '../components/page-header';
+import {
+  Calendar,
+  Clock,
+  CheckCircle2,
   AlertCircle,
   Syringe,
   Bug,
@@ -73,26 +74,22 @@ export default function FarmerSchedulingPage() {
       </div>
 
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        {/* Banner with Notification Count */}
-        <div className="bg-[#2D5A27] text-white p-6 shadow-md">
-          <div className="max-w-4xl mx-auto flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Calendar className="w-8 h-8" />
-                Program Scheduling
-              </h1>
-              <p className="text-white/80 mt-1">Book slots for active MAO programs</p>
+        <PageHeader
+          title="Program Scheduling"
+          subtitle="Book slots for active MAO programs"
+          icon={<Calendar className="h-7 w-7" />}
+          variant="farmer"
+          maxWidthClass="max-w-4xl"
+          mobileMenuOffset={false}
+          action={maoNotifications.some(n => n.isNew) ? (
+            <div className="flex items-center gap-1 rounded-full bg-orange-500 px-3 py-1 text-xs font-black text-white animate-pulse">
+              <Bell className="h-3 w-3" /> NEW PROGRAMS OPEN
             </div>
-            {maoNotifications.some(n => n.isNew) && (
-              <div className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-black animate-pulse flex items-center gap-1">
-                <Bell className="w-3 h-3" /> NEW PROGRAMS OPEN
-              </div>
-            )}
-          </div>
-        </div>
+          ) : null}
+        />
 
         <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
-          
+
           {/* STEP 1: SELECT FROM MAO ANNOUNCEMENTS */}
           <section className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
             <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-6">
@@ -111,11 +108,10 @@ export default function FarmerSchedulingPage() {
                     <button
                       key={notif.id}
                       onClick={() => setSelectedDate(notif.date)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all ${
-                        selectedDate === notif.date 
-                        ? 'border-[#2D5A27] bg-green-50 ring-2 ring-[#2D5A27]/10' 
+                      className={`w-full text-left p-3 rounded-xl border transition-all ${selectedDate === notif.date
+                        ? 'border-[#2D5A27] bg-green-50 ring-2 ring-[#2D5A27]/10'
                         : 'border-gray-100 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       <p className="font-bold text-gray-800">{notif.date}</p>
                       {notif.isNew && <span className="text-[9px] text-orange-600 font-bold uppercase tracking-tighter">Just Announced</span>}
@@ -133,11 +129,10 @@ export default function FarmerSchedulingPage() {
                       <button
                         key={prog}
                         onClick={() => setSelectedProgram(prog)}
-                        className={`w-full text-left p-3 rounded-xl border transition-all ${
-                          selectedProgram === prog 
-                          ? 'border-[#2D5A27] bg-green-50' 
+                        className={`w-full text-left p-3 rounded-xl border transition-all ${selectedProgram === prog
+                          ? 'border-[#2D5A27] bg-green-50'
                           : 'border-gray-100 hover:border-gray-300'
-                        }`}
+                          }`}
                       >
                         <p className="font-bold text-gray-700 text-sm">{prog}</p>
                       </button>
@@ -153,7 +148,7 @@ export default function FarmerSchedulingPage() {
               {/* Time Selection */}
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">3. Preferred Time</label>
-                <select 
+                <select
                   disabled={!selectedProgram}
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
@@ -165,8 +160,8 @@ export default function FarmerSchedulingPage() {
                   <option value="11:00 AM">11:00 AM</option>
                   <option value="01:30 PM">01:30 PM</option>
                 </select>
-                
-                <button 
+
+                <button
                   onClick={handleBook}
                   disabled={!selectedTime}
                   className="w-full bg-[#2D5A27] text-white font-bold py-4 rounded-xl mt-4 shadow-lg hover:shadow-xl hover:bg-[#1e3d1a] transition-all disabled:bg-gray-200"
@@ -180,10 +175,10 @@ export default function FarmerSchedulingPage() {
           {/* MY SCHEDULED APPOINTMENTS */}
           <section className="space-y-4">
             <h3 className="font-bold text-gray-800 px-2 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#2D5A27]" /> 
+              <Clock className="w-4 h-4 text-[#2D5A27]" />
               My Schedule
             </h3>
-            
+
             {myAppointments.map((apt) => (
               <div key={apt.id} className="bg-white p-5 rounded-2xl border border-gray-200 flex items-center justify-between group">
                 <div className="flex items-center gap-4">
@@ -196,9 +191,8 @@ export default function FarmerSchedulingPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${
-                    apt.status === 'upcoming' ? 'bg-[#2D5A27] text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
+                  <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${apt.status === 'upcoming' ? 'bg-[#2D5A27] text-white' : 'bg-gray-200 text-gray-600'
+                    }`}>
                     {apt.status}
                   </span>
                 </div>

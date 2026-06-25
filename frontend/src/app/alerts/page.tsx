@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { AlertTriangle, Info, CheckCircle, Bell, Calendar } from 'lucide-react';
-import { Sprout, TrendingUp, Package,  } from 'lucide-react';
+import { Sprout, TrendingUp, Package, } from 'lucide-react';
 import MobileNav from '../components/mobilenav';
 interface Alert {
   id: string;
@@ -113,15 +114,15 @@ export default function AlertsPage() {
       <div className="hidden md:block">
         <Sidebar role="farmer" onLogout={() => router.push('/')} />
       </div>
-      
+
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        {/* Header */}
-        <div className="bg-[#2D5A27] text-white p-4 md:p-6">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl mb-1 text-white">Alerts & Notifications</h1>
-            <p className="text-white/90">Important updates and reminders</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Alerts & Notifications"
+          subtitle="Important updates and reminders"
+          variant="farmer"
+          maxWidthClass="max-w-4xl"
+          mobileMenuOffset={false}
+        />
 
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
           {/* Stats */}
@@ -160,11 +161,10 @@ export default function AlertsPage() {
                 <button
                   key={value}
                   onClick={() => setFilter(value)}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    filter === value
+                  className={`px-4 py-2 rounded-lg transition-colors ${filter === value
                       ? 'bg-[#2D5A27] text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   {label}
                 </button>
@@ -186,9 +186,8 @@ export default function AlertsPage() {
                 return (
                   <div
                     key={alert.id}
-                    className={`bg-white rounded-lg shadow-sm overflow-hidden ${getAlertColor(alert.priority)} ${
-                      !alert.read ? 'ring-2 ring-[#2D5A27]' : ''
-                    }`}
+                    className={`bg-white rounded-lg shadow-sm overflow-hidden ${getAlertColor(alert.priority)} ${!alert.read ? 'ring-2 ring-[#2D5A27]' : ''
+                      }`}
                   >
                     <div className="p-6">
                       <div className="flex items-start gap-4">
@@ -199,13 +198,12 @@ export default function AlertsPage() {
                               <h4 className="mb-1">{alert.title}</h4>
                               <div className="flex items-center gap-2 mb-3">
                                 <span
-                                  className={`px-2 py-1 rounded-full text-xs uppercase ${
-                                    alert.priority === 'high'
+                                  className={`px-2 py-1 rounded-full text-xs uppercase ${alert.priority === 'high'
                                       ? 'bg-red-100 text-red-800'
                                       : alert.priority === 'medium'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-blue-100 text-blue-800'
-                                  }`}
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-blue-100 text-blue-800'
+                                    }`}
                                 >
                                   {alert.priority}
                                 </span>

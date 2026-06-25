@@ -2,16 +2,17 @@
 
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { AskAIBar } from '../components/ask-ai-bar';
-import { 
-  Users, CheckSquare, Map, TrendingUp, AlertTriangle, 
-  Sprout, FileText, Download, FileSpreadsheet, 
-  FileBarChart, Database 
+import {
+  Users, CheckSquare, Map, TrendingUp, AlertTriangle,
+  Sprout, FileText, Download, FileSpreadsheet,
+  FileBarChart, Database
 } from 'lucide-react';
-import { 
-  BarChart, Bar, LineChart, Line, PieChart, Pie, 
-  Cell, XAxis, YAxis, CartesianGrid, Tooltip, 
-  Legend, ResponsiveContainer 
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie,
+  Cell, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer
 } from 'recharts';
 
 export default function AdminDashboard() {
@@ -59,15 +60,12 @@ export default function AdminDashboard() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      
+
       <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 md:p-6">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-2xl mb-1 font-semibold">LGU/MAO Dashboard</h1>
-            <p className="text-gray-600">Padre Garcia Municipal Agriculture Office</p>
-          </div>
-        </div>
+        <PageHeader
+          title="LGU/MAO Dashboard"
+          subtitle="Padre Garcia Municipal Agriculture Office"
+        />
 
         {/* AI Search Bar */}
         <div className="p-4 md:p-6 bg-white border-b border-gray-200">
@@ -78,7 +76,7 @@ export default function AdminDashboard() {
 
         {/* Content Area */}
         <div className="p-4 md:p-6 max-w-7xl mx-auto">
-          
+
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {statsCards.map((stat) => {
@@ -107,7 +105,7 @@ export default function AdminDashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                   <XAxis dataKey="barangay" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip cursor={{fill: '#f9fafb'}} />
+                  <Tooltip cursor={{ fill: '#f9fafb' }} />
                   <Bar dataKey="cattle" fill="#2D5A27" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

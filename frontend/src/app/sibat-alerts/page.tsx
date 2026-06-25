@@ -7,6 +7,7 @@ import {
   ShieldCheck, MapPin, Send
 } from "lucide-react";
 import { Sidebar } from "../components/sidebar";
+import { PageHeader } from "../components/page-header";
 import { useRouter } from "next/navigation";
 import MobileNavSibat from "../components/mobilenavsibat";
 
@@ -47,15 +48,14 @@ export default function SibatAlertsPage() {
         <div className="hidden md:block"><Sidebar role="sibat" onLogout={() => router.push('/')} /></div>
         
         <div className="flex flex-col w-full"> 
-          <header className="bg-[#1A365D] text-white p-6 shadow-md">
-            <div className="max-w-5xl mx-auto flex items-center gap-3">
-              <Bell className="text-amber-400" size={24} />
-              <div>
-                <h1 className="text-xl font-black uppercase tracking-tight">Health Report Alerts</h1>
-                <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">Verify and Forward to MAO</p>
-              </div>
-            </div>
-          </header>
+          <PageHeader
+            title="Health Report Alerts"
+            subtitle="Verify and Forward to MAO"
+            icon={<Bell className="h-6 w-6 text-amber-400" />}
+            variant="sibat"
+            maxWidthClass="max-w-5xl"
+            mobileMenuOffset={false}
+          />
 
           <main className="p-4 lg:p-8 max-w-4xl mx-auto w-full">
             

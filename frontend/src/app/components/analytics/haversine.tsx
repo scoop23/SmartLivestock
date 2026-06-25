@@ -10,10 +10,10 @@ import 'leaflet/dist/leaflet.css';
 
 // --- Dynamic Leaflet imports (SSR-safe) ---
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
-const TileLayer    = dynamic(() => import('react-leaflet').then(m => m.TileLayer),    { ssr: false });
-const GeoJSON      = dynamic(() => import('react-leaflet').then(m => m.GeoJSON),      { ssr: false });
-const Circle       = dynamic(() => import('react-leaflet').then(m => m.Circle),       { ssr: false });
-const Tooltip      = dynamic(() => import('react-leaflet').then(m => m.Tooltip),      { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
+const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
+const Circle = dynamic(() => import('react-leaflet').then(m => m.Circle), { ssr: false });
+const Tooltip = dynamic(() => import('react-leaflet').then(m => m.Tooltip), { ssr: false });
 
 // --- Haversine ---
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -23,31 +23,31 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // --- Barangay data ---
 const BARANGAY_CENTROIDS: Record<string, [number, number]> = {
-  'Banaba':            [13.8870, 121.2395],
-  'Banaybanay':        [13.8910, 121.2220],
-  'Bawi':              [13.8860, 121.2510],
-  'Bukal':             [13.8850, 121.2640],
-  'Castillo':          [13.8810, 121.2210],
-  'Cawongan':          [13.8960, 121.2000],
-  'Manggas':           [13.9010, 121.2180],
-  'Maugat East':       [13.8560, 121.2280],
-  'Maugat West':       [13.8590, 121.2060],
-  'Pansol':            [13.8785, 121.2438],
-  'Payapa':            [13.8700, 121.2190],
-  'Poblacion':         [13.8720, 121.2010],
+  'Banaba': [13.8870, 121.2395],
+  'Banaybanay': [13.8910, 121.2220],
+  'Bawi': [13.8860, 121.2510],
+  'Bukal': [13.8850, 121.2640],
+  'Castillo': [13.8810, 121.2210],
+  'Cawongan': [13.8960, 121.2000],
+  'Manggas': [13.9010, 121.2180],
+  'Maugat East': [13.8560, 121.2280],
+  'Maugat West': [13.8590, 121.2060],
+  'Pansol': [13.8785, 121.2438],
+  'Payapa': [13.8700, 121.2190],
+  'Poblacion': [13.8720, 121.2010],
   'Quilo-quilo North': [13.8800, 121.1930],
   'Quilo-quilo South': [13.8760, 121.1810],
-  'San Felipe':        [13.8530, 121.2510],
-  'San Miguel':        [13.8460, 121.2260],
-  'Tamak':             [13.8510, 121.1940],
-  'Tangob':            [13.8710, 121.1720],
+  'San Felipe': [13.8530, 121.2510],
+  'San Miguel': [13.8460, 121.2260],
+  'Tamak': [13.8510, 121.1940],
+  'Tangob': [13.8710, 121.1720],
 };
 
 const CATTLE: Record<string, number> = {
@@ -73,10 +73,10 @@ for (const a of NAMES) {
 }
 
 // --- Spread model ---
-const DECAY_KM    = 3.5;
+const DECAY_KM = 3.5;
 const SPREAD_RATE = 0.18;
-const CATTLE_W    = 0.004;
-const MAX_CASES   = 30;
+const CATTLE_W = 0.004;
+const MAX_CASES = 30;
 
 // Seed cases (FMD outbreak initial points)
 const SEED: Record<string, number> = {
@@ -117,8 +117,8 @@ function buildTimeline(seed: Snapshot): Snapshot[] {
 // --- Risk helpers ---
 function riskOf(cases: number): 'none' | 'low' | 'medium' | 'high' | 'critical' {
   if (cases === 0) return 'none';
-  if (cases <= 2)  return 'low';
-  if (cases <= 6)  return 'medium';
+  if (cases <= 2) return 'low';
+  if (cases <= 6) return 'medium';
   if (cases <= 15) return 'high';
   return 'critical';
 }
@@ -138,39 +138,39 @@ const RISK_BADGE: Record<string, string> = {
 const PADRE_GARCIA_GEOJSON: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
   features: [
-    { type: 'Feature', properties: { name: 'Banaba' }, geometry: { type: 'Polygon', coordinates: [[[121.2310,13.8920],[121.2480,13.8950],[121.2500,13.8830],[121.2380,13.8780],[121.2280,13.8800],[121.2260,13.8870],[121.2310,13.8920]]] } },
-    { type: 'Feature', properties: { name: 'Banaybanay' }, geometry: { type: 'Polygon', coordinates: [[[121.2160,13.8950],[121.2260,13.8960],[121.2310,13.8920],[121.2260,13.8870],[121.2180,13.8850],[121.2120,13.8880],[121.2100,13.8930],[121.2160,13.8950]]] } },
-    { type: 'Feature', properties: { name: 'Bawi' }, geometry: { type: 'Polygon', coordinates: [[[121.2480,13.8950],[121.2600,13.8940],[121.2620,13.8800],[121.2520,13.8750],[121.2430,13.8760],[121.2380,13.8780],[121.2500,13.8830],[121.2480,13.8950]]] } },
-    { type: 'Feature', properties: { name: 'Bukal' }, geometry: { type: 'Polygon', coordinates: [[[121.2600,13.8940],[121.2720,13.8920],[121.2740,13.8780],[121.2620,13.8750],[121.2520,13.8750],[121.2620,13.8800],[121.2600,13.8940]]] } },
-    { type: 'Feature', properties: { name: 'Castillo' }, geometry: { type: 'Polygon', coordinates: [[[121.2180,13.8850],[121.2260,13.8870],[121.2280,13.8800],[121.2220,13.8740],[121.2140,13.8750],[121.2120,13.8800],[121.2180,13.8850]]] } },
-    { type: 'Feature', properties: { name: 'Cawongan' }, geometry: { type: 'Polygon', coordinates: [[[121.1900,13.9050],[121.2100,13.9060],[121.2120,13.8930],[121.2100,13.8930],[121.2120,13.8880],[121.2000,13.8850],[121.1880,13.8870],[121.1900,13.9050]]] } },
-    { type: 'Feature', properties: { name: 'Manggas' }, geometry: { type: 'Polygon', coordinates: [[[121.2100,13.9060],[121.2260,13.9060],[121.2260,13.8960],[121.2160,13.8950],[121.2100,13.8930],[121.2120,13.8930],[121.2100,13.9060]]] } },
-    { type: 'Feature', properties: { name: 'Maugat East' }, geometry: { type: 'Polygon', coordinates: [[[121.2220,13.8600],[121.2340,13.8620],[121.2380,13.8560],[121.2300,13.8490],[121.2200,13.8500],[121.2160,13.8560],[121.2220,13.8600]]] } },
-    { type: 'Feature', properties: { name: 'Maugat West' }, geometry: { type: 'Polygon', coordinates: [[[121.2020,13.8650],[121.2140,13.8660],[121.2180,13.8600],[121.2120,13.8540],[121.2020,13.8530],[121.1940,13.8570],[121.1960,13.8640],[121.2020,13.8650]]] } },
-    { type: 'Feature', properties: { name: 'Pansol' }, geometry: { type: 'Polygon', coordinates: [[[121.2380,13.8780],[121.2520,13.8750],[121.2540,13.8640],[121.2440,13.8580],[121.2340,13.8620],[121.2260,13.8680],[121.2280,13.8800],[121.2380,13.8780]]] } },
-    { type: 'Feature', properties: { name: 'Payapa' }, geometry: { type: 'Polygon', coordinates: [[[121.2140,13.8750],[121.2220,13.8740],[121.2260,13.8680],[121.2180,13.8600],[121.2140,13.8660],[121.2060,13.8660],[121.2060,13.8720],[121.2140,13.8750]]] } },
-    { type: 'Feature', properties: { name: 'Poblacion' }, geometry: { type: 'Polygon', coordinates: [[[121.2060,13.8720],[121.2060,13.8660],[121.1960,13.8640],[121.1940,13.8700],[121.1960,13.8760],[121.2040,13.8770],[121.2060,13.8720]]] } },
-    { type: 'Feature', properties: { name: 'Quilo-quilo North' }, geometry: { type: 'Polygon', coordinates: [[[121.1880,13.8870],[121.2000,13.8850],[121.2000,13.8770],[121.1960,13.8760],[121.1940,13.8700],[121.1860,13.8720],[121.1840,13.8800],[121.1880,13.8870]]] } },
-    { type: 'Feature', properties: { name: 'Quilo-quilo South' }, geometry: { type: 'Polygon', coordinates: [[[121.1840,13.8800],[121.1860,13.8720],[121.1780,13.8700],[121.1760,13.8780],[121.1800,13.8840],[121.1840,13.8800]]] } },
-    { type: 'Feature', properties: { name: 'San Felipe' }, geometry: { type: 'Polygon', coordinates: [[[121.2440,13.8580],[121.2540,13.8640],[121.2620,13.8620],[121.2620,13.8500],[121.2520,13.8430],[121.2360,13.8430],[121.2300,13.8490],[121.2380,13.8560],[121.2440,13.8580]]] } },
-    { type: 'Feature', properties: { name: 'San Miguel' }, geometry: { type: 'Polygon', coordinates: [[[121.2300,13.8490],[121.2360,13.8430],[121.2260,13.8390],[121.2160,13.8420],[121.2120,13.8490],[121.2160,13.8540],[121.2200,13.8500],[121.2300,13.8490]]] } },
-    { type: 'Feature', properties: { name: 'Tamak' }, geometry: { type: 'Polygon', coordinates: [[[121.1940,13.8570],[121.2020,13.8530],[121.2020,13.8460],[121.1940,13.8440],[121.1860,13.8460],[121.1840,13.8540],[121.1880,13.8580],[121.1940,13.8570]]] } },
-    { type: 'Feature', properties: { name: 'Tangob' }, geometry: { type: 'Polygon', coordinates: [[[121.1760,13.8780],[121.1780,13.8700],[121.1760,13.8620],[121.1680,13.8620],[121.1660,13.8720],[121.1700,13.8800],[121.1760,13.8780]]] } },
+    { type: 'Feature', properties: { name: 'Banaba' }, geometry: { type: 'Polygon', coordinates: [[[121.2310, 13.8920], [121.2480, 13.8950], [121.2500, 13.8830], [121.2380, 13.8780], [121.2280, 13.8800], [121.2260, 13.8870], [121.2310, 13.8920]]] } },
+    { type: 'Feature', properties: { name: 'Banaybanay' }, geometry: { type: 'Polygon', coordinates: [[[121.2160, 13.8950], [121.2260, 13.8960], [121.2310, 13.8920], [121.2260, 13.8870], [121.2180, 13.8850], [121.2120, 13.8880], [121.2100, 13.8930], [121.2160, 13.8950]]] } },
+    { type: 'Feature', properties: { name: 'Bawi' }, geometry: { type: 'Polygon', coordinates: [[[121.2480, 13.8950], [121.2600, 13.8940], [121.2620, 13.8800], [121.2520, 13.8750], [121.2430, 13.8760], [121.2380, 13.8780], [121.2500, 13.8830], [121.2480, 13.8950]]] } },
+    { type: 'Feature', properties: { name: 'Bukal' }, geometry: { type: 'Polygon', coordinates: [[[121.2600, 13.8940], [121.2720, 13.8920], [121.2740, 13.8780], [121.2620, 13.8750], [121.2520, 13.8750], [121.2620, 13.8800], [121.2600, 13.8940]]] } },
+    { type: 'Feature', properties: { name: 'Castillo' }, geometry: { type: 'Polygon', coordinates: [[[121.2180, 13.8850], [121.2260, 13.8870], [121.2280, 13.8800], [121.2220, 13.8740], [121.2140, 13.8750], [121.2120, 13.8800], [121.2180, 13.8850]]] } },
+    { type: 'Feature', properties: { name: 'Cawongan' }, geometry: { type: 'Polygon', coordinates: [[[121.1900, 13.9050], [121.2100, 13.9060], [121.2120, 13.8930], [121.2100, 13.8930], [121.2120, 13.8880], [121.2000, 13.8850], [121.1880, 13.8870], [121.1900, 13.9050]]] } },
+    { type: 'Feature', properties: { name: 'Manggas' }, geometry: { type: 'Polygon', coordinates: [[[121.2100, 13.9060], [121.2260, 13.9060], [121.2260, 13.8960], [121.2160, 13.8950], [121.2100, 13.8930], [121.2120, 13.8930], [121.2100, 13.9060]]] } },
+    { type: 'Feature', properties: { name: 'Maugat East' }, geometry: { type: 'Polygon', coordinates: [[[121.2220, 13.8600], [121.2340, 13.8620], [121.2380, 13.8560], [121.2300, 13.8490], [121.2200, 13.8500], [121.2160, 13.8560], [121.2220, 13.8600]]] } },
+    { type: 'Feature', properties: { name: 'Maugat West' }, geometry: { type: 'Polygon', coordinates: [[[121.2020, 13.8650], [121.2140, 13.8660], [121.2180, 13.8600], [121.2120, 13.8540], [121.2020, 13.8530], [121.1940, 13.8570], [121.1960, 13.8640], [121.2020, 13.8650]]] } },
+    { type: 'Feature', properties: { name: 'Pansol' }, geometry: { type: 'Polygon', coordinates: [[[121.2380, 13.8780], [121.2520, 13.8750], [121.2540, 13.8640], [121.2440, 13.8580], [121.2340, 13.8620], [121.2260, 13.8680], [121.2280, 13.8800], [121.2380, 13.8780]]] } },
+    { type: 'Feature', properties: { name: 'Payapa' }, geometry: { type: 'Polygon', coordinates: [[[121.2140, 13.8750], [121.2220, 13.8740], [121.2260, 13.8680], [121.2180, 13.8600], [121.2140, 13.8660], [121.2060, 13.8660], [121.2060, 13.8720], [121.2140, 13.8750]]] } },
+    { type: 'Feature', properties: { name: 'Poblacion' }, geometry: { type: 'Polygon', coordinates: [[[121.2060, 13.8720], [121.2060, 13.8660], [121.1960, 13.8640], [121.1940, 13.8700], [121.1960, 13.8760], [121.2040, 13.8770], [121.2060, 13.8720]]] } },
+    { type: 'Feature', properties: { name: 'Quilo-quilo North' }, geometry: { type: 'Polygon', coordinates: [[[121.1880, 13.8870], [121.2000, 13.8850], [121.2000, 13.8770], [121.1960, 13.8760], [121.1940, 13.8700], [121.1860, 13.8720], [121.1840, 13.8800], [121.1880, 13.8870]]] } },
+    { type: 'Feature', properties: { name: 'Quilo-quilo South' }, geometry: { type: 'Polygon', coordinates: [[[121.1840, 13.8800], [121.1860, 13.8720], [121.1780, 13.8700], [121.1760, 13.8780], [121.1800, 13.8840], [121.1840, 13.8800]]] } },
+    { type: 'Feature', properties: { name: 'San Felipe' }, geometry: { type: 'Polygon', coordinates: [[[121.2440, 13.8580], [121.2540, 13.8640], [121.2620, 13.8620], [121.2620, 13.8500], [121.2520, 13.8430], [121.2360, 13.8430], [121.2300, 13.8490], [121.2380, 13.8560], [121.2440, 13.8580]]] } },
+    { type: 'Feature', properties: { name: 'San Miguel' }, geometry: { type: 'Polygon', coordinates: [[[121.2300, 13.8490], [121.2360, 13.8430], [121.2260, 13.8390], [121.2160, 13.8420], [121.2120, 13.8490], [121.2160, 13.8540], [121.2200, 13.8500], [121.2300, 13.8490]]] } },
+    { type: 'Feature', properties: { name: 'Tamak' }, geometry: { type: 'Polygon', coordinates: [[[121.1940, 13.8570], [121.2020, 13.8530], [121.2020, 13.8460], [121.1940, 13.8440], [121.1860, 13.8460], [121.1840, 13.8540], [121.1880, 13.8580], [121.1940, 13.8570]]] } },
+    { type: 'Feature', properties: { name: 'Tangob' }, geometry: { type: 'Polygon', coordinates: [[[121.1760, 13.8780], [121.1780, 13.8700], [121.1760, 13.8620], [121.1680, 13.8620], [121.1660, 13.8720], [121.1700, 13.8800], [121.1760, 13.8780]]] } },
   ],
 };
 
 // --- Component ---
 export default function PadreGarciaForecaster() {
-  const [mode, setMode]               = useState<'real' | 'simulation'>('real');
-  const [targetDate, setTargetDate]   = useState('2026-05-15');
-  const [isMounted, setIsMounted]     = useState(false);
+  const [mode, setMode] = useState<'real' | 'simulation'>('real');
+  const [targetDate, setTargetDate] = useState('2026-05-15');
+  const [isMounted, setIsMounted] = useState(false);
 
   // Simulation state
-  const [dayIndex, setDayIndex]       = useState(0);
-  const [isPlaying, setIsPlaying]     = useState(false);
-  const [speed, setSpeed]             = useState(700); 
+  const [dayIndex, setDayIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speed, setSpeed] = useState(700);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const geoJsonRef  = useRef<any>(null); 
+  const geoJsonRef = useRef<any>(null);
 
   const START_DATE = useMemo(() => new Date('2026-04-26T00:00:00'), []);
   const timeline = useMemo(() => buildTimeline(SEED), []);
@@ -212,7 +212,7 @@ export default function PadreGarciaForecaster() {
       const name: string = sublayer.feature?.properties?.name;
       if (!name) return;
       const cases = activeSnapshot[name] ?? 0;
-      const risk  = riskOf(cases);
+      const risk = riskOf(cases);
       sublayer.setStyle({
         fillColor: FILL[risk],
         fillOpacity: cases === 0 ? 0.35 : 0.72,
@@ -239,7 +239,7 @@ export default function PadreGarciaForecaster() {
 
   const reset = useCallback(() => { setIsPlaying(false); setDayIndex(0); }, []);
 
-  const totalCases    = Object.values(activeSnapshot).reduce((s, v) => s + safeNum(v), 0);
+  const totalCases = Object.values(activeSnapshot).reduce((s, v) => s + safeNum(v), 0);
   const affectedCount = Object.values(activeSnapshot).filter(v => v > 0).length;
   const criticalCount = Object.values(activeSnapshot).filter(v => riskOf(v) === 'critical').length;
 
@@ -247,7 +247,7 @@ export default function PadreGarciaForecaster() {
     NAMES.map(name => ({
       name, cases: safeNum(activeSnapshot[name]), cattle: CATTLE[name], distBawi: DIST['Bawi'][name], risk: riskOf(safeNum(activeSnapshot[name])),
     })).sort((a, b) => b.cases - a.cases),
-  [activeSnapshot]);
+    [activeSnapshot]);
 
   const getStyle = useCallback((feature: any) => {
     const cases = activeSnapshot[feature?.properties?.name] ?? 0;
@@ -258,7 +258,7 @@ export default function PadreGarciaForecaster() {
 
   return (
     <div className="space-y-4 font-sans">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-4 mt-5">
         <div>
           <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
             <Activity className="w-5 h-5 text-red-600" />
@@ -298,10 +298,10 @@ export default function PadreGarciaForecaster() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Forecast Date', value: activeDate, icon: <Clock className="w-4 h-4"/>, cls: 'text-[#2D5A27]', border: 'border-green-200' },
-          { label: 'Total FMD Cases', value: totalCases, icon: <Activity className="w-4 h-4"/>, cls: 'text-red-600', border: 'border-red-200' },
-          { label: 'Quarantine Zones', value: affectedCount, icon: <ShieldAlert className="w-4 h-4"/>, cls: 'text-amber-600', border: 'border-amber-200' },
-          { label: 'Critical Outbreaks', value: criticalCount, icon: <Zap className="w-4 h-4"/>, cls: 'text-red-700', border: 'border-red-300' },
+          { label: 'Forecast Date', value: activeDate, icon: <Clock className="w-4 h-4" />, cls: 'text-[#2D5A27]', border: 'border-green-200' },
+          { label: 'Total FMD Cases', value: totalCases, icon: <Activity className="w-4 h-4" />, cls: 'text-red-600', border: 'border-red-200' },
+          { label: 'Quarantine Zones', value: affectedCount, icon: <ShieldAlert className="w-4 h-4" />, cls: 'text-amber-600', border: 'border-amber-200' },
+          { label: 'Critical Outbreaks', value: criticalCount, icon: <Zap className="w-4 h-4" />, cls: 'text-red-700', border: 'border-red-300' },
         ].map(k => (
           <div key={k.label} className={`bg-white border ${k.border} rounded-xl p-4 shadow-sm`}>
             <div className={`flex items-center gap-1.5 mb-1 ${k.cls} text-xs font-semibold`}>{k.icon}{k.label}</div>
@@ -311,7 +311,7 @@ export default function PadreGarciaForecaster() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden" style={{ height: 560 }}>
+        <div className="lg:col-span-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden" style={{ height: 646 }}>
           <div className="bg-[#2D5A27] px-4 py-2 flex items-center justify-between">
             <span className="text-white text-sm font-semibold uppercase tracking-tight">
               {mode === 'simulation' ? `🎬 FMD Outbreak Simulation — Day ${dayIndex}` : `📡 Real-time FMD Surveillance`}
@@ -324,7 +324,7 @@ export default function PadreGarciaForecaster() {
           `}</style>
 
           <div style={{ height: 'calc(100% - 38px)' }}>
-            <MapContainer center={[13.875, 121.215]} zoom={13} style={{ height:'100%', width:'100%' }}>
+            <MapContainer center={[13.875, 121.215]} zoom={13} style={{ height: '100%', width: '100%' }}>
               <TileLayer attribution='&copy; CARTO' url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
               <GeoJSON ref={geoJsonRef} data={PADRE_GARCIA_GEOJSON as any} style={getStyle} onEachFeature={(f, l) => {
                 l.bindTooltip(f.properties.name, { permanent: false, className: 'risk-tooltip', direction: 'center' });
@@ -386,7 +386,7 @@ export default function PadreGarciaForecaster() {
           </div>
         </div>
       </div>
-      
+
       {/* footer */}
       <div className="bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-[10px] font-mono text-gray-400 leading-relaxed">
         <span className="text-gray-600 font-black"> FMD PATHOLOGY: </span>

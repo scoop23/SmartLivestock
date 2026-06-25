@@ -1,11 +1,10 @@
 "use client"; // Required for useState and useRouter in Next.js App Router
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Home, Shield, CheckCircle, AlertCircle, Clock, Send } from "lucide-react";
+import { Shield, CheckCircle, AlertCircle, Clock, Send } from "lucide-react";
 import { useState } from "react";
 import { Sidebar } from "../components/sidebar";
-import MobileNav from "../components/mobilenav";
+import { PageHeader } from "../components/page-header";
 import MobileNavSibat from "../components/mobilenavsibat";
 
 export default function SibatPortal() {
@@ -35,35 +34,20 @@ export default function SibatPortal() {
       <div className="hidden md:block">
         <Sidebar role="sibat" onLogout={() => router.push('/')} />
       </div>
-      {/* Header */}
       <main className="flex flex-col w-full">
-      <header className="bg-[#1A365D] text-white shadow-lg sticky top-0 z-20 flex">
-        
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* Replaced navigate() with Next.js Link */}
-              <Link
-                href="/"
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <Home className="w-5 h-5" />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold">SmartLivestock-Batangas</h1>
-                <p className="text-sm text-white/80"> SIBAT/Cooperative Portal</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              
-              <div className="text-right">
-                <p className="text-sm font-semibold"> SIBAT Cooperative</p>
-                <p className="text-xs text-white/70">Padre Garcia, Batangas</p>
-              </div>
-            </div>
+      <PageHeader
+        title="SmartLivestock-Batangas"
+        subtitle="SIBAT/Cooperative Portal"
+        variant="sibat"
+        sticky
+        mobileMenuOffset={false}
+        action={
+          <div className="text-left sm:text-right">
+            <p className="text-sm font-semibold">SIBAT Cooperative</p>
+            <p className="text-xs text-white/70">Padre Garcia, Batangas</p>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* Barangay Lockdown Indicator */}
       <div className="bg-[#FFBF00] border-l-4 border-[#2D5A27] px-6 py-4">

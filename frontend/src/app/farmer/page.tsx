@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { 
   Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus, 
   Stethoscope, MessageSquare, X, Camera, Send 
@@ -38,20 +39,18 @@ export default function FarmerDashboard() {
       </div>
       
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        {/* Header */}
-        <div className="bg-[#2D5A27] text-white p-4 md:p-6 shadow-lg">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-2xl font-bold mb-1">Welcome, Juan!</h1>
-                <p className="text-white/80 text-sm">San Roque, Padre Garcia</p>
-              </div>
-              <button className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition-all">
-                <Bell className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Welcome, Juan!"
+          subtitle="San Roque, Padre Garcia"
+          variant="farmer"
+          maxWidthClass="max-w-4xl"
+          mobileMenuOffset={false}
+          action={
+            <button className="rounded-xl bg-white/10 p-2 transition-all hover:bg-white/20" aria-label="Notifications">
+              <Bell className="h-6 w-6" />
+            </button>
+          }
+        />
 
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
           {/* Stats Grid */}

@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
-import { 
-  UploadCloud, 
-  FileUp, 
-  Info, 
-  CheckCircle2, 
-  Clock, 
-  Download, 
+import { PageHeader } from '../components/page-header';
+import {
+  UploadCloud,
+  FileUp,
+  Info,
+  CheckCircle2,
+  Clock,
+  Download,
   Eye,
   FileSpreadsheet,
   AlertCircle
@@ -40,23 +41,21 @@ export default function DataUploadsPage() {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       <div className="hidden md:block">
-        <Sidebar role="admin" onLogout={() => router.push('/')} />
+        <Sidebar role="lgu" onLogout={() => router.push('/')} />
       </div>
 
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        {/* Header */}
-        <div className="bg-[#2D5A27] text-white p-4 md:p-6">
-          <div className="max-w-5xl mx-auto">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <UploadCloud className="w-8 h-8" />
-              Data Uploads
-            </h1>
-            <p className="text-white/80 mt-1">Import bulk records into the livestock management system</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Data Uploads"
+          subtitle="Import bulk records into the livestock management system"
+          icon={<UploadCloud className="h-7 w-7" />}
+          variant="admin"
+          maxWidthClass="max-w-5xl"
+          mobileMenuOffset={false}
+        />
 
         <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Upload Section */}
             <div className="lg:col-span-2 space-y-6">
@@ -75,11 +74,10 @@ export default function DataUploadsPage() {
                         <button
                           key={t}
                           onClick={() => setDataType(t)}
-                          className={`py-2 rounded-lg border text-sm font-bold transition-all ${
-                            dataType === t 
-                            ? 'bg-[#2D5A27] text-white border-[#2D5A27]' 
+                          className={`py-2 rounded-lg border text-sm font-bold transition-all ${dataType === t
+                            ? 'bg-[#2D5A27] text-white border-[#2D5A27]'
                             : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-[#2D5A27]'
-                          }`}
+                            }`}
                         >
                           {t}
                         </button>
@@ -88,10 +86,9 @@ export default function DataUploadsPage() {
                   </div>
 
                   {/* File Upload Area */}
-                  <div 
-                    className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
-                      dragActive ? 'border-[#2D5A27] bg-[#f0f7ee]' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
-                    }`}
+                  <div
+                    className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-colors ${dragActive ? 'border-[#2D5A27] bg-[#f0f7ee]' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
+                      }`}
                   >
                     <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv, .xlsx, .xls" />
                     <UploadCloud className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -106,7 +103,7 @@ export default function DataUploadsPage() {
                       <div>
                         <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Notes:</p>
                         <p className="text-xs text-amber-700 mt-1">
-                          Ensure your file headers match the system template for <strong>{dataType}</strong>. 
+                          Ensure your file headers match the system template for <strong>{dataType}</strong>.
                           Rows with errors will be skipped and reported in the log.
                         </p>
                       </div>
@@ -145,7 +142,7 @@ export default function DataUploadsPage() {
                     <p className="text-xs text-gray-600">Limit each upload to <strong>5,000 records</strong> per batch for optimal performance.</p>
                   </li>
                 </ul>
-                
+
                 <button className="mt-8 w-full border-2 border-[#2D5A27] text-[#2D5A27] py-2 rounded-lg text-xs font-bold hover:bg-[#f0f7ee] transition-all flex items-center justify-center gap-2">
                   <FileSpreadsheet className="w-4 h-4" />
                   Download Templates
@@ -184,11 +181,10 @@ export default function DataUploadsPage() {
                       <td className="px-4 py-4 text-sm text-gray-600 truncate max-w-[150px]">{log.fileName}</td>
                       <td className="px-4 py-4 text-sm font-bold text-center">{log.records}</td>
                       <td className="px-4 py-4">
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                          log.status === 'Completed' ? 'bg-green-50 text-green-700' : 
-                          log.status === 'Processing' ? 'bg-blue-50 text-blue-700' : 
-                          'bg-red-50 text-red-700'
-                        }`}>
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${log.status === 'Completed' ? 'bg-green-50 text-green-700' :
+                          log.status === 'Processing' ? 'bg-blue-50 text-blue-700' :
+                            'bg-red-50 text-red-700'
+                          }`}>
                           {log.status}
                         </span>
                       </td>

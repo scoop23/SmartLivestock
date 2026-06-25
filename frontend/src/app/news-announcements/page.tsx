@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
-import { 
-  Megaphone, 
-  Plus, 
-  Search, 
-  Trash2, 
-  Edit3, 
-  Eye, 
-  Calendar, 
+import { PageHeader } from '../components/page-header';
+import {
+  Megaphone,
+  Plus,
+  Search,
+  Trash2,
+  Edit3,
+  Eye,
+  Calendar,
   Tag,
   Globe,
   Lock,
@@ -48,37 +49,36 @@ export default function NewsAnnouncementsPage() {
   ];
 
   // Logic to filter based on button selection
-  const filteredAnnouncements = activeTab === 'all' 
-    ? announcements 
+  const filteredAnnouncements = activeTab === 'all'
+    ? announcements
     : announcements.filter(item => item.status === 'Draft');
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       <div className="hidden md:block">
-        <Sidebar role="admin" onLogout={() => router.push('/')} />
+        <Sidebar role="lgu" onLogout={() => router.push('/')} />
       </div>
 
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        <div className="bg-[#2D5A27] text-white p-4 md:p-6">
-          <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Megaphone className="w-8 h-8" />
-                News & Announcements
-              </h1>
-              <p className="text-white/80 mt-1">Manage public bulletins and community alerts</p>
-            </div>
-            <button 
+        <PageHeader
+          title="News & Announcements"
+          subtitle="Manage public bulletins and community alerts"
+          icon={<Megaphone className="h-7 w-7" />}
+          variant="admin"
+          maxWidthClass="max-w-6xl"
+          mobileMenuOffset={false}
+          action={
+            <button
               onClick={() => setIsCreating(!isCreating)}
-              className="bg-white text-[#2D5A27] px-5 py-2.5 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-gray-100 transition-all active:scale-95"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 font-bold text-[#2D5A27] shadow-lg transition-all hover:bg-gray-100 active:scale-95"
             >
-              {isCreating ? <><X className="w-5 h-5" /> Cancel</> : <><Plus className="w-5 h-5" /> New Announcement</>}
+              {isCreating ? <><X className="h-5 w-5" /> Cancel</> : <><Plus className="h-5 w-5" /> New Announcement</>}
             </button>
-          </div>
-        </div>
+          }
+        />
 
         <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
-          
+
           {/* Create Section */}
           {isCreating && (
             <section className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in duration-300">
@@ -88,7 +88,7 @@ export default function NewsAnnouncementsPage() {
                   Drafting New Content
                 </h3>
               </div>
-              
+
               <div className="p-6 grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Left: Metadata & Thumbnail */}
                 <div className="lg:col-span-1 space-y-5">
@@ -170,20 +170,18 @@ export default function NewsAnnouncementsPage() {
           {/* Tab Selection Section */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
-              <button 
+              <button
                 onClick={() => setActiveTab('all')}
-                className={`px-6 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
-                  activeTab === 'all' ? 'bg-[#2D5A27] text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
-                }`}
+                className={`px-6 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'all' ? 'bg-[#2D5A27] text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
               >
                 <FileText className="w-4 h-4" />
                 All Announcements
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('drafts')}
-                className={`px-6 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
-                  activeTab === 'drafts' ? 'bg-[#2D5A27] text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
-                }`}
+                className={`px-6 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'drafts' ? 'bg-[#2D5A27] text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
               >
                 <Inbox className="w-4 h-4" />
                 Drafts
@@ -240,11 +238,10 @@ export default function NewsAnnouncementsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest border ${
-                            item.status === 'Published' ? 'bg-green-50 text-green-700 border-green-100' :
-                            item.status === 'Scheduled' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                            'bg-gray-100 text-gray-500 border-gray-200'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest border ${item.status === 'Published' ? 'bg-green-50 text-green-700 border-green-100' :
+                              item.status === 'Scheduled' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                'bg-gray-100 text-gray-500 border-gray-200'
+                            }`}>
                             {item.status}
                           </span>
                         </td>

@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Sidebar } from '../components/sidebar';
-import { Search, Download, MapPin, ChevronRight, ArrowRightLeft } from 'lucide-react';
+import { PageHeader } from '../components/page-header';
+import { Search, Download, MapPin } from 'lucide-react';
 
 type DataTab = 'livestock' | 'production' | 'sales' | 'disease' | 'mortality' | 'slaughter';
 
@@ -76,15 +76,10 @@ export default function DataOverviewPage() {
       <Sidebar role="lgu" onLogout={handleLogout} />
 
       <main className="flex-1 overflow-auto">
-        <div className="bg-white border-b p-4 md:p-6">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/dashboard" className="hover:text-[#2D5A27]">Dashboard</Link>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900">Data Overview</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">System Data Overview</h1>
-          <p className="text-gray-600">Comprehensive view of all livestock records and logistics</p>
-        </div>
+        <PageHeader
+          title="System Data Overview"
+          subtitle="Comprehensive view of all livestock records and logistics"
+        />
 
         <div className="p-4 md:p-6 max-w-7xl mx-auto">
           {/* Filters */}

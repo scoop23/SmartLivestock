@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation"; // Changed from 'react-router'
 import { Sidebar } from "../components/sidebar";
+import { PageHeader } from "../components/page-header";
 import {
   Plus,
   Search,
@@ -119,13 +120,13 @@ export default function LivestockInventoryPage() {
       </div>
 
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        {/* Header */}
-        <div className="bg-[#2D5A27] text-white p-4 md:p-6">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl mb-1 text-white">Livestock Inventory</h1>
-            <p className="text-white/90">Manage your cattle records</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Livestock Inventory"
+          subtitle="Manage your cattle records"
+          variant="farmer"
+          maxWidthClass="max-w-4xl"
+          mobileMenuOffset={false}
+        />
 
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
           {/* Search and Add */}

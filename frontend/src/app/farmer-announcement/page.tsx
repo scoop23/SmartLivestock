@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import MobileNav from '../components/mobilenav';
 import { 
   Megaphone, 
@@ -11,8 +12,7 @@ import {
   Newspaper, 
   Info, 
   Search, 
-  Bell,
-  ArrowLeft
+  Bell
 } from 'lucide-react';
 
 export default function FarmerNewsPage() {
@@ -59,31 +59,19 @@ export default function FarmerNewsPage() {
       </div>
 
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        {/* Header - Matching Dashboard Theme */}
-        <div className="bg-[#2D5A27] text-white p-4 md:p-6 shadow-md">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <button 
-                    onClick={() => router.back()} 
-                    className="p-2 hover:bg-white/10 rounded-full md:hidden"
-                >
-                    <ArrowLeft className="w-6 h-6" />
-                </button>
-                <div>
-                  <h1 className="text-2xl mb-1 text-white flex items-center gap-2">
-                    <Megaphone className="w-6 h-6 text-yellow-400" />
-                    Agri-News
-                  </h1>
-                  <p className="text-white/90 text-sm">Latest updates for Padre Garcia Farmers</p>
-                </div>
-              </div>
-              <button className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                <Bell className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Agri-News"
+          subtitle="Latest updates for Padre Garcia Farmers"
+          icon={<Megaphone className="h-6 w-6 text-yellow-400" />}
+          variant="farmer"
+          maxWidthClass="max-w-4xl"
+          mobileMenuOffset={false}
+          action={
+            <button className="rounded-lg bg-white/10 p-2 transition-colors hover:bg-white/20" aria-label="Notifications">
+              <Bell className="h-6 w-6" />
+            </button>
+          }
+        />
 
         {/* Filters Scrollable Row */}
         <div className="bg-white border-b sticky top-0 z-10 overflow-x-auto no-scrollbar">

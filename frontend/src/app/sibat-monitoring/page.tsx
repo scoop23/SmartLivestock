@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Sidebar } from "../components/sidebar";
+import { PageHeader } from "../components/page-header";
 import { useRouter } from "next/navigation";
 import MobileNavSibat from "../components/mobilenavsibat";
 
@@ -57,24 +58,22 @@ export default function PadreGarciaGIS() {
         </div>
        <div className="flex flex-col w-full"> 
 
-      <header className="bg-[#1A365D] text-white p-4 shadow-xl ">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <MapIcon className="text-amber-400" />
-            <div>
-              <h1 className="text-xl font-black uppercase tracking-tight">GIS Monitoring: Padre Garcia</h1>
-              <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">Batangas SmartLivestock System</p>
+      <PageHeader
+        title="GIS Monitoring: Padre Garcia"
+        subtitle="Batangas SmartLivestock System"
+        icon={<MapIcon className="text-amber-400" />}
+        variant="sibat"
+        mobileMenuOffset={false}
+        action={
+          <div className="hidden items-center gap-4 md:flex">
+            <div className="text-right">
+              <p className="text-xs font-bold">SIBAT: Sector 1</p>
+              <p className="text-[10px] font-black uppercase text-amber-400">Admin Access</p>
             </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 font-bold text-blue-900">PG</div>
           </div>
-          <div className="hidden md:flex gap-4 items-center">
-             <div className="text-right">
-               <p className="text-xs font-bold">SIBAT: Sector 1</p>
-               <p className="text-[10px] text-amber-400 font-black uppercase">Admin Access</p>
-             </div>
-             <div className="h-8 w-8 bg-amber-400 rounded-full flex items-center justify-center text-blue-900 font-bold">PG</div>
-          </div>
-        </div>
-      </header>
+        }
+      />
        
 
       <main className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">

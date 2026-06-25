@@ -9,6 +9,7 @@ import {
   Clock, Tag, DollarSign
 } from "lucide-react";
 import { Sidebar } from "../components/sidebar";
+import { PageHeader } from "../components/page-header";
 import MobileNavSibat from "../components/mobilenavsibat";
 
 export default function SibatValidationPortal() {
@@ -100,10 +101,16 @@ export default function SibatValidationPortal() {
 
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col mb-16 lg:mb-0">
-        <header className="bg-[#1A365D] text-white p-4 flex items-center gap-4 shadow-md">
-          <button onClick={() => setReviewingReport(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><ChevronLeft /></button>
-          <h1 className="text-xl font-black uppercase tracking-tight">Process Submission</h1>
-        </header>
+        <PageHeader
+          title="Process Submission"
+          variant="sibat"
+          mobileMenuOffset={false}
+          icon={
+            <button onClick={() => setReviewingReport(null)} className="rounded-full p-2 transition-colors hover:bg-white/10" aria-label="Back to submissions">
+              <ChevronLeft />
+            </button>
+          }
+        />
 
         <main className="flex-1 p-4 lg:p-8 max-w-5xl mx-auto w-full">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -209,10 +216,12 @@ export default function SibatValidationPortal() {
     <div className="flex min-h-screen bg-gray-50 mb-16 lg:mb-0">
       <div className="hidden lg:block"><Sidebar role="sibat" onLogout={() => router.push('/')} /></div>
       <main className="flex flex-col w-full overflow-hidden">
-        <header className="bg-[#1A365D] text-white p-6 shadow-lg">
-            <h1 className="text-2xl font-black tracking-tight uppercase">SIBAT</h1>
-            <p className="text-[10px] text-amber-400 font-black uppercase tracking-[0.2em]">Validated Production & Health Queue</p>
-        </header>
+        <PageHeader
+          title="SIBAT"
+          subtitle="Validated Production & Health Queue"
+          variant="sibat"
+          mobileMenuOffset={false}
+        />
 
         <div className="p-4 lg:p-6">
           <div className="bg-white rounded-2xl shadow-xl border overflow-hidden">

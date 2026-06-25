@@ -3,16 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { 
   Search, 
   X, 
-  MapPin, 
-  Beef, 
+  MapPin,
   Users,
   ShieldCheck,
-  UserCog,
   ChevronRight,
-  MoreHorizontal,
   Key,
   UserMinus,
   Edit3,
@@ -89,7 +87,7 @@ export default function UserManagementPage() {
     <div className="flex min-h-screen bg-[#F9FAFB]">
       <Sidebar role="lgu" onLogout={() => router.push('/')} />
       
-      <main className="flex-1 p-8 overflow-auto relative">
+      <main className="flex-1 overflow-auto relative">
         
         {/* Floating Notification Toast */}
         {notification && (
@@ -101,12 +99,12 @@ export default function UserManagementPage() {
           </div>
         )}
 
-        <div className="max-w-7xl mx-auto mb-10">
-          <h1 className="text-3xl font-black text-gray-900">Personnel Directory</h1>
-          <p className="text-gray-500 font-medium italic">Manage 18 Barangay Personnel & SIBAT Audit Officers</p>
-        </div>
+        <PageHeader
+          title="Personnel Directory"
+          subtitle="Manage 18 Barangay Personnel & SIBAT Audit Officers"
+        />
 
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-8">
           {/* Controls Area */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100">
             <div className="relative w-full md:w-96">

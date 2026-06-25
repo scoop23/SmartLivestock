@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { AskAIBar } from '../components/ask-ai-bar';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, AlertCircle, CheckCircle, Lightbulb } from 'lucide-react';
@@ -122,13 +123,10 @@ export default function AnalyticsPage() {
       <Sidebar role="lgu" onLogout={() => router.push('/')} />
       
       <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 md:p-6">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-2xl mb-1">Advanced Analytics</h1>
-            <p className="text-gray-600">AI-powered insights and predictions</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Advanced Analytics"
+          subtitle="AI-powered insights and predictions"
+        />
 
         {/* AI Search Bar */}
         <div className="p-4 md:p-6 bg-white border-b border-gray-200">

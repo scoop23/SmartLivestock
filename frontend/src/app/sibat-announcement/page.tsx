@@ -6,6 +6,7 @@ import {
   Info, Newspaper, FileText, Image as ImageIcon
 } from "lucide-react";
 import { Sidebar } from "../components/sidebar";
+import { PageHeader } from "../components/page-header";
 import { useRouter } from "next/navigation";
 import MobileNavSibat from "../components/mobilenavsibat";
 
@@ -68,19 +69,18 @@ export default function SibatAnnouncementsPage() {
         <div className="hidden md:block"><Sidebar role="sibat" onLogout={() => router.push('/')} /></div>
         
         <div className="flex flex-col w-full"> 
-          <header className="bg-[#1A365D] text-white p-6 shadow-md">
-            <div className="max-w-6xl mx-auto flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-400 rounded-lg shadow-inner">
-                   <Megaphone className="text-blue-900 -rotate-12" size={24} />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-black uppercase tracking-tight">Bulletin Board</h1>
-                  <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">Barangay Updates & Announcements</p>
-                </div>
-              </div>
-            </div>
-          </header>
+          <PageHeader
+            title="Bulletin Board"
+            subtitle="Barangay Updates & Announcements"
+            icon={
+              <span className="flex rounded-lg bg-amber-400 p-2 shadow-inner">
+                <Megaphone className="h-6 w-6 -rotate-12 text-blue-900" />
+              </span>
+            }
+            variant="sibat"
+            maxWidthClass="max-w-6xl"
+            mobileMenuOffset={false}
+          />
 
           <main className="p-4 lg:p-8 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
             

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { Map as MapIcon, Layers, AlertTriangle, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { FeatureCollection } from 'geojson';
@@ -272,37 +273,31 @@ export default function GISMapPage() {
       <Sidebar role="lgu" onLogout={() => router.push('/')} />
 
       <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 md:p-6">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div>
-              <h1 className="text-2xl mb-1 flex items-center gap-2">
-                <MapIcon className="w-6 h-6 text-[#2D5A27]" />
-                GIS Mapping — Padre Garcia
-              </h1>
-              <p className="text-gray-600 text-sm">Barangay-level cattle, production & disease heat map · 18 barangays</p>
-            </div>
-            <div className="flex flex-wrap gap-3 text-sm">
-              <div className="bg-[#f0f7ee] border border-[#c3dbb8] rounded-lg px-3 py-2 text-center">
+        <PageHeader
+          title="GIS Mapping - Padre Garcia"
+          subtitle="Barangay-level cattle, production & disease heat map ? 18 barangays"
+          icon={<MapIcon className="h-6 w-6 text-[#2D5A27]" />}
+          action={
+            <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-3">
+              <div className="rounded-lg border border-[#c3dbb8] bg-[#f0f7ee] px-3 py-2 text-center">
                 <div className="text-lg font-bold text-[#2D5A27]">{totalCattle.toLocaleString()}</div>
-                <div className="text-gray-600 text-xs">🐄 Total Cattle</div>
+                <div className="text-xs text-gray-600">Total Cattle</div>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-center">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-center">
                 <div className="text-lg font-bold text-blue-700">{(totalMilk / 1000).toFixed(1)}k L</div>
-                <div className="text-gray-600 text-xs">🥛 Milk/mo</div>
+                <div className="text-xs text-gray-600">Milk/mo</div>
               </div>
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center">
                 <div className="text-lg font-bold text-red-700">{totalMeat.toLocaleString()} kg</div>
-                <div className="text-gray-600 text-xs">🥩 Katay/mo</div>
+                <div className="text-xs text-gray-600">Katay/mo</div>
               </div>
-
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center">
                 <div className="text-lg font-bold text-red-600">{activeAlerts}</div>
-                <div className="text-gray-600 text-xs">⚠️ Alerts</div>
+                <div className="text-xs text-gray-600">Alerts</div>
               </div>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="p-4 md:p-6 max-w-7xl mx-auto">
           {/* Layer Controls */}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
+import { PageHeader } from '../components/page-header';
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
 import {
   Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus, Layers, Map as MapIcon,
@@ -190,20 +191,18 @@ export default function FarmerDashboard() {
       </div>
 
       <main className="flex-1 overflow-auto pb-8 md:pb-0">
-        {/* Header */}
-        <div className="bg-[#2D5A27] text-white p-4 md:p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-2xl mb-1 text-white">Welcome, Juan!</h1>
-                <p className="text-white/90">San Roque, Padre Garcia</p>
-              </div>
-              <button className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                <Bell className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Welcome, Juan!"
+          subtitle="San Roque, Padre Garcia"
+          variant="farmer"
+          maxWidthClass="max-w-4xl"
+          mobileMenuOffset={false}
+          action={
+            <button className="rounded-lg bg-white/10 p-2 transition-colors hover:bg-white/20" aria-label="Notifications">
+              <Bell className="h-6 w-6" />
+            </button>
+          }
+        />
 
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
           {/* Stats Grid */}
