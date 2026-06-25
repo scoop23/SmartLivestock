@@ -22,7 +22,7 @@ class User(AbstractUser):
         user_pk = self.pk if self.pk else "New"
 
         role_info = self.role if hasattr(self, "role") and self.role else "No Role"
-        return f"Account {user_pk}. with role: {role_info}!"
+        return f"Account {user_pk}. with role: {role_info}!. Account Status: {self.account_status}"
 
 
 class Role(models.Model):
@@ -34,4 +34,4 @@ class Role(models.Model):
     role_name = models.CharField(max_length=20, choices=UserRoles.choices, unique=True)
 
     def __str__(self):
-        return f"Role: {self.role_name}"
+        return self.role_name

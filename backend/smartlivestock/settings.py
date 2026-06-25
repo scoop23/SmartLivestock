@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "users",
     "livestock",
+    "phonenumber_field",
 ]
 
 MIDDLEWARE = [

@@ -17,6 +17,11 @@ Table users {
   approved_at timestamp
 }
 
+Table permission {
+  permission_id integer [pk]
+  role_id integer
+ }
+
 Table barangays {
   barangay_id integer [pk]
 
@@ -31,9 +36,6 @@ Table farmers {
 
   user_id integer [unique, not null]
   barangay_id integer [not null]
-
-  first_name varchar
-  last_name varchar
 
   address text
   contact_no varchar
@@ -65,7 +67,7 @@ Table livestock_inventory {
   livestock_type_id integer [not null]
 
   entry_type varchar [note: 'Individual, Batch']
-  quantity integer [default: 1, note: 'Kg || Lbs']
+  quantity integer [default: 1]
   tag_number varchar
   breed varchar
   sex varchar
@@ -121,23 +123,19 @@ Table disease_cases {
   created_by integer [not null]
   created_at timestamp
 }
-
 Table mortality_records {
   mortality_id integer [pk]
-
   livestock_id integer [not null]
 
   death_count integer
   cause varchar
+  source_disease_case_id integer [note: 'Nullable - set if death was caused by a tracked disease case']
 
   record_date date
-
-  status varchar [note: 'Pending, Verified, Approved, Rejected']
-
+  status varchar
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
-
   created_by integer [not null]
   created_at timestamp
 }
@@ -163,20 +161,18 @@ Table slaughter_records {
 
 Table live_animal_sales {
   sale_id integer [pk]
-
   livestock_id integer [not null]
 
   quantity integer
+  price_per_head decimal [note: 'Nullable - farmer may not always disclose']
+  total_price decimal [note: 'Nullable - total sale amount']
   destination varchar
 
   sale_date date
-
-  status varchar [note: 'Pending, Verified, Approved, Rejected']
-
+  status varchar
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
-
   created_by integer [not null]
   created_at timestamp
 }
@@ -195,164 +191,4 @@ Table barangay_livestock_census {
   status varchar [note: 'Pending, Verified, Approved, Rejected']
   reviewed_by integer
   reviewed_at timestamp
-}
 
-Table announcements {
-  announcement_id integer [pk]
-
-  title varchar
-  content text
-
-  posted_by integer [not null]
-
-  created_at timestamp
-}
-
-Table notifications {
-  notification_id integer [pk]
-
-  user_id integer [not null]
-
-  title varchar
-  message text
-
-  is_read boolean
-
-  created_at timestamp
-}
-
-Table generated_reports {
-  report_id integer [pk]
-
-  report_type varchar
-
-  generated_by integer [not null]
-
-  generated_at timestamp
-}
-
-Table analytics_predictions {
-  prediction_id integer [pk]
-
-  barangay_id integer
-  livestock_type_id integer
-
-  prediction_type varchar [note: 'Milk Yield, Meat Production, Herd Growth, Live Sales Volume, Disease Trend, Mortality Risk, Supply Capacity']
-  target_period varchar [note: 'e.g. 2026-07, Q3-2026']
-
-  predicted_value decimal
-  confidence_score decimal
-
-  model_used varchar [note: 'e.g. ARIMA, Linear Regression, LSTM']
-  generated_at timestamp
-}
-
-Table analytics_insights {
-  insight_id integer [pk]
-
-  barangay_id integer
-  livestock_type_id integer
-
-  insight_type varchar [note: 'e.g. FMD Outbreak Risk']
-
-  severity varchar [note: 'Low, Medium, High']
-  source_disease_case_id integer [note: 'Nullable - links to triggering disease_cases record if applicable']
-
-  description text
-
-  generated_at timestamp
-}
-
-Table analytics_recommendations {
-  recommendation_id integer [pk]
-
-  barangay_id integer
-  livestock_type_id integer
-
-  category varchar [note: 'Disease Prevention, Supply Planning, Herd Management']
-  recommendation_text text
-
-  related_prediction_id integer [note: 'Nullable - links to the prediction that triggered this']
-  priority varchar [note: 'Low, Medium, High']
-
-  generated_at timestamp
-}
-
-Table meat_movement_records {
-  meat_movement_id integer [pk]
-
-  slaughter_id integer [not null, note: 'FK to slaughter_records - the slaughter event that produced this meat']
-
-  origin_barangay_id integer [not null]
-  destination_barangay_id integer [note: 'Nullable - may go outside Padre Garcia']
-  destination_name varchar [note: 'e.g. specific market, buyer, or town name']
-
-  meat_type varchar [note: 'e.g. Beef, Pork, Carabeef']
-  weight_kg decimal
-
-  movement_date date
-
-  status varchar [note: 'Pending, Verified, Approved, Rejected']
-  reviewed_by integer
-  reviewed_at timestamp
-  review_remarks text
-
-  created_by integer [not null]
-  created_at timestamp
-}
-
-
-Ref: users.role_id > roles.role_id
-
-Ref: farmers.user_id > users.user_id
-Ref: farmers.barangay_id > barangays.barangay_id
-
-Ref: cooperative_officers.user_id > users.user_id
-Ref: cooperative_officers.barangay_id > barangays.barangay_id
-
-Ref: livestock_inventory.farmer_id > farmers.farmer_id
-Ref: livestock_inventory.livestock_type_id > livestock_types.livestock_type_id
-Ref: livestock_inventory.created_by > users.user_id
-
-Ref: production_records.livestock_id > livestock_inventory.livestock_id
-Ref: disease_cases.livestock_id > livestock_inventory.livestock_id
-Ref: mortality_records.livestock_id > livestock_inventory.livestock_id
-Ref: slaughter_records.livestock_id > livestock_inventory.livestock_id
-Ref: live_animal_sales.livestock_id > livestock_inventory.livestock_id
-
-Ref: production_records.created_by > users.user_id
-Ref: disease_cases.created_by > users.user_id
-Ref: mortality_records.created_by > users.user_id
-Ref: slaughter_records.created_by > users.user_id
-Ref: live_animal_sales.created_by > users.user_id
-
-
-Ref: production_records.reviewed_by > users.user_id
-Ref: disease_cases.reviewed_by > users.user_id
-Ref: mortality_records.reviewed_by > users.user_id
-Ref: slaughter_records.reviewed_by > users.user_id
-Ref: live_animal_sales.reviewed_by > users.user_id
-
-Ref: announcements.posted_by > users.user_id
-
-Ref: notifications.user_id > users.user_id
-
-Ref: generated_reports.generated_by > users.user_id
-
-Ref: analytics_predictions.barangay_id > barangays.barangay_id
-Ref: analytics_predictions.livestock_type_id > livestock_types.livestock_type_id
-
-Ref: analytics_insights.barangay_id > barangays.barangay_id
-Ref: analytics_insights.livestock_type_id > livestock_types.livestock_type_id
-Ref: barangay_livestock_census.barangay_id > barangays.barangay_id
-Ref: barangay_livestock_census.livestock_type_id > livestock_types.livestock_type_id
-Ref: barangay_livestock_census.submitted_by > users.user_id
-Ref: analytics_recommendations.barangay_id > barangays.barangay_id
-Ref: analytics_recommendations.livestock_type_id > livestock_types.livestock_type_id
-Ref: analytics_recommendations.related_prediction_id > analytics_predictions.prediction_id
-Ref: analytics_insights.source_disease_case_id > disease_cases.disease_case_id
-Ref: meat_movement_records.slaughter_id > slaughter_records.slaughter_id
-Ref: meat_movement_records.origin_barangay_id > barangays.barangay_id
-Ref: meat_movement_records.destination_barangay_id > barangays.barangay_id
-Ref: meat_movement_records.created_by > users.user_id
-Ref: meat_movement_records.reviewed_by > users.user_id

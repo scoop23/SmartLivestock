@@ -4,9 +4,11 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-django = "*"
 python-dotenv = "*"
 psycopg2-binary = "*"
+django = "*"
+django-phonenumber-field = "*"
+phonenumbers = "*"
 
 [dev-packages]
 mypy = "*"
