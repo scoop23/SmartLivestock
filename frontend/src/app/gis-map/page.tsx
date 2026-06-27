@@ -57,31 +57,31 @@ const PADRE_GARCIA_GEOJSON: GeoJSON.FeatureCollection = {
 };
 
 const BARANGAY_DATA: Record<string, BarangayData> = {
-  'Banaba':            { name: 'Banaba',            position: [13.8870, 121.2395], cattle: 245, diseaseRisk: 'low',    activeCases: 0, milk: 3675, meat: 1225, cheese: 245 },
-  'Banaybanay':        { name: 'Banaybanay',        position: [13.8910, 121.2220], cattle: 112, diseaseRisk: 'low',    activeCases: 0, milk: 1680, meat: 560,  cheese: 112 },
-  'Bawi':              { name: 'Bawi',              position: [13.8860, 121.2510], cattle: 198, diseaseRisk: 'high',   activeCases: 5, milk: 2970, meat: 990,  cheese: 198 },
-  'Bukal':             { name: 'Bukal',             position: [13.8850, 121.2640], cattle: 134, diseaseRisk: 'low',    activeCases: 0, milk: 2010, meat: 670,  cheese: 134 },
-  'Castillo':          { name: 'Castillo',          position: [13.8810, 121.2210], cattle: 143, diseaseRisk: 'medium', activeCases: 1, milk: 2145, meat: 715,  cheese: 143 },
-  'Cawongan':          { name: 'Cawongan',          position: [13.8960, 121.2000], cattle: 167, diseaseRisk: 'low',    activeCases: 0, milk: 2505, meat: 835,  cheese: 167 },
-  'Manggas':           { name: 'Manggas',           position: [13.9010, 121.2180], cattle: 76,  diseaseRisk: 'low',    activeCases: 0, milk: 1140, meat: 380,  cheese: 76  },
-  'Maugat East':       { name: 'Maugat East',       position: [13.8560, 121.2280], cattle: 88,  diseaseRisk: 'low',    activeCases: 0, milk: 1320, meat: 440,  cheese: 88  },
-  'Maugat West':       { name: 'Maugat West',       position: [13.8590, 121.2060], cattle: 121, diseaseRisk: 'low',    activeCases: 0, milk: 1815, meat: 605,  cheese: 121 },
-  'Pansol':            { name: 'Pansol',            position: [13.8785, 121.2438], cattle: 156, diseaseRisk: 'medium', activeCases: 2, milk: 2340, meat: 780,  cheese: 156 },
-  'Payapa':            { name: 'Payapa',            position: [13.8700, 121.2190], cattle: 99,  diseaseRisk: 'low',    activeCases: 0, milk: 1485, meat: 495,  cheese: 99  },
-  'Poblacion':         { name: 'Poblacion',         position: [13.8720, 121.2010], cattle: 87,  diseaseRisk: 'low',    activeCases: 0, milk: 1305, meat: 435,  cheese: 87  },
-  'Quilo-quilo North': { name: 'Quilo-quilo North', position: [13.8800, 121.1930], cattle: 73,  diseaseRisk: 'low',    activeCases: 0, milk: 1095, meat: 365,  cheese: 73  },
-  'Quilo-quilo South': { name: 'Quilo-quilo South', position: [13.8760, 121.1810], cattle: 59,  diseaseRisk: 'low',    activeCases: 0, milk: 885,  meat: 295,  cheese: 59  },
-  'San Felipe':        { name: 'San Felipe',        position: [13.8530, 121.2510], cattle: 182, diseaseRisk: 'medium', activeCases: 1, milk: 2730, meat: 910,  cheese: 182 },
-  'San Miguel':        { name: 'San Miguel',        position: [13.8460, 121.2260], cattle: 95,  diseaseRisk: 'low',    activeCases: 0, milk: 1425, meat: 475,  cheese: 95  },
-  'Tamak':             { name: 'Tamak',             position: [13.8510, 121.1940], cattle: 44,  diseaseRisk: 'low',    activeCases: 0, milk: 660,  meat: 220,  cheese: 44  },
-  'Tangob':            { name: 'Tangob',            position: [13.8710, 121.1720], cattle: 62,  diseaseRisk: 'low',    activeCases: 0, milk: 930,  meat: 310,  cheese: 62  },
+  'Banaba': { name: 'Banaba', position: [13.8870, 121.2395], cattle: 245, diseaseRisk: 'low', activeCases: 0, milk: 3675, meat: 1225, cheese: 245 },
+  'Banaybanay': { name: 'Banaybanay', position: [13.8910, 121.2220], cattle: 112, diseaseRisk: 'low', activeCases: 0, milk: 1680, meat: 560, cheese: 112 },
+  'Bawi': { name: 'Bawi', position: [13.8860, 121.2510], cattle: 198, diseaseRisk: 'high', activeCases: 5, milk: 2970, meat: 990, cheese: 198 },
+  'Bukal': { name: 'Bukal', position: [13.8850, 121.2640], cattle: 134, diseaseRisk: 'low', activeCases: 0, milk: 2010, meat: 670, cheese: 134 },
+  'Castillo': { name: 'Castillo', position: [13.8810, 121.2210], cattle: 143, diseaseRisk: 'medium', activeCases: 1, milk: 2145, meat: 715, cheese: 143 },
+  'Cawongan': { name: 'Cawongan', position: [13.8960, 121.2000], cattle: 167, diseaseRisk: 'low', activeCases: 0, milk: 2505, meat: 835, cheese: 167 },
+  'Manggas': { name: 'Manggas', position: [13.9010, 121.2180], cattle: 76, diseaseRisk: 'low', activeCases: 0, milk: 1140, meat: 380, cheese: 76 },
+  'Maugat East': { name: 'Maugat East', position: [13.8560, 121.2280], cattle: 88, diseaseRisk: 'low', activeCases: 0, milk: 1320, meat: 440, cheese: 88 },
+  'Maugat West': { name: 'Maugat West', position: [13.8590, 121.2060], cattle: 121, diseaseRisk: 'low', activeCases: 0, milk: 1815, meat: 605, cheese: 121 },
+  'Pansol': { name: 'Pansol', position: [13.8785, 121.2438], cattle: 156, diseaseRisk: 'medium', activeCases: 2, milk: 2340, meat: 780, cheese: 156 },
+  'Payapa': { name: 'Payapa', position: [13.8700, 121.2190], cattle: 99, diseaseRisk: 'low', activeCases: 0, milk: 1485, meat: 495, cheese: 99 },
+  'Poblacion': { name: 'Poblacion', position: [13.8720, 121.2010], cattle: 87, diseaseRisk: 'low', activeCases: 0, milk: 1305, meat: 435, cheese: 87 },
+  'Quilo-quilo North': { name: 'Quilo-quilo North', position: [13.8800, 121.1930], cattle: 73, diseaseRisk: 'low', activeCases: 0, milk: 1095, meat: 365, cheese: 73 },
+  'Quilo-quilo South': { name: 'Quilo-quilo South', position: [13.8760, 121.1810], cattle: 59, diseaseRisk: 'low', activeCases: 0, milk: 885, meat: 295, cheese: 59 },
+  'San Felipe': { name: 'San Felipe', position: [13.8530, 121.2510], cattle: 182, diseaseRisk: 'medium', activeCases: 1, milk: 2730, meat: 910, cheese: 182 },
+  'San Miguel': { name: 'San Miguel', position: [13.8460, 121.2260], cattle: 95, diseaseRisk: 'low', activeCases: 0, milk: 1425, meat: 475, cheese: 95 },
+  'Tamak': { name: 'Tamak', position: [13.8510, 121.1940], cattle: 44, diseaseRisk: 'low', activeCases: 0, milk: 660, meat: 220, cheese: 44 },
+  'Tangob': { name: 'Tangob', position: [13.8710, 121.1720], cattle: 62, diseaseRisk: 'low', activeCases: 0, milk: 930, meat: 310, cheese: 62 },
 };
 
 const MOVEMENT_DATA = [
   // EXPORTS (Outbound from Padre Garcia)
   { id: 1, type: 'export', to: 'Manila (NCR)', from: [13.8777, 121.2116], coords: [14.5995, 120.9842], heads: 45, date: '2026-04-20' },
   { id: 2, type: 'export', to: 'Bulacan', from: [13.8777, 121.2116], coords: [14.8527, 120.8160], heads: 30, date: '2026-04-22' },
-  
+
   // IMPORTS (Inbound to Padre Garcia)
   { id: 3, type: 'import', fromName: 'Pampanga', to: [13.8777, 121.2116], coords: [15.0333, 120.6833], heads: 25, date: '2026-04-25' },
   { id: 4, type: 'import', fromName: 'Masbate', to: [13.8777, 121.2116], coords: [12.3667, 123.6167], heads: 60, date: '2026-04-18' },
@@ -92,22 +92,22 @@ type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'movement';
 
 const LAYER_CONFIG: Record<MapLayer, { label: string; icon: string; unit: string }> = {
   cattle: { label: 'Cattle Distribution', icon: '🐄', unit: 'heads' },
-  disease: { label: 'Disease Heat Map',   icon: '🩺', unit: '' },
-  milk:    { label: 'Milk Production',    icon: '🥛', unit: 'L/mo' },
-  meat:    { label: 'Katay (Meat)',        icon: '🥩', unit: 'kg/mo' },
-  movement: { label: 'Live Cow Movement',  icon: '🚛', unit: 'heads' }, // New Layer
+  disease: { label: 'Disease Heat Map', icon: '🩺', unit: '' },
+  milk: { label: 'Milk Production', icon: '🥛', unit: 'L/mo' },
+  meat: { label: 'Katay (Meat)', icon: '🥩', unit: 'kg/mo' },
+  movement: { label: 'Live Cow Movement', icon: '🚛', unit: 'heads' }, // New Layer
 };
 
 function getCattleColor(cattle: number): string {
   if (cattle > 200) return '#1a3d15';
   if (cattle > 150) return '#2D5A27';
   if (cattle > 100) return '#5A8F4F';
-  if (cattle > 60)  return '#8AB877';
+  if (cattle > 60) return '#8AB877';
   return '#C5E0A8';
 }
 
 function getDiseaseColor(risk: 'low' | 'medium' | 'high'): string {
-  if (risk === 'high')   return '#D32F2F';
+  if (risk === 'high') return '#D32F2F';
   if (risk === 'medium') return '#FFA726';
   return '#66BB6A';
 }
@@ -122,9 +122,9 @@ function getMilkColor(milk: number): string {
 
 function getMeatColor(meat: number): string {
   if (meat > 1000) return '#7c1d00';
-  if (meat > 750)  return '#b91c1c';
-  if (meat > 500)  return '#dc2626';
-  if (meat > 300)  return '#f87171';
+  if (meat > 750) return '#b91c1c';
+  if (meat > 500) return '#dc2626';
+  if (meat > 300) return '#f87171';
   return '#fecaca';
 }
 
@@ -132,7 +132,7 @@ function getCheeseColor(cheese: number): string {
   if (cheese > 200) return '#713f12';
   if (cheese > 150) return '#92400e';
   if (cheese > 100) return '#d97706';
-  if (cheese > 60)  return '#fbbf24';
+  if (cheese > 60) return '#fbbf24';
   return '#fde68a';
 }
 
@@ -164,11 +164,11 @@ export default function GISMapPage() {
 
   const getLayerColor = (data: BarangayData): string => {
     switch (mapLayer) {
-      case 'cattle':  return getCattleColor(data.cattle);
+      case 'cattle': return getCattleColor(data.cattle);
       case 'disease': return getDiseaseColor(data.diseaseRisk);
-      case 'milk':    return getMilkColor(data.milk);
-      case 'meat':    return getMeatColor(data.meat);
-      case 'cheese':  return getCheeseColor(data.cheese);
+      case 'milk': return getMilkColor(data.milk);
+      case 'meat': return getMeatColor(data.meat);
+      case 'cheese': return getCheeseColor(data.cheese);
     }
   };
 
@@ -230,8 +230,8 @@ export default function GISMapPage() {
   const allData = Object.values(BARANGAY_DATA);
   const sortedBarangays = [...allData].sort((a, b) => b.cattle - a.cattle);
   const totalCattle = allData.reduce((s, b) => s + b.cattle, 0);
-  const totalMilk   = allData.reduce((s, b) => s + b.milk, 0);
-  const totalMeat   = allData.reduce((s, b) => s + b.meat, 0);
+  const totalMilk = allData.reduce((s, b) => s + b.milk, 0);
+  const totalMeat = allData.reduce((s, b) => s + b.meat, 0);
   const activeAlerts = allData.filter(b => b.activeCases > 0).length;
 
   const LEGENDS: Record<MapLayer, { color: string; label: string }[]> = {
@@ -270,7 +270,10 @@ export default function GISMapPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar role="lgu" onLogout={() => router.push('/')} />
+
+      <div className="hidden md:block">
+        <Sidebar role="lgu" onLogout={() => router.push('/')} />
+      </div>
 
       <main className="flex-1 overflow-auto">
         <PageHeader
@@ -310,11 +313,10 @@ export default function GISMapPage() {
                   <button
                     key={layer}
                     onClick={() => setMapLayer(layer)}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                      mapLayer === layer
-                        ? 'bg-[#2D5A27] text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${mapLayer === layer
+                      ? 'bg-[#2D5A27] text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     {LAYER_CONFIG[layer].icon} {LAYER_CONFIG[layer].label}
                   </button>
@@ -344,7 +346,7 @@ export default function GISMapPage() {
                 .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
               `}</style>
               <MapContainer center={centerPosition} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={true}>
-                
+
                 <FitBoundsComponent />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -361,7 +363,7 @@ export default function GISMapPage() {
                     {MOVEMENT_DATA.map((move) => (
                       <div key={move.id}>
                         {/* Connection Line */}
-                        <Polyline 
+                        <Polyline
                           positions={[move.coords as [number, number], [13.8777, 121.2116]]}
                           pathOptions={{
                             color: move.type === 'export' ? '#dc2626' : '#2563eb',
@@ -381,8 +383,8 @@ export default function GISMapPage() {
                         </Polyline>
 
                         {/* External Location Marker */}
-                        <CircleMarker 
-                          center={move.coords as [number, number]} 
+                        <CircleMarker
+                          center={move.coords as [number, number]}
                           radius={6}
                           pathOptions={{
                             fillColor: move.type === 'export' ? '#ef4444' : '#3b82f6',
@@ -542,11 +544,10 @@ export default function GISMapPage() {
                       <td className="px-4 py-2.5 text-right text-blue-700 font-medium">{b.milk.toLocaleString()}</td>
                       <td className="px-4 py-2.5 text-right text-red-700 font-medium">{b.meat.toLocaleString()}</td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          b.diseaseRisk === 'high' ? 'bg-red-100 text-red-700' :
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.diseaseRisk === 'high' ? 'bg-red-100 text-red-700' :
                           b.diseaseRisk === 'medium' ? 'bg-orange-100 text-orange-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
+                            'bg-green-100 text-green-700'
+                          }`}>
                           {b.diseaseRisk.toUpperCase()}
                         </span>
                       </td>

@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Users, 
-  CheckSquare, 
-  Map, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Users,
+  CheckSquare,
+  Map,
+  BarChart3,
   Sprout,
   LogOut,
   Menu,
@@ -47,7 +47,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
     { path: '/farmer-announcement', label: 'News & Announcements', icon: CheckSquare },
     { path: '/farmer-scheduling', label: 'Scheduling', icon: CheckSquare },
   ];
-  
+
   const sibatLinks = [
     { path: '/sibat', label: 'Home', icon: LayoutDashboard },
     { path: '/sibat-validation', label: 'Validation', icon: LayoutDashboard },
@@ -63,6 +63,8 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
     else if (role === 'sibat') return sibatLinks
     else return adminLinks
   }
+  const logoutLink = { path: '/login', label: 'logout' };
+  const isActive = pathname === logoutLink.path;
 
   const SidebarContent = () => (
     <div className="h-full flex flex-col bg-[#2D5A27] text-white">
@@ -90,36 +92,42 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
               key={link.path}
               href={link.path}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white text-[#2D5A27]'
-                  : 'text-white hover:bg-white/10'
-              }`}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white text-[#2D5A27]'
+                : 'text-white hover:bg-white/10'
+                }`}
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
               {!collapsed && <span>{link.label}</span>}
             </Link>
+
           );
+
         })}
+        <div className="flex-1">
+          <button
+            onClick={onLogout}
+            className={`flex items-center gap-3 px-4 w-full py-3 rounded-lg transition-colors cursorr-pointer ${isActive
+              ? 'bg-white text-[#2D5A27]'
+              : 'text-white hover:bg-white/10'
+              }`}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && <span>Logout</span>}
+          </button>
+        </div>
+
       </nav>
 
-      <div className="p-4">
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 text-white hover:bg-white/10 rounded-lg transition-colors"
-        >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span>Logout</span>}
-        </button>
-      </div>
+
     </div>
   );
 
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:block ${collapsed ? 'w-20' : 'w-64'} transition-all duration-300 flex-shrink-0`}>
-        <div className="h-screen sticky top-0">
+      <aside className={`hidden md:block ${collapsed ? 'w-20' : 'w-64'} h-full transition-all duration-300 flex-shrink-0`}>
+        <div className="h-full sticky top-0">
           <SidebarContent />
         </div>
       </aside>

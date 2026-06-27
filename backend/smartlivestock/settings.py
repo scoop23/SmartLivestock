@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "users",
     "livestock",
+    "diseases",
     "phonenumber_field",
 ]
 

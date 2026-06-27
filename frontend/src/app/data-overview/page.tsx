@@ -62,7 +62,7 @@ export default function DataOverviewPage() {
   };
 
   const filteredItems = getActiveData().filter(item => {
-    const matchesSearch = searchQuery === '' || 
+    const matchesSearch = searchQuery === '' ||
       Object.values(item).some(val => String(val).toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesBarangay = filterBarangay === 'all' || item.barangay === filterBarangay;
     return matchesSearch && matchesBarangay;
@@ -73,7 +73,10 @@ export default function DataOverviewPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">
-      <Sidebar role="lgu" onLogout={handleLogout} />
+
+      <div className='hidden md:block'>
+        <Sidebar role="lgu" onLogout={handleLogout} />
+      </div>
 
       <main className="flex-1 overflow-auto">
         <PageHeader
@@ -120,11 +123,10 @@ export default function DataOverviewPage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all ${
-                    activeTab === tab 
-                    ? 'border-[#2D5A27] text-[#2D5A27] bg-green-50/50' 
+                  className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all ${activeTab === tab
+                    ? 'border-[#2D5A27] text-[#2D5A27] bg-green-50/50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   {tab.toUpperCase()}
                 </button>
@@ -195,7 +197,7 @@ export default function DataOverviewPage() {
                         <MapPin className="w-3.5 h-3.5" /> {item.barangay}
                       </div>
                     </td>
-                    
+
                     {/* Livestock Custom Columns */}
                     {activeTab === 'livestock' && (
                       <>
@@ -206,11 +208,10 @@ export default function DataOverviewPage() {
                           </div>
                         </td>
                         <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            item.acquisition === 'Import' ? 'bg-blue-100 text-blue-700' : 
-                            item.acquisition === 'Export' ? 'bg-orange-100 text-orange-700' : 
-                            'bg-gray-100 text-gray-700'
-                          }`}>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${item.acquisition === 'Import' ? 'bg-blue-100 text-blue-700' :
+                            item.acquisition === 'Export' ? 'bg-orange-100 text-orange-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
                             {item.acquisition}
                           </span>
                         </td>
@@ -283,7 +284,7 @@ export default function DataOverviewPage() {
             {filteredItems.length === 0 && (
               <div className="p-12 text-center">
                 <div className="bg-gray-50 inline-block p-4 rounded-full mb-3">
-                   <Search className="w-8 h-8 text-gray-300" />
+                  <Search className="w-8 h-8 text-gray-300" />
                 </div>
                 <p className="text-gray-500 font-medium">No records found matching your current filters.</p>
               </div>

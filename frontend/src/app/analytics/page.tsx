@@ -102,8 +102,8 @@ export default function AnalyticsPage() {
     const latestMilkActual = milkForecast[0].actual || 0;
     const forecastMilkEnd = milkForecast[milkForecast.length - 1].forecast || 0;
     const milkGrowth = (((forecastMilkEnd - latestMilkActual) / latestMilkActual) * 100).toFixed(1);
-    
-    const highRiskMonth = diseaseForecast.reduce((prev, current) => 
+
+    const highRiskMonth = diseaseForecast.reduce((prev, current) =>
       (prev.predicted > current.predicted) ? prev : current
     );
 
@@ -120,8 +120,10 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      
+      <div className="hidden md:block">
+        <Sidebar role="lgu" onLogout={() => router.push('/')} />
+      </div>
+
       <main className="flex-1 overflow-auto">
         <PageHeader
           title="Advanced Analytics"
@@ -147,11 +149,10 @@ export default function AnalyticsPage() {
                 <button
                   key={value}
                   onClick={() => setAnalyticsView(value)}
-                  className={`px-6 py-3 rounded-lg transition-colors ${
-                    analyticsView === value
-                      ? 'bg-[#2D5A27] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`px-6 py-3 rounded-lg transition-colors ${analyticsView === value
+                    ? 'bg-[#2D5A27] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   {label}
                 </button>
@@ -235,7 +236,7 @@ export default function AnalyticsPage() {
           {/* Predictive Analytics View */}
           {analyticsView === 'predictive' && (
             <div className="space-y-6">
-              
+
               {/* 1. NARRATIVE AI SUMMARY GENERATOR (Top Priority) */}
               <AdminForecastingConsole />
               <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
@@ -258,7 +259,7 @@ export default function AnalyticsPage() {
                         Our AI models indicate a <span className="font-bold text-green-700">7.3% projected surge</span> in milk production across the municipality by Q3 2026, peaking at approximately <span className="font-bold text-gray-900">107,200 liters</span> per month.
                       </p>
                       <p className="text-gray-700 leading-relaxed mt-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 mr-1">Alert:</span> 
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 mr-1">Alert:</span>
                         However, environmental data suggests a <span className="font-bold text-red-600">heightened disease risk for May</span>. With an 85% confidence score, we predict a small spike in FMD cases due to humidity changes. Pre-emptive vaccination in <span className="italic">San Roque</span> and <span className="italic">Banaba Ibaba</span> is highly recommended.
                       </p>
                     </div>
@@ -285,7 +286,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               </div>
-              
+
               <PredictiveCharts />
 
               {/* 2. CHARTS SECTION (Middle) */}
@@ -301,7 +302,7 @@ export default function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                       <YAxis label={{ value: 'Liters', angle: -90, position: 'insideLeft', fontSize: 12 }} />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       />
                       <Legend />

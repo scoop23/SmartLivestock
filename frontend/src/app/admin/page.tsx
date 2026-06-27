@@ -59,7 +59,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar role="lgu" onLogout={() => router.push('/')} />
+      <div className="hidden md:block">
+        <Sidebar role="lgu" onLogout={() => router.push('/')} />
+      </div>
 
       <main className="flex-1 overflow-auto">
         <PageHeader

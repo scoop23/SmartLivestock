@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
 import { PageHeader } from '../components/page-header';
-import { 
-  Search, 
-  X, 
+import {
+  Search,
+  X,
   MapPin,
   Users,
   ShieldCheck,
@@ -32,12 +32,12 @@ export default function UserManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'farmer' | 'sibat'>('all');
-  
+
   // Notification state for quick actions
   const [notification, setNotification] = useState<string | null>(null);
 
   const barangays = [
-    "San Roque", "Banaba Ibaba", "Quilo-quilo", "Castillo", "Maugat", 
+    "San Roque", "Banaba Ibaba", "Quilo-quilo", "Castillo", "Maugat",
     "Bukal", "Balagtas", "Concepcion", "Dagatan", "Ilang-Ilang",
     "Lumbang", "Malaking Pook", "Poblacion", "Sampaga", "Talisay",
     "Ulong Tubig", "Wawa", "Zalaza"
@@ -78,17 +78,20 @@ export default function UserManagementPage() {
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          user.barangay.toLowerCase().includes(searchQuery.toLowerCase());
+      user.barangay.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = activeFilter === 'all' || user.role.toLowerCase() === activeFilter;
     return matchesSearch && matchesRole;
   });
 
   return (
     <div className="flex min-h-screen bg-[#F9FAFB]">
-      <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      
+      <div className='hidden md:block'>
+        <Sidebar role="lgu" onLogout={() => router.push('/')} />
+
+      </div>
+
       <main className="flex-1 overflow-auto relative">
-        
+
         {/* Floating Notification Toast */}
         {notification && (
           <div className="fixed top-8 right-8 z-[100] animate-in slide-in-from-right-full duration-300">
@@ -109,8 +112,8 @@ export default function UserManagementPage() {
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100">
             <div className="relative w-full md:w-96">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Search name or barangay..."
                 className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all"
                 value={searchQuery}
@@ -123,9 +126,8 @@ export default function UserManagementPage() {
                 <button
                   key={filter}
                   onClick={() => setActiveFilter(filter as any)}
-                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    activeFilter === filter ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'
-                  }`}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeFilter === filter ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'
+                    }`}
                 >
                   {filter}
                 </button>
@@ -150,10 +152,9 @@ export default function UserManagementPage() {
                   <tr key={user.id} className="group hover:bg-gray-50/80 transition-all">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          user.role === 'SIBAT' ? 'bg-blue-600 text-white' : 'bg-green-100 text-[#2D5A27]'
-                        }`}>
-                          {user.role === 'SIBAT' ? <ShieldCheck size={20}/> : <Users size={20}/>}
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${user.role === 'SIBAT' ? 'bg-blue-600 text-white' : 'bg-green-100 text-[#2D5A27]'
+                          }`}>
+                          {user.role === 'SIBAT' ? <ShieldCheck size={20} /> : <Users size={20} />}
                         </div>
                         <div>
                           <p className="font-bold text-gray-800">{user.name}</p>
@@ -167,32 +168,30 @@ export default function UserManagementPage() {
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${
-                        user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
+                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
                         {user.status}
                       </span>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center justify-center gap-2">
                         {/* Quick Action Buttons */}
-                        <button 
+                        <button
                           onClick={() => handlePasswordReset(user.name)}
                           title="Reset Password"
                           className="p-2 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-blue-600 transition-all"
                         >
                           <Key size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleStatusToggle(user.id)}
                           title={user.status === 'active' ? 'Suspend User' : 'Activate User'}
-                          className={`p-2 hover:bg-white hover:shadow-md rounded-lg transition-all ${
-                            user.status === 'active' ? 'text-gray-400 hover:text-red-600' : 'text-red-600 hover:text-green-600'
-                          }`}
+                          className={`p-2 hover:bg-white hover:shadow-md rounded-lg transition-all ${user.status === 'active' ? 'text-gray-400 hover:text-red-600' : 'text-red-600 hover:text-green-600'
+                            }`}
                         >
                           <UserMinus size={16} />
                         </button>
-                        <button 
+                        <button
                           title="Edit Basic Info"
                           className="p-2 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-[#2D5A27] transition-all"
                         >
@@ -201,7 +200,7 @@ export default function UserManagementPage() {
                       </div>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <button 
+                      <button
                         onClick={() => setSelectedUser(user)}
                         className="p-2 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all"
                       >
@@ -222,12 +221,11 @@ export default function UserManagementPage() {
               <button onClick={() => setSelectedUser(null)} className="absolute top-8 right-8 p-2 hover:bg-gray-100 rounded-full">
                 <X size={24} className="text-gray-400" />
               </button>
-              
+
               <div className="text-center mb-8">
-                 <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-4 ${
-                  selectedUser.role === 'SIBAT' ? 'bg-blue-600 text-white' : 'bg-green-100 text-[#2D5A27]'
-                }`}>
-                  {selectedUser.role === 'SIBAT' ? <ShieldCheck size={40}/> : <Users size={40}/>}
+                <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-4 ${selectedUser.role === 'SIBAT' ? 'bg-blue-600 text-white' : 'bg-green-100 text-[#2D5A27]'
+                  }`}>
+                  {selectedUser.role === 'SIBAT' ? <ShieldCheck size={40} /> : <Users size={40} />}
                 </div>
                 <h2 className="text-2xl font-black text-gray-900">{selectedUser.name}</h2>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{selectedUser.id}</p>
@@ -250,7 +248,7 @@ export default function UserManagementPage() {
                 )}
               </div>
 
-              <button 
+              <button
                 onClick={() => setSelectedUser(null)}
                 className="w-full mt-8 py-5 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:shadow-xl transition-all"
               >

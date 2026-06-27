@@ -96,8 +96,11 @@ export default function DataValidationPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      
+
+      <div className="hidden md:block">
+        <Sidebar role="lgu" onLogout={() => router.push('/')} />
+      </div>
+
       <main className="flex-1 overflow-auto">
         <PageHeader
           title="Data Validation Center"
@@ -144,11 +147,10 @@ export default function DataValidationPage() {
                 <button
                   key={type}
                   onClick={() => setFilter(type)}
-                  className={`px-4 py-2 rounded-lg capitalize transition-colors ${
-                    filter === type
+                  className={`px-4 py-2 rounded-lg capitalize transition-colors ${filter === type
                       ? 'bg-[#2D5A27] text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   {type}
                 </button>

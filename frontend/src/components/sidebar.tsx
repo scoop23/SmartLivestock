@@ -1,10 +1,10 @@
 import { Link, useLocation } from 'react-router';
-import { 
-  LayoutDashboard, 
-  Users, 
-  CheckSquare, 
-  Map, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Users,
+  CheckSquare,
+  Map,
+  BarChart3,
   Sprout,
   LogOut,
   Menu,
@@ -65,11 +65,10 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
               key={link.path}
               to={link.path}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-white text-[#2D5A27]'
-                  : 'text-white hover:bg-white/10'
-              }`}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-white text-[#2D5A27]'
+                : 'text-white hover:bg-white/10'
+                }`}
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
               {!collapsed && <span>{link.label}</span>}
