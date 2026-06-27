@@ -39,6 +39,9 @@ class DiseaseCase(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"Farmer {self.livestock.farmer.user.username} with {self.livestock.quantity} {self.livestock.livestock_type} have {self.name} disease with {self.affected_count} counts"
+
 
 class MortalityRecord(models.Model):
     class MortalityRecordStatus(models.TextChoices):
@@ -63,7 +66,6 @@ class MortalityRecord(models.Model):
         choices=MortalityRecordStatus.choices,
         default=MortalityRecordStatus.PENDING,
     )
-
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

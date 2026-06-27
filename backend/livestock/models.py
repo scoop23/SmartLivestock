@@ -29,7 +29,7 @@ class Farmer(models.Model):
     registered_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.first_name} {self.user.last_name}"
+        return f"{self.user.username} {self.user.last_name}"
 
 
 class LivestockType(models.Model):
@@ -92,5 +92,4 @@ class LivestockInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.farmer} - {self.livestock_type} ({self.quantity})"
-
+        return f"{self.farmer}, with User {self.farmer.user.account_status} - {self.livestock_type} ({self.quantity})"
