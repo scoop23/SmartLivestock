@@ -39,6 +39,9 @@ Development process
     9. Build reports
     10. Deploy
 
+Hopefully master django in the future
+
+
 ---
 
 # Notes
