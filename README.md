@@ -2,7 +2,7 @@
 
 ## Current Status
 
-This document tracks the development progress of the SmartLivestock-Batangas backend.
+This document tracks the development progress of the SmartLivestock-Batangas.
 
 The project is being developed using a modular approach
 
