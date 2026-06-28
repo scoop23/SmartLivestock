@@ -29,6 +29,7 @@ Table barangays {
 
   latitude decimal
   longitude decimal
+  description text
 }
 
 Table farmers {
@@ -93,7 +94,7 @@ Table production_records {
   quantity decimal
 
   record_date date
-
+  unit varchar
   status varchar [note: 'Pending, Verified, Approved, Rejected']
 
   reviewed_by integer
@@ -144,7 +145,8 @@ Table slaughter_records {
   slaughter_id integer [pk]
 
   livestock_id integer [not null]
-
+  barangay_id integer [note: 'Nullable - used when livestock_id is null']
+  livestock_type_id integer [note: 'slaughterhouse likely knows the animal type even if not the farmer']
   quantity integer
 
   record_date date
@@ -164,12 +166,16 @@ Table live_animal_sales {
   livestock_id integer [not null]
 
   quantity integer
+  total_live_weight decimal [note: 'combined weight of all animals sold this si optional']
   price_per_head decimal [note: 'Nullable - farmer may not always disclose']
+  price_per_kg decimal [note: 'price per kilogram to get price, also optional']
   total_price decimal [note: 'Nullable - total sale amount']
   destination varchar
 
   sale_date date
   status varchar
+
+  purpose varchar [note: 'BREEDING, FATTENING, SLAUGHTER, UNKNOWN']
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
@@ -191,4 +197,184 @@ Table barangay_livestock_census {
   status varchar [note: 'Pending, Verified, Approved, Rejected']
   reviewed_by integer
   reviewed_at timestamp
+}
 
+Table announcements {
+  announcement_id integer [pk]
+
+  title varchar
+  content text
+
+  posted_by integer [not null]
+
+  created_at timestamp
+}
+
+Table notifications {
+  notification_id integer [pk]
+  user_id integer [not null]
+
+  alert_id integer [note: 'Nullable - set if triggered by an alert']
+  announcement_id integer [note: 'Nullable - set if triggered by an announcement']
+
+  title varchar
+  message text
+  is_read boolean
+
+  created_at timestamp
+}
+
+Table generated_reports {
+  report_id integer [pk]
+
+  report_type varchar
+
+  generated_by integer [not null]
+
+  generated_at timestamp
+}
+
+Table analytics_predictions {
+  prediction_id integer [pk]
+
+  barangay_id integer
+  livestock_type_id integer
+
+  prediction_type varchar [note: 'Milk Yield, Meat Production, Herd Growth, Live Sales Volume, Disease Trend, Mortality Risk, Supply Capacity']
+  target_period varchar [note: 'e.g. 2026-07, Q3-2026']
+
+  predicted_value decimal
+  confidence_score decimal
+
+  model_used varchar [note: 'e.g. ARIMA, Linear Regression, LSTM']
+  generated_at timestamp
+}
+
+Table analytics_insights {
+  insight_id integer [pk]
+
+  barangay_id integer
+  livestock_type_id integer
+
+  insight_type varchar [note: 'e.g. FMD Outbreak Risk']
+
+  severity varchar [note: 'Low, Medium, High']
+  source_disease_case_id integer [note: 'Nullable - links to triggering disease_cases record if applicable']
+
+  description text
+
+  generated_at timestamp
+}
+
+Table analytics_recommendations {
+  recommendation_id integer [pk]
+
+  barangay_id integer
+  livestock_type_id integer
+
+  category varchar [note: 'Disease Prevention, Supply Planning, Herd Management']
+  recommendation_text text
+
+  related_prediction_id integer [note: 'Nullable - links to the prediction that triggered this']
+  priority varchar [note: 'Low, Medium, High']
+
+  generated_at timestamp
+}
+
+Table meat_movement_records {
+  meat_movement_id integer [pk]
+  slaughter_id integer [not null]
+
+  origin_barangay_id integer [not null]
+  destination_barangay_id integer
+  destination_name varchar
+
+  meat_type varchar
+  weight_kg decimal
+  price_per_kg decimal [note: 'Nullable']
+  total_price decimal [note: 'Nullable']
+
+  movement_date date
+  status varchar
+  reviewed_by integer
+  reviewed_at timestamp
+  review_remarks text
+  created_by integer [not null]
+  created_at timestamp
+}
+
+Table alerts {
+  alert_id integer [pk]
+
+  alert_type varchar [note: 'Disease Outbreak, Mortality Spike, etc.']
+  severity varchar [note: 'Low, Medium, High, Critical']
+
+  barangay_id integer [note: 'Nullable - where the alert applies']
+  source_disease_case_id integer [note: 'Nullable - the disease_cases record that triggered this, if any']
+
+  alert_message text
+  status varchar [note: 'Active, Resolved, Dismissed']
+
+  created_at timestamp
+  resolved_at timestamp
+}
+
+
+Ref: users.role_id > roles.role_id
+Ref: farmers.user_id > users.user_id
+Ref: farmers.barangay_id > barangays.barangay_id
+
+Ref: cooperative_officers.user_id > users.user_id
+Ref: cooperative_officers.barangay_id > barangays.barangay_id
+
+Ref: livestock_inventory.farmer_id > farmers.farmer_id
+Ref: livestock_inventory.livestock_type_id > livestock_types.livestock_type_id
+Ref: livestock_inventory.created_by > users.user_id
+
+Ref: production_records.livestock_id > livestock_inventory.livestock_id
+Ref: disease_cases.livestock_id > livestock_inventory.livestock_id
+Ref: mortality_records.livestock_id > livestock_inventory.livestock_id
+Ref: slaughter_records.livestock_id > livestock_inventory.livestock_id
+Ref: live_animal_sales.livestock_id > livestock_inventory.livestock_id
+
+Ref: production_records.created_by > users.user_id
+Ref: disease_cases.created_by > users.user_id
+Ref: mortality_records.created_by > users.user_id
+Ref: slaughter_records.created_by > users.user_id
+Ref: live_animal_sales.created_by > users.user_id
+Ref: slaughter_records.barangay_id > barangays.barangay_id
+Ref: slaughter_records.livestock_type_id > livestock_types.livestock_type_id
+
+Ref: production_records.reviewed_by > users.user_id
+Ref: disease_cases.reviewed_by > users.user_id
+Ref: mortality_records.reviewed_by > users.user_id
+Ref: slaughter_records.reviewed_by > users.user_id
+Ref: live_animal_sales.reviewed_by > users.user_id
+
+Ref: announcements.posted_by > users.user_id
+
+Ref: notifications.user_id > users.user_id
+
+Ref: generated_reports.generated_by > users.user_id
+
+Ref: analytics_predictions.barangay_id > barangays.barangay_id
+Ref: analytics_predictions.livestock_type_id > livestock_types.livestock_type_id
+
+Ref: analytics_insights.barangay_id > barangays.barangay_id
+Ref: analytics_insights.livestock_type_id > livestock_types.livestock_type_id
+Ref: barangay_livestock_census.barangay_id > barangays.barangay_id
+Ref: barangay_livestock_census.livestock_type_id > livestock_types.livestock_type_id
+Ref: barangay_livestock_census.submitted_by > users.user_id
+Ref: analytics_recommendations.barangay_id > barangays.barangay_id
+Ref: analytics_recommendations.livestock_type_id > livestock_types.livestock_type_id
+Ref: analytics_recommendations.related_prediction_id > analytics_predictions.prediction_id
+Ref: analytics_insights.source_disease_case_id > disease_cases.disease_case_id
+Ref: meat_movement_records.slaughter_id > slaughter_records.slaughter_id
+Ref: meat_movement_records.origin_barangay_id > barangays.barangay_id
+Ref: meat_movement_records.destination_barangay_id > barangays.barangay_id
+Ref: meat_movement_records.created_by > users.user_id
+Ref: meat_movement_records.reviewed_by > users.user_id
+Ref: alerts.barangay_id > barangays.barangay_id
+Ref: alerts.source_disease_case_id > disease_cases.disease_case_id
+Ref: notifications.alert_id > alerts.alert_id
+Ref: notifications.announcement_id > announcements.announcement_id

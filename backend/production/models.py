@@ -1,13 +1,21 @@
 from django.db import models
 from django.conf import settings
-from django.db.models.fields import related
-
 
 # Create your models here.
 
 
-class DiseaseCase(models.Model):
-    class DiseaseStatus(models.TextChoices):
+class ProductionRecord(models.Model):
+    class ProductionType(models.TextChoices):
+        MILK = "MILK", "Milk"
+        EGGS = "EGGS", "Eggs"
+        WOOL = "WOOL", "Wool"
+
+    class UnitType(models.TextChoices):
+        LITERS = "LITERS", "Liters"
+        PIECES = "PIECES", "Pieces"
+        KILOGRAMS = "KILOGRAMS", "Kilograms"
+
+    class ProductionStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
@@ -16,36 +24,55 @@ class DiseaseCase(models.Model):
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
-        related_name="disease_cases",
+        related_name="production_records",
     )
-    name = models.CharField(max_length=150, blank=False)
-    affected_count = models.IntegerField(default=0)
-    record_date = models.DateField(blank=True, null=True)
+
+    production_type = models.CharField(
+        max_length=20,
+        choices=ProductionType.choices,
+    )
+
+    quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    unit = models.CharField(
+        max_length=20,
+        choices=UnitType.choices,
+    )
+
+    record_date = models.DateField()
+
     status = models.CharField(
-        max_length=50, choices=DiseaseStatus.choices, default=DiseaseStatus.PENDING
+        max_length=20,
+        choices=ProductionStatus.choices,
+        default=ProductionStatus.PENDING,
     )
+
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="reviewed_disease_cases",
         null=True,
         blank=True,
+        related_name="reviewed_production_records",
     )
+
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    review_remarks = models.TextField(null=True, blank=True)
+
+    review_remarks = models.TextField(blank=True)
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="created_disease_case",
+        related_name="created_production_records",
     )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"Farmer {self.livestock.farmer.user.username} with {self.livestock.quantity} {self.livestock.livestock_type} have {self.name} disease with {self.affected_count} counts"
 
-
-class MortalityRecord(models.Model):
-    class MortalityRecordStatus(models.TextChoices):
+class SlaughterRecord(models.Model):
+    class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
@@ -54,39 +81,65 @@ class MortalityRecord(models.Model):
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
-        related_name="mortality_cases",
+        related_name="slaughter_records",
     )
-    death_count = models.PositiveIntegerField()
-    cause = models.TextField()
-    source_disease_case = models.ForeignKey(
-        "DiseaseCase",
+
+    barangay = models.ForeignKey(
+        "livestock.Barangay",
         on_delete=models.PROTECT,
+        related_name="slaughter_records",
+    )
+
+    livestock_type = models.ForeignKey(
+        "livestock.LivestockType",
+        on_delete=models.PROTECT,
+        related_name="slaughter_records",
+    )
+
+    quantity = models.PositiveIntegerField()
+
+    carcass_weight = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
         null=True,
         blank=True,
-        related_name="mortality_records",
-        help_text="Optional disease case that caused these deaths.",
+        help_text="Optional total meat produced in kilograms.",
     )
-    record_date = models.DateField(blank=True, null=True)
+
+    record_date = models.DateField()
+
     status = models.CharField(
-        max_length=50,
-        choices=MortalityRecordStatus.choices,
-        default=MortalityRecordStatus.PENDING,
+        max_length=20,
+        choices=StatusType.choices,
+        default=StatusType.PENDING,
     )
+
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="reviewed_mortality_records",
+        related_name="reviewed_slaughter_records",
         null=True,
         blank=True,
     )
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-    review_remarks = models.TextField(null=True, blank=True)
+
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    review_remarks = models.TextField(
+        blank=True,
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="created_mortality_records",
+        related_name="created_slaughter_records",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
 
 
 class LiveAnimalSale(models.Model):
