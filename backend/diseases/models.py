@@ -60,7 +60,7 @@ class MortalityRecord(models.Model):
     cause = models.TextField()
     source_disease_case = models.ForeignKey(
         "DiseaseCase",
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="mortality_records",
@@ -87,99 +87,3 @@ class MortalityRecord(models.Model):
         related_name="created_mortality_records",
     )
     created_at = models.DateTimeField(auto_now_add=True)
-
-
-class LiveAnimalSale(models.Model):
-    class StatusType(models.TextChoices):
-        PENDING = "PENDING", "Pending"
-        VERIFIED = "VERIFIED", "Verified"
-        APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
-
-    class SalePurpose(models.TextChoices):
-        BREEDING = "BREEDING", "Breeding"
-        FATTENING = "FATTENING", "Fattening"
-        SLAUGHTER = "SLAUGHTER", "Slaughter"
-        UNKNOWN = "UNKNOWN", "Unknown"
-
-    livestock = models.ForeignKey(
-        "livestock.LivestockInventory",
-        on_delete=models.PROTECT,
-        related_name="live_animal_sales",
-    )
-
-    quantity = models.PositiveIntegerField()
-
-    total_live_weight = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Optional combined weight of all animals sold.",
-    )
-
-    price_per_head = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
-
-    price_per_kg = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
-
-    total_price = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
-
-    destination = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Buyer or destination municipality.",
-    )
-
-    sale_date = models.DateField()
-
-    status = models.CharField(
-        max_length=20,
-        choices=StatusType.choices,
-        default=StatusType.PENDING,
-    )
-
-    purpose = models.CharField(
-        max_length=20, choices=SalePurpose.choices, default=SalePurpose.UNKNOWN
-    )
-
-    reviewed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="reviewed_sale_records",
-        null=True,
-        blank=True,
-    )
-
-    reviewed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-    )
-
-    review_remarks = models.TextField(
-        blank=True,
-    )
-
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="created_sale_records",
-    )
-
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-    )

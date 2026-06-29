@@ -82,12 +82,16 @@ class SlaughterRecord(models.Model):
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
         related_name="slaughter_records",
+        null=True,
+        blank=True,
     )
 
     barangay = models.ForeignKey(
         "livestock.Barangay",
         on_delete=models.PROTECT,
         related_name="slaughter_records",
+        null=True,
+        blank=True,
     )
 
     livestock_type = models.ForeignKey(
@@ -231,6 +235,52 @@ class LiveAnimalSale(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="created_sale_records",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+
+class MeatMovementRecord(models.Model):
+    class MeatType(models.TextChoices):
+        BEEF = "BEEF", "Beef"
+        CARABEEF = "CARABEEF", "Carabeef"
+        GOAT = "GOAT", "Goat"
+        PORK = "PORK", "Pork"
+        CHICKEN = "CHICKEN", "Chicken"
+
+    class StatusType(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        VERIFIED = "VERIFIED", "Verified"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
+    # slaughter = models.ForeignKey(
+    #     "SlaughterRecord",
+    # )
+
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviewed_meat_movements",
+        null=True,
+        blank=True,
+    )
+
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    review_remarks = models.TextField(
+        blank=True,
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_meat_movements",
     )
 
     created_at = models.DateTimeField(
