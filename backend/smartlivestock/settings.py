@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+from datetime import timedelta
 
 load_dotenv()
 
@@ -44,12 +45,20 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework_simplejwt",
     "production",
     "users",
     "livestock",
     "diseases",
     "phonenumber_field",
 ]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    )
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -62,6 +71,13 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "smartlivestock.urls"
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTAT_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
 
 TEMPLATES = [
     {
@@ -124,7 +140,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Manila"
 
 USE_I18N = True
 

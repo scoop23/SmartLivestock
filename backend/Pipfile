@@ -9,6 +9,8 @@ psycopg2-binary = "*"
 django = "*"
 django-phonenumber-field = "*"
 phonenumbers = "*"
+djangorestframework = "*"
+djangorestframework-simplejwt = "*"
 
 [dev-packages]
 mypy = "*"
