@@ -28,6 +28,7 @@ class User(AbstractUser):
 class Role(models.Model):
     class UserRoles(models.TextChoices):
         FARMER = "FARMER", "Farmer"
+        MAO = "MAO", "Municipal Agriculturist Office"
         SIBAT = "SIBAT", "Sibat"
         ADMIN = "ADMIN", "Admin"
 

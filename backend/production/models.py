@@ -159,6 +159,14 @@ class LiveAnimalSale(models.Model):
         SLAUGHTER = "SLAUGHTER", "Slaughter"
         UNKNOWN = "UNKNOWN", "Unknown"
 
+    class SaleMethod(models.TextChoices):
+        MATA_MATA = (
+            "MATA-MATA",
+            "Mata-mata",
+        )
+        WEIGHING = "WEIGHING", "Weighing"
+        OTHER = "OTHER", "Other"
+
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
@@ -166,6 +174,12 @@ class LiveAnimalSale(models.Model):
     )
 
     quantity = models.PositiveIntegerField()
+
+    sale_method = models.CharField(
+        max_length=20,
+        choices=SaleMethod.choices,
+        default=SaleMethod.MATA_MATA,
+    )
 
     total_live_weight = models.DecimalField(
         max_digits=8,
@@ -248,7 +262,8 @@ class MeatMovementRecord(models.Model):
         CARABEEF = "CARABEEF", "Carabeef"
         GOAT = "GOAT", "Goat"
         PORK = "PORK", "Pork"
-        CHICKEN = "CHICKEN", "Chicken"
+
+    CHICKEN = "CHICKEN", "Chicken"
 
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -256,9 +271,57 @@ class MeatMovementRecord(models.Model):
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
 
-    # slaughter = models.ForeignKey(
-    #     "SlaughterRecord",
-    # )
+    slaughter = models.ForeignKey(
+        "SlaughterRecord",
+        on_delete=models.PROTECT,
+        related_name="meat_movements",
+    )
+
+    origin_barangay = models.ForeignKey(
+        "livestock.Barangay", on_delete=models.PROTECT, related_name="outgoing_meat"
+    )
+
+    destination_barangay = models.ForeignKey(
+        "livestock.Barangay", on_delete=models.PROTECT, related_name="incoming_meat"
+    )
+
+    destination_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Optional name of the destination buyer or establishment.",
+    )
+
+    meat_type = models.CharField(
+        max_length=20,
+        choices=MeatType.choices,
+    )
+
+    weight_kg = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+    )
+
+    price_per_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    movement_date = models.DateField()
+
+    status = models.CharField(
+        max_length=20,
+        choices=StatusType.choices,
+        default=StatusType.PENDING,
+    )
 
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
