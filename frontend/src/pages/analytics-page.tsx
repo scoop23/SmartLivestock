@@ -16,6 +16,8 @@ export default function AnalyticsPage() {
     { disease: 'Brucellosis', cases: 3, percentage: 20 },
     { disease: 'Mastitis', cases: 2, percentage: 13 },
     { disease: 'Old Age', cases: 4, percentage: 27 },
+    { disease: 'Bloating', cases: 4, percentage: 27 },
+    { disease: 'Cattle Fever', cases: 4, percentage: 27 },
   ];
 
   const monthlyMortality = [
@@ -98,7 +100,7 @@ export default function AnalyticsPage() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      
+
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 md:p-6">
@@ -127,11 +129,10 @@ export default function AnalyticsPage() {
                 <button
                   key={value}
                   onClick={() => setAnalyticsView(value)}
-                  className={`px-6 py-3 rounded-lg transition-colors ${
-                    analyticsView === value
+                  className={`px-6 py-3 rounded-lg transition-colors ${analyticsView === value
                       ? 'bg-[#2D5A27] text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   {label}
                 </button>

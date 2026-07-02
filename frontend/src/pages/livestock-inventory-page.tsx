@@ -15,7 +15,7 @@ interface Livestock {
   lastVaccination: string;
 }
 
-export function LivestockInventoryPage() {
+export default function LivestockInventoryPage() {
   const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,7 +80,7 @@ export function LivestockInventoryPage() {
       <div className="hidden md:block">
         <Sidebar role="farmer" onLogout={() => navigate('/')} />
       </div>
-      
+
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         {/* Header */}
         <div className="bg-[#2D5A27] text-white p-4 md:p-6">
@@ -144,26 +144,24 @@ export function LivestockInventoryPage() {
                       <div className="flex items-center gap-3 mb-2">
                         <h3>{item.tagNumber}</h3>
                         <span
-                          className={`px-3 py-1 rounded-full text-xs ${
-                            item.type === 'dairy' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
-                          }`}
+                          className={`px-3 py-1 rounded-full text-xs ${item.type === 'dairy' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                            }`}
                         >
                           {item.type}
                         </span>
                         <span
-                          className={`px-3 py-1 rounded-full text-xs ${
-                            item.status === 'healthy'
-                              ? 'bg-green-100 text-green-800'
-                              : item.status === 'pregnant'
+                          className={`px-3 py-1 rounded-full text-xs ${item.status === 'healthy'
+                            ? 'bg-green-100 text-green-800'
+                            : item.status === 'pregnant'
                               ? 'bg-purple-100 text-purple-800'
                               : 'bg-red-100 text-red-800'
-                          }`}
+                            }`}
                         >
                           {item.status}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-3">{item.breed} • {item.gender === 'female' ? '♀' : '♂'} {item.gender}</p>
-                      
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="flex items-center gap-2 text-sm">
                           <Calendar className="w-4 h-4 text-gray-400" />
@@ -180,14 +178,14 @@ export function LivestockInventoryPage() {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="mt-3 pt-3 border-t border-gray-200">
                         <p className="text-xs text-gray-500">
                           Last Vaccination: <span className="text-gray-900">{new Date(item.lastVaccination).toLocaleDateString()}</span>
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-2 ml-4">
                       <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <Edit className="w-5 h-5" />
