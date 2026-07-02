@@ -13,7 +13,7 @@ interface ProductionRecord {
   notes: string;
 }
 
-export function ProductionLoggerPage() {
+export default function ProductionLoggerPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'log' | 'history'>('log');
   const [productionType, setProductionType] = useState<'milk' | 'slaughter' | 'sale'>('milk');
@@ -57,7 +57,7 @@ export function ProductionLoggerPage() {
       <div className="hidden md:block">
         <Sidebar role="farmer" onLogout={() => navigate('/')} />
       </div>
-      
+
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         {/* Header */}
         <div className="bg-[#2D5A27] text-white p-4 md:p-6">
@@ -72,21 +72,19 @@ export function ProductionLoggerPage() {
           <div className="bg-white p-1 rounded-lg shadow-sm border border-gray-200 mb-6 inline-flex">
             <button
               onClick={() => setActiveTab('log')}
-              className={`px-6 py-2 rounded-lg transition-colors ${
-                activeTab === 'log'
+              className={`px-6 py-2 rounded-lg transition-colors ${activeTab === 'log'
                   ? 'bg-[#2D5A27] text-white'
                   : 'text-gray-700 hover:bg-gray-100'
-              }`}
+                }`}
             >
               Log Production
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`px-6 py-2 rounded-lg transition-colors ${
-                activeTab === 'history'
+              className={`px-6 py-2 rounded-lg transition-colors ${activeTab === 'history'
                   ? 'bg-[#2D5A27] text-white'
                   : 'text-gray-700 hover:bg-gray-100'
-              }`}
+                }`}
             >
               History
             </button>
@@ -119,35 +117,32 @@ export function ProductionLoggerPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     onClick={() => setProductionType('milk')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      productionType === 'milk'
+                    className={`p-4 rounded-lg border-2 transition-all ${productionType === 'milk'
                         ? 'border-[#2D5A27] bg-[#2D5A27]/5'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <Milk className={`w-8 h-8 mx-auto mb-2 ${productionType === 'milk' ? 'text-[#2D5A27]' : 'text-gray-400'}`} />
                     <p className="text-sm text-center">Milk Production</p>
                   </button>
-                  
+
                   <button
                     onClick={() => setProductionType('slaughter')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      productionType === 'slaughter'
+                    className={`p-4 rounded-lg border-2 transition-all ${productionType === 'slaughter'
                         ? 'border-[#2D5A27] bg-[#2D5A27]/5'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <Package className={`w-8 h-8 mx-auto mb-2 ${productionType === 'slaughter' ? 'text-[#2D5A27]' : 'text-gray-400'}`} />
                     <p className="text-sm text-center">Katay (Slaughter)</p>
                   </button>
-                  
+
                   <button
                     onClick={() => setProductionType('sale')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      productionType === 'sale'
+                    className={`p-4 rounded-lg border-2 transition-all ${productionType === 'sale'
                         ? 'border-[#2D5A27] bg-[#2D5A27]/5'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <TrendingUp className={`w-8 h-8 mx-auto mb-2 ${productionType === 'sale' ? 'text-[#2D5A27]' : 'text-gray-400'}`} />
                     <p className="text-sm text-center">Live Sale</p>
@@ -158,9 +153,9 @@ export function ProductionLoggerPage() {
               {/* Production Form */}
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h3 className="mb-4">
-                  {productionType === 'milk' ? 'Log Milk Production' : 
-                   productionType === 'slaughter' ? 'Log Slaughter (Katay)' : 
-                   'Log Live Cattle Sale'}
+                  {productionType === 'milk' ? 'Log Milk Production' :
+                    productionType === 'slaughter' ? 'Log Slaughter (Katay)' :
+                      'Log Live Cattle Sale'}
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
@@ -288,21 +283,20 @@ export function ProductionLoggerPage() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs capitalize ${
-                          record.type === 'milk'
+                        className={`px-3 py-1 rounded-full text-xs capitalize ${record.type === 'milk'
                             ? 'bg-blue-100 text-blue-800'
                             : record.type === 'slaughter'
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}
                       >
                         {record.type}
                       </span>
                       <span className="text-sm text-gray-500">
-                        {new Date(record.date).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          year: 'numeric' 
+                        {new Date(record.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
                         })}
                       </span>
                     </div>

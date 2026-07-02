@@ -13,7 +13,7 @@ interface User {
   farmsAssigned: number;
 }
 
-export function UserManagementPage() {
+export default function UserManagementPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -47,7 +47,7 @@ export function UserManagementPage() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar role="lgu" onLogout={() => navigate('/')} />
-      
+
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 md:p-6">
@@ -125,13 +125,12 @@ export function UserManagementPage() {
                       <td className="px-6 py-4 text-sm text-gray-600">{user.farmsAssigned}</td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex px-3 py-1 rounded-full text-xs ${
-                            user.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : user.status === 'pending'
+                          className={`inline-flex px-3 py-1 rounded-full text-xs ${user.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : user.status === 'pending'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-gray-100 text-gray-800'
-                          }`}
+                            }`}
                         >
                           {user.status}
                         </span>
