@@ -10,6 +10,7 @@ import 'leaflet/dist/leaflet.css';
 
 // --- Dynamic Leaflet imports (SSR-safe) ---
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
+// import { MapContainer } from 'react-leaflet';
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
 const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
 const Circle = dynamic(() => import('react-leaflet').then(m => m.Circle), { ssr: false });

@@ -1,26 +1,33 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/sidebar';
 import { PageHeader } from '../components/page-header';
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+// const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
+// const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
+// const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
 import {
   Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus, Layers, Map as MapIcon,
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import MobileNav from '../components/mobilenav';
+const LeafletMapUser = dynamic(
+  () => import("../components/LeafletMapUser"),
+  { ssr: false }
+);
 
 // Fix for default marker icons in Next.js
-if (typeof window !== 'undefined') {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  });
-}
+// if (typeof window !== 'undefined') {
+//   delete (L.Icon.Default.prototype as any)._getIconUrl;
+//   L.Icon.Default.mergeOptions({
+//     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+//     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+//     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+//   });
+// }
 
 interface BarangayData {
   name: string;
@@ -60,33 +67,32 @@ const BARANGAY_DATA: BarangayData = {
   cheese: 245,
 };
 
-type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'cheese';
+export type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat';
 
 const LAYER_CONFIG: Record<MapLayer, { label: string; icon: string; unit: string }> = {
-  cattle:  { label: 'Cattle Distribution', icon: '🐄', unit: 'heads' },
-  disease: { label: 'Disease Heat Map',    icon: '🩺', unit: '' },
-  milk:    { label: 'Milk Production',      icon: '🥛', unit: 'L/mo' },
-  meat:    { label: 'Katay (Meat)',          icon: '🥩', unit: 'kg/mo' },
+  cattle: { label: 'Cattle Distribution', icon: '🐄', unit: 'heads' },
+  disease: { label: 'Disease Heat Map', icon: '🩺', unit: '' },
+  milk: { label: 'Milk Production', icon: '🥛', unit: 'L/mo' },
+  meat: { label: 'Katay (Meat)', icon: '🥩', unit: 'kg/mo' },
 };
 
 function getLayerColor(data: BarangayData, layer: MapLayer): string {
   switch (layer) {
-    case 'cattle':  return data.cattle > 200 ? '#2D5A27' : data.cattle > 150 ? '#5A8F4F' : data.cattle > 100 ? '#8AB877' : '#B8D99F';
+    case 'cattle': return data.cattle > 200 ? '#2D5A27' : data.cattle > 150 ? '#5A8F4F' : data.cattle > 100 ? '#8AB877' : '#B8D99F';
     case 'disease': return data.diseaseRisk === 'high' ? '#D32F2F' : data.diseaseRisk === 'medium' ? '#FFA726' : '#66BB6A';
-    case 'milk':    return data.milk > 3000 ? '#075985' : data.milk > 2000 ? '#0284c7' : data.milk > 1500 ? '#38bdf8' : '#bae6fd';
-    case 'meat':    return data.meat > 1000 ? '#b91c1c' : data.meat > 750 ? '#dc2626' : data.meat > 500 ? '#f87171' : '#fecaca';
-    case 'cheese':  return data.cheese > 200 ? '#92400e' : data.cheese > 150 ? '#d97706' : data.cheese > 100 ? '#fbbf24' : '#fde68a';
+    case 'milk': return data.milk > 3000 ? '#075985' : data.milk > 2000 ? '#0284c7' : data.milk > 1500 ? '#38bdf8' : '#bae6fd';
+    case 'meat': return data.meat > 1000 ? '#b91c1c' : data.meat > 750 ? '#dc2626' : data.meat > 500 ? '#f87171' : '#fecaca';
   }
 }
 
-function FitBounds() {
-  const map = useMap();
-  useEffect(() => {
-    const bounds = L.latLngBounds(L.latLng(13.8720, 121.2240), L.latLng(13.8780, 121.2560));
-    map.fitBounds(bounds, { padding: [50, 50] });
-  }, [map]);
-  return null;
-}
+// function FitBounds() {
+//   const map = useMap();
+//   useEffect(() => {
+//     const bounds = L.latLngBounds(L.latLng(13.8720, 121.2240), L.latLng(13.8780, 121.2560));
+//     map.fitBounds(bounds, { padding: [50, 50] });
+//   }, [map]);
+//   return null;
+// }
 
 export default function FarmerDashboard() {
   const router = useRouter();
@@ -101,21 +107,21 @@ export default function FarmerDashboard() {
   const riskColor = data.diseaseRisk === 'high' ? '#D32F2F' : data.diseaseRisk === 'medium' ? '#e67e22' : '#27ae60';
 
   const myStats = [
-    { label: 'My Cattle',       value: '24',      icon: Sprout,        color: 'bg-[#2D5A27]' },
-    { label: 'Avg. Daily Milk', value: '18.5L',   icon: TrendingUp,    color: 'bg-blue-600' },
-    { label: 'Active Alerts',   value: '1',       icon: AlertTriangle, color: 'bg-[#D32F2F]' },
-    { label: 'This Month Sales',value: '₱45,600', icon: Package,       color: 'bg-green-600' },
+    { label: 'My Cattle', value: '24', icon: Sprout, color: 'bg-[#2D5A27]' },
+    { label: 'Avg. Daily Milk', value: '18.5L', icon: TrendingUp, color: 'bg-blue-600' },
+    { label: 'Active Alerts', value: '1', icon: AlertTriangle, color: 'bg-[#D32F2F]' },
+    { label: 'This Month Sales', value: '₱45,600', icon: Package, color: 'bg-green-600' },
   ];
 
   const recentAlerts = [
-    { id: 1, type: 'warning' as const, title: 'Vaccination Due',     message: 'Annual vaccination scheduled for 5 cattle on April 30, 2026', date: '2 days ago' },
-    { id: 2, type: 'info'    as const, title: 'Production Report',   message: 'Your monthly milk production increased by 5%',                  date: '1 week ago' },
+    { id: 1, type: 'warning' as const, title: 'Vaccination Due', message: 'Annual vaccination scheduled for 5 cattle on April 30, 2026', date: '2 days ago' },
+    { id: 2, type: 'info' as const, title: 'Production Report', message: 'Your monthly milk production increased by 5%', date: '1 week ago' },
   ];
 
   const recentActivities = [
-    { id: 1, action: 'Logged milk production', value: '450L',               date: 'Today, 8:00 AM' },
-    { id: 2, action: 'Updated cattle weight',  value: 'Cattle #B-042',      date: 'Yesterday' },
-    { id: 3, action: 'Recorded birth',         value: 'New calf - Female',  date: '3 days ago' },
+    { id: 1, action: 'Logged milk production', value: '450L', date: 'Today, 8:00 AM' },
+    { id: 2, action: 'Updated cattle weight', value: 'Cattle #B-042', date: 'Yesterday' },
+    { id: 3, action: 'Recorded birth', value: 'New calf - Female', date: '3 days ago' },
   ];
 
   const getGeoJSONStyle = () => ({
@@ -146,7 +152,6 @@ export default function FarmerDashboard() {
           <div style="font-weight:600; color:#555; margin-bottom:2px;">Monthly Production</div>
           <div>🥛 <strong>Milk:</strong> ${data.milk.toLocaleString()} L</div>
           <div>🥩 <strong>Katay (Meat):</strong> ${data.meat.toLocaleString()} kg</div>
-          <div>🧀 <strong>Cheese:</strong> ${data.cheese.toLocaleString()} kg</div>
         </div>
       </div>
     `);
@@ -166,11 +171,11 @@ export default function FarmerDashboard() {
 
   const renderLegend = () => {
     const legends: Record<MapLayer, { color: string; label: string }[]> = {
-      cattle:  [{ color: '#2D5A27', label: '200+ heads' }, { color: '#5A8F4F', label: '150–200 heads' }, { color: '#8AB877', label: '100–150 heads' }, { color: '#B8D99F', label: 'Under 100 heads' }],
+      cattle: [{ color: '#2D5A27', label: '200+ heads' }, { color: '#5A8F4F', label: '150–200 heads' }, { color: '#8AB877', label: '100–150 heads' }, { color: '#B8D99F', label: 'Under 100 heads' }],
       disease: [{ color: '#D32F2F', label: 'High — Active outbreak' }, { color: '#FFA726', label: 'Medium — Suspected cases' }, { color: '#66BB6A', label: 'Low — No active cases' }],
-      milk:    [{ color: '#075985', label: '3,000+ L/mo' }, { color: '#0284c7', label: '2,000–3,000 L/mo' }, { color: '#38bdf8', label: '1,500–2,000 L/mo' }, { color: '#bae6fd', label: 'Under 1,500 L/mo' }],
-      meat:    [{ color: '#b91c1c', label: '1,000+ kg/mo' }, { color: '#dc2626', label: '750–1,000 kg/mo' }, { color: '#f87171', label: '500–750 kg/mo' }, { color: '#fecaca', label: 'Under 500 kg/mo' }],
-      cheese:  [{ color: '#92400e', label: '200+ kg/mo' }, { color: '#d97706', label: '150–200 kg/mo' }, { color: '#fbbf24', label: '100–150 kg/mo' }, { color: '#fde68a', label: 'Under 100 kg/mo' }],
+      milk: [{ color: '#075985', label: '3,000+ L/mo' }, { color: '#0284c7', label: '2,000–3,000 L/mo' }, { color: '#38bdf8', label: '1,500–2,000 L/mo' }, { color: '#bae6fd', label: 'Under 1,500 L/mo' }],
+      meat: [{ color: '#b91c1c', label: '1,000+ kg/mo' }, { color: '#dc2626', label: '750–1,000 kg/mo' }, { color: '#f87171', label: '500–750 kg/mo' }, { color: '#fecaca', label: 'Under 500 kg/mo' }],
+      // cheese: [{ color: '#92400e', label: '200+ kg/mo' }, { color: '#d97706', label: '150–200 kg/mo' }, { color: '#fbbf24', label: '100–150 kg/mo' }, { color: '#fde68a', label: 'Under 100 kg/mo' }],
     };
     return (
       <div className="space-y-1.5">
@@ -257,11 +262,10 @@ export default function FarmerDashboard() {
                 <button
                   key={layer}
                   onClick={() => setMapLayer(layer)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                    mapLayer === layer
-                      ? 'bg-[#2D5A27] text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${mapLayer === layer
+                    ? 'bg-[#2D5A27] text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   {LAYER_CONFIG[layer].icon} {LAYER_CONFIG[layer].label}
                 </button>
@@ -281,19 +285,12 @@ export default function FarmerDashboard() {
                       .barangay-tooltip::before { display: none; }
                       .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
                     `}</style>
-                    <MapContainer center={[13.8750, 121.2400]} zoom={14} style={{ height: '100%', width: '100%' }}>
-                      <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      />
-                      <GeoJSON
-                        key={`sr-${mapLayer}`}
-                        data={SAN_ROQUE_GEOJSON}
-                        style={getGeoJSONStyle}
-                        onEachFeature={onEachFeature}
-                      />
-                      <FitBounds />
-                    </MapContainer>
+                    {/* leaflet */}
+                    <LeafletMapUser
+                      mapLayer={mapLayer}
+                      SAN_ROQUE_GEOJSON={SAN_ROQUE_GEOJSON}
+                      getGeoJSONStyle={getGeoJSONStyle}
+                      onEachFeature={onEachFeature} />
                   </>
                 )}
               </div>
@@ -379,7 +376,7 @@ export default function FarmerDashboard() {
           </div>
         </div>
       </main>
-      <MobileNav/>
+      <MobileNav />
     </div>
   );
 }

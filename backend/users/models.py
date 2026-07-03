@@ -31,6 +31,8 @@ class Role(models.Model):
         MAO = "MAO", "Municipal Agriculturist Office"
         SIBAT = "SIBAT", "Sibat"
         ADMIN = "ADMIN", "Admin"
+        # Possible Future Roles
+        #
 
     role_name = models.CharField(max_length=20, choices=UserRoles.choices, unique=True)
 

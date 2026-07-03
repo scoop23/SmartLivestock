@@ -168,7 +168,9 @@ export default function GISMapPage() {
       case 'disease': return getDiseaseColor(data.diseaseRisk);
       case 'milk': return getMilkColor(data.milk);
       case 'meat': return getMeatColor(data.meat);
-      case 'cheese': return getCheeseColor(data.cheese);
+      // case 'cheese': return getCheeseColor(data.cheese);
+      // case 'movement': return getMovementColor(data); // Placeholder for movement layer color logic
+      default: return '#ccc';
     }
   };
 

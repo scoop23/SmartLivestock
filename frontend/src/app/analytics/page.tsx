@@ -186,13 +186,14 @@ export default function AnalyticsPage() {
                     <PieChart>
                       <Pie
                         data={mortalityByDisease}
+                        dataKey="cases"
+                        nameKey="disease"
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ disease, percentage }) => `${disease}: ${percentage}%`}
+                        label={({ name, percent = 0 }) => `${name}: ${percent}%`}
                         outerRadius={80}
                         fill="#8884d8"
-                        dataKey="cases"
                       >
                         {mortalityByDisease.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={['#D32F2F', '#F57C00', '#FBC02D', '#8BC34A'][index]} />
