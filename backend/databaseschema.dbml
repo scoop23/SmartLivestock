@@ -166,6 +166,7 @@ Table live_animal_sales {
   livestock_id integer [not null]
 
   quantity integer
+  sale_method varchar [note: "'Mata-Mata', 'Weighing', 'Other'"]
   total_live_weight decimal [note: 'combined weight of all animals sold this si optional']
   price_per_head decimal [note: 'Nullable - farmer may not always disclose']
   price_per_kg decimal [note: 'price per kilogram to get price, also optional']
@@ -180,6 +181,66 @@ Table live_animal_sales {
   reviewed_at timestamp
   review_remarks text
   created_by integer [not null]
+  created_at timestamp
+}
+
+Table livestock_inspections {
+  inspection_id integer [pk]
+
+  shipper_name varchar [not null]
+
+  destination varchar [not null]
+
+  purpose varchar [note: 'Breeding, Fattening, Slaughter, Unknown']
+
+  inspection_date date
+
+  created_by integer [not null]
+
+  created_at timestamp
+}
+
+Table livestock_inspection_items {
+  inspection_item_id integer [pk]
+
+  inspection_id integer [not null]
+
+  livestock_type_id integer [not null]
+
+  quantity integer [not null]
+
+  sex varchar [note: 'Male, Female, Mixed']
+
+  remarks text
+}
+
+Table livestock_inspection_clearances {
+  clearance_id integer [pk]
+
+  inspection_id integer [unique, not null]
+
+  control_number varchar [unique]
+
+  date_issued date
+  time_issued time
+
+  shipper_address varchar
+
+  origin varchar
+  destination varchar
+
+  vehicle_plate_no varchar
+
+  livestock_handler_license_no varchar
+
+  status varchar [note: 'Pending, Verified, Approved, Rejected']
+
+  issued_by integer [not null]
+
+  reviewed_by integer
+  reviewed_at timestamp
+  review_remarks text
+
   created_at timestamp
 }
 
@@ -378,3 +439,19 @@ Ref: alerts.barangay_id > barangays.barangay_id
 Ref: alerts.source_disease_case_id > disease_cases.disease_case_id
 Ref: notifications.alert_id > alerts.alert_id
 Ref: notifications.announcement_id > announcements.announcement_id
+// Ref: livestock_inspection_clearances.inspection_id > livestock_inspections.inspection_id
+// Ref: livestock_inspections.livestock_type_id > livestock_types.livestock_type_id
+// Ref: livestock_inspections.created_by > users.user_id
+// Ref: livestock_inspection_clearances.issued_by > users.user_id
+// Ref: livestock_inspection_clearances.reviewed_by > users.user_id
+Ref: livestock_inspections.created_by > users.user_id
+
+Ref: livestock_inspection_items.inspection_id > livestock_inspections.inspection_id
+
+Ref: livestock_inspection_items.livestock_type_id > livestock_types.livestock_type_id
+
+Ref: livestock_inspection_clearances.inspection_id > livestock_inspections.inspection_id
+
+Ref: livestock_inspection_clearances.issued_by > users.user_id
+
+Ref: livestock_inspection_clearances.reviewed_by > users.user_id

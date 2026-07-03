@@ -146,7 +146,7 @@ class SlaughterRecord(models.Model):
     )
 
 
-class LiveAnimalSale(models.Model):
+class LiveAnimalSale(models.Model):  # may be removed
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
@@ -249,123 +249,6 @@ class LiveAnimalSale(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="created_sale_records",
-    )
-
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-    )
-
-
-class LivestockInpection(models.Model):
-    class PurposeType(models.TextChoices):
-        BREEDING = "BREEDING", "Breeding"
-        FATTENING = "FATTENING", "Fattening"
-        SLAUGHTER = "SLAUGHTER", "Slaughter"
-        UNKNOWN = "UNKNOWN", "Unknown"
-
-    shipper_name = models.CharField(max_length=255)
-    livestock_type = models.ForeignKey(
-        "livestock.LivestockType", on_delete=models.PROTECT
-    )
-    quantity = models.PositiveIntegerField()
-    purpose = models.CharField(
-        max_length=100, choices=PurposeType.choices, default=PurposeType.UNKNOWN
-    )
-    destination = models.CharField(max_length=255)
-    inspection_date = models.DateField()
-    created_by = models.ForeignKey(
-        "users.User", on_delete=models.PROTECT, related_name="created_inspections"
-    )
-
-
-class MeatMovementRecord(models.Model):
-    class MeatType(models.TextChoices):
-        BEEF = "BEEF", "Beef"
-        CARABEEF = "CARABEEF", "Carabeef"
-        GOAT = "GOAT", "Goat"
-        PORK = "PORK", "Pork"
-
-    CHICKEN = "CHICKEN", "Chicken"
-
-    class StatusType(models.TextChoices):
-        PENDING = "PENDING", "Pending"
-        VERIFIED = "VERIFIED", "Verified"
-        APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
-
-    slaughter = models.ForeignKey(
-        "SlaughterRecord",
-        on_delete=models.PROTECT,
-        related_name="meat_movements",
-    )
-
-    origin_barangay = models.ForeignKey(
-        "livestock.Barangay", on_delete=models.PROTECT, related_name="outgoing_meat"
-    )
-
-    destination_barangay = models.ForeignKey(
-        "livestock.Barangay", on_delete=models.PROTECT, related_name="incoming_meat"
-    )
-
-    destination_name = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Optional name of the destination buyer or establishment.",
-    )
-
-    meat_type = models.CharField(
-        max_length=20,
-        choices=MeatType.choices,
-    )
-
-    weight_kg = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-    )
-
-    price_per_kg = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
-
-    total_price = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
-
-    movement_date = models.DateField()
-
-    status = models.CharField(
-        max_length=20,
-        choices=StatusType.choices,
-        default=StatusType.PENDING,
-    )
-
-    reviewed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="reviewed_meat_movements",
-        null=True,
-        blank=True,
-    )
-
-    reviewed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-    )
-
-    review_remarks = models.TextField(
-        blank=True,
-    )
-
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="created_meat_movements",
     )
 
     created_at = models.DateTimeField(
