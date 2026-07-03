@@ -256,6 +256,28 @@ class LiveAnimalSale(models.Model):
     )
 
 
+class LivestockInpection(models.Model):
+    class PurposeType(models.TextChoices):
+        BREEDING = "BREEDING", "Breeding"
+        FATTENING = "FATTENING", "Fattening"
+        SLAUGHTER = "SLAUGHTER", "Slaughter"
+        UNKNOWN = "UNKNOWN", "Unknown"
+
+    shipper_name = models.CharField(max_length=255)
+    livestock_type = models.ForeignKey(
+        "livestock.LivestockType", on_delete=models.PROTECT
+    )
+    quantity = models.PositiveIntegerField()
+    purpose = models.CharField(
+        max_length=100, choices=PurposeType.choices, default=PurposeType.UNKNOWN
+    )
+    destination = models.CharField(max_length=255)
+    inspection_date = models.DateField()
+    created_by = models.ForeignKey(
+        "users.User", on_delete=models.PROTECT, related_name="created_inspections"
+    )
+
+
 class MeatMovementRecord(models.Model):
     class MeatType(models.TextChoices):
         BEEF = "BEEF", "Beef"

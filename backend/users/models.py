@@ -31,6 +31,9 @@ class Role(models.Model):
         MAO = "MAO", "Municipal Agriculturist Office"
         SIBAT = "SIBAT", "Sibat"
         ADMIN = "ADMIN", "Admin"
+        AUCTION = "AUCTION", "Auction"
+        SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF", "SlaughterhouseStaff"
+
         # Possible Future Roles
         #
 
