@@ -69,14 +69,14 @@
       {
         "name": "slaughter_records",
         "schemaName": "public",
-        "x": 2397.8955078125,
-        "y": 1304
+        "x": 2543.4151816589947,
+        "y": 1188.8872726270386
       },
       {
         "name": "live_animal_sales",
         "schemaName": "public",
-        "x": 2397.8955078125,
-        "y": 1702
+        "x": 2423.9587329790365,
+        "y": 1654.2173584489597
       },
       {
         "name": "barangay_livestock_census",
@@ -125,6 +125,36 @@
         "schemaName": "public",
         "x": 2964.36865234375,
         "y": 346
+      },
+      {
+        "name": "permission",
+        "schemaName": "public",
+        "x": 12,
+        "y": 12
+      },
+      {
+        "name": "livestock_inspections",
+        "schemaName": "public",
+        "x": 1471.85888671875,
+        "y": 450
+      },
+      {
+        "name": "livestock_inspection_items",
+        "schemaName": "public",
+        "x": 2139.08740234375,
+        "y": 802
+      },
+      {
+        "name": "livestock_inspection_clearances",
+        "schemaName": "public",
+        "x": 2139.08740234375,
+        "y": 1072
+      },
+      {
+        "name": "alerts",
+        "schemaName": "public",
+        "x": 3471.38818359375,
+        "y": 938
       }
     ],
     "tableGroupCollapseStates": [],
