@@ -12,9 +12,29 @@ Table users {
   password_hash varchar [not null]
 
   account_status varchar [note: 'Pending, Approved, Rejected, Suspended']
-
+  phone_number integer
   created_at timestamp
   approved_at timestamp
+}
+
+Table user_documents {
+  document_id integer [pk]
+
+  user_id integer [not null, note: 'FK to users.user_id']
+
+  document_type varchar [not null, note: 'RSBSA, Government ID, Barangay Certificate, Other']
+
+  document_file varchar [not null, note: 'Path or filename of uploaded document']
+
+  verification_status varchar [default: 'Pending', note: 'Pending, Approved, Rejected']
+
+  approved_by integer [note: 'FK to users.user_id - MAO/Admin who verified the document']
+
+  uploaded_at timestamp
+
+  reviewed_at timestamp
+
+  review_remarks text
 }
 
 Table permission {
@@ -39,7 +59,6 @@ Table farmers {
   barangay_id integer [not null]
 
   address text
-  contact_no varchar
 
   registered_at timestamp
 }
@@ -455,3 +474,5 @@ Ref: livestock_inspection_clearances.inspection_id > livestock_inspections.inspe
 Ref: livestock_inspection_clearances.issued_by > users.user_id
 
 Ref: livestock_inspection_clearances.reviewed_by > users.user_id
+Ref: user_documents.user_id > users.user_id
+Ref: user_documents.approved_by > users.user_id

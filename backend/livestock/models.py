@@ -25,7 +25,6 @@ class Farmer(models.Model):
         "Barangay", on_delete=models.PROTECT, related_name="farmers"
     )
     address = models.TextField()
-    contact_no = PhoneNumberField(blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -16,6 +16,11 @@ class MyTokenSerialier(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
 
+        if self.user.account_status != User.AccountStatus.APPROVED:
+            raise serializers.ValidationError(
+                {"account_status": "Your account is not approved yet."}
+            )
+
         data["user"] = {
             "id": self.user.id,
             "email": self.user.email,

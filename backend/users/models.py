@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
+
 
 # Create your models here.
 class User(AbstractUser):
@@ -17,6 +19,7 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     role = models.ForeignKey("Role", on_delete=models.PROTECT)
+    phone_number = PhoneNumberField(blank=True, null=True)
 
     def __str__(self):
         user_pk = self.pk if self.pk else "New"
@@ -35,9 +38,48 @@ class Role(models.Model):
         SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF", "SlaughterhouseStaff"
 
         # Possible Future Roles
-        #
 
     role_name = models.CharField(max_length=20, choices=UserRoles.choices, unique=True)
 
     def __str__(self):
         return self.role_name
+
+
+class UserDocument(models.Model):
+    class DocumentType(models.TextChoices):
+        RSBSA = "RSBSA", "RSBSA Certificate"
+        GOVERNMENT_ID = "GOVERNMENT_ID", "Government ID"
+        BARANGAY_CERTIFICATE = (
+            "BARANGAY_CERTIFICATE",
+            "Barangay Certificate",
+        )
+        OTHER = "OTHER", "Other"
+
+    class VerificationStatus(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
+    verification_status = models.CharField(
+        max_length=20,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.PENDING,
+    )
+
+    approved_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_users",
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="documents")
+    document_type = models.CharField(
+        max_length=20, choices=DocumentType.choices, default=DocumentType.OTHER
+    )
+    document_file = models.FileField(upload_to="user_documents/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.document_type}"
