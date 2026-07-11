@@ -58,7 +58,7 @@ export default function FarmerRegistrationPage() {
         password: formData.password,
         first_name: firstName,
         last_name: lastName,
-        phone_number: formData.phoneNumber,
+        phone_number: `+63${formData.phoneNumber}`,
         barangay: formData.barangay,
         farm_size: formData.farmSize,
         address: formData.address,
@@ -163,9 +163,13 @@ export default function FarmerRegistrationPage() {
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Farm Size (Hectares)</label>
                 <input type="number" step="0.1" placeholder="1.5" value={formData.farmSize} onChange={e => setFormData({ ...formData, farmSize: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] text-sm" required />
               </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Address</label>
+                <input type="text" placeholder="Street, sitio, or lot number" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] text-sm" required />
+              </div>
               <div className="flex gap-2">
                 <button type="button" onClick={prevStep} className="flex-1 border border-gray-200 py-4 rounded-2xl font-bold text-gray-500">Back</button>
-                <button type="button" onClick={nextStep} className="flex-2 bg-[#2D5A27] text-white py-4 rounded-2xl font-bold shadow-lg">Next: Documents</button>
+                <button type="button" onClick={nextStep} className="flex-[2] bg-[#2D5A27] text-white py-4 rounded-2xl font-bold shadow-lg">Next: Documents</button>
               </div>
             </div>
           )}
