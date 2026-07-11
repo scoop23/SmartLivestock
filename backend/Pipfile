@@ -11,6 +11,7 @@ django-phonenumber-field = "*"
 phonenumbers = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
+django-types = "*"
 
 [dev-packages]
 mypy = "*"

@@ -59,6 +59,7 @@ Table farmers {
   barangay_id integer [not null]
 
   address text
+  farm_size decimal
 
   registered_at timestamp
 }

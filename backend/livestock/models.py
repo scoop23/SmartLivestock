@@ -24,6 +24,7 @@ class Farmer(models.Model):
     barangay = models.ForeignKey(
         "Barangay", on_delete=models.PROTECT, related_name="farmers"
     )
+    farm_size = models.DecimalField(max_digits=6, decimal_places=2)
     address = models.TextField()
     registered_at = models.DateTimeField(auto_now_add=True)
 

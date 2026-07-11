@@ -1,6 +1,8 @@
 from rest_framework import serializers  # type: ignore
 from users.models import User, Role
+from livestock.models import Farmer
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  # type: ignore
+from django.db import transaction
 
 
 class MyTokenSerialier(TokenObtainPairSerializer):
@@ -31,8 +33,6 @@ class MyTokenSerialier(TokenObtainPairSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
     class Meta:
         model = User
         fields = (
@@ -41,8 +41,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             "password",
             "first_name",
             "last_name",
+            "phone_number",
         )
 
+    password = serializers.CharField(write_only=True)
+
+    @transaction.atomic
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data["username"],
@@ -50,6 +54,14 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data["password"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
+            phone_number=validated_data.get("phone_number", ""),
+        )
+
+        farmer = Farmer.objects.create(
+            user=user,
+            barangay=validated_data["barangay"],
+            farm_size=validated_data["farm_size"],
+            address=validated_data["address"],
         )
 
         user.account_status = User.AccountStatus.PENDING

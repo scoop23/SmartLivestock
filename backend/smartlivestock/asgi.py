@@ -8,9 +8,9 @@ https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
 """
 
 import os
-
+import django_stubs_ext
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'smartlivestock.settings')
-
+django_stubs_ext.monkeypatch()
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "smartlivestock.settings")
 application = get_asgi_application()
