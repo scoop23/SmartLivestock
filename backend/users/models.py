@@ -5,6 +5,9 @@ from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
 
 # Create your models here.
 class User(AbstractUser):
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username"]
+
     class AccountStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         APPROVED = "APPROVED", "Approved"
@@ -36,8 +39,6 @@ class Role(models.Model):
         ADMIN = "ADMIN", "Admin"
         AUCTION = "AUCTION", "Auction"
         SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF", "SlaughterhouseStaff"
-
-        # Possible Future Roles
 
     role_name = models.CharField(max_length=20, choices=UserRoles.choices, unique=True)
 

@@ -2,7 +2,7 @@
 import api from '@/lib/axios';
 import axios from 'axios';
 
-import { useState } from 'react';
+import React, { useState, useRef, ChangeEventHandler } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   User,
@@ -33,6 +33,34 @@ export default function FarmerRegistrationPage() {
 
   const [barangays, setBarangays] = useState([]);
 
+  // const [documents, setDocuments] = useState<{
+  //   governmentId: File | null;
+  //   landTitle: File | null;
+  // }>({ governmentId: null, landTitle: null });
+  //
+  // const [previews, setPreviews] = useState<{
+  //   governmentId: string;
+  //   landTitle: string;
+  // }>({ governmentId: '', landTitle: '' });
+  //
+  // const govIdRef = useRef<HTMLInputElement>(null);
+  // const landTitleRef = useRef<HTMLInputElement>(null);
+  //
+
+  const [documents, setDocuments] = useState<{
+    governmentId: File | null;
+    rsbsa: File | null;
+  }>({ governmentId: null, rsbsa: null });
+
+  const [previews, setPreviews] = useState<{
+    governmentId: string;
+    rsbsa: string;
+  }>({ governmentId: '', rsbsa: '' });
+
+  const govIdRef = useRef<HTMLInputElement>(null); // sets unchanged variable
+  const rsbsaRef = useRef<HTMLInputElement>(null);
+
+
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +73,35 @@ export default function FarmerRegistrationPage() {
     setStep(step - 1);
   };
 
-  // // Get barangays
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, key: 'governmentId' | 'rsbsa') => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError('Only image files (JPG, PNG) are allowed');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File size must be 5MB or less");
+      return;
+    }
+
+    setError('');
+    setDocuments(prev => ({ ...prev, [key]: file }));
+    setPreviews(prev => ({ ...prev, [key]: URL.createObjectURL(file) }));
+  };
+
+  const removeDocument = (key: 'governmentId' | 'rsbsa') => {
+    if (previews[key]) URL.revokeObjectURL(previews[key]);
+    setDocuments(prev => ({ ...prev, [key]: null }));
+    setPreviews(prev => ({ ...prev, [key]: '' }));
+  };
+
+
+  // Get barangays
   // useEffect(() => {
   //   api.get("/")
   // },[])
@@ -192,21 +248,53 @@ export default function FarmerRegistrationPage() {
                 <FileText className="w-5 h-5 text-[#2D5A27]" /> Required Documents
               </h3>
 
-              {/* Document Slots */}
-              {['Government ID', 'Land Title / Lease'].map((doc) => (
-                <div key={doc} className="p-4 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-between hover:border-[#2D5A27] transition-colors cursor-pointer group">
+              {/* Government ID Upload */}
+              <input ref={govIdRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={e => handleFileSelect(e, 'governmentId')} />
+              {previews.governmentId ? (
+                <div className="relative border-2 border-[#2D5A27] rounded-2xl overflow-hidden">
+                  <img src={previews.governmentId} alt="Government ID" className="w-full h-40 object-cover" />
+                  <button type="button" onClick={() => removeDocument('governmentId')} className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow hover:bg-red-700 transition-colors">
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div onClick={() => govIdRef.current?.click()} className="p-4 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-between hover:border-[#2D5A27] transition-colors cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-green-50">
                       <Camera className="w-5 h-5 text-gray-400 group-hover:text-[#2D5A27]" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-gray-700">{doc}</p>
+                      <p className="text-xs font-bold text-gray-700">Government ID</p>
                       <p className="text-[10px] text-gray-400">Click to upload photo</p>
                     </div>
                   </div>
                   <Upload className="w-4 h-4 text-gray-300" />
                 </div>
-              ))}
+              )}
+
+              {/* Land Title / Lease Upload */}
+              <input ref={rsbsaRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={e => handleFileSelect(e, 'rsbsa')} />
+              {previews.rsbsa ? (
+                <div className="relative border-2 border-[#2D5A27] rounded-2xl overflow-hidden">
+                  <img src={previews.rsbsa} alt="Land Title / Lease" className="w-full h-40 object-cover" />
+                  <button type="button" onClick={() => removeDocument('rsbsa')} className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow hover:bg-red-700 transition-colors">
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div onClick={() => rsbsaRef.current?.click()} className="p-4 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-between hover:border-[#2D5A27] transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-green-50">
+                      <Camera className="w-5 h-5 text-gray-400 group-hover:text-[#2D5A27]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-700">RSBSA Form</p>
+                      <p className="text-[10px] text-gray-400">Click to upload photo</p>
+                    </div>
+                  </div>
+                  <Upload className="w-4 h-4 text-gray-300" />
+                </div>
+              )}
 
               <div className="flex items-start gap-2 bg-blue-50 p-4 rounded-2xl">
                 <ShieldCheck className="w-8 h-8 text-blue-600" />

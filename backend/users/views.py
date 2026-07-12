@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from django.views import View
 from rest_framework_simplejwt.views import TokenObtainPairView  # type: ignore
 from .serializer import MyTokenSerialier, RegisterSerializer
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView  # type: ignore
 # Create your views here.
 
 
@@ -16,7 +16,7 @@ class HelloView(View):
         return HttpResponse("Hello, World!")
 
 
-class MyTokenView(MyTokenSerialier):
+class MyTokenView(TokenObtainPairView):
     serializer_class = MyTokenSerialier
 
 

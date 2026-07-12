@@ -1,6 +1,6 @@
 ﻿import type { ReactNode } from "react";
 
-type PageHeaderVariant = "admin" | "farmer" | "sibat";
+type PageHeaderVariant = "admin" | "farmer" | "sibat" | "auction";
 
 interface PageHeaderProps {
   title: ReactNode;
@@ -18,12 +18,14 @@ const variantClasses: Record<PageHeaderVariant, string> = {
   admin: "bg-white text-gray-900 border-b border-gray-200",
   farmer: "bg-[#2D5A27] text-white shadow-lg",
   sibat: "bg-[#1A365D] text-white shadow-lg",
+  auction: "bg-[#7C3AED] text-white shadow-lg",
 };
 
 const subtitleClasses: Record<PageHeaderVariant, string> = {
   admin: "text-gray-600",
   farmer: "text-white/85",
   sibat: "text-white/75",
+  auction: "text-white/75",
 };
 
 export function PageHeader({

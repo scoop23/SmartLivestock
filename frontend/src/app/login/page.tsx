@@ -3,6 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sprout } from 'lucide-react';
+import api from '../../lib/axios';
+import { jwtDecode } from 'jwt-decode';
+
+interface DecodedJWT {
+  email: string
+  role: "ADMIN" | "FARMER" | "SIBAT" | "AUCTION" | "SLAUGHTERHOUSESTAFF"
+}
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,18 +22,55 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    // Mock login delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      const response = await api.post("/token/", {
+        email: email,
+        password: password
+      })
 
-    // Route based on email
-    if (email.includes('admin')) {
-      router.push('/admin');  
-    } else if (email.includes('lgu')) {
-      router.push('/sibat');
-    } else {
-      router.push('/farmer');
+      const { access, refresh } = response.data;
+
+      const decoded: DecodedJWT = jwtDecode(access);
+      localStorage.setItem("access", access);
+      localStorage.setItem("refresh", refresh);
+      console.log(decoded)
+      if (decoded.role === "ADMIN") {
+        router.push("/admin");
+      } else if (decoded.role === "FARMER") {
+        router.push("/farmer");
+      } else if (decoded.role === "SIBAT") {
+        router.push("/sibat");
+      } else if (decoded.role === "AUCTION") {
+        router.push("/auction");
+      }
+    } catch (err: any) {
+
+      const data = err.response?.data;
+
+      if (data?.account_status) {
+        router.push("/pending");
+        return;
+      }
+
+      console.log("STATUS:", err.response?.status);
+      console.log("DATA:", err.response?.data);
+    } finally {
+      setLoading(false);
     }
+
+    // Mock login delay
+    // await new Promise(resolve => setTimeout(resolve, 500));
+    //
+    // // Route based on email
+    // if (email.includes('admin')) {
+    //   router.push('/admin');
+    // } else if (email.includes('lgu')) {
+    //   router.push('/sibat');
+    // } else {
+    //   router.push('/farmer');
+    // }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -41,7 +86,7 @@ export default function LoginPage() {
           </div>
           <h2 className="text-2xl mb-4 text-white">AI-Driven Livestock Information & Production Analytics System</h2>
           <p className="text-white/90 mb-6">
-            Comprehensive livestock management for Padre Garcia, Batangas. 
+            Comprehensive livestock management for Padre Garcia, Batangas.
             Track cattle inventory, monitor health, analyze production, and receive AI-powered insights.
           </p>
           <div className="space-y-3 text-sm">

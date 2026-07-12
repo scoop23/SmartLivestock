@@ -11,7 +11,7 @@ class MyTokenSerialier(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
-        token["role"] = user.role
+        token["role"] = user.role.role_name
         token["email"] = user.email
 
         return token
@@ -27,7 +27,7 @@ class MyTokenSerialier(TokenObtainPairSerializer):
         data["user"] = {
             "id": self.user.id,
             "email": self.user.email,
-            "role": self.user.role,
+            "role": self.user.role.role_name,
         }
 
         return data
@@ -36,7 +36,7 @@ class MyTokenSerialier(TokenObtainPairSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = (
+        fields = (  # required fields that the serializer read
             "email",
             "password",
             "first_name",
@@ -59,7 +59,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=255, required=True, allow_blank=False, write_only=True
     )
 
-    @transaction.atomic
+    @transaction.atomic  # added decorator for python so that when FARMER table creation fails, the other table will also fail even if they fit the fields
     def create(self, validated_data):
         farmer_role = Role.objects.get(role_name=Role.UserRoles.FARMER)
 

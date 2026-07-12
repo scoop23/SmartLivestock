@@ -16,7 +16,7 @@ import {
 import { useState } from 'react';
 
 interface SidebarProps {
-  role: 'farmer' | 'lgu' | 'sibat';
+  role: 'farmer' | 'lgu' | 'sibat' | 'auction';
   onLogout: () => void;
 }
 
@@ -56,11 +56,18 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
     { path: '/sibat-announcement', label: 'Annnouncement', icon: LayoutDashboard },
   ]
 
+  const auctionLinks = [
+    { path: '/auction', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/auction-inspections', label: 'Inspections', icon: CheckSquare },
+    { path: '/auction-announcement', label: 'Announcements', icon: BarChart3 },
+  ];
+
   //  { path: '/alerts', label: 'Alerts', icon: CheckSquare },
 
   const links = () => {
     if (role === 'farmer') return farmerLinks
     else if (role === 'sibat') return sibatLinks
+    else if (role === 'auction') return auctionLinks
     else return adminLinks
   }
   const logoutLink = { path: '/login', label: 'logout' };

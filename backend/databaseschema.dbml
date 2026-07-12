@@ -1,3 +1,4 @@
+
 Table roles {
   role_id integer [pk]
   role_name varchar [unique]
@@ -264,20 +265,38 @@ Table livestock_inspection_clearances {
   created_at timestamp
 }
 
-Table barangay_livestock_census {
-  census_id integer [pk]
+Table census_submission_items {
+    census_item_id integer [pk]
 
-  barangay_id integer
-  livestock_type_id integer
+    submission_id integer [not null]
 
-  total_population integer
+    livestock_type_id integer [not null]
 
-  census_date date
+    total_population integer [not null]
+}
 
-  submitted_by integer
+Table census_submissions {
+  submission_id integer [pk]
+
+  barangay_id integer [not null]
+
+  // reporting_period varchar [not null, note: 'e.g. Q1-2026, Q2-2026']
+  report_year integer [not null]
+
+  report_quarter integer [not null, note: '1, 2, 3, 4']
+  submitted_by integer [not null]
+
+  submission_date date
+
   status varchar [note: 'Pending, Verified, Approved, Rejected']
+
   reviewed_by integer
+
   reviewed_at timestamp
+
+  review_remarks text
+
+  created_at timestamp
 }
 
 Table announcements {
@@ -443,9 +462,8 @@ Ref: analytics_predictions.livestock_type_id > livestock_types.livestock_type_id
 
 Ref: analytics_insights.barangay_id > barangays.barangay_id
 Ref: analytics_insights.livestock_type_id > livestock_types.livestock_type_id
-Ref: barangay_livestock_census.barangay_id > barangays.barangay_id
-Ref: barangay_livestock_census.livestock_type_id > livestock_types.livestock_type_id
-Ref: barangay_livestock_census.submitted_by > users.user_id
+// Ref: barangay_livestock_census.barangay_id > barangays.barangay_id
+// Ref: barangay_livestock_census.submitted_by > users.user_id
 Ref: analytics_recommendations.barangay_id > barangays.barangay_id
 Ref: analytics_recommendations.livestock_type_id > livestock_types.livestock_type_id
 Ref: analytics_recommendations.related_prediction_id > analytics_predictions.prediction_id
@@ -477,3 +495,13 @@ Ref: livestock_inspection_clearances.issued_by > users.user_id
 Ref: livestock_inspection_clearances.reviewed_by > users.user_id
 Ref: user_documents.user_id > users.user_id
 Ref: user_documents.approved_by > users.user_id
+Ref: census_submissions.barangay_id > barangays.barangay_id
+
+Ref: census_submissions.submitted_by > users.user_id
+
+Ref: census_submissions.reviewed_by > users.user_id
+
+Ref: census_submission_items.submission_id > census_submissions.submission_id
+Ref: census_submission_items.livestock_type_id > livestock_types.livestock_type_id
+
+
