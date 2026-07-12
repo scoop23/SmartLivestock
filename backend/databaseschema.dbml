@@ -270,33 +270,32 @@ Table census_submission_items {
 
     submission_id integer [not null]
 
+    farmer_id integer [not null]
+
     livestock_type_id integer [not null]
 
-    total_population integer [not null]
+    number_of_heads integer [not null]
 }
 
 Table census_submissions {
-  submission_id integer [pk]
+    submission_id integer [pk]
 
-  barangay_id integer [not null]
+    barangay_id integer [not null]
 
-  // reporting_period varchar [not null, note: 'e.g. Q1-2026, Q2-2026']
-  report_year integer [not null]
+    report_year integer
+    report_quarter integer
 
-  report_quarter integer [not null, note: '1, 2, 3, 4']
-  submitted_by integer [not null]
+    submitted_by integer
 
-  submission_date date
+    submission_date date
 
-  status varchar [note: 'Pending, Verified, Approved, Rejected']
+    status varchar
 
-  reviewed_by integer
+    reviewed_by integer
+    reviewed_at timestamp
+    review_remarks text
 
-  reviewed_at timestamp
-
-  review_remarks text
-
-  created_at timestamp
+    created_at timestamp
 }
 
 Table announcements {
@@ -503,5 +502,8 @@ Ref: census_submissions.reviewed_by > users.user_id
 
 Ref: census_submission_items.submission_id > census_submissions.submission_id
 Ref: census_submission_items.livestock_type_id > livestock_types.livestock_type_id
+
+Ref: census_submission_items.farmer_id > farmers.farmer_id
+
 
 
