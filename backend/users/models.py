@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-
 from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
 
 
@@ -16,6 +15,7 @@ class User(AbstractUser):
         max_length=20, choices=AccountStatus.choices, default=AccountStatus.PENDING
     )
     email = models.EmailField(unique=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     role = models.ForeignKey("Role", on_delete=models.PROTECT)
@@ -82,4 +82,4 @@ class UserDocument(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.document_type}"
+        return f"{self.user.email} - {self.document_type}"

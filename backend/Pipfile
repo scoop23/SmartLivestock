@@ -12,6 +12,7 @@ phonenumbers = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
 django-types = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 mypy = "*"

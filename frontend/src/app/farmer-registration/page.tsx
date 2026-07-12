@@ -20,7 +20,8 @@ export default function FarmerRegistrationPage() {
   const router = useRouter();
   // set state for the info
   const [formData, setFormData] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     phoneNumber: "",
@@ -29,6 +30,8 @@ export default function FarmerRegistrationPage() {
     farmSize: "",
     address: ""
   })
+
+  const [barangays, setBarangays] = useState([]);
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,29 +45,30 @@ export default function FarmerRegistrationPage() {
     setStep(step - 1);
   };
 
+  // // Get barangays
+  // useEffect(() => {
+  //   api.get("/")
+  // },[])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
-
-    const nameParts = formData.fullName.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
 
     try {
       await api.post('/users/register/', {
         username: formData.email,
         email: formData.email,
         password: formData.password,
-        first_name: firstName,
-        last_name: lastName,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
         phone_number: `+63${formData.phoneNumber}`,
-        barangay: formData.barangay,
+        barangay: Number(formData.barangay),
         farm_size: formData.farmSize,
         address: formData.address,
       });
 
-      router.push('/login?registered=true');
+      router.push('/pending');
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
         const data = err.response.data;
@@ -117,10 +121,17 @@ export default function FarmerRegistrationPage() {
               <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
                 <User className="w-5 h-5 text-[#2D5A27]" /> Personal Identity
               </h3>
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Full Name</label>
-                <input type="text" placeholder="Juan Dela Cruz" value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] text-sm" required />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">First Name</label>
+                  <input type="text" placeholder="Juan" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })}
+                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] text-sm" required />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Last Name</label>
+                  <input type="text" placeholder="Dela Cruz" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })}
+                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] text-sm" required />
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Email Address</label>
@@ -155,9 +166,9 @@ export default function FarmerRegistrationPage() {
               </h3>
               <select className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] text-sm" value={formData.barangay} onChange={e => setFormData({ ...formData, barangay: e.target.value })} required>
                 <option value="">Select Barangay</option>
-                <option value="Barangay Bukal">Barangay Bukal</option>
-                <option value="Barangay Ipilan">Barangay Ipilan</option>
-                <option value="Barangay May-it">Barangay May-it</option>
+                <option value="1">Barangay Banaba</option>
+                <option value="2">Barangay Bukal</option>
+                {/* <option value="Barangay May-it">Barangay May-it</option> */}
               </select>
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Farm Size (Hectares)</label>
@@ -169,7 +180,7 @@ export default function FarmerRegistrationPage() {
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={prevStep} className="flex-1 border border-gray-200 py-4 rounded-2xl font-bold text-gray-500">Back</button>
-                <button type="button" onClick={nextStep} className="flex-[2] bg-[#2D5A27] text-white py-4 rounded-2xl font-bold shadow-lg">Next: Documents</button>
+                <button type="button" onClick={nextStep} className="flex-2 bg-[#2D5A27] text-white py-4 rounded-2xl font-bold shadow-lg">Next: Documents</button>
               </div>
             </div>
           )}
@@ -204,6 +215,7 @@ export default function FarmerRegistrationPage() {
                 </p>
               </div>
 
+              {/* ERROR MESSAGE */}
               {error && (
                 <div className="flex items-start gap-2 bg-red-50 p-4 rounded-2xl">
                   <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -212,11 +224,12 @@ export default function FarmerRegistrationPage() {
               )}
 
               <div className="flex gap-2 pt-4">
+                {/* CONFIRMATION BUTTONS */}
                 <button type="button" onClick={prevStep} className="flex-1 border border-gray-200 py-4 rounded-2xl font-bold text-gray-500">Back</button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-[2] bg-[#2D5A27] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3d1a] disabled:bg-gray-300 transition-all"
+                  className="flex-2 bg-[#2D5A27] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3d1a] disabled:bg-gray-300 transition-all"
                 >
                   {isSubmitting ? 'Verifying...' : 'Finish Registration'}
                 </button>
