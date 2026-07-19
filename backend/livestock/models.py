@@ -95,3 +95,14 @@ class LivestockInventory(models.Model):
 
     def __str__(self):
         return f"{self.farmer}, with User {self.farmer.user.account_status} - {self.livestock_type} ({self.quantity})"
+
+
+class CensusSubmission(models.Model):
+    class StatusType(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
+    barangay = models.ForeignKey(
+        Barangay, on_delete=models.PROTECT, related_name="barangay_census_submission"
+    )

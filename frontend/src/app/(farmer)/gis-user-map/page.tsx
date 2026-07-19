@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import MobileNav from "@/app/components/mobilenav";
 import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
+import { Icon } from 'lucide-react';
+import { cowHead } from '@lucide/lab';
 // const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
 // const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
 // const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
@@ -107,10 +109,10 @@ export default function FarmerDashboard() {
   const riskColor = data.diseaseRisk === 'high' ? '#D32F2F' : data.diseaseRisk === 'medium' ? '#e67e22' : '#27ae60';
 
   const myStats = [
-    { label: 'My Cattle', value: '24', icon: Sprout, color: 'bg-[#2D5A27]' },
-    { label: 'Avg. Daily Milk', value: '18.5L', icon: TrendingUp, color: 'bg-blue-600' },
-    { label: 'Active Alerts', value: '1', icon: AlertTriangle, color: 'bg-[#D32F2F]' },
-    { label: 'This Month Sales', value: '₱45,600', icon: Package, color: 'bg-green-600' },
+    { label: 'My Cattle', value: '24', icon: <Icon iconNode={cowHead} className="w-5 h-5" />, color: 'bg-[#2D5A27]' },
+    { label: 'Avg. Daily Milk', value: '18.5L', icon: <TrendingUp className="w-5 h-5" />, color: 'bg-blue-600' },
+    { label: 'Active Alerts', value: '1', icon: <AlertTriangle className="w-5 h-5" />, color: 'bg-[#D32F2F]' },
+    { label: 'This Month Sales', value: '₱45,600', icon: <Package className="w-5 h-5" />, color: 'bg-green-600' },
   ];
 
   const recentAlerts = [
@@ -213,11 +215,11 @@ export default function FarmerDashboard() {
           {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {myStats.map((stat) => {
-              const Icon = stat.icon;
               return (
                 <div key={stat.label} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                   <div className={`${stat.color} text-white p-2 rounded-lg inline-block mb-3`}>
-                    <Icon className="w-5 h-5" />
+                    {/* <Icon className="w-5 h-5" /> */}
+                    {stat.icon}
                   </div>
                   <p className="text-xl mb-1 font-bold">{stat.value}</p>
                   <p className="text-xs text-gray-600">{stat.label}</p>

@@ -45,18 +45,22 @@ export function PageHeader({
     <header className={`${variantClasses[variant]} ${sticky ? "sticky top-0 z-20" : ""} ${className}`}>
       <div className={`${maxWidthClass} mx-auto py-4 pr-4 ${offsetClass} md:py-6`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              {icon ? <span className="shrink-0">{icon}</span> : null}
-              <h1 className="min-w-0 wrap-break-word text-xl font-bold leading-tight sm:text-2xl">{title}</h1>
+          <div className="w-full flex justify-between">
+            <div className="flex flex-col min-w-0 items-start gap-1.5">
+              <div className="flex gap-2">
+                {icon ? <span className="shrink-0">{icon}</span> : null}
+                <h1 className="min-w-0 wrap-break-word text-xl font-bold leading-tight sm:text-2xl">{title}</h1>
+              </div>
+              {subtitle ? (
+                <p className={`mt-1 text-sm leading-5 sm:text-base ${subtitleClasses[variant]}`}>
+                  {subtitle}
+                </p>
+              ) : null}
+
             </div>
-            {subtitle ? (
-              <p className={`mt-1 text-sm leading-5 sm:text-base ${subtitleClasses[variant]}`}>
-                {subtitle}
-              </p>
-            ) : null}
+
+            {action ? <div className="shrink-0 self-center sm:self-center">{action}</div> : null}
           </div>
-          {action ? <div className="shrink-0 self-start sm:self-center">{action}</div> : null}
         </div>
       </div>
     </header>

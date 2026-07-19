@@ -23,6 +23,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // request token from the backend
       const response = await api.post("/token/", {
         email: email,
         password: password

@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import MobileNav from "@/app/components/mobilenav";
 import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
-import { 
-  Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus, 
-  Stethoscope, MessageSquare, X, Camera, Send 
+import { Icon } from 'lucide-react';
+import { cowHead } from '@lucide/lab';
+import {
+  Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus,
+  Stethoscope, MessageSquare, X, Camera, Send
 } from 'lucide-react';
 
 export default function FarmerDashboard() {
@@ -16,12 +18,31 @@ export default function FarmerDashboard() {
   const [reportType, setReportType] = useState('behavior'); // behavior, disease, injury
 
   const myStats = [
-    { label: 'My Cattle', value: '24', icon: Sprout, color: 'bg-[#2D5A27]' },
-    { label: 'Avg. Meat (Katay)', value: '122 kg', icon: TrendingUp, color: 'bg-blue-600' },
-    { label: 'Active Alerts', value: '1', icon: AlertTriangle, color: 'bg-[#D32F2F]' },
-    { label: 'This Month Sales', value: '₱45,600', icon: Package, color: 'bg-green-600' },
+    {
+      label: 'My Cattle',
+      value: '24',
+      icon: <Icon iconNode={cowHead} className="w-5 h-5" />,
+      color: 'bg-[#2D5A27]',
+    },
+    {
+      label: 'Avg. Meat (Katay)',
+      value: '122 kg',
+      icon: <TrendingUp className="w-5 h-5" />,
+      color: 'bg-blue-600',
+    },
+    {
+      label: 'Active Alerts',
+      value: '1',
+      icon: <AlertTriangle className="w-5 h-5" />,
+      color: 'bg-[#D32F2F]',
+    },
+    {
+      label: 'This Month Sales',
+      value: '₱45,600',
+      icon: <Package className="w-5 h-5" />,
+      color: 'bg-green-600',
+    },
   ];
-
   const recentAlerts = [
     {
       id: 1,
@@ -37,7 +58,7 @@ export default function FarmerDashboard() {
       <div className="hidden md:block">
         <Sidebar role="farmer" onLogout={() => router.push('/')} />
       </div>
-      
+
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <PageHeader
           title="Welcome, Juan!"
@@ -56,11 +77,10 @@ export default function FarmerDashboard() {
           {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {myStats.map((stat) => {
-              const Icon = stat.icon;
               return (
                 <div key={stat.label} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                   <div className={`${stat.color} text-white p-2.5 rounded-xl inline-block mb-3`}>
-                    <Icon className="w-5 h-5" />
+                    {stat.icon}
                   </div>
                   <p className="text-2xl font-black text-gray-800">{stat.value}</p>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{stat.label}</p>
@@ -72,7 +92,7 @@ export default function FarmerDashboard() {
           {/* Quick Actions - Enhanced with Health Report */}
           <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 mb-8">
             <h3 className="mb-5 font-bold text-gray-800 flex items-center gap-2">
-              <Sprout className="w-5 h-5 text-[#2D5A27]" /> 
+              <Icon iconNode={cowHead} className="w-5 h-5 text=[#2D5A27]" />
               Farm Management
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -85,7 +105,7 @@ export default function FarmerDashboard() {
                 </div>
                 <span className="text-xs font-black uppercase tracking-widest text-gray-600">Add Cattle</span>
               </button>
-              
+
               <button
                 onClick={() => router.push('/production-logger')}
                 className="group flex flex-col items-center gap-3 p-5 bg-gray-50 rounded-2xl border border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-xl transition-all"
@@ -172,9 +192,8 @@ export default function FarmerDashboard() {
                   <button
                     key={t}
                     onClick={() => setReportType(t)}
-                    className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all ${
-                      reportType === t ? 'bg-[#2D5A27] text-white shadow-lg shadow-green-900/20' : 'bg-gray-100 text-gray-400'
-                    }`}
+                    className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all ${reportType === t ? 'bg-[#2D5A27] text-white shadow-lg shadow-green-900/20' : 'bg-gray-100 text-gray-400'
+                      }`}
                   >
                     {t}
                   </button>
@@ -194,7 +213,7 @@ export default function FarmerDashboard() {
 
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Describe Observation</label>
-                  <textarea 
+                  <textarea
                     placeholder="e.g. Unusual limping, not eating, or aggressive behavior..."
                     className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm font-bold outline-none ring-1 ring-gray-100 focus:ring-2 focus:ring-[#2D5A27] min-h-[100px]"
                   />
@@ -208,7 +227,7 @@ export default function FarmerDashboard() {
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={() => {
                   alert("Report sent to Municipal Vet & SIBAT Officer");
                   setIsReportModalOpen(false);

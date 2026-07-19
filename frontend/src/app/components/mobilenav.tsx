@@ -1,6 +1,9 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'; // Changed from 'react-router'
-import { Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus } from 'lucide-react';
+import { Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus, Megaphone, Calendar } from 'lucide-react';
+import { Icon } from 'lucide-react';
+import { cowHead } from '@lucide/lab';
+import GisGlobePoi from '@/components/icons/GisGlobePoi';
 
 export default function MobileNav() {
   const router = useRouter();
@@ -11,7 +14,7 @@ export default function MobileNav() {
           onClick={() => router.push('/farmer')}
           className="flex flex-col items-center gap-1 text-[#2D5A27]"
         >
-          <Sprout className="w-6 h-6" />
+          <Icon iconNode={cowHead} />
           <span className="text-xs">Home</span>
         </button>
 
@@ -43,18 +46,21 @@ export default function MobileNav() {
           onClick={() => router.push('/gis-user-map')}
           className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
         >
+          <GisGlobePoi />
           <span className="text-xs">GIS</span>
         </button>
         <button
           onClick={() => router.push('/farmer-announcement')}
           className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
         >
+          <Megaphone />
           <span className="text-xs">Announcement</span>
         </button>
         <button
           onClick={() => router.push('/farmer-scheduling')}
           className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
         >
+          <Calendar />
           <span className="text-xs">Scheduling</span>
         </button>
       </div>
