@@ -20,6 +20,14 @@ from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView  # type: ignore
 from users.views import MyTokenView  # type: ignore
 
+# API URL routing:
+#   /admin/         → Django admin panel
+#   /api/users/     → User registration, health check endpoints
+#   /api/token/     → Login (returns JWT access + refresh tokens)
+#   /api/token/refresh → Refresh an expired access token
+#
+# TODO: Add routes for livestock, production, diseases, movements apps
+#   e.g. path("api/livestock/", include("livestock.urls"))
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("users.urls")),

@@ -3,9 +3,9 @@ from django.conf import settings
 from django.db.models.fields import related
 
 
-# Create your models here.
-
-
+# Reports a disease outbreak affecting a farmer's livestock.
+# linked to LivestockInventory so we can trace which animals are affected.
+# affected_count may differ from the inventory quantity (not all animals may be sick).
 class DiseaseCase(models.Model):
     class DiseaseStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -44,6 +44,9 @@ class DiseaseCase(models.Model):
         return f"Farmer {self.livestock.farmer.user.username} with {self.livestock.quantity} {self.livestock.livestock_type} have {self.name} disease with {self.affected_count} counts"
 
 
+# Records livestock deaths. Optionally linked to a DiseaseCase via source_disease_case
+# to track disease-related mortality. If the death is unrelated to a known disease,
+# source_disease_case can be null and cause describes the reason directly.
 class MortalityRecord(models.Model):
     class MortalityRecordStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"

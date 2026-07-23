@@ -23,7 +23,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // request token from the backend
+      // POST to Django backend at /api/token/ with email + password
       const response = await api.post("/token/", {
         email: email,
         password: password
@@ -31,10 +31,11 @@ export default function LoginPage() {
 
       const { access, refresh } = response.data;
 
+      // Decode the JWT to get the user's role for frontend routing
       const decoded: DecodedJWT = jwtDecode(access);
       localStorage.setItem("access", access);
       localStorage.setItem("refresh", refresh);
-      console.log(decoded)
+      // Role-based redirect to the appropriate dashboard
       if (decoded.role === "ADMIN") {
         router.push("/admin");
       } else if (decoded.role === "FARMER") {
@@ -48,28 +49,14 @@ export default function LoginPage() {
 
       const data = err.response?.data;
 
+      // If the backend returned an account_status error, the account isn't approved yet
       if (data?.account_status) {
         router.push("/pending");
         return;
       }
-
-      console.log("STATUS:", err.response?.status);
-      console.log("DATA:", err.response?.data);
     } finally {
       setLoading(false);
     }
-
-    // Mock login delay
-    // await new Promise(resolve => setTimeout(resolve, 500));
-    //
-    // // Route based on email
-    // if (email.includes('admin')) {
-    //   router.push('/admin');
-    // } else if (email.includes('lgu')) {
-    //   router.push('/sibat');
-    // } else {
-    //   router.push('/farmer');
-    // }
   };
 
 

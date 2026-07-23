@@ -1,9 +1,10 @@
 from django.db import models
 from django.conf import settings
 
-# Create your models here.
 
-
+# Tracks daily/non-daily production output from livestock.
+# Supports three production types: milk (liters), eggs (pieces), wool (kilograms).
+# Status lifecycle: PENDING → VERIFIED → APPROVED/REJECTED
 class ProductionRecord(models.Model):
     class ProductionType(models.TextChoices):
         MILK = "MILK", "Milk"
@@ -71,6 +72,9 @@ class ProductionRecord(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+# "Katay" (butcher/slaughter) records.
+# livestock FK is nullable for batch-level slaughtering where individual tracking isn't feasible.
+# carcass_weight tracks meat yield in kg — feeds into MeatMovementRecord for post-slaughter transport.
 class SlaughterRecord(models.Model):
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -146,6 +150,11 @@ class SlaughterRecord(models.Model):
     )
 
 
+# Tracks live animal sales at auction markets.
+# sale_method: MATA-MATA = price estimated by visual inspection (traditional),
+#              WEIGHING = price based on actual weight.
+# purpose: BREEDING, FATTENING, SLAUGHTER, or UNKNOWN.
+# NOTE: May be removed if auction sales are tracked through LivestockInspection instead.
 class LiveAnimalSale(models.Model):  # may be removed
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"

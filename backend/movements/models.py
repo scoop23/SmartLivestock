@@ -2,7 +2,10 @@ from django.db import models
 from django.conf import settings
 
 
-# Create your models here.
+# Pre-movement inspection of livestock before transport.
+# shipper FK points to Farmer (if registered), but shipper_name is always stored as text
+# in case the shipper isn't in the system. The shipper's Barangay is used as the origin
+# on the resulting clearance certificate.
 class LivestockInspection(models.Model):
     class PurposeType(models.TextChoices):
         BREEDING = "BREEDING", "Breeding"
@@ -10,7 +13,7 @@ class LivestockInspection(models.Model):
         SLAUGHTER = "SLAUGHTER", "Slaughter"
         UNKNOWN = "UNKNOWN", "Unknown"
 
-    shipper = models.ForeignKey(  # if shipper is a farmer, then get its Barangay and set it to the origin of the inspection clearance. Could be optional.
+    shipper = models.ForeignKey(
         "livestock.Farmer",
         on_delete=models.PROTECT,
         null=True,
@@ -41,6 +44,8 @@ class LivestockInspection(models.Model):
         return f"Inspection #{self.pk} - {self.shipper_name}"
 
 
+# Line items within an inspection — each item specifies a livestock type, quantity,
+# sex, and classification (breeder/slaughter/fattening). One inspection can have multiple items.
 class LivestockInspectionItem(models.Model):
     class SexType(models.TextChoices):
         MALE = "MALE", "Male"
@@ -86,6 +91,10 @@ class LivestockInspectionItem(models.Model):
         return f"{self.livestock_type} ({self.quantity})"
 
 
+# Official clearance certificate issued after a successful inspection.
+# OneToOne with LivestockInspection — each inspection can have at most one clearance.
+# control_number is a unique identifier printed on the physical certificate.
+# Contains transport details: origin (default: Padre Garcia), vehicle plate, handler license.
 class LivestockInspectionClearance(models.Model):
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -166,6 +175,9 @@ class LivestockInspectionClearance(models.Model):
         return self.control_number
 
 
+# Tracks post-slaughter meat transport from origin barangay to destination.
+# Links back to the SlaughterRecord that produced the meat.
+# meat_type supports beef, carabeef (carabao meat), goat, pork, and chicken.
 class MeatMovementRecord(models.Model):
     class MeatType(models.TextChoices):
         BEEF = "BEEF", "Beef"

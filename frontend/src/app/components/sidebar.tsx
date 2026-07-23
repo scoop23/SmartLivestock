@@ -25,6 +25,9 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Sidebar navigation links organized by role.
+  // Each role sees only its own set of links.
+  // path must match a Next.js route group folder (e.g., (admin)/user-management).
   const adminLinks = [
     { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/data-overview', label: 'System Data', icon: Users },

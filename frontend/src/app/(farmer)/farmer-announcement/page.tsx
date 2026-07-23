@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation';
 import MobileNav from "@/app/components/mobilenav";
 import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
-import { 
-  Megaphone, 
-  Calendar, 
-  ChevronRight, 
-  Newspaper, 
-  Info, 
-  Search, 
+import {
+  Megaphone,
+  Calendar,
+  ChevronRight,
+  Newspaper,
+  Info,
+  Search,
   Bell
 } from 'lucide-react';
 
@@ -26,7 +26,8 @@ export default function FarmerNewsPage() {
       title: 'Free Vaccination Program in San Roque',
       summary: 'The Municipal Agriculture Office (MAO) will be conducting free Hemorrhagic Septicemia vaccinations for cattle and carabaos this Friday.',
       date: 'April 28, 2026',
-      thumbnail: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+      // thumbnail: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+      thumbnail: 'https://cdn.sanity.io/images/0vv8moc6/dvm360/509ce66a05c4fa080efebafff0b5c828cb1ebf16-5606x3734.jpg/AdobeStock_684844923.jpeg?w=5606&max-h=3734&fit=crop&auto=format',
       isPinned: true
     },
     {
@@ -35,7 +36,8 @@ export default function FarmerNewsPage() {
       title: 'Livestock Market Prices - April Week 4',
       summary: 'Average live weight price for premium cattle has increased by ₱5/kg. Local auctions showing strong demand for breeding heifers.',
       date: 'April 26, 2026',
-      thumbnail: 'https://images.unsplash.com/photo-1543749490-7f6d2bb14ef2?auto=format&fit=crop&q=80&w=400',
+      // thumbnail: 'https://images.unsplash.com/photo-1543749490-7f6d2bb14ef2?auto=format&fit=crop&q=80&w=400',
+      thumbnail: 'https://i0.wp.com/www.marketmanila.com/wp-content/uploads/2009/10/143.jpg?resize=400%2C300&ssl=1',
       isPinned: false
     },
     {
@@ -80,11 +82,10 @@ export default function FarmerNewsPage() {
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                  activeFilter === filter
-                    ? 'bg-[#2D5A27] text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${activeFilter === filter
+                  ? 'bg-[#2D5A27] text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
               >
                 {filter}
               </button>
@@ -98,15 +99,15 @@ export default function FarmerNewsPage() {
             {newsItems
               .filter(item => activeFilter === 'All' || item.category === activeFilter)
               .map((news) => (
-                <div 
-                  key={news.id} 
+                <div
+                  key={news.id}
                   className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden group hover:shadow-md transition-all cursor-pointer"
                 >
                   <div className="flex flex-col sm:flex-row">
                     {/* Thumbnail */}
                     <div className="sm:w-48 h-40 sm:h-auto overflow-hidden relative">
-                      <img 
-                        src={news.thumbnail} 
+                      <img
+                        src={news.thumbnail}
                         alt={news.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
@@ -129,11 +130,11 @@ export default function FarmerNewsPage() {
                           {news.date}
                         </span>
                       </div>
-                      
+
                       <h3 className="text-lg font-bold text-gray-900 mb-2 leading-snug group-hover:text-[#2D5A27] transition-colors">
                         {news.title}
                       </h3>
-                      
+
                       <p className="text-sm text-gray-600 line-clamp-2 mb-4">
                         {news.summary}
                       </p>

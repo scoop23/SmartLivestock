@@ -15,28 +15,22 @@ from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
 
+# Load environment variables from .env file (DEBUG, SECRET_KEY, DATABASE_PASS)
 load_dotenv()
 
 sys_debug = os.environ.get("DEBUG")
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = sys_debug == "True" or sys_debug == "1"  # Convert string to boolean safe
+DEBUG = sys_debug == "True" or sys_debug == "1"
 
 ALLOWED_HOSTS: list[str] = []
 
-
-# Application definition
-
-AUTH_USER_MODEL = "users.User"  # override default django user class
+# Override default Django User model with our custom one in users/models.py
+AUTH_USER_MODEL = "users.User"
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -45,17 +39,20 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Third-party
     "corsheaders",
     "rest_framework",
-    "rest_framework_simplejwt",
+    "rest_framework_simplejwt",       # JWT auth (access + refresh tokens)
+    "phonenumber_field",               # Phone number validation
+    # Custom Django apps (order doesn't matter for models, but kept consistent)
     "production",
     "movements",
     "users",
     "livestock",
     "diseases",
-    "phonenumber_field",
 ]
 
+# DRF config: JWT is the only authentication method used
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -75,8 +72,12 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "smartlivestock.urls"
 
+# Allow the Next.js dev server (localhost:3000) to make cross-origin API calls
 CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
 
+# JWT token configuration
+# Access token = short-lived (30 min), Refresh token = long-lived (7 days)
+# Refresh tokens rotate: each refresh invalidates the old refresh token
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -145,6 +146,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
+# Set timezone to Philippines (Padre Garcia, Batangas local time)
 TIME_ZONE = "Asia/Manila"
 
 USE_I18N = True

@@ -50,10 +50,12 @@ interface BarangayBatchSubmission {
 }
 
 export default function LivestockInventoryPage() {
-  const router = useRouter(); // Using Next.js router
+  const router = useRouter();
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // TODO: Replace mock livestock data with API call to GET /api/livestock/inventory
+  // The real endpoint should filter by the logged-in farmer and return their inventory.
   const [livestock, setLivestock] = useState<Livestock[]>([
     {
       id: "1",

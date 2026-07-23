@@ -17,6 +17,9 @@ export default function FarmerDashboard() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportType, setReportType] = useState('behavior'); // behavior, disease, injury
 
+  // TODO: Replace hardcoded stats with real API data from /api/livestock/inventory and /api/production/
+  // Example: GET /api/livestock/inventory?farmer_id={id} → count cattle
+  //          GET /api/production/slaughter?farmer_id={id} → avg meat weight
   const myStats = [
     {
       label: 'My Cattle',

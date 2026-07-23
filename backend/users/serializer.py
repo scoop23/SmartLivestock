@@ -6,6 +6,9 @@ from django.db import transaction
 from django.db.models import Max
 
 
+# Custom JWT serializer that:
+# 1. Adds role and email to the JWT payload (so frontend can decode for routing)
+# 2. Validates that the user's account_status is APPROVED before allowing login
 class MyTokenSerialier(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
@@ -33,10 +36,14 @@ class MyTokenSerialier(TokenObtainPairSerializer):
         return data
 
 
+# Handles farmer registration.
+# Accepts fields from both User (email, password, name, phone) and Farmer (barangay, farm_size, address).
+# barangay, farm_size, address are write_only since they belong to the Farmer model, not User.
+# Creates User + Farmer atomically inside a transaction.
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = (  # required fields that the serializer read
+        fields = (
             "email",
             "password",
             "first_name",
@@ -50,7 +57,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     barangay = serializers.PrimaryKeyRelatedField(
         queryset=Barangay.objects.all(),
-        write_only=True,  # write_only true, because when drf serializes it returns the field. however, this field is on the FARMER table
+        write_only=True,
     )
     farm_size = serializers.DecimalField(
         max_digits=10, decimal_places=2, write_only=True
@@ -59,7 +66,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=255, required=True, allow_blank=False, write_only=True
     )
 
-    @transaction.atomic  # added decorator for python so that when FARMER table creation fails, the other table will also fail even if they fit the fields
+    @transaction.atomic
     def create(self, validated_data):
         farmer_role = Role.objects.get(role_name=Role.UserRoles.FARMER)
 
@@ -85,6 +92,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
+    # Auto-generates a username in format FMR-000001, FMR-000002, etc.
+    # Since email is the login identifier, the username is just an internal identifier.
     def generate_username(self):
         last_user = User.objects.aggregate(Max("id"))["id__max"] or 0
 
