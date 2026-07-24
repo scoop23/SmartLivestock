@@ -1,285 +1,619 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation"; // Changed from 'react-router'
-import MobileNav from "@/app/components/mobilenav";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
+import MobileNav from "@/app/components/mobilenav";
+
+// Lucide Icons
 import {
   Plus,
   Search,
-  Edit,
   Trash2,
   Calendar,
   Weight,
+  Layers,
+  Tag,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  FileSpreadsheet,
+  Filter,
 } from "lucide-react";
-import { Sprout, TrendingUp, AlertTriangle, Package, Bell,  } from 'lucide-react';
 
+// shadcn/ui primitives (import from your components directory)
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-interface Livestock {
+// --- TypeScript Interfaces matching Django Models ---
+
+export type EntryType = "INDIVIDUAL" | "BATCH";
+export type StatusType = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface LivestockInventoryItem {
   id: string;
+  farmerName: string;
+  livestockTypeName: string;
+  entryType: EntryType;
+  quantity: number;
   tagNumber: string;
-  type: "dairy" | "beef";
   breed: string;
-  gender: "male" | "female";
-  dateOfBirth: string;
-  weight: number;
-  status: "healthy" | "sick" | "pregnant";
-  lastVaccination: string;
+  sex: string;
+  weight: number | null;
+  lastVaccinationDate: string | null;
+  status: StatusType;
+  reviewRemarks?: string | null;
+  createdAt: string;
 }
 
-// Interfaces kept for your data structure expansion
-interface LivestockBatch {
+export interface CensusSubmissionItem {
   id: string;
-  cattle: Livestock[];
-  amount: number;
-  breed: string;
-  type: "dairy" | "beef";
-}
-
-interface BarangayBatchSubmission {
-  id: string;
-  barangayId: string;
-  sibatId: string;
+  barangayName: string;
+  reportYear: number;
+  reportQuarter: number;
   submissionDate: string;
-  reportingPeriod: string;
-  status: "draft" | "submitted" | "validated" | "rejected";
-  batches: LivestockBatch[];
-  notes?: string;
-  validatedBy?: string;
+  status: StatusType;
+  reviewRemarks?: string;
 }
 
 export default function LivestockInventoryPage() {
   const router = useRouter();
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("inventory");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
-  // TODO: Replace mock livestock data with API call to GET /api/livestock/inventory
-  // The real endpoint should filter by the logged-in farmer and return their inventory.
-  const [livestock, setLivestock] = useState<Livestock[]>([
+  // Form State matching Django LivestockInventory
+  const [formData, setFormData] = useState({
+    entryType: "BATCH" as EntryType,
+    livestockType: "Cattle",
+    quantity: 1,
+    tagNumber: "",
+    breed: "",
+    sex: "Female",
+    weight: "",
+    lastVaccinationDate: "",
+  });
+
+  // Mock data matching Django LivestockInventory
+  const [inventories, setInventories] = useState<LivestockInventoryItem[]>([
     {
       id: "1",
-      tagNumber: "D-089",
-      type: "dairy",
-      breed: "Holstein Friesian",
-      gender: "female",
-      dateOfBirth: "2020-05-12",
-      weight: 580,
-      status: "healthy",
-      lastVaccination: "2026-01-15",
+      farmerName: "Juan Dela Cruz",
+      livestockTypeName: "Cattle",
+      entryType: "INDIVIDUAL",
+      quantity: 1,
+      tagNumber: "TAG-2026-001",
+      breed: "Brahman",
+      sex: "Male",
+      weight: 480.5,
+      lastVaccinationDate: "2026-01-15",
+      status: "APPROVED",
+      createdAt: "2026-02-01",
     },
     {
       id: "2",
-      tagNumber: "B-042",
-      type: "beef",
-      breed: "Brahman",
-      gender: "male",
-      dateOfBirth: "2021-03-20",
-      weight: 450,
-      status: "healthy",
-      lastVaccination: "2026-02-10",
+      farmerName: "Juan Dela Cruz",
+      livestockTypeName: "Goat",
+      entryType: "BATCH",
+      quantity: 15,
+      tagNumber: "",
+      breed: "Anglo-Nubian",
+      sex: "Mixed",
+      weight: null,
+      lastVaccinationDate: "2026-02-10",
+      status: "PENDING",
+      createdAt: "2026-02-18",
     },
     {
       id: "3",
-      tagNumber: "D-128",
-      type: "dairy",
-      breed: "Jersey",
-      gender: "female",
-      dateOfBirth: "2019-08-15",
-      weight: 520,
-      status: "pregnant",
-      lastVaccination: "2025-12-20",
+      farmerName: "Juan Dela Cruz",
+      livestockTypeName: "Swine",
+      entryType: "BATCH",
+      quantity: 8,
+      tagNumber: "",
+      breed: "Landrace",
+      sex: "Female",
+      weight: null,
+      lastVaccinationDate: null,
+      status: "REJECTED",
+      reviewRemarks: "Incomplete vaccination records provided.",
+      createdAt: "2026-02-12",
     },
   ]);
 
-  const filteredLivestock = livestock.filter(
-    (item) =>
-      item.tagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.breed.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Mock data matching Django CensusSubmission
+  const [censusSubmissions] = useState<CensusSubmissionItem[]>([
+    {
+      id: "c1",
+      barangayName: "San Isidro",
+      reportYear: 2026,
+      reportQuarter: 1,
+      submissionDate: "2026-02-01",
+      status: "APPROVED",
+    },
+    {
+      id: "c2",
+      barangayName: "San Isidro",
+      reportYear: 2025,
+      reportQuarter: 4,
+      submissionDate: "2025-11-15",
+      status: "APPROVED",
+    },
+  ]);
 
-  const deleteLivestock = (id: string) => {
-    if (confirm("Are you sure you want to remove this livestock?")) {
-      setLivestock(livestock.filter((item) => item.id !== id));
+  // Filter handlers
+  const filteredInventories = inventories.filter((item) => {
+    const matchesSearch =
+      item.tagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.breed.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.livestockTypeName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to remove this record?")) {
+      setInventories((prev) => prev.filter((item) => item.id !== id));
     }
   };
 
-  const calculateAge = (dateOfBirth: string) => {
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let years = today.getFullYear() - birth.getFullYear();
-    let months = today.getMonth() - birth.getMonth();
-    if (months < 0) {
-      years--;
-      months += 12;
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newItem: LivestockInventoryItem = {
+      id: Date.now().toString(),
+      farmerName: "Current User",
+      livestockTypeName: formData.livestockType,
+      entryType: formData.entryType,
+      quantity: formData.entryType === "INDIVIDUAL" ? 1 : Number(formData.quantity),
+      tagNumber: formData.entryType === "INDIVIDUAL" ? formData.tagNumber : "",
+      breed: formData.breed,
+      sex: formData.sex,
+      weight: formData.weight ? parseFloat(formData.weight) : null,
+      lastVaccinationDate: formData.lastVaccinationDate || null,
+      status: "PENDING",
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+
+    setInventories([newItem, ...inventories]);
+    setIsAddOpen(false);
+  };
+
+  const getStatusBadge = (status: StatusType) => {
+    switch (status) {
+      case "APPROVED":
+        return (
+          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 flex items-center gap-1 font-medium">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            Approved
+          </Badge>
+        );
+      case "PENDING":
+        return (
+          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 flex items-center gap-1 font-medium">
+            <Clock className="w-3.5 h-3.5 text-amber-600" />
+            Pending Review
+          </Badge>
+        );
+      case "REJECTED":
+        return (
+          <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200 flex items-center gap-1 font-medium">
+            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+            Rejected
+          </Badge>
+        );
     }
-    return `${years}y ${months}m`;
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
       <div className="hidden md:block">
         <Sidebar role="farmer" onLogout={() => router.push("/")} />
       </div>
 
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
+      <main className="flex-1 overflow-auto pb-24 md:pb-10">
         <PageHeader
-          title="Livestock Inventory"
-          subtitle="Manage your cattle records"
+          title="Livestock & Census Inventory"
+          subtitle="Manage individual livestock, batch entries, and quarterly census data"
           variant="farmer"
-          maxWidthClass="max-w-4xl"
+          maxWidthClass="max-w-5xl"
           mobileMenuOffset={false}
         />
 
-        <div className="p-4 md:p-6 max-w-4xl mx-auto">
-          {/* Search and Add */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by tag or breed..."
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] outline-none"
-                />
-              </div>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#2D5A27] text-white rounded-lg hover:bg-[#3d7234] transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Add Cattle</span>
-              </button>
-            </div>
-          </div>
+        <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+          <Tabs defaultValue="inventory" onValueChange={setActiveTab} className="w-full">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <TabsList className="bg-slate-200/60 p-1">
+                <TabsTrigger value="inventory" className="gap-2 font-medium">
+                  <Layers className="w-4 h-4" />
+                  Livestock Records
+                </TabsTrigger>
+                <TabsTrigger value="census" className="gap-2 font-medium">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Barangay Census
+                </TabsTrigger>
+              </TabsList>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <p className="text-2xl font-bold">{livestock.length}</p>
-              <p className="text-sm text-gray-600">Total Cattle</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <p className="text-2xl font-bold">{livestock.filter((l) => l.type === "dairy").length}</p>
-              <p className="text-sm text-gray-600">Dairy</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <p className="text-2xl font-bold">{livestock.filter((l) => l.type === "beef").length}</p>
-              <p className="text-sm text-gray-600">Beef</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <p className="text-2xl font-bold text-purple-600">{livestock.filter((l) => l.status === "pregnant").length}</p>
-              <p className="text-sm text-gray-600">Pregnant</p>
-            </div>
-          </div>
+              {activeTab === "inventory" && (
+                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm">
+                      <Plus className="w-4 h-4" />
+                      Add Inventory
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-bold">New Livestock Entry</DialogTitle>
+                      <DialogDescription>
+                        Submit new livestock entries for administrative approval.
+                      </DialogDescription>
+                    </DialogHeader>
 
-          {/* Livestock Cards */}
-          <div className="space-y-4">
-            {filteredLivestock.map((item) => (
-              <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                <div className="p-4 md:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2 flex-wrap">
-                        <h3 className="font-bold text-lg">{item.tagNumber}</h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${item.type === "dairy" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>
-                          {item.type}
-                        </span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${item.status === "healthy" ? "bg-green-100 text-green-800" : item.status === "pregnant" ? "bg-purple-100 text-purple-800" : "bg-red-100 text-red-800"}`}>
-                          {item.status}
-                        </span>
+                    <form onSubmit={handleAddSubmit} className="space-y-4 py-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="entryType">Entry Type</Label>
+                          <Select
+                            value={formData.entryType}
+                            onValueChange={(val: EntryType) =>
+                              setFormData({ ...formData, entryType: val })
+                            }
+                          >
+                            <SelectTrigger id="entryType">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="BATCH">Batch Entry</SelectItem>
+                              <SelectItem value="INDIVIDUAL">Individual Tag</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="livestockType">Livestock Type</Label>
+                          <Select
+                            value={formData.livestockType}
+                            onValueChange={(val) =>
+                              setFormData({ ...formData, livestockType: val })
+                            }
+                          >
+                            <SelectTrigger id="livestockType">
+                              <SelectValue placeholder="Select animal" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Cattle">Cattle</SelectItem>
+                              <SelectItem value="Goat">Goat</SelectItem>
+                              <SelectItem value="Swine">Swine</SelectItem>
+                              <SelectItem value="Carabao">Carabao</SelectItem>
+                              <SelectItem value="Poultry">Poultry</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600 mb-4">
-                        {item.breed} • {item.gender === "female" ? "♀" : "♂"} {item.gender}
-                      </p>
+
+                      {formData.entryType === "INDIVIDUAL" ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="tagNumber">Ear Tag / ID Number</Label>
+                          <Input
+                            id="tagNumber"
+                            placeholder="e.g. TAG-2026-88"
+                            value={formData.tagNumber}
+                            onChange={(e) =>
+                              setFormData({ ...formData, tagNumber: e.target.value })
+                            }
+                            required
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label htmlFor="quantity">Quantity (Head Count)</Label>
+                          <Input
+                            id="quantity"
+                            type="number"
+                            min="1"
+                            value={formData.quantity}
+                            onChange={(e) =>
+                              setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })
+                            }
+                            required
+                          />
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <div>
-                            <p className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Age</p>
-                            <p className="text-sm text-gray-900">{calculateAge(item.dateOfBirth)}</p>
-                          </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="breed">Breed</Label>
+                          <Input
+                            id="breed"
+                            placeholder="e.g. Brahman, Holstein"
+                            value={formData.breed}
+                            onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                          />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Weight className="w-4 h-4 text-gray-400" />
-                          <div>
-                            <p className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Weight</p>
-                            <p className="text-sm text-gray-900">{item.weight} kg</p>
-                          </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sex">Sex / Gender</Label>
+                          <Select
+                            value={formData.sex}
+                            onValueChange={(val) => setFormData({ ...formData, sex: val })}
+                          >
+                            <SelectTrigger id="sex">
+                              <SelectValue placeholder="Select sex" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Female">Female</SelectItem>
+                              <SelectItem value="Male">Male</SelectItem>
+                              <SelectItem value="Mixed">Mixed (Batch)</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 
-                      <div className="mt-4 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500">
-                          Last Vaccination: <span className="text-gray-900 font-medium">{new Date(item.lastVaccination).toLocaleDateString()}</span>
-                        </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="weight">Weight (kg)</Label>
+                          <Input
+                            id="weight"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={formData.weight}
+                            onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="vaxDate">Last Vaccination</Label>
+                          <Input
+                            id="vaxDate"
+                            type="date"
+                            value={formData.lastVaccinationDate}
+                            onChange={(e) =>
+                              setFormData({ ...formData, lastVaccinationDate: e.target.value })
+                            }
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex gap-1 ml-4">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" aria-label="Edit">
-                        <Edit className="w-5 h-5" />
-                      </button>
-                      <button onClick={() => deleteLivestock(item.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" aria-label="Delete">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
+                      <DialogFooter className="pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsAddOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button type="submit" className="bg-emerald-700 hover:bg-emerald-800 text-white">
+                          Save Entry
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+
+            {/* TAB 1: LIVESTOCK INVENTORY */}
+            <TabsContent value="inventory" className="space-y-6">
+              {/* Summary Metric Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border-slate-200 shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Total Head Count
+                    </p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">
+                      {inventories.reduce((acc, curr) => acc + curr.quantity, 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200 shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Approved
+                    </p>
+                    <p className="text-2xl font-bold text-emerald-600 mt-1">
+                      {inventories
+                        .filter((i) => i.status === "APPROVED")
+                        .reduce((acc, curr) => acc + curr.quantity, 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200 shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Pending Review
+                    </p>
+                    <p className="text-2xl font-bold text-amber-600 mt-1">
+                      {inventories.filter((i) => i.status === "PENDING").length} Records
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200 shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Individual Tags
+                    </p>
+                    <p className="text-2xl font-bold text-slate-900 mt-1">
+                      {inventories.filter((i) => i.entryType === "INDIVIDUAL").length}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Filters & Search */}
+              <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by breed, tag number, or type..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 bg-slate-50/50 border-slate-200"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-[160px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Statuses</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Cards Listing */}
+              <div className="space-y-4">
+                {filteredInventories.length === 0 ? (
+                  <Card className="p-8 text-center border-dashed border-slate-200">
+                    <p className="text-slate-500">No livestock records match your query.</p>
+                  </Card>
+                ) : (
+                  filteredInventories.map((item) => (
+                    <Card
+                      key={item.id}
+                      className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <CardContent className="p-5">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-bold text-lg text-slate-900">
+                                {item.entryType === "INDIVIDUAL"
+                                  ? item.tagNumber || "Un-tagged"
+                                  : `${item.quantity}x ${item.livestockTypeName} (Batch)`}
+                              </h3>
+                              <Badge variant="outline" className="text-xs uppercase border-slate-300">
+                                {item.entryType}
+                              </Badge>
+                              {getStatusBadge(item.status)}
+                            </div>
+
+                            <p className="text-sm text-slate-600">
+                              <span className="font-semibold text-slate-800">
+                                {item.livestockTypeName}
+                              </span>{" "}
+                              • {item.breed || "Standard Breed"} • {item.sex}
+                            </p>
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
+                              {item.weight && (
+                                <div className="flex items-center gap-1.5 text-slate-600">
+                                  <Weight className="w-4 h-4 text-slate-400" />
+                                  <span>
+                                    Weight:{" "}
+                                    <strong className="text-slate-900">{item.weight} kg</strong>
+                                  </span>
+                                </div>
+                              )}
+                              {item.lastVaccinationDate && (
+                                <div className="flex items-center gap-1.5 text-slate-600">
+                                  <Calendar className="w-4 h-4 text-slate-400" />
+                                  <span>
+                                    Vaccinated:{" "}
+                                    <strong className="text-slate-900">
+                                      {item.lastVaccinationDate}
+                                    </strong>
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1.5 text-slate-600">
+                                <Tag className="w-4 h-4 text-slate-400" />
+                                <span>
+                                  Quantity: <strong className="text-slate-900">{item.quantity} head</strong>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Admin Remarks callout if rejected */}
+                            {item.reviewRemarks && (
+                              <div className="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-md text-xs text-rose-800">
+                                <strong>Review Note:</strong> {item.reviewRemarks}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 self-end sm:self-start">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(item.id)}
+                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+
+            {/* TAB 2: CENSUS SUBMISSIONS */}
+            <TabsContent value="census" className="space-y-4">
+              <Card className="border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold">Barangay Census Reports</CardTitle>
+                  <CardDescription>
+                    Quarterly submissions generated for municipal consolidation.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {censusSubmissions.map((submission) => (
+                    <div
+                      key={submission.id}
+                      className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {submission.barangayName} — Q{submission.reportQuarter}{" "}
+                          {submission.reportYear}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Submitted on {submission.submissionDate}
+                        </p>
+                      </div>
+                      <div>{getStatusBadge(submission.status)}</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 
-      {/* Mobile Bottom Nav */}
+      {/* Mobile Bottom Navigation */}
       <MobileNav />
-
-      {/* Modal - Kept same logic, updated button styles */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
-            <h3 className="text-xl font-bold mb-4 text-gray-900">Add New Cattle</h3>
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div>
-                <label className="block text-sm font-medium mb-1">Tag Number</label>
-                <input type="text" placeholder="e.g., D-090" className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] outline-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Type</label>
-                  <select className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] outline-none">
-                    <option value="dairy">Dairy</option>
-                    <option value="beef">Beef</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Gender</label>
-                  <select className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] outline-none">
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Breed</label>
-                <input type="text" placeholder="e.g., Holstein Friesian" className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                <input type="date" className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] outline-none" />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2 bg-[#2D5A27] text-white rounded-lg hover:bg-[#3d7234] font-medium">Add Cattle</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

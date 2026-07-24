@@ -44,6 +44,8 @@ class LivestockType(models.Model):
         return f"{self.name}"
 
 
+# Each farmers entry Livestock Inventory with its own specific Livestock Type
+# which then get stored into LivestockInventory
 class LivestockInventory(models.Model):
     class EntryType(models.TextChoices):
         INDIVIDUAL = "INDIVIDUAL", "Individual"
@@ -74,7 +76,7 @@ class LivestockInventory(models.Model):
         null=True,
         blank=True,
     )
-    health_status = models.CharField(max_length=255, blank=True)
+    # health_status = models.CharField(max_length=255, blank=True)
     last_vaccination_date = models.DateField(null=True, blank=True)
     status = models.CharField(
         max_length=25, choices=StatusType.choices, default=StatusType.PENDING
