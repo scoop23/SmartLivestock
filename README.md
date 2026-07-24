@@ -62,3 +62,20 @@ Avoid implementing:
 until all core CRUD operations and APIs are complete.
 
 The goal is to ensure the data model and basic input output is stable before building higher-level features.
+
+# Confirmed Data Sources
+
+| Data | Source |
+|-------|--------|
+| Livestock Inventory | Farmers |
+| Quarterly Livestock Census | CBAT |
+| Farmer Registry | MAO / Agricultural Technologist |
+| Disease Reports | MAO / Agricultural Technologist |
+| Mortality Reports | Farmers → MAO |
+| Negative Disease Monitoring Reports | MAO |
+| Rabies Vaccination Reports | MAO |
+| Livestock Inspection | MAO / Livestock Inspector |
+| Livestock Inspection Clearance | MAO |
+| Slaughter Records | Slaughterhouse (Pending Confirmation) |
+| Meat Movement | Slaughterhouse (Pending Confirmation) |
+| Auction Transactions | Auction Market (Pending Interview) |
