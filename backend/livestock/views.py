@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from livestock.models import LivestockInventory
+from livestock.models import LivestockInventory, LivestockType
 from livestock.serializer import LivestockInventorySerializer
 from users import serializer
 
@@ -21,7 +21,7 @@ from users import serializer
 
 
 @api_view(["POST"])
-def created_inventory(request):
+def create_inventory(request):
     serializer = LivestockInventorySerializer(
         data=request.data,
         # gives the serializer context about the request so i can get it in the
@@ -31,3 +31,8 @@ def created_inventory(request):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data, status=201)
+
+
+@api_view(["GET"])
+def list_livestock_types(request):
+    return Response(LivestockType.objects.all().values("id", "name"))
