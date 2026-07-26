@@ -82,14 +82,21 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-2 p-4 pb-2">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#2D5A27]">
-          <Icon iconNode={cowHead} className="size-4" />
-        </div>
         {!collapsed && (
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold text-white truncate">SmartLivestock</span>
-            <span className="text-[11px] text-white/50 truncate">Padre Garcia, Batangas</span>
-          </div>
+          <>
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#2D5A27]">
+              <Icon iconNode={cowHead} className="size-4" />
+            </div>
+
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-white truncate">
+                SmartLivestock
+              </span>
+              <span className="text-[11px] text-white/50 truncate">
+                Padre Garcia, Batangas
+              </span>
+            </div>
+          </>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -99,7 +106,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
         </button>
       </div>
 
-      <Separator className="bg-white/10 mx-3 my-1" />
+      <Separator className="bg-white/10 w-full my-1" />
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
