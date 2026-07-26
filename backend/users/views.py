@@ -1,9 +1,13 @@
 from django.shortcuts import render
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 from django.http import HttpResponse
 from django.views import View
 from rest_framework_simplejwt.views import TokenObtainPairView  # type: ignore
-from .serializer import MyTokenSerialier, RegisterSerializer
-from rest_framework.generics import CreateAPIView  # type: ignore
+from .serializer import CurrentUserSerializer, MyTokenSerialier, RegisterSerializer
+from rest_framework.generics import CreateAPIView
+
+from users import serializer  # type: ignore
 
 
 # Simple health check views (can be removed later)
@@ -28,3 +32,10 @@ class MyTokenView(TokenObtainPairView):
 # Atomically creates both a User (with status=PENDING) and a Farmer profile.
 class RegisterView(CreateAPIView):
     serializer_class = RegisterSerializer
+
+
+# Basically just get the user info
+@api_view(["GET"])
+def get_user_information(request):
+    serializer = CurrentUserSerializer(request.user)
+    return Response(serializer.data)

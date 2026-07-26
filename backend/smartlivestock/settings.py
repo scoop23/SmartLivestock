@@ -42,8 +42,8 @@ INSTALLED_APPS = [
     # Third-party
     "corsheaders",
     "rest_framework",
-    "rest_framework_simplejwt",       # JWT auth (access + refresh tokens)
-    "phonenumber_field",               # Phone number validation
+    "rest_framework_simplejwt",  # JWT auth (access + refresh tokens)
+    "phonenumber_field",  # Phone number validation
     # Custom Django apps (order doesn't matter for models, but kept consistent)
     "production",
     "movements",

@@ -98,3 +98,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         last_user = User.objects.aggregate(Max("id"))["id__max"] or 0
 
         return f"FMR-{last_user + 1:06d}"
+
+
+class CurrentUserSerializer(serializers.Serializer):
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.EmailField()
+    role = serializers.CharField(source="role.role_name")
