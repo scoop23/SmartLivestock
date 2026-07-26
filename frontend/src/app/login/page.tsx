@@ -24,7 +24,7 @@ export default function LoginPage() {
 
     try {
       // POST to Django backend at /api/token/ with email + password
-      const response = await api.post("/token/", {
+      const response = await api.post("/api/token/", {
         email: email,
         password: password
       })

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
 import MobileNav from "@/app/components/mobilenav";
-
+import { jwtDecode } from "jwt-decode";
 // Lucide Icons
 import {
   Plus,
@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import api from "@/lib/axios";
 
 // --- TypeScript Interfaces matching Django Models ---
 
@@ -83,7 +84,28 @@ export default function LivestockInventoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [farmerId, setFarmerId] = useState<number | null>(null);
+  const [livestockTypes, setLivestockTypes] = useState<Record<string, number>>({});
 
+  useEffect(() => {
+    const token = localStorage.getItem("access");
+    let decoded: string | null = '';
+    if (!token) {
+      console.error("Wheres the token?");
+    } else {
+      decoded = jwtDecode(token);
+    }
+    const livestockTypesResponse = api.get("livestock/livestock_types")
+      .then((res) => {
+        const map: Record<string, number> = {};
+        res.data.forEach((t: Record<string, number>) => { map[t.name] = t.id });
+        setLivestockTypes(map);
+      }).catch((err) => console.log(err.message, err.status));
+
+    console.log(decoded);
+  }, [])
+
+  console.log(livestockTypes)
   // Form State matching Django LivestockInventory
   const [formData, setFormData] = useState({
     entryType: "BATCH" as EntryType,
@@ -179,8 +201,9 @@ export default function LivestockInventoryPage() {
     }
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const newItem: LivestockInventoryItem = {
       id: Date.now().toString(),
       farmerName: "Current User",
@@ -197,6 +220,13 @@ export default function LivestockInventoryPage() {
     };
 
     setInventories([newItem, ...inventories]);
+    try {
+      const response = await api.post('/livestock/create/', {
+      });
+      console.log(response);
+    } catch (err) {
+      console.error(err)
+    };
     setIsAddOpen(false);
   };
 
@@ -565,7 +595,7 @@ export default function LivestockInventoryPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(item.id)}
-                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                              className="text-slate-700 hover:text-rose-600 hover:bg-rose-50"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
