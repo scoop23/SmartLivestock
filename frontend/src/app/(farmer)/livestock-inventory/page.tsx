@@ -6,6 +6,8 @@ import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
 import MobileNav from "@/app/components/mobilenav";
 import { jwtDecode } from "jwt-decode";
+import { toast, Toaster } from "sonner";
+
 // Lucide Icons
 import {
   Plus,
@@ -143,55 +145,6 @@ export default function LivestockInventoryPage() {
     lastVaccinationDate: "",
   });
 
-
-
-  // Mock data matching Django LivestockInventory
-  // const [inventories, setInventories] = useState<LivestockInventoryItem[]>([
-  //   {
-  //     id: "1",
-  //     farmerName: "Juan Dela Cruz",
-  //     livestockTypeName: "Cattle",
-  //     entryType: "INDIVIDUAL",
-  //     quantity: 1,
-  //     tagNumber: "TAG-2026-001",
-  //     breed: "Brahman",
-  //     sex: "Male",
-  //     weight: 480.5,
-  //     lastVaccinationDate: "2026-01-15",
-  //     status: "APPROVED",
-  //     createdAt: "2026-02-01",
-  //   },
-  //   {
-  //     id: "2",
-  //     farmerName: "Juan Dela Cruz",
-  //     livestockTypeName: "Goat",
-  //     entryType: "BATCH",
-  //     quantity: 15,
-  //     tagNumber: "",
-  //     breed: "Anglo-Nubian",
-  //     sex: "Mixed",
-  //     weight: null,
-  //     lastVaccinationDate: "2026-02-10",
-  //     status: "PENDING",
-  //     createdAt: "2026-02-18",
-  //   },
-  //   {
-  //     id: "3",
-  //     farmerName: "Juan Dela Cruz",
-  //     livestockTypeName: "Swine",
-  //     entryType: "BATCH",
-  //     quantity: 8,
-  //     tagNumber: "",
-  //     breed: "Landrace",
-  //     sex: "Female",
-  //     weight: null,
-  //     lastVaccinationDate: null,
-  //     status: "REJECTED",
-  //     reviewRemarks: "Incomplete vaccination records provided.",
-  //     createdAt: "2026-02-12",
-  //   },
-  // ]);
-
   // Filter handlers
   const filteredInventories = inventories.filter((item) => {
     const matchesSearch =
@@ -202,9 +155,16 @@ export default function LivestockInventoryPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to remove this record?")) {
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/livestock/inventory_delete/${id}`, {
+        data: { id }
+      });
+
       setInventories((prev) => prev.filter((item) => item.id !== id));
+      toast.success("Livestock record deleted successfully");
+    } catch (err) {
+      toast.error("Failed to delete livestock record");
     }
   };
 
@@ -238,7 +198,25 @@ export default function LivestockInventoryPage() {
         weight: formData.weight ? parseFloat(formData.weight) : null,
         last_vaccination_date: formData.lastVaccinationDate || null,
       });
-      console.log(response);
+
+      // convert it to camelCase 
+      const item = {
+        id: response.data.id,
+        farmerName: response.data.farmer_name,
+        livestockTypeName: response.data.livestock_type_name,
+        entryType: response.data.entry_type,
+        quantity: response.data.quantity,
+        tagNumber: response.data.tag_number,
+        breed: response.data.breed,
+        sex: response.data.sex,
+        weight: response.data.weight,
+        lastVaccinationDate: response.data.last_vaccination_date,
+        status: response.data.status,
+        reviewRemarks: response.data.review_remarks,
+        createdAt: response.data.created_at,
+      };
+
+      setInventories((prev) => [item, ...prev]);
     } catch (err) {
       console.error(err)
     };
@@ -615,6 +593,53 @@ export default function LivestockInventoryPage() {
 
       {/* Mobile Bottom Navigation */}
       <MobileNav />
+      <Toaster position="top-right" richColors />
     </div>
   );
 }
+// Mock data matching Django LivestockInventory
+// const [inventories, setInventories] = useState<LivestockInventoryItem[]>([
+//   {
+//     id: "1",
+//     farmerName: "Juan Dela Cruz",
+//     livestockTypeName: "Cattle",
+//     entryType: "INDIVIDUAL",
+//     quantity: 1,
+//     tagNumber: "TAG-2026-001",
+//     breed: "Brahman",
+//     sex: "Male",
+//     weight: 480.5,
+//     lastVaccinationDate: "2026-01-15",
+//     status: "APPROVED",
+//     createdAt: "2026-02-01",
+//   },
+//   {
+//     id: "2",
+//     farmerName: "Juan Dela Cruz",
+//     livestockTypeName: "Goat",
+//     entryType: "BATCH",
+//     quantity: 15,
+//     tagNumber: "",
+//     breed: "Anglo-Nubian",
+//     sex: "Mixed",
+//     weight: null,
+//     lastVaccinationDate: "2026-02-10",
+//     status: "PENDING",
+//     createdAt: "2026-02-18",
+//   },
+//   {
+//     id: "3",
+//     farmerName: "Juan Dela Cruz",
+//     livestockTypeName: "Swine",
+//     entryType: "BATCH",
+//     quantity: 8,
+//     tagNumber: "",
+//     breed: "Landrace",
+//     sex: "Female",
+//     weight: null,
+//     lastVaccinationDate: null,
+//     status: "REJECTED",
+//     reviewRemarks: "Incomplete vaccination records provided.",
+//     createdAt: "2026-02-12",
+//   },
+// ]);

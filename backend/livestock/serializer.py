@@ -29,5 +29,21 @@ class LivestockInventorySerializer(serializers.Serializer):
         validated_data["farmer"] = user.farmer_profile
         return LivestockInventory.objects.create(**validated_data)
 
-    # def update(self, instance, validated_data):
-    #     instance.farmer = validated_data.get("famer", instance.farmer)
+    def update(self, instance, validated_data):
+        allowed = [
+            "livestock_type",
+            "entry_type",
+            "quantity",
+            "tag_number",
+            "breed",
+            "sex",
+            "weight",
+            "last_vaccination_date",
+        ]
+        for field in allowed:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+        instance.updated_by = self.context["request"].user
+        instance.save()
+
+        return instance

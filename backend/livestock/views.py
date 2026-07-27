@@ -1,6 +1,7 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.utils import serializer_helpers
 from livestock.models import LivestockInventory, LivestockType
 from livestock.serializer import LivestockInventorySerializer
 from users import serializer
@@ -42,4 +43,29 @@ def list_livestock_types(request):
 def get_user_inventory(request):
     inventories = LivestockInventory.objects.filter(farmer=request.user.farmer_profile)
     serializer = LivestockInventorySerializer(inventories, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["DELETE"])
+def delete_user_inventory(request, pk):
+    inventory = get_object_or_404(
+        LivestockInventory, pk=pk, farmer=request.user.farmer_profile
+    )
+    inventory.delete()
+    return Response(status=204)
+
+
+@api_view(["PUT", "PATCH"])
+def update_user_inventory(request, pk):
+    inventory = get_object_or_404(
+        LivestockInventory, pk=pk, farmer=request.user.farmer_profile
+    )
+    serializer = LivestockInventorySerializer(
+        inventory, data=request.data, partial=True, context={"request": request}
+    )
+    serializer.is_valid(
+        raise_exception=True
+    )  # this is used because the frontend only send relevant data not ~ farmer, created_by, etc. ~
+    serializer.save()  # calls update(self, instance, validated_data) in the serializer class
+    # instead of create()
     return Response(serializer.data)
