@@ -157,13 +157,14 @@ export default function LivestockInventoryPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await api.delete(`/livestock/inventory_delete/${id}`, {
+      await api.delete(`/livestock/inventory_delete/${id}/`, {
         data: { id }
       });
 
       setInventories((prev) => prev.filter((item) => item.id !== id));
       toast.success("Livestock record deleted successfully");
     } catch (err) {
+      console.log(err)
       toast.error("Failed to delete livestock record");
     }
   };
@@ -593,7 +594,17 @@ export default function LivestockInventoryPage() {
 
       {/* Mobile Bottom Navigation */}
       <MobileNav />
-      <Toaster position="top-right" richColors />
+      <Toaster position="top-center"
+        toastOptions={{
+          style: {
+            color: "white",
+            background: 'transparent',
+            boxShadow: 'none',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.2)',
+          },
+        }}
+      />
     </div>
   );
 }

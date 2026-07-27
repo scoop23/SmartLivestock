@@ -5,7 +5,7 @@ from rest_framework.utils import serializer_helpers
 from livestock.models import LivestockInventory, LivestockType
 from livestock.serializer import LivestockInventorySerializer
 from users import serializer
-
+from django.db import IntegrityError
 # TODO: Build CRUD viewsets for:
 #   - Barangay (list only — mostly static data)
 #   - Farmer (list, retrieve — created by RegisterSerializer)
@@ -51,8 +51,16 @@ def delete_user_inventory(request, pk):
     inventory = get_object_or_404(
         LivestockInventory, pk=pk, farmer=request.user.farmer_profile
     )
-    inventory.delete()
-    return Response(status=204)
+    try:
+        inventory.delete()
+        return Response(status=204)
+    except IntegrityError:
+        return Response(
+            {
+                "error": "Cannot delete: this livestock record is referenced by production or disease records."
+            },
+            status=409,
+        )
 
 
 @api_view(["PUT", "PATCH"])
