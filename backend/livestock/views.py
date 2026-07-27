@@ -36,3 +36,10 @@ def create_inventory(request):
 @api_view(["GET"])
 def list_livestock_types(request):
     return Response(LivestockType.objects.all().values("id", "name"))
+
+
+@api_view(["GET"])
+def get_user_inventory(request):
+    inventories = LivestockInventory.objects.filter(farmer=request.user.farmer_profile)
+    serializer = LivestockInventorySerializer(inventories, many=True)
+    return Response(serializer.data)

@@ -84,6 +84,7 @@ export default function LivestockInventoryPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [farmerId, setFarmerId] = useState<number | null>(null);
   const [livestockTypes, setLivestockTypes] = useState<Record<string, number>>({});
+  const [inventories, setInventories] = useState<LivestockInventoryItem[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem("access");
@@ -93,18 +94,43 @@ export default function LivestockInventoryPage() {
     } else {
       decoded = jwtDecode(token);
     }
-    const livestockTypesResponse = api.get("livestock/livestock_types")
+    // get livestock types
+    const livestockTypesResponse = api.get("livestock/livestock_types/")
       .then((res) => {
         const map: Record<string, number> = {};
         res.data.forEach((t: Record<string, number>) => { map[t.name] = t.id });
         setLivestockTypes(map);
       }).catch((err) => console.log(err.message, err.status));
+
+    // get user information
     api.get("api/users/me").then((res) => console.log(res.data)).catch((err) => console.log(err.message))
 
-    console.log(decoded);
+    const livestockInventoryResponse = api.get("livestock/inventory/")
+      .then((res) => {
+        const temp: LivestockInventoryItem[] = res.data.map((item: any) => ({
+          id: item.id,
+          farmerName: item.farmer_name,
+          livestockTypeName: item.livestock_type_name,
+          entryType: item.entry_type,
+          quantity: item.quantity,
+          tagNumber: item.tag_number,
+          breed: item.breed,
+          sex: item.sex,
+          weight: item.weight,
+          lastVaccinationDate: item.last_vaccination_date,
+          status: item.status,
+          reviewRemarks: item.review_remarks,
+          createdAt: item.created_at,
+        }));
+
+        setInventories(temp);
+      })
+      .catch((error) => console.log(error));
   }, [])
 
-  console.log(livestockTypes)
+  console.log(livestockTypes);
+  console.log(inventories);
+
   // Form State matching Django LivestockInventory
   const [formData, setFormData] = useState({
     entryType: "BATCH" as EntryType,
@@ -117,57 +143,59 @@ export default function LivestockInventoryPage() {
     lastVaccinationDate: "",
   });
 
+
+
   // Mock data matching Django LivestockInventory
-  const [inventories, setInventories] = useState<LivestockInventoryItem[]>([
-    {
-      id: "1",
-      farmerName: "Juan Dela Cruz",
-      livestockTypeName: "Cattle",
-      entryType: "INDIVIDUAL",
-      quantity: 1,
-      tagNumber: "TAG-2026-001",
-      breed: "Brahman",
-      sex: "Male",
-      weight: 480.5,
-      lastVaccinationDate: "2026-01-15",
-      status: "APPROVED",
-      createdAt: "2026-02-01",
-    },
-    {
-      id: "2",
-      farmerName: "Juan Dela Cruz",
-      livestockTypeName: "Goat",
-      entryType: "BATCH",
-      quantity: 15,
-      tagNumber: "",
-      breed: "Anglo-Nubian",
-      sex: "Mixed",
-      weight: null,
-      lastVaccinationDate: "2026-02-10",
-      status: "PENDING",
-      createdAt: "2026-02-18",
-    },
-    {
-      id: "3",
-      farmerName: "Juan Dela Cruz",
-      livestockTypeName: "Swine",
-      entryType: "BATCH",
-      quantity: 8,
-      tagNumber: "",
-      breed: "Landrace",
-      sex: "Female",
-      weight: null,
-      lastVaccinationDate: null,
-      status: "REJECTED",
-      reviewRemarks: "Incomplete vaccination records provided.",
-      createdAt: "2026-02-12",
-    },
-  ]);
+  // const [inventories, setInventories] = useState<LivestockInventoryItem[]>([
+  //   {
+  //     id: "1",
+  //     farmerName: "Juan Dela Cruz",
+  //     livestockTypeName: "Cattle",
+  //     entryType: "INDIVIDUAL",
+  //     quantity: 1,
+  //     tagNumber: "TAG-2026-001",
+  //     breed: "Brahman",
+  //     sex: "Male",
+  //     weight: 480.5,
+  //     lastVaccinationDate: "2026-01-15",
+  //     status: "APPROVED",
+  //     createdAt: "2026-02-01",
+  //   },
+  //   {
+  //     id: "2",
+  //     farmerName: "Juan Dela Cruz",
+  //     livestockTypeName: "Goat",
+  //     entryType: "BATCH",
+  //     quantity: 15,
+  //     tagNumber: "",
+  //     breed: "Anglo-Nubian",
+  //     sex: "Mixed",
+  //     weight: null,
+  //     lastVaccinationDate: "2026-02-10",
+  //     status: "PENDING",
+  //     createdAt: "2026-02-18",
+  //   },
+  //   {
+  //     id: "3",
+  //     farmerName: "Juan Dela Cruz",
+  //     livestockTypeName: "Swine",
+  //     entryType: "BATCH",
+  //     quantity: 8,
+  //     tagNumber: "",
+  //     breed: "Landrace",
+  //     sex: "Female",
+  //     weight: null,
+  //     lastVaccinationDate: null,
+  //     status: "REJECTED",
+  //     reviewRemarks: "Incomplete vaccination records provided.",
+  //     createdAt: "2026-02-12",
+  //   },
+  // ]);
 
   // Filter handlers
   const filteredInventories = inventories.filter((item) => {
     const matchesSearch =
-      item.tagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item?.tagNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.breed.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.livestockTypeName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
@@ -201,6 +229,14 @@ export default function LivestockInventoryPage() {
     setInventories([newItem, ...inventories]);
     try {
       const response = await api.post('/livestock/create/', {
+        livestock_type: livestockTypes[formData.livestockType],
+        entry_type: formData.entryType,
+        quantity: formData.entryType === "INDIVIDUAL" ? 1 : Number(formData.quantity),
+        tag_number: formData.tagNumber || "",
+        breed: formData.breed,
+        sex: formData.sex,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        last_vaccination_date: formData.lastVaccinationDate || null,
       });
       console.log(response);
     } catch (err) {

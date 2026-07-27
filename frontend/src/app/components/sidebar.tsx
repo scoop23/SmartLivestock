@@ -5,12 +5,21 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
-  CheckSquare,
   Map,
-  BarChart3,
   Sprout,
   LogOut,
   Menu,
+  Database,
+  ShieldCheck,
+  FileText,
+  Upload,
+  Newspaper,
+  CalendarDays,
+  ClipboardCheck,
+  Bell,
+  Activity,
+  Megaphone,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -26,39 +35,39 @@ interface SidebarProps {
 
 const adminLinks = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/data-overview', label: 'System Data', icon: Users },
+  { path: '/data-overview', label: 'System Data', icon: Database },
   { path: '/user-management', label: 'User Management', icon: Users },
-  { path: '/data-validation', label: 'Data Validation', icon: CheckSquare },
+  { path: '/data-validation', label: 'Data Validation', icon: ShieldCheck },
   { path: '/gis-map', label: 'GIS Map', icon: Map },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/data-uploads', label: 'Data Upload', icon: BarChart3 },
-  { path: '/news-announcements', label: 'News And Announcements', icon: BarChart3 },
-  { path: '/schedules', label: 'Schedules from Farmers', icon: BarChart3 },
+  { path: '/reports', label: 'Reports', icon: FileText },
+  { path: '/data-uploads', label: 'Data Upload', icon: Upload },
+  { path: '/news-announcements', label: 'News And Announcements', icon: Newspaper },
+  { path: '/schedules', label: 'Schedules from Farmers', icon: CalendarDays },
 ];
 
 const farmerLinks = [
   { path: '/farmer', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/livestock-inventory', label: 'Livestock Inventory', icon: Sprout },
-  { path: '/production-logger', label: 'Production Logger', icon: BarChart3 },
-  { path: '/gis-user-map', label: 'GIS User Map', icon: CheckSquare },
-  { path: '/alerts', label: 'Alerts', icon: CheckSquare },
-  { path: '/farmer-announcement', label: 'News & Announcements', icon: CheckSquare },
-  { path: '/farmer-scheduling', label: 'Scheduling', icon: CheckSquare },
+  { path: '/production-logger', label: 'Production Logger', icon: ClipboardCheck },
+  { path: '/gis-user-map', label: 'GIS User Map', icon: Map },
+  { path: '/alerts', label: 'Alerts', icon: Bell },
+  { path: '/farmer-announcement', label: 'News & Announcements', icon: Megaphone },
+  { path: '/farmer-scheduling', label: 'Scheduling', icon: CalendarDays },
 ];
 
 const sibatLinks = [
   { path: '/sibat', label: 'Home', icon: LayoutDashboard },
-  { path: '/sibat-validation', label: 'Validation', icon: LayoutDashboard },
-  { path: '/sibat-monitoring', label: 'Monitoring', icon: LayoutDashboard },
-  { path: '/sibat-alerts', label: 'Alerts', icon: LayoutDashboard },
-  { path: '/sibat-announcement', label: 'Announcement', icon: LayoutDashboard },
+  { path: '/sibat-validation', label: 'Validation', icon: ShieldCheck },
+  { path: '/sibat-monitoring', label: 'Monitoring', icon: Activity },
+  { path: '/sibat-alerts', label: 'Alerts', icon: Bell },
+  { path: '/sibat-announcement', label: 'Announcement', icon: Megaphone },
 ];
 
 const auctionLinks = [
   { path: '/auction', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/auction-inspections', label: 'Inspections', icon: CheckSquare },
-  { path: '/auction-announcement', label: 'Announcements', icon: BarChart3 },
+  { path: '/auction-inspections', label: 'Inspections', icon: ClipboardCheck },
+  { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },
 ];
 
 function getLinks(role: SidebarProps['role']) {

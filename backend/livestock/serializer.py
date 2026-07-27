@@ -4,9 +4,12 @@ from .models import Farmer, LivestockInventory, LivestockType
 
 class LivestockInventorySerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
-    farmer = serializers.PrimaryKeyRelatedField(queryset=Farmer.objects.all())
+    farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     livestock_type = serializers.PrimaryKeyRelatedField(
         queryset=LivestockType.objects.all()
+    )
+    livestock_type_name = serializers.CharField(
+        source="livestock_type.name", read_only=True
     )
     entry_type = serializers.ChoiceField(choices=LivestockInventory.EntryType.choices)
     quantity = serializers.IntegerField(min_value=1)
@@ -23,7 +26,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
-        validated_data["farmer"] = user.farmer
+        validated_data["farmer"] = user.farmer_profile
         return LivestockInventory.objects.create(**validated_data)
 
     # def update(self, instance, validated_data):

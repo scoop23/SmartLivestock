@@ -60,7 +60,7 @@ class LivestockInventory(models.Model):
         "Farmer", on_delete=models.PROTECT, related_name="inventories"
     )
     livestock_type = models.ForeignKey(
-        "LivestockType", on_delete=models.PROTECT, related_name="inventories"
+        LivestockType, on_delete=models.PROTECT, related_name="inventories"
     )
     entry_type = models.CharField(
         max_length=20, choices=EntryType.choices, default=EntryType.BATCH
