@@ -21,6 +21,7 @@ import {
   Clock,
   XCircle,
   Filter,
+  FileDown,
 } from "lucide-react";
 
 // shadcn/ui primitives (import from your components directory)
@@ -47,6 +48,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import api from "@/lib/axios";
+import { Spinner } from "@/components/ui/spinner";
 
 // --- TypeScript Interfaces matching Django Models ---
 
@@ -87,8 +89,12 @@ export default function LivestockInventoryPage() {
   const [farmerId, setFarmerId] = useState<number | null>(null);
   const [livestockTypes, setLivestockTypes] = useState<Record<string, number>>({});
   const [inventories, setInventories] = useState<LivestockInventoryItem[]>([])
+  const [IsLoading, setIsLoading] = useState<boolean>(true);
+  const [formError, setFormError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
 
   useEffect(() => {
+    setIsLoading(true);
     const token = localStorage.getItem("access");
     let decoded: string | null = '';
     if (!token) {
@@ -96,6 +102,7 @@ export default function LivestockInventoryPage() {
     } else {
       decoded = jwtDecode(token);
     }
+
     // get livestock types
     const livestockTypesResponse = api.get("livestock/livestock_types/")
       .then((res) => {
@@ -127,11 +134,11 @@ export default function LivestockInventoryPage() {
 
         setInventories(temp);
       })
-      .catch((error) => console.log(error));
+      .catch((error) => console.log(error))
+      .finally(() => {
+        setIsLoading(false);
+      })
   }, [])
-
-  console.log(livestockTypes);
-  console.log(inventories);
 
   // Form State matching Django LivestockInventory
   const [formData, setFormData] = useState({
@@ -155,22 +162,22 @@ export default function LivestockInventoryPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleDelete = async (id: string) => {
-    try {
-      await api.delete(`/livestock/inventory_delete/${id}/`, {
-        data: { id }
-      });
-
-      setInventories((prev) => prev.filter((item) => item.id !== id));
-      toast.success("Livestock record deleted successfully");
-    } catch (err) {
-      console.log(err)
-      toast.error("Failed to delete livestock record");
-    }
-  };
-
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
+
+    if (formData.entryType === "INDIVIDUAL" && !formData.tagNumber.trim()) {
+      setFormError("Tag number is required for individual entries.");
+      return;
+    }
+    if (formData.entryType === "BATCH" && (!formData.quantity || formData.quantity < 1)) {
+      setFormError("Quantity must be at least 1 for batch entries.");
+      return;
+    }
+    if (!formData.breed.trim()) {
+      setFormError("Breed is required.");
+      return;
+    }
 
     const newItem: LivestockInventoryItem = {
       id: Date.now().toString(),
@@ -187,7 +194,6 @@ export default function LivestockInventoryPage() {
       createdAt: new Date().toISOString().split("T")[0],
     };
 
-    setInventories([newItem, ...inventories]);
     try {
       const response = await api.post('/livestock/create/', {
         livestock_type: livestockTypes[formData.livestockType],
@@ -219,8 +225,8 @@ export default function LivestockInventoryPage() {
 
       setInventories((prev) => [item, ...prev]);
     } catch (err) {
-      console.error(err)
-    };
+      console.error(err);
+    }
     setIsAddOpen(false);
   };
 
@@ -250,6 +256,33 @@ export default function LivestockInventoryPage() {
     }
   };
 
+  const exportCSV = () => {
+    const headers = ["Tag Number", "Livestock Type", "Entry Type", "Quantity", "Breed", "Sex", "Weight (kg)", "Last Vaccination", "Status", "Review Remarks", "Created At"];
+    const rows = inventories.map((item) => [
+      item.tagNumber,
+      item.livestockTypeName,
+      item.entryType,
+      item.quantity,
+      item.breed,
+      item.sex,
+      item.weight ?? "",
+      item.lastVaccinationDate ?? "",
+      item.status,
+      item.reviewRemarks ?? "",
+      item.createdAt,
+    ]);
+
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `livestock_inventory_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Inventory exported as CSV");
+  };
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased">
       <div className="hidden md:block">
@@ -272,161 +305,219 @@ export default function LivestockInventoryPage() {
               Livestock Records
             </h2>
 
-            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm">
-                  <Plus className="w-4 h-4" />
-                  Add Inventory
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold">New Livestock Entry</DialogTitle>
-                  <DialogDescription>
-                    Submit new livestock entries for administrative approval.
-                  </DialogDescription>
-                </DialogHeader>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={exportCSV}
+                className="gap-2 border-slate-300"
+                disabled={inventories.length === 0}
+              >
+                <FileDown className="w-4 h-4" />
+                Export CSV
+              </Button>
+              <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setFormError(""); }}>
+                <DialogTrigger asChild>
+                  <Button className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm">
+                    <Plus className="w-4 h-4" />
+                    Add Inventory
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-bold">New Livestock Entry</DialogTitle>
+                    <DialogDescription>
+                      Submit new livestock entries for administrative approval.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                <form onSubmit={handleAddSubmit} className="space-y-4 py-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="entryType">Entry Type</Label>
-                      <Select
-                        value={formData.entryType}
-                        onValueChange={(val: EntryType) =>
-                          setFormData({ ...formData, entryType: val })
-                        }
+                  <form onSubmit={handleAddSubmit} className="space-y-4 py-2">
+                    {formError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 font-medium">
+                        {formError}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="entryType">Entry Type</Label>
+                        <Select
+                          value={formData.entryType}
+                          onValueChange={(val: EntryType) =>
+                            setFormData({ ...formData, entryType: val })
+                          }
+                        >
+                          <SelectTrigger id="entryType">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BATCH">Batch Entry</SelectItem>
+                            <SelectItem value="INDIVIDUAL">Individual Tag</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="livestockType">Livestock Type</Label>
+                        <Select
+                          value={formData.livestockType}
+                          onValueChange={(val) =>
+                            setFormData({ ...formData, livestockType: val })
+                          }
+                        >
+                          <SelectTrigger id="livestockType">
+                            <SelectValue placeholder="Select animal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Cattle">Cattle</SelectItem>
+                            <SelectItem value="Goat">Goat</SelectItem>
+                            <SelectItem value="Swine">Swine</SelectItem>
+                            <SelectItem value="Carabao">Carabao</SelectItem>
+                            <SelectItem value="Poultry">Poultry</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {formData.entryType === "INDIVIDUAL" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="tagNumber">Ear Tag / ID Number</Label>
+                        <Input
+                          id="tagNumber"
+                          placeholder="e.g. TAG-2026-88"
+                          value={formData.tagNumber}
+                          onChange={(e) =>
+                            setFormData({ ...formData, tagNumber: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="quantity">Quantity (Head Count)</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          min="1"
+                          value={formData.quantity}
+                          onChange={(e) =>
+                            setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })
+                          }
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="breed">Breed</Label>
+                        <Input
+                          id="breed"
+                          placeholder="e.g. Brahman, Holstein"
+                          value={formData.breed}
+                          onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sex">Sex / Gender</Label>
+                        <Select
+                          value={formData.sex}
+                          onValueChange={(val) => setFormData({ ...formData, sex: val })}
+                        >
+                          <SelectTrigger id="sex">
+                            <SelectValue placeholder="Select sex" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Female">Female</SelectItem>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Mixed">Mixed (Batch)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="weight">Weight (kg)</Label>
+                        <Input
+                          id="weight"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={formData.weight}
+                          onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="vaxDate">Last Vaccination</Label>
+                        <Input
+                          id="vaxDate"
+                          type="date"
+                          value={formData.lastVaccinationDate}
+                          onChange={(e) =>
+                            setFormData({ ...formData, lastVaccinationDate: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <DialogFooter className="pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsAddOpen(false)}
                       >
-                        <SelectTrigger id="entryType">
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="BATCH">Batch Entry</SelectItem>
-                          <SelectItem value="INDIVIDUAL">Individual Tag</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        Cancel
+                      </Button>
+                      <Button type="submit" className="bg-emerald-700 hover:bg-emerald-800 text-white">
+                        Save Entry
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="livestockType">Livestock Type</Label>
-                      <Select
-                        value={formData.livestockType}
-                        onValueChange={(val) =>
-                          setFormData({ ...formData, livestockType: val })
-                        }
-                      >
-                        <SelectTrigger id="livestockType">
-                          <SelectValue placeholder="Select animal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Cattle">Cattle</SelectItem>
-                          <SelectItem value="Goat">Goat</SelectItem>
-                          <SelectItem value="Swine">Swine</SelectItem>
-                          <SelectItem value="Carabao">Carabao</SelectItem>
-                          <SelectItem value="Poultry">Poultry</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {formData.entryType === "INDIVIDUAL" ? (
-                    <div className="space-y-2">
-                      <Label htmlFor="tagNumber">Ear Tag / ID Number</Label>
-                      <Input
-                        id="tagNumber"
-                        placeholder="e.g. TAG-2026-88"
-                        value={formData.tagNumber}
-                        onChange={(e) =>
-                          setFormData({ ...formData, tagNumber: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Label htmlFor="quantity">Quantity (Head Count)</Label>
-                      <Input
-                        id="quantity"
-                        type="number"
-                        min="1"
-                        value={formData.quantity}
-                        onChange={(e) =>
-                          setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })
-                        }
-                        required
-                      />
+              {/* Confirm Delete Dialog */}
+              <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Delete Livestock Record</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete this record? This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {deleteTarget && (
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+                      <p><strong>{deleteTarget.entryType === "INDIVIDUAL" ? deleteTarget.tagNumber : `${deleteTarget.quantity}x ${deleteTarget.livestockTypeName} (Batch)`}</strong></p>
+                      <p className="text-slate-500 mt-1">{deleteTarget.livestockTypeName} • {deleteTarget.breed} • {deleteTarget.sex}</p>
                     </div>
                   )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="breed">Breed</Label>
-                      <Input
-                        id="breed"
-                        placeholder="e.g. Brahman, Holstein"
-                        value={formData.breed}
-                        onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sex">Sex / Gender</Label>
-                      <Select
-                        value={formData.sex}
-                        onValueChange={(val) => setFormData({ ...formData, sex: val })}
-                      >
-                        <SelectTrigger id="sex">
-                          <SelectValue placeholder="Select sex" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Female">Female</SelectItem>
-                          <SelectItem value="Male">Male</SelectItem>
-                          <SelectItem value="Mixed">Mixed (Batch)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="weight">Weight (kg)</Label>
-                      <Input
-                        id="weight"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={formData.weight}
-                        onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="vaxDate">Last Vaccination</Label>
-                      <Input
-                        id="vaxDate"
-                        type="date"
-                        value={formData.lastVaccinationDate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, lastVaccinationDate: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <DialogFooter className="pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAddOpen(false)}
-                    >
+                  <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => setDeleteTarget(null)}>
                       Cancel
                     </Button>
-                    <Button type="submit" className="bg-emerald-700 hover:bg-emerald-800 text-white">
-                      Save Entry
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        if (!deleteTarget) return;
+                        try {
+                          await api.delete(`/livestock/inventory_delete/${deleteTarget.id}/`, {
+                            data: { id: deleteTarget.id }
+                          });
+                          setInventories((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+                          toast.success("Livestock record deleted successfully");
+                        } catch (err) {
+                          toast.error("Failed to delete livestock record");
+                        }
+                        setDeleteTarget(null);
+                      }}
+                    >
+                      Delete
                     </Button>
                   </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
+
 
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -503,7 +594,11 @@ export default function LivestockInventoryPage() {
 
           {/* Cards Listing */}
           <div className="space-y-4">
-            {filteredInventories.length === 0 ? (
+            {IsLoading ? (
+              <div className="flex justify-center py-16">
+                <Spinner className="size-16 text-emerald-600" />
+              </div>
+            ) : filteredInventories.length === 0 ? (
               <Card className="p-8 text-center border-dashed border-slate-200">
                 <p className="text-slate-500">No livestock records match your query.</p>
               </Card>
@@ -577,7 +672,7 @@ export default function LivestockInventoryPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => setDeleteTarget(item)}
                           className="text-slate-700 hover:text-rose-600 hover:bg-rose-50"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -590,10 +685,10 @@ export default function LivestockInventoryPage() {
             )}
           </div>
         </div>
-      </main>
+      </main >
 
       {/* Mobile Bottom Navigation */}
-      <MobileNav />
+      < MobileNav />
       <Toaster position="top-center"
         toastOptions={{
           style: {
@@ -605,7 +700,7 @@ export default function LivestockInventoryPage() {
           },
         }}
       />
-    </div>
+    </div >
   );
 }
 // Mock data matching Django LivestockInventory
@@ -651,6 +746,6 @@ export default function LivestockInventoryPage() {
 //     lastVaccinationDate: null,
 //     status: "REJECTED",
 //     reviewRemarks: "Incomplete vaccination records provided.",
-//     createdAt: "2026-02-12",
+//     createdAt: "2026-02-12",;
 //   },
 // ]);
