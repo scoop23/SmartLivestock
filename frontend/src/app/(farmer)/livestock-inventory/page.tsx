@@ -81,6 +81,11 @@ export interface CensusSubmissionItem {
   reviewRemarks?: string;
 }
 
+export interface LivestockType {
+  id: number;
+  name: string;
+}
+
 export default function LivestockInventoryPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,7 +112,10 @@ export default function LivestockInventoryPage() {
     const livestockTypesResponse = api.get("livestock/livestock_types/")
       .then((res) => {
         const map: Record<string, number> = {};
-        res.data.forEach((t: Record<string, number>) => { map[t.name] = t.id });
+        res.data.forEach((t: LivestockType) => {
+          map[t.name] = t.id
+        }
+        );
         setLivestockTypes(map);
       }).catch((err) => console.log(err.message, err.status));
 
@@ -141,16 +149,17 @@ export default function LivestockInventoryPage() {
   }, [])
 
   // Form State matching Django LivestockInventory
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     entryType: "BATCH" as EntryType,
-    livestockType: "Cattle",
+    livestockType: "",
     quantity: 1,
     tagNumber: "",
     breed: "",
     sex: "Female",
     weight: "",
     lastVaccinationDate: "",
-  });
+  };
+  const [formData, setFormData] = useState(initialFormData);
 
   // Filter handlers
   const filteredInventories = inventories.filter((item) => {
@@ -315,7 +324,7 @@ export default function LivestockInventoryPage() {
                 <FileDown className="w-4 h-4" />
                 Export CSV
               </Button>
-              <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setFormError(""); }}>
+              <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) { setFormError(""); setFormData(initialFormData) } }}>
                 <DialogTrigger asChild>
                   <Button className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm">
                     <Plus className="w-4 h-4" />
@@ -367,11 +376,11 @@ export default function LivestockInventoryPage() {
                             <SelectValue placeholder="Select animal" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Cattle">Cattle</SelectItem>
-                            <SelectItem value="Goat">Goat</SelectItem>
-                            <SelectItem value="Swine">Swine</SelectItem>
-                            <SelectItem value="Carabao">Carabao</SelectItem>
-                            <SelectItem value="Poultry">Poultry</SelectItem>
+                            {
+                              Object.entries(livestockTypes).map(([name, id]) => (
+                                <SelectItem key={id} value={`${id}`}>{name}</SelectItem>
+                              ))
+                            }
                           </SelectContent>
                         </Select>
                       </div>
@@ -463,7 +472,7 @@ export default function LivestockInventoryPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsAddOpen(false)}
+                        onClick={() => { setIsAddOpen(false); setFormData(initialFormData) }}
                       >
                         Cancel
                       </Button>
