@@ -378,7 +378,7 @@ export default function LivestockInventoryPage() {
                           <SelectContent>
                             {
                               Object.entries(livestockTypes).map(([name, id]) => (
-                                <SelectItem key={id} value={`${id}`}>{name}</SelectItem>
+                                <SelectItem key={id} value={name}>{name}</SelectItem>
                               ))
                             }
                           </SelectContent>
