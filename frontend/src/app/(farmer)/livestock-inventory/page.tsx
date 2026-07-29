@@ -22,6 +22,7 @@ import {
   XCircle,
   Filter,
   FileDown,
+  Minus,
 } from "lucide-react";
 
 // shadcn/ui primitives (import from your components directory)
@@ -400,18 +401,52 @@ export default function LivestockInventoryPage() {
                         />
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        <Label htmlFor="quantity">Quantity (Head Count)</Label>
-                        <Input
-                          id="quantity"
-                          type="number"
-                          min="1"
-                          value={formData.quantity}
-                          onChange={(e) =>
-                            setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })
-                          }
-                          required
-                        />
+                      <div className="quantity-heads-main space-y-3 p-4 rounded-[10px] border-1">
+                        <Label htmlFor="quantity">Number of Heads</Label>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData({
+                                ...formData,
+                                quantity: Math.max(1, formData.quantity - 1),
+                              })
+                            }
+                            className="size-12 flex items-center justify-center rounded-xl border-2 border-[#2D5A27] bg-white text-[#2D5A27] hover:bg-[#2D5A27] hover:text-white transition-colors active:scale-95"
+                          >
+                            <Minus className="w-5 h-5" />
+                          </button>
+                          <div className="flex-1 text-center">
+                            <span className="text-4xl font-black text-slate-900 tabular-nums">
+                              {formData.quantity}
+                            </span>
+                            <p className="text-xs text-slate-400 mt-0.5">head{formData.quantity !== 1 ? "s" : ""}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData({ ...formData, quantity: formData.quantity + 1 })
+                            }
+                            className="size-12 flex items-center justify-center rounded-xl border-2 border-[#2D5A27] bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 transition-colors active:scale-95"
+                          >
+                            <Plus className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {[1, 5, 10, 25, 50].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, quantity: n })}
+                              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all active:scale-95 border-2 ${formData.quantity === n
+                                ? "bg-[#2D5A27] text-white border-[#2D5A27]"
+                                : "bg-white text-slate-600 border-slate-200 hover:border-[#2D5A27] hover:text-[#2D5A27]"
+                                }`}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -447,6 +482,7 @@ export default function LivestockInventoryPage() {
                       <div className="space-y-2">
                         <Label htmlFor="weight">Weight (kg)</Label>
                         <Input
+
                           id="weight"
                           type="number"
                           step="0.01"
