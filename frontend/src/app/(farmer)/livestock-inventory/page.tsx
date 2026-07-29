@@ -319,7 +319,7 @@ export default function LivestockInventoryPage() {
               <Button
                 variant="outline"
                 onClick={exportCSV}
-                className="gap-2 border-slate-300"
+                className="gap-2 border-slate-300 p-8"
                 disabled={inventories.length === 0}
               >
                 <FileDown className="w-4 h-4" />
@@ -327,7 +327,7 @@ export default function LivestockInventoryPage() {
               </Button>
               <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) { setFormError(""); setFormData(initialFormData) } }}>
                 <DialogTrigger asChild>
-                  <Button className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm">
+                  <Button className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm p-8">
                     <Plus className="w-4 h-4" />
                     Add Inventory
                   </Button>
