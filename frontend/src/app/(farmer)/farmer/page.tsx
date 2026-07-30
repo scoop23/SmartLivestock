@@ -116,7 +116,7 @@ export default function FarmerDashboard() {
               </button>
 
               <button
-                onClick={() => router.push('/production-logger')}
+                onClick={() => router.push('/production-dashboard')}
                 className="group flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-lg transition-all"
               >
                 <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">

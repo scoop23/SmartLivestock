@@ -92,7 +92,7 @@ export default function ProductionLoggerPage() {
   return (
     <>
       <PageHeader
-        title="Production Logger"
+        title="Production Dashboard"
         subtitle="Record milk, slaughter (katay), and sales"
         variant="farmer"
         maxWidthClass="max-w-5xl"

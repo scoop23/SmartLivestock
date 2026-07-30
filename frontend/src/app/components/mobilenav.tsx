@@ -27,7 +27,7 @@ export default function MobileNav() {
         </button>
 
         <button
-          onClick={() => router.push('/production-logger')}
+          onClick={() => router.push('/production-dashboard')}
           className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27]"
         >
           <TrendingUp className="w-6 h-6" />

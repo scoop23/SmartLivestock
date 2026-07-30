@@ -50,7 +50,7 @@ const adminLinks = [
 const farmerLinks = [
   { path: '/farmer', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/livestock-inventory', label: 'Livestock Inventory', icon: Sprout },
-  { path: '/production-logger', label: 'Production Logger', icon: ClipboardCheck },
+  { path: '/production-dashboard', label: 'Production Dashboard', icon: ClipboardCheck },
   { path: '/gis-user-map', label: 'GIS User Map', icon: Map },
   { path: '/alerts', label: 'Alerts', icon: Bell },
   { path: '/farmer-announcement', label: 'News & Announcements', icon: Megaphone },

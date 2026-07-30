@@ -236,7 +236,7 @@ export default function FarmerDashboard() {
                 <span className="text-sm font-bold text-slate-600 text-center">Add Livestock</span>
               </button>
               <button
-                onClick={() => router.push('/production-logger')}
+                onClick={() => router.push('/production-dashboard')}
                 className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white transition-all"
               >
                 <Package className="w-8 h-8 text-[#2D5A27]" />

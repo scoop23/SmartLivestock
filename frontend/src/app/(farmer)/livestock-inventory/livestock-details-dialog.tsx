@@ -149,7 +149,7 @@ export default function LivestockDetailsDialog({
               .join(" • ")}
           </DialogDescription>
           <div className="mt-3 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 leading-relaxed">
-            This is a read-only summary of all records linked to this livestock entry. To add or edit records, go to the relevant section (Production Logger, etc.).
+            This is a read-only summary of all records linked to this livestock entry. To add or edit records, go to the relevant section (Production Dashboard, etc.).
           </div>
         </DialogHeader>
 
