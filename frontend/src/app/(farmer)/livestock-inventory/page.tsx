@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
-import MobileNav from "@/app/components/mobilenav";
 import { jwtDecode } from "jwt-decode";
 import { toast, Toaster } from "sonner";
 
@@ -300,13 +298,8 @@ export default function LivestockInventoryPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased">
-      <div className="hidden md:block">
-        <Sidebar role="farmer" onLogout={() => router.push("/")} />
-      </div>
-
-      <main className="flex-1 overflow-auto pb-24 md:pb-10">
-        <PageHeader
+    <>
+      <PageHeader
           title="Livestock Inventory"
           subtitle="Manage your livestock entries and track their status"
           variant="farmer"
@@ -761,22 +754,7 @@ export default function LivestockInventoryPage() {
             )}
           </div>
         </div>
-      </main >
-
-      {/* Mobile Bottom Navigation */}
-      < MobileNav />
-      <Toaster position="top-center"
-        toastOptions={{
-          style: {
-            color: "white",
-            background: 'transparent',
-            boxShadow: 'none',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.2)',
-          },
-        }}
-      />
-    </div >
+    </>
   );
 }
 // Mock data matching Django LivestockInventory

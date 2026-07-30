@@ -31,6 +31,7 @@ import { Icon } from 'lucide-react';
 interface SidebarProps {
   role: 'farmer' | 'lgu' | 'sibat' | 'auction';
   onLogout: () => void;
+  hovered?: boolean;
 }
 
 const adminLinks = [
@@ -79,51 +80,38 @@ function getLinks(role: SidebarProps['role']) {
   }
 }
 
-export function Sidebar({ role, onLogout }: SidebarProps) {
+export function Sidebar({ role, onLogout, hovered = false }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const collapsed = !hovered;
   const links = getLinks(role);
-  // should i add a uncollapsed button?
 
   const SidebarNav = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-2 p-4 pb-2">
-        {!collapsed && (
-          <>
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#2D5A27]">
-              <Icon iconNode={cowHead} className="size-4" />
-            </div>
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#2D5A27]">
+          <Icon iconNode={cowHead} className="size-4" />
+        </div>
 
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold text-white truncate">
-                SmartLivestock
-              </span>
-              <span className="text-[11px] text-white/50 truncate">
-                Padre Garcia, Batangas
-              </span>
-            </div>
-          </>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:flex ml-auto p-1.5 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors"
-        >
-          <Menu className="size-4" />
-        </button>
+        <div className={`flex flex-col min-w-0 transition-opacity duration-200 ${collapsed ? 'opacity-0 pointer-events-none w-0' : 'opacity-100'}`}>
+          <span className="text-sm font-semibold text-white truncate">
+            SmartLivestock
+          </span>
+          <span className="text-[11px] text-white/50 truncate">
+            Padre Garcia, Batangas
+          </span>
+        </div>
       </div>
 
       <Separator className="bg-white/10 w-full my-1" />
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-        {!collapsed && (
-          <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
-            Navigation
-          </p>
-        )}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-1">
+        <p className={`px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30 transition-opacity duration-200 ${collapsed ? 'opacity-0 pointer-events-none h-0 py-0' : 'opacity-100'}`}>
+          Navigation
+        </p>
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = pathname === link.path;
@@ -140,7 +128,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
               )}
             >
               <Icon className="size-4 shrink-0" />
-              {!collapsed && <span className="truncate">{link.label}</span>}
+              <span className={`truncate transition-opacity duration-200 ${collapsed ? 'opacity-0 pointer-events-none w-0' : 'opacity-100'}`}>{link.label}</span>
             </Link>
           );
         })}
@@ -155,7 +143,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
           className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
         >
           <LogOut className="size-4 shrink-0" />
-          {!collapsed && <span>Logout</span>}
+          <span className={`truncate transition-opacity duration-200 ${collapsed ? 'opacity-0 pointer-events-none w-0' : 'opacity-100'}`}>Logout</span>
         </button>
       </div>
     </div>
@@ -163,11 +151,12 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop — rendered as a flex child */}
+      {/* Desktop — hover to uncollapse */}
       <aside className={cn(
-        "hidden md:flex flex-col h-screen sticky top-0 bg-[#2D5A27] text-white transition-all duration-300 shrink-0 border-r border-white/10",
+        "hidden md:flex flex-col h-screen sticky top-0 bg-[#2D5A27] text-white transition-all duration-200 ease-in-out shrink-0 border-r border-white/10 overflow-hidden",
         collapsed ? "w-[60px]" : "w-64"
-      )}>
+      )}
+      >
         <SidebarNav />
       </aside>
 

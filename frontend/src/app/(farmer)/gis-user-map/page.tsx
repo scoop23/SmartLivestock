@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import MobileNav from "@/app/components/mobilenav";
-import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
 import { Icon } from 'lucide-react';
 import { cowHead } from '@lucide/lab';
@@ -12,8 +10,11 @@ import { cowHead } from '@lucide/lab';
 // const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
 // const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
 import {
-  Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus, Layers, Map as MapIcon,
+  TrendingUp, AlertTriangle, Package, Bell, Plus, Layers, Map as MapIcon,
 } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 const LeafletMapUser = dynamic(
@@ -192,82 +193,80 @@ export default function FarmerDashboard() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-      <div className="hidden md:block">
-        <Sidebar role="farmer" onLogout={() => router.push('/')} />
-      </div>
+    <>
+      <PageHeader
+        title="Welcome, Juan!"
+        subtitle="San Roque, Padre Garcia"
+        variant="farmer"
+        maxWidthClass="max-w-5xl"
+        mobileMenuOffset={false}
+        action={
+          <Button variant="ghost" size="icon" className="rounded-lg bg-white/10 hover:bg-white/20 text-white" aria-label="Notifications">
+            <Bell className="h-5 w-5" />
+          </Button>
+        }
+      />
 
-      <main className="flex-1 overflow-auto pb-8 md:pb-0">
-        <PageHeader
-          title="Welcome, Juan!"
-          subtitle="San Roque, Padre Garcia"
-          variant="farmer"
-          maxWidthClass="max-w-4xl"
-          mobileMenuOffset={false}
-          action={
-            <button className="rounded-lg bg-white/10 p-2 transition-colors hover:bg-white/20" aria-label="Notifications">
-              <Bell className="h-6 w-6" />
-            </button>
-          }
-        />
-
-        <div className="p-4 md:p-6 max-w-4xl mx-auto">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {myStats.map((stat) => {
-              return (
-                <div key={stat.label} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                  <div className={`${stat.color} text-white p-2 rounded-lg inline-block mb-3`}>
-                    {/* <Icon className="w-5 h-5" /> */}
-                    {stat.icon}
-                  </div>
-                  <p className="text-xl mb-1 font-bold">{stat.value}</p>
-                  <p className="text-xs text-gray-600">{stat.label}</p>
+      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {myStats.map((stat) => (
+            <Card key={stat.label} className="border-slate-200 shadow-sm">
+              <CardContent className="p-5">
+                <div className={`${stat.color} text-white p-2.5 rounded-xl inline-block mb-3`}>
+                  {stat.icon}
                 </div>
-              );
-            })}
-          </div>
+                <p className="text-2xl font-black text-slate-900">{stat.value}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-            <h3 className="mb-4 font-semibold text-gray-800">Quick Actions</h3>
+        {/* Quick Actions */}
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => router.push('/livestock-inventory')}
-                className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-[#2D5A27] hover:bg-gray-50 transition-colors"
+                className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white transition-all"
               >
                 <Plus className="w-8 h-8 text-[#2D5A27]" />
-                <span className="text-sm text-center">Add Livestock</span>
+                <span className="text-sm font-bold text-slate-600 text-center">Add Livestock</span>
               </button>
               <button
                 onClick={() => router.push('/production-logger')}
-                className="flex flex-col items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-[#2D5A27] hover:bg-gray-50 transition-colors"
+                className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white transition-all"
               >
                 <Package className="w-8 h-8 text-[#2D5A27]" />
-                <span className="text-sm text-center">Log Production</span>
+                <span className="text-sm font-bold text-slate-600 text-center">Log Production</span>
               </button>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* My Barangay GIS Map */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+        {/* My Barangay GIS Map */}
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <MapIcon className="w-5 h-5 text-[#2D5A27]" />
-              <h3 className="font-semibold text-gray-800">My Barangay — San Roque</h3>
+              <h3 className="text-lg font-bold text-slate-900">My Barangay — San Roque</h3>
             </div>
 
             {/* Map Layer Controls */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <Layers className="w-5 h-5 text-[#2D5A27]" />
-              <span className="font-medium text-sm text-gray-700">Layer:</span>
+              <span className="text-sm font-medium text-slate-600">Layer:</span>
               {(Object.keys(LAYER_CONFIG) as MapLayer[]).map(layer => (
                 <button
                   key={layer}
                   onClick={() => setMapLayer(layer)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${mapLayer === layer
-                    ? 'bg-[#2D5A27] text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    mapLayer === layer
+                      ? 'bg-[#2D5A27] text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
                 >
                   {LAYER_CONFIG[layer].icon} {LAYER_CONFIG[layer].label}
                 </button>
@@ -275,7 +274,7 @@ export default function FarmerDashboard() {
             </div>
 
             {/* Map */}
-            <div className="rounded-lg overflow-hidden border border-gray-200 mb-4">
+            <div className="rounded-lg overflow-hidden border border-slate-200 mb-4">
               <div className="bg-[#2D5A27] px-3 py-1.5 text-white text-xs font-medium">
                 {LAYER_CONFIG[mapLayer].icon} Viewing: {LAYER_CONFIG[mapLayer].label} · Click polygon for details
               </div>
@@ -287,7 +286,6 @@ export default function FarmerDashboard() {
                       .barangay-tooltip::before { display: none; }
                       .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
                     `}</style>
-                    {/* leaflet */}
                     <LeafletMapUser
                       mapLayer={mapLayer}
                       SAN_ROQUE_GEOJSON={SAN_ROQUE_GEOJSON}
@@ -301,84 +299,93 @@ export default function FarmerDashboard() {
             {/* Legend + Barangay Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm mb-2 font-medium text-gray-700">
+                <p className="text-sm font-medium text-slate-600 mb-2">
                   {LAYER_CONFIG[mapLayer].icon} {LAYER_CONFIG[mapLayer].label} — Legend
                 </p>
                 {renderLegend()}
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg space-y-3 border border-gray-100">
-                <p className="text-sm font-medium text-gray-700">Barangay Info</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-white border border-emerald-100 rounded-lg p-2.5 text-center">
-                    <div className="text-lg font-bold text-[#2D5A27]">{data.cattle}</div>
-                    <div className="text-[10px] uppercase font-bold text-gray-500">🐄 Cattle Heads</div>
-                  </div>
-                  <div className="bg-white border border-emerald-100 rounded-lg p-2.5 text-center">
-                    <div className="text-sm font-bold text-green-700">{data.diseaseRisk.toUpperCase()}</div>
-                    <div className="text-[10px] uppercase font-bold text-gray-500">🩺 Disease Risk</div>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Monthly Production</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between bg-blue-50/50 rounded-lg px-3 py-1.5 border border-blue-100">
-                      <span className="text-sm text-blue-800">🥛 Milk</span>
-                      <span className="text-sm font-bold text-blue-700">{data.milk.toLocaleString()} L</span>
+              <Card className="bg-slate-50 border-slate-200 shadow-sm">
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-medium text-slate-700">Barangay Info</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white border border-emerald-100 rounded-lg p-2.5 text-center">
+                      <div className="text-lg font-bold text-[#2D5A27]">{data.cattle}</div>
+                      <div className="text-[10px] uppercase font-bold text-slate-500">🐄 Cattle Heads</div>
                     </div>
-                    <div className="flex items-center justify-between bg-red-50/50 rounded-lg px-3 py-1.5 border border-red-100">
-                      <span className="text-sm text-red-800">🥩 Katay (Meat)</span>
-                      <span className="text-sm font-bold text-red-700">{data.meat.toLocaleString()} kg</span>
+                    <div className="bg-white border border-emerald-100 rounded-lg p-2.5 text-center">
+                      <div className="text-sm font-bold text-emerald-700">{data.diseaseRisk.toUpperCase()}</div>
+                      <div className="text-[10px] uppercase font-bold text-slate-500">🩺 Disease Risk</div>
                     </div>
                   </div>
-                </div>
-              </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Monthly Production</p>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between bg-blue-50/50 rounded-lg px-3 py-1.5 border border-blue-100">
+                        <span className="text-sm text-blue-800">🥛 Milk</span>
+                        <span className="text-sm font-bold text-blue-700">{data.milk.toLocaleString()} L</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-red-50/50 rounded-lg px-3 py-1.5 border border-red-100">
+                        <span className="text-sm text-red-800">🥩 Katay (Meat)</span>
+                        <span className="text-sm font-bold text-red-700">{data.meat.toLocaleString()} kg</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Alerts */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+        {/* Alerts */}
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800">Recent Alerts</h3>
-              <button onClick={() => router.push('/alerts')} className="text-sm text-[#2D5A27] font-bold hover:underline">View All</button>
+              <h3 className="text-lg font-bold text-slate-900">Recent Alerts</h3>
+              <Button variant="link" className="text-sm text-[#2D5A27] font-bold p-0 h-auto" onClick={() => router.push('/alerts')}>
+                View All
+              </Button>
             </div>
             <div className="space-y-3">
               {recentAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`p-4 rounded-lg border-l-4 ${alert.type === 'warning' ? 'bg-yellow-50 border-yellow-500' : 'bg-blue-50 border-blue-500'}`}
+                  className={`p-4 rounded-lg border-l-4 ${
+                    alert.type === 'warning' ? 'bg-yellow-50 border-yellow-500' : 'bg-blue-50 border-blue-500'
+                  }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="font-bold text-gray-800 mb-1">{alert.title}</h4>
-                      <p className="text-sm text-gray-600">{alert.message}</p>
+                      <h4 className="font-bold text-slate-800 mb-1">{alert.title}</h4>
+                      <p className="text-sm text-slate-600">{alert.message}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-400 mt-2 font-medium">{alert.date}</p>
+                  <p className="text-xs text-slate-400 mt-2 font-medium">{alert.date}</p>
                 </div>
               ))}
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Recent Activity */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="mb-4 font-semibold text-gray-800">Recent Activity</h3>
+        {/* Recent Activity */}
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Recent Activity</h3>
             <div className="space-y-3">
               {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors group">
-                  <div className="w-2 h-2 bg-[#2D5A27] rounded-full mt-2 group-hover:scale-125 transition-transform"></div>
+                <div key={activity.id} className="flex items-start gap-3 p-3 hover:bg-slate-50 rounded-lg transition-colors group">
+                  <div className="w-2 h-2 bg-[#2D5A27] rounded-full mt-2 group-hover:scale-125 transition-transform shrink-0" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800">{activity.action}</p>
+                    <p className="text-sm font-medium text-slate-800">{activity.action}</p>
                     <p className="text-sm text-[#2D5A27] font-bold">{activity.value}</p>
                   </div>
-                  <p className="text-xs text-gray-400 font-medium">{activity.date}</p>
+                  <p className="text-xs text-slate-400 font-medium">{activity.date}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      </main>
-      <MobileNav />
-    </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }

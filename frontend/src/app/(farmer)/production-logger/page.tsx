@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import MobileNav from "@/app/components/mobilenav";
-import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
 import { Package, Milk, TrendingUp, Calendar } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -62,13 +60,8 @@ export default function ProductionLoggerPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased">
-      <div className="hidden md:block">
-        <Sidebar role="farmer" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto pb-24 md:pb-10">
-        <PageHeader
+    <>
+      <PageHeader
           title="Production Logger"
           subtitle="Record milk, slaughter (katay), and sales"
           variant="farmer"
@@ -274,10 +267,6 @@ export default function ProductionLoggerPage() {
             <ProductionHistory records={records} />
           )}
         </div>
-      </main>
-
-      {/* Mobile Bottom Nav */}
-      <MobileNav />
-    </div>
+    </>
   );
 }

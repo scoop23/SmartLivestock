@@ -2,21 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import MobileNav from "@/app/components/mobilenav";
-import { Sidebar } from "@/app/components/sidebar";
 import { PageHeader } from "@/app/components/page-header";
 import {
   Calendar,
   Clock,
   CheckCircle2,
-  AlertCircle,
   Syringe,
-  Bug,
-  Sprout,
-  Milk,
   Bell,
-  ArrowRight
 } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 
 // This would normally come from your database/API
@@ -69,32 +65,27 @@ export default function FarmerSchedulingPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-      <div className="hidden md:block">
-        <Sidebar role="farmer" onLogout={() => router.push('/')} />
-      </div>
+    <>
+      <PageHeader
+        title="Program Scheduling"
+        subtitle="Book slots for active MAO programs"
+        icon={<Calendar className="h-7 w-7" />}
+        variant="farmer"
+        maxWidthClass="max-w-5xl"
+        mobileMenuOffset={false}
+        action={maoNotifications.some(n => n.isNew) ? (
+          <Badge className="bg-orange-500 hover:bg-orange-500 text-white border-0 animate-pulse gap-1">
+            <Bell className="h-3 w-3" /> NEW
+          </Badge>
+        ) : null}
+      />
 
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        <PageHeader
-          title="Program Scheduling"
-          subtitle="Book slots for active MAO programs"
-          icon={<Calendar className="h-7 w-7" />}
-          variant="farmer"
-          maxWidthClass="max-w-4xl"
-          mobileMenuOffset={false}
-          action={maoNotifications.some(n => n.isNew) ? (
-            <div className="flex items-center gap-1 rounded-full bg-orange-500 px-3 py-1 text-xs font-black text-white animate-pulse">
-              <Bell className="h-3 w-3" /> NEW PROGRAMS OPEN
-            </div>
-          ) : null}
-        />
-
-        <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
-
-          {/* STEP 1: SELECT FROM MAO ANNOUNCEMENTS */}
-          <section className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-6">
-              <div className="bg-green-100 p-2 rounded-lg">
+      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+        {/* Schedule Your Appointment */}
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-6">
+              <div className="bg-emerald-100 p-2 rounded-lg">
                 <CheckCircle2 className="w-5 h-5 text-[#2D5A27]" />
               </div>
               Schedule Your Appointment
@@ -103,19 +94,24 @@ export default function FarmerSchedulingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Date Selection */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">1. Select Available Date</label>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">1. Select Available Date</p>
                 <div className="space-y-2">
                   {maoNotifications.map((notif) => (
                     <button
                       key={notif.id}
                       onClick={() => setSelectedDate(notif.date)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all ${selectedDate === notif.date
-                        ? 'border-[#2D5A27] bg-green-50 ring-2 ring-[#2D5A27]/10'
-                        : 'border-gray-100 hover:border-gray-300'
-                        }`}
+                      className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                        selectedDate === notif.date
+                          ? 'border-[#2D5A27] bg-emerald-50'
+                          : 'border-slate-100 hover:border-slate-300'
+                      }`}
                     >
-                      <p className="font-bold text-gray-800">{notif.date}</p>
-                      {notif.isNew && <span className="text-[9px] text-orange-600 font-bold uppercase tracking-tighter">Just Announced</span>}
+                      <p className="font-bold text-slate-800">{notif.date}</p>
+                      {notif.isNew && (
+                        <Badge className="bg-orange-500 hover:bg-orange-500 text-white border-0 mt-1 text-[9px]">
+                          Just Announced
+                        </Badge>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -123,24 +119,25 @@ export default function FarmerSchedulingPage() {
 
               {/* Program Selection */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">2. Select Program</label>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">2. Select Program</p>
                 <div className="space-y-2">
                   {selectedDate ? (
                     availableProgramsForDate.map((prog) => (
                       <button
                         key={prog}
                         onClick={() => setSelectedProgram(prog)}
-                        className={`w-full text-left p-3 rounded-xl border transition-all ${selectedProgram === prog
-                          ? 'border-[#2D5A27] bg-green-50'
-                          : 'border-gray-100 hover:border-gray-300'
-                          }`}
+                        className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                          selectedProgram === prog
+                            ? 'border-[#2D5A27] bg-emerald-50'
+                            : 'border-slate-100 hover:border-slate-300'
+                        }`}
                       >
-                        <p className="font-bold text-gray-700 text-sm">{prog}</p>
+                        <p className="font-bold text-slate-700 text-sm">{prog}</p>
                       </button>
                     ))
                   ) : (
-                    <div className="p-4 border border-dashed rounded-xl text-center">
-                      <p className="text-xs text-gray-400 italic">Select a date first</p>
+                    <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center">
+                      <p className="text-xs text-slate-400 italic">Select a date first</p>
                     </div>
                   )}
                 </div>
@@ -148,12 +145,12 @@ export default function FarmerSchedulingPage() {
 
               {/* Time Selection */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">3. Preferred Time</label>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">3. Preferred Time</p>
                 <select
                   disabled={!selectedProgram}
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
-                  className="w-full bg-gray-50 border p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#2D5A27] disabled:opacity-40"
+                  className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#2D5A27] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <option value="">Choose Time</option>
                   <option value="08:00 AM">08:00 AM</option>
@@ -162,48 +159,51 @@ export default function FarmerSchedulingPage() {
                   <option value="01:30 PM">01:30 PM</option>
                 </select>
 
-                <button
+                <Button
                   onClick={handleBook}
                   disabled={!selectedTime}
-                  className="w-full bg-[#2D5A27] text-white font-bold py-4 rounded-xl mt-4 shadow-lg hover:shadow-xl hover:bg-[#1e3d1a] transition-all disabled:bg-gray-200"
+                  className="w-full mt-4 bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-sm"
                 >
                   Book Appointment
-                </button>
+                </Button>
               </div>
             </div>
-          </section>
+          </CardContent>
+        </Card>
 
-          {/* MY SCHEDULED APPOINTMENTS */}
-          <section className="space-y-4">
-            <h3 className="font-bold text-gray-800 px-2 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#2D5A27]" />
-              My Schedule
-            </h3>
+        {/* My Schedule */}
+        <div className="space-y-4">
+          <h3 className="font-bold text-slate-900 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#2D5A27]" />
+            My Schedule
+          </h3>
 
-            {myAppointments.map((apt) => (
-              <div key={apt.id} className="bg-white p-5 rounded-2xl border border-gray-200 flex items-center justify-between group">
+          {myAppointments.map((apt) => (
+            <Card key={apt.id} className="border-slate-200 shadow-sm">
+              <CardContent className="p-5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${apt.status === 'upcoming' ? 'bg-green-50 text-[#2D5A27]' : 'bg-gray-100 text-gray-400'}`}>
+                  <div className={`p-3 rounded-xl ${
+                    apt.status === 'upcoming' ? 'bg-emerald-50 text-[#2D5A27]' : 'bg-slate-100 text-slate-400'
+                  }`}>
                     <Syringe className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-800">{apt.program}</h4>
-                    <p className="text-xs text-gray-500 font-medium">{apt.date} • {apt.time}</p>
+                    <h4 className="font-bold text-slate-800">{apt.program}</h4>
+                    <p className="text-xs text-slate-500 font-medium">{apt.date} • {apt.time}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${apt.status === 'upcoming' ? 'bg-[#2D5A27] text-white' : 'bg-gray-200 text-gray-600'
-                    }`}>
-                    {apt.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </section>
+                <Badge className={
+                  apt.status === 'upcoming'
+                    ? 'bg-[#2D5A27] text-white border-0'
+                    : 'bg-slate-200 text-slate-600 hover:bg-slate-200 border-0'
+                }>
+                  {apt.status}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </main>
-
-      <MobileNav />
-    </div>
+      </div>
+    </>
   );
 }

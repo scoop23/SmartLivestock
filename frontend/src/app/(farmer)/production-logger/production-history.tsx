@@ -34,6 +34,7 @@ export default function ProductionHistory({
     (r) => typeFilter === "ALL" || r.type === typeFilter
   );
 
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
@@ -47,7 +48,7 @@ export default function ProductionHistory({
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -76,13 +77,12 @@ export default function ProductionHistory({
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <Badge
-                    className={`uppercase tracking-wider ${
-                      record.type === "milk"
-                        ? "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200"
-                        : record.type === "slaughter"
-                          ? "bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200"
-                          : "bg-green-100 text-green-800 hover:bg-green-100 border-green-200"
-                    }`}
+                    className={`uppercase tracking-wider ${record.type === "milk"
+                      ? "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200"
+                      : record.type === "slaughter"
+                        ? "bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200"
+                        : "bg-green-100 text-green-800 hover:bg-green-100 border-green-200"
+                      }`}
                   >
                     {record.type}
                   </Badge>
