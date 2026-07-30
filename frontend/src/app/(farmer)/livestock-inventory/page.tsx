@@ -48,6 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import api from "@/lib/axios";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -158,6 +159,7 @@ export default function LivestockInventoryPage() {
     breed: "",
     sex: "Female",
     weight: "",
+    isVaccinated: false,
     lastVaccinationDate: "",
   };
   const [formData, setFormData] = useState(initialFormData);
@@ -186,6 +188,10 @@ export default function LivestockInventoryPage() {
     }
     if (!formData.breed.trim()) {
       setFormError("Breed is required.");
+      return;
+    }
+    if (formData.isVaccinated && !formData.lastVaccinationDate) {
+      setFormError("Please provide the last vaccination date or uncheck 'Vaccinated'.");
       return;
     }
 
@@ -479,28 +485,53 @@ export default function LivestockInventoryPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="weight">Weight (kg)</Label>
-                        <Input
+                      {formData.entryType === "INDIVIDUAL" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="weight">Weight (kg)</Label>
+                          <Input
 
-                          id="weight"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={formData.weight}
-                          onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="vaxDate">Last Vaccination</Label>
-                        <Input
-                          id="vaxDate"
-                          type="date"
-                          value={formData.lastVaccinationDate}
-                          onChange={(e) =>
-                            setFormData({ ...formData, lastVaccinationDate: e.target.value })
-                          }
-                        />
+                            id="weight"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={formData.weight}
+                            onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                          />
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="isVaccinated"
+                            checked={formData.isVaccinated}
+                            onCheckedChange={(checked) =>
+                              setFormData({
+                                ...formData,
+                                isVaccinated: !!checked,
+                                lastVaccinationDate: checked ? formData.lastVaccinationDate : "",
+                              })
+                            }
+                          />
+                          <Label htmlFor="isVaccinated" className="text-sm font-medium cursor-pointer">
+                            Vaccinated
+                          </Label>
+                        </div>
+                        {formData.isVaccinated && (
+                          <div className="space-y-2">
+                            <Label htmlFor="vaxDate">Last Vaccination Date</Label>
+                            <Input
+                              id="vaxDate"
+                              type="date"
+                              className="flex w-full"
+                              value={formData.lastVaccinationDate}
+                              onChange={(e) =>
+                                setFormData({ ...formData, lastVaccinationDate: e.target.value })
+                              }
+                              required
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 
