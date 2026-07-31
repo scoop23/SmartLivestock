@@ -153,6 +153,11 @@ export default function ProductionLoggerPage() {
       record_date: formState.prodDate ?? new Date().toISOString().split('T')[0],
     };
 
+    /*
+     * payload could be something like names : [], quantity : number 
+     * thats why unknown
+     * */
+
     if (productionType === 'milk') {
       payload.livestock = clickedInventory.id;
       payload.production_type = 'MILK';
@@ -309,7 +314,7 @@ export default function ProductionLoggerPage() {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <Table>
+                    <Table className="responsive-table">
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
                           <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Batch / Tag</TableHead>
@@ -331,20 +336,20 @@ export default function ProductionLoggerPage() {
                               onClick={() => setClickedInventory(item)}
                               className="cursor-pointer"
                             >
-                              <TableCell className="font-bold text-slate-900">
+                              <TableCell data-label="Batch / Tag" className="font-bold text-slate-900 px-5">
                                 {item.entryType === "INDIVIDUAL"
                                   ? item.tagNumber || "Un-tagged"
                                   : `Batch #${item.id}`}
                               </TableCell>
-                              <TableCell className="text-slate-600">{item.livestockTypeName}</TableCell>
-                              <TableCell className="text-slate-600">{item.breed || "Standard Breed"}</TableCell>
-                              <TableCell className="text-slate-600">{item.sex}</TableCell>
-                              <TableCell className="text-slate-600">
+                              <TableCell data-label="Type" className="text-slate-600">{item.livestockTypeName}</TableCell>
+                              <TableCell data-label="Breed" className="text-slate-600">{item.breed || "Standard Breed"}</TableCell>
+                              <TableCell data-label="Sex" className="text-slate-600">{item.sex}</TableCell>
+                              <TableCell data-label="Heads / Wt" className="text-slate-600">
                                 {item.entryType === "BATCH" && `${item.quantity} heads`}
                                 {item.weight != null && `${item.entryType === "BATCH" ? " • " : ""}${item.weight} kg`}
                               </TableCell>
-                              <TableCell className="text-slate-500">{formatDate(item.createdAt)}</TableCell>
-                              <TableCell className="text-right">
+                              <TableCell data-label="Added" className="text-slate-500">{formatDate(item.createdAt)}</TableCell>
+                              <TableCell data-label="Select" className="text-right">
                                 {selected ? (
                                   <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27]">
                                     <Check className="w-4 h-4" /> Selected
