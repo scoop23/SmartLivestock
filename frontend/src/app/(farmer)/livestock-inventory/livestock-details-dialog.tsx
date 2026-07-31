@@ -8,10 +8,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { LivestockInventoryItem } from "./page";
 
-// NOTE: After most of the significant apps are done, fetch all of them that are related to this livestock record, as they all are foreign keyed to livestock Record.
+// ─── Backend model matches ──────────────────────────────────────────
 
 interface ProductionRecord {
   id: string;
@@ -107,9 +107,9 @@ const getStatusBadge = (status: string) => {
   );
 };
 
-// Helper for empty tab states
+// Fixed EmptyState to fill height naturally without collapsing
 const EmptyState = ({ message }: { message: string }) => (
-  <div className="flex flex-col items-center justify-center h-full min-h-[220px] text-center">
+  <div className="flex flex-col items-center justify-center flex-1 h-full min-h-[250px] text-center p-6">
     <p className="text-sm text-slate-500 font-medium">{message}</p>
   </div>
 );
@@ -129,10 +129,10 @@ export default function LivestockDetailsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 
-        Key fix: Set explicit height constraints on DialogContent (`h-[80vh] min-h-[500px] max-h-[650px]`) 
-        so switching tabs with varying items never resizes the dialog box.
+        Key fix: Fixed dialog dimensions using `h-[580px]` instead of flexible `vh` limits,
+        ensuring the frame size stays 100% constant across tab switches.
       */}
-      <DialogContent className="sm:max-w-2xl w-[95vw] h-[80vh] min-h-[500px] max-h-[650px] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl">
+      <DialogContent className="sm:max-w-2xl w-[95vw] h-[580px] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl">
         {/* Header */}
         <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-white flex-shrink-0">
           <DialogTitle className="text-xl font-bold flex items-center gap-2.5 text-slate-900">
@@ -148,202 +148,219 @@ export default function LivestockDetailsDialog({
               .filter(Boolean)
               .join(" • ")}
           </DialogDescription>
-          <div className="mt-3 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 leading-relaxed">
-            This is a read-only summary of all records linked to this livestock entry. To add or edit records, go to the relevant section (Production Dashboard, etc.).
-          </div>
         </DialogHeader>
 
         {/* Content Tabs */}
         {livestock && (
           <Tabs defaultValue="production" className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Horizontal Tabs Header */}
-            <div className="px-6 py-2 bg-slate-50/50 border-b border-slate-100 flex-shrink-0 overflow-x-auto">
-              <TabsList className="bg-slate-200/60 p-1 h-auto inline-flex gap-1 rounded-lg w-max">
-                <TabsTrigger value="production" className="px-3 py-1.5 text-xs font-medium">
-                  Production
-                </TabsTrigger>
-                <TabsTrigger value="slaughter" className="px-3 py-1.5 text-xs font-medium">
-                  Slaughter
-                </TabsTrigger>
-                <TabsTrigger value="sales" className="px-3 py-1.5 text-xs font-medium">
-                  Live Sales
-                </TabsTrigger>
-                <TabsTrigger value="disease" className="px-3 py-1.5 text-xs font-medium">
-                  Disease
-                </TabsTrigger>
-                <TabsTrigger value="mortality" className="px-3 py-1.5 text-xs font-medium">
-                  Mortality
-                </TabsTrigger>
-              </TabsList>
+            <div className="px-6 py-2 bg-slate-50/50 border-b border-slate-100 flex-shrink-0">
+              <ScrollArea className="w-full">
+                <TabsList className="bg-slate-200/60 p-1 h-auto inline-flex gap-1 rounded-lg">
+                  <TabsTrigger value="production" className="px-3 py-1.5 text-xs font-medium">
+                    Production
+                  </TabsTrigger>
+                  <TabsTrigger value="slaughter" className="px-3 py-1.5 text-xs font-medium">
+                    Slaughter
+                  </TabsTrigger>
+                  <TabsTrigger value="sales" className="px-3 py-1.5 text-xs font-medium">
+                    Live Sales
+                  </TabsTrigger>
+                  <TabsTrigger value="disease" className="px-3 py-1.5 text-xs font-medium">
+                    Disease
+                  </TabsTrigger>
+                  <TabsTrigger value="mortality" className="px-3 py-1.5 text-xs font-medium">
+                    Mortality
+                  </TabsTrigger>
+                </TabsList>
+              </ScrollArea>
             </div>
 
-            {/* Scrollable Tab Body */}
+            {/* Locked Content Container */}
             <div className="flex-1 min-h-0 relative">
-              <ScrollArea className="absolute inset-0 p-6">
-                {/* Production */}
-                <TabsContent value="production" className="m-0 focus-visible:outline-none">
-                  {mockProduction.length === 0 ? (
-                    <EmptyState message="No production records found." />
-                  ) : (
-                    <div className="space-y-2.5">
-                      {mockProduction.map((r: ProductionRecord) => (
-                        <RecordCard key={r.id}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">
-                                {r.production_type}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                {r.record_date} •{" "}
-                                <span className="font-medium text-slate-700">
-                                  {r.quantity} {r.unit}
-                                </span>
-                              </p>
-                            </div>
-                            {getStatusBadge(r.status)}
-                          </div>
-                        </RecordCard>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Slaughter */}
-                <TabsContent value="slaughter" className="m-0 focus-visible:outline-none">
-                  {mockSlaughter.length === 0 ? (
-                    <EmptyState message="No slaughter records found." />
-                  ) : (
-                    <div className="space-y-2.5">
-                      {mockSlaughter.map((r: SlaughterRecord) => (
-                        <RecordCard key={r.id}>
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">
-                                {r.livestock_type_name}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                {r.record_date} • {r.quantity} head
-                                {r.quantity > 1 ? "s" : ""}
-                              </p>
-                              {r.carcass_weight && (
-                                <p className="text-xs text-slate-500 mt-1">
-                                  Dressed Weight:{" "}
+              {/* Production */}
+              <TabsContent value="production" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
+                  <div className="p-6 flex-1 flex flex-col">
+                    {mockProduction.length === 0 ? (
+                      <EmptyState message="No production records found." />
+                    ) : (
+                      <div className="space-y-2.5">
+                        {mockProduction.map((r: ProductionRecord) => (
+                          <RecordCard key={r.id}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {r.production_type}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {r.record_date} •{" "}
                                   <span className="font-medium text-slate-700">
-                                    {r.carcass_weight} kg
+                                    {r.quantity} {r.unit}
                                   </span>
                                 </p>
-                              )}
+                              </div>
+                              {getStatusBadge(r.status)}
                             </div>
-                            {getStatusBadge(r.status)}
-                          </div>
-                        </RecordCard>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
+                          </RecordCard>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
 
-                {/* Live Sales */}
-                <TabsContent value="sales" className="m-0 focus-visible:outline-none">
-                  {mockSales.length === 0 ? (
-                    <EmptyState message="No live sale records found." />
-                  ) : (
-                    <div className="space-y-2.5">
-                      {mockSales.map((r: LiveAnimalSale) => (
-                        <RecordCard key={r.id}>
-                          <div className="flex items-start justify-between mb-1.5">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">
-                                {r.destination}
-                              </p>
-                              {r.price_per_head && (
-                                <p className="text-xs text-slate-500">
-                                  ₱{r.price_per_head.toLocaleString()} / head
+              {/* Slaughter */}
+              <TabsContent value="slaughter" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
+                  <div className="p-6 flex-1 flex flex-col">
+                    {mockSlaughter.length === 0 ? (
+                      <EmptyState message="No slaughter records found." />
+                    ) : (
+                      <div className="space-y-2.5">
+                        {mockSlaughter.map((r: SlaughterRecord) => (
+                          <RecordCard key={r.id}>
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {r.livestock_type_name}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {r.record_date} • {r.quantity} head
+                                  {r.quantity > 1 ? "s" : ""}
+                                </p>
+                                {r.carcass_weight && (
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    Dressed Weight:{" "}
+                                    <span className="font-medium text-slate-700">
+                                      {r.carcass_weight} kg
+                                    </span>
+                                  </p>
+                                )}
+                              </div>
+                              {getStatusBadge(r.status)}
+                            </div>
+                          </RecordCard>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              {/* Live Sales */}
+              <TabsContent value="sales" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
+                  <div className="p-6 flex-1 flex flex-col">
+                    {mockSales.length === 0 ? (
+                      <EmptyState message="No live sale records found." />
+                    ) : (
+                      <div className="space-y-2.5">
+                        {mockSales.map((r: LiveAnimalSale) => (
+                          <RecordCard key={r.id}>
+                            <div className="flex items-start justify-between mb-1.5">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {r.destination}
+                                </p>
+                                {r.price_per_head && (
+                                  <p className="text-xs text-slate-500">
+                                    ₱{r.price_per_head.toLocaleString()} / head
+                                  </p>
+                                )}
+                              </div>
+                              {r.total_price && (
+                                <p className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  ₱{r.total_price.toLocaleString()}
                                 </p>
                               )}
                             </div>
-                            {r.total_price && (
-                              <p className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                ₱{r.total_price.toLocaleString()}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 border-t border-slate-200/60 pt-2 mt-2">
-                            <span>{r.sale_date}</span>
-                            <span>•</span>
-                            <span>
-                              {r.quantity} head{r.quantity > 1 ? "s" : ""}
-                            </span>
-                            {r.total_live_weight && (
-                              <>
-                                <span>•</span>
-                                <span>{r.total_live_weight} kg</span>
-                              </>
-                            )}
-                            <span>•</span>
-                            <span className="capitalize">
-                              {r.sale_method?.toLowerCase().replace("-", " ")}
-                            </span>
-                            <span>•</span>
-                            <span className="capitalize">{r.purpose?.toLowerCase()}</span>
-                          </div>
-                        </RecordCard>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Disease */}
-                <TabsContent value="disease" className="m-0 focus-visible:outline-none">
-                  {mockDisease.length === 0 ? (
-                    <EmptyState message="No disease records found." />
-                  ) : (
-                    <div className="space-y-2.5">
-                      {mockDisease.map((r: DiseaseCase) => (
-                        <RecordCard key={r.id}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">{r.name}</p>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                {r.record_date} •{" "}
-                                <span className="font-medium text-slate-700">
-                                  {r.affected_count} affected
-                                </span>
-                              </p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 border-t border-slate-200/60 pt-2 mt-2">
+                              <span>{r.sale_date}</span>
+                              <span>•</span>
+                              <span>
+                                {r.quantity} head{r.quantity > 1 ? "s" : ""}
+                              </span>
+                              {r.total_live_weight && (
+                                <>
+                                  <span>•</span>
+                                  <span>{r.total_live_weight} kg</span>
+                                </>
+                              )}
+                              <span>•</span>
+                              <span className="capitalize">
+                                {r.sale_method?.toLowerCase().replace("-", " ")}
+                              </span>
+                              <span>•</span>
+                              <span className="capitalize">{r.purpose?.toLowerCase()}</span>
                             </div>
-                            {getStatusBadge(r.status)}
-                          </div>
-                        </RecordCard>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
+                          </RecordCard>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
 
-                {/* Mortality */}
-                <TabsContent value="mortality" className="m-0 focus-visible:outline-none">
-                  {mockMortality.length === 0 ? (
-                    <EmptyState message="No mortality records found." />
-                  ) : (
-                    <div className="space-y-2.5">
-                      {mockMortality.map((r: MortalityRecord) => (
-                        <RecordCard key={r.id}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">{r.cause}</p>
-                              <p className="text-xs text-slate-500 mt-0.5">{r.record_date}</p>
+              {/* Disease */}
+              <TabsContent value="disease" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
+                  <div className="p-6 flex-1 flex flex-col">
+                    {mockDisease.length === 0 ? (
+                      <EmptyState message="No disease records found." />
+                    ) : (
+                      <div className="space-y-2.5">
+                        {mockDisease.map((r: DiseaseCase) => (
+                          <RecordCard key={r.id}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">{r.name}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {r.record_date} •{" "}
+                                  <span className="font-medium text-slate-700">
+                                    {r.affected_count} affected
+                                  </span>
+                                </p>
+                              </div>
+                              {getStatusBadge(r.status)}
                             </div>
-                            <Badge
-                              variant="outline"
-                              className="bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-50"
-                            >
-                              {r.death_count} head{r.death_count > 1 ? "s" : ""}
-                            </Badge>
-                          </div>
-                        </RecordCard>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </ScrollArea>
+                          </RecordCard>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              {/* Mortality */}
+              <TabsContent value="mortality" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
+                  <div className="p-6 flex-1 flex flex-col">
+                    {mockMortality.length === 0 ? (
+                      <EmptyState message="No mortality records found." />
+                    ) : (
+                      <div className="space-y-2.5">
+                        {mockMortality.map((r: MortalityRecord) => (
+                          <RecordCard key={r.id}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">{r.cause}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">{r.record_date}</p>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className="bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-50"
+                              >
+                                {r.death_count} head{r.death_count > 1 ? "s" : ""}
+                              </Badge>
+                            </div>
+                          </RecordCard>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
             </div>
           </Tabs>
         )}

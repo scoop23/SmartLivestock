@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/app/components/page-header';
 import { AlertTriangle, Info, CheckCircle, Bell, Calendar } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +18,6 @@ interface Alert {
 }
 
 export default function AlertsPage() {
-  const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'unread' | 'high'>('all');
 
   const [alerts, setAlerts] = useState<Alert[]>([

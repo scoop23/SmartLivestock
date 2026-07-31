@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { PageHeader } from "@/app/components/page-header";
 import { Package, Milk, TrendingUp, Calendar } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -15,29 +14,14 @@ import ProductionFormFields, {
 import ProductionHistory, {
   type ProductionRecord,
 } from "./production-history";
-import { LivestockInventoryItem, type StatusType } from '../livestock-inventory/page';
-import api from '@/lib/axios';
 
 export type UnitType = "liters" | "pieces" | "kilograms";
 
-
-interface ProductionRecordInterface {
-  id: string;
-  livestockId: string;
-  productionType: ProductionType;
-  quantity: number;
-  unit: UnitType;
-  recordDate: string;
-  status: StatusType;
-}
-
 export default function ProductionLoggerPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'log' | 'history'>('log');
   const [productionType, setProductionType] = useState<ProductionType>('milk');
-  const [inventories, setInventories] = useState<LivestockInventoryItem[]>();
 
-  const [records, setRecords] = useState<ProductionRecord[]>([
+  const [records] = useState<ProductionRecord[]>([
     {
       id: '1',
       date: '2026-04-23',

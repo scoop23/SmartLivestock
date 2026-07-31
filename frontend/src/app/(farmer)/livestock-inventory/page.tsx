@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
-import { jwtDecode } from "jwt-decode";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 
 // Lucide Icons
 import {
@@ -77,68 +76,64 @@ export interface LivestockType {
   name: string;
 }
 
+interface InventoryApiItem {
+  id: string;
+  farmer_name: string;
+  livestock_type_name: string;
+  entry_type: EntryType;
+  quantity: number;
+  tag_number: string;
+  breed: string;
+  sex: string;
+  weight: number | null;
+  last_vaccination_date: string | null;
+  status: StatusType;
+  review_remarks: string | null;
+  created_at: string;
+}
+
 export default function LivestockInventoryPage() {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [farmerId, setFarmerId] = useState<number | null>(null);
-  const [livestockTypes, setLivestockTypes] = useState<Record<string, number>>({});
-  const [inventories, setInventories] = useState<LivestockInventoryItem[]>([])
-  const [IsLoading, setIsLoading] = useState<boolean>(true);
   const [formError, setFormError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
 
-  useEffect(() => {
-    setIsLoading(true);
-    const token = localStorage.getItem("access");
-    let decoded: string | null = '';
-    if (!token) {
-      console.error("Wheres the token?");
-    } else {
-      decoded = jwtDecode(token);
-    }
+  const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
+    id: item.id,
+    farmerName: item.farmer_name,
+    livestockTypeName: item.livestock_type_name,
+    entryType: item.entry_type,
+    quantity: item.quantity,
+    tagNumber: item.tag_number,
+    breed: item.breed,
+    sex: item.sex,
+    weight: item.weight,
+    lastVaccinationDate: item.last_vaccination_date,
+    status: item.status,
+    reviewRemarks: item.review_remarks,
+    createdAt: item.created_at,
+  });
 
-    // get livestock types
-    const livestockTypesResponse = api.get("livestock/livestock_types/")
-      .then((res) => {
-        const map: Record<string, number> = {};
-        res.data.forEach((t: LivestockType) => {
-          map[t.name] = t.id
-        }
-        );
-        setLivestockTypes(map);
-      }).catch((err) => console.log(err.message, err.status));
+  const { data: livestockTypes = {} } = useQuery<Record<string, number>>({
+    queryKey: ["livestockTypes"],
+    queryFn: async () => {
+      const res = await api.get<LivestockType[]>("livestock/livestock_types/");
+      const map: Record<string, number> = {};
+      res.data.forEach((t) => { map[t.name] = t.id });
+      return map;
+    },
+  });
 
-    // get user information
-    api.get("api/users/me").then((res) => console.log(res.data)).catch((err) => console.log(err.message))
-
-    const livestockInventoryResponse = api.get("livestock/inventory/")
-      .then((res) => {
-        const temp: LivestockInventoryItem[] = res.data.map((item: any) => ({
-          id: item.id,
-          farmerName: item.farmer_name,
-          livestockTypeName: item.livestock_type_name,
-          entryType: item.entry_type,
-          quantity: item.quantity,
-          tagNumber: item.tag_number,
-          breed: item.breed,
-          sex: item.sex,
-          weight: item.weight,
-          lastVaccinationDate: item.last_vaccination_date,
-          status: item.status,
-          reviewRemarks: item.review_remarks,
-          createdAt: item.created_at,
-        }));
-
-        setInventories(temp);
-      })
-      .catch((error) => console.log(error))
-      .finally(() => {
-        setIsLoading(false);
-      })
-  }, [])
+  const { data: inventories = [], isLoading: IsLoading } = useQuery<LivestockInventoryItem[]>({
+    queryKey: ["inventory"],
+    queryFn: async () => {
+      const res = await api.get("livestock/inventory/");
+      return res.data.map(mapInventory);
+    },
+  });
 
   // Form State matching Django LivestockInventory
   const initialFormData = {
@@ -164,7 +159,46 @@ export default function LivestockInventoryPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/livestock/create/', {
+        livestock_type: livestockTypes[formData.livestockType],
+        entry_type: formData.entryType,
+        quantity: formData.entryType === "INDIVIDUAL" ? 1 : Number(formData.quantity),
+        tag_number: formData.tagNumber || "",
+        breed: formData.breed,
+        sex: formData.sex,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        last_vaccination_date: formData.lastVaccinationDate || null,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      setIsAddOpen(false);
+      setFormData(initialFormData);
+      toast.success("Livestock entry submitted for approval");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to add livestock entry");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/livestock/inventory_delete/${id}/`, { data: { id } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Livestock record deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete livestock record");
+    },
+  });
+
+  const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
@@ -185,41 +219,7 @@ export default function LivestockInventoryPage() {
       return;
     }
 
-    try {
-      const response = await api.post('/livestock/create/', {
-        livestock_type: livestockTypes[formData.livestockType],
-        entry_type: formData.entryType,
-        quantity: formData.entryType === "INDIVIDUAL" ? 1 : Number(formData.quantity),
-        tag_number: formData.tagNumber || "",
-        breed: formData.breed,
-        sex: formData.sex,
-        weight: formData.weight ? parseFloat(formData.weight) : null,
-        last_vaccination_date: formData.lastVaccinationDate || null,
-      });
-
-      // convert it to camelCase.
-      // this is the data that the api sent, after sending a post.
-      const item = {
-        id: response.data.id,
-        farmerName: response.data.farmer_name,
-        livestockTypeName: response.data.livestock_type_name,
-        entryType: response.data.entry_type,
-        quantity: response.data.quantity,
-        tagNumber: response.data.tag_number,
-        breed: response.data.breed,
-        sex: response.data.sex,
-        weight: response.data.weight,
-        lastVaccinationDate: response.data.last_vaccination_date,
-        status: response.data.status,
-        reviewRemarks: response.data.review_remarks,
-        createdAt: response.data.created_at,
-      };
-
-      setInventories((prev) => [item, ...prev]);
-    } catch (err) {
-      console.error(err);
-    }
-    setIsAddOpen(false);
+    addMutation.mutate();
   };
 
   const getStatusBadge = (status: StatusType) => {
@@ -543,17 +543,9 @@ export default function LivestockInventoryPage() {
                   </Button>
                   <Button
                     variant="destructive"
-                    onClick={async () => {
+                    onClick={() => {
                       if (!deleteTarget) return;
-                      try {
-                        await api.delete(`/livestock/inventory_delete/${deleteTarget.id}/`, {
-                          data: { id: deleteTarget.id }
-                        });
-                        setInventories((prev) => prev.filter((item) => item.id !== deleteTarget.id));
-                        toast.success("Livestock record deleted successfully");
-                      } catch (err) {
-                        toast.error("Failed to delete livestock record");
-                      }
+                      deleteMutation.mutate(deleteTarget.id);
                       setDeleteTarget(null);
                     }}
                   >
@@ -749,49 +741,3 @@ export default function LivestockInventoryPage() {
     </>
   );
 }
-// Mock data matching Django LivestockInventory
-// const [inventories, setInventories] = useState<LivestockInventoryItem[]>([
-//   {
-//     id: "1",
-//     farmerName: "Juan Dela Cruz",
-//     livestockTypeName: "Cattle",
-//     entryType: "INDIVIDUAL",
-//     quantity: 1,
-//     tagNumber: "TAG-2026-001",
-//     breed: "Brahman",
-//     sex: "Male",
-//     weight: 480.5,
-//     lastVaccinationDate: "2026-01-15",
-//     status: "APPROVED",
-//     createdAt: "2026-02-01",
-//   },
-//   {
-//     id: "2",
-//     farmerName: "Juan Dela Cruz",
-//     livestockTypeName: "Goat",
-//     entryType: "BATCH",
-//     quantity: 15,
-//     tagNumber: "",
-//     breed: "Anglo-Nubian",
-//     sex: "Mixed",
-//     weight: null,
-//     lastVaccinationDate: "2026-02-10",
-//     status: "PENDING",
-//     createdAt: "2026-02-18",
-//   },
-//   {
-//     id: "3",
-//     farmerName: "Juan Dela Cruz",
-//     livestockTypeName: "Swine",
-//     entryType: "BATCH",
-//     quantity: 8,
-//     tagNumber: "",
-//     breed: "Landrace",
-//     sex: "Female",
-//     weight: null,
-//     lastVaccinationDate: null,
-//     status: "REJECTED",
-//     reviewRemarks: "Incomplete vaccination records provided.",
-//     createdAt: "2026-02-12",;
-//   },
-// ]);
