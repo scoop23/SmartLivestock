@@ -1,26 +1,51 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
-import { Package, Milk, TrendingUp, Calendar } from 'lucide-react';
+import { Package, Milk, TrendingUp, Calendar, Check } from 'lucide-react';
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 import ProductionFormFields, {
   type ProductionType,
 } from "./production-form-fields";
 import ProductionHistory, {
   type ProductionRecord,
 } from "./production-history";
+import { LivestockInventoryItem } from '../livestock-inventory/page';
+import api from '@/lib/axios';
 
 export type UnitType = "liters" | "pieces" | "kilograms";
+
+const formatDate = (date: string | null | undefined) => {
+  if (!date) return "Unknown date";
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (match) {
+    const [, y, m, d] = match;
+    const month = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-US", { month: "short" });
+    return `${month} ${Number(d)}, ${y}`;
+  }
+  return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+};
 
 export default function ProductionLoggerPage() {
   const [activeTab, setActiveTab] = useState<'log' | 'history'>('log');
   const [productionType, setProductionType] = useState<ProductionType>('milk');
-
+  const [clickedInventory, setClickedInventory] = useState<LivestockInventoryItem | null>(null);
+  const [formState, setFormState] = useState<Record<string, string | number>>({});
   const [records] = useState<ProductionRecord[]>([
     {
       id: '1',
@@ -49,28 +74,104 @@ export default function ProductionLoggerPage() {
     },
   ]);
 
-  useEffect(() => {
-    try {
-      console.log("Call stuff here.")
-    } catch (err) {
-      if (err instanceof Error) {
-        console.log(err.cause);
+  const { data: inventories = [], isLoading: isLoading } = useQuery<LivestockInventoryItem[]>({
+    queryKey: ["inventory"],
+    queryFn: async () => {
+      const res = await api.get("livestock/inventory/");
+      const result: LivestockInventoryItem[] = [];
+      for (const item of res.data) {
+        result.push({
+          id: item.id,
+          farmerName: item.farmer_name,
+          livestockTypeName: item.livestock_type_name,
+          entryType: item.entry_type,
+          quantity: item.quantity,
+          tagNumber: item.tag_number,
+          breed: item.breed,
+          sex: item.sex,
+          weight: item.weight,
+          lastVaccinationDate: item.last_vaccination_date,
+          status: item.status,
+          reviewRemarks: item.review_remarks,
+          createdAt: item.created_at,
+        });
       }
+      return result;
     }
-  }, [])
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const approvedInventories = inventories.filter((item) => item.status === "APPROVED");
+
+  const { data: livestockTypes = {} } = useQuery<Record<string, number>>({
+    queryKey: ["livestockTypes"],
+    queryFn: async () => {
+      const res = await api.get<{ id: number; name: string }[]>("livestock/livestock_types/");
+      const map: Record<string, number> = {};
+      res.data.forEach((t) => { map[t.name] = t.id });
+      return map;
+    },
+  });
+
+  const handleFieldChange = (field: string, val: string | number) => {
+    setFormState((prev) => ({ ...prev, [field]: val }));
+  };
+
+  const handleTypeSelect = (type: ProductionType) => {
+    setProductionType(type);
+    setClickedInventory(null);
+  };
+
+  const submitMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const url =
+        productionType === 'milk' ? '/production/milk/create/'
+          : productionType === 'slaughter' ? '/production/slaughter/create/'
+            : '/production/sale/create/';
+      const res = await api.post(url, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success('Production record submitted for approval');
+      setClickedInventory(null);
+      setFormState({});
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error('Failed to submit production record');
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // In a real app, you'd handle the form data here
 
-    try {
-
-    } catch (err) {
-      if (err instanceof Error) {
-        console.log(err.message, err.cause);
-      }
+    if (!clickedInventory) {
+      toast.error('Please select a livestock inventory first.');
+      return;
     }
-    alert('Production record logged successfully!');
+
+    const payload: Record<string, unknown> = {
+      record_date: formState.prodDate ?? new Date().toISOString().split('T')[0],
+    };
+
+    if (productionType === 'milk') {
+      payload.livestock = clickedInventory.id;
+      payload.production_type = 'MILK';
+      payload.quantity = Number(formState.milkQty);
+      payload.unit = 'LITERS';
+    } else if (productionType === 'slaughter') {
+      payload.livestock = clickedInventory.id;
+      payload.livestock_type = livestockTypes[clickedInventory.livestockTypeName];
+      payload.quantity = 1;
+      payload.carcass_weight = formState.dressedWt ? Number(formState.dressedWt) : null;
+    } else {
+      payload.livestock = clickedInventory.id;
+      payload.quantity = Number(formState.heads);
+      payload.sale_method = 'WEIGHING';
+      payload.total_live_weight = formState.totalKg ? Number(formState.totalKg) : null;
+      payload.total_price = formState.price ? Number(formState.price) : null;
+    }
+
+    submitMutation.mutate(payload); // send payload
   };
 
   return (
@@ -128,6 +229,7 @@ export default function ProductionLoggerPage() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                     <Package className="w-4 h-4 text-blue-500" />
                     Total Dressed (Katay) (MTD)
+                    {/* still not sure if we can get this */}
                   </p>
                   <p className="text-2xl font-black text-slate-900 mt-1">1,240 <span className="text-sm font-normal font-medium text-slate-500">kg</span></p>
                   <p className="text-xs text-slate-500 mt-1">4 heads processed this month</p>
@@ -152,7 +254,7 @@ export default function ProductionLoggerPage() {
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Select Production Type</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
-                    onClick={() => setProductionType('milk')}
+                    onClick={() => handleTypeSelect('milk')}
                     className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center ${productionType === 'milk'
                       ? 'border-[#2D5A27] bg-[#2D5A27]/5'
                       : 'border-slate-100 hover:border-slate-300 bg-slate-50'
@@ -163,7 +265,7 @@ export default function ProductionLoggerPage() {
                   </button>
 
                   <button
-                    onClick={() => setProductionType('slaughter')}
+                    onClick={() => handleTypeSelect('slaughter')}
                     className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center ${productionType === 'slaughter'
                       ? 'border-[#2D5A27] bg-[#2D5A27]/5'
                       : 'border-slate-100 hover:border-slate-300 bg-slate-50'
@@ -174,7 +276,7 @@ export default function ProductionLoggerPage() {
                   </button>
 
                   <button
-                    onClick={() => setProductionType('sale')}
+                    onClick={() => handleTypeSelect('sale')}
                     className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center ${productionType === 'sale'
                       ? 'border-[#2D5A27] bg-[#2D5A27]/5'
                       : 'border-slate-100 hover:border-slate-300 bg-slate-50'
@@ -184,6 +286,80 @@ export default function ProductionLoggerPage() {
                     <p className="text-sm font-bold">Live Sale</p>
                   </button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Inventory Selector */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent className="p-5">
+                <h3 className="text-lg font-bold text-slate-900 mb-1">
+                  Select Livestock
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Click an inventory record to link it to this {productionType} record.
+                </p>
+
+                {isLoading ? (
+                  <p className="text-sm text-slate-500 py-4">Loading inventory...</p>
+                ) : approvedInventories.length === 0 ? (
+                  <div className="p-6 text-center rounded-xl border border-dashed border-slate-200">
+                    <p className="text-sm text-slate-500">
+                      No approved livestock inventory found. Add livestock in the Livestock Inventory page first.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Batch / Tag</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Type</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Breed</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sex</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Heads / Wt</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Added</TableHead>
+                          <TableHead className="w-20 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">Select</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {approvedInventories.map((item) => {
+                          const selected = clickedInventory?.id === item.id;
+                          return (
+                            <TableRow
+                              key={item.id}
+                              data-state={selected ? "selected" : undefined}
+                              onClick={() => setClickedInventory(item)}
+                              className="cursor-pointer"
+                            >
+                              <TableCell className="font-bold text-slate-900">
+                                {item.entryType === "INDIVIDUAL"
+                                  ? item.tagNumber || "Un-tagged"
+                                  : `Batch #${item.id}`}
+                              </TableCell>
+                              <TableCell className="text-slate-600">{item.livestockTypeName}</TableCell>
+                              <TableCell className="text-slate-600">{item.breed || "Standard Breed"}</TableCell>
+                              <TableCell className="text-slate-600">{item.sex}</TableCell>
+                              <TableCell className="text-slate-600">
+                                {item.entryType === "BATCH" && `${item.quantity} heads`}
+                                {item.weight != null && `${item.entryType === "BATCH" ? " • " : ""}${item.weight} kg`}
+                              </TableCell>
+                              <TableCell className="text-slate-500">{formatDate(item.createdAt)}</TableCell>
+                              <TableCell className="text-right">
+                                {selected ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27]">
+                                    <Check className="w-4 h-4" /> Selected
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-slate-400">Click</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -202,22 +378,39 @@ export default function ProductionLoggerPage() {
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
                       <Input
                         id="prodDate"
+                        name="prodDate"
                         type="date"
-                        defaultValue={new Date().toISOString().split('T')[0]}
                         className="pl-10"
+                        value={String(formState.prodDate ?? new Date().toISOString().split('T')[0])}
+                        onChange={(e) => handleFieldChange('prodDate', e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <ProductionFormFields type={productionType} />
+                  <ProductionFormFields
+                    type={productionType}
+                    value={formState}
+                    onChange={handleFieldChange}
+                  />
 
                   <div className="space-y-2">
                     <Label htmlFor="notes">Notes</Label>
-                    <Textarea id="notes" rows={2} placeholder="Optional details..." />
+                    <Textarea
+                      id="notes"
+                      name="notes"
+                      rows={2}
+                      placeholder="Optional details..."
+                      value={String(formState.notes ?? "")}
+                      onChange={(e) => handleFieldChange('notes', e.target.value)}
+                    />
                   </div>
 
-                  <Button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm">
-                    Submit Record
+                  <Button
+                    type="submit"
+                    disabled={!clickedInventory || submitMutation.isPending}
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm"
+                  >
+                    {submitMutation.isPending ? 'Submitting...' : 'Submit Record'}
                   </Button>
                 </form>
               </CardContent>

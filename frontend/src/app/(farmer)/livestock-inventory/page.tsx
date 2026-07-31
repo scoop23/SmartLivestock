@@ -14,6 +14,7 @@ import {
   Weight,
   Layers,
   Tag,
+  CalendarDays,
   CheckCircle2,
   Clock,
   XCircle,
@@ -686,7 +687,7 @@ export default function LivestockInventoryPage() {
                             </span>
                           </div>
                         )}
-                        {item.lastVaccinationDate && (
+                        {item.lastVaccinationDate ? (
                           <div className="flex items-center gap-1.5 text-slate-600">
                             <Calendar className="w-4 h-4 text-slate-400" />
                             <span>
@@ -696,11 +697,24 @@ export default function LivestockInventoryPage() {
                               </strong>
                             </span>
                           </div>
+                        ) : (
+                          <div className="text-amber-600">
+                            Not Vaccinated
+                          </div>
                         )}
                         <div className="flex items-center gap-1.5 text-slate-600">
                           <Tag className="w-4 h-4 text-slate-400" />
                           <span>
                             Quantity: <strong className="text-slate-900">{item.quantity} head</strong>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-600">
+                          <CalendarDays className="w-4 h-4 text-slate-400" />
+                          <span>
+                            Date Created:{" "}
+                            <strong className="text-slate-900">
+                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
+                            </strong>
                           </span>
                         </div>
                       </div>
