@@ -6,6 +6,7 @@ from rest_framework.utils import serializer_helpers
 from production.serializer import ProductionRecordSerializer
 from rest_framework import status
 from users import serializer
+from .models import ProductionRecord
 
 # TODO: Build CRUD viewsets for:
 #   - ProductionRecord (create, list by farmer, review by SIBAT/MAO)
@@ -22,3 +23,10 @@ def create_production_record(request):
         serializer.save(created_by=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+def get_production_records(request):
+    records = ProductionRecord.objects.filter(created_by=request.user)
+    serializer = ProductionRecordSerializer(records, many=True)
+    return Response(serializer.data)

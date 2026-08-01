@@ -43,7 +43,6 @@ class LivestockInventorySerializer(serializers.Serializer):
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
-        instance.updated_by = self.context["request"].user
         instance.save()
 
         return instance

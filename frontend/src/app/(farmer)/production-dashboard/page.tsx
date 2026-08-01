@@ -10,14 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import ProductionFormFields, {
   type ProductionType,
@@ -313,56 +305,43 @@ export default function ProductionLoggerPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <Table className="responsive-table">
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Batch / Tag</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Type</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Breed</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sex</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Heads / Wt</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Added</TableHead>
-                          <TableHead className="w-20 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">Select</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {approvedInventories.map((item) => {
-                          const selected = clickedInventory?.id === item.id;
-                          return (
-                            <TableRow
-                              key={item.id}
-                              data-state={selected ? "selected" : undefined}
-                              onClick={() => setClickedInventory(item)}
-                              className="cursor-pointer"
-                            >
-                              <TableCell data-label="Batch / Tag" className="font-bold text-slate-900 px-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {approvedInventories.map((item) => {
+                      const selected = clickedInventory?.id === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setClickedInventory(item)}
+                          className={`text-left p-4 rounded-xl border-2 transition-all ${selected
+                            ? "border-[#2D5A27] bg-[#2D5A27]/5 shadow-sm"
+                            : "border-slate-100 hover:border-slate-300 bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-slate-900 truncate">
                                 {item.entryType === "INDIVIDUAL"
                                   ? item.tagNumber || "Un-tagged"
-                                  : `Batch #${item.id}`}
-                              </TableCell>
-                              <TableCell data-label="Type" className="text-slate-600">{item.livestockTypeName}</TableCell>
-                              <TableCell data-label="Breed" className="text-slate-600">{item.breed || "Standard Breed"}</TableCell>
-                              <TableCell data-label="Sex" className="text-slate-600">{item.sex}</TableCell>
-                              <TableCell data-label="Heads / Wt" className="text-slate-600">
-                                {item.entryType === "BATCH" && `${item.quantity} heads`}
-                                {item.weight != null && `${item.entryType === "BATCH" ? " • " : ""}${item.weight} kg`}
-                              </TableCell>
-                              <TableCell data-label="Added" className="text-slate-500">{formatDate(item.createdAt)}</TableCell>
-                              <TableCell data-label="Select" className="text-right">
-                                {selected ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27]">
-                                    <Check className="w-4 h-4" /> Selected
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-slate-400">Click</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                                  : `Batch #${item.id} • ${item.quantity} heads`}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                {item.livestockTypeName} • {item.breed || "Standard Breed"} • {item.sex}
+                              </p>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                Added {formatDate(item.createdAt)}
+                                {item.weight != null ? ` • ${item.weight} kg` : ""}
+                              </p>
+                            </div>
+                            {selected && (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27] shrink-0">
+                                <Check className="w-4 h-4" /> Selected
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
