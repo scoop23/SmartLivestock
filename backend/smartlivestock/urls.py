@@ -33,5 +33,6 @@ urlpatterns = [
     path("api/users/", include("users.urls")),
     path("api/token/", MyTokenView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh", TokenRefreshView.as_view(), name="token_refresh"),
-    path("livestock/", include("livestock.urls")),
+    path("livestock/", include("livestock.urls"), name="livestock"),
+    path("production/", include("production.urls"), name="production"),
 ]

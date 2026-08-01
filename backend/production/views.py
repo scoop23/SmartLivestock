@@ -18,9 +18,9 @@ from .models import ProductionRecord
 
 @api_view(["POST"])
 def create_production_record(request):
-    serializer = ProductionRecordSerializer(request.data)
+    serializer = ProductionRecordSerializer(request.data, context={"request": request})
     if serializer.is_valid():
-        serializer.save(created_by=request.user)
+        serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
