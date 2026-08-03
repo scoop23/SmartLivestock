@@ -41,7 +41,6 @@ Development process
 
 Hopefully master django in the future
 
-
 ---
 
 # Notes
@@ -50,7 +49,7 @@ Current focus:
 
 Build a solid backend foundation before frontend development.
 
-preferably finished before august 🥱
+Preferably finished before august 🥱 ( cooked ! )
 
 Avoid implementing:
 
@@ -59,7 +58,7 @@ Avoid implementing:
     - Predictions
     - Dashboards
 
-until all core CRUD operations and APIs are complete.
+Until all core CRUD operations and APIs are complete.
 
 The goal is to ensure the data model and basic input output is stable before building higher-level features.
 

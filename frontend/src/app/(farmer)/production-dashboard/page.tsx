@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
-import { Package, Milk, TrendingUp, Calendar, Check } from 'lucide-react';
+import { Package, Milk, TrendingUp, Calendar, Check, ChevronDown } from 'lucide-react';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,26 +17,17 @@ import ProductionFormFields, {
 import ProductionHistory, {
   type ProductionRecord,
 } from "./production-history";
+import SelectLivestockDialog from "./select-livestock-dialog";
 import { LivestockInventoryItem } from '../livestock-inventory/page';
 import api from '@/lib/axios';
 
 export type UnitType = "liters" | "pieces" | "kilograms";
 
-const formatDate = (date: string | null | undefined) => {
-  if (!date) return "Unknown date";
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
-  if (match) {
-    const [, y, m, d] = match;
-    const month = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-US", { month: "short" });
-    return `${month} ${Number(d)}, ${y}`;
-  }
-  return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-};
-
 export default function ProductionLoggerPage() {
   const [activeTab, setActiveTab] = useState<'log' | 'history'>('log');
   const [productionType, setProductionType] = useState<ProductionType>('milk');
   const [clickedInventory, setClickedInventory] = useState<LivestockInventoryItem | null>(null);
+  const [selectOpen, setSelectOpen] = useState(false);
   const [formState, setFormState] = useState<Record<string, string | number>>({});
   const [records] = useState<ProductionRecord[]>([
     {
@@ -305,44 +296,56 @@ export default function ProductionLoggerPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {approvedInventories.map((item) => {
-                      const selected = clickedInventory?.id === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setClickedInventory(item)}
-                          className={`text-left p-4 rounded-xl border-2 transition-all ${selected
-                            ? "border-[#2D5A27] bg-[#2D5A27]/5 shadow-sm"
-                            : "border-slate-100 hover:border-slate-300 bg-slate-50"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-slate-900 truncate">
-                                {item.entryType === "INDIVIDUAL"
-                                  ? item.tagNumber || "Un-tagged"
-                                  : `Batch #${item.id} • ${item.quantity} heads`}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                {item.livestockTypeName} • {item.breed || "Standard Breed"} • {item.sex}
-                              </p>
-                              <p className="text-xs text-slate-400 mt-0.5">
-                                Added {formatDate(item.createdAt)}
-                                {item.weight != null ? ` • ${item.weight} kg` : ""}
-                              </p>
-                            </div>
-                            {selected && (
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27] shrink-0">
-                                <Check className="w-4 h-4" /> Selected
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSelectOpen(true)}
+                      className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border-2 text-left transition-all ${clickedInventory
+                        ? "border-[#2D5A27] bg-[#2D5A27]/5"
+                        : "border-dashed border-slate-300 bg-white hover:border-slate-400"
+                        }`}
+                    >
+                      <div className="min-w-0">
+                        {clickedInventory ? (
+                          <>
+                            <p className="text-sm font-bold text-slate-900 truncate">
+                              {clickedInventory.entryType === "INDIVIDUAL"
+                                ? clickedInventory.tagNumber || "Un-tagged"
+                                : `Batch #${clickedInventory.id} (${clickedInventory.quantity} heads)`}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5 truncate">
+                              {clickedInventory.livestockTypeName} • {clickedInventory.breed || "Standard Breed"} • {clickedInventory.sex}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-semibold text-slate-700">
+                              Tap to select livestock
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              Link a batch or animal to this record
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {clickedInventory && (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27]">
+                            <Check className="w-4 h-4" /> Selected
+                          </span>
+                        )}
+                        <ChevronDown className="w-5 h-5 text-slate-400" />
+                      </div>
+                    </button>
+
+                    <SelectLivestockDialog
+                      open={selectOpen}
+                      onOpenChange={setSelectOpen}
+                      items={approvedInventories}
+                      selectedId={clickedInventory?.id ?? null}
+                      onSelect={setClickedInventory}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>
