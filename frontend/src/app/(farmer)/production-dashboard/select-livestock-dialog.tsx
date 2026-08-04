@@ -113,8 +113,8 @@ export default function SelectLivestockDialog({
               No inventory matches your search.
             </p>
           ) : (
-            <ScrollArea className="h-full w-full">
-              <div className="flex flex-col divide-y divide-slate-100">
+            <ScrollArea className="h-full w-full ">
+              <div className="flex flex-col divide-y divide-slate-100 gap-2">
                 {filtered.map((item) => {
                   const selected = selectedId === item.id;
                   const color = typeColors[item.livestockTypeName] ?? "bg-slate-100 text-slate-600";

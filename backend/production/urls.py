@@ -7,5 +7,10 @@ urlpatterns = [
         "create/",
         views.create_production_record,
         name="create_production_record",
-    )
+    ),
+    path(
+        "view_records",
+        views.get_production_records,
+        name="get_production_records",
+    ),
 ]

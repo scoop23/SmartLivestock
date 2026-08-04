@@ -11,7 +11,6 @@ import {
   Milk,
   Package,
   Send,
-  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +33,11 @@ interface ProductionWizardProps {
   onFieldChange: (field: string, val: string | number) => void;
   approvedInventories: LivestockInventoryItem[];
   isLoading: boolean;
-  livestockTypes: Record<string, number>;
   isSubmitting: boolean;
   onSubmit: (payload: Record<string, unknown>) => void;
 }
 
-const STEP_LABELS = ["Type", "Livestock", "Details", "Review"];
+const STEP_LABELS = ["Livestock", "Production", "Details", "Review"];
 
 const formatDate = (date: string | null | undefined) => {
   if (!date) return "Unknown date";
@@ -54,9 +52,8 @@ const formatDate = (date: string | null | undefined) => {
 
 const typeMeta: Record<ProductionType, { icon: typeof Milk; label: string; desc: string }> = {
   milk: { icon: Milk, label: "Milk", desc: "Log liters collected for the day" },
-  slaughter: { icon: Package, label: "Katay", desc: "Log a slaughter (dressed weight)" },
-  sale: { icon: TrendingUp, label: "Live Sale", desc: "Log heads sold with weight & price" },
   eggs: { icon: Milk, label: "Eggs", desc: "Log eggs produced" },
+  wool: { icon: Package, label: "Wool", desc: "Log wool produced in kilograms" },
 };
 
 const typeDetails: Record<ProductionType, { label: string; value: string }[]> = {
@@ -64,18 +61,21 @@ const typeDetails: Record<ProductionType, { label: string; value: string }[]> = 
     { label: "Quantity", value: "milkQty" },
     { label: "Time", value: "milkTime" },
   ],
-  slaughter: [
-    { label: "Live weight", value: "liveWt" },
-    { label: "Dressed weight", value: "dressedWt" },
-  ],
-  sale: [
-    { label: "Heads", value: "heads" },
-    { label: "Total weight", value: "totalKg" },
-    { label: "Price (₱)", value: "price" },
-  ],
   eggs: [
-    { label: "Quantity", value: "eggsQty" },
+    { label: "Quantity", value: "eggQty" },
+    { label: "Collection Time", value: "collectionTime" },
   ],
+  wool: [
+    { label: "Quantity", value: "woolQty" },
+  ],
+};
+
+const livestockTypeToProductionTypes: Record<string, ProductionType[]> = {
+  Cattle: ["milk"],
+  Carabao: ["milk"],
+  Goat: ["milk"],
+  Sheep: ["wool"],
+  Poultry: ["eggs"],
 };
 
 export default function ProductionWizard({
@@ -87,7 +87,6 @@ export default function ProductionWizard({
   onFieldChange,
   approvedInventories,
   isLoading,
-  livestockTypes,
   isSubmitting,
   onSubmit,
 }: ProductionWizardProps) {
@@ -96,30 +95,43 @@ export default function ProductionWizard({
 
   const meta = typeMeta[productionType];
 
+  const livestockTypeName = clickedInventory?.livestockTypeName ?? "";
+  const availableTypes = livestockTypeToProductionTypes[livestockTypeName] ?? Object.keys(typeMeta);
+
   const canContinue =
-    step === 1 ? !!clickedInventory : true;
+    step === 0
+      ? !!clickedInventory
+      : step === 1
+        ? !!productionType
+        : step === 2
+          ? true
+          : true;
 
   const buildPayload = (): Record<string, unknown> | null => {
     if (!clickedInventory) return null;
+    const unitMap: Record<ProductionType, string> = {
+      milk: "LITERS",
+      eggs: "PIECES",
+      wool: "KILOGRAMS",
+    };
+    const productionTypeMap: Record<ProductionType, string> = {
+      milk: "MILK",
+      eggs: "EGGS",
+      wool: "WOOL",
+    };
     const payload: Record<string, unknown> = {
+      livestock: clickedInventory.id,
+      production_type: productionTypeMap[productionType],
+      quantity: 0,
+      unit: unitMap[productionType],
       record_date: formState.prodDate ?? new Date().toISOString().split("T")[0],
     };
     if (productionType === "milk") {
-      payload.livestock = clickedInventory.id;
-      payload.production_type = "MILK";
       payload.quantity = Number(formState.milkQty);
-      payload.unit = "LITERS";
-    } else if (productionType === "slaughter") {
-      payload.livestock = clickedInventory.id;
-      payload.livestock_type = livestockTypes[clickedInventory.livestockTypeName];
-      payload.quantity = 1;
-      payload.carcass_weight = formState.dressedWt ? Number(formState.dressedWt) : null;
-    } else {
-      payload.livestock = clickedInventory.id;
-      payload.quantity = Number(formState.heads);
-      payload.sale_method = "WEIGHING";
-      payload.total_live_weight = formState.totalKg ? Number(formState.totalKg) : null;
-      payload.total_price = formState.price ? Number(formState.price) : null;
+    } else if (productionType === "eggs") {
+      payload.quantity = Number(formState.eggQty);
+    } else if (productionType === "wool") {
+      payload.quantity = Number(formState.woolQty);
     }
     return payload;
   };
@@ -140,18 +152,15 @@ export default function ProductionWizard({
   const typeTitle =
     productionType === "milk"
       ? "Log Milk Production"
-      : productionType === "slaughter"
-        ? "Log Slaughter (Katay)"
-        : productionType === "sale"
-          ? "Log Live Cattle Sale"
-          : "Log Egg Production";
+      : productionType === "eggs"
+        ? "Log Egg Production"
+        : "Log Wool Production";
 
   const TypeIcon = meta.icon;
 
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardContent className="p-5 md:p-6">
-        {/* Step indicator */}
         <div className="flex items-center gap-0 mb-6">
           {STEP_LABELS.map((label, i) => {
             const isActive = i === step;
@@ -186,50 +195,25 @@ export default function ProductionWizard({
           })}
         </div>
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-5">
-          <div className={cn("p-2.5 rounded-xl", productionType === "milk" ? "bg-emerald-100 text-emerald-700" : productionType === "slaughter" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700")}>
+          <div className={cn("p-2.5 rounded-xl", productionType === "milk" ? "bg-emerald-100 text-emerald-700" : productionType === "eggs" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700")}>
             <TypeIcon className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900 leading-tight">{typeTitle}</h3>
+            <h3 className="text-lg font-bold text-slate-900 leading-tight">
+              {step === 0
+                ? "Select Livestock"
+                : step === 1
+                  ? "Select Production Type"
+                  : typeTitle}
+            </h3>
             <p className="text-xs text-slate-500">
               Step {step + 1} of {STEP_LABELS.length} — {STEP_LABELS[step]}
             </p>
           </div>
         </div>
 
-        {/* ── Step 1: Type ─────────────────────────── */}
         {step === 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {(Object.keys(typeMeta) as ProductionType[])
-              .filter((t) => t !== "eggs")
-              .map((t) => {
-                const TIcon = typeMeta[t].icon;
-                const isActive = productionType === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => handleTypePick(t)}
-                    className={cn(
-                      "p-4 rounded-xl border-2 text-left transition-all",
-                      isActive
-                        ? "border-[#2D5A27] bg-[#2D5A27]/5"
-                        : "border-slate-100 hover:border-slate-300 bg-slate-50",
-                    )}
-                  >
-                    <TIcon className={cn("w-7 h-7 mb-2", isActive ? "text-[#2D5A27]" : "text-slate-400")} />
-                    <p className="text-sm font-bold text-slate-900">{typeMeta[t].label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{typeMeta[t].desc}</p>
-                  </button>
-                );
-              })}
-          </div>
-        )}
-
-        {/* ── Step 2: Livestock ────────────────────── */}
-        {step === 1 && (
           <div>
             {isLoading ? (
               <p className="text-sm text-slate-500 py-4">Loading inventory...</p>
@@ -292,7 +276,33 @@ export default function ProductionWizard({
           </div>
         )}
 
-        {/* ── Step 3: Details ──────────────────────── */}
+        {step === 1 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(availableTypes as ProductionType[])
+              .map((t) => {
+                const TIcon = typeMeta[t].icon;
+                const isActive = productionType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => handleTypePick(t)}
+                    className={cn(
+                      "p-6 rounded-xl border-2 text-left transition-all",
+                      isActive
+                        ? "border-[#2D5A27] bg-[#2D5A27]/5"
+                        : "border-slate-100 hover:border-slate-300 bg-slate-50",
+                    )}
+                  >
+                    <TIcon className={cn("w-7 h-7 mb-2", isActive ? "text-[#2D5A27]" : "text-slate-400")} />
+                    <p className="text-sm font-bold text-slate-900">{typeMeta[t].label}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{typeMeta[t].desc}</p>
+                  </button>
+                );
+              })}
+          </div>
+        )}
+
         {step === 2 && (
           <form
             className="space-y-4"
@@ -333,35 +343,26 @@ export default function ProductionWizard({
                 onChange={(e) => onFieldChange("notes", e.target.value)}
               />
             </div>
-
-            <div className="flex justify-end">
-              <Button type="submit" className="bg-[#2D5A27] hover:bg-[#244a20] text-white gap-2">
-                Review <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
           </form>
         )}
 
-        {/* ── Step 4: Review ───────────────────────── */}
         {step === 3 && (
           <div>
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 divide-y divide-slate-100 overflow-hidden">
-              <ReviewRow label="Production Type" value={meta.label} />
-              <ReviewRow
-                label="Livestock"
-                value={
-                  clickedInventory
-                    ? clickedInventory.entryType === "INDIVIDUAL"
-                      ? clickedInventory.tagNumber || "Un-tagged"
-                      : `Batch #${clickedInventory.id} (${clickedInventory.quantity} heads)`
-                    : "—"
-                }
+              <ReviewRow label="Livestock" value={
+                clickedInventory
+                  ? clickedInventory.entryType === "INDIVIDUAL"
+                    ? clickedInventory.tagNumber || "Un-tagged"
+                    : `Batch #${clickedInventory.id} (${clickedInventory.quantity} heads)`
+                  : "—"
+              }
                 sub={
                   clickedInventory
                     ? `${clickedInventory.livestockTypeName} • ${clickedInventory.breed || "Standard Breed"} • ${clickedInventory.sex}`
                     : undefined
                 }
               />
+              <ReviewRow label="Production Type" value={meta.label} />
               <ReviewRow
                 label="Date"
                 value={formatDate(String(formState.prodDate ?? new Date().toISOString().split("T")[0]))}
@@ -395,31 +396,30 @@ export default function ProductionWizard({
           </div>
         )}
 
-        {/* ── Navigation (steps 0–2) ───────────────── */}
-        {step > 0 && step < 3 && (
+        {step < 3 && (
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleBack}
-              className="gap-1.5 text-slate-600"
-            >
-              <ChevronLeft className="w-4 h-4" /> Back
-            </Button>
+            {step > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleBack}
+                className="gap-1.5 text-slate-600"
+              >
+                <ChevronLeft className="w-4 h-4" /> Back
+              </Button>
+            )}
             <div className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4 text-slate-300" />
               <span className="text-xs text-slate-400">{step + 1} of {STEP_LABELS.length}</span>
             </div>
-            {step === 1 ? (
-              <Button
-                type="button"
-                onClick={handleNext}
-                disabled={!canContinue}
-                className="bg-[#2D5A27] hover:bg-[#244a20] text-white gap-2"
-              >
-                Continue <ChevronRight className="w-4 h-4" />
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              onClick={handleNext}
+              disabled={!canContinue}
+              className="bg-[#2D5A27] hover:bg-[#244a20] text-white gap-2"
+            >
+              Continue <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
         )}
       </CardContent>

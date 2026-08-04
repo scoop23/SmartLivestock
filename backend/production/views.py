@@ -26,7 +26,11 @@ def create_production_record(request):
 
 
 @api_view(["GET"])
-def get_production_records(request):
-    records = ProductionRecord.objects.filter(created_by=request.user)
+def get_production_records(
+    request,
+):  # provides a list of production records for the logged-in user
+    records = ProductionRecord.objects.filter(
+        created_by=request.user
+    )  # get the user using request as jwt binds it.
     serializer = ProductionRecordSerializer(records, many=True)
     return Response(serializer.data)

@@ -16,7 +16,7 @@ import {
 export interface ProductionRecord {
   id: string;
   date: string;
-  type: "milk" | "slaughter" | "sale";
+  type: "milk" | "eggs" | "wool";
   quantity: number;
   unit: string;
   amount?: number;
@@ -54,8 +54,8 @@ export default function ProductionHistory({
             <SelectContent>
               <SelectItem value="ALL">All Types</SelectItem>
               <SelectItem value="milk">Milk</SelectItem>
-              <SelectItem value="slaughter">Katay</SelectItem>
-              <SelectItem value="sale">Live Sale</SelectItem>
+              <SelectItem value="eggs">Eggs</SelectItem>
+              <SelectItem value="wool">Wool</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -76,14 +76,14 @@ export default function ProductionHistory({
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-3">
-                  <Badge
-                    className={`uppercase tracking-wider ${record.type === "milk"
-                      ? "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200"
-                      : record.type === "slaughter"
-                        ? "bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200"
-                        : "bg-green-100 text-green-800 hover:bg-green-100 border-green-200"
-                      }`}
-                  >
+                    <Badge
+                      className={`uppercase tracking-wider ${record.type === "milk"
+                        ? "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200"
+                        : record.type === "eggs"
+                          ? "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200"
+                          : "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200"
+                        }`}
+                    >
                     {record.type}
                   </Badge>
                   <span className="text-sm text-slate-500 font-medium">

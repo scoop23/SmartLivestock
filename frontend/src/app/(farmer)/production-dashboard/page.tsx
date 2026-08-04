@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
-import { Package, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -39,15 +39,6 @@ export default function ProductionLoggerPage() {
       unit: 'liters',
       notes: 'Morning collection',
     },
-    {
-      id: '3',
-      date: '2026-04-20',
-      type: 'sale',
-      quantity: 2,
-      unit: 'heads',
-      amount: 85000,
-      notes: 'Live cattle sale - 320kg and 340kg',
-    },
   ]);
 
   const { data: inventories = [], isLoading: isLoading } = useQuery<LivestockInventoryItem[]>({
@@ -78,16 +69,6 @@ export default function ProductionLoggerPage() {
 
   const approvedInventories = inventories.filter((item) => item.status === "APPROVED");
 
-  const { data: livestockTypes = {} } = useQuery<Record<string, number>>({
-    queryKey: ["livestockTypes"],
-    queryFn: async () => {
-      const res = await api.get<{ id: number; name: string }[]>("livestock/livestock_types/");
-      const map: Record<string, number> = {};
-      res.data.forEach((t) => { map[t.name] = t.id });
-      return map;
-    },
-  });
-
   const handleFieldChange = (field: string, val: string | number) => {
     setFormState((prev) => ({ ...prev, [field]: val }));
   };
@@ -99,11 +80,7 @@ export default function ProductionLoggerPage() {
 
   const submitMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const url =
-        productionType === 'milk' ? '/production/milk/create/'
-          : productionType === 'slaughter' ? '/production/slaughter/create/'
-            : '/production/sale/create/';
-      const res = await api.post(url, payload);
+      const res = await api.post('/production/create/', payload);
       return res.data;
     },
     onSuccess: () => {
@@ -121,7 +98,7 @@ export default function ProductionLoggerPage() {
     <>
       <PageHeader
         title="Production Dashboard"
-        subtitle="Record milk, slaughter (katay), and sales"
+        subtitle="Record milk, eggs, and wool production"
         variant="farmer"
         maxWidthClass="max-w-5xl"
         mobileMenuOffset={false}
@@ -157,31 +134,6 @@ export default function ProductionLoggerPage() {
               <Card className="border-slate-200 shadow-sm">
                 <CardContent className="p-5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <TrendingUp className="w-4 h-4 text-purple-500" />
-                    Avg. Dress Yield
-                  </p>
-                  <p className="text-2xl font-black text-slate-900 mt-1">58.4%</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    <span className="text-green-600 font-bold">↑ 1.2%</span> from last batch
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-slate-200 shadow-sm">
-                <CardContent className="p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Package className="w-4 h-4 text-blue-500" />
-                    Total Dressed (Katay) (MTD)
-                    {/* still not sure if we can get this */}
-                  </p>
-                  <p className="text-2xl font-black text-slate-900 mt-1">1,240 <span className="text-sm font-normal font-medium text-slate-500">kg</span></p>
-                  <p className="text-xs text-slate-500 mt-1">4 heads processed this month</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-slate-200 shadow-sm">
-                <CardContent className="p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                     <TrendingUp className="w-4 h-4 text-emerald-600" />
                     Market Valuation
                   </p>
@@ -201,7 +153,6 @@ export default function ProductionLoggerPage() {
               onFieldChange={handleFieldChange}
               approvedInventories={approvedInventories}
               isLoading={isLoading}
-              livestockTypes={livestockTypes}
               isSubmitting={submitMutation.isPending}
               onSubmit={(payload) => submitMutation.mutate(payload)}
             />

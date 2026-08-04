@@ -39,7 +39,7 @@ Development process
     9. Build reports
     10. Deploy
 
-Hopefully master django in the future
+Hopefully master django in the future 
 
 ---
 
@@ -58,7 +58,7 @@ Avoid implementing:
     - Predictions
     - Dashboards
 
-Until all core CRUD operations and APIs are complete.
+Until all core CRUD operations and APIs are complete. (Pending)
 
 The goal is to ensure the data model and basic input output is stable before building higher-level features.
 
@@ -78,3 +78,8 @@ The goal is to ensure the data model and basic input output is stable before bui
 | Slaughter Records | Slaughterhouse (Pending Confirmation) |
 | Meat Movement | Slaughterhouse (Pending Confirmation) |
 | Auction Transactions | Auction Market (Pending Interview) |
+
+## Why make this?
+Farmers or Livestock Farmers allegedly submits data for clearance (Hopefully), to MAO(Municipal Agriculture Office) or Agricultural Technologist, and then Essentially the data is stored in a database and can be used for reports and analytics. 
+
+Also i like cows!

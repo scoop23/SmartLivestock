@@ -66,7 +66,7 @@ export default function LivestockTypeCards({ inventories, isLoading, onSelectTyp
               <Card
                 key={type.name}
                 onClick={() => onSelectType(type.name)}
-                className="group relative overflow-hidden rounded-2xl border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                className="group relative overflow-hidden rounded-2xl border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
               >
                 <div className={`relative h-32 bg-gradient-to-br ${style.gradient}`}>
                   <Icon
@@ -77,7 +77,7 @@ export default function LivestockTypeCards({ inventories, isLoading, onSelectTyp
                     {type.heads} {type.heads === 1 ? "head" : "heads"}
                   </Badge>
                 </div>
-                <CardHeader>
+                <CardHeader className="p-0 px-4.5">
                   <CardTitle>{type.name}</CardTitle>
                   <CardDescription>
                     {type.batches} {type.batches === 1 ? "batch" : "batches"} •{" "}

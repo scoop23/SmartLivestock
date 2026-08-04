@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type ProductionType = 'milk' | 'slaughter' | 'sale' | 'eggs';
+export type ProductionType = 'milk' | 'eggs' | 'wool';
 
 interface ProductionFormFieldsProps {
   type: ProductionType;
@@ -52,65 +52,62 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
     );
   }
 
-  if (type === 'slaughter') {
+  if (type === 'eggs') {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="liveWt">Live (kg)</Label>
+          <Label htmlFor="eggQty">Quantity (Pieces)</Label>
           <Input
-            id="liveWt"
+            id="eggQty"
             type="number"
+            min="1"
+            placeholder="0"
             required
-            value={value.liveWt ?? ""}
-            onChange={(e) => onChange("liveWt", e.target.value)}
+            value={value.eggQty ?? ""}
+            onChange={(e) => onChange("eggQty", e.target.value)}
           />
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="dressedWt">Dressed (kg)</Label>
+          <Label htmlFor="collectionTime">Collection Time</Label>
+          <Select
+            value={String(value.collectionTime ?? "")}
+            onValueChange={(value) => onChange("collectionTime", value)}
+          >
+            <SelectTrigger id="collectionTime">
+              <SelectValue placeholder="Select time" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="Morning">Morning</SelectItem>
+              <SelectItem value="Afternoon">Afternoon</SelectItem>
+              <SelectItem value="Evening">Evening</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'wool') {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="woolQty">Quantity (kg)</Label>
           <Input
-            id="dressedWt"
+            id="woolQty"
             type="number"
+            step="0.1"
+            min="0"
+            placeholder="0.0"
             required
-            value={value.dressedWt ?? ""}
-            onChange={(e) => onChange("dressedWt", e.target.value)}
+            value={value.woolQty ?? ""}
+            onChange={(e) => onChange("woolQty", e.target.value)}
           />
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="space-y-2">
-        <Label htmlFor="heads">Heads</Label>
-        <Input
-          id="heads"
-          type="number"
-          required
-          value={value.heads ?? ""}
-          onChange={(e) => onChange("heads", e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="totalKg">Total kg</Label>
-        <Input
-          id="totalKg"
-          type="number"
-          required
-          value={value.totalKg ?? ""}
-          onChange={(e) => onChange("totalKg", e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="price">Price (₱)</Label>
-        <Input
-          id="price"
-          type="number"
-          required
-          value={value.price ?? ""}
-          onChange={(e) => onChange("price", e.target.value)}
-        />
-      </div>
-    </div>
-  );
+  return null;
 }

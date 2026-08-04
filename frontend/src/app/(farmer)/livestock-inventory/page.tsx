@@ -667,7 +667,7 @@ export default function LivestockInventoryPage() {
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               {IsLoading ? (
                 <div className="flex justify-center py-16">
                   <Spinner className="size-16 text-emerald-600" />
