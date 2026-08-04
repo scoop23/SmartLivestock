@@ -5,8 +5,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
 import { toast } from "sonner";
 
+
 // Lucide Icons
 import {
+  ArrowLeft,
   Plus,
   Search,
   Trash2,
@@ -27,7 +29,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
 
 import {
   Dialog,
@@ -48,6 +53,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import LivestockDetailsDialog from "./livestock-details-dialog";
+import LivestockTypeCards from "./livestock-type-cards";
 import api from "@/lib/axios";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -101,6 +107,7 @@ export default function LivestockInventoryPage() {
   const [formError, setFormError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
 
   const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
     id: item.id,
@@ -157,7 +164,8 @@ export default function LivestockInventoryPage() {
       item.breed.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.livestockTypeName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesType = !selectedType || item.livestockTypeName === selectedType;
+    return matchesSearch && matchesStatus && matchesType;
   });
 
   const addMutation = useMutation({
@@ -638,119 +646,146 @@ export default function LivestockInventoryPage() {
           </div>
         </div>
 
-        {/* Cards Listing */}
-        <div className="space-y-4">
-          {IsLoading ? (
-            <div className="flex justify-center py-16">
-              <Spinner className="size-16 text-emerald-600" />
-            </div>
-          ) : filteredInventories.length === 0 ? (
-            <Card className="p-8 text-center border-dashed border-slate-200">
-              <p className="text-slate-500">No livestock records match your query.</p>
-            </Card>
-          ) : (
-            filteredInventories.map((item) => (
-              <Card
-                key={item.id}
-                className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+        {/* Select Livestock Type first */}
+        {selectedType ? (
+          <>
+            <div className="flex items-center justify-between gap-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedType(null)}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-[#2D5A27] transition-colors"
               >
-                <CardContent className="p-5">
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-xl text-slate-900">
-                          {item.entryType === "INDIVIDUAL"
-                            ? item.tagNumber || "Un-tagged"
-                            : `${item.quantity}x ${item.livestockTypeName} (Batch)`}
-                        </h3>
-                        <Badge variant="outline" className="text-xs uppercase border-slate-300">
-                          {item.entryType}
-                        </Badge>
-                        {getStatusBadge(item.status)}
+                <ArrowLeft className="w-4 h-4" />
+                All types
+              </button>
+              <p className="text-sm font-medium text-slate-500">
+                {selectedType} •{" "}
+                {inventories
+                  .filter((i) => i.livestockTypeName === selectedType)
+                  .reduce((acc, item) => acc + item.quantity, 0)}{" "}
+                heads
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {IsLoading ? (
+                <div className="flex justify-center py-16">
+                  <Spinner className="size-16 text-emerald-600" />
+                </div>
+              ) : filteredInventories.length === 0 ? (
+                <Card className="p-8 text-center border-dashed border-slate-200">
+                  <p className="text-slate-500">No livestock records match your query.</p>
+                </Card>
+              ) : (
+                filteredInventories.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-xl text-slate-900">
+                              {item.entryType === "INDIVIDUAL"
+                                ? item.tagNumber || "Un-tagged"
+                                : `${item.quantity}x ${item.livestockTypeName} (Batch)`}
+                            </h3>
+                            <Badge variant="outline" className="text-xs uppercase border-slate-300">
+                              {item.entryType}
+                            </Badge>
+                            {getStatusBadge(item.status)}
+                          </div>
+
+                          <p className="text-sm text-slate-600">
+                            <span className="font-bold text-slate-800">
+                              {item.livestockTypeName}
+                            </span>{" "}
+                            • {item.breed || "Standard Breed"} • {item.sex}
+                          </p>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
+                            {item.weight && (
+                              <div className="flex items-center gap-1.5 text-slate-600">
+                                <Weight className="w-4 h-4 text-slate-400" />
+                                <span>
+                                  Weight:{" "}
+                                  <strong className="text-slate-900">{item.weight} kg</strong>
+                                </span>
+                              </div>
+                            )}
+                            {item.lastVaccinationDate ? (
+                              <div className="flex items-center gap-1.5 text-slate-600">
+                                <Calendar className="w-4 h-4 text-slate-400" />
+                                <span>
+                                  Vaccinated:{" "}
+                                  <strong className="text-slate-900">
+                                    {item.lastVaccinationDate}
+                                  </strong>
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="text-amber-600">
+                                Not Vaccinated
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5 text-slate-600">
+                              <Tag className="w-4 h-4 text-slate-400" />
+                              <span>
+                                Quantity: <strong className="text-slate-900">{item.quantity} head</strong>
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-slate-600">
+                              <CalendarDays className="w-4 h-4 text-slate-400" />
+                              <span>
+                                Date Created:{" "}
+                                <strong className="text-slate-900">
+                                  {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
+                                </strong>
+                              </span>
+                            </div>
+                          </div>
+
+                          {item.reviewRemarks && (
+                            <div className="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-md text-xs text-rose-800">
+                              <strong>Review Note:</strong> {item.reviewRemarks}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1 self-end sm:self-start">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDetailTarget(item)}
+                            className="text-slate-600 hover:text-[#2D5A27] hover:bg-[#2D5A27]/5 font-medium"
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(item)}
+                            className="text-slate-700 hover:text-rose-600 hover:bg-rose-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </>
+        ) : (
+          <LivestockTypeCards
+            inventories={inventories}
+            isLoading={IsLoading}
+            onSelectType={setSelectedType}
+          />
+        )}
 
-                      <p className="text-sm text-slate-600">
-                        <span className="font-bold text-slate-800">
-                          {item.livestockTypeName}
-                        </span>{" "}
-                        • {item.breed || "Standard Breed"} • {item.sex}
-                      </p>
-
-                      {/* Details Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
-                        {item.weight && (
-                          <div className="flex items-center gap-1.5 text-slate-600">
-                            <Weight className="w-4 h-4 text-slate-400" />
-                            <span>
-                              Weight:{" "}
-                              <strong className="text-slate-900">{item.weight} kg</strong>
-                            </span>
-                          </div>
-                        )}
-                        {item.lastVaccinationDate ? (
-                          <div className="flex items-center gap-1.5 text-slate-600">
-                            <Calendar className="w-4 h-4 text-slate-400" />
-                            <span>
-                              Vaccinated:{" "}
-                              <strong className="text-slate-900">
-                                {item.lastVaccinationDate}
-                              </strong>
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="text-amber-600">
-                            Not Vaccinated
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5 text-slate-600">
-                          <Tag className="w-4 h-4 text-slate-400" />
-                          <span>
-                            Quantity: <strong className="text-slate-900">{item.quantity} head</strong>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-slate-600">
-                          <CalendarDays className="w-4 h-4 text-slate-400" />
-                          <span>
-                            Date Created:{" "}
-                            <strong className="text-slate-900">
-                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
-                            </strong>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Admin Remarks callout if rejected */}
-                      {item.reviewRemarks && (
-                        <div className="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-md text-xs text-rose-800">
-                          <strong>Review Note:</strong> {item.reviewRemarks}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1 self-end sm:self-start">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDetailTarget(item)}
-                        className="text-slate-600 hover:text-[#2D5A27] hover:bg-[#2D5A27]/5 font-medium"
-                      >
-                        View Details
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteTarget(item)}
-                        className="text-slate-700 hover:text-rose-600 hover:bg-rose-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
       </div>
     </>
   );
