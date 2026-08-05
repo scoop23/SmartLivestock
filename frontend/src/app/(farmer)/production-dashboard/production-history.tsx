@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,27 +13,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import api from "@/lib/axios";
+
+export type ProductionType = "milk" | "eggs" | "wool";
+export type UnitType = "LITERS" | "PIECES" | "KILOGRAMS";
+export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
 
 export interface ProductionRecord {
-  id: string;
-  date: string;
-  type: "milk" | "eggs" | "wool";
+  readonly id: number;
+  readonly createdAt: string;
+  livestockId: number;
+  createdBy: number;
+  reviewedBy?: number | null;
+  productionType: ProductionType;
   quantity: number;
-  unit: string;
-  amount?: number;
-  notes: string;
+  unit: UnitType;
+  recordDate: string;
+  status: ProductionStatus;
+  reviewedAt?: string | null;
+  reviewRemarks?: string;
 }
 
 export default function ProductionHistory({
-  records,
-}: {
-  records: ProductionRecord[];
 }) {
+
+  const { data: userProductions = [], isError: isError, isLoading: IsLoading } = useQuery<ProductionRecord[]>({
+    queryKey: ["production"],
+    queryFn: async () => {
+      const response = await api.get("production/view_records/");
+      return response.data.map((item: any) => ({
+        id: item.id,
+        livestockId: item.livestock,
+        productionType: item.production_type.toLowerCase(),
+        quantity: Number(item.quantity),
+        unit: item.unit,
+        recordDate: item.record_date,
+        status: item.status,
+        reviewRemarks: item.review_remarks,
+        createdAt: item.created_at,
+      }));
+    },
+  });
+
+  console.log(userProductions);
+
+
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
 
-  const filteredRecords = records.filter(
-    (r) => typeFilter === "ALL" || r.type === typeFilter
+  const filteredRecords = userProductions.filter(
+    (r) => typeFilter === "ALL" || r.productionType === typeFilter
   );
+
 
 
   return (
@@ -68,7 +99,7 @@ export default function ProductionHistory({
           </CardContent>
         </Card>
       ) : (
-        filteredRecords.map((record) => (
+        filteredRecords.map((record: ProductionRecord) => (
           <Card
             key={record.id}
             className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
@@ -76,18 +107,18 @@ export default function ProductionHistory({
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-3">
-                    <Badge
-                      className={`uppercase tracking-wider ${record.type === "milk"
-                        ? "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200"
-                        : record.type === "eggs"
-                          ? "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200"
-                          : "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200"
-                        }`}
-                    >
-                    {record.type}
+                  <Badge
+                    className={`uppercase tracking-wider ${record.productionType === "milk"
+                      ? "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200"
+                      : record.productionType === "eggs"
+                        ? "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200"
+                        : "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200"
+                      }`}
+                  >
+                    {record.productionType}
                   </Badge>
                   <span className="text-sm text-slate-500 font-medium">
-                    {new Date(record.date).toLocaleDateString("en-US", {
+                    {new Date(record.recordDate).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -101,13 +132,13 @@ export default function ProductionHistory({
                   </span>
                 </p>
               </div>
-              {record.amount && (
+              {record.quantity && (
                 <p className="text-sm font-medium text-emerald-700 mb-1">
-                  Sale Value: ₱{record.amount.toLocaleString()}
+                  Sale Value: ₱{record.quantity.toLocaleString()}
                 </p>
               )}
               <p className="text-sm text-slate-600 italic">
-                &ldquo;{record.notes}&rdquo;
+                &ldquo;{record.reviewRemarks}&rdquo;
               </p>
             </CardContent>
           </Card>

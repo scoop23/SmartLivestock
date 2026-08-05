@@ -23,24 +23,7 @@ export default function ProductionLoggerPage() {
   const [clickedInventory, setClickedInventory] = useState<LivestockInventoryItem | null>(null);
   const [formState, setFormState] = useState<Record<string, string | number>>({});
   const [resetSignal, setResetSignal] = useState(0);
-  const [records] = useState<ProductionRecord[]>([
-    {
-      id: '1',
-      date: '2026-04-23',
-      type: 'milk',
-      quantity: 450,
-      unit: 'liters',
-      notes: 'Morning collection',
-    },
-    {
-      id: '2',
-      date: '2026-04-22',
-      type: 'milk',
-      quantity: 445,
-      unit: 'liters',
-      notes: 'Morning collection',
-    },
-  ]);
+
 
   const { data: inventories = [], isLoading: isLoading } = useQuery<LivestockInventoryItem[]>({
     queryKey: ["inventory"],
@@ -89,7 +72,7 @@ export default function ProductionLoggerPage() {
       setClickedInventory(null);
       setFormState({});
       setProductionType('milk');
-      setResetSignal((n) => n + 1);
+      setResetSignal((n) => n + 1); // so that the parent will know that the child should reset its form state.
     },
     onError: (err) => {
       console.error(err);
@@ -144,6 +127,10 @@ export default function ProductionLoggerPage() {
                   <p className="text-xs text-slate-500 mt-1">Estimated revenue from inventory</p>
                 </CardContent>
               </Card>
+              {/*   <Card> */}
+              {/*     <CardContent className="p-5"> */}
+              {/*     </CardContent> */}
+              {/*   </Card> */}
             </div>
 
             {/* Production Entry Wizard */}
@@ -162,7 +149,7 @@ export default function ProductionLoggerPage() {
             />
           </>
         ) : (
-          <ProductionHistory records={records} />
+          <ProductionHistory />
         )}
       </div>
     </>
