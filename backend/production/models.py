@@ -51,6 +51,11 @@ class ProductionRecord(models.Model):
         default=ProductionStatus.PENDING,
     )
 
+    notes = models.TextField(
+        max_length=500,
+        blank=True,
+    )
+
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

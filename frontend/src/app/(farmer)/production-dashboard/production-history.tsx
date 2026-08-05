@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/select";
 import api from "@/lib/axios";
 
+import { Spinner } from "@/components/ui/spinner";
+
 export type ProductionType = "milk" | "eggs" | "wool";
 export type UnitType = "LITERS" | "PIECES" | "KILOGRAMS";
 export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
@@ -92,11 +94,13 @@ export default function ProductionHistory({
         </div>
       </div>
 
-      {filteredRecords.length === 0 ? (
+      {IsLoading ? (
+        <div className="flex justify-center py-8">
+          <Spinner className="size-16 text-emerald-600" />
+        </div>
+      ) : filteredRecords.length === 0 ? (
         <Card className="p-8 text-center border-dashed border-slate-200">
-          <CardContent>
-            <p className="text-slate-500">No production records match your filter.</p>
-          </CardContent>
+          <p className="text-slate-500 text-center items-center flex justify-center">No production records match your filter.</p>
         </Card>
       ) : (
         filteredRecords.map((record: ProductionRecord) => (
