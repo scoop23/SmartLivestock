@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Calendar,
   Check,
@@ -23,6 +23,7 @@ import ProductionFormFields, {
 } from "./production-form-fields";
 import SelectLivestockDialog from "./select-livestock-dialog";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
+import { Icon } from "lucide-react";
 
 interface ProductionWizardProps {
   productionType: ProductionType;
@@ -34,6 +35,7 @@ interface ProductionWizardProps {
   approvedInventories: LivestockInventoryItem[];
   isLoading: boolean;
   isSubmitting: boolean;
+  resetSignal: number;
   onSubmit: (payload: Record<string, unknown>) => void;
 }
 
@@ -88,10 +90,16 @@ export default function ProductionWizard({
   approvedInventories,
   isLoading,
   isSubmitting,
+  resetSignal,
   onSubmit,
 }: ProductionWizardProps) {
   const [step, setStep] = useState(0);
   const [selectOpen, setSelectOpen] = useState(false);
+
+  useEffect(() => {
+    setStep(0);
+    setSelectOpen(false);
+  }, [resetSignal]);
 
   const meta = typeMeta[productionType];
 
@@ -133,6 +141,7 @@ export default function ProductionWizard({
     } else if (productionType === "wool") {
       payload.quantity = Number(formState.woolQty);
     }
+    console.log("Payload:", payload);
     return payload;
   };
 
@@ -197,7 +206,13 @@ export default function ProductionWizard({
 
         <div className="flex items-center gap-3 mb-5">
           <div className={cn("p-2.5 rounded-xl", productionType === "milk" ? "bg-emerald-100 text-emerald-700" : productionType === "eggs" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700")}>
-            <TypeIcon className="w-5 h-5" />
+            {
+              step === 0 ? (
+                <Package className="w-5 h-5" />
+              ) : (
+                <TypeIcon className="w-5 h-5" />
+              )
+            }
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900 leading-tight">
@@ -385,7 +400,7 @@ export default function ProductionWizard({
             <Button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="w-full mt-5 bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm"
+              className="w-full mt-5 bg-emerald-700 p-6 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm"
             >
               <Send className="w-4 h-4" />
               {isSubmitting ? "Submitting..." : "Submit Record"}
@@ -393,6 +408,14 @@ export default function ProductionWizard({
             <p className="text-[11px] text-slate-400 text-center mt-2">
               Submitted records go through LGU validation before approval.
             </p>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleBack}
+              className="gap-1.5 text-slate-600"
+            >
+              <ChevronLeft className="w-4 h-4" /> Back
+            </Button>
           </div>
         )}
 

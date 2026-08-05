@@ -22,6 +22,7 @@ export default function ProductionLoggerPage() {
   const [productionType, setProductionType] = useState<ProductionType>('milk');
   const [clickedInventory, setClickedInventory] = useState<LivestockInventoryItem | null>(null);
   const [formState, setFormState] = useState<Record<string, string | number>>({});
+  const [resetSignal, setResetSignal] = useState(0);
   const [records] = useState<ProductionRecord[]>([
     {
       id: '1',
@@ -87,6 +88,8 @@ export default function ProductionLoggerPage() {
       toast.success('Production record submitted for approval');
       setClickedInventory(null);
       setFormState({});
+      setProductionType('milk');
+      setResetSignal((n) => n + 1);
     },
     onError: (err) => {
       console.error(err);
@@ -154,6 +157,7 @@ export default function ProductionLoggerPage() {
               approvedInventories={approvedInventories}
               isLoading={isLoading}
               isSubmitting={submitMutation.isPending}
+              resetSignal={resetSignal} // do this so the child sends a signal to reset the form when the parent state changes
               onSubmit={(payload) => submitMutation.mutate(payload)}
             />
           </>
