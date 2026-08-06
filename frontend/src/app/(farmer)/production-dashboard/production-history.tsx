@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Axios, { AxiosError } from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import api from "@/lib/axios";
 
 import { Spinner } from "@/components/ui/spinner";
 
+import { Button } from "@/components/ui/button";
 export type ProductionType = "milk" | "eggs" | "wool";
 export type UnitType = "LITERS" | "PIECES" | "KILOGRAMS";
 export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
@@ -31,15 +33,21 @@ export interface ProductionRecord {
   quantity: number;
   unit: UnitType;
   recordDate: string;
+  notes: string;
   status: ProductionStatus;
   reviewedAt?: string | null;
   reviewRemarks?: string;
 }
 
+export interface ApiError {
+  detail?: string;
+  [key: string]: any;
+}
+
 export default function ProductionHistory({
 }) {
 
-  const { data: userProductions = [], isError: isError, isLoading: IsLoading } = useQuery<ProductionRecord[]>({
+  const { data: userProductions = [], isError: isError, error: error, refetch, isLoading: IsLoading } = useQuery<ProductionRecord[], AxiosError<ApiError>>({
     queryKey: ["production"],
     queryFn: async () => {
       const response = await api.get("production/view_records/");
@@ -50,6 +58,7 @@ export default function ProductionHistory({
         quantity: Number(item.quantity),
         unit: item.unit,
         recordDate: item.record_date,
+        notes: item.notes,
         status: item.status,
         reviewRemarks: item.review_remarks,
         createdAt: item.created_at,
@@ -58,6 +67,7 @@ export default function ProductionHistory({
   });
 
   console.log(userProductions);
+  console.log(error?.response?.data);
 
 
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
@@ -65,8 +75,6 @@ export default function ProductionHistory({
   const filteredRecords = userProductions.filter(
     (r) => typeFilter === "ALL" || r.productionType === typeFilter
   );
-
-
 
   return (
     <div className="space-y-4">
@@ -98,6 +106,25 @@ export default function ProductionHistory({
         <div className="flex justify-center py-8">
           <Spinner className="size-16 text-emerald-600" />
         </div>
+      ) : error ? (
+        <Card className="p-8 text-center border-red-200 bg-red-50">
+          <h3 className="font-semibold text-red-700">
+            Failed to load production records
+          </h3>
+
+          <p className="text-sm text-red-600 mt-2">
+            {error.response?.data?.detail ??
+              error.message ??
+              "Something went wrong."}
+          </p>
+
+          <Button
+            className="mt-4"
+            onClick={() => refetch()}
+          >
+            Try Again
+          </Button>
+        </Card>
       ) : filteredRecords.length === 0 ? (
         <Card className="p-8 text-center border-dashed border-slate-200">
           <p className="text-slate-500 text-center items-center flex justify-center">No production records match your filter.</p>
@@ -122,10 +149,13 @@ export default function ProductionHistory({
                     {record.productionType}
                   </Badge>
                   <span className="text-sm text-slate-500 font-medium">
-                    {new Date(record.recordDate).toLocaleDateString("en-US", {
+                    {new Date(record.createdAt).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
                     })}
                   </span>
                 </div>
@@ -137,12 +167,12 @@ export default function ProductionHistory({
                 </p>
               </div>
               {record.quantity && (
-                <p className="text-sm font-medium text-emerald-700 mb-1">
-                  Sale Value: ₱{record.quantity.toLocaleString()}
+                <p className="text-sm font-medium text-emerald-700 mb-1 flex gap-2">
+                  Sale Value: ₱{record.quantity.toLocaleString()} <Badge className="tracking-wider"> Hypothetical Estimated Sale Value </Badge>
                 </p>
               )}
               <p className="text-sm text-slate-600 italic">
-                &ldquo;{record.reviewRemarks}&rdquo;
+                &ldquo;{record.notes}&rdquo;
               </p>
             </CardContent>
           </Card>

@@ -20,5 +20,26 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 })
 
+api.interceptors.response.use(
+  (response) => response,
+
+  async (error) => {
+    console.log(error.response.config);
+    if (error.response?.status === 401 && error.response?.data?.code === "token_not_valid") {
+      console.log("Access token expired or invalid.");
+      const refreshToken = localStorage.getItem("refresh");
+
+      if (!refreshToken) {
+        return Promise.reject(error);
+      }
+
+      const response = await api.post("/api/token/refresh/", { refresh: refreshToken });
+      localStorage.setItem("access", response.data.access);
+      console.log("Refresh token response:", response.data);
+    }
+    return Promise.reject(error);
+  }
+)
+
 export default api;
 

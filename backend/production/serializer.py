@@ -19,6 +19,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "quantity",
             "unit",
             "record_date",
+            "notes",
             "status",
             "review_remarks",
             "created_at",
