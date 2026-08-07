@@ -20,22 +20,27 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 })
 
+
+// Intercept failed responses.
+// If the access token has expired, refresh it and retry the original request.
 api.interceptors.response.use(
   (response) => response,
 
   async (error) => {
-    console.log(error.response.config);
     if (error.response?.status === 401 && error.response?.data?.code === "token_not_valid") {
       console.log("Access token expired or invalid.");
       const refreshToken = localStorage.getItem("refresh");
+      const source = error.config;
 
       if (!refreshToken) {
         return Promise.reject(error);
       }
 
-      const response = await axios.post("/api/token/refresh/", { refresh: refreshToken });
+      const response = await axios.post("http://localhost:8000/api/token/refresh/", { refresh: refreshToken });
       localStorage.setItem("access", response.data.access);
-      console.log("Refresh token response:", response.data);
+      source.headers.Authorization = `Bearer ${response.data.access}`;
+
+      return api(source); // execute the request again now with the newly attached token.
     }
     return Promise.reject(error);
   }

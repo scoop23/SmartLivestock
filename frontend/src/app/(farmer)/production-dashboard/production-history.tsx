@@ -67,7 +67,6 @@ export default function ProductionHistory({
   });
 
   console.log(userProductions);
-  console.log(error?.response?.data);
 
 
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
