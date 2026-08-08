@@ -72,7 +72,6 @@ export default function FarmerSchedulingPage() {
         icon={<Calendar className="h-7 w-7" />}
         variant="farmer"
         maxWidthClass="max-w-5xl"
-        mobileMenuOffset={false}
         action={maoNotifications.some(n => n.isNew) ? (
           <Badge className="bg-orange-500 hover:bg-orange-500 text-white border-0 animate-pulse gap-1">
             <Bell className="h-3 w-3" /> NEW

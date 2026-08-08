@@ -1,69 +1,133 @@
-import React from 'react'
-import { useRouter } from 'next/navigation'; // Changed from 'react-router'
-import { Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus, Megaphone, Calendar } from 'lucide-react';
-import { Icon } from 'lucide-react';
-import { cowHead } from '@lucide/lab';
-import GisGlobePoi from '@/components/icons/GisGlobePoi';
+"use client";
+
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Bell,
+  Calendar,
+  LogOut,
+  Megaphone,
+  Menu,
+  Package,
+  TrendingUp,
+} from "lucide-react";
+import { Icon } from "lucide-react";
+import { cowHead } from "@lucide/lab";
+import GisGlobePoi from "@/components/icons/GisGlobePoi";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/components/ui/utils";
+
+const HomeIcon = (props: { className?: string }) => (
+  <Icon iconNode={cowHead} {...props} />
+);
+
+interface NavLink {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  alert?: boolean;
+}
+
+const links: NavLink[] = [
+  { path: "/farmer", label: "Home", icon: HomeIcon },
+  { path: "/livestock-inventory", label: "Inventory", icon: Package },
+  { path: "/production-dashboard", label: "Logger", icon: TrendingUp },
+  { path: "/alerts", label: "Alerts", icon: Bell, alert: true },
+  { path: "/gis-user-map", label: "GIS", icon: GisGlobePoi },
+  { path: "/farmer-announcement", label: "Announcement", icon: Megaphone },
+  { path: "/farmer-scheduling", label: "Scheduling", icon: Calendar },
+];
 
 export default function MobileNav() {
   const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  const go = (path: string) => {
+    setOpen(false);
+    router.push(path);
+  };
+
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
-      <div className="flex items-center justify-around max-w-lg mx-auto">
-        <button
-          onClick={() => router.push('/farmer')}
-          className="flex flex-col items-center gap-1 text-[#2D5A27]"
-        >
-          <Icon iconNode={cowHead} />
-          <span className="text-xs">Home</span>
-        </button>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-white text-[#2D5A27] rounded-full shadow-lg shadow-black/20"
+        aria-label="Open menu"
+      >
+        <Menu className="size-5" />
+      </button>
 
-        <button
-          onClick={() => router.push('/livestock-inventory')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27]"
-        >
-          <Package className="w-6 h-6" />
-          <span className="text-xs">Inventory</span>
-        </button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="w-64 p-0 border-0 bg-[#2D5A27] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
 
-        <button
-          onClick={() => router.push('/production-dashboard')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27]"
-        >
-          <TrendingUp className="w-6 h-6" />
-          <span className="text-xs">Logger</span>
-        </button>
+          <div className="flex flex-col h-full">
+            <div className="flex items-center gap-2 p-4 pb-2">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#2D5A27]">
+                <Icon iconNode={cowHead} className="size-4" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-white truncate">
+                  SmartLivestock
+                </span>
+                <span className="text-[11px] text-white/50 truncate">
+                  Padre Garcia, Batangas
+                </span>
+              </div>
+            </div>
 
-        <button
-          onClick={() => router.push('/alerts')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
-        >
-          <Bell className="w-6 h-6" />
-          <span className="text-xs">Alerts</span>
-          <span className="absolute top-0 right-2 w-2 h-2 bg-[#D32F2F] rounded-full"></span>
-        </button>
-        <button
-          onClick={() => router.push('/gis-user-map')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
-        >
-          <GisGlobePoi />
-          <span className="text-xs">GIS</span>
-        </button>
-        <button
-          onClick={() => router.push('/farmer-announcement')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
-        >
-          <Megaphone />
-          <span className="text-xs">Announcement</span>
-        </button>
-        <button
-          onClick={() => router.push('/farmer-scheduling')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
-        >
-          <Calendar />
-          <span className="text-xs">Scheduling</span>
-        </button>
-      </div>
-    </nav>
-  )
+            <Separator className="bg-white/10 w-full my-1" />
+
+            <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+              <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                Navigation
+              </p>
+              {links.map((link) => {
+                const isActive = pathname === link.path;
+                const Icon = link.icon;
+                return (
+                  <button
+                    key={link.path}
+                    onClick={() => go(link.path)}
+                    className={cn(
+                      "flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                      isActive
+                        ? "bg-white text-[#2D5A27]"
+                        : "text-white/70 hover:bg-white/10 hover:text-white",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    <span className="truncate flex-1 text-left">
+                      {link.label}
+                    </span>
+                    {link.alert && (
+                      <span className="shrink-0 size-2 rounded-full bg-[#D32F2F]" />
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <Separator className="bg-white/10 mx-3 my-1" />
+
+            <div className="px-3 pb-3">
+              <button
+                onClick={() => router.push("/")}
+                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+              >
+                <LogOut className="size-4 shrink-0" />
+                <span className="truncate">Logout</span>
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
 }

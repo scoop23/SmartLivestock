@@ -199,7 +199,6 @@ export default function FarmerDashboard() {
         subtitle="San Roque, Padre Garcia"
         variant="farmer"
         maxWidthClass="max-w-5xl"
-        mobileMenuOffset={false}
         action={
           <Button variant="ghost" size="icon" className="rounded-lg bg-white/10 hover:bg-white/20 text-white" aria-label="Notifications">
             <Bell className="h-5 w-5" />

@@ -291,7 +291,6 @@ export default function LivestockInventoryPage() {
         subtitle="Manage your livestock entries and track their status"
         variant="farmer"
         maxWidthClass="max-w-5xl"
-        mobileMenuOffset={false}
       />
 
       <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">

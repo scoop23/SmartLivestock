@@ -28,7 +28,7 @@ export default function FarmerLayout({
         />
       </div>
 
-      <main className="flex-1 overflow-auto pb-24 md:pb-10">{children}</main>
+      <main className="flex-1 overflow-auto">{children}</main>
 
       <MobileNav />
 
