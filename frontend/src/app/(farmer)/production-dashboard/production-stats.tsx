@@ -84,7 +84,7 @@ interface CardConfig {
 
 export default function ProductionStats() {
   const { data: productions = [], isLoading } = useQuery<ProductionStatsRecord[]>({
-    queryKey: ["production"],
+    queryKey: ["production_stats"],
     queryFn: async () => {
       const response = await api.get("production/view_records/");
       return (response.data as ProductionRecordResponse[]).map((item) => ({

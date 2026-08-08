@@ -49,7 +49,7 @@ Current focus:
 
 Build a solid backend foundation before frontend development.
 
-Preferably finished before august 🥱 ( cooked ! )
+Preferably finished before september 🥱 ( cooked ! )
 
 Avoid implementing:
 
