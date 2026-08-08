@@ -3,14 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
-import { TrendingUp } from 'lucide-react';
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
 
 import type { ProductionType } from "./production-form-fields";
-import ProductionHistory, {
-  type ProductionRecord,
-} from "./production-history";
+import ProductionHistory from "./production-history";
+import ProductionStats from "./production-stats";
 import ProductionWizard from "./production-wizard";
 import { LivestockInventoryItem } from '../livestock-inventory/page';
 import api from '@/lib/axios';
@@ -91,6 +88,9 @@ export default function ProductionLoggerPage() {
       />
 
       <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+        {/* Quick Stats */}
+        <ProductionStats />
+
         {/* Tab Selector */}
         <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
           <button
@@ -115,24 +115,6 @@ export default function ProductionLoggerPage() {
 
         {activeTab === 'log' ? (
           <>
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="border-slate-200 shadow-sm">
-                <CardContent className="p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <TrendingUp className="w-4 h-4 text-emerald-600" />
-                    Market Valuation
-                  </p>
-                  <p className="text-2xl font-black text-slate-900 mt-1">₱114.5k</p>
-                  <p className="text-xs text-slate-500 mt-1">Estimated revenue from inventory</p>
-                </CardContent>
-              </Card>
-              {/*   <Card> */}
-              {/*     <CardContent className="p-5"> */}
-              {/*     </CardContent> */}
-              {/*   </Card> */}
-            </div>
-
             {/* Production Entry Wizard */}
             <ProductionWizard
               productionType={productionType}
