@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import MobileNav from "@/app/components/mobilenav";
 import { Sidebar } from "@/app/components/sidebar";
@@ -12,19 +11,13 @@ export default function FarmerLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased">
-      <div
-        onMouseEnter={() => setSidebarHovered(true)}
-        onMouseLeave={() => setSidebarHovered(false)}
-        className="hidden md:block"
-      >
+      <div className="hidden md:block">
         <Sidebar
           role="farmer"
           onLogout={() => router.push("/")}
-          hovered={sidebarHovered}
         />
       </div>
 

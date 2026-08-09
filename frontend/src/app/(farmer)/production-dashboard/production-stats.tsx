@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardList,
   Egg,
+  Filter,
   Milk,
   Package,
   PhilippinePeso,
@@ -18,22 +19,12 @@ import api from "@/lib/axios";
 import type { ProductionRecord } from "./production-history";
 import type { UnitType } from "./production-history";
 
-type ProductionType = "milk" | "eggs" | "wool";
+import type { ProductionType } from "./production-form-fields";
+type FilterType = "all" | ProductionType;
 type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
 
-// interface ProductionRecord {
-//   id: number;
-//   livestockId: number;
-//   livestockTypeName?: string;
-//   productionType: ProductionType;
-//   quantity: number;
-//   unit: string;
-//   recordDate: string;
-//   status: ProductionStatus;
-//   createdAt: string;
-// }
-
-type ProductionStatsRecord = Pick<ProductionRecord,
+type ProductionStatsRecord = Pick<
+  ProductionRecord,
   | "id"
   | "livestockId"
   | "productionType"
@@ -41,9 +32,10 @@ type ProductionStatsRecord = Pick<ProductionRecord,
   | "unit"
   | "recordDate"
   | "status"
-  | "createdAt"> & {
-    livestockTypeName?: string;
-  }
+  | "createdAt"
+> & {
+  livestockTypeName?: string;
+};
 
 interface ProductionRecordResponse {
   id: number;
@@ -77,13 +69,19 @@ const formatPeso = (n: number) =>
 interface CardConfig {
   label: string;
   icon: typeof Milk;
+  iconBg: string;
   iconClass: string;
   value: string;
   sub: string;
+  accentBorder: string;
 }
 
 export default function ProductionStats() {
-  const { data: productions = [], isLoading } = useQuery<ProductionStatsRecord[]>({
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
+
+  const { data: productions = [], isLoading } = useQuery<
+    ProductionStatsRecord[]
+  >({
     queryKey: ["production_stats"],
     queryFn: async () => {
       const response = await api.get("production/view_records/");
@@ -101,9 +99,16 @@ export default function ProductionStats() {
     },
   });
 
+  // Filter production records according to the selected tab
+  const filteredProductions = useMemo(() => {
+    if (selectedFilter === "all") return productions;
+    return productions.filter((r) => r.productionType === selectedFilter);
+  }, [productions, selectedFilter]);
+
+  // TODO: compute this in the backend.
   const stats = useMemo(() => {
     const byType = (type: ProductionType) =>
-      productions
+      filteredProductions
         .filter((r) => r.productionType === type)
         .reduce((sum, r) => sum + r.quantity, 0);
 
@@ -113,8 +118,8 @@ export default function ProductionStats() {
     const totalMilk = byType("milk");
     const totalEggs = byType("eggs");
     const totalWool = byType("wool");
-    const recordCount = productions.length;
-    const estimatedValue = productions.reduce(
+    const recordCount = filteredProductions.length;
+    const estimatedValue = filteredProductions.reduce(
       (sum, r) => sum + recordValue(r),
       0,
     );
@@ -124,7 +129,7 @@ export default function ProductionStats() {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
     const monthValue = (from: Date, to?: Date) =>
-      productions
+      filteredProductions
         .filter((r) => {
           const d = parseDate(r.recordDate);
           return d >= from && (!to || d < to);
@@ -142,7 +147,7 @@ export default function ProductionStats() {
         : ((thisMonthValue - lastMonthValue) / lastMonthValue) * 100;
 
     const byLivestockType: Record<string, number> = {};
-    for (const r of productions) {
+    for (const r of filteredProductions) {
       const name = r.livestockTypeName || "Unspecified";
       byLivestockType[name] = (byLivestockType[name] ?? 0) + recordValue(r);
     }
@@ -160,93 +165,170 @@ export default function ProductionStats() {
       hasRecords: recordCount > 0,
       topType,
     };
-  }, [productions]);
+  }, [filteredProductions]);
 
-  const cards: CardConfig[] = [
-    {
-      label: "Total Milk Produced",
-      icon: Milk,
-      iconClass: "text-blue-600",
-      value: stats.hasRecords ? `${formatQty(stats.totalMilk)} L` : "—",
-      sub: "All time milk output",
-    },
-    {
-      label: "Total Eggs Produced",
-      icon: Egg,
-      iconClass: "text-amber-600",
-      value: stats.hasRecords ? `${formatQty(stats.totalEggs)} pc` : "—",
-      sub: "All time egg output",
-    },
-    {
-      label: "Total Wool Produced",
-      icon: Package,
-      iconClass: "text-sky-600",
-      value: stats.hasRecords ? `${formatQty(stats.totalWool)} kg` : "—",
-      sub: "All time wool output",
-    },
+  // Build card set dynamically depending on filter
+  const allCards: CardConfig[] = [
+    ...(selectedFilter === "all" || selectedFilter === "milk"
+      ? [
+        {
+          label: "Total Milk Produced",
+          icon: Milk,
+          iconBg: "bg-sky-100/80",
+          iconClass: "text-sky-700",
+          value: stats.hasRecords ? `${formatQty(stats.totalMilk)} L` : "—",
+          sub: "Milk output",
+          accentBorder: "border-l-sky-500",
+        },
+      ]
+      : []),
+    ...(selectedFilter === "all" || selectedFilter === "eggs"
+      ? [
+        {
+          label: "Total Eggs Produced",
+          icon: Egg,
+          iconBg: "bg-amber-100/80",
+          iconClass: "text-amber-800",
+          value: stats.hasRecords ? `${formatQty(stats.totalEggs)} pc` : "—",
+          sub: "Egg output",
+          accentBorder: "border-l-amber-500",
+        },
+      ]
+      : []),
+    ...(selectedFilter === "all" || selectedFilter === "wool"
+      ? [
+        {
+          label: "Total Wool Produced",
+          icon: Package,
+          iconBg: "bg-stone-200/80",
+          iconClass: "text-stone-700",
+          value: stats.hasRecords ? `${formatQty(stats.totalWool)} kg` : "—",
+          sub: "Wool output",
+          accentBorder: "border-l-stone-500",
+        },
+      ]
+      : []),
     {
       label: "Production Growth (MoM)",
       icon: stats.growthPct >= 0 ? TrendingUp : TrendingDown,
-      iconClass:
-        stats.growthPct >= 0 ? "text-emerald-600" : "text-rose-600",
+      iconBg: stats.growthPct >= 0 ? "bg-emerald-100/80" : "bg-rose-100/80",
+      iconClass: stats.growthPct >= 0 ? "text-emerald-800" : "text-rose-800",
       value: stats.hasRecords
         ? `${stats.growthPct >= 0 ? "+" : ""}${stats.growthPct.toFixed(1)}%`
         : "—",
       sub: "Value vs last month",
+      accentBorder:
+        stats.growthPct >= 0 ? "border-l-emerald-600" : "border-l-rose-500",
     },
     {
       label: "Production Records",
       icon: ClipboardList,
-      iconClass: "text-indigo-600",
+      iconBg: "bg-orange-100/80",
+      iconClass: "text-orange-800",
       value: stats.hasRecords ? stats.recordCount.toLocaleString() : "0",
-      sub: "Submitted production entries",
+      sub: "Submitted entries",
+      accentBorder: "border-l-orange-500",
     },
     {
-      label: "Estimated Production Value",
+      label: "Estimated Value",
       icon: PhilippinePeso,
-      iconClass: "text-emerald-600",
+      iconBg: "bg-emerald-100/80",
+      iconClass: "text-emerald-800",
       value: stats.hasRecords ? formatPeso(stats.estimatedValue) : "—",
-      sub: "At current market prices",
+      sub: "At market prices",
+      accentBorder: "border-l-emerald-600",
     },
     {
-      label: "Top Producing Livestock Type",
+      label: "Top Livestock Type",
       icon: Trophy,
-      iconClass: "text-yellow-500",
+      iconBg: "bg-yellow-100/80",
+      iconClass: "text-yellow-800",
       value: stats.topType ?? "—",
       sub: "By production value",
+      accentBorder: "border-l-yellow-500",
     },
   ];
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-8">
-        <Spinner className="size-10 text-emerald-600" />
+      <div className="flex flex-col items-center justify-center py-12 gap-3 text-emerald-800">
+        <Spinner className="size-10 text-emerald-700" />
+        <span className="text-sm font-medium text-emerald-800/80">
+          Gathering farm statistics...
+        </span>
       </div>
     );
   }
 
+  const filters: { id: FilterType; label: string; icon?: typeof Milk }[] = [
+    { id: "all", label: "All Production" },
+    { id: "milk", label: "Milk", icon: Milk },
+    { id: "eggs", label: "Eggs", icon: Egg },
+    { id: "wool", label: "Wool", icon: Package },
+  ];
+
   return (
-    <div className="space-y-3">
-      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-        Quick Stats
-      </h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {cards.map((card) => {
+    <div className="space-y-4">
+      {/* Header and Filter Pills */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-900/10 pb-3">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-emerald-700" />
+          <h2 className="text-sm font-bold uppercase tracking-wide text-amber-950/80">
+            Farm Production Overview
+          </h2>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex items-center gap-1.5 overflow-x-auto bg-amber-900/5 p-1 rounded-xl border border-amber-900/10">
+          <span className="text-amber-900/50 pl-2 pr-1 flex items-center">
+            <Filter className="w-3.5 h-3.5" />
+          </span>
+          {filters.map((f) => {
+            const Icon = f.icon;
+            const isActive = selectedFilter === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setSelectedFilter(f.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 whitespace-nowrap ${isActive
+                  ? "bg-emerald-700 text-white shadow-sm"
+                  : "text-stone-600 hover:text-amber-950 hover:bg-amber-900/10"
+                  }`}
+              >
+                {Icon && <Icon className="w-3.5 h-3.5" />}
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {allCards.map((card) => {
           const Icon = card.icon;
           return (
             <Card
               key={card.label}
-              className="border-slate-200 shadow-sm min-w-0"
+              className={`border border-amber-900/10 border-l-4 ${card.accentBorder} bg-gradient-to-br from-amber-50/40 to-stone-50 shadow-sm rounded-xl hover:shadow-md transition-all duration-200 min-w-0`}
             >
-              <CardContent className="p-5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Icon className={`w-4 h-4 ${card.iconClass}`} />
-                  {card.label}
+              <CardContent className="p-4 flex flex-col justify-between h-full">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-stone-600 leading-tight">
+                      {card.label}
+                    </p>
+                    <p className="text-2xl font-black text-amber-950 tracking-tight truncate">
+                      {card.value}
+                    </p>
+                  </div>
+                  <div className={`p-2.5 rounded-xl ${card.iconBg} shrink-0`}>
+                    <Icon className={`w-5 h-5 ${card.iconClass}`} />
+                  </div>
+                </div>
+                <p className="text-[11px] font-medium text-stone-500 mt-3 pt-2 border-t border-amber-900/5 flex items-center gap-1">
+                  {card.sub}
                 </p>
-                <p className="text-2xl font-black text-slate-900 mt-1 truncate">
-                  {card.value}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{card.sub}</p>
               </CardContent>
             </Card>
           );
