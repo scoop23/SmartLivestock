@@ -190,7 +190,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       <aside
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="hidden md:flex fixed inset-y-0 left-0 z-40 flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden"
+        className="hidden lg:flex fixed inset-y-0 left-0 z-40 flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden"
         style={{ width, transition: "width 200ms ease-in-out" }}
       >
         <SidebarNav collapsed={collapsed} links={links} pathname={pathname} onLogout={onLogout} />
@@ -199,7 +199,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       {/* Mobile — hamburger + shadcn Sheet */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-[#2D5A27] text-white rounded-lg shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white text-[#2D5A27] rounded-full shadow-lg shadow-black/20"
         aria-label="Open menu"
       >
         <Menu className="size-5" />

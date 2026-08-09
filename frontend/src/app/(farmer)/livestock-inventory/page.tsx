@@ -596,7 +596,7 @@ export default function LivestockInventoryPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="border-slate-200 shadow-sm">
+          <Card className={`border border-amber-900/10 border-l-4 border-l-amber-500 bg-gradient-to-br from-amber-50/40 to-stone-50 shadow-sm rounded-xl hover:shadow-md transition-all duration-200 min-w-0`}>
             <CardContent className="p-5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Pending Review

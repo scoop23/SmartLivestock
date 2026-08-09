@@ -310,25 +310,31 @@ export default function ProductionStats() {
           return (
             <Card
               key={card.label}
-              className={`border border-amber-900/10 border-l-4 ${card.accentBorder} bg-gradient-to-br from-amber-50/40 to-stone-50 shadow-sm rounded-xl hover:shadow-md transition-all duration-200 min-w-0`}
+              className="relative overflow-hidden border-2 border-amber-900/10 bg-amber-50/30 hover:bg-amber-50/60 shadow-sm hover:shadow rounded-2xl transition-all duration-200"
             >
               <CardContent className="p-4 flex flex-col justify-between h-full">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold text-stone-600 leading-tight">
-                      {card.label}
-                    </p>
-                    <p className="text-2xl font-black text-amber-950 tracking-tight truncate">
-                      {card.value}
-                    </p>
+                <div>
+                  {/* Header Badge */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`p-2 rounded-xl ${card.iconBg} shrink-0`}>
+                      <Icon className={`w-4 h-4 ${card.iconClass}`} />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/60 bg-amber-900/5 px-2.5 py-1 rounded-full">
+                      {card.sub}
+                    </span>
                   </div>
-                  <div className={`p-2.5 rounded-xl ${card.iconBg} shrink-0`}>
-                    <Icon className={`w-5 h-5 ${card.iconClass}`} />
-                  </div>
+
+                  {/* Main Stat */}
+                  <p className="text-[11px] font-semibold text-stone-600 truncate">
+                    {card.label}
+                  </p>
+                  <p className="text-2xl font-black text-amber-950 tracking-tight mt-0.5 truncate">
+                    {card.value}
+                  </p>
                 </div>
-                <p className="text-[11px] font-medium text-stone-500 mt-3 pt-2 border-t border-amber-900/5 flex items-center gap-1">
-                  {card.sub}
-                </p>
+
+                {/* Decorative bottom bar */}
+                <div className={`h-1 w-12 rounded-full mt-3 ${card.accentBorder.replace('border-l-', 'bg-')}`} />
               </CardContent>
             </Card>
           );
