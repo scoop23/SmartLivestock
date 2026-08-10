@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Calendar,
   Check,
@@ -16,14 +16,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/components/ui/utils";
 import ProductionFormFields, {
   type ProductionType,
 } from "./production-form-fields";
 import SelectLivestockDialog from "./select-livestock-dialog";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
-import { Icon } from "lucide-react";
 
 interface ProductionWizardProps {
   productionType: ProductionType;
@@ -37,6 +42,8 @@ interface ProductionWizardProps {
   isSubmitting: boolean;
   resetSignal: number;
   onSubmit: (payload: Record<string, unknown>) => void;
+  open: boolean;
+  onClose: () => void;
 }
 
 const STEP_LABELS = ["Livestock", "Production", "Details", "Review"];
@@ -92,14 +99,27 @@ export default function ProductionWizard({
   isSubmitting,
   resetSignal,
   onSubmit,
+  open,
+  onClose,
 }: ProductionWizardProps) {
   const [step, setStep] = useState(0);
   const [selectOpen, setSelectOpen] = useState(false);
+  const [prevResetSignal, setPrevResetSignal] = useState(resetSignal);
+  const [prevOpen, setPrevOpen] = useState(open);
 
-  useEffect(() => {
+  if (resetSignal !== prevResetSignal) {
+    setPrevResetSignal(resetSignal);
     setStep(0);
     setSelectOpen(false);
-  }, [resetSignal]);
+  }
+
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setStep(0);
+      setSelectOpen(false);
+    }
+  }
 
   const meta = typeMeta[productionType];
 
@@ -168,9 +188,24 @@ export default function ProductionWizard({
   const TypeIcon = meta.icon;
 
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardContent className="p-5 md:p-6">
-        <div className="flex items-center gap-0 mb-6">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl border-slate-200 shadow-2xl">
+        <DialogHeader className="px-5 md:px-6 pt-5 md:pt-6 pb-3 border-b border-slate-100 text-left">
+          <DialogTitle className="text-xl font-bold text-slate-900">
+            Log Production
+          </DialogTitle>
+          <DialogDescription className="text-sm text-slate-500 mt-1">
+            Record milk, eggs, and wool production
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="p-5 md:p-6">
+          <div className="flex items-center gap-0 mb-6">
           {STEP_LABELS.map((label, i) => {
             const isActive = i === step;
             const isDone = i < step;
@@ -445,8 +480,9 @@ export default function ProductionWizard({
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

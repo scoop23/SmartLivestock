@@ -36,6 +36,9 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate(self, attrs):
+        livestock = attrs["livestock"]
+
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user

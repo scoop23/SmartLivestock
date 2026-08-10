@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from 'react';
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
 
 import type { ProductionType } from "./production-form-fields";
 import ProductionHistory from "./production-history";
@@ -15,14 +17,15 @@ import api from '@/lib/axios';
 export type UnitType = "liters" | "pieces" | "kilograms";
 
 export default function ProductionLoggerPage() {
-  const [activeTab, setActiveTab] = useState<'log' | 'history'>('log');
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [productionType, setProductionType] = useState<ProductionType>('milk');
   const [clickedInventory, setClickedInventory] = useState<LivestockInventoryItem | null>(null);
   const [formState, setFormState] = useState<Record<string, string | number>>({});
   const [resetSignal, setResetSignal] = useState(0);
 
+  const queryClient = useQueryClient();
 
-  const { data: inventories = [], isLoading: isLoading } = useQuery<LivestockInventoryItem[]>({
+  const { data: inventories = [], isLoading } = useQuery<LivestockInventoryItem[]>({
     queryKey: ["inventory"],
     queryFn: async () => {
       const res = await api.get("livestock/inventory/");
@@ -70,6 +73,8 @@ export default function ProductionLoggerPage() {
       setFormState({});
       setProductionType('milk');
       setResetSignal((n) => n + 1); // so that the parent will know that the child should reset its form state.
+      setIsWizardOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["production"] });
     },
     onError: (err) => {
       console.error(err);
@@ -84,55 +89,41 @@ export default function ProductionLoggerPage() {
         subtitle="Record milk, eggs, and wool production"
         variant="farmer"
         maxWidthClass="max-w-5xl"
+        action={
+          <Button
+            type="button"
+            onClick={() => setIsWizardOpen(true)}
+            className="bg-white text-[#2D5A27] hover:bg-white/90 shadow-sm px-4"
+          >
+            <Plus className="size-4" /> Log Production
+          </Button>
+        }
       />
 
       <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
         {/* Quick Stats */}
         <ProductionStats />
 
-        {/* Tab Selector */}
-        <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-          <button
-            onClick={() => setActiveTab('log')}
-            className={`px-6 py-2 rounded-lg transition-colors font-medium ${activeTab === 'log'
-              ? 'bg-[#2D5A27] text-white'
-              : 'text-slate-600 hover:bg-slate-100'
-              }`}
-          >
-            Log Production
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-6 py-2 rounded-lg transition-colors font-medium ${activeTab === 'history'
-              ? 'bg-[#2D5A27] text-white'
-              : 'text-slate-600 hover:bg-slate-100'
-              }`}
-          >
-            History
-          </button>
-        </div>
-
-        {activeTab === 'log' ? (
-          <>
-            {/* Production Entry Wizard */}
-            <ProductionWizard
-              productionType={productionType}
-              onTypeChange={handleTypeSelect}
-              clickedInventory={clickedInventory}
-              onSelectInventory={setClickedInventory}
-              formState={formState}
-              onFieldChange={handleFieldChange}
-              approvedInventories={approvedInventories}
-              isLoading={isLoading}
-              isSubmitting={submitMutation.isPending}
-              resetSignal={resetSignal} // do this so the child sends a signal to reset the form when the parent state changes
-              onSubmit={(payload) => submitMutation.mutate(payload)}
-            />
-          </>
-        ) : (
-          <ProductionHistory />
-        )}
+        {/* Production History */}
+        <ProductionHistory />
       </div>
+
+      {/* Production Entry Wizard (modal) */}
+      <ProductionWizard
+        productionType={productionType}
+        onTypeChange={handleTypeSelect}
+        clickedInventory={clickedInventory}
+        onSelectInventory={setClickedInventory}
+        formState={formState}
+        onFieldChange={handleFieldChange}
+        approvedInventories={approvedInventories}
+        isLoading={isLoading}
+        isSubmitting={submitMutation.isPending}
+        resetSignal={resetSignal} // do this so the child sends a signal to reset the form when the parent state changes
+        onSubmit={(payload) => submitMutation.mutate(payload)}
+        open={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+      />
     </>
   );
 }
