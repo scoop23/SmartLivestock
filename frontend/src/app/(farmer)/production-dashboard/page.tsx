@@ -1,31 +1,95 @@
 "use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Milk, Plus, RefreshCw } from "lucide-react";
 
 import type { ProductionType } from "./production-form-fields";
-import ProductionHistory from "./production-history";
 import ProductionStats from "./production-stats";
+import ProductionCharts from "./production-charts";
+import ProductionRecent from "./production-recent";
+import ProductionTypeSelector from "./production-type-selector";
+import {
+  EMPTY_TYPE_ANALYTICS,
+  useProductionAnalytics,
+} from "./production-analytics";
 import ProductionWizard from "./production-wizard";
-import { LivestockInventoryItem } from '../livestock-inventory/page';
-import api from '@/lib/axios';
+import { LivestockInventoryItem } from "../livestock-inventory/page";
+import api from "@/lib/axios";
 
 export type UnitType = "liters" | "pieces" | "kilograms";
 
+function AnalyticsLoading() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card
+            key={i}
+            className="border-2 border-amber-900/10 bg-amber-50/30 shadow-sm rounded-2xl"
+          >
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="size-9 rounded-xl" />
+                <Skeleton className="h-4 w-24 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-7 w-20" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-[260px] w-full rounded-xl" />
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-[260px] w-full rounded-xl" />
+          </CardContent>
+        </Card>
+      </div>
+      <Card className="border-slate-200 shadow-sm">
+        <CardContent className="p-5 space-y-4">
+          <Skeleton className="h-4 w-40" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-xl" />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function ProductionLoggerPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [productionType, setProductionType] = useState<ProductionType>('milk');
+  const [productionType, setProductionType] = useState<ProductionType>("milk");
   const [clickedInventory, setClickedInventory] = useState<LivestockInventoryItem | null>(null);
   const [formState, setFormState] = useState<Record<string, string | number>>({});
   const [resetSignal, setResetSignal] = useState(0);
+  const [analyticsType, setAnalyticsType] = useState<ProductionType | null>(null);
 
   const queryClient = useQueryClient();
 
-  const { data: inventories = [], isLoading } = useQuery<LivestockInventoryItem[]>({
+  const {
+    data: analytics,
+    isLoading,
+    isError,
+    refetch,
+  } = useProductionAnalytics();
+
+  const { data: inventories = [], isLoading: isInventoryLoading } = useQuery<
+    LivestockInventoryItem[]
+  >({
     queryKey: ["inventory"],
     queryFn: async () => {
       const res = await api.get("livestock/inventory/");
@@ -48,7 +112,7 @@ export default function ProductionLoggerPage() {
         });
       }
       return result;
-    }
+    },
   });
 
   const approvedInventories = inventories.filter((item) => item.status === "APPROVED");
@@ -64,31 +128,42 @@ export default function ProductionLoggerPage() {
 
   const submitMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api.post('/production/create/', payload);
+      const res = await api.post("/production/create/", payload);
       return res.data;
     },
     onSuccess: () => {
-      toast.success('Production record submitted for approval');
+      toast.success("Production record submitted for approval");
       setClickedInventory(null);
       setFormState({});
-      setProductionType('milk');
+      setProductionType("milk");
       setResetSignal((n) => n + 1); // so that the parent will know that the child should reset its form state.
       setIsWizardOpen(false);
       queryClient.invalidateQueries({ queryKey: ["production"] });
+      queryClient.invalidateQueries({ queryKey: ["production_analytics"] });
     },
     onError: (err) => {
       console.error(err);
-      toast.error('Failed to submit production record');
+      toast.error("Failed to submit production record");
     },
   });
+
+  const availableTypes = analytics?.available_types ?? [];
+  const activeType =
+    analyticsType && availableTypes.includes(analyticsType)
+      ? analyticsType
+      : availableTypes.includes("milk")
+        ? "milk"
+        : (availableTypes[0] ?? "milk");
+  const activeTypeData =
+    analytics?.by_type?.[activeType] ?? EMPTY_TYPE_ANALYTICS;
 
   return (
     <>
       <PageHeader
-        title="Production Dashboard"
-        subtitle="Record milk, eggs, and wool production"
+        title="Production Analytics"
+        subtitle="Monitor your livestock production, trends, and estimated value."
         variant="farmer"
-        maxWidthClass="max-w-5xl"
+        maxWidthClass="max-w-6xl"
         action={
           <Button
             type="button"
@@ -100,12 +175,62 @@ export default function ProductionLoggerPage() {
         }
       />
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
-        {/* Quick Stats */}
-        <ProductionStats />
-
-        {/* Production History */}
-        <ProductionHistory />
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+        {isLoading ? (
+          <AnalyticsLoading />
+        ) : isError ? (
+          <Card className="p-10 text-center border-red-200 bg-red-50">
+            <h3 className="font-semibold text-red-700">
+              Unable to load production analytics.
+            </h3>
+            <p className="text-sm text-red-600 mt-2">
+              Please try again.
+            </p>
+            <Button
+              className="mt-4"
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="size-4" /> Retry
+            </Button>
+          </Card>
+        ) : availableTypes.length === 0 ? (
+          <Card className="p-10 text-center border-dashed border-slate-200">
+            <div className="mx-auto flex items-center justify-center size-14 rounded-full bg-sky-100/80 mb-4">
+              <Milk className="w-7 h-7 text-sky-700" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">
+              No production data yet
+            </h3>
+            <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+              You haven&apos;t recorded any approved production records.
+              Start by recording your first production entry.
+            </p>
+            <Button
+              className="mt-5 bg-[#2D5A27] hover:bg-[#244a20] text-white"
+              onClick={() => setIsWizardOpen(true)}
+            >
+              <Plus className="size-4" /> Record Production
+            </Button>
+          </Card>
+        ) : (
+          <>
+            {availableTypes.length > 1 ? (
+              <div className="flex justify-end">
+                <ProductionTypeSelector
+                  types={availableTypes}
+                  selected={activeType}
+                  onSelect={setAnalyticsType}
+                />
+              </div>
+            ) : null}
+            <ProductionStats type={activeType} summary={activeTypeData.summary} />
+            <ProductionCharts type={activeType} data={activeTypeData} />
+            <ProductionRecent
+              records={analytics?.recent_records ?? []}
+              showViewMore={availableTypes.some((t) => t !== "milk")}
+            />
+          </>
+        )}
       </div>
 
       {/* Production Entry Wizard (modal) */}
@@ -117,7 +242,7 @@ export default function ProductionLoggerPage() {
         formState={formState}
         onFieldChange={handleFieldChange}
         approvedInventories={approvedInventories}
-        isLoading={isLoading}
+        isLoading={isInventoryLoading}
         isSubmitting={submitMutation.isPending}
         resetSignal={resetSignal} // do this so the child sends a signal to reset the form when the parent state changes
         onSubmit={(payload) => submitMutation.mutate(payload)}

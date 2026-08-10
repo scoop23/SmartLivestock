@@ -27,7 +27,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         read_only_fields = ("status", "review_remarks", "created_at")
 
     def validate_livestock(  # basically if validate_<fieldname> is created then it runs that before doing anything.
-        self, value
+        self,
+        value,  # value is livestock <object>
     ):  # gets the livestock inventory object and checks if the logged in user is the owner of the livestock
         user = self.context["request"].user
         if value.farmer_id != user.farmer_profile.id:
@@ -36,8 +37,19 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def validate(self, attrs):
+    def validate(self, attrs):  # attrs is the whole table fields
         livestock = attrs["livestock"]
+        production_type = attrs["production_type"]
+        unit = attrs["unit"]
+
+        if livestock.livestock_type.name == "CATTLE":
+            if production_type != ProductionRecord.ProductionType.MILK:
+                raise ValidationError("Cattle production records can only be for milk.")
+
+            if unit != ProductionRecord.UnitType.LITERS:
+                raise ValidationError("Milk production must be recorded in liters.")
+
+        return attrs
 
     def create(self, validated_data):
         user = self.context["request"].user
