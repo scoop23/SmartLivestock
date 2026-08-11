@@ -54,6 +54,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import LivestockDetailsDialog from "./livestock-details-dialog";
 import LivestockTypeCards from "./livestock-type-cards";
+import InventoryStats from "./inventory-stats";
 import api from "@/lib/axios";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -573,50 +574,7 @@ export default function LivestockInventoryPage() {
 
 
         {/* Summary Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="border-amber-900/10 shadow-sm bg-amber-50/30 border-2">
-            <CardContent className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-950">
-                Total Head Count
-              </p>
-              <p className="text-2xl font-black text-amber-950 mt-1">
-                {inventories.reduce((acc, curr) => acc + curr.quantity, 0)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-amber-900/10 shadow-sm bg-amber-50/30 border-2">
-            <CardContent className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-950">
-                Approved
-              </p>
-              <p className="text-2xl font-black text-emerald-600 mt-1">
-                {inventories
-                  .filter((i) => i.status === "APPROVED")
-                  .reduce((acc, curr) => acc + curr.quantity, 0)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className={`border-2 border-amber-900/10 bg-gradient-to-br from-amber-50/40 to-stone-50 shadow-sm rounded-xl hover:shadow-md transition-all duration-200 min-w-0`}>
-            <CardContent className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-950">
-                Pending Review
-              </p>
-              <p className="text-2xl font-black text-amber-600 mt-1">
-                {inventories.filter((i) => i.status === "PENDING").length} Records
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 border-amber-900/10 shadow-sm bg-amber-50/30">
-            <CardContent className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-950">
-                Individual Tags
-              </p>
-              <p className="text-2xl font-black mt-1 text-amber-950">
-                {inventories.filter((i) => i.entryType === "INDIVIDUAL").length}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <InventoryStats inventories={inventories} isLoading={IsLoading} />
 
         {/* Filters & Search */}
         <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">

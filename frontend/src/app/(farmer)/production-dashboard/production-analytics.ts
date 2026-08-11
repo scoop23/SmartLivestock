@@ -81,7 +81,7 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 // ---------------------------------------------------------------------------
 // MOCK DATA — TEMPORARY
 // ---------------------------------------------------------------------------
-// TODO(backend): Delete this block once the Django analytics endpoint is
+// TODO: (backend): Delete this block once the Django analytics endpoint is
 // implemented. It exists only so the dashboard can be previewed today.
 const MOCK_ANALYTICS: ProductionAnalytics = {
   // Mock includes eggs so the type selector and the "View more production →"
@@ -148,7 +148,7 @@ const MOCK_ANALYTICS: ProductionAnalytics = {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function fetchProductionAnalytics(): Promise<ProductionAnalytics> {
-  // TODO(backend): Replace the mock below with the real request once the
+  // TODO: (backend): Replace the mock below with the real request once the
   // Django endpoint `/production/analytics/` is implemented:
   //
   //   const res = await api.get("production/analytics/");

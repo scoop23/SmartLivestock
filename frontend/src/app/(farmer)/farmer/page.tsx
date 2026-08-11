@@ -203,9 +203,8 @@ export default function FarmerDashboard() {
                       <button
                         key={t}
                         onClick={() => setReportType(t)}
-                        className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${
-                          reportType === t ? 'bg-[#2D5A27] text-white shadow-lg shadow-green-900/20' : 'bg-slate-100 text-slate-500'
-                        }`}
+                        className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${reportType === t ? 'bg-[#2D5A27] text-white shadow-lg shadow-green-900/20' : 'bg-slate-100 text-slate-500'
+                          }`}
                       >
                         {t}
                       </button>
