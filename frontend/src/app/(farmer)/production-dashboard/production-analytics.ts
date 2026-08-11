@@ -87,7 +87,8 @@ const MOCK_ANALYTICS: ProductionAnalytics = {
   // Mock includes eggs so the type selector and the "View more production →"
   // link are visible while previewing. A milk-only farm would send
   // ["milk"] and hide both.
-  available_types: ["milk", "eggs"],
+  // available_types: ["milk", "eggs"],
+  available_types: ["milk"],
   by_type: {
     milk: {
       summary: {
@@ -112,29 +113,29 @@ const MOCK_ANALYTICS: ProductionAnalytics = {
         { period: "2026-08", value: 62500 },
       ],
     },
-    eggs: {
-      summary: {
-        total: 420,
-        record_count: 14,
-        estimated_value: 3780,
-        growth_pct: -4.2,
-        has_records: true,
-      },
-      trend: [
-        { period: "2026-04", quantity: 480 },
-        { period: "2026-05", quantity: 450 },
-        { period: "2026-06", quantity: 460 },
-        { period: "2026-07", quantity: 440 },
-        { period: "2026-08", quantity: 420 },
-      ],
-      value_trend: [
-        { period: "2026-04", value: 4320 },
-        { period: "2026-05", value: 4050 },
-        { period: "2026-06", value: 4140 },
-        { period: "2026-07", value: 3960 },
-        { period: "2026-08", value: 3780 },
-      ],
-    },
+    // eggs: {
+    //   summary: {
+    //     total: 420,
+    //     record_count: 14,
+    //     estimated_value: 3780,
+    //     growth_pct: -4.2,
+    //     has_records: true,
+    //   },
+    //   trend: [
+    //     { period: "2026-04", quantity: 480 },
+    //     { period: "2026-05", quantity: 450 },
+    //     { period: "2026-06", quantity: 460 },
+    //     { period: "2026-07", quantity: 440 },
+    //     { period: "2026-08", quantity: 420 },
+    //   ],
+    //   value_trend: [
+    //     { period: "2026-04", value: 4320 },
+    //     { period: "2026-05", value: 4050 },
+    //     { period: "2026-06", value: 4140 },
+    //     { period: "2026-07", value: 3960 },
+    //     { period: "2026-08", value: 3780 },
+    //   ],
+    // },
   },
   recent_records: [
     { id: 8, record_date: "2026-08-10", quantity: 25, unit: "LITERS", status: "APPROVED" },

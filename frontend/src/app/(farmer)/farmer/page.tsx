@@ -6,11 +6,10 @@ import { PageHeader } from "@/app/components/page-header";
 import { Icon } from 'lucide-react';
 import { cowHead } from '@lucide/lab';
 import {
-  TrendingUp, AlertTriangle, Package, Bell, Plus,
-  Stethoscope, X, Camera, Send
+  AlertTriangle, Package, Bell, Plus,
+  Stethoscope, X, Camera, Send, RefreshCw
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,41 +20,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import FarmerStats from "./farmer-stats";
+import FarmerCharts from "./farmer-charts";
+import { useFarmerDashboardAnalytics } from "./farmer-analytics";
 
 export default function FarmerDashboard() {
   const router = useRouter();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportType, setReportType] = useState('behavior'); // behavior, disease, injury
 
-  // TODO: Replace hardcoded stats with real API data from /api/livestock/inventory and /api/production/
-  // Example: GET /api/livestock/inventory?farmer_id={id} → count cattle
-  //          GET /api/production/slaughter?farmer_id={id} → avg meat weight
-  const myStats = [
-    {
-      label: 'My Cattle',
-      value: '24',
-      icon: <Icon iconNode={cowHead} className="w-5 h-5" />,
-      color: 'bg-[#2D5A27]',
-    },
-    {
-      label: 'Avg. Meat (Katay)',
-      value: '122 kg',
-      icon: <TrendingUp className="w-5 h-5" />,
-      color: 'bg-blue-600',
-    },
-    {
-      label: 'Active Alerts',
-      value: '1',
-      icon: <AlertTriangle className="w-5 h-5" />,
-      color: 'bg-[#D32F2F]',
-    },
-    {
-      label: 'This Month Sales',
-      value: '₱45,600',
-      icon: <Package className="w-5 h-5" />,
-      color: 'bg-green-600',
-    },
-  ];
+  const {
+    data: analytics,
+    isLoading,
+    isError,
+    refetch,
+  } = useFarmerDashboardAnalytics();
+
   const recentAlerts = [
     {
       id: 1,
@@ -80,21 +60,34 @@ export default function FarmerDashboard() {
         }
       />
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {myStats.map((stat) => (
-            <Card key={stat.label} className="border-slate-200 shadow-sm">
-              <CardContent className="p-5">
-                <div className={`${stat.color} text-white p-2.5 rounded-xl inline-block mb-3`}>
-                  {stat.icon}
-                </div>
-                <p className="text-2xl font-black text-slate-900">{stat.value}</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+        {/* Stats + Charts */}
+        {isLoading ? (
+          <>
+            <FarmerStats isLoading />
+            <FarmerCharts isLoading />
+          </>
+        ) : isError ? (
+          <Card className="p-10 text-center border-red-200 bg-red-50">
+            <h3 className="font-semibold text-red-700">
+              Unable to load dashboard analytics.
+            </h3>
+            <p className="text-sm text-red-600 mt-2">
+              Please try again.
+            </p>
+            <Button
+              className="mt-4"
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="size-4" /> Retry
+            </Button>
+          </Card>
+        ) : (
+          <>
+            <FarmerStats data={analytics} />
+            <FarmerCharts data={analytics} />
+          </>
+        )}
 
         {/* Quick Actions */}
         <Card className="border-slate-200 shadow-sm">

@@ -157,6 +157,8 @@ export default function ProductionLoggerPage() {
   const activeTypeData =
     analytics?.by_type?.[activeType] ?? EMPTY_TYPE_ANALYTICS;
 
+  console.log(activeType);
+
   return (
     <>
       <PageHeader

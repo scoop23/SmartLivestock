@@ -291,10 +291,10 @@ export default function LivestockInventoryPage() {
         title="Livestock Inventory"
         subtitle="Manage your livestock entries and track their status"
         variant="farmer"
-        maxWidthClass="max-w-5xl"
+        maxWidthClass="max-w-6xl"
       />
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
             <Layers className="w-5 h-5" />
@@ -306,7 +306,8 @@ export default function LivestockInventoryPage() {
               variant="outline"
               onClick={exportCSV}
               className="gap-2 border-slate-300 p-6 sm:p-8"
-              disabled={inventories.length === 0}
+              // disabled={inventories.length === 0}
+              disabled
             >
               <FileDown className="w-4 h-4" />
               Export CSV

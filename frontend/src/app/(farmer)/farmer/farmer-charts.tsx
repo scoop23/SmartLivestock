@@ -9,7 +9,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Egg, Milk, Package, PhilippinePeso } from "lucide-react";
+import { Milk } from "lucide-react";
+import { Icon } from "lucide-react";
+import { cowHead } from "@lucide/lab";
 import {
   Card,
   CardContent,
@@ -23,83 +25,86 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  formatPeso,
-  formatPesoCompact,
   formatPeriodMonth,
-  PRODUCTION_TYPE_LABELS,
-  type ProductionType,
-  type ProductionTypeAnalytics,
-} from "./production-analytics";
+  type FarmerDashboardAnalytics,
+} from "./farmer-analytics";
 
-const TYPE_CHART: Record<ProductionType, { label: string; color: string }> = {
-  milk: { label: "Liters", color: "#0284c7" },
-  eggs: { label: "Pieces", color: "#d97706" },
-  wool: { label: "Kilograms", color: "#57534e" },
-};
-
-const TYPE_ICONS: Record<ProductionType, typeof Milk> = {
-  milk: Milk,
-  eggs: Egg,
-  wool: Package,
-};
-
-const valueChartConfig = {
-  value: { label: "Estimated value", color: "#059669" },
+const cattleChartConfig = {
+  quantity: { label: "Heads", color: "#059669" },
 } satisfies ChartConfig;
 
-function ChartEmpty({ label }: { label: string }) {
+const milkChartConfig = {
+  quantity: { label: "Liters", color: "#0ea5e9" },
+} satisfies ChartConfig;
+
+function ChartEmpty({ label, hint }: { label: string; hint: string }) {
   return (
     <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 px-6 text-center">
       <p className="text-sm font-semibold text-slate-600">{label}</p>
-      <p className="text-xs text-slate-400">
-        Approved production records will appear here.
-      </p>
+      <p className="text-xs text-slate-400">{hint}</p>
     </div>
   );
 }
 
-export default function ProductionCharts({
-  type,
+export default function FarmerCharts({
   data,
+  isLoading = false,
 }: {
-  type: ProductionType;
-  data: ProductionTypeAnalytics;
+  data?: FarmerDashboardAnalytics;
+  isLoading?: boolean;
 }) {
-  const label = PRODUCTION_TYPE_LABELS[type];
-  const trend = data.trend ?? [];
-  const valueTrend = data.value_trend ?? [];
-  const Icon = TYPE_ICONS[type];
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-[260px] w-full rounded-xl" />
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-5 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-[260px] w-full rounded-xl" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  const trendChartConfig = {
-    quantity: { label: TYPE_CHART[type].label, color: TYPE_CHART[type].color },
-  } satisfies ChartConfig;
+  const cattleTrend = data?.cattle_trend ?? [];
+  const milkTrend = data?.milk_trend ?? [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {/* Chart 1 — {type} Production Trend */}
+      {/* Chart 1 — Cattle Inventory Trend */}
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="px-5 pt-5 pb-2">
           <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-lg ${type === "milk" ? "bg-sky-100/80" : type === "eggs" ? "bg-amber-100/80" : "bg-stone-200/80"}`}>
-              <Icon className={`w-4 h-4 ${type === "milk" ? "text-sky-700" : type === "eggs" ? "text-amber-800" : "text-stone-700"}`} />
+            <div className="p-2 rounded-lg bg-emerald-100/80">
+              <Icon iconNode={cowHead} className="w-4 h-4 text-emerald-700" />
             </div>
             <div>
               <CardTitle className="text-sm font-bold text-slate-900">
-                {label} Production Trend
+                Cattle Inventory Trend
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Production output over time
+                Herd size over time
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {trend.length === 0 ? (
-            <ChartEmpty label={`No ${label.toLowerCase()} production data yet`} />
+          {cattleTrend.length === 0 ? (
+            <ChartEmpty
+              label="Not enough historical data"
+              hint="Inventory history isn't tracked yet. Historical snapshots are required."
+            />
           ) : (
-            <ChartContainer config={trendChartConfig} className="aspect-auto h-[260px] w-full">
-              <LineChart data={trend} margin={{ top: 12, right: 8, bottom: 0, left: -12 }}>
+            <ChartContainer config={cattleChartConfig} className="aspect-auto h-[260px] w-full">
+              <LineChart data={cattleTrend} margin={{ top: 12, right: 8, bottom: 0, left: -12 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="period"
@@ -112,14 +117,14 @@ export default function ProductionCharts({
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  tickFormatter={(value: number) => `${value}${type === "milk" ? "L" : type === "eggs" ? "pc" : "kg"}`}
+                  tickFormatter={(value: number) => `${value}`}
                 />
-                <ChartTooltip // the tooltip that comes up when you hover.
+                <ChartTooltip
                   cursor={{ stroke: "#cbd5e1", strokeDasharray: "4 4" }}
                   content={
                     <ChartTooltipContent
-                      labelFormatter={(labelValue) => formatPeriodMonth(String(labelValue))}
-                      formatter={(value) => `${Number(value).toLocaleString()} ${TYPE_CHART[type].label}`}
+                      labelFormatter={(label) => formatPeriodMonth(String(label))}
+                      formatter={(value) => `${Number(value)} heads`}
                     />
                   }
                 />
@@ -137,29 +142,32 @@ export default function ProductionCharts({
         </CardContent>
       </Card>
 
-      {/* Chart 2 — Estimated Production Value */}
+      {/* Chart 2 — Milk Production Trend */}
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="px-5 pt-5 pb-2">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-emerald-100/80">
-              <PhilippinePeso className="w-4 h-4 text-emerald-700" />
+            <div className="p-2 rounded-lg bg-sky-100/80">
+              <Milk className="w-4 h-4 text-sky-700" />
             </div>
             <div>
               <CardTitle className="text-sm font-bold text-slate-900">
-                Estimated Production Value
+                Milk Production (Liters)
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Estimated value of {label.toLowerCase()} over time
+                Approved milk output per month
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {valueTrend.length === 0 ? (
-            <ChartEmpty label={`No estimated value data yet for ${label.toLowerCase()}`} />
+          {milkTrend.length === 0 ? (
+            <ChartEmpty
+              label="Not enough production history"
+              hint="Approved milk records will appear here."
+            />
           ) : (
-            <ChartContainer config={valueChartConfig} className="aspect-auto h-[260px] w-full">
-              <BarChart data={valueTrend} margin={{ top: 12, right: 8, bottom: 0, left: -8 }}>
+            <ChartContainer config={milkChartConfig} className="aspect-auto h-[260px] w-full">
+              <BarChart data={milkTrend} margin={{ top: 12, right: 8, bottom: 0, left: -8 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="period"
@@ -172,20 +180,20 @@ export default function ProductionCharts({
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  tickFormatter={(value: number) => formatPesoCompact(value)}
+                  tickFormatter={(value: number) => `${value}L`}
                 />
                 <ChartTooltip
                   cursor={{ fill: "rgba(148, 163, 184, 0.12)" }}
                   content={
                     <ChartTooltipContent
-                      labelFormatter={(labelValue) => formatPeriodMonth(String(labelValue))}
-                      formatter={(value) => formatPeso(Number(value))}
+                      labelFormatter={(label) => formatPeriodMonth(String(label))}
+                      formatter={(value) => `${Number(value).toLocaleString()} L`}
                     />
                   }
                 />
                 <Bar
-                  dataKey="value"
-                  fill="var(--color-value)"
+                  dataKey="quantity"
+                  fill="var(--color-quantity)"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={48}
                 />
