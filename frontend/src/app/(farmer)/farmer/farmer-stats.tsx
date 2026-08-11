@@ -126,9 +126,8 @@ export default function FarmerStats({
                   <span className={`block ${card.iconClass}`}>{card.icon}</span>
                 </div>
                 <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap ${
-                    card.subClass ?? "text-amber-900/60 bg-amber-900/5"
-                  }`}
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap ${card.subClass ?? "text-amber-900/60 bg-amber-900/5"
+                    }`}
                 >
                   {card.sub}
                 </span>

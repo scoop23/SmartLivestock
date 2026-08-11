@@ -83,8 +83,8 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 // ---------------------------------------------------------------------------
 // TODO: (backend): Delete this block once the Django analytics endpoint is
 // implemented. It exists only so the dashboard can be previewed today.
+// Mock includes eggs so the type selector and the "View more production →"
 const MOCK_ANALYTICS: ProductionAnalytics = {
-  // Mock includes eggs so the type selector and the "View more production →"
   // link are visible while previewing. A milk-only farm would send
   // ["milk"] and hide both.
   // available_types: ["milk", "eggs"],

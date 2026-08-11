@@ -196,6 +196,7 @@ export default function ProductionLoggerPage() {
             </Button>
           </Card>
         ) : availableTypes.length === 0 ? (
+
           <Card className="p-10 text-center border-dashed border-slate-200">
             <div className="mx-auto flex items-center justify-center size-14 rounded-full bg-sky-100/80 mb-4">
               <Milk className="w-7 h-7 text-sky-700" />
@@ -216,15 +217,24 @@ export default function ProductionLoggerPage() {
           </Card>
         ) : (
           <>
-            {availableTypes.length > 1 ? (
-              <div className="flex justify-end">
-                <ProductionTypeSelector
-                  types={availableTypes}
-                  selected={activeType}
-                  onSelect={setAnalyticsType}
-                />
-              </div>
-            ) : null}
+            <div className="flex justify-between items-center transition-all duration-500">
+              <Button
+                type="button"
+                onClick={() => setIsWizardOpen(true)}
+                className="bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 shadow-sm p-6 self-start"
+              >
+                <Plus className="size-4" /> Log Production
+              </Button>
+              {availableTypes.length > 1 ? (
+                <div className="flex justify-end p-2">
+                  <ProductionTypeSelector
+                    types={availableTypes}
+                    selected={activeType}
+                    onSelect={setAnalyticsType}
+                  />
+                </div>
+              ) : null}
+            </div>
             <ProductionStats type={activeType} summary={activeTypeData.summary} />
             <ProductionCharts type={activeType} data={activeTypeData} />
             <ProductionRecent
