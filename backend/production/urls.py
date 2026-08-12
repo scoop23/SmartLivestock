@@ -6,11 +6,16 @@ urlpatterns = [
     path(
         "create/",
         views.create_production_record,
-        name="create_production_record",
+        name="create",
     ),
     path(
         "view_records/",
         views.get_production_records,
         name="get_production_records",
+    ),
+    path(
+        "<int:pk>",
+        views.get_single_production_record,
+        name="detail",
     ),
 ]

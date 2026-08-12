@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.utils import serializer_helpers
 from livestock.models import LivestockInventory, LivestockType
 from livestock.serializer import LivestockInventorySerializer
+from production.models import ProductionRecord
+from production.serializer import ProductionRecordSerializer
 from users import serializer
 from django.db import IntegrityError
 # TODO: Build CRUD viewsets for:
@@ -43,6 +45,17 @@ def list_livestock_types(request):
 def get_user_inventory(request):
     inventories = LivestockInventory.objects.filter(farmer=request.user.farmer_profile)
     serializer = LivestockInventorySerializer(inventories, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+def get_single_record(request, pk):
+    record = get_object_or_404(
+        ProductionRecord,
+        pk=pk,
+        created_by=request.user,
+    )
+    serializer = ProductionRecordSerializer(record)
     return Response(serializer.data)
 
 

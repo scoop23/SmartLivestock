@@ -217,16 +217,9 @@ export default function ProductionLoggerPage() {
           </Card>
         ) : (
           <>
-            <div className="flex justify-between items-center transition-all duration-500">
-              <Button
-                type="button"
-                onClick={() => setIsWizardOpen(true)}
-                className="bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 shadow-sm p-6 self-start"
-              >
-                <Plus className="size-4" /> Log Production
-              </Button>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between transition-all duration-500">
               {availableTypes.length > 1 ? (
-                <div className="flex justify-end p-2">
+                <div className="w-full md:w-auto">
                   <ProductionTypeSelector
                     types={availableTypes}
                     selected={activeType}
@@ -234,6 +227,15 @@ export default function ProductionLoggerPage() {
                   />
                 </div>
               ) : null}
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                <Button
+                  type="button"
+                  onClick={() => setIsWizardOpen(true)}
+                  className=" bg-emerald-700 text-white hover:bg-[#2D5A27]/90 shadow-sm w-full sm:w-auto p-8"
+                >
+                  <Plus className="size-4" /> Log Production
+                </Button>
+              </div>
             </div>
             <ProductionStats type={activeType} summary={activeTypeData.summary} />
             <ProductionCharts type={activeType} data={activeTypeData} />

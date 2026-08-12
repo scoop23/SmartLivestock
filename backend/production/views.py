@@ -28,6 +28,13 @@ def create_production_record(request):
 
 
 @api_view(["GET"])
+def get_single_production_record(request, pk):
+    record = get_object_or_404(ProductionRecord, pk=pk, created_by=request.user)
+    serializer = ProductionRecordSerializer(record)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
 def get_production_records(
     request,
 ):  # provides a list of production records for the logged-in user

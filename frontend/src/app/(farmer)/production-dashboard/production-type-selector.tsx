@@ -22,7 +22,7 @@ export default function ProductionTypeSelector({
   onSelect: (type: ProductionType) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto bg-amber-900/5 p-1 rounded-xl border border-amber-900/10 w-fit">
+    <div className="flex items-center gap-1.5 overflow-x-auto bg-amber-900/5 p-1 rounded-xl border border-amber-900/10 w-full md:w-fit">
       {types.map((type) => {
         const Icon = TYPE_ICONS[type];
         const isActive = selected === type;
