@@ -19,7 +19,7 @@ urlpatterns = [
         name="detail",
     ),
     path(
-        "update_record/<int:pk>",
+        "update_record/<int:pk>/",
         views.update_production_record,
         name="update",
     ),
