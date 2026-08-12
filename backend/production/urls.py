@@ -14,7 +14,7 @@ urlpatterns = [
         name="get_production_records",
     ),
     path(
-        "<int:pk>",
+        "<int:pk>/",
         views.get_single_production_record,
         name="detail",
     ),
