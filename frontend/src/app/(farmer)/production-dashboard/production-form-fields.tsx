@@ -12,8 +12,21 @@ export type ProductionType = 'milk' | 'eggs' | 'wool';
 
 interface ProductionFormFieldsProps {
   type: ProductionType;
-  value: Record<string, string | number>;
+  value: ProductionFormState;
   onChange: (field: string, val: string | number) => void;
+}
+
+export interface ProductionFormState {
+  prodDate?: string;
+  notes?: string;
+
+  milkQty?: number;
+  milkTime?: string;
+
+  eggQty?: number;
+  collectionTime?: string;
+
+  woolQty?: number;
 }
 
 export default function ProductionFormFields({ type, value, onChange }: ProductionFormFieldsProps) {

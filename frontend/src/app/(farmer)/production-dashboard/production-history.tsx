@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Axios, { AxiosError } from "axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Filter } from "lucide-react";
+import { useState } from "react";
+import { AxiosError } from "axios";
+import { useQuery } from "@tanstack/react-query";
+import { Search, Filter, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,65 +14,69 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import api from "@/lib/axios";
-
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
-import { Button } from "@/components/ui/button";
-export type ProductionType = "milk" | "eggs" | "wool";
-export type UnitType = "LITERS" | "PIECES" | "KILOGRAMS";
-export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
-
-export interface ProductionRecord {
-  readonly id: number;
-  readonly createdAt: string;
-  livestockId: number;
-  createdBy: number;
-  reviewedBy?: number | null;
-  productionType: ProductionType;
-  quantity: number;
-  unit: UnitType;
-  recordDate: string;
-  notes: string;
-  status: ProductionStatus;
-  reviewedAt?: string | null;
-  reviewRemarks?: string;
-}
+import {
+  PRODUCTION_TYPE_LABELS,
+  fetchProductionRecords,
+  type ProductionRecordItem,
+  type ProductionStatus,
+} from "./production-analytics";
+import ProductionRecordDialog from "./production-record-dialog";
 
 export interface ApiError {
   detail?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
-export default function ProductionHistory({
-}) {
+const STATUS_FILTERS: { value: string; label: string }[] = [
+  { value: "ALL", label: "All Statuses" },
+  { value: "PENDING", label: "Pending" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "REJECTED", label: "Rejected" },
+];
 
-  const { data: userProductions = [], isError: isError, error: error, refetch, isLoading: IsLoading } = useQuery<ProductionRecord[], AxiosError<ApiError>>({
+const statusClasses: Record<ProductionStatus, string> = {
+  APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
+  PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
+  REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200",
+};
+
+const DEFAULT_STATUS_CLASS =
+  "bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200";
+
+const typeClasses: Record<string, string> = {
+  milk: "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200",
+  eggs: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
+  wool: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
+};
+
+const formatUnit = (unit: string) =>
+  unit === "LITERS" ? "L" : unit === "KILOGRAMS" ? "kg" : unit === "PIECES" ? "pc" : unit;
+
+export default function ProductionHistory() {
+  const {
+    data: userProductions = [],
+    isError,
+    error,
+    refetch,
+    isLoading,
+  } = useQuery<ProductionRecordItem[], AxiosError<ApiError>>({
     queryKey: ["production"],
-    queryFn: async () => {
-      const response = await api.get("production/view_records/");
-      return response.data.map((item: any) => ({
-        id: item.id,
-        livestockId: item.livestock,
-        productionType: item.production_type.toLowerCase(),
-        quantity: Number(item.quantity),
-        unit: item.unit,
-        recordDate: item.record_date,
-        notes: item.notes,
-        status: item.status,
-        reviewRemarks: item.review_remarks,
-        createdAt: item.created_at,
-      }));
-    },
+    queryFn: fetchProductionRecords,
   });
 
-  console.log(userProductions);
-
-
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
 
   const filteredRecords = userProductions.filter(
-    (r) => typeFilter === "ALL" || r.productionType === typeFilter
+    (r) =>
+      (typeFilter === "ALL" || r.production_type === typeFilter) &&
+      (statusFilter === "ALL" || r.status === statusFilter) &&
+      (search === "" || r.notes.toLowerCase().includes(search.toLowerCase())),
   );
 
   return (
@@ -82,10 +86,12 @@ export default function ProductionHistory({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
             placeholder="Search notes..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9 bg-slate-50/50 border-slate-200"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-full sm:w-40">
@@ -98,14 +104,26 @@ export default function ProductionHistory({
               <SelectItem value="wool">Wool</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_FILTERS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {IsLoading ? (
+      {isLoading ? (
         <div className="flex justify-center py-8">
           <Spinner className="size-16 text-emerald-600" />
         </div>
-      ) : error ? (
+      ) : isError ? (
         <Card className="p-8 text-center border-red-200 bg-red-50">
           <h3 className="font-semibold text-red-700">
             Failed to load production records
@@ -126,57 +144,76 @@ export default function ProductionHistory({
         </Card>
       ) : filteredRecords.length === 0 ? (
         <Card className="p-8 text-center border-dashed border-slate-200">
-          <p className="text-slate-500 text-center items-center flex justify-center">No production records match your filter.</p>
+          <p className="text-slate-500 text-center items-center flex justify-center">
+            No production records match your filter.
+          </p>
         </Card>
       ) : (
-        filteredRecords.map((record: ProductionRecord) => (
-          <Card
+        filteredRecords.map((record: ProductionRecordItem) => (
+          <button
             key={record.id}
-            className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+            type="button"
+            onClick={() => setSelected(record)}
+            className="w-full text-left transition-shadow"
           >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <Badge
-                    className={`uppercase tracking-wider ${record.productionType === "milk"
-                      ? "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200"
-                      : record.productionType === "eggs"
-                        ? "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200"
-                        : "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200"
-                      }`}
-                  >
-                    {record.productionType}
-                  </Badge>
-                  <span className="text-sm text-slate-500 font-medium">
-                    {new Date(record.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}
-                  </span>
+            <Card className="border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <Badge
+                        className={`uppercase tracking-wider ${typeClasses[record.production_type] ?? "bg-slate-100 text-slate-800"}`}
+                      >
+                        {PRODUCTION_TYPE_LABELS[record.production_type]}
+                      </Badge>
+                      <Badge
+                        className={`uppercase tracking-wider ${statusClasses[record.status] ?? DEFAULT_STATUS_CLASS}`}
+                      >
+                        {record.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-xl font-bold text-slate-900">
+                        {record.quantity.toLocaleString()}{" "}
+                        <span className="text-sm font-normal text-slate-500">
+                          {formatUnit(record.unit)}
+                        </span>
+                      </p>
+                      <span className="text-sm text-slate-500 font-medium">
+                        {new Date(record.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 italic truncate">
+                      {record.notes ? `"${record.notes}"` : "No notes added"}
+                    </p>
+                    {record.review_remarks ? (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Review: {record.review_remarks}
+                      </p>
+                    ) : null}
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 mt-1" />
                 </div>
-                <p className="text-lg font-bold text-slate-900">
-                  {record.quantity}{" "}
-                  <span className="text-sm font-normal text-slate-500">
-                    {record.unit}
-                  </span>
-                </p>
-              </div>
-              {record.quantity && (
-                <p className="text-sm font-medium text-emerald-700 mb-1 flex gap-2">
-                  Sale Value: ₱{record.quantity.toLocaleString()} <Badge className="tracking-wider"> Hypothetical Estimated Sale Value </Badge>
-                </p>
-              )}
-              <p className="text-sm text-slate-600 italic">
-                &ldquo;{record.notes}&rdquo;
-              </p>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </button>
         ))
       )}
+
+      <ProductionRecordDialog
+        record={selected}
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
     </div>
   );
 }

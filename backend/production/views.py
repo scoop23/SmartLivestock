@@ -27,6 +27,25 @@ def create_production_record(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(["PUT", "PATCH"])
+def update_production_record(request, pk):
+    record = get_object_or_404(
+        ProductionRecord,
+        pk=pk,
+        created_by=request.user,
+    )
+    serializer = ProductionRecordSerializer(
+        record,
+        data=request.data,
+        partial=True,
+        context={"request": request},
+    )
+
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
 @api_view(["GET"])
 def get_single_production_record(request, pk):
     record = get_object_or_404(ProductionRecord, pk=pk, created_by=request.user)

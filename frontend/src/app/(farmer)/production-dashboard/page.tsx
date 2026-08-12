@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Milk, Plus, RefreshCw } from "lucide-react";
-
 import type { ProductionType } from "./production-form-fields";
 import ProductionStats from "./production-stats";
 import ProductionCharts from "./production-charts";
@@ -16,13 +15,24 @@ import ProductionRecent from "./production-recent";
 import ProductionTypeSelector from "./production-type-selector";
 import {
   EMPTY_TYPE_ANALYTICS,
+  fetchProductionRecords,
+  type ProductionRecordItem,
   useProductionAnalytics,
 } from "./production-analytics";
 import ProductionWizard from "./production-wizard";
+import type { ProductionPayload } from "./production-wizard";
 import { LivestockInventoryItem } from "../livestock-inventory/page";
 import api from "@/lib/axios";
 
 export type UnitType = "liters" | "pieces" | "kilograms";
+
+export type UpdateProductionPayload = {
+  id: number;
+  payload: ProductionPayload;
+};
+
+
+export type WizardMode = "create" | "edit";
 
 function AnalyticsLoading() {
   return (
@@ -77,6 +87,9 @@ export default function ProductionLoggerPage() {
   const [formState, setFormState] = useState<Record<string, string | number>>({});
   const [resetSignal, setResetSignal] = useState(0);
   const [analyticsType, setAnalyticsType] = useState<ProductionType | null>(null);
+  const [editingRecord, setEditingRecord] = useState<ProductionRecordItem | null>(null);
+
+
 
   const queryClient = useQueryClient();
 
@@ -115,6 +128,12 @@ export default function ProductionLoggerPage() {
     },
   });
 
+  const { data: productionRecords = [] } = useQuery<ProductionRecordItem[]>({
+    queryKey: ["production"],
+    queryFn: fetchProductionRecords,
+    staleTime: 30_000,
+  });
+
   const approvedInventories = inventories.filter((item) => item.status === "APPROVED");
 
   const handleFieldChange = (field: string, val: string | number) => {
@@ -124,6 +143,28 @@ export default function ProductionLoggerPage() {
   const handleTypeSelect = (type: ProductionType) => {
     setProductionType(type);
     setClickedInventory(null);
+  };
+
+  // Opens the wizard pre-filled with an existing record's data. Approved
+  // records never reach this path (the dialog hides the Edit button).
+  // TODO(backend): `/production/create/` only creates new records. True
+  // editing needs a PATCH /production/{id}/ endpoint.
+  const handleEditRecord = (record: ProductionRecordItem) => {
+
+    setEditingRecord(record);
+    const inventory =
+      approvedInventories.find((item) => Number(item.id) === record.livestock_id) ?? null;
+    setProductionType(record.production_type);
+    setClickedInventory(inventory);
+    setFormState({ // formState handles the inputted values
+      prodDate: record.record_date,
+      notes: record.notes ?? "",
+      ...(record.production_type === "milk" ? { milkQty: record.quantity } : {}),
+      ...(record.production_type === "eggs" ? { eggQty: record.quantity } : {}),
+      ...(record.production_type === "wool" ? { woolQty: record.quantity } : {}),
+    });
+    setResetSignal((n) => n + 1); // reset the wizard to step 0
+    setIsWizardOpen(true);
   };
 
   const submitMutation = useMutation({
@@ -147,6 +188,27 @@ export default function ProductionLoggerPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, payload }: UpdateProductionPayload) => {
+      const response = await api.patch(`/production/update_record/${id}/`, payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Production record updated before approval");
+      setIsWizardOpen(false);
+      setClickedInventory(null);
+      setFormState({});
+      setProductionType("milk");
+      setResetSignal((n) => n + 1); // so that the parent will know that the child should reset its form state.
+      queryClient.invalidateQueries({ queryKey: ["production"] });
+      queryClient.invalidateQueries({ queryKey: ["production_analytics"] });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to update production record");
+    },
+  });
+
   const availableTypes = analytics?.available_types ?? [];
   const activeType =
     analyticsType && availableTypes.includes(analyticsType)
@@ -158,15 +220,8 @@ export default function ProductionLoggerPage() {
     analytics?.by_type?.[activeType] ?? EMPTY_TYPE_ANALYTICS;
 
   console.log(activeType);
-
-  return (
-    <>
-      <PageHeader
-        title="Production Analytics"
-        subtitle="Monitor your livestock production, trends, and estimated value."
-        variant="farmer"
-        maxWidthClass="max-w-6xl"
-        action={
+  /*
+   * action={
           <Button
             type="button"
             onClick={() => setIsWizardOpen(true)}
@@ -175,6 +230,16 @@ export default function ProductionLoggerPage() {
             <Plus className="size-4" /> Log Production
           </Button>
         }
+
+   * */
+
+  return (
+    <>
+      <PageHeader
+        title="Production Analytics"
+        subtitle="Monitor your livestock production, trends, and estimated value."
+        variant="farmer"
+        maxWidthClass="max-w-6xl"
       />
 
       <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
@@ -240,8 +305,9 @@ export default function ProductionLoggerPage() {
             <ProductionStats type={activeType} summary={activeTypeData.summary} />
             <ProductionCharts type={activeType} data={activeTypeData} />
             <ProductionRecent
-              records={analytics?.recent_records ?? []}
+              records={productionRecords}
               showViewMore={availableTypes.some((t) => t !== "milk")}
+              onEdit={handleEditRecord}
             />
           </>
         )}
@@ -259,9 +325,20 @@ export default function ProductionLoggerPage() {
         isLoading={isInventoryLoading}
         isSubmitting={submitMutation.isPending}
         resetSignal={resetSignal} // do this so the child sends a signal to reset the form when the parent state changes
-        onSubmit={(payload) => submitMutation.mutate(payload)}
+        onSubmit={(payload) => {
+          if (editingRecord) {
+            updateMutation.mutate({
+              id: editingRecord.id,
+              payload
+            });
+          } else {
+            submitMutation.mutate(payload);
+          }
+        }}
         open={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
+        mode={editingRecord ? "edit" : "create"}
+        editingRecord={editingRecord}
       />
     </>
   );

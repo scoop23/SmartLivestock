@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/axios";
 
 // ---------------------------------------------------------------------------
 // Production Analytics types
@@ -10,7 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 // implemented.
 // ---------------------------------------------------------------------------
 
-export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+export type ProductionStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export type ProductionType = "milk" | "eggs" | "wool";
 
@@ -77,6 +78,58 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
   trend: [],
   value_trend: [],
 };
+
+// ---------------------------------------------------------------------------
+// Real production records (from GET production/view_records/)
+//
+// Shared between the dashboard recent list and the production history page so
+// both show the same real data.
+// ---------------------------------------------------------------------------
+
+export interface ProductionRecordItem {
+  id: number;
+  livestock_id: number;
+  livestock_type_name: string | null;
+  production_type: ProductionType;
+  quantity: number;
+  unit: string; // "LITERS" | "PIECES" | "KILOGRAMS"
+  record_date: string; // "YYYY-MM-DD"
+  notes: string;
+  status: ProductionStatus;
+  review_remarks: string | null;
+  created_at: string;
+}
+
+interface ApiProductionRecord {
+  id: number;
+  livestock: number;
+  livestock_type_name?: string | null;
+  production_type?: string;
+  quantity: string | number;
+  unit: string;
+  record_date: string;
+  notes?: string;
+  status: ProductionStatus;
+  review_remarks?: string | null;
+  created_at: string;
+}
+
+export async function fetchProductionRecords(): Promise<ProductionRecordItem[]> {
+  const response = await api.get("production/view_records/");
+  return (response.data as ApiProductionRecord[]).map((item) => ({
+    id: item.id,
+    livestock_id: item.livestock,
+    livestock_type_name: item.livestock_type_name ?? null,
+    production_type: (item.production_type ?? "milk").toLowerCase() as ProductionType,
+    quantity: Number(item.quantity),
+    unit: item.unit,
+    record_date: item.record_date,
+    notes: item.notes ?? "",
+    status: item.status,
+    review_remarks: item.review_remarks ?? null,
+    created_at: item.created_at,
+  }));
+}
 
 // ---------------------------------------------------------------------------
 // MOCK DATA — TEMPORARY

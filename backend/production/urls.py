@@ -18,4 +18,9 @@ urlpatterns = [
         views.get_single_production_record,
         name="detail",
     ),
+    path(
+        "update_record/<int:pk>",
+        views.update_production_record,
+        name="update",
+    ),
 ]

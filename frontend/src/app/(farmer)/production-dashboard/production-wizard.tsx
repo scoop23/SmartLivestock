@@ -25,25 +25,40 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/components/ui/utils";
 import ProductionFormFields, {
+  ProductionFormState,
   type ProductionType,
 } from "./production-form-fields";
 import SelectLivestockDialog from "./select-livestock-dialog";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
+import type { UpdateProductionPayload, WizardMode } from "./page";
+
+import { ProductionRecordItem } from "./production-analytics";
+
+export type ProductionPayload = {
+  livestock: number;
+  production_type: "MILK" | "EGGS" | "WOOL";
+  quantity: number;
+  unit: "LITERS" | "PIECES" | "KILOGRAMS";
+  record_date: string;
+  notes: string;
+};
 
 interface ProductionWizardProps {
   productionType: ProductionType;
   onTypeChange: (type: ProductionType) => void;
   clickedInventory: LivestockInventoryItem | null;
   onSelectInventory: (item: LivestockInventoryItem | null) => void;
-  formState: Record<string, string | number>;
+  formState: ProductionFormState;
   onFieldChange: (field: string, val: string | number) => void;
   approvedInventories: LivestockInventoryItem[];
   isLoading: boolean;
   isSubmitting: boolean;
   resetSignal: number;
-  onSubmit: (payload: Record<string, unknown>) => void;
-  open: boolean;
+  onSubmit: (payload: ProductionPayload) => void;
+  open: boolean
   onClose: () => void;
+  mode: WizardMode;
+  editingRecord: Partial<ProductionRecordItem> | null
 }
 
 const STEP_LABELS = ["Livestock", "Production", "Details", "Review"];
@@ -65,7 +80,7 @@ const typeMeta: Record<ProductionType, { icon: typeof Milk; label: string; desc:
   wool: { icon: Package, label: "Wool", desc: "Log wool produced in kilograms" },
 };
 
-const typeDetails: Record<ProductionType, { label: string; value: string }[]> = {
+const typeDetails: Record<ProductionType, { label: string; value: keyof ProductionFormState }[]> = {
   milk: [
     { label: "Quantity", value: "milkQty" },
     { label: "Time", value: "milkTime" },
@@ -87,6 +102,7 @@ const livestockTypeToProductionTypes: Record<string, ProductionType[]> = {
   Poultry: ["eggs"],
 };
 
+
 export default function ProductionWizard({
   productionType,
   onTypeChange,
@@ -101,6 +117,7 @@ export default function ProductionWizard({
   onSubmit,
   open,
   onClose,
+  mode,
 }: ProductionWizardProps) {
   const [step, setStep] = useState(0);
   const [selectOpen, setSelectOpen] = useState(false);
@@ -135,26 +152,35 @@ export default function ProductionWizard({
           ? true
           : true;
 
-  const buildPayload = (): Record<string, unknown> | null => {
+  const buildPayload = (): ProductionPayload | null => {
     if (!clickedInventory) return null;
-    const unitMap: Record<ProductionType, string> = {
+
+    const unitMap: Record<ProductionType, ProductionPayload["unit"]> = {
       milk: "LITERS",
       eggs: "PIECES",
       wool: "KILOGRAMS",
     };
-    const productionTypeMap: Record<ProductionType, string> = {
+
+    const productionTypeMap: Record<
+      ProductionType,
+      ProductionPayload["production_type"]
+    > = {
       milk: "MILK",
       eggs: "EGGS",
       wool: "WOOL",
     };
-    const payload: Record<string, unknown> = {
-      livestock: clickedInventory.id,
+
+    const payload: ProductionPayload = {
+      livestock: Number(clickedInventory.id),
       production_type: productionTypeMap[productionType],
       quantity: 0,
       unit: unitMap[productionType],
-      record_date: formState.prodDate ?? new Date().toISOString().split("T")[0],
-      notes: formState.notes,
+      record_date:
+        formState.prodDate ??
+        new Date().toISOString().split("T")[0],
+      notes: formState.notes ?? "",
     };
+
     if (productionType === "milk") {
       payload.quantity = Number(formState.milkQty);
     } else if (productionType === "eggs") {

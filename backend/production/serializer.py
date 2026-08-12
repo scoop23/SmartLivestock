@@ -55,3 +55,19 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         validated_data["created_by"] = user
         return ProductionRecord.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        allowed = [
+            "livestock",
+            "production_type",
+            "quantity",
+            "unit",
+            "record_date",
+            "notes",
+        ]
+        for field in allowed:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+        instance.save()
+
+        return instance

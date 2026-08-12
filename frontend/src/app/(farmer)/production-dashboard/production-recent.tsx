@@ -1,21 +1,26 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Droplets } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  PRODUCTION_TYPE_LABELS,
   formatRecordDate,
+  type ProductionRecordItem,
   type ProductionStatus,
-  type RecentProductionRecord,
 } from "./production-analytics";
+import ProductionRecordDialog from "./production-record-dialog";
 
 const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-  VERIFIED: "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
   REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200",
 };
+
+const DEFAULT_STATUS_CLASS =
+  "bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200";
 
 const formatUnit = (unit: string) =>
   unit === "LITERS" ? "L" : unit === "KILOGRAMS" ? "kg" : unit === "PIECES" ? "pc" : unit;
@@ -23,10 +28,17 @@ const formatUnit = (unit: string) =>
 export default function ProductionRecent({
   records,
   showViewMore = false,
+  onEdit,
 }: {
-  records: RecentProductionRecord[];
+  records: ProductionRecordItem[];
   showViewMore?: boolean;
+  onEdit?: (record: ProductionRecordItem) => void;
 }) {
+  const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
+  const recentRecords = [...records]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 5);
+
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardContent className="p-5">
@@ -52,16 +64,18 @@ export default function ProductionRecent({
           ) : null}
         </div>
 
-        {records.length === 0 ? (
+        {recentRecords.length === 0 ? (
           <p className="text-sm text-slate-500 text-center py-6">
             No production records yet.
           </p>
         ) : (
           <div className="divide-y divide-slate-100">
-            {records.map((record) => (
-              <div
+            {recentRecords.map((record) => (
+              <button
                 key={record.id}
-                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                type="button"
+                onClick={() => setSelected(record)}
+                className="w-full flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 text-left hover:bg-slate-50 rounded-lg px-2 -mx-2 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="shrink-0 flex items-center justify-center size-9 rounded-lg bg-slate-50 border border-slate-200">
@@ -72,20 +86,30 @@ export default function ProductionRecent({
                       {formatRecordDate(record.record_date)}
                     </p>
                     <p className="text-xs text-slate-500">
+                      {PRODUCTION_TYPE_LABELS[record.production_type]} •{" "}
                       {record.quantity.toLocaleString()} {formatUnit(record.unit)}
                     </p>
                   </div>
                 </div>
                 <Badge
-                  className={`uppercase tracking-wider ${statusClasses[record.status]}`}
+                  className={`uppercase tracking-wider ${statusClasses[record.status] ?? DEFAULT_STATUS_CLASS}`}
                 >
                   {record.status}
                 </Badge>
-              </div>
+              </button>
             ))}
           </div>
         )}
       </CardContent>
+
+      <ProductionRecordDialog
+        record={selected}
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+        onEdit={onEdit}
+      />
     </Card>
   );
 }
