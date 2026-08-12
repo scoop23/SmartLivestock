@@ -87,8 +87,8 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 const MOCK_ANALYTICS: ProductionAnalytics = {
   // link are visible while previewing. A milk-only farm would send
   // ["milk"] and hide both.
-  // available_types: ["milk", "eggs"],
-  available_types: ["milk"],
+  available_types: ["milk", "eggs"],
+  // available_types: ["milk"],
   by_type: {
     milk: {
       summary: {
