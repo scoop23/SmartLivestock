@@ -23,6 +23,7 @@ import {
   Filter,
   FileDown,
   Minus,
+  Pencil,
 } from "lucide-react";
 
 // shadcn/ui primitives (import from your components directory)
@@ -53,6 +54,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import LivestockDetailsDialog from "./livestock-details-dialog";
+import LivestockEditDialog, { type UpdateInventoryPayload } from "./livestock-edit-dialog";
 import LivestockTypeCards from "./livestock-type-cards";
 import InventoryStats from "./inventory-stats";
 import api from "@/lib/axios";
@@ -108,6 +110,7 @@ export default function LivestockInventoryPage() {
   const [formError, setFormError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
+  const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
   const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
@@ -205,6 +208,26 @@ export default function LivestockInventoryPage() {
     },
     onError: () => {
       toast.error("Failed to delete livestock record");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (payload: UpdateInventoryPayload) => {
+      if (!editTarget) throw new Error("No record selected");
+      const response = await api.put(
+        `/livestock/inventory_update/${editTarget.id}`,
+        payload
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      setEditTarget(null);
+      toast.success("Livestock entry updated successfully");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to update livestock entry");
     },
   });
 
@@ -570,6 +593,18 @@ export default function LivestockInventoryPage() {
               open={!!detailTarget}
               onOpenChange={() => setDetailTarget(null)}
             />
+
+            <LivestockEditDialog
+              key={editTarget?.id ?? "closed"}
+              item={editTarget}
+              open={!!editTarget}
+              onOpenChange={(open) => {
+                if (!open) setEditTarget(null);
+              }}
+              livestockTypes={livestockTypes}
+              isSubmitting={updateMutation.isPending}
+              onSubmit={(payload) => updateMutation.mutate(payload)}
+            />
           </div>
         </div>
 
@@ -719,6 +754,20 @@ export default function LivestockInventoryPage() {
                             className="text-slate-600 hover:text-[#2D5A27] hover:bg-[#2D5A27]/5 font-medium"
                           >
                             View Details
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditTarget(item)}
+                            disabled={item.status === "APPROVED"}
+                            title={
+                              item.status === "APPROVED"
+                                ? "Approved entries can no longer be edited"
+                                : "Edit entry"
+                            }
+                            className="text-slate-700 hover:text-[#2D5A27] hover:bg-[#2D5A27]/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Pencil className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"
