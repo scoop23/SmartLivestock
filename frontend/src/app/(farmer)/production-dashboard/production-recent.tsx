@@ -34,10 +34,16 @@ export default function ProductionRecent({
   showViewMore?: boolean;
   onEdit?: (record: ProductionRecordItem) => void;
 }) {
+
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
+
   const recentRecords = [...records]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 5);
+
+  const found = records.find((item: ProductionRecordItem | null) => item?.id === selected?.id); // get the updated selected record
+
+
 
   return (
     <Card className="border-slate-200 shadow-sm">
@@ -103,7 +109,7 @@ export default function ProductionRecent({
       </CardContent>
 
       <ProductionRecordDialog
-        record={selected}
+        record={found ?? null}
         open={selected !== null}
         onOpenChange={(open) => {
           if (!open) setSelected(null);

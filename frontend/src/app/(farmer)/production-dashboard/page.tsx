@@ -203,11 +203,8 @@ export default function ProductionLoggerPage() {
       queryClient.invalidateQueries({ queryKey: ["production"] });
       queryClient.invalidateQueries({ queryKey: ["production_analytics"] });
     },
-    onError: (err) => {
-      if (err instanceof Error) {
-        console.error("STATUS:", err.response?.status);
-        console.error("UPDATE ERROR:", err.response?.data);
-      }
+    onError: (err: Error) => {
+      console.log(err);
       toast.error("Failed to update production record");
     },
   });
