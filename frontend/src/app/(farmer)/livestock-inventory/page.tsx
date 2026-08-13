@@ -211,7 +211,7 @@ export default function LivestockInventoryPage() {
     },
   });
 
-  const updateMutation = useMutation({
+  const updateMutation = useMutation({ // update mutation just like in production dashboard.
     mutationFn: async (payload: UpdateInventoryPayload) => {
       if (!editTarget) throw new Error("No record selected");
       const response = await api.put(
@@ -673,88 +673,112 @@ export default function LivestockInventoryPage() {
                 filteredInventories.map((item) => (
                   <Card
                     key={item.id}
-                    className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+                    className="relative overflow-hidden border-2 border-emerald-900/10 bg-emerald-50/30 hover:bg-emerald-50/60 shadow-xs hover:shadow-sm rounded-2xl transition-all duration-200"
                   >
-                    <CardContent className="p-5">
-                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                        <div className="space-y-2 flex-1">
+                    <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between h-full space-y-3">
+                      {/* Top Header Row */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                        <div className="space-y-1.5 flex-1 w-full">
+
+                          {/* Main Title & Badges */}
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-bold text-xl text-slate-900">
+                            <h3 className="text-lg font-black text-emerald-950 tracking-tight">
                               {item.entryType === "INDIVIDUAL"
                                 ? item.tagNumber || "Un-tagged"
                                 : `${item.quantity}x ${item.livestockTypeName} (Batch)`}
                             </h3>
-                            <Badge variant="outline" className="text-xs uppercase border-slate-300">
+
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/70 bg-emerald-900/10 px-2 py-0.5 rounded-full">
                               {item.entryType}
-                            </Badge>
+                            </span>
+
                             {getStatusBadge(item.status)}
                           </div>
 
-                          <p className="text-sm text-slate-600">
-                            <span className="font-bold text-slate-800">
+                          {/* Subtitle */}
+                          <p className="text-xs font-semibold text-stone-600">
+                            <span className="text-emerald-950 font-bold">
                               {item.livestockTypeName}
                             </span>{" "}
                             • {item.breed || "Standard Breed"} • {item.sex}
                           </p>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
+                          {/* Slimmer Stats Grid with Inner Depth */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+
+                            {/* Weight */}
                             {item.weight && (
-                              <div className="flex items-center gap-1.5 text-slate-600">
-                                <Weight className="w-4 h-4 text-slate-400" />
-                                <span>
-                                  Weight:{" "}
-                                  <strong className="text-slate-900">{item.weight} kg</strong>
-                                </span>
+                              <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
+                                <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
+                                  <Weight className="w-3.5 h-3.5 text-emerald-900" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Weight</span>
+                                  <span className="font-extrabold text-emerald-950 truncate leading-tight">{item.weight} kg</span>
+                                </div>
                               </div>
                             )}
-                            {item.lastVaccinationDate ? (
-                              <div className="flex items-center gap-1.5 text-slate-600">
-                                <Calendar className="w-4 h-4 text-slate-400" />
-                                <span>
-                                  Vaccinated:{" "}
-                                  <strong className="text-slate-900">
-                                    {item.lastVaccinationDate}
-                                  </strong>
-                                </span>
+
+                            {/* Vaccination */}
+                            <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
+                              <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
+                                <Calendar className="w-3.5 h-3.5 text-emerald-900" />
                               </div>
-                            ) : (
-                              <div className="text-amber-600">
-                                Not Vaccinated
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Vaccinated</span>
+                                {item.lastVaccinationDate ? (
+                                  <span className="font-extrabold text-emerald-950 truncate leading-tight">{item.lastVaccinationDate}</span>
+                                ) : (
+                                  <span className="font-extrabold text-amber-700 truncate leading-tight">No</span>
+                                )}
                               </div>
-                            )}
-                            <div className="flex items-center gap-1.5 text-slate-600">
-                              <Tag className="w-4 h-4 text-slate-400" />
-                              <span>
-                                Quantity: <strong className="text-slate-900">{item.quantity} head</strong>
-                              </span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-slate-600">
-                              <CalendarDays className="w-4 h-4 text-slate-400" />
-                              <span>
-                                Date Created:{" "}
-                                <strong className="text-slate-900">
+
+                            {/* Quantity */}
+                            <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
+                              <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
+                                <Tag className="w-3.5 h-3.5 text-emerald-900" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Quantity</span>
+                                <span className="font-extrabold text-emerald-950 truncate leading-tight">{item.quantity} head</span>
+                              </div>
+                            </div>
+
+                            {/* Created Date */}
+                            <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
+                              <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
+                                <CalendarDays className="w-3.5 h-3.5 text-emerald-900" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Created</span>
+                                <span className="font-extrabold text-emerald-950 truncate leading-tight">
                                   {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
-                                </strong>
-                              </span>
+                                </span>
+                              </div>
                             </div>
+
                           </div>
 
+                          {/* Review Remarks Note */}
                           {item.reviewRemarks && (
-                            <div className="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-md text-xs text-rose-800">
-                              <strong>Review Note:</strong> {item.reviewRemarks}
+                            <div className="mt-2 p-2.5 bg-rose-500/10 border-2 border-rose-900/10 rounded-xl text-xs text-rose-950">
+                              <strong className="font-extrabold">Review Note:</strong> {item.reviewRemarks}
                             </div>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1 self-end sm:self-start">
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1 self-end sm:self-start shrink-0">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setDetailTarget(item)}
-                            className="text-slate-600 hover:text-[#2D5A27] hover:bg-[#2D5A27]/5 font-medium"
+                            className="rounded-xl h-8 px-2.5 text-xs font-extrabold text-emerald-950 hover:bg-emerald-900/10"
                           >
                             View Details
                           </Button>
+
                           <Button
                             variant="ghost"
                             size="icon"
@@ -765,24 +789,24 @@ export default function LivestockInventoryPage() {
                                 ? "Approved entries can no longer be edited"
                                 : "Edit entry"
                             }
-                            className="text-slate-700 hover:text-[#2D5A27] hover:bg-[#2D5A27]/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="rounded-xl text-emerald-950 hover:bg-emerald-900/10 disabled:opacity-30 disabled:cursor-not-allowed h-8 w-8"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </Button>
+
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setDeleteTarget(item)}
-                            className="text-slate-700 hover:text-rose-600 hover:bg-rose-50"
+                            className="rounded-xl text-stone-600 hover:text-rose-600 hover:bg-rose-500/10 h-8 w-8"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))
-              )}
+                )))}
             </div>
           </>
         ) : (
