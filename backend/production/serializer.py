@@ -38,9 +38,19 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):  # attrs is the whole table fields
-        livestock = attrs["livestock"]
-        production_type = attrs["production_type"]
-        unit = attrs["unit"]
+        if self.instance is None:
+            # for create
+            livestock = attrs["livestock"]
+            production_type = attrs["production_type"]
+            unit = attrs["unit"]
+        else:
+            # for patch
+            livestock = attrs.get("livestock", self.instance.livestock)
+            production_type = attrs.get(
+                "production_type",
+                self.instance.production_type,
+            )
+            unit = attrs.get("unit", self.instance.unit)
 
         if livestock.livestock_type.name == "CATTLE":
             if production_type != ProductionRecord.ProductionType.MILK:
