@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   Calendar,
   LogOut,
   Megaphone,
-  Menu,
   Package,
   TrendingUp,
 } from "lucide-react";
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/components/ui/utils";
+import { MOBILE_NAV_EVENT } from "./mobile-nav-open";
 
 const HomeIcon = (props: { className?: string }) => (
   <Icon iconNode={cowHead} {...props} />
@@ -48,6 +48,12 @@ export default function MobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    const openNav = () => setOpen(true);
+    window.addEventListener(MOBILE_NAV_EVENT, openNav);
+    return () => window.removeEventListener(MOBILE_NAV_EVENT, openNav);
+  }, []);
+
   const go = (path: string) => {
     setOpen(false);
     router.push(path);
@@ -55,14 +61,6 @@ export default function MobileNav() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-white text-[#2D5A27] rounded-full shadow-lg shadow-black/20"
-        aria-label="Open menu"
-      >
-        <Menu className="size-5" />
-      </button>
-
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-64 p-0 border-0 bg-[#2D5A27] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
           <SheetTitle className="sr-only">Navigation</SheetTitle>

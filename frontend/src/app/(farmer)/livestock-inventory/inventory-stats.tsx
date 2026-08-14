@@ -125,6 +125,7 @@ export default function InventoryStats({
               <div className={`h-1 w-12 rounded-full mt-3 ${card.accentBar}`} />
             </CardContent>
           </Card>
+
         );
       })}
     </div>

@@ -396,6 +396,7 @@ export default function ProductionWizard({
                     id="prodDate"
                     name="prodDate"
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     className="pl-10"
                     value={String(formState.prodDate ?? new Date().toISOString().split("T")[0])}
                     onChange={(e) => onFieldChange("prodDate", e.target.value)}

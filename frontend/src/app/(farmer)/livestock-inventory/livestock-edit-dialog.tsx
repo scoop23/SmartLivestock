@@ -326,6 +326,7 @@ export default function LivestockEditDialog({
                       <Input
                         id="editVaxDate"
                         type="date"
+                        max={new Date().toISOString().split("T")[0]}
                         className="flex w-full"
                         value={form.lastVaccinationDate}
                         onChange={(e) => set({ lastVaccinationDate: e.target.value })}

@@ -7,6 +7,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
 import type { LivestockInventoryItem } from "./page";
+import {
+  Layers,
+} from "lucide-react";
+
+
+import Link from "next/link";
 
 interface LivestockTypeCardsProps {
   inventories: LivestockInventoryItem[];
@@ -48,7 +54,18 @@ export default function LivestockTypeCards({ inventories, isLoading, onSelectTyp
 
   return (
     <div className="py-2">
-      <h2 className="text-lg font-bold text-slate-900 mb-4">Select Livestock Type</h2>
+      <div className="flex justify-between py-2 items-center">
+        <h2 className="text-lg font-bold text-slate-900 mb-4">Select Livestock Type</h2>
+        <Link href="/livestock-inventory/all">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2 border-slate-300"
+          >
+            <Layers className="w-4 h-4" /> View All Records
+          </Button>
+        </Link>
+      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-10">

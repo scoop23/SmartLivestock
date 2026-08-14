@@ -8,7 +8,6 @@ import {
   Map,
   Sprout,
   LogOut,
-  Menu,
   Database,
   ShieldCheck,
   FileText,
@@ -22,12 +21,13 @@ import {
   BarChart3,
   type LucideIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/components/ui/utils';
 import { cowHead } from '@lucide/lab';
 import { Icon } from 'lucide-react';
+import { MOBILE_NAV_EVENT } from './mobile-nav-open';
 
 interface SidebarProps {
   role: 'farmer' | 'lgu' | 'sibat' | 'auction';
@@ -184,6 +184,12 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const width = collapsed ? 60 : 256;
   const links = getLinks(role);
 
+  useEffect(() => {
+    const open = () => setMobileOpen(true);
+    window.addEventListener(MOBILE_NAV_EVENT, open);
+    return () => window.removeEventListener(MOBILE_NAV_EVENT, open);
+  }, []);
+
   return (
     <>
       {/* Desktop — fixed sidebar overlays content, hover to uncollapse */}
@@ -195,15 +201,6 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       >
         <SidebarNav collapsed={collapsed} links={links} pathname={pathname} onLogout={onLogout} />
       </aside>
-
-      {/* Mobile — hamburger + shadcn Sheet */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white text-[#2D5A27] rounded-full shadow-lg shadow-black/20"
-        aria-label="Open menu"
-      >
-        <Menu className="size-5" />
-      </button>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-64 p-0 border-0 bg-[#2D5A27] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
