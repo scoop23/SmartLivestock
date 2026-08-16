@@ -1,4 +1,5 @@
-from rest_framework import serializers  # type: ignore
+from rest_framework import serializers
+from rest_framework.relations import PrimaryKeyRelatedField  # type: ignore
 from .models import Farmer, LivestockInventory, LivestockType
 
 
@@ -46,3 +47,8 @@ class LivestockInventorySerializer(serializers.Serializer):
         instance.save()
 
         return instance
+
+
+class CensusSubmissionSerializer(serializers.Serializer):
+    barangay = serializers.PrimaryKeyRelatedField(read_only=True)
+    report_year = serializers.DateTimeField(read_only=True)

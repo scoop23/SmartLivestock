@@ -171,7 +171,7 @@ export default function LivestockRecordList({
 
     let result = items.filter((item) => {
       const matchesSearch =
-        !query ||
+        !query || // if query is nothing then true so bassically saying if query is nothing then show all.
         item?.tagNumber?.toLowerCase().includes(query) ||
         item.breed.toLowerCase().includes(query) ||
         item.livestockTypeName.toLowerCase().includes(query);
