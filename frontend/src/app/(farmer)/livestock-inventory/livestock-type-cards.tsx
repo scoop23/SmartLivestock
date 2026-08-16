@@ -1,16 +1,13 @@
 "use client";
 
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
 import type { LivestockInventoryItem } from "./page";
-import {
-  Layers,
-} from "lucide-react";
-
+import { Layers } from "lucide-react";
 
 import Link from "next/link";
 
@@ -28,13 +25,40 @@ interface TypeSummary {
   approved: number;
 }
 
-const typeStyles: Record<string, { gradient: string; chip: string }> = {
-  Cattle: { gradient: "from-emerald-600 to-emerald-400", chip: "bg-emerald-100 text-emerald-700" },
-  Goat: { gradient: "from-amber-600 to-amber-400", chip: "bg-amber-100 text-amber-700" },
-  Swine: { gradient: "from-sky-600 to-sky-400", chip: "bg-sky-100 text-sky-700" },
+const typeStyles: Record<
+  string,
+  { cardBg: string; border: string; iconBg: string; iconColor: string; chip: string }
+> = {
+  Cattle: {
+    cardBg: "bg-emerald-50/30 hover:bg-emerald-50/60",
+    border: "border-emerald-900/10",
+    iconBg: "bg-emerald-900/10",
+    iconColor: "text-emerald-900",
+    chip: "bg-emerald-900/10 text-emerald-950 font-bold border-emerald-900/20",
+  },
+  Goat: {
+    cardBg: "bg-amber-50/30 hover:bg-amber-50/60",
+    border: "border-amber-900/10",
+    iconBg: "bg-amber-900/10",
+    iconColor: "text-amber-900",
+    chip: "bg-amber-900/10 text-amber-950 font-bold border-amber-900/20",
+  },
+  Swine: {
+    cardBg: "bg-sky-50/30 hover:bg-sky-50/60",
+    border: "border-sky-900/10",
+    iconBg: "bg-sky-900/10",
+    iconColor: "text-sky-900",
+    chip: "bg-sky-900/10 text-sky-950 font-bold border-sky-900/20",
+  },
 };
 
-const typeStyleFallback = { gradient: "from-slate-600 to-slate-400", chip: "bg-slate-100 text-slate-700" };
+const typeStyleFallback = {
+  cardBg: "bg-slate-50/30 hover:bg-slate-50/60",
+  border: "border-slate-900/10",
+  iconBg: "bg-slate-900/10",
+  iconColor: "text-slate-900",
+  chip: "bg-slate-900/10 text-slate-950 font-bold border-slate-900/20",
+};
 
 const buildTypeSummaries = (inventories: LivestockInventoryItem[]): TypeSummary[] =>
   Object.values(
@@ -55,14 +79,14 @@ export default function LivestockTypeCards({ inventories, isLoading, onSelectTyp
   return (
     <div className="py-2">
       <div className="flex justify-between py-2 items-center">
-        <h2 className="text-lg font-bold text-slate-900 mb-4">Select Livestock Type</h2>
+        <h2 className="text-lg font-black text-emerald-950 tracking-tight">Select Livestock Type</h2>
         <Link href="/livestock-inventory/all">
           <Button
             type="button"
             variant="outline"
-            className="gap-2 border-slate-300"
+            className="gap-2 border-2 border-emerald-900/10 bg-white/70 font-extrabold text-xs text-emerald-950 hover:bg-emerald-900/10 rounded-xl"
           >
-            <Layers className="w-4 h-4" /> View All Records
+            <Layers className="w-4 h-4 text-emerald-900" /> View All Records
           </Button>
         </Link>
       </div>
@@ -72,8 +96,8 @@ export default function LivestockTypeCards({ inventories, isLoading, onSelectTyp
           <Spinner className="size-10 text-emerald-600" />
         </div>
       ) : typeSummaries.length === 0 ? (
-        <Card className="p-8 text-center border-dashed border-slate-200">
-          <p className="text-slate-500">No livestock records yet. Add your first entry to get started.</p>
+        <Card className="p-8 text-center border-2 border-dashed border-emerald-900/10 bg-emerald-50/20 rounded-2xl">
+          <p className="text-stone-600 font-semibold text-sm">No livestock records yet. Add your first entry to get started.</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -83,28 +107,45 @@ export default function LivestockTypeCards({ inventories, isLoading, onSelectTyp
               <Card
                 key={type.name}
                 onClick={() => onSelectType(type.name)}
-                className="group relative overflow-hidden rounded-2xl border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                className={`group relative overflow-hidden rounded-2xl border-2 ${style.border} ${style.cardBg} shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between p-4 space-y-3`}
               >
-                <div className={`relative h-32 bg-gradient-to-br ${style.gradient}`}>
-                  <Icon
-                    iconNode={cowHead}
-                    className="absolute inset-0 m-auto size-16 text-white/40 transition-transform group-hover:scale-110"
-                  />
-                  <Badge className={`absolute top-3 right-3 ${style.chip}`}>
+                {/* Header: Icon Box + Title + Head Count Pill */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`p-2.5 rounded-xl ${style.iconBg} shrink-0`}>
+                      <Icon iconNode={cowHead} className={`size-5 ${style.iconColor}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="text-xl font-black text-emerald-950 tracking-tight truncate">
+                        {type.name}
+                      </CardTitle>
+                      <CardDescription className="text-xs font-semibold text-stone-600 truncate mt-0.5">
+                        {type.approved} approved
+                      </CardDescription>
+                    </div>
+                  </div>
+
+                  <Badge className={`rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${style.chip}`}>
                     {type.heads} {type.heads === 1 ? "head" : "heads"}
                   </Badge>
                 </div>
-                <CardHeader className="p-0 px-4.5">
-                  <CardTitle>{type.name}</CardTitle>
-                  <CardDescription>
-                    {type.batches} {type.batches === 1 ? "batch" : "batches"} •{" "}
-                    {type.individuals} {type.individuals === 1 ? "individual" : "individuals"} •{" "}
-                    {type.approved} approved
-                  </CardDescription>
-                </CardHeader>
-                <CardFooter>
-                  <Button className="w-full">View Livestock</Button>
-                </CardFooter>
+
+                {/* Inner Stat Pill Cards */}
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                  <div className="p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs flex flex-col">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Batches</span>
+                    <span className="font-extrabold text-emerald-950 leading-tight">{type.batches}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs flex flex-col">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Individuals</span>
+                    <span className="font-extrabold text-emerald-950 leading-tight">{type.individuals}</span>
+                  </div>
+                </div>
+
+                {/* Bottom Action Button */}
+                <Button className="w-full h-9 rounded-xl bg-emerald-950 text-white font-extrabold text-xs hover:bg-emerald-900 transition-colors shadow-xs">
+                  View Livestock
+                </Button>
               </Card>
             );
           })}

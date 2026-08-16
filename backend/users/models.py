@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
+from django.conf import settings
 
 
 # Custom User model: uses email as the login identifier instead of username.
@@ -79,7 +80,7 @@ class UserDocument(models.Model):
 
     # Tracks which admin/MAO approved the document (self-referential FK — actually should point to User)
     approved_by = models.ForeignKey(
-        "self",
+        settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
