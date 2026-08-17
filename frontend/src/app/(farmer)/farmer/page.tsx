@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -90,45 +91,67 @@ export default function FarmerDashboard() {
         )}
 
         {/* Quick Actions */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-5">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Icon iconNode={cowHead} className="w-5 h-5 text-[#2D5A27]" />
-              Farm Management
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <button
-                onClick={() => router.push('/livestock-inventory')}
-                className="group flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-lg transition-all"
-              >
-                <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                  <Plus className="w-6 h-6 text-[#2D5A27]" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-widest text-slate-600">Add Cattle</span>
-              </button>
+        {isLoading ? (
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Skeleton className="w-5 h-5 rounded-md" />
+                <Skeleton className="h-6 w-32 rounded-lg" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent"
+                  >
+                    <Skeleton className="size-12 rounded-xl" />
+                    <Skeleton className="h-4 w-24 rounded-md" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-5">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Icon iconNode={cowHead} className="w-5 h-5 text-[#2D5A27]" />
+                Quick Actions
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button
+                  onClick={() => router.push('/livestock-inventory')}
+                  className="group flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-lg transition-all"
+                >
+                  <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                    <Plus className="w-6 h-6 text-[#2D5A27]" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-600">Add Cattle</span>
+                </button>
 
-              <button
-                onClick={() => router.push('/production-dashboard')}
-                className="group flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-lg transition-all"
-              >
-                <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                  <Package className="w-6 h-6 text-[#2D5A27]" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-widest text-slate-600">Log Meat</span>
-              </button>
+                <button
+                  onClick={() => router.push('/production-dashboard')}
+                  className="group flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-lg transition-all"
+                >
+                  <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                    <Package className="w-6 h-6 text-[#2D5A27]" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-600">Log Meat</span>
+                </button>
 
-              <button
-                onClick={() => setIsReportModalOpen(true)}
-                className="group flex flex-col items-center gap-3 p-5 bg-orange-50 rounded-xl border-2 border-transparent hover:border-orange-500 hover:bg-white hover:shadow-lg transition-all"
-              >
-                <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                  <Stethoscope className="w-6 h-6 text-orange-600" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-widest text-orange-700">Report Issue</span>
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+                <button
+                  onClick={() => setIsReportModalOpen(true)}
+                  className="group flex flex-col items-center gap-3 p-5 bg-orange-50 rounded-xl border-2 border-transparent hover:border-orange-500 hover:bg-white hover:shadow-lg transition-all"
+                >
+                  <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                    <Stethoscope className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-widest text-orange-700">Report Issue</span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Health Alerts & Observation Log */}
         <div className="grid md:grid-cols-2 gap-6">

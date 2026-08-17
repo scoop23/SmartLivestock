@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.relations import PrimaryKeyRelatedField  # type: ignore
-from .models import Farmer, LivestockInventory, LivestockType
+from .models import Farmer, LivestockInventory, LivestockType, CensusSubmission, CensusSubmissionItem
 
 
 class LivestockInventorySerializer(serializers.Serializer):
@@ -49,6 +49,52 @@ class LivestockInventorySerializer(serializers.Serializer):
         return instance
 
 
-class CensusSubmissionSerializer(serializers.Serializer):
-    barangay = serializers.PrimaryKeyRelatedField(read_only=True)
-    report_year = serializers.DateTimeField(read_only=True)
+class CensusSubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CensusSubmission
+        fields = [
+            "barangay",
+            "report_year",
+            "report_quarter",
+        ]
+        read_only_fields = [
+            "submitted_by",
+            "submission_date",
+            "status",
+            "reviewed_by",
+            "reviewed_at",
+            "review_remarks",
+            "created_at",
+        ]
+    
+    def create(self, validated_data):
+        user = self.context["request"].user
+        validated_data["submitted_by"] = user
+        return CensusSubmission.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data:
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
+
+class CensusSubmissionItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CensusSubmissionItem
+        fields = [
+            "census_submission",
+            "farmer",
+            "livestock_type",
+            "number_of_heads",
+        ]
+
+    def create(self, validated_data):
+        pass
+   
+
+
+
+
+
+        
