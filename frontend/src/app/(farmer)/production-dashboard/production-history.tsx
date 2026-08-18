@@ -149,9 +149,9 @@ export default function ProductionHistory() {
           </p>
         </Card>
       ) : (
-        filteredRecords.map((record: ProductionRecordItem) => (
+        filteredRecords.map((record: ProductionRecordItem, index: number) => (
           <button
-            key={record.id}
+            key={record.id != null ? `history-record-${record.id}` : `history-record-${index}-${record.created_at || record.record_date || ""}`}
             type="button"
             onClick={() => setSelected(record)}
             className="w-full text-left transition-shadow"

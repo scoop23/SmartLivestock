@@ -20,4 +20,9 @@ urlpatterns = [
         views.get_single_record,
         name="detail",
     ),
+    path(
+        "create_subsmission",
+        views.create_census_submission,
+        name="create_census_subsmisson"
+    )
 ]

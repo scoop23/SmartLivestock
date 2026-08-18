@@ -38,7 +38,7 @@ export default function ProductionRecent({
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
 
   const recentRecords = [...records]
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
     .slice(0, 5);
 
   const found = records.find((item: ProductionRecordItem | null) => item?.id === selected?.id); // get the updated selected record
@@ -76,9 +76,9 @@ export default function ProductionRecent({
           </p>
         ) : (
           <div className="divide-y divide-slate-100">
-            {recentRecords.map((record) => (
+            {recentRecords.map((record, index) => (
               <button
-                key={record.id}
+                key={record.id != null ? `recent-record-${record.id}` : `recent-record-${index}-${record.created_at || record.record_date || ""}`}
                 type="button"
                 onClick={() => setSelected(record)}
                 className="w-full flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 text-left hover:bg-slate-50 rounded-lg px-2 -mx-2 transition-colors"

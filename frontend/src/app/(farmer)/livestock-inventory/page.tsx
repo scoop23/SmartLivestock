@@ -563,12 +563,6 @@ export default function LivestockInventoryPage() {
           </div>
         </div>
 
-
-        {/* Summary Metric Cards */}
-        <InventoryStats inventories={inventories} isLoading={IsLoading} />
-
-
-
         {/* Select Livestock Type first */}
         {selectedType ? (
           <>
@@ -599,11 +593,16 @@ export default function LivestockInventoryPage() {
             />
           </>
         ) : (
-          <LivestockTypeCards
-            inventories={inventories}
-            isLoading={IsLoading}
-            onSelectType={setSelectedType}
-          />
+          <>
+            {/* Summary Metric Cards */}
+            <InventoryStats inventories={inventories} isLoading={IsLoading} />
+
+            <LivestockTypeCards
+              inventories={inventories}
+              isLoading={IsLoading}
+              onSelectType={setSelectedType}
+            />
+          </>
         )}
 
       </div>

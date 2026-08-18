@@ -136,7 +136,7 @@ export default function FarmerDashboard() {
                   <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
                     <Package className="w-6 h-6 text-[#2D5A27]" />
                   </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-slate-600">Log Meat</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-600">Log Productions</span>
                 </button>
 
                 <button
@@ -154,48 +154,90 @@ export default function FarmerDashboard() {
         )}
 
         {/* Health Alerts & Observation Log */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card className="border-slate-200 shadow-sm">
-            <CardContent className="p-5">
-              <h3 className="text-lg font-bold text-slate-900 mb-4">Health Alerts</h3>
-              <div className="space-y-3">
-                {recentAlerts.map((alert) => (
-                  <div key={alert.id} className="p-4 rounded-xl bg-orange-50 border border-orange-100">
-                    <div className="flex gap-3">
-                      <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="text-sm font-bold text-orange-900">{alert.title}</h4>
-                        <p className="text-xs text-orange-800/80 mt-1">{alert.message}</p>
+        {isLoading ? (
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Health Alerts Skeleton */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent className="p-5">
+                <Skeleton className="h-6 w-32 mb-4 rounded-lg" />
+                <div className="space-y-3">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="flex gap-3">
+                        <Skeleton className="size-5 rounded-full shrink-0 mt-0.5" />
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-36 rounded-md" />
+                          <Skeleton className="h-3 w-5/6 rounded-md" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="border-slate-200 shadow-sm">
-            <CardContent className="p-5">
-              <h3 className="text-lg font-bold text-slate-900 mb-4">Observation Log</h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 text-sm">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />
-                  <div>
-                    <p className="font-bold text-slate-800">Reduced Appetite</p>
-                    <p className="text-xs text-slate-500">Cattle #B-042 • Reported 4h ago</p>
+            {/* Observation Log Skeleton */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent className="p-5">
+                <Skeleton className="h-6 w-36 mb-4 rounded-lg" />
+                <div className="space-y-4">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <Skeleton className="size-2 rounded-full mt-1.5 shrink-0" />
+                      <div className="space-y-1.5 flex-1">
+                        <Skeleton className="h-4 w-32 rounded-md" />
+                        <Skeleton className="h-3 w-48 rounded-md" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent className="p-5">
+                <h3 className="text-lg font-bold text-slate-900 mb-4">Health Alerts</h3>
+                <div className="space-y-3">
+                  {recentAlerts.map((alert) => (
+                    <div key={alert.id} className="p-4 rounded-xl bg-orange-50 border border-orange-100">
+                      <div className="flex gap-3">
+                        <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-bold text-orange-900">{alert.title}</h4>
+                          <p className="text-xs text-orange-800/80 mt-1">{alert.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent className="p-5">
+                <h3 className="text-lg font-bold text-slate-900 mb-4">Observation Log</h3>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 text-sm">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />
+                    <div>
+                      <p className="font-bold text-slate-800">Reduced Appetite</p>
+                      <p className="text-xs text-slate-500">Cattle #B-042 • Reported 4h ago</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 text-sm">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5 shrink-0" />
+                    <div>
+                      <p className="font-bold text-slate-800">Normal Rut Behavior</p>
+                      <p className="text-xs text-slate-500">Cattle #B-011 • Reported Yesterday</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 text-sm">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5 shrink-0" />
-                  <div>
-                    <p className="font-bold text-slate-800">Normal Rut Behavior</p>
-                    <p className="text-xs text-slate-500">Cattle #B-011 • Reported Yesterday</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* REPORT ISSUE MODAL */}
         {isReportModalOpen && (

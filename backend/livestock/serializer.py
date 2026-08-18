@@ -53,11 +53,15 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CensusSubmission
         fields = [
+            "id",
             "barangay",
             "report_year",
             "report_quarter",
+            "status",
+            "submission_date",
         ]
         read_only_fields = [
+            "id",
             "submitted_by",
             "submission_date",
             "status",
@@ -72,12 +76,6 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
         validated_data["submitted_by"] = user
         return CensusSubmission.objects.create(**validated_data)
 
-    def update(self, instance, validated_data):
-        for attr, value in validated_data:
-            setattr(instance, attr, value)
-        
-        instance.save()
-        return instance
 
 class CensusSubmissionItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -87,10 +85,7 @@ class CensusSubmissionItemSerializer(serializers.ModelSerializer):
             "farmer",
             "livestock_type",
             "number_of_heads",
-        ]
-
-    def create(self, validated_data):
-        pass
+        ] 
    
 
 
