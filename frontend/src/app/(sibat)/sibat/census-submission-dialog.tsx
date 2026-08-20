@@ -68,7 +68,7 @@ interface CensusSubmissionDialogProps {
   onSubmissionSuccess?: (newSubmission: CensusSubmissionRecord) => void;
 }
 
-const PADRE_GARCIA_BARANGAYS = [
+const PADRE_GARCIA_BARANGAYS = [ // replace with real barangay data stored in the db.
   "Lipay",
   "Banaba",
   "Banaybanay",
@@ -263,7 +263,7 @@ export default function CensusSubmissionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 border-slate-200 text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl">
+      <DialogContent className="sm:max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 border-slate-200 text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl">
         {/* Header banner */}
         <div className="bg-gradient-to-r from-[#1A365D] via-[#1E4E8C] to-[#2D5A27] text-white p-6 pb-5 shrink-0">
           <DialogHeader className="space-y-1.5 text-left">
@@ -434,7 +434,7 @@ export default function CensusSubmissionDialog({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                       {/* Farmer Name */}
                       <div className="sm:col-span-4 space-y-1">
                         <Label className="text-[11px] font-bold text-slate-600">

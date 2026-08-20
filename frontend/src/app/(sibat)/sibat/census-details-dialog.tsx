@@ -70,7 +70,7 @@ export default function CensusDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 border-slate-200 text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 border-slate-200 text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#1A365D] to-[#1E4E8C] text-white p-6 pb-5 shrink-0">
           <DialogHeader className="space-y-1.5 text-left">
