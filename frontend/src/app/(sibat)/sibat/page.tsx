@@ -28,84 +28,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import CensusSubmissionDialog, {
-  CensusSubmissionRecord,
-} from "./census-submission-dialog";
+import CensusSubmissionDialog from "./census-submission-dialog";
 import CensusDetailsDialog from "./census-details-dialog";
 import CensusSubmissionsView from "./census-submissions-view";
+import {
+  CensusSubmissionRecord,
+  FarmerActivityRecord,
+  SectionTab,
+  TabKey,
+  TAB_CHIPS,
+  MOCK_PENDING_RECORDS as pendingRecords,
+  MOCK_VALIDATED_RECORDS as validatedRecords,
+  MOCK_CENSUS_SUBMISSIONS as initialCensusSubmissions,
+  getTypeBadgeStyle,
+  calculateTotalCensusHeads,
+} from "./sibat-analytics";
 
-/* ── Mock Data: Farmer Daily Activity Records ── */
-const pendingRecords = [
-  { id: 1, farmer: "Juan Dela Cruz", type: "Mortality Report", breed: "Brahman Bull", count: 1, date: "2026-04-25", status: "pending" },
-  { id: 2, farmer: "Maria Santos", type: "Production Update", breed: "Holstein-Friesian", count: 3, date: "2026-04-25", status: "pending" },
-  { id: 3, farmer: "Pedro Reyes", type: "Disease Report", breed: "Native Cattle", count: 2, date: "2026-04-24", status: "pending" },
-  { id: 4, farmer: "Rosa Garcia", type: "Slaughter Record", breed: "Crossbreed", count: 1, date: "2026-04-24", status: "pending" },
-];
-
-const validatedRecords = [
-  { id: 5, farmer: "Antonio Cruz", type: "Inventory Update", breed: "Brahman", count: 5, date: "2026-04-23", status: "validated" },
-  { id: 6, farmer: "Luz Mendoza", type: "Production Update", breed: "Holstein-Friesian", count: 2, date: "2026-04-22", status: "validated" },
-];
-
-/* ── Mock Data: Quarterly Census Submissions ── */
-const initialCensusSubmissions: CensusSubmissionRecord[] = [
-  {
-    id: "CEN-2026-Q2-0081",
-    barangay: "Brgy. Lipay",
-    reportYear: 2026,
-    reportQuarter: 2,
-    status: "PENDING",
-    submissionDate: "2026-04-25",
-    submittedBy: "SIBAT Field Officer (Lipay)",
-    totalHeads: 78,
-    totalFarmers: 16,
-    reviewRemarks: "Comprehensive Q2 inventory sweep across Purok 1 to Purok 5.",
-    items: [
-      { id: "c-1", farmerName: "Danilo Marasigan", purok: "Purok 1", livestockType: "Cattle (Baka)", numberOfHeads: 12, remarks: "Breeder cows" },
-      { id: "c-2", farmerName: "Elena Vilia", purok: "Purok 2", livestockType: "Carabao (Kalabaw)", numberOfHeads: 6, remarks: "Working draft" },
-      { id: "c-3", farmerName: "Ramon Castillo", purok: "Purok 3", livestockType: "Swine (Baboy)", numberOfHeads: 42, remarks: "Commercial pen" },
-      { id: "c-4", farmerName: "Luzviminda Cruz", purok: "Purok 4", livestockType: "Goat (Kambing)", numberOfHeads: 18, remarks: "Meat type" },
-    ],
-  },
-  {
-    id: "CEN-2026-Q1-0043",
-    barangay: "Brgy. Lipay",
-    reportYear: 2026,
-    reportQuarter: 1,
-    status: "APPROVED",
-    submissionDate: "2026-01-18",
-    submittedBy: "SIBAT Field Officer (Lipay)",
-    totalHeads: 64,
-    totalFarmers: 14,
-    reviewRemarks: "Validated and verified by MAO Batangas. Accurate head counts.",
-    items: [
-      { id: "c-5", farmerName: "Mariano Garcia", purok: "Purok 2", livestockType: "Cattle (Baka)", numberOfHeads: 10, remarks: "Native breed" },
-      { id: "c-6", farmerName: "Teresa Hernandez", purok: "Purok 1", livestockType: "Carabao (Kalabaw)", numberOfHeads: 4, remarks: "Dairy cross" },
-      { id: "c-7", farmerName: "Joaquin Bautista", purok: "Purok 5", livestockType: "Swine (Baboy)", numberOfHeads: 50, remarks: "Backyard piggery" },
-    ],
-  },
-];
-
-/* ── Tab Keys ── */
-type SectionTab = "records" | "census";
-type TabKey = "pending" | "validated" | "all";
-
-const TAB_CHIPS: { value: TabKey; label: string; activeClass: string; dotClass: string }[] = [
-  { value: "all", label: "All Records", activeClass: "bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/20", dotClass: "bg-slate-400" },
-  { value: "pending", label: "Pending", activeClass: "bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25", dotClass: "bg-amber-500" },
-  { value: "validated", label: "Validated", activeClass: "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25", dotClass: "bg-emerald-500" },
-];
-
-/* ── Type badge colors ── */
 const getTypeBadge = (type: string) => {
-  const map: Record<string, { bg: string; text: string }> = {
-    "Mortality Report": { bg: "bg-rose-100 border-rose-200", text: "text-rose-800" },
-    "Production Update": { bg: "bg-blue-100 border-blue-200", text: "text-blue-800" },
-    "Disease Report": { bg: "bg-red-100 border-red-200", text: "text-red-800" },
-    "Slaughter Record": { bg: "bg-orange-100 border-orange-200", text: "text-orange-800" },
-    "Inventory Update": { bg: "bg-emerald-100 border-emerald-200", text: "text-emerald-800" },
-  };
-  const style = map[type] ?? { bg: "bg-slate-100 border-slate-200", text: "text-slate-800" };
+  const style = getTypeBadgeStyle(type);
   return (
     <Badge className={`${style.bg} ${style.text} hover:${style.bg} border font-bold text-[10px] uppercase tracking-wider`}>
       {type}
@@ -154,7 +94,7 @@ export default function SibatPortal() {
   };
 
   // Census totals
-  const totalCensusHeads = censusSubmissions.reduce((sum, c) => sum + c.totalHeads, 0);
+  const totalCensusHeads = calculateTotalCensusHeads(censusSubmissions);
 
   const stats = [
     {
@@ -261,8 +201,8 @@ export default function SibatPortal() {
             type="button"
             onClick={() => setSectionTab("records")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${sectionTab === "records"
-                ? "bg-[#1A365D] text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+              ? "bg-[#1A365D] text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
               }`}
           >
             <Layers className="w-4 h-4" />
@@ -272,8 +212,8 @@ export default function SibatPortal() {
             type="button"
             onClick={() => setSectionTab("census")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${sectionTab === "census"
-                ? "bg-[#1A365D] text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+              ? "bg-[#1A365D] text-white shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
               }`}
           >
             <FileSpreadsheet className="w-4 h-4 text-amber-300" />

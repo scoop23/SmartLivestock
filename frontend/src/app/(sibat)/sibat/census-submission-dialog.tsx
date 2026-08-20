@@ -38,70 +38,21 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
+import {
+  CensusSubmissionRecord,
+  CensusItemEntry,
+  PADRE_GARCIA_BARANGAYS,
+  LIVESTOCK_TYPES,
+  SAMPLE_CENSUS_ENTRIES as SAMPLE_ENTRIES,
+} from "./sibat-analytics";
 
-export interface CensusItemEntry {
-  id: string;
-  farmerName: string;
-  purok: string;
-  livestockType: string;
-  numberOfHeads: number;
-  remarks: string;
-}
-
-export interface CensusSubmissionRecord {
-  id: string | number;
-  barangay: string;
-  reportYear: number;
-  reportQuarter: number;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  submissionDate: string;
-  submittedBy: string;
-  totalHeads: number;
-  totalFarmers: number;
-  reviewRemarks?: string;
-  items: CensusItemEntry[];
-}
+export type { CensusItemEntry };
 
 interface CensusSubmissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmissionSuccess?: (newSubmission: CensusSubmissionRecord) => void;
 }
-
-const PADRE_GARCIA_BARANGAYS = [ // replace with real barangay data stored in the db.
-  "Lipay",
-  "Banaba",
-  "Banaybanay",
-  "Bawi",
-  "Bukal",
-  "Castillo",
-  "Cawongan",
-  "Manggas",
-  "Maugat East",
-  "Maugat West",
-  "Poblacion",
-  "Quilo-quilo",
-  "San Briccio",
-  "San Miguel",
-  "Santa Maria",
-  "Tangob",
-];
-
-const LIVESTOCK_TYPES = [
-  { name: "Cattle (Baka)", emoji: "🐂", color: "text-amber-700 bg-amber-50 border-amber-200" },
-  { name: "Carabao (Kalabaw)", emoji: "🐃", color: "text-slate-700 bg-slate-100 border-slate-200" },
-  { name: "Swine (Baboy)", emoji: "🐖", color: "text-rose-700 bg-rose-50 border-rose-200" },
-  { name: "Goat (Kambing)", emoji: "🐐", color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  { name: "Sheep (Tupa)", emoji: "🐑", color: "text-sky-700 bg-sky-50 border-sky-200" },
-  { name: "Poultry (Manok/Pato)", emoji: "🐓", color: "text-orange-700 bg-orange-50 border-orange-200" },
-];
-
-const SAMPLE_ENTRIES: CensusItemEntry[] = [
-  { id: "s-1", farmerName: "Danilo Marasigan", purok: "Purok 1", livestockType: "Cattle (Baka)", numberOfHeads: 4, remarks: "Breeder herd" },
-  { id: "s-2", farmerName: "Elena Vilia", purok: "Purok 2", livestockType: "Carabao (Kalabaw)", numberOfHeads: 2, remarks: "Draft / working animals" },
-  { id: "s-3", farmerName: "Ramon Castillo", purok: "Purok 3", livestockType: "Swine (Baboy)", numberOfHeads: 15, remarks: "Fattening pens" },
-  { id: "s-4", farmerName: "Luzviminda Cruz", purok: "Purok 1", livestockType: "Goat (Kambing)", numberOfHeads: 6, remarks: "Backyard raiser" },
-];
 
 export default function CensusSubmissionDialog({
   open,

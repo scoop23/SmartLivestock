@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CensusSubmissionRecord } from "./census-submission-dialog";
+import { CensusSubmissionRecord } from "./sibat-analytics";
 
 interface CensusSubmissionsViewProps {
   censusSubmissions: CensusSubmissionRecord[];
@@ -127,11 +127,10 @@ export default function CensusSubmissionsView({
                     </div>
 
                     <Badge
-                      className={`font-bold text-[10px] uppercase tracking-wider ${
-                        isApproved
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                          : "bg-amber-100 text-amber-800 border-amber-200"
-                      }`}
+                      className={`font-bold text-[10px] uppercase tracking-wider ${isApproved
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : "bg-amber-100 text-amber-800 border-amber-200"
+                        }`}
                     >
                       {isApproved ? (
                         <>

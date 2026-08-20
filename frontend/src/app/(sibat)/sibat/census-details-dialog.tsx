@@ -25,9 +25,8 @@ import {
   Printer,
   X,
 } from "lucide-react";
-import { CensusSubmissionRecord } from "./census-submission-dialog";
 import { toast } from "sonner";
-
+import { CensusSubmissionRecord } from "./sibat-analytics";
 interface CensusDetailsDialogProps {
   submission: CensusSubmissionRecord | null;
   open: boolean;

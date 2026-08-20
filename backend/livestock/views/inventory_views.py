@@ -13,6 +13,8 @@ from production.serializer import ProductionRecordSerializer
 def create_inventory(request):
     serializer = LivestockInventorySerializer(
         data=request.data,
+        # gives the serializer context about the request so i can get it in the
+        # serializer using `self.context['request'].user` and i can set validated_data["created_by"] to it.
         context={"request": request},
     )
     serializer.is_valid(raise_exception=True)
@@ -68,6 +70,9 @@ def update_user_inventory(request, pk):
     serializer = LivestockInventorySerializer(
         inventory, data=request.data, partial=True, context={"request": request}
     )
-    serializer.is_valid(raise_exception=True)
-    serializer.save()
+    serializer.is_valid(
+        raise_exception=True
+    )  # this is used because the frontend only send relevant data not ~ farmer, created_by, etc. ~
+    serializer.save()  # calls update(self, instance, validated_data) in the serializer class
+    # instead of create()
     return Response(serializer.data)
