@@ -223,6 +223,7 @@ export default function SibatPortal() {
 
         {/* ═════════════════════════════════════════════════════════════════════ */}
         {/* VIEW 1: FARMER ACTIVITY SUBMISSIONS */}
+        {/* FETCH ALL FARMER SUBMISSION FROM THE SPECIFIC BARANGAY THE SIBAT IS ASSIGNED TO. */}
         {/* ═════════════════════════════════════════════════════════════════════ */}
         {sectionTab === "records" && (
           <div className="space-y-4">

@@ -153,15 +153,15 @@ export default function ProductionLoggerPage() {
 
     setEditingRecord(record);
     const inventory =
-      approvedInventories.find((item) => Number(item.id) === record.livestock_id) ?? null;
-    setProductionType(record.production_type);
+      approvedInventories.find((item) => Number(item.id) === record.livestockId) ?? null;
+    setProductionType(record.productionType);
     setClickedInventory(inventory);
     setFormState({ // formState handles the inputted values
-      prodDate: record.record_date,
+      prodDate: record.recordDate,
       notes: record.notes ?? "",
-      ...(record.production_type === "milk" ? { milkQty: record.quantity } : {}),
-      ...(record.production_type === "eggs" ? { eggQty: record.quantity } : {}),
-      ...(record.production_type === "wool" ? { woolQty: record.quantity } : {}),
+      ...(record.productionType === "milk" ? { milkQty: record.quantity } : {}),
+      ...(record.productionType === "eggs" ? { eggQty: record.quantity } : {}),
+      ...(record.productionType === "wool" ? { woolQty: record.quantity } : {}),
     });
     setResetSignal((n) => n + 1); // reset the wizard to step 0
     setIsWizardOpen(true);

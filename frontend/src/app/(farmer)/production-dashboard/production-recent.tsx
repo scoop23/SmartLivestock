@@ -38,7 +38,7 @@ export default function ProductionRecent({
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
 
   const recentRecords = [...records]
-    .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
+    // .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
     .slice(0, 5);
 
   const found = records.find((item: ProductionRecordItem | null) => item?.id === selected?.id); // get the updated selected record
@@ -78,7 +78,7 @@ export default function ProductionRecent({
           <div className="divide-y divide-slate-100">
             {recentRecords.map((record, index) => (
               <button
-                key={record.id != null ? `recent-record-${record.id}` : `recent-record-${index}-${record.created_at || record.record_date || ""}`}
+                key={record.id != null ? `recent-record-${record.id}` : `recent-record-${index}-${record.createdAt || record.recordDate || ""}`}
                 type="button"
                 onClick={() => setSelected(record)}
                 className="w-full flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 text-left hover:bg-slate-50 rounded-lg px-2 -mx-2 transition-colors"
@@ -89,10 +89,10 @@ export default function ProductionRecent({
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">
-                      {formatRecordDate(record.record_date)}
+                      {formatRecordDate(record.recordDate)}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {PRODUCTION_TYPE_LABELS[record.production_type]} •{" "}
+                      {PRODUCTION_TYPE_LABELS[record.productionType]} •{" "}
                       {record.quantity.toLocaleString()} {formatUnit(record.unit)}
                     </p>
                   </div>

@@ -12,6 +12,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductionRecord
         fields = (
+            "id",
             "livestock",
             "livestock_type_name",
             "production_type",

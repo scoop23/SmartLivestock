@@ -69,7 +69,7 @@ const getStatusBadge = (status: StatusType) => {
 };
 
 /* ── Status chip config ── */
-const STATUS_CHIPS: {
+export const STATUS_CHIPS: {
   value: StatusType | "ALL";
   label: string;
   icon: React.ElementType;
@@ -108,7 +108,7 @@ const STATUS_CHIPS: {
   ];
 
 /* ── Sort options ── */
-type SortKey = "newest" | "oldest" | "quantity_desc" | "quantity_asc" | "breed_az";
+export type SortKey = "newest" | "oldest" | "quantity_desc" | "quantity_asc" | "breed_az";
 
 const SORT_OPTIONS: { value: SortKey; label: string; icon: React.ElementType }[] = [
   { value: "newest", label: "Newest First", icon: ArrowDownWideNarrow },

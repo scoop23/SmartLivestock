@@ -143,6 +143,10 @@ export const getTypeBadgeStyle = (type: string) => {
 };
 
 // ── Mock Data: Farmer Activity Records ──
+export function getPendingRecords() {
+
+}
+
 
 export const MOCK_PENDING_RECORDS: FarmerActivityRecord[] = [
   { id: 1, farmer: "Juan Dela Cruz", type: "Mortality Report", breed: "Brahman Bull", count: 1, date: "2026-04-25", status: "pending" },
@@ -195,6 +199,8 @@ export const MOCK_CENSUS_SUBMISSIONS: CensusSubmissionRecord[] = [
     ],
   },
 ];
+
+
 
 // ── Analytics Helpers ──
 

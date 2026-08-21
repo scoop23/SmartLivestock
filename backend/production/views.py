@@ -59,6 +59,6 @@ def get_production_records(
 ):  # provides a list of production records for the logged-in user
     records = ProductionRecord.objects.filter(
         created_by=request.user
-    )  # get the user using request as jwt binds it.
+    ).order_by("-created_at")  # get the user using request as jwt binds it.
     serializer = ProductionRecordSerializer(records, many=True)
     return Response(serializer.data)

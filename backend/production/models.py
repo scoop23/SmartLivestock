@@ -18,7 +18,7 @@ class ProductionRecord(models.Model):
 
     class ProductionStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
-        VERIFIED = "VERIFIED", "Verified"
+        VERIFIED = "VERIFIED", "Verified" # might remove
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
 

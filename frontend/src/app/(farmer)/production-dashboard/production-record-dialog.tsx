@@ -67,7 +67,7 @@ export default function ProductionRecordDialog({
 }) {
   const isApproved = record?.status === "APPROVED";
 
-  const meta = typeMeta[record?.production_type ?? "milk"];
+  const meta = typeMeta[record?.productionType ?? "milk"];
   const TypeIcon = meta.icon;
 
   return (
@@ -92,7 +92,7 @@ export default function ProductionRecordDialog({
                       Production Record #{record.id}
                     </DialogTitle>
                     <DialogDescription className="text-sm text-white/80 mt-1">
-                      {meta.label} • {record.livestock_type_name ?? `Livestock ID ${record.livestock_id}`}
+                      {meta.label} • {record.livestockTypeName ?? `Livestock ID ${record.livestockId}`}
                     </DialogDescription>
                   </div>
                 </div>
@@ -114,7 +114,7 @@ export default function ProductionRecordDialog({
                   <p className="text-4xl font-black text-slate-900 tracking-tight mt-0.5">
                     {formatQty(record.quantity)}
                     <span className="ml-1.5 text-lg font-bold text-slate-500">
-                      {PRODUCTION_TYPE_UNITS[record.production_type] ?? record.unit}
+                      {PRODUCTION_TYPE_UNITS[record.productionType] ?? record.unit}
                     </span>
                   </p>
                 </div>
@@ -124,7 +124,7 @@ export default function ProductionRecordDialog({
                   </p>
                   <p className="flex items-center gap-1.5 text-sm font-bold text-slate-900 mt-1 justify-end">
                     <CalendarDays className="w-4 h-4 text-slate-400" />
-                    {formatRecordDate(record.record_date)}
+                    {formatRecordDate(record.recordDate)}
                   </p>
                 </div>
               </div>
@@ -132,9 +132,9 @@ export default function ProductionRecordDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <InfoCard
                   label="Livestock"
-                  value={record.livestock_type_name ?? `ID ${record.livestock_id}`}
+                  value={record.livestockTypeName ?? `ID ${record.livestockId}`}
                 />
-                <InfoCard label="Submitted" value={formatDateTime(record.created_at)} />
+                <InfoCard label="Submitted" value={formatDateTime(record.createdAt)} />
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -146,12 +146,12 @@ export default function ProductionRecordDialog({
                 </p>
               </div>
 
-              {record.review_remarks ? (
+              {record.reviewRemarks ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
                     Review Remarks
                   </p>
-                  <p className="text-sm text-amber-900 mt-1">{record.review_remarks}</p>
+                  <p className="text-sm text-amber-900 mt-1">{record.reviewRemarks}</p>
                 </div>
               ) : null}
             </div>

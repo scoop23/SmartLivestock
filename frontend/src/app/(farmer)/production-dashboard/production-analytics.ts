@@ -88,19 +88,19 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 
 export interface ProductionRecordItem {
   id: number;
-  livestock_id: number;
-  livestock_type_name: string | null;
-  production_type: ProductionType;
+  livestockId: number;
+  livestockTypeName: string | null;
+  productionType: ProductionType;
   quantity: number;
   unit: string; // "LITERS" | "PIECES" | "KILOGRAMS"
-  record_date: string; // "YYYY-MM-DD"
+  recordDate: string; // "YYYY-MM-DD"
   notes: string;
   status: ProductionStatus;
-  review_remarks: string | null;
-  created_at: string;
+  reviewRemarks: string | null;
+  createdAt: string;
 }
 
-interface ApiProductionRecord {
+export interface ApiProductionRecord {
   id: number;
   livestock: number;
   livestock_type_name?: string | null;
@@ -114,21 +114,23 @@ interface ApiProductionRecord {
   created_at: string;
 }
 
+export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecordItem => ({
+  id: item.id,
+  livestockId: item.livestock,
+  livestockTypeName: item.livestock_type_name ?? null,
+  productionType: (item.production_type ?? "milk").toLowerCase() as ProductionType,
+  quantity: Number(item.quantity),
+  unit: item.unit,
+  recordDate: item.record_date,
+  notes: item.notes ?? "",
+  status: item.status,
+  reviewRemarks: item.review_remarks ?? null,
+  createdAt: item.created_at,
+});
+
 export async function fetchProductionRecords(): Promise<ProductionRecordItem[]> {
   const response = await api.get("production/view_records/");
-  return (response.data as ApiProductionRecord[]).map((item) => ({
-    id: item.id,
-    livestock_id: item.livestock,
-    livestock_type_name: item.livestock_type_name ?? null,
-    production_type: (item.production_type ?? "milk").toLowerCase() as ProductionType,
-    quantity: Number(item.quantity),
-    unit: item.unit,
-    record_date: item.record_date,
-    notes: item.notes ?? "",
-    status: item.status,
-    review_remarks: item.review_remarks ?? null,
-    created_at: item.created_at,
-  }));
+  return (response.data as ApiProductionRecord[]).map(mapProductionRecord);
 }
 
 // ---------------------------------------------------------------------------
