@@ -5,7 +5,6 @@ import { AxiosError } from "axios";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, Filter, ChevronRight,
-  ArrowDownAZ,
   ArrowDownWideNarrow,
   ArrowUpDown,
   SlidersHorizontal,
@@ -26,13 +25,11 @@ import { STATUS_CHIPS, type SortKey } from "../livestock-inventory/livestock-rec
 
 import {
   PRODUCTION_TYPE_LABELS,
-  ProductionType,
   fetchProductionRecords,
   type ProductionRecordItem,
   type ProductionStatus,
 } from "./production-analytics";
 import ProductionRecordDialog from "./production-record-dialog";
-import { EntryType } from "../livestock-inventory/page";
 import { Separator } from "@/components/ui/separator";
 
 export interface ApiError {
@@ -87,43 +84,37 @@ export default function ProductionHistory() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [productionType, setProductionType] = useState<ProductionType>("milk");
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("newest");
-
-  const filteredRecords = userProductions.filter(
-    (r) =>
-      (typeFilter === "ALL" || r.productionType === typeFilter) &&
-      (statusFilter === "ALL" || r.status === statusFilter) &&
-      (searchQuery === "" || r.notes.toLowerCase().includes(searchQuery.toLowerCase())),
-  );
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: userProductions.length, APPROVED: 0, PENDING: 0, REJECTED: 0 };
     userProductions.forEach((item) => {
-      counts[item.status] = (counts[item.status] ?? 0) + 1
+      counts[item.status] = (counts[item.status] ?? 0) + 1;
     });
     return counts;
-  }, [userProductions])
+  }, [userProductions]);
 
   const filtered = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
     let result = userProductions.filter((item) => {
-      const matchedSearch = !query ||
-        item?.notes.includes(query) ||
-        item?.productionType.includes(query) ||
-        item?.status.includes(query)
+      const matchedSearch =
+        !query ||
+        item.notes?.toLowerCase().includes(query) ||
+        item.productionType?.toLowerCase().includes(query) ||
+        item.status?.toLowerCase().includes(query) ||
+        item.livestockTypeName?.toLowerCase().includes(query);
 
       const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
-      const matchesType = productionType === "milk" || item.productionType === productionType
+      const matchesType = typeFilter === "ALL" || item.productionType === typeFilter;
       return matchedSearch && matchesStatus && matchesType;
     });
 
     result = [...result].sort((a, b) => {
       switch (sortBy) {
         case "newest":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();  // getTime: converts Date into a number
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case "oldest":
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         case "quantity_desc":
@@ -131,13 +122,12 @@ export default function ProductionHistory() {
         case "quantity_asc":
           return a.quantity - b.quantity;
         default:
-          return 0
+          return 0;
       }
     });
 
     return result;
-  }, [userProductions, searchQuery, statusFilter, productionType, sortBy])
-  console.log(filtered)
+  }, [userProductions, searchQuery, statusFilter, typeFilter, sortBy]);
 
   return (
     <div className="space-y-4">
@@ -146,7 +136,7 @@ export default function ProductionHistory() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Search notes..."
+              placeholder="Search notes, type, or livestock..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-slate-50/50 border-slate-200"
@@ -161,13 +151,11 @@ export default function ProductionHistory() {
                 </div>
               </SelectTrigger>
               <SelectContent>
-                {
-                  SORT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))
-                }
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -183,20 +171,7 @@ export default function ProductionHistory() {
                 <SelectItem value="wool">Wool</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_FILTERS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
-
         </div>
 
         <Separator className="opacity-60" />
@@ -204,129 +179,124 @@ export default function ProductionHistory() {
         <div className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 mr-0.5 shrink-0 hidden sm:block" />
-            {
-              STATUS_CHIPS.map((chip) => {
-                const isActive = statusFilter === chip.value;
-                const count = statusCounts[chip.value] ?? 0;
-                return (
-                  <button
-                    key={chip.value}
-                    type="button"
-                    onClick={() => setStatusFilter(chip.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
-                    border transition-all duration-200 active:scale-95 ${isActive ? chip.activeClass : "bg-white border-slate-500 text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`
-                    }
-                  >
-                    {!isActive && <span className={`w-1.5 h-1.5 rounded-full ${chip.dotClass}`}></span>}
-                    {chip.label}
-                    <span className={`
+            {STATUS_CHIPS.map((chip) => {
+              const isActive = statusFilter === chip.value;
+              const count = statusCounts[chip.value] ?? 0;
+              return (
+                <button
+                  key={chip.value}
+                  type="button"
+                  onClick={() => setStatusFilter(chip.value)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                  border transition-all duration-200 active:scale-95 ${isActive
+                      ? chip.activeClass
+                      : "bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
+                    }`}
+                >
+                  {!isActive && <span className={`w-1.5 h-1.5 rounded-full ${chip.dotClass}`}></span>}
+                  {chip.label}
+                  <span
+                    className={`
                     text-[10px] font-extrabold tabular-nums ml-0.5 px-1.5 py-0.5 rounded-full leading-none
                     ${isActive
                         ? "bg-white/25 text-white"
                         : "bg-slate-100 text-slate-500"
                       }
-                  `}>
-                      {count}
-                    </span>
-                  </button>
-                )
-              })
-            }
+                  `}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-
         </div>
-
       </div>
 
-      {
-        isLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner className="size-16 text-emerald-600" />
-          </div>
-        ) : isError ? (
-          <Card className="p-8 text-center border-red-200 bg-red-50">
-            <h3 className="font-semibold text-red-700">
-              Failed to load production records
-            </h3>
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <Spinner className="size-16 text-emerald-600" />
+        </div>
+      ) : isError ? (
+        <Card className="p-8 text-center border-red-200 bg-red-50">
+          <h3 className="font-semibold text-red-700">
+            Failed to load production records
+          </h3>
 
-            <p className="text-sm text-red-600 mt-2">
-              {error.response?.data?.detail ??
-                error.message ??
-                "Something went wrong."}
-            </p>
+          <p className="text-sm text-red-600 mt-2">
+            {error.response?.data?.detail ??
+              error.message ??
+              "Something went wrong."}
+          </p>
 
-            <Button
-              className="mt-4"
-              onClick={() => refetch()}
-            >
-              Try Again
-            </Button>
-          </Card>
-        ) : filteredRecords.length === 0 ? (
-          <Card className="p-8 text-center border-dashed border-slate-200">
-            <p className="text-slate-500 text-center items-center flex justify-center">
-              No production records match your filter.
-            </p>
-          </Card>
-        ) : (
-          filteredRecords.map((record: ProductionRecordItem, index: number) => (
-            <button
-              key={record.id != null ? `history-record-${record.id}` : `history - record - ${index} -${record.created_at || record.record_date || ""} `}
-              type="button"
-              onClick={() => setSelected(record)}
-              className="w-full text-left transition-shadow"
-            >
-              <Card className="border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <Badge
-                          className={`uppercase tracking - wider ${typeClasses[record.productionType] ?? "bg-slate-100 text-slate-800"} `}
-                        >
-                          {PRODUCTION_TYPE_LABELS[record.productionType]}
-                        </Badge>
-                        <Badge
-                          className={`uppercase tracking - wider ${statusClasses[record.status] ?? DEFAULT_STATUS_CLASS} `}
-                        >
-                          {record.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="text-xl font-bold text-slate-900">
-                          {record.quantity.toLocaleString()}{" "}
-                          <span className="text-sm font-normal text-slate-500">
-                            {formatUnit(record.unit)}
-                          </span>
-                        </p>
-                        <span className="text-sm text-slate-500 font-medium">
-                          {new Date(record.createdAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-600 italic truncate">
-                        {record.notes ? `"${record.notes}"` : "No notes added"}
-                      </p>
-                      {record.reviewRemarks ? (
-                        <p className="text-xs text-slate-500 mt-1">
-                          Review: {record.reviewRemarks}
-                        </p>
-                      ) : null}
+          <Button className="mt-4" onClick={() => refetch()}>
+            Try Again
+          </Button>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card className="p-8 text-center border-dashed border-slate-200">
+          <p className="text-slate-500 text-center items-center flex justify-center">
+            No production records match your filter.
+          </p>
+        </Card>
+      ) : (
+        filtered.map((record: ProductionRecordItem, index: number) => (
+          <button
+            key={record.id != null ? `history-record-${record.id}` : `history-record-${index}`}
+            type="button"
+            onClick={() => setSelected(record)}
+            className="w-full text-left transition-shadow"
+          >
+            <Card className="border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <Badge
+                        className={`uppercase tracking-wider ${typeClasses[record.productionType] ?? "bg-slate-100 text-slate-800"}`}
+                      >
+                        {PRODUCTION_TYPE_LABELS[record.productionType]}
+                      </Badge>
+                      <Badge
+                        className={`uppercase tracking-wider ${statusClasses[record.status] ?? DEFAULT_STATUS_CLASS}`}
+                      >
+                        {record.status}
+                      </Badge>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 mt-1" />
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-xl font-bold text-slate-900">
+                        {record.quantity.toLocaleString()}{" "}
+                        <span className="text-sm font-normal text-slate-500">
+                          {formatUnit(record.unit)}
+                        </span>
+                      </p>
+                      <span className="text-sm text-slate-500 font-medium">
+                        {new Date(record.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 italic truncate">
+                      {record.notes ? `"${record.notes}"` : "No notes added"}
+                    </p>
+                    {record.reviewRemarks ? (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Review: {record.reviewRemarks}
+                      </p>
+                    ) : null}
                   </div>
-                </CardContent>
-              </Card>
-            </button>
-          ))
-        )
-      }
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 mt-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </button>
+        ))
+      )}
 
       <ProductionRecordDialog
         record={selected}
