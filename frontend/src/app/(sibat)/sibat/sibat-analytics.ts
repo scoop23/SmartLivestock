@@ -5,6 +5,8 @@
 // for the SIBAT Field Officer / Cooperative Portal.
 // ---------------------------------------------------------------------------
 
+import api from "@/lib/axios";
+
 // ── Types: Census Submissions ──
 
 export type CensusStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -144,7 +146,7 @@ export const getTypeBadgeStyle = (type: string) => {
 
 // ── Mock Data: Farmer Activity Records ──
 export function getPendingRecords() {
-
+  const response = api.get("")
 }
 
 
