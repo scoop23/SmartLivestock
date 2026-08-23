@@ -1,4 +1,6 @@
+from re import sub
 from django.db import transaction
+from django.urls import exceptions
 from rest_framework.exceptions import ValidationError
 from .models import CensusSubmission, CensusSubmissionItem, Barangay
 
@@ -51,5 +53,30 @@ class CensusService:
                     livestock_type=item["livestock_type_id"],
                     number_of_heads=item["number_of_heads"],
                 )
+
+        return submission
+
+    @staticmethod
+    @transaction.atomic
+    def review_census_submission(*, submission_id, reviewer, new_status, remarks=""):
+        """
+        Handles approval
+        """
+
+        try:
+            """
+            select_for_update() -> lock this operation so that others cant modify 
+            good if concurrent transactions were happening.
+            """
+            submission = CensusSubmission.objects.select_for_update().get(
+                id=submission_id
+            )
+        except CensusSubmission.DoesNotExist:
+            raise ValidationError({"error": "Census Submission not found."})
+
+        submission.status = new_status
+        submission.reviewed_by = reviewer
+        submission.review_remarks = remarks
+        submission.save()
 
         return submission
