@@ -1,6 +1,12 @@
 from rest_framework import serializers
 from rest_framework.relations import PrimaryKeyRelatedField  # type: ignore
-from .models import Farmer, LivestockInventory, LivestockType, CensusSubmission, CensusSubmissionItem
+from .models import (
+    Farmer,
+    LivestockInventory,
+    LivestockType,
+    CensusSubmission,
+    CensusSubmissionItem,
+)
 
 
 class LivestockInventorySerializer(serializers.Serializer):
@@ -49,7 +55,22 @@ class LivestockInventorySerializer(serializers.Serializer):
         return instance
 
 
+class CensusSubmissionItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CensusSubmissionItem
+        fields = [
+            "census_submission",
+            "farmer",
+            "livestock_type",
+            "number_of_heads",
+        ]
+
+
 class CensusSubmissionSerializer(serializers.ModelSerializer):
+    items = CensusSubmissionItemSerializer(many=True)
+    # When CensusSubmission receives an "items" field,
+    # use CensusSubmissionItemSerializer to validate each item.
+
     class Meta:
         model = CensusSubmission
         fields = [
@@ -70,26 +91,9 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
             "review_remarks",
             "created_at",
         ]
-    
+
     def create(self, validated_data):
         user = self.context["request"].user
-        validated_data["submitted_by"] = user
+        # validated_data["submitted_by"] = user
+
         return CensusSubmission.objects.create(**validated_data)
-
-
-class CensusSubmissionItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CensusSubmissionItem
-        fields = [
-            "census_submission",
-            "farmer",
-            "livestock_type",
-            "number_of_heads",
-        ] 
-   
-
-
-
-
-
-        
