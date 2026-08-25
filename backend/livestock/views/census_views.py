@@ -38,4 +38,4 @@ def get_census_submissions(request):
     serializer = CensusSubmissionSerializer(
         submissions, many=True
     )  # serialize submissions
-    return Response(serializer.data)
+    return Response(serializer.data, status=200)
