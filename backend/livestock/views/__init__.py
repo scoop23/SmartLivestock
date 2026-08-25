@@ -6,7 +6,7 @@ from .inventory_views import (
     delete_user_inventory,
     update_user_inventory,
 )
-from .census_views import create_census_submission
+from .census_views import create_census_submission, get_census_submissions
 
 __all__ = [
     "create_inventory",
@@ -16,4 +16,5 @@ __all__ = [
     "delete_user_inventory",
     "update_user_inventory",
     "create_census_submission",
+    "get_census_submissions",
 ]

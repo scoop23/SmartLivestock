@@ -48,9 +48,9 @@ class CensusService:
         if items:
             for item in items:  # for each item create a object submissionitem
                 CensusSubmissionItem.objects.create(
-                    census_submission=submission,
-                    farmer=item["farmer_id"],
-                    livestock_type=item["livestock_type_id"],
+                    census_submission=submission,  # get the fk of submission
+                    farmer=item["farmer"],
+                    livestock_type=item["livestock_type"],
                     number_of_heads=item["number_of_heads"],
                 )
 

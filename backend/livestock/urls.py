@@ -21,8 +21,13 @@ urlpatterns = [
         name="detail",
     ),
     path(
-        "create_subsmission",
+        "create_submission",
         views.create_census_submission,
-        name="create_census_subsmisson"
-    )
+        name="create_census_submission",
+    ),
+    path(
+        "get_submission",
+        views.get_census_submissions,
+        name="get_census_submissions",
+    ),
 ]

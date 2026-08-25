@@ -8,12 +8,26 @@ from livestock.services import CensusService
 @api_view(["POST"])
 def create_census_submission(request):
     serializer = CensusSubmissionSerializer(
-        data=request.data, context={"request": request}
+        data=request.data,
     )
 
     serializer.is_valid(raise_exception=True)
-    serializer.save()
-    return Response(serializer.data, status=201)
+    validated_data = serializer.validated_data
+    assert isinstance(
+        validated_data, dict
+    )  # because pyright have no knowledge if validated_data is dict, it could be list or empty
+
+    submission = CensusService.create_census_submission(
+        user=request.user,
+        barangay=validated_data["barangay"],
+        report_year=validated_data["report_year"],
+        report_quarter=validated_data["report_quarter"],
+        items=validated_data.get("items", []),
+    )
+
+    response_serializer = CensusSubmissionSerializer(submission)
+
+    return Response(response_serializer.data, status=201)
 
 
 @api_view(["GET"])

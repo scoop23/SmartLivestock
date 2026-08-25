@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from rest_framework.relations import PrimaryKeyRelatedField  # type: ignore
+from rest_framework.relations import PrimaryKeyRelatedField
+from livestock.services import CensusService  # type: ignore
 from .models import (
     Farmer,
     LivestockInventory,
@@ -64,6 +65,7 @@ class CensusSubmissionItemSerializer(serializers.ModelSerializer):
             "livestock_type",
             "number_of_heads",
         ]
+        read_only_fields = ["census_submission"]
 
 
 class CensusSubmissionSerializer(serializers.ModelSerializer):
@@ -80,6 +82,7 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
             "report_quarter",
             "status",
             "submission_date",
+            "items",
         ]
         read_only_fields = [
             "id",
@@ -91,9 +94,3 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
             "review_remarks",
             "created_at",
         ]
-
-    def create(self, validated_data):
-        user = self.context["request"].user
-        # validated_data["submitted_by"] = user
-
-        return CensusSubmission.objects.create(**validated_data)
