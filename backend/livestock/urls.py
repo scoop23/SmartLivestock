@@ -11,7 +11,7 @@ urlpatterns = [
         name="delete_user_inventory",
     ),
     path(
-        "inventory_update/<int:pk>",
+        "inventory_update/<int:pk>/",
         views.update_user_inventory,
         name="update_user_inventory",
     ),
@@ -21,12 +21,12 @@ urlpatterns = [
         name="detail",
     ),
     path(
-        "create_submission",
+        "create_submission/",
         views.create_census_submission,
         name="create_census_submission",
     ),
     path(
-        "get_submission",
+        "get_submissions/",
         views.get_census_submissions,
         name="get_census_submissions",
     ),

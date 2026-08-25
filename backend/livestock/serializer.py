@@ -57,15 +57,29 @@ class LivestockInventorySerializer(serializers.Serializer):
 
 
 class CensusSubmissionItemSerializer(serializers.ModelSerializer):
+    livestock_type_name = serializers.CharField(
+        source="livestock_type.name", read_only=True
+    )
+    farmer_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CensusSubmissionItem
         fields = [
+            "id",
             "census_submission",
             "farmer",
+            "farmer_name",
             "livestock_type",
+            "livestock_type_name",
             "number_of_heads",
+            "remarks",
         ]
         read_only_fields = ["census_submission"]
+
+    def get_farmer_name(self, obj):
+        user = obj.farmer.user
+        full_name = user.get_full_name()
+        return full_name if full_name else user.username
 
 
 class CensusSubmissionSerializer(serializers.ModelSerializer):
@@ -73,15 +87,23 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
     # When CensusSubmission receives an "items" field,
     # use CensusSubmissionItemSerializer to validate each item.
 
+    barangay_name = serializers.CharField(
+        source="barangay.barangay_name", read_only=True
+    )
+    submitted_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CensusSubmission
         fields = [
             "id",
             "barangay",
+            "barangay_name",
             "report_year",
             "report_quarter",
             "status",
             "submission_date",
+            "submitted_by_name",
+            "review_remarks",
             "items",
         ]
         read_only_fields = [
@@ -94,3 +116,8 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
             "review_remarks",
             "created_at",
         ]
+
+    def get_submitted_by_name(self, obj):
+        user = obj.submitted_by
+        full_name = user.get_full_name()
+        return full_name if full_name else user.username

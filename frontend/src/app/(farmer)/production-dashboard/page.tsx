@@ -150,7 +150,6 @@ export default function ProductionLoggerPage() {
   // TODO(backend): `/production/create/` only creates new records. True
   // editing needs a PATCH /production/{id}/ endpoint.
   const handleEditRecord = (record: ProductionRecordItem) => {
-
     setEditingRecord(record);
     const inventory =
       approvedInventories.find((item) => Number(item.id) === record.livestockId) ?? null;

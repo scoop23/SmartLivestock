@@ -52,6 +52,7 @@ class CensusService:
                     farmer=item["farmer"],
                     livestock_type=item["livestock_type"],
                     number_of_heads=item["number_of_heads"],
+                    remarks=item["remarks"],
                 )
 
         return submission

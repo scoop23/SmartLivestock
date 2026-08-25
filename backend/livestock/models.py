@@ -162,3 +162,4 @@ class CensusSubmissionItem(models.Model):
         related_name="submission_livestock_type",
     )
     number_of_heads = models.PositiveIntegerField()
+    remarks = models.TextField(blank=True)

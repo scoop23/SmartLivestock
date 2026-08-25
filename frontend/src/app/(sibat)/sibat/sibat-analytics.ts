@@ -6,6 +6,8 @@
 // ---------------------------------------------------------------------------
 
 import api from "@/lib/axios";
+import { useQuery } from "@tanstack/react-query";
+import { map } from "leaflet";
 
 // ── Types: Census Submissions ──
 
@@ -34,6 +36,70 @@ export interface CensusSubmissionRecord {
   items: CensusItemEntry[];
 }
 
+export interface ApiCensusSubmissionItem {
+  id: number;
+  farmer: number;
+  farmer_name: string;
+  livestock_type: number;
+  livestock_type_name?: string;
+  number_of_heads: number;
+}
+
+export interface ApiCensusSubmission {
+  id: number;
+  barangay: number;
+  barangay_name?: string;
+  report_year: number;
+  report_quarter: number;
+  status: CensusStatus;
+  submission_date: string;
+  submitted_by_name?: string;
+  review_remarks?: string;
+  items: ApiCensusSubmissionItem[];
+}
+
+export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmissionRecord => {
+  const items = item.items || [];
+  const totalHeads = items.reduce((sum, i) => {
+    return sum + (Number(i.number_of_heads) || 0);
+  }, 0)
+  const uniqueFarmers = new Set(items.map((i) => i.farmer)).size;
+
+  return {
+    id: item.id,
+    barangay: item.barangay_name || `Barangay ${item.barangay}`,
+    reportYear: item.report_year,
+    reportQuarter: item.report_quarter,
+    status: item.status,
+    submissionDate: item.submission_date,
+    submittedBy: item.submitted_by_name || "SIBAT Officer",
+    reviewRemarks: item.review_remarks || "",
+    totalHeads: totalHeads,
+    totalFarmers: uniqueFarmers || items.length,
+    items: items.map((subItem) => ({
+      id: String(subItem.id),
+      farmerName: subItem.farmer_name || `Farmer #${subItem.farmer}`,
+      purok: "",
+      livestockType: subItem.livestock_type_name || `Type #${subItem.livestock_type}`,
+      numberOfHeads: subItem.number_of_heads,
+      remarks: "",
+    })),
+  };
+};
+
+export async function fetchCensusSubmissions(): Promise<CensusSubmissionRecord[]> {
+  const response = await api.get("livestock/get_submissions/");
+  return (response.data as ApiCensusSubmission[]).map(mapCensusSubmission);
+}
+
+export function useCensusSubmission() {
+  return useQuery({
+    queryKey: ["census-subsmissions"],
+    queryFn: fetchCensusSubmissions,
+    staleTime: 60_000,
+  })
+
+}
 // ── Types: Farmer Daily Reports & Activity ──
 
 export type FarmerActivityType =
@@ -145,13 +211,10 @@ export const getTypeBadgeStyle = (type: string) => {
 };
 
 // ── Mock Data: Farmer Activity Records ──
-export function getPendingRecords() {
-  const response = api.get("")
-}
 
 
 export const MOCK_PENDING_RECORDS: FarmerActivityRecord[] = [
-  { id: 1, farmer: "Juan Dela Cruz", type: "Mortality Report", breed: "Brahman Bull", count: 1, date: "2026-04-25", status: "pending" },
+
   { id: 2, farmer: "Maria Santos", type: "Production Update", breed: "Holstein-Friesian", count: 3, date: "2026-04-25", status: "pending" },
   { id: 3, farmer: "Pedro Reyes", type: "Disease Report", breed: "Native Cattle", count: 2, date: "2026-04-24", status: "pending" },
   { id: 4, farmer: "Rosa Garcia", type: "Slaughter Record", breed: "Crossbreed", count: 1, date: "2026-04-24", status: "pending" },
