@@ -41,6 +41,8 @@ import api from "@/lib/axios";
 import {
   CensusSubmissionRecord,
   CensusItemEntry,
+  CreateCensusPayload,
+  CreateCensusItemPayload,
   PADRE_GARCIA_BARANGAYS,
   LIVESTOCK_TYPES,
   SAMPLE_CENSUS_ENTRIES as SAMPLE_ENTRIES,
@@ -133,7 +135,7 @@ export default function CensusSubmissionDialog({
 
 
   const submitMutation = useMutation({
-    mutationFn: async (payload: CensusSubmissionRecord) => {
+    mutationFn: async (payload: CreateCensusPayload) => {
       const response = await api.post("livestock/create_submission/", payload)
       return response.data;
     },
@@ -142,8 +144,6 @@ export default function CensusSubmissionDialog({
       toast.success(
         `Quarterly Census Q${reportQuarter} ${reportYear} for Brgy. ${barangay} submitted to MAO!`
       );
-
-      setIsSubmitting(false);
       onSubmissionSuccess?.(newRecord);
       console.log(newRecord);
       onOpenChange(false);
@@ -168,8 +168,11 @@ export default function CensusSubmissionDialog({
       toast.success(
         `Quarterly Census Q${reportQuarter} ${reportYear} for Brgy. ${barangay} recorded successfully!`
       );
-
-    }
+    },
+    onSettled: () => {
+      // Always stop the loading state
+      setIsSubmitting(false);
+    },
   });
 
 
@@ -198,67 +201,33 @@ export default function CensusSubmissionDialog({
 
     setIsSubmitting(true);
 
-    const submissionPayload = {
-      barangay_name: barangay,
+    const submissionPayload: CreateCensusPayload = {
+      barangay: 1,
       report_year: reportYear,
       report_quarter: reportQuarter,
-      remarks: remarks,
       items: items.map((item) => ({
-        farmer_name: item.farmerName,
-        purok: item.purok,
-        livestock_type: item.livestockType,
+        farmer: 1,
+        livestock_type: 1,
         number_of_heads: Number(item.numberOfHeads),
         remarks: item.remarks,
       })),
     };
 
-    const newRecord: CensusSubmissionRecord = {
-      id: `CEN-${reportYear}-Q${reportQuarter}-${Date.now().toString().slice(-4)}`,
-      barangay: `Brgy. ${barangay}`,
-      reportYear,
-      reportQuarter,
-      status: "PENDING",
-      submissionDate: new Date().toISOString().split("T")[0],
-      submittedBy: "SIBAT Field Officer",
-      totalHeads,
-      totalFarmers: uniqueFarmers || items.length,
-      reviewRemarks: remarks || "Pending MAO validation.",
-      items: [...items],
-    };
+    // const newRecord: CensusSubmissionRecord = {
+    //   id: `CEN-${reportYear}-Q${reportQuarter}-${Date.now().toString().slice(-4)}`,
+    //   barangay: `Brgy. ${barangay}`,
+    //   reportYear,
+    //   reportQuarter,
+    //   status: "PENDING",
+    //   submissionDate: new Date().toISOString().split("T")[0],
+    //   submittedBy: "SIBAT Field Officer",
+    //   totalHeads,
+    //   totalFarmers: uniqueFarmers || items.length,
+    //   reviewRemarks: remarks || "Pending MAO validation.",
+    //   items: [...items],
+    // };
 
-    submitMutation.mutate(newRecord);
-
-
-    try {
-      // Send to Django backend endpoint (compatible with livestock create submission API)
-      await api.post("livestock/create_subsmission", submissionPayload);
-      toast.success(
-        `Quarterly Census Q${reportQuarter} ${reportYear} for Brgy. ${barangay} submitted to MAO!`
-      );
-    } catch (err) {
-      // Graceful fallback for offline / frontend development mode
-      console.log("Backend offline or in development mode, saved to local state:", err);
-      toast.success(
-        `Quarterly Census Q${reportQuarter} ${reportYear} for Brgy. ${barangay} recorded successfully!`
-      );
-    } finally {
-      setIsSubmitting(false);
-      onSubmissionSuccess?.(newRecord);
-      onOpenChange(false);
-      // Reset form
-      setItems([
-        {
-          id: `item-${Date.now()}`,
-          farmerName: "",
-          purok: "Purok 1",
-          livestockType: "Cattle (Baka)",
-          numberOfHeads: 1,
-          remarks: "",
-        },
-      ]);
-      setRemarks("");
-      setIsCertified(false);
-    }
+    submitMutation.mutate(submissionPayload);
   };
 
   return (
@@ -383,8 +352,8 @@ export default function CensusSubmissionDialog({
                   Farmer Head Count Line Items ({items.length})
                 </h3>
                 <p className="text-[11px] font-medium text-slate-500">
-                  Record each farmer&apos;s validated livestock quantity in this barangay.
                 </p>
+                Record each farmer&apos;s validated livestock quantity in this barangay.
               </div>
 
               <div className="flex items-center gap-2 self-stretch sm:self-auto">

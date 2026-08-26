@@ -57,6 +57,21 @@ export interface ApiCensusSubmission {
   review_remarks?: string;
   items: ApiCensusSubmissionItem[];
 }
+// ── Types: Create Census Payload (what we POST to Django) ──
+
+export interface CreateCensusItemPayload {
+  farmer: number;
+  livestock_type: number;
+  number_of_heads: number;
+  remarks?: string;
+}
+
+export interface CreateCensusPayload {
+  barangay: number;
+  report_year: number;
+  report_quarter: number;
+  items: CreateCensusItemPayload[];
+}
 
 export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmissionRecord => {
   const items = item.items || [];
