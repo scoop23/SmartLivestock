@@ -47,6 +47,7 @@ import {
   LIVESTOCK_TYPES,
   SAMPLE_CENSUS_ENTRIES as SAMPLE_ENTRIES,
   mapCensusSubmission,
+  useGetBarangays,
 } from "./sibat-analytics";
 
 export type { CensusItemEntry };
@@ -213,22 +214,11 @@ export default function CensusSubmissionDialog({
       })),
     };
 
-    // const newRecord: CensusSubmissionRecord = {
-    //   id: `CEN-${reportYear}-Q${reportQuarter}-${Date.now().toString().slice(-4)}`,
-    //   barangay: `Brgy. ${barangay}`,
-    //   reportYear,
-    //   reportQuarter,
-    //   status: "PENDING",
-    //   submissionDate: new Date().toISOString().split("T")[0],
-    //   submittedBy: "SIBAT Field Officer",
-    //   totalHeads,
-    //   totalFarmers: uniqueFarmers || items.length,
-    //   reviewRemarks: remarks || "Pending MAO validation.",
-    //   items: [...items],
-    // };
-
     submitMutation.mutate(submissionPayload);
   };
+
+  const { data: barangays, isLoading, isError } = useGetBarangays();
+  console.log(barangays)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -280,9 +270,9 @@ export default function CensusSubmissionDialog({
                       <SelectValue placeholder="Select Barangay" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 rounded-xl">
-                      {PADRE_GARCIA_BARANGAYS.map((brgy) => (
-                        <SelectItem key={brgy} value={brgy} className="text-xs font-medium">
-                          Brgy. {brgy}
+                      {barangays?.map((brgy) => (
+                        <SelectItem key={brgy.id} value={brgy.barangayName} className="text-xs font-medium">
+                          Brgy. {brgy.barangayName}
                         </SelectItem>
                       ))}
                     </SelectContent>

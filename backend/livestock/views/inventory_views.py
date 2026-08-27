@@ -1,10 +1,11 @@
+from livestock.models import Barangay
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-
+from django.views.decorators.cache import cache_page
 from livestock.models import LivestockInventory, LivestockType
-from livestock.serializer import LivestockInventorySerializer
+from livestock.serializer import LivestockInventorySerializer, BarangaySerializer
 from production.models import ProductionRecord
 from production.serializer import ProductionRecordSerializer
 
@@ -76,3 +77,11 @@ def update_user_inventory(request, pk):
     serializer.save()  # calls update(self, instance, validated_data) in the serializer class
     # instead of create()
     return Response(serializer.data)
+
+@api_view(["GET"])
+@cache_page(60*5)
+def get_barangays(request):
+    barangays = Barangay.objects.all()
+    serializer = BarangaySerializer(barangays, many=True)
+
+    return Response(serializer.data, status=200)

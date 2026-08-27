@@ -30,4 +30,9 @@ urlpatterns = [
         views.get_census_submissions,
         name="get_census_submissions",
     ),
+    path(
+        "barangays/",
+        views.get_barangays,
+        name="barangays",
+    )
 ]

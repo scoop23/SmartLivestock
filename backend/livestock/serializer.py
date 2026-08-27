@@ -2,12 +2,21 @@ from rest_framework import serializers
 from rest_framework.relations import PrimaryKeyRelatedField
 from livestock.services import CensusService  # type: ignore
 from .models import (
+    Barangay,
     Farmer,
     LivestockInventory,
     LivestockType,
     CensusSubmission,
     CensusSubmissionItem,
 )
+
+class BarangaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Barangay
+        fields = [
+            "id",
+            "barangay_name",
+        ]
 
 
 class LivestockInventorySerializer(serializers.Serializer):

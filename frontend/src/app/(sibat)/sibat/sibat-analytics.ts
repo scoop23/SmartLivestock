@@ -197,6 +197,38 @@ export const PADRE_GARCIA_BARANGAYS: string[] = [
   "Tangob",
 ];
 
+interface ApiBarangayRecord {
+  id: number;
+  barangay_name: string;
+};
+
+interface BarangayRecord {
+  id: number;
+  barangayName: string;
+};
+
+const mapBarangayRecord = (item: ApiBarangayRecord): BarangayRecord => ({
+  id: item.id,
+  barangayName: item.barangay_name
+});
+
+
+export async function fetchBarangays() {
+  const response = await api.get("livestock/barangays/")
+  return (response.data as ApiBarangayRecord[]).map(mapBarangayRecord);
+};
+
+// HOOK
+
+export function useGetBarangays() {
+  return useQuery({
+    queryKey: ["barangay-records"],
+    queryFn: fetchBarangays,
+    staleTime: 60_000,
+  });
+};
+
+
 export const LIVESTOCK_TYPES: LivestockTypeOption[] = [
   { name: "Cattle (Baka)", emoji: "🐂", color: "text-amber-700 bg-amber-50 border-amber-200" },
   { name: "Carabao (Kalabaw)", emoji: "🐃", color: "text-slate-700 bg-slate-100 border-slate-200" },

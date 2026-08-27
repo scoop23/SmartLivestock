@@ -14,6 +14,9 @@ class MyTokenSerialier(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
+        token["role"] = user.role.role_name
+        token["email"] = user.email
+
         return token
 
     def validate(self, attrs):
