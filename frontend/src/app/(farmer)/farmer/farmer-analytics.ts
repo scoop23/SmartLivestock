@@ -34,6 +34,23 @@ export interface FarmerDashboardAnalytics {
   cattle_trend: FarmerTrendPoint[];
   /** Approved MILK production (liters) per month, most recent months first. */
   milk_trend: FarmerTrendPoint[];
+  /** Primary livestock species distribution for the two-level pie chart inner ring. */
+  herd_categories: HerdCategoryPoint[];
+  /** Sub-category / breed / purpose breakdown for the two-level pie chart outer ring. */
+  herd_subcategories: HerdSubcategoryPoint[];
+}
+
+export interface HerdCategoryPoint {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface HerdSubcategoryPoint {
+  name: string;
+  category: string;
+  value: number;
+  color: string;
 }
 
 export interface FarmerTrendPoint {
@@ -60,6 +77,27 @@ const MOCK_FARMER_ANALYTICS: FarmerDashboardAnalytics = {
     { period: "2026-06", quantity: 920 },
     { period: "2026-07", quantity: 1100 },
     { period: "2026-08", quantity: 1240 },
+  ],
+  herd_categories: [
+    { name: "Cattle", value: 26, color: "#059669" },
+    { name: "Carabao", value: 8, color: "#d97706" },
+    { name: "Goat", value: 5, color: "#ea580c" },
+    { name: "Swine", value: 3, color: "#0284c7" },
+  ],
+  herd_subcategories: [
+    // Cattle (26 total)
+    { name: "Dairy Cows", category: "Cattle", value: 14, color: "#10b981" },
+    { name: "Beef Cattle", category: "Cattle", value: 8, color: "#34d399" },
+    { name: "Calves & Heifers", category: "Cattle", value: 4, color: "#6ee7b7" },
+    // Carabao (8 total)
+    { name: "Draft / Working", category: "Carabao", value: 5, color: "#f59e0b" },
+    { name: "Dairy Carabao", category: "Carabao", value: 3, color: "#fbbf24" },
+    // Goat (5 total)
+    { name: "Dairy Goats", category: "Goat", value: 3, color: "#f97316" },
+    { name: "Native / Meat", category: "Goat", value: 2, color: "#fdba74" },
+    // Swine (3 total)
+    { name: "Breeding Sows", category: "Swine", value: 1, color: "#38bdf8" },
+    { name: "Growers", category: "Swine", value: 2, color: "#7dd3fc" },
   ],
 };
 

@@ -92,7 +92,7 @@ export default function FarmerDashboard() {
 
         {/* Quick Actions */}
         {isLoading ? (
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl">
             <CardContent className="p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Skeleton className="w-5 h-5 rounded-md" />
@@ -102,7 +102,7 @@ export default function FarmerDashboard() {
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent"
+                    className="flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-2xl border-2 border-transparent"
                   >
                     <Skeleton className="size-12 rounded-xl" />
                     <Skeleton className="h-4 w-24 rounded-md" />
@@ -112,41 +112,43 @@ export default function FarmerDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden">
             <CardContent className="p-5">
-              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Icon iconNode={cowHead} className="w-5 h-5 text-[#2D5A27]" />
+              <h3 className="text-base font-black text-emerald-950 mb-4 flex items-center gap-2">
+                <div className="p-1.5 rounded-xl bg-emerald-100/80 text-emerald-900">
+                  <Icon iconNode={cowHead} className="w-4 h-4" />
+                </div>
                 Quick Actions
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
                   onClick={() => router.push('/livestock-inventory')}
-                  className="group flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-lg transition-all"
+                  className="group flex flex-col items-center gap-3 p-5 bg-emerald-50/40 rounded-2xl border-2 border-transparent hover:border-emerald-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer"
                 >
-                  <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                    <Plus className="w-6 h-6 text-[#2D5A27]" />
+                  <div className="p-3 bg-white rounded-2xl shadow-xs border border-emerald-900/10 group-hover:scale-110 transition-transform">
+                    <Plus className="w-6 h-6 text-emerald-800" />
                   </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-slate-600">Add Cattle</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-950">Add Livestock</span>
                 </button>
 
                 <button
                   onClick={() => router.push('/production-dashboard')}
-                  className="group flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-xl border-2 border-transparent hover:border-[#2D5A27] hover:bg-white hover:shadow-lg transition-all"
+                  className="group flex flex-col items-center gap-3 p-5 bg-sky-50/40 rounded-2xl border-2 border-transparent hover:border-sky-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer"
                 >
-                  <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                    <Package className="w-6 h-6 text-[#2D5A27]" />
+                  <div className="p-3 bg-white rounded-2xl shadow-xs border border-sky-900/10 group-hover:scale-110 transition-transform">
+                    <Package className="w-6 h-6 text-sky-800" />
                   </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-slate-600">Log Productions</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-sky-950">Log Production</span>
                 </button>
 
                 <button
                   onClick={() => setIsReportModalOpen(true)}
-                  className="group flex flex-col items-center gap-3 p-5 bg-orange-50 rounded-xl border-2 border-transparent hover:border-orange-500 hover:bg-white hover:shadow-lg transition-all"
+                  className="group flex flex-col items-center gap-3 p-5 bg-amber-50/40 rounded-2xl border-2 border-transparent hover:border-amber-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer"
                 >
-                  <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                    <Stethoscope className="w-6 h-6 text-orange-600" />
+                  <div className="p-3 bg-white rounded-2xl shadow-xs border border-amber-900/10 group-hover:scale-110 transition-transform">
+                    <Stethoscope className="w-6 h-6 text-amber-800" />
                   </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-orange-700">Report Issue</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-950">Report Observation</span>
                 </button>
               </div>
             </CardContent>
@@ -157,12 +159,12 @@ export default function FarmerDashboard() {
         {isLoading ? (
           <div className="grid md:grid-cols-2 gap-6">
             {/* Health Alerts Skeleton */}
-            <Card className="border-slate-200 shadow-sm">
+            <Card className="border-2 border-stone-200/60 bg-white shadow-xs rounded-3xl">
               <CardContent className="p-5">
                 <Skeleton className="h-6 w-32 mb-4 rounded-lg" />
                 <div className="space-y-3">
                   {Array.from({ length: 2 }).map((_, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <div key={i} className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                       <div className="flex gap-3">
                         <Skeleton className="size-5 rounded-full shrink-0 mt-0.5" />
                         <div className="space-y-2 flex-1">
@@ -177,7 +179,7 @@ export default function FarmerDashboard() {
             </Card>
 
             {/* Observation Log Skeleton */}
-            <Card className="border-slate-200 shadow-sm">
+            <Card className="border-2 border-stone-200/60 bg-white shadow-xs rounded-3xl">
               <CardContent className="p-5">
                 <Skeleton className="h-6 w-36 mb-4 rounded-lg" />
                 <div className="space-y-4">
@@ -196,17 +198,23 @@ export default function FarmerDashboard() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-slate-200 shadow-sm">
+            <Card className="border-2 border-rose-900/10 bg-linear-to-b from-rose-50/20 to-white shadow-xs rounded-3xl overflow-hidden">
               <CardContent className="p-5">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">Health Alerts</h3>
+                <h3 className="text-base font-black text-slate-900 mb-4 flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-rose-100 text-rose-800">
+                    <AlertTriangle className="size-4" />
+                  </div>
+                  Health Alerts
+                </h3>
                 <div className="space-y-3">
                   {recentAlerts.map((alert) => (
-                    <div key={alert.id} className="p-4 rounded-xl bg-orange-50 border border-orange-100">
+                    <div key={alert.id} className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200/60 shadow-2xs">
                       <div className="flex gap-3">
-                        <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                         <div>
-                          <h4 className="text-sm font-bold text-orange-900">{alert.title}</h4>
-                          <p className="text-xs text-orange-800/80 mt-1">{alert.message}</p>
+                          <h4 className="text-xs font-black text-rose-950">{alert.title}</h4>
+                          <p className="text-xs text-rose-900/80 mt-1 font-medium leading-relaxed">{alert.message}</p>
+                          <span className="inline-block text-[10px] font-bold text-rose-700/70 mt-2 font-mono">{alert.date}</span>
                         </div>
                       </div>
                     </div>
@@ -215,22 +223,27 @@ export default function FarmerDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200 shadow-sm">
+            <Card className="border-2 border-emerald-900/10 bg-linear-to-b from-emerald-50/20 to-white shadow-xs rounded-3xl overflow-hidden">
               <CardContent className="p-5">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">Observation Log</h3>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3 text-sm">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />
+                <h3 className="text-base font-black text-slate-900 mb-4 flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
+                    <Stethoscope className="size-4" />
+                  </div>
+                  Observation Log
+                </h3>
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-white border border-stone-200/70 shadow-2xs flex items-start gap-3">
+                    <div className="w-2.5 h-2.5 bg-amber-500 rounded-full mt-1.5 shrink-0 ring-4 ring-amber-100" />
                     <div>
-                      <p className="font-bold text-slate-800">Reduced Appetite</p>
-                      <p className="text-xs text-slate-500">Cattle #B-042 • Reported 4h ago</p>
+                      <p className="text-xs font-black text-slate-800">Reduced Appetite</p>
+                      <p className="text-[11px] font-semibold text-slate-500 mt-0.5">Cattle #B-042 • Reported 4h ago</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 text-sm">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5 shrink-0" />
+                  <div className="p-3.5 rounded-2xl bg-white border border-stone-200/70 shadow-2xs flex items-start gap-3">
+                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mt-1.5 shrink-0 ring-4 ring-emerald-100" />
                     <div>
-                      <p className="font-bold text-slate-800">Normal Rut Behavior</p>
-                      <p className="text-xs text-slate-500">Cattle #B-011 • Reported Yesterday</p>
+                      <p className="text-xs font-black text-slate-800">Normal Rut Behavior</p>
+                      <p className="text-[11px] font-semibold text-slate-500 mt-0.5">Cattle #B-011 • Reported Yesterday</p>
                     </div>
                   </div>
                 </div>
