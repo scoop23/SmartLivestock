@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -49,10 +49,12 @@ import {
   mapCensusSubmission,
   useGetBarangays,
 } from "./sibat-analytics";
+import { LivestockType } from "@/app/(farmer)/livestock-inventory/page";
 
 export type { CensusItemEntry };
 
 import { useMutation } from "@tanstack/react-query";
+import { useLivestockTypes } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 
 interface CensusSubmissionDialogProps {
   open: boolean;
@@ -203,7 +205,7 @@ export default function CensusSubmissionDialog({
     setIsSubmitting(true);
 
     const submissionPayload: CreateCensusPayload = {
-      barangay: 1,
+      barangay: barangay,
       report_year: reportYear,
       report_quarter: reportQuarter,
       items: items.map((item) => ({
@@ -218,6 +220,32 @@ export default function CensusSubmissionDialog({
   };
 
   const { data: barangays } = useGetBarangays();
+  const { data: livestockRecords } = useLivestockTypes();
+
+  // const livestockById = useMemo(() => {
+  //   const map: Record<number, LivestockType> = {};
+  //   LIVESTOCK_TYPES.forEach(item => {
+  //     map[item.id] = item;
+  //   })
+  // }, [])
+  // let LIVESTOCK_TYPES_MAP: Record<string, number> = {};
+  // Object.entries(livestockRecords ?? {}).forEach(([key, value]) => {
+  //   console.log(LIVESTOCK_TYPES[value - 0].name.includes(key));
+  //   LIVESTOCK_TYPES_MAP[LIVESTOCK_TYPES[value - 0].name] = value;
+  // });
+  // console.log(LIVESTOCK_TYPES_MAP);
+  // console.log(livestockRecords);
+  const livestockById = useMemo(() => {
+    const array = Object.fromEntries(Object.entries(livestockRecords ?? {}).map(([key, id]) => {
+      const livestockType = LIVESTOCK_TYPES.find((type) => type.name.toLowerCase().includes(key.toLowerCase()));
+      return [livestockType?.name ?? key, id];
+    }));
+    return array;
+  }, [livestockRecords]);
+
+  console.log(livestockById);
+
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -434,6 +462,7 @@ export default function CensusSubmissionDialog({
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
                             {LIVESTOCK_TYPES.map((lt) => (
+
                               <SelectItem key={lt.name} value={lt.name} className="text-xs font-medium">
                                 <span className="mr-1.5">{lt.emoji}</span>
                                 {lt.name}

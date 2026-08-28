@@ -39,53 +39,26 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import LivestockDetailsDialog from "./livestock-details-dialog";
-import LivestockEditDialog, { type UpdateInventoryPayload } from "./livestock-edit-dialog";
+import LivestockEditDialog from "./livestock-edit-dialog";
 import LivestockRecordList from "./livestock-record-list";
 import LivestockTypeCards from "./livestock-type-cards";
 import InventoryStats from "./inventory-stats";
 import api from "@/lib/axios";
+import {
+  type EntryType,
+  type StatusType,
+  type LivestockInventoryItem,
+  type LivestockType,
+  type InventoryApiItem,
+  type CreateInventoryPayload,
+  type UpdateInventoryPayload,
+  mapInventory,
+  useLivestockTypes,
+  useUserInventory,
+} from "./livestock-inventory";
 
-// --- TypeScript Interfaces matching Django Models ---
-
-export type EntryType = "INDIVIDUAL" | "BATCH";
-export type StatusType = "PENDING" | "APPROVED" | "REJECTED";
-
-export interface LivestockInventoryItem {
-  id: string;
-  farmerName: string;
-  livestockTypeName: string;
-  entryType: EntryType;
-  quantity: number;
-  tagNumber: string;
-  breed: string;
-  sex: string;
-  weight: number | null;
-  lastVaccinationDate: string | null;
-  status: StatusType;
-  reviewRemarks?: string | null;
-  createdAt: string;
-}
-
-export interface LivestockType {
-  id: number;
-  name: string;
-}
-
-interface InventoryApiItem {
-  id: string;
-  farmer_name: string;
-  livestock_type_name: string;
-  entry_type: EntryType;
-  quantity: number;
-  tag_number: string;
-  breed: string;
-  sex: string;
-  weight: number | null;
-  last_vaccination_date: string | null;
-  status: StatusType;
-  review_remarks: string | null;
-  created_at: string;
-}
+// Re-export types for any existing child components importing from ./page
+export type { EntryType, StatusType, LivestockInventoryItem, LivestockType, InventoryApiItem };
 
 export default function LivestockInventoryPage() {
   const queryClient = useQueryClient();
@@ -96,39 +69,8 @@ export default function LivestockInventoryPage() {
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
-  const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
-    id: item.id,
-    farmerName: item.farmer_name,
-    livestockTypeName: item.livestock_type_name,
-    entryType: item.entry_type,
-    quantity: item.quantity,
-    tagNumber: item.tag_number,
-    breed: item.breed,
-    sex: item.sex,
-    weight: item.weight,
-    lastVaccinationDate: item.last_vaccination_date,
-    status: item.status,
-    reviewRemarks: item.review_remarks,
-    createdAt: item.created_at,
-  });
-
-  const { data: livestockTypes = {} } = useQuery<Record<string, number>>({
-    queryKey: ["livestockTypes"],
-    queryFn: async () => {
-      const res = await api.get<LivestockType[]>("livestock/livestock_types/");
-      const map: Record<string, number> = {};
-      res.data.forEach((t) => { map[t.name] = t.id });
-      return map;
-    },
-  });
-
-  const { data: inventories = [], isLoading: IsLoading } = useQuery<LivestockInventoryItem[]>({
-    queryKey: ["inventory"],
-    queryFn: async () => {
-      const res = await api.get("livestock/inventory/");
-      return res.data.map(mapInventory);
-    },
-  });
+  const { data: livestockTypes = {} } = useLivestockTypes();
+  const { data: inventories = [], isLoading: IsLoading } = useUserInventory();
 
   // Form State matching Django LivestockInventory
   const initialFormData = {

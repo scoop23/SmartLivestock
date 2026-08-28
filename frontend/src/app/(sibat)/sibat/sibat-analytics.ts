@@ -7,6 +7,7 @@
 
 import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
+import { LivestockType } from "@/app/(farmer)/livestock-inventory/page";
 import { map } from "leaflet";
 
 // ── Types: Census Submissions ──
@@ -72,6 +73,7 @@ export interface CreateCensusPayload {
   report_quarter: number;
   items: CreateCensusItemPayload[];
 }
+
 
 export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmissionRecord => {
   const items = item.items || [];
@@ -256,6 +258,8 @@ export const RECORD_TYPE_BADGE_MAP: Record<string, { bg: string; text: string }>
 export const getTypeBadgeStyle = (type: string) => {
   return RECORD_TYPE_BADGE_MAP[type] ?? { bg: "bg-slate-100 border-slate-200", text: "text-slate-800" };
 };
+
+
 
 // ── Mock Data: Farmer Activity Records ──
 

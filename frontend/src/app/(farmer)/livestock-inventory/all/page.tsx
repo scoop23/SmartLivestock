@@ -20,28 +20,11 @@ import LivestockEditDialog, { type UpdateInventoryPayload } from "../livestock-e
 import LivestockRecordList from "../livestock-record-list";
 import InventoryStats from "../inventory-stats";
 import api from "@/lib/axios";
-import type {
-  EntryType,
-  LivestockInventoryItem,
-  LivestockType,
-  StatusType,
-} from "../page";
-
-interface InventoryApiItem {
-  id: string;
-  farmer_name: string;
-  livestock_type_name: string;
-  entry_type: EntryType;
-  quantity: number;
-  tag_number: string;
-  breed: string;
-  sex: string;
-  weight: number | null;
-  last_vaccination_date: string | null;
-  status: StatusType;
-  review_remarks: string | null;
-  created_at: string;
-}
+import {
+  type LivestockInventoryItem,
+  useLivestockTypes,
+  useUserInventory,
+} from "../livestock-inventory";
 
 export default function AllLivestockInventoryPage() {
   const queryClient = useQueryClient();
@@ -49,39 +32,8 @@ export default function AllLivestockInventoryPage() {
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
 
-  const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
-    id: item.id,
-    farmerName: item.farmer_name,
-    livestockTypeName: item.livestock_type_name,
-    entryType: item.entry_type,
-    quantity: item.quantity,
-    tagNumber: item.tag_number,
-    breed: item.breed,
-    sex: item.sex,
-    weight: item.weight,
-    lastVaccinationDate: item.last_vaccination_date,
-    status: item.status,
-    reviewRemarks: item.review_remarks,
-    createdAt: item.created_at,
-  });
-
-  const { data: livestockTypes = {} } = useQuery<Record<string, number>>({
-    queryKey: ["livestockTypes"],
-    queryFn: async () => {
-      const res = await api.get<LivestockType[]>("livestock/livestock_types/");
-      const map: Record<string, number> = {};
-      res.data.forEach((t) => { map[t.name] = t.id });
-      return map;
-    },
-  });
-
-  const { data: inventories = [], isLoading } = useQuery<LivestockInventoryItem[]>({
-    queryKey: ["inventory"],
-    queryFn: async () => {
-      const res = await api.get("livestock/inventory/");
-      return res.data.map(mapInventory);
-    },
-  });
+  const { data: livestockTypes = {} } = useLivestockTypes();
+  const { data: inventories = [], isLoading } = useUserInventory();
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
