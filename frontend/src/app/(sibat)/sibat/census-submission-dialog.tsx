@@ -217,8 +217,7 @@ export default function CensusSubmissionDialog({
     submitMutation.mutate(submissionPayload);
   };
 
-  const { data: barangays, isLoading, isError } = useGetBarangays();
-  console.log(barangays)
+  const { data: barangays } = useGetBarangays();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -2,12 +2,14 @@
 
 import { useState, useMemo } from "react";
 import { AxiosError } from "axios";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Search, Filter, ChevronRight,
   ArrowDownWideNarrow,
   ArrowUpDown,
   SlidersHorizontal,
+  Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,10 +28,12 @@ import { STATUS_CHIPS, type SortKey } from "../livestock-inventory/livestock-rec
 import {
   PRODUCTION_TYPE_LABELS,
   fetchProductionRecords,
+  deleteProductionRecord,
   type ProductionRecordItem,
   type ProductionStatus,
 } from "./production-analytics";
 import ProductionRecordDialog from "./production-record-dialog";
+import ProductionDeleteDialog from "./production-delete-dialog";
 import { Separator } from "@/components/ui/separator";
 
 export interface ApiError {
@@ -70,6 +74,8 @@ const formatUnit = (unit: string) =>
   unit === "LITERS" ? "L" : unit === "KILOGRAMS" ? "kg" : unit === "PIECES" ? "pc" : unit;
 
 export default function ProductionHistory() {
+  const queryClient = useQueryClient();
+
   const {
     data: userProductions = [],
     isError,
@@ -80,6 +86,43 @@ export default function ProductionHistory() {
     queryKey: ["production"],
     queryFn: fetchProductionRecords,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteProductionRecord(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["production"] });
+      queryClient.invalidateQueries({ queryKey: ["production_analytics"] });
+      setSelected(null);
+      toast.success("Production record deleted successfully");
+    },
+    onError: (err: AxiosError<{ error?: string; detail?: string }>) => {
+      const msg =
+        err.response?.data?.error ??
+        err.response?.data?.detail ??
+        "Failed to delete production record";
+      toast.error(msg);
+    },
+  });
+
+  const [deleteTarget, setDeleteTarget] = useState<ProductionRecordItem | null>(null);
+
+  const handleDelete = (record: ProductionRecordItem) => {
+    if (record.status === "APPROVED") {
+      toast.error("Approved records cannot be deleted.");
+      return;
+    }
+    setSelected(null);
+    setDeleteTarget(record);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        setDeleteTarget(null);
+      },
+    });
+  };
 
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -241,11 +284,18 @@ export default function ProductionHistory() {
         </Card>
       ) : (
         filtered.map((record: ProductionRecordItem, index: number) => (
-          <button
+          <div
             key={record.id != null ? `history-record-${record.id}` : `history-record-${index}`}
-            type="button"
+            role="button"
+            tabIndex={0}
             onClick={() => setSelected(record)}
-            className="w-full text-left transition-shadow"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelected(record);
+              }
+            }}
+            className="w-full text-left transition-shadow cursor-pointer"
           >
             <Card className="border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all">
               <CardContent className="p-5">
@@ -290,11 +340,28 @@ export default function ProductionHistory() {
                       </p>
                     ) : null}
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 mt-1" />
+                  <div className="flex items-center gap-2 shrink-0 mt-1">
+                    {record.status !== "APPROVED" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(record);
+                        }}
+                        title="Delete / cancel record"
+                        className="rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 h-8 w-8"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          </button>
+          </div>
         ))
       )}
 
@@ -304,7 +371,19 @@ export default function ProductionHistory() {
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
+        onDelete={handleDelete}
+        isDeleting={deleteMutation.isPending}
       />
-    </div >
+
+      <ProductionDeleteDialog
+        record={deleteTarget}
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setDeleteTarget(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        isDeleting={deleteMutation.isPending}
+      />
+    </div>
   );
 }

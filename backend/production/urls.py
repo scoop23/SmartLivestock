@@ -23,4 +23,9 @@ urlpatterns = [
         views.update_production_record,
         name="update",
     ),
+    path(
+        "delete_record/<int:pk>/",
+        views.delete_production_record,
+        name="delete",
+    ),
 ]

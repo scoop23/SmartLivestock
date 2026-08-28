@@ -16,10 +16,12 @@ import ProductionTypeSelector from "./production-type-selector";
 import {
   EMPTY_TYPE_ANALYTICS,
   fetchProductionRecords,
+  deleteProductionRecord,
   type ProductionRecordItem,
   useProductionAnalytics,
 } from "./production-analytics";
 import ProductionWizard from "./production-wizard";
+import ProductionDeleteDialog from "./production-delete-dialog";
 import type { ProductionPayload } from "./production-wizard";
 import { LivestockInventoryItem } from "../livestock-inventory/page";
 import api from "@/lib/axios";
@@ -88,6 +90,7 @@ export default function ProductionLoggerPage() {
   const [resetSignal, setResetSignal] = useState(0);
   const [analyticsType, setAnalyticsType] = useState<ProductionType | null>(null);
   const [editingRecord, setEditingRecord] = useState<ProductionRecordItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductionRecordItem | null>(null);
 
 
 
@@ -208,6 +211,41 @@ export default function ProductionLoggerPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await deleteProductionRecord(id);
+    },
+    onSuccess: () => {
+      toast.success("Production record deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["production"] });
+      queryClient.invalidateQueries({ queryKey: ["production_analytics"] });
+    },
+    onError: (err: any) => {
+      const msg =
+        err?.response?.data?.error ??
+        err?.response?.data?.detail ??
+        "Failed to delete production record";
+      toast.error(msg);
+    },
+  });
+
+  const handleDeleteRecord = (record: ProductionRecordItem) => {
+    if (record.status === "APPROVED") {
+      toast.error("Approved records cannot be deleted.");
+      return;
+    }
+    setDeleteTarget(record);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        setDeleteTarget(null);
+      },
+    });
+  };
+
   const availableTypes = analytics?.available_types ?? [];
   const activeType =
     analyticsType && availableTypes.includes(analyticsType)
@@ -307,6 +345,7 @@ export default function ProductionLoggerPage() {
               records={productionRecords}
               showViewMore={availableTypes.some((t) => t !== "milk")}
               onEdit={handleEditRecord}
+              onDelete={handleDeleteRecord}
             />
           </>
         )}
@@ -338,6 +377,16 @@ export default function ProductionLoggerPage() {
         onClose={() => setIsWizardOpen(false)}
         mode={editingRecord ? "edit" : "create"}
         editingRecord={editingRecord}
+      />
+
+      <ProductionDeleteDialog
+        record={deleteTarget}
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setDeleteTarget(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        isDeleting={deleteMutation.isPending}
       />
     </>
   );

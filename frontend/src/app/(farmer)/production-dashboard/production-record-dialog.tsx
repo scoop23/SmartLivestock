@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Egg, Lock, Milk, Package, Pencil } from "lucide-react";
+import { CalendarDays, Egg, Lock, Milk, Package, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,11 +59,15 @@ export default function ProductionRecordDialog({
   open,
   onOpenChange,
   onEdit,
+  onDelete,
+  isDeleting,
 }: {
   record: ProductionRecordItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit?: (record: ProductionRecordItem) => void;
+  onDelete?: (record: ProductionRecordItem) => void;
+  isDeleting?: boolean;
 }) {
   const isApproved = record?.status === "APPROVED";
 
@@ -161,17 +165,32 @@ export default function ProductionRecordDialog({
               {isApproved ? (
                 <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium">
                   <Lock className="w-4 h-4 shrink-0" />
-                  This record has been approved and can no longer be edited.
+                  This record has been approved and can no longer be edited or deleted.
                 </div>
-              ) : onEdit ? (
-                <Button
-                  type="button"
-                  onClick={() => onEdit(record)}
-                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white gap-2 py-6"
-                >
-                  <Pencil className="w-4 h-4" /> Edit Record
-                </Button>
-              ) : null}
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full">
+                  {onDelete ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isDeleting}
+                      onClick={() => onDelete(record)}
+                      className="w-full sm:w-auto border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete / Cancel Record
+                    </Button>
+                  ) : null}
+                  {onEdit ? (
+                    <Button
+                      type="button"
+                      onClick={() => onEdit(record)}
+                      className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white gap-2"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit Record
+                    </Button>
+                  ) : null}
+                </div>
+              )}
             </div>
           </>
         ) : null}

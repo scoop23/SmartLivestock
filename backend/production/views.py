@@ -62,3 +62,28 @@ def get_production_records(
     ).order_by("-created_at")  # get the user using request as jwt binds it.
     serializer = ProductionRecordSerializer(records, many=True)
     return Response(serializer.data)
+
+
+@api_view(["DELETE"])
+def delete_production_record(request, pk):
+    """
+    Delete/cancel a production record.
+    Only PENDING records can be deleted — approved or rejected records are protected.
+    """
+    record = get_object_or_404(
+        ProductionRecord,
+        pk=pk,
+        created_by=request.user,
+    )
+
+    if record.status != ProductionRecord.ProductionStatus.PENDING:
+        return Response(
+            {
+                "error": f"Cannot delete a production record with status '{record.status}'. "
+                "Only PENDING records can be deleted."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    record.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

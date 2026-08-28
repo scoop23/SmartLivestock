@@ -29,10 +29,12 @@ export default function ProductionRecent({
   records,
   showViewMore = false,
   onEdit,
+  onDelete,
 }: {
   records: ProductionRecordItem[];
   showViewMore?: boolean;
   onEdit?: (record: ProductionRecordItem) => void;
+  onDelete?: (record: ProductionRecordItem) => void;
 }) {
 
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
@@ -115,6 +117,10 @@ export default function ProductionRecent({
           if (!open) setSelected(null);
         }}
         onEdit={onEdit}
+        onDelete={(record) => {
+          setSelected(null);
+          onDelete?.(record);
+        }}
       />
     </Card>
   );

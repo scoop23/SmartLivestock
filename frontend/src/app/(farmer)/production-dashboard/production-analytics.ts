@@ -133,6 +133,10 @@ export async function fetchProductionRecords(): Promise<ProductionRecordItem[]> 
   return (response.data as ApiProductionRecord[]).map(mapProductionRecord);
 }
 
+export async function deleteProductionRecord(id: number): Promise<void> {
+  await api.delete(`production/delete_record/${id}/`);
+}
+
 // ---------------------------------------------------------------------------
 // MOCK DATA — TEMPORARY
 // ---------------------------------------------------------------------------
