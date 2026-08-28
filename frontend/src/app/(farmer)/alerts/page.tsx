@@ -123,10 +123,10 @@ export default function AlertsPage() {
         title="Alerts & Notifications"
         subtitle="Important updates and reminders"
         variant="farmer"
-        maxWidthClass="max-w-5xl"
+        maxWidthClass="max-w-7xl"
       />
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <Card className="border-slate-200 shadow-sm">

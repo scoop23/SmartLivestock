@@ -122,10 +122,10 @@ export default function AllLivestockInventoryPage() {
         title="All Livestock Inventory"
         subtitle="Every livestock record across all types."
         variant="farmer"
-        maxWidthClass="max-w-6xl"
+        maxWidthClass="max-w-7xl"
       />
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between gap-2 py-1.5">
           <Link href="/livestock-inventory">
             <Button

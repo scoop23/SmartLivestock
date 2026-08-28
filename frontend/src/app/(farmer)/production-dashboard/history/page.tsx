@@ -13,7 +13,7 @@ export default function ProductionHistoryPage() {
         title="Production History"
         subtitle="All submitted production records across livestock types."
         variant="farmer"
-        maxWidthClass="max-w-6xl"
+        maxWidthClass="max-w-7xl"
         action={
           <Link href="/production-dashboard">
             <Button
@@ -26,7 +26,7 @@ export default function ProductionHistoryPage() {
         }
       />
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         <ProductionHistory />
       </div>
     </>

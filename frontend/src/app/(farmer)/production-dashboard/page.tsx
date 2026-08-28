@@ -275,10 +275,10 @@ export default function ProductionLoggerPage() {
         title="Production Analytics"
         subtitle="Monitor your livestock production, trends, and estimated value."
         variant="farmer"
-        maxWidthClass="max-w-6xl"
+        maxWidthClass="max-w-7xl"
       />
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         {isLoading ? (
           <AnalyticsLoading />
         ) : isError ? (

@@ -265,10 +265,10 @@ export default function LivestockInventoryPage() {
         title="Livestock Inventory"
         subtitle="Manage your livestock entries and track their status"
         variant="farmer"
-        maxWidthClass="max-w-6xl"
+        maxWidthClass="max-w-7xl"
       />
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
             <Layers className="w-5 h-5" />

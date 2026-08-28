@@ -71,7 +71,7 @@ export default function FarmerSchedulingPage() {
         subtitle="Book slots for active MAO programs"
         icon={<Calendar className="h-7 w-7" />}
         variant="farmer"
-        maxWidthClass="max-w-5xl"
+        maxWidthClass="max-w-7xl"
         action={maoNotifications.some(n => n.isNew) ? (
           <Badge className="bg-orange-500 hover:bg-orange-500 text-white border-0 animate-pulse gap-1">
             <Bell className="h-3 w-3" /> NEW
@@ -79,7 +79,7 @@ export default function FarmerSchedulingPage() {
         ) : null}
       />
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         {/* Schedule Your Appointment */}
         <Card className="border-slate-200 shadow-sm">
           <CardContent className="p-5">

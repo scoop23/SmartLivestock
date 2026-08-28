@@ -53,7 +53,7 @@ export default function FarmerDashboard() {
         title="Welcome, Juan!"
         subtitle="San Roque, Padre Garcia"
         variant="farmer"
-        maxWidthClass="max-w-5xl"
+        maxWidthClass="max-w-7xl"
         action={
           <Button variant="ghost" size="icon" className="rounded-lg bg-white/10 hover:bg-white/20 text-white" aria-label="Notifications">
             <Bell className="h-5 w-5" />
@@ -61,7 +61,7 @@ export default function FarmerDashboard() {
         }
       />
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         {/* Stats + Charts */}
         {isLoading ? (
           <>

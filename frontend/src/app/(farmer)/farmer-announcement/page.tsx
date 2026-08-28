@@ -59,7 +59,7 @@ export default function FarmerNewsPage() {
         subtitle="Latest updates for Padre Garcia Farmers"
         icon={<Megaphone className="h-6 w-6 text-yellow-400" />}
         variant="farmer"
-        maxWidthClass="max-w-5xl"
+        maxWidthClass="max-w-7xl"
         action={
           <Button variant="ghost" size="icon" className="rounded-lg bg-white/10 hover:bg-white/20 text-white" aria-label="Notifications">
             <Bell className="h-5 w-5" />
@@ -68,7 +68,7 @@ export default function FarmerNewsPage() {
       />
 
       {/* Filters Row */}
-      <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm mx-4 md:mx-8 max-w-5xl">
+      <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm mx-4 md:mx-8 max-w-7xl">
         {filters.map((filter) => (
           <button
             key={filter}
@@ -85,7 +85,7 @@ export default function FarmerNewsPage() {
       </div>
 
       {/* News Feed */}
-      <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         {newsItems
           .filter(item => activeFilter === 'All' || item.category === activeFilter)
           .map((news) => (
