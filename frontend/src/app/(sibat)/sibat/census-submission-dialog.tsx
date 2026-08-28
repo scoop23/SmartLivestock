@@ -69,7 +69,7 @@ export default function CensusSubmissionDialog({
   const currentMonth = new Date().getMonth() + 1;
   const initialQuarter = Math.ceil(currentMonth / 3);
 
-  const [barangay, setBarangay] = useState("Lipay");
+  const [barangay, setBarangay] = useState<number | null>(null);
   const [reportYear, setReportYear] = useState<number>(currentYear);
   const [reportQuarter, setReportQuarter] = useState<number>(initialQuarter);
   const [remarks, setRemarks] = useState("");
@@ -264,13 +264,13 @@ export default function CensusSubmissionDialog({
                   <Label className="text-xs font-bold text-slate-700">
                     Barangay <span className="text-rose-500">*</span>
                   </Label>
-                  <Select value={barangay} onValueChange={setBarangay}>
+                  <Select value={barangay ? String(barangay) : ""} onValueChange={(val) => setBarangay(Number(val))}>
                     <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
                       <SelectValue placeholder="Select Barangay" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 rounded-xl">
                       {barangays?.map((brgy) => (
-                        <SelectItem key={brgy.id} value={brgy.barangayName} className="text-xs font-medium">
+                        <SelectItem key={brgy.id} value={String(brgy.id)} className="text-xs font-medium">
                           Brgy. {brgy.barangayName}
                         </SelectItem>
                       ))}

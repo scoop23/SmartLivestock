@@ -39,3 +39,7 @@ def get_census_submissions(request):
         submissions, many=True
     )  # serialize submissions
     return Response(serializer.data, status=200)
+
+@api_view(["UPDATE", "PATCH"])
+def update_census_submission(request, pk):
+    pass
