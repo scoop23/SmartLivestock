@@ -4,7 +4,7 @@ from django.db import IntegrityError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.views.decorators.cache import cache_page
-from livestock.models import LivestockInventory, LivestockType
+from livestock.models import LivestockInventory, LivestockType, Farmer
 from livestock.serializer import LivestockInventorySerializer, BarangaySerializer
 from production.models import ProductionRecord
 from production.serializer import ProductionRecordSerializer
@@ -78,10 +78,16 @@ def update_user_inventory(request, pk):
     # instead of create()
     return Response(serializer.data)
 
+
 @api_view(["GET"])
-@cache_page(60*5)
+@cache_page(60 * 5)
 def get_barangays(request):
     barangays = Barangay.objects.all()
     serializer = BarangaySerializer(barangays, many=True)
 
     return Response(serializer.data, status=200)
+
+
+@api_view(["POST"])
+def get_farmer_by_barangays(request):
+    farmers = Farmer.objects.filter(barangay_id=request.user.farmer_profile.barangay_id)

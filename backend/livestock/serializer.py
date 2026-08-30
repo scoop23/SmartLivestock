@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.fields import SerializerMethodField
 from rest_framework.relations import PrimaryKeyRelatedField
 from livestock.services import CensusService  # type: ignore
 from .models import (
@@ -9,6 +10,7 @@ from .models import (
     CensusSubmission,
     CensusSubmissionItem,
 )
+
 
 class BarangaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -130,3 +132,23 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
         user = obj.submitted_by
         full_name = user.get_full_name()
         return full_name if full_name else user.username
+
+
+class FarmerOptionsSerializer(serializers.ModelSerializer):
+    farmer_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Farmer
+        fields = [
+            "barangay",
+            "farm_size",
+            "address",
+            "registered_at",
+        ]
+
+    def get_farmer_name(self, obj):
+        user = obj.user
+        full_name = user.get_full_name().strip()
+        if full_name:
+            return full_name
+        return user.username if user.username else user.email
