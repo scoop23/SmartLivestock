@@ -142,12 +142,12 @@ export default function SibatPortal() {
         title="SIBAT Dashboard"
         subtitle="Cooperative & Barangay Livestock Portal — Padre Garcia, Batangas"
         variant="sibat"
-        maxWidthClass="max-w-6xl"
+        maxWidthClass="max-w-7xl"
       />
 
       {/* Barangay lockdown indicator */}
       <div className="bg-amber-400/90 border-l-4 border-[#1A365D]">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-[#1A365D]/10 shrink-0">
               <Shield className="w-4 h-4 text-[#1A365D]" />
@@ -173,7 +173,7 @@ export default function SibatPortal() {
         </div>
       </div>
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
         {/* ═══ Stat Cards ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (

@@ -72,10 +72,10 @@ export default function SibatAlertsPage() {
         subtitle="Verify and Forward to MAO"
         icon={<Bell className="h-5 w-5 text-amber-400" />}
         variant="sibat"
-        maxWidthClass="max-w-6xl"
+        maxWidthClass="max-w-7xl"
       />
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-4">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-4">
         {/* Filter Bar */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-3 flex flex-col sm:flex-row gap-3">

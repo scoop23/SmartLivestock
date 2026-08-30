@@ -78,10 +78,10 @@ export default function SibatAnnouncementsPage() {
           </span>
         }
         variant="sibat"
-        maxWidthClass="max-w-6xl"
+        maxWidthClass="max-w-7xl"
       />
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar Filters */}
         <div className="lg:col-span-1 space-y-4">
           <Card className="p-5 rounded-2xl border border-slate-200 shadow-sm">

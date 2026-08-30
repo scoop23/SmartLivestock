@@ -109,7 +109,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
       onClick={onClick}
       className={cn(
         "group relative overflow-hidden rounded-2xl border-2 shadow-xs transition-all duration-300",
-        "hover:-translate-y-0.5",
+        "hover:-translate-y-1",
         styles.card,
         onClick && "cursor-pointer",
         className
