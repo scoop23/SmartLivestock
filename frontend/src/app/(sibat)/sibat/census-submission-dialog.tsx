@@ -222,19 +222,6 @@ export default function CensusSubmissionDialog({
   const { data: barangays } = useGetBarangays();
   const { data: livestockRecords } = useLivestockTypes();
 
-  // const livestockById = useMemo(() => {
-  //   const map: Record<number, LivestockType> = {};
-  //   LIVESTOCK_TYPES.forEach(item => {
-  //     map[item.id] = item;
-  //   })
-  // }, [])
-  // let LIVESTOCK_TYPES_MAP: Record<string, number> = {};
-  // Object.entries(livestockRecords ?? {}).forEach(([key, value]) => {
-  //   console.log(LIVESTOCK_TYPES[value - 0].name.includes(key));
-  //   LIVESTOCK_TYPES_MAP[LIVESTOCK_TYPES[value - 0].name] = value;
-  // });
-  // console.log(LIVESTOCK_TYPES_MAP);
-  // console.log(livestockRecords);
   const livestockById = useMemo(() => {
     const array = Object.fromEntries(Object.entries(livestockRecords ?? {}).map(([key, id]) => {
       const livestockType = LIVESTOCK_TYPES.find((type) => type.name.toLowerCase().includes(key.toLowerCase()));
