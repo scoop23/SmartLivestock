@@ -4,7 +4,7 @@ import { CheckCircle2, Clock, Layers, Tag } from "lucide-react";
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import type { LivestockInventoryItem } from "./page";
 
-interface CardConfig {
+export interface CardConfig {
   label: string;
   icon: typeof Layers;
   variant: KpiVariant;
