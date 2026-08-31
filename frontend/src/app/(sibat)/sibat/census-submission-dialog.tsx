@@ -80,6 +80,7 @@ export default function CensusSubmissionDialog({
   const [remarks, setRemarks] = useState("");
   const [isCertified, setIsCertified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [farmer, setFarmer] = useState<number | null>(null);
 
   const [items, setItems] = useState<CensusItemEntry[]>([
     {
@@ -212,7 +213,7 @@ export default function CensusSubmissionDialog({
       report_year: reportYear,
       report_quarter: reportQuarter,
       items: items.map((item) => ({
-        farmer: 1,
+        farmer: farmer,
         livestock_type: 1,
         number_of_heads: Number(item.numberOfHeads),
         remarks: item.remarks,
@@ -284,9 +285,9 @@ export default function CensusSubmissionDialog({
                   </Label>
                   <Select value={barangay ? String(barangay) : ""} onValueChange={(val) => setBarangay(Number(val))}>
                     <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
-                      <SelectValue placeholder="Select Barangay" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 rounded-xl">
+                      <SelectValue placeholder="Select Barangay" />
                       {barangays?.map((brgy) => (
                         <SelectItem key={brgy.id} value={String(brgy.id)} className="text-xs font-medium">
                           Brgy. {brgy.barangayName}
@@ -416,13 +417,17 @@ export default function CensusSubmissionDialog({
                         <Label className="text-[11px] font-bold text-slate-600">
                           Farmer Name <span className="text-rose-500">*</span>
                         </Label>
-                        <Select>
-                          <SelectTrigger>
+                        <Select value={farmer ? String(farmer) : ""} onValueChange={(val) => setFarmer(Number(val))}>
+                          <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
                             <SelectValue placeholder="Select Farmer Name" />
                           </SelectTrigger>
                           <SelectContent>
                             {
-
+                              (farmersByBarangay ?? []).map((item) => (
+                                <SelectItem key={item.farmerId} value={String(item.farmerId)}>
+                                  {item.farmerName}
+                                </SelectItem>
+                              ))
                             }
                           </SelectContent>
                         </Select>

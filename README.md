@@ -137,6 +137,8 @@ SmartLivestock/
 
 ---
 
+All data are generated.
+
 ## ⚡ Getting Started
 
 ### 1. Backend Setup

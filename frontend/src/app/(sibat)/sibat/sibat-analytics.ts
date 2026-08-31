@@ -61,7 +61,7 @@ export interface ApiCensusSubmission {
 // ── Types: Create Census Payload (what we POST to Django) ──
 
 export interface CreateCensusItemPayload {
-  farmer: number;
+  farmer: number | null;
   livestock_type: number;
   number_of_heads: number;
   remarks?: string;
