@@ -149,20 +149,29 @@ export interface APIFarmerBarangayRecord { // interface for when getting the far
 }
 
 export interface FarmerOptionItem {
+  farmerId: number;
   farmerName: string;
-  id: number;
   barangayName: string;
   address: string;
 }
 
+export const mappedFarmersByBarangay = (farmersByBarangay: APIFarmerBarangayRecord): FarmerOptionItem => ({
+  farmerId: farmersByBarangay.id,
+  farmerName: farmersByBarangay.farmer_name,
+  barangayName: farmersByBarangay.barangay_name,
+  address: farmersByBarangay.address,
+});
+
+
+
 export async function fetchFarmersByBarangay(barangayId: number | null) {
-  const response = await api.get(`livestock/farmers/${barangayId}`);
-  return (response.data as APIFarmerBarangayRecord);
+  const response = await api.get(`livestock/farmers/${barangayId}/`);
+  return (response.data as APIFarmerBarangayRecord[]).map(mappedFarmersByBarangay);
 }
 
 export function useFarmersByBarangay(barangayId: number | null) {
   return useQuery({
-    queryKey: ["farmers-by-barangay"],
+    queryKey: ["farmers-by-barangay", barangayId],
     queryFn: () => fetchFarmersByBarangay(barangayId),
     enabled: Boolean(barangayId),
     staleTime: 60_000,
