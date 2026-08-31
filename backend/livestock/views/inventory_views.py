@@ -98,3 +98,4 @@ def get_farmer_by_barangays(request, barangay_id):
     serializer = FarmerOptionsSerializer(farmers, many=True)
 
     return Response(serializer.data, status=200)
+

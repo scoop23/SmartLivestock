@@ -34,5 +34,10 @@ urlpatterns = [
         "barangays/",
         views.get_barangays,
         name="barangays",
-    )
+    ),
+    path(
+        "farmers/<int:barangay_id>/",
+        views.get_farmer_by_barangays,
+        name="farmers_by_barangay",
+    ),
 ]

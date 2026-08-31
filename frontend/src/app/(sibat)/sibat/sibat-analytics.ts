@@ -149,18 +149,27 @@ export interface APIFarmerBarangayRecord { // interface for when getting the far
 }
 
 export interface FarmerOptionItem {
-  id: number;
   farmerName: string;
+  id: number;
   barangayName: string;
   address: string;
 }
 
-export async function fetchFarmersByBarangay(barangayId: number) {
-  const response = await api.get(`livestock/farmers/${}`);
+export async function fetchFarmersByBarangay(barangayId: number | null) {
+  const response = await api.get(`livestock/farmers/${barangayId}`);
+  return (response.data as APIFarmerBarangayRecord);
+}
+
+export function useFarmersByBarangay(barangayId: number | null) {
+  return useQuery({
+    queryKey: ["farmers-by-barangay"],
+    queryFn: () => fetchFarmersByBarangay(barangayId),
+    enabled: Boolean(barangayId),
+    staleTime: 60_000,
+  });
 }
 
 // ── Types: UI & Navigation ──
-
 export type SectionTab = "records" | "census";
 export type TabKey = "pending" | "validated" | "all";
 

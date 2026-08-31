@@ -48,6 +48,7 @@ import {
   SAMPLE_CENSUS_ENTRIES as SAMPLE_ENTRIES,
   mapCensusSubmission,
   useGetBarangays,
+  useFarmersByBarangay,
 } from "./sibat-analytics";
 import { LivestockType } from "@/app/(farmer)/livestock-inventory/page";
 
@@ -221,6 +222,8 @@ export default function CensusSubmissionDialog({
 
   const { data: barangays } = useGetBarangays();
   const { data: livestockRecords } = useLivestockTypes();
+  const { data: farmersByBarangay } = useFarmersByBarangay(barangay);
+  console.log(farmersByBarangay)
   // const { data: analysis } = use
 
   const livestockById = useMemo(() => {
@@ -230,7 +233,6 @@ export default function CensusSubmissionDialog({
     }));
     return array;
   }, [livestockRecords]);
-
 
 
   return (
