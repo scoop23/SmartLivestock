@@ -115,7 +115,6 @@ export function useCensusSubmission() {
     queryFn: fetchCensusSubmissions,
     staleTime: 60_000,
   })
-
 }
 // ── Types: Farmer Daily Reports & Activity ──
 
@@ -137,6 +136,27 @@ export interface FarmerActivityRecord {
   count: number;
   date: string;
   status: FarmerActivityStatus;
+}
+
+export interface APIFarmerBarangayRecord { // interface for when getting the farmer's in a barangay
+  id: number;
+  farmer_name: string;
+  barangay_name: string;
+  barangay: number;
+  farm_size?: string | number | null;
+  address: string;
+  registered_at: string;
+}
+
+export interface FarmerOptionItem {
+  id: number;
+  farmerName: string;
+  barangayName: string;
+  address: string;
+}
+
+export async function fetchFarmersByBarangay(barangayId: number) {
+  const response = await api.get(`livestock/farmers/${}`);
 }
 
 // ── Types: UI & Navigation ──

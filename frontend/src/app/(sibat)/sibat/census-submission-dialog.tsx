@@ -221,6 +221,7 @@ export default function CensusSubmissionDialog({
 
   const { data: barangays } = useGetBarangays();
   const { data: livestockRecords } = useLivestockTypes();
+  // const { data: analysis } = use
 
   const livestockById = useMemo(() => {
     const array = Object.fromEntries(Object.entries(livestockRecords ?? {}).map(([key, id]) => {
@@ -230,7 +231,6 @@ export default function CensusSubmissionDialog({
     return array;
   }, [livestockRecords]);
 
-  console.log(livestockById);
 
 
   return (
@@ -412,6 +412,16 @@ export default function CensusSubmissionDialog({
                         <Label className="text-[11px] font-bold text-slate-600">
                           Farmer Name <span className="text-rose-500">*</span>
                         </Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Farmer Name" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {
+
+                            }
+                          </SelectContent>
+                        </Select>
                         <Input
                           placeholder="e.g. Juan Dela Cruz"
                           value={item.farmerName}

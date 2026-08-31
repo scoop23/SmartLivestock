@@ -5,7 +5,11 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.views.decorators.cache import cache_page
 from livestock.models import LivestockInventory, LivestockType, Farmer
-from livestock.serializer import LivestockInventorySerializer, BarangaySerializer
+from livestock.serializer import (
+    FarmerOptionsSerializer,
+    LivestockInventorySerializer,
+    BarangaySerializer,
+)
 from production.models import ProductionRecord
 from production.serializer import ProductionRecordSerializer
 
@@ -88,6 +92,9 @@ def get_barangays(request):
     return Response(serializer.data, status=200)
 
 
-@api_view(["POST"])
-def get_farmer_by_barangays(request):
-    farmers = Farmer.objects.filter(barangay_id=request.user.farmer_profile.barangay_id)
+@api_view(["GET"])
+def get_farmer_by_barangays(request, barangay_id):
+    farmers = Farmer.objects.filter(barangay_id=barangay_id).select_related("user")
+    serializer = FarmerOptionsSerializer(farmers, many=True)
+
+    return Response(serializer.data, status=200)

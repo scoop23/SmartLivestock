@@ -6,6 +6,7 @@ from .inventory_views import (
     delete_user_inventory,
     update_user_inventory,
     get_barangays,
+    get_farmer_by_barangays,
 )
 from .census_views import create_census_submission, get_census_submissions
 
@@ -19,4 +20,5 @@ __all__ = [
     "create_census_submission",
     "get_census_submissions",
     "get_barangays",
+    "get_farmer_by_barangays",
 ]

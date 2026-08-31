@@ -136,15 +136,24 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
 
 class FarmerOptionsSerializer(serializers.ModelSerializer):
     farmer_name = serializers.SerializerMethodField()
+    barangay_name = serializers.CharField(
+        source="barangay.barangay_name",
+        read_only=True,
+    )
 
     class Meta:
         model = Farmer
         fields = [
+            "id",
             "barangay",
+            "barangay_name",
+            "farmer_name",
             "farm_size",
             "address",
             "registered_at",
         ]
+
+        read_only_fields = ["id", "registered_at"]
 
     def get_farmer_name(self, obj):
         user = obj.user
