@@ -136,17 +136,33 @@ export default function CensusDetailsDialog({
           </div>
 
           {/* Submission Remarks */}
-          {submission.reviewRemarks && (
-            <Card className="border border-slate-200/80 bg-white rounded-2xl shadow-2xs">
-              <CardContent className="p-3.5 space-y-1">
-                <span className="text-[10px] font-bold uppercase text-slate-400">
-                  Submission Notes / Remarks
-                </span>
-                <p className="text-xs font-medium text-slate-700">
-                  {submission.reviewRemarks}
-                </p>
-              </CardContent>
-            </Card>
+          {(submission.remarks || submission.reviewRemarks) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {submission.remarks && (
+                <Card className="border border-slate-200/80 bg-white rounded-2xl shadow-2xs">
+                  <CardContent className="p-3.5 space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">
+                      Technologist Field Remarks / Notes
+                    </span>
+                    <p className="text-xs font-medium text-slate-700">
+                      {submission.remarks}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+              {submission.reviewRemarks && (
+                <Card className="border border-amber-200/80 bg-amber-50/40 rounded-2xl shadow-2xs">
+                  <CardContent className="p-3.5 space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-amber-600">
+                      MAO Review Remarks
+                    </span>
+                    <p className="text-xs font-medium text-slate-700">
+                      {submission.reviewRemarks}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
 
           {/* Line Items Table */}

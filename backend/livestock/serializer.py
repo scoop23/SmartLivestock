@@ -72,6 +72,9 @@ class CensusSubmissionItemSerializer(serializers.ModelSerializer):
         source="livestock_type.name", read_only=True
     )
     farmer_name = serializers.SerializerMethodField()
+    farmer_address = serializers.CharField(
+        source="farmer.address", read_only=True
+    )
 
     class Meta:
         model = CensusSubmissionItem
@@ -80,6 +83,7 @@ class CensusSubmissionItemSerializer(serializers.ModelSerializer):
             "census_submission",
             "farmer",
             "farmer_name",
+            "farmer_address",
             "livestock_type",
             "livestock_type_name",
             "number_of_heads",

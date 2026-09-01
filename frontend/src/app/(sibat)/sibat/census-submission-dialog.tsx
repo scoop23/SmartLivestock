@@ -62,7 +62,7 @@ import { useLivestockTypes } from "@/app/(farmer)/livestock-inventory/livestock-
 interface CensusSubmissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmissionSuccess?: (newSubmission: CensusSubmissionRecord) => void;
+  onSubmissionSuccess?: () => void;
 }
 
 export default function CensusSubmissionDialog({
@@ -147,13 +147,11 @@ export default function CensusSubmissionDialog({
       const response = await api.post("livestock/create_submission/", payload)
       return response.data;
     },
-    onSuccess: (data) => {
-      const newRecord = mapCensusSubmission(data);
+    onSuccess: () => {
       toast.success(
         `Quarterly Census Q${reportQuarter} ${reportYear} for Brgy. ${barangay} submitted to MAO!`
       );
-      onSubmissionSuccess?.(newRecord);
-      console.log(newRecord);
+      onSubmissionSuccess?.();
       onOpenChange(false);
 
       setItems([

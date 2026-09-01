@@ -31,6 +31,9 @@ import { Separator } from "@/components/ui/separator";
 import CensusSubmissionDialog from "./census-submission-dialog";
 import CensusDetailsDialog from "./census-details-dialog";
 import CensusSubmissionsView from "./census-submissions-view";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCensusSubmission } from "./sibat-analytics";
+
 import {
   CensusSubmissionRecord,
   FarmerActivityRecord,
@@ -39,7 +42,6 @@ import {
   TAB_CHIPS,
   MOCK_PENDING_RECORDS as pendingRecords,
   MOCK_VALIDATED_RECORDS as validatedRecords,
-  MOCK_CENSUS_SUBMISSIONS as initialCensusSubmissions,
   getTypeBadgeStyle,
   calculateTotalCensusHeads,
 } from "./sibat-analytics";
@@ -54,6 +56,7 @@ const getTypeBadge = (type: string) => {
 };
 
 export default function SibatPortal() {
+  const queryClient = useQueryClient();
   const [sectionTab, setSectionTab] = useState<SectionTab>("records");
   const [selectedRecords, setSelectedRecords] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -61,8 +64,14 @@ export default function SibatPortal() {
 
   // Census dialog states
   const [isCensusDialogOpen, setIsCensusDialogOpen] = useState(false);
-  const [censusSubmissions, setCensusSubmissions] = useState<CensusSubmissionRecord[]>(initialCensusSubmissions);
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
+
+  const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
+
+  const handleCensusSubmissionSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
+    setSectionTab("census");
+  };
 
   const allRecords = [...pendingRecords, ...validatedRecords];
 
@@ -94,7 +103,7 @@ export default function SibatPortal() {
   };
 
   // Census totals
-  const totalCensusHeads = calculateTotalCensusHeads(censusSubmissions);
+  const totalCensusHeads = calculateTotalCensusHeads(censuses);
 
   const stats = [
     {
@@ -123,18 +132,13 @@ export default function SibatPortal() {
     },
     {
       label: "Sent to MAO",
-      value: 12 + censusSubmissions.length,
+      value: censuses.length,
       icon: Send,
       iconBg: "bg-blue-100/80",
       iconClass: "text-blue-700",
       accentBar: "bg-blue-500",
     },
   ];
-
-  const handleCensusSubmissionSuccess = (newRecord: CensusSubmissionRecord) => {
-    setCensusSubmissions((prev) => [newRecord, ...prev]);
-    setSectionTab("census");
-  };
 
   return (
     <>
@@ -218,7 +222,7 @@ export default function SibatPortal() {
               }`}
           >
             <FileSpreadsheet className="w-4 h-4 text-amber-300" />
-            Quarterly Census Submissions ({censusSubmissions.length})
+            Quarterly Census Submissions ({censuses.length})
           </button>
         </div>
 
@@ -436,7 +440,7 @@ export default function SibatPortal() {
         {/* ═════════════════════════════════════════════════════════════════════ */}
         {sectionTab === "census" && (
           <CensusSubmissionsView
-            censusSubmissions={censusSubmissions}
+            censusSubmissions={censuses}
             onOpenSubmitDialog={() => setIsCensusDialogOpen(true)}
             onSelectCensusForDetail={(census) => setSelectedCensusForDetail(census)}
           />

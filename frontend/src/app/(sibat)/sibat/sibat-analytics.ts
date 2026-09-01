@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import api from "@/lib/axios";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LivestockType } from "@/app/(farmer)/livestock-inventory/page";
 import { map } from "leaflet";
 
@@ -43,6 +43,7 @@ export interface ApiCensusSubmissionItem {
   id: number;
   farmer: number;
   farmer_name: string;
+  farmer_address?: string;
   livestock_type: number;
   livestock_type_name?: string;
   number_of_heads: number;
@@ -62,6 +63,8 @@ export interface ApiCensusSubmission {
   review_remarks?: string;
   items: ApiCensusSubmissionItem[];
 }
+
+
 // ── Types: Create Census Payload (what we POST to Django) ──
 
 export interface CreateCensusItemPayload {
@@ -102,7 +105,7 @@ export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmission
     items: items.map((subItem) => ({
       id: String(subItem.id),
       farmerName: subItem.farmer_name || `Farmer #${subItem.farmer}`,
-      purok: "",
+      purok: subItem.farmer_address || "",
       livestockType: subItem.livestock_type_name || `Type #${subItem.livestock_type}`,
       numberOfHeads: subItem.number_of_heads,
       remarks: subItem.remarks || "",
@@ -117,11 +120,13 @@ export async function fetchCensusSubmissions(): Promise<CensusSubmissionRecord[]
 
 export function useCensusSubmission() {
   return useQuery({
-    queryKey: ["census-subsmissions"],
+    queryKey: ["census-submissions"],
     queryFn: fetchCensusSubmissions,
     staleTime: 60_000,
-  })
+  });
 }
+
+
 // ── Types: Farmer Daily Reports & Activity ──
 
 export type FarmerActivityType =

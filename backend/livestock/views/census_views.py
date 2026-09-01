@@ -33,13 +33,19 @@ def create_census_submission(request):
 
 @api_view(["GET"])
 def get_census_submissions(request):
-    submissions = CensusSubmission.objects.all().order_by(
-        "-submission_date"
-    )  # '-' meaning in descending order
+    submissions = (
+        CensusSubmission.objects.select_related(
+            "barangay", "submitted_by", "reviewed_by"
+        )
+        .prefetch_related("items__farmer__user", "items__livestock_type")
+        .order_by("-created_at", "-submission_date")
+    )
+
     serializer = CensusSubmissionSerializer(
         submissions, many=True
     )  # serialize submissions
     return Response(serializer.data, status=200)
+
 
 @api_view(["UPDATE", "PATCH"])
 def update_census_submission(request, pk):
