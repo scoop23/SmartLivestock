@@ -1,88 +1,95 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Bell, Calendar, Tag } from "lucide-react";
-import { Sidebar } from "@/app/components/sidebar";
+import { useState } from "react";
+import { Bell, Search, X } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import MobileNavAuction from "@/app/components/mobilenavauction";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ANNOUNCEMENTS, Announcement } from "./types";
+import { AnnouncementCard } from "./announcement-card";
 
 export default function AuctionAnnouncement() {
-  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
 
-  const announcements = [
-    {
-      id: 1,
-      title: "New Inspection Protocol Effective May 1, 2026",
-      date: "2026-04-20",
-      category: "Policy",
-      content: "All livestock inspections must now include a veterinary health certificate. Please ensure all required documents are prepared before scheduling an inspection.",
-    },
-    {
-      id: 2,
-      title: "Auction Schedule Update",
-      date: "2026-04-18",
-      category: "Schedule",
-      content: "The weekly livestock auction will now be held every Wednesday and Saturday. All auction staff are required to be on-site by 6:00 AM.",
-    },
-    {
-      id: 3,
-      title: "System Maintenance Notice",
-      date: "2026-04-15",
-      category: "System",
-      content: "SmartLivestock system will undergo maintenance on April 30, 2026 from 10:00 PM to 2:00 AM. Some features may be temporarily unavailable.",
-    },
-  ];
-
-  const categoryColor = (category: string) => {
-    switch (category) {
-      case "Policy": return "bg-purple-100 text-purple-700";
-      case "Schedule": return "bg-blue-100 text-blue-700";
-      case "System": return "bg-orange-100 text-orange-700";
-      default: return "bg-gray-100 text-gray-700";
-    }
-  };
+  const query = searchQuery.toLowerCase().trim();
+  const filtered = ANNOUNCEMENTS.filter((item) => {
+    const matchesCat = selectedCategory === "ALL" || item.category === selectedCategory;
+    const matchesSearch =
+      !query ||
+      item.title.toLowerCase().includes(query) ||
+      item.content.toLowerCase().includes(query) ||
+      item.author.toLowerCase().includes(query);
+    return matchesCat && matchesSearch;
+  });
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <div className="hidden md:block">
-        <Sidebar role="auction" onLogout={() => router.push("/")} />
-      </div>
-      <main className="flex flex-col w-full">
-        <PageHeader
-          title="Announcements"
-          subtitle="Latest updates and news for auction staff"
-          variant="auction"
-          sticky
-          mobileMenuOffset={false}
-        />
+    <>
+      <PageHeader
+        title="Auction Announcements & Bulletins"
+        subtitle="Official notices, market schedules, and biosecurity advisories for auction inspectors"
+        variant="auction"
+        maxWidthClass="max-w-7xl"
+      />
 
-        <div className="px-6 py-6 space-y-4">
-          {announcements.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="bg-[#7C3AED] p-2 rounded-lg text-white mt-0.5">
-                    <Bell className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">{item.title}</h3>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <Calendar className="w-3 h-3" /> {item.date}
-                      </span>
-                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${categoryColor(item.category)}`}>
-                        <Tag className="w-3 h-3" /> {item.category}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-3 leading-relaxed">{item.content}</p>
-                  </div>
-                </div>
-              </div>
+      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+        {/* Search & Filter Bar */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                placeholder="Search bulletins and advisories…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9 bg-slate-50/60 border-slate-200 rounded-xl h-10 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          ))}
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              {["ALL", "Policy", "Schedule", "Market", "System"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
+                    selectedCategory === cat
+                      ? "bg-[#7C3AED] text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {cat === "ALL" ? "All Bulletins" : cat}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-      </main>
-      <MobileNavAuction />
-    </div>
+
+        {/* Announcement Feed */}
+        <div className="space-y-4">
+          {filtered.length === 0 ? (
+            <Card className="p-12 text-center rounded-2xl border-dashed border-slate-200">
+              <div className="flex flex-col items-center space-y-2">
+                <Bell className="w-8 h-8 text-slate-300" />
+                <p className="font-bold text-slate-700 text-sm">No announcements found</p>
+                <p className="text-xs text-slate-400">Try adjusting your search or category filter.</p>
+              </div>
+            </Card>
+          ) : (
+            filtered.map((item) => (
+              <AnnouncementCard key={item.id} announcement={item} />
+            ))
+          )}
+        </div>
+      </div>
+    </>
   );
 }

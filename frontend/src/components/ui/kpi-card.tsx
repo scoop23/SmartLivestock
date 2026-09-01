@@ -16,6 +16,7 @@ export interface KpiCardProps {
   badgeClassName?: string;
   variant?: KpiVariant;
   size?: "sm" | "default";
+  layout?: "vertical" | "horizontal";
   isLoading?: boolean;
   className?: string;
   onClick?: () => void;
@@ -84,6 +85,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
   badgeClassName,
   variant = "default",
   size = "default",
+  layout = "vertical",
   isLoading = false,
   className,
   onClick,
@@ -93,8 +95,25 @@ export const KpiCard: React.FC<KpiCardProps> = ({
   const isSm = size === "sm";
 
   if (isLoading) {
+    if (layout === "horizontal") {
+      return (
+        <Card className={cn("border-2 border-stone-200/60 bg-white/70 shadow-xs rounded-2xl", className)}>
+          <CardContent className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-9 rounded-xl" />
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-6 w-16" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-14 rounded-full" />
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
-      <Card className={cn("border-2 border-stone-200/60 bg-white/70 shadow-xs rounded-2xl", isSm ? "p-0" : "")}>
+      <Card className={cn("border-2 border-stone-200/60 bg-white/70 shadow-xs rounded-2xl", isSm ? "p-0" : "", className)}>
         <CardContent className={cn("space-y-2.5", isSm ? "p-3.5" : "p-4 space-y-3")}>
           <div className="flex items-center justify-between">
             <Skeleton className={cn("rounded-xl", isSm ? "size-7" : "size-9")} />
@@ -107,6 +126,66 @@ export const KpiCard: React.FC<KpiCardProps> = ({
     );
   }
 
+  // ── HORIZONTAL COMPACT LAYOUT (~60px height) ──
+  if (layout === "horizontal") {
+    return (
+      <Card
+        onClick={onClick}
+        className={cn(
+          "group relative overflow-hidden rounded-2xl border-2 shadow-2xs transition-all duration-200",
+          "hover:-translate-y-0.5 hover:shadow-xs",
+          styles.card,
+          onClick && "cursor-pointer",
+          className
+        )}
+      >
+        {/* Left vertical accent line */}
+        {/* <div */}
+        {/*   className={cn( */}
+        {/*     "absolute left-0 top-0 bottom-0 w-1.5 transition-all duration-300 group-hover:w-2", */}
+        {/*     accentBarColor || styles.accentBar */}
+        {/*   )} */}
+        {/* /> */}
+
+        <CardContent className="p-3 sm:p-3.5 pl-4 sm:pl-4.5 flex items-center justify-between gap-3 relative z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            {icon && (
+              <div
+                className={cn(
+                  "p-2 rounded-xl transition-transform duration-200 group-hover:scale-105 shrink-0 flex items-center justify-center [&_svg]:size-4",
+                  styles.iconWrapper
+                )}
+              >
+                {icon}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-stone-600 truncate leading-tight">{title}</p>
+              <div className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                {value}
+              </div>
+              {description && (
+                <p className="text-[10px] text-stone-500 font-medium truncate mt-0.5">{description}</p>
+              )}
+            </div>
+          </div>
+
+          {badge && (
+            <span
+              className={cn(
+                "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 self-start text-[9px]",
+                badgeClassName || styles.badgeDefault
+              )}
+            >
+              {badge}
+            </span>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ── STANDARD VERTICAL LAYOUT ──
   return (
     <Card
       onClick={onClick}
