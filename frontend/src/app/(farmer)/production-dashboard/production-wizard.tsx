@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -121,6 +122,7 @@ export default function ProductionWizard({
 }: ProductionWizardProps) {
   const [step, setStep] = useState(0);
   const [selectOpen, setSelectOpen] = useState(false);
+  const [isCertified, setIsCertified] = useState(false);
   const [prevResetSignal, setPrevResetSignal] = useState(resetSignal);
   const [prevOpen, setPrevOpen] = useState(open);
 
@@ -128,6 +130,7 @@ export default function ProductionWizard({
     setPrevResetSignal(resetSignal);
     setStep(0);
     setSelectOpen(false);
+    setIsCertified(false);
   }
 
   if (open !== prevOpen) {
@@ -135,6 +138,7 @@ export default function ProductionWizard({
     if (open) {
       setStep(0);
       setSelectOpen(false);
+      setIsCertified(false);
     }
   }
 
@@ -460,10 +464,26 @@ export default function ProductionWizard({
                 )}
               </div>
 
+              {/* Farmer Production Declaration Banner */}
+              <div className="flex items-start gap-3 p-3.5 mt-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+                <Checkbox
+                  id="certify-production"
+                  checked={isCertified}
+                  onCheckedChange={(checked) => setIsCertified(checked === true)}
+                  className="mt-0.5 border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] cursor-pointer"
+                />
+                <label
+                  htmlFor="certify-production"
+                  className="text-xs font-semibold text-slate-800 leading-snug cursor-pointer select-none"
+                >
+                  I certify that the recorded yield was harvested from my registered livestock on this date and is ready for field verification by the assigned <span className="font-extrabold text-emerald-950">SIBAT Agricultural Technologist</span> and MAO.
+                </label>
+              </div>
+
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full mt-5 bg-emerald-700 p-6 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm"
+                disabled={isSubmitting || !isCertified} // only enable if certified 
+                className="w-full mt-4 bg-emerald-700 p-6 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
                 {isSubmitting ? "Submitting..." : "Submit Record"}

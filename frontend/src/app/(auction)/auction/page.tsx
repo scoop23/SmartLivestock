@@ -146,7 +146,7 @@ export default function AuctionDashboard() {
         {/* ═══ Compact KPI Cards ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
-            size="sm"
+            size="default"
             title="Pending Inspection"
             value={pendingCount}
             variant="amber"
@@ -156,7 +156,7 @@ export default function AuctionDashboard() {
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
-            size="sm"
+            size="default"
             title="Verified Today"
             value={verifiedCount}
             variant="sky"
@@ -166,7 +166,7 @@ export default function AuctionDashboard() {
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
-            size="sm"
+            size="default"
             title="Approved Clearances"
             value={approvedCount}
             variant="emerald"
@@ -176,7 +176,7 @@ export default function AuctionDashboard() {
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
-            size="sm"
+            size="default"
             title="Rejected / Flagged"
             value={rejectedCount}
             variant="rose"

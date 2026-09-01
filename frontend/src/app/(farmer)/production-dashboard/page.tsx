@@ -13,6 +13,8 @@ import ProductionStats from "./production-stats";
 import ProductionCharts from "./production-charts";
 import ProductionRecent from "./production-recent";
 import ProductionTypeSelector from "./production-type-selector";
+import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   EMPTY_TYPE_ANALYTICS,
   fetchProductionRecords,
