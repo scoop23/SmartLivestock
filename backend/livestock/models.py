@@ -139,6 +139,7 @@ class CensusSubmission(models.Model):
 
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    remarks = models.TextField(blank=True)
     review_remarks = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

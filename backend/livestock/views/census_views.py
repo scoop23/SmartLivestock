@@ -22,6 +22,7 @@ def create_census_submission(request):
         barangay=validated_data["barangay"],
         report_year=validated_data["report_year"],
         report_quarter=validated_data["report_quarter"],
+        remarks=validated_data.get("remarks", ""),
         items=validated_data.get("items", []),
     )
 

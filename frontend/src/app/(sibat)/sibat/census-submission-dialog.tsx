@@ -80,11 +80,11 @@ export default function CensusSubmissionDialog({
   const [remarks, setRemarks] = useState("");
   const [isCertified, setIsCertified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [farmer, setFarmer] = useState<number | null>(null);
 
   const [items, setItems] = useState<CensusItemEntry[]>([
     {
       id: "item-1",
+      farmerId: null,
       farmerName: "",
       purok: "Purok 1",
       livestockType: "Cattle (Baka)",
@@ -112,6 +112,7 @@ export default function CensusSubmissionDialog({
       ...prev,
       {
         id: `item-${Date.now()}-${Math.random()}`,
+        farmerId: null,
         farmerName: "",
         purok: "Purok 1",
         livestockType: "Cattle (Baka)",
@@ -158,6 +159,7 @@ export default function CensusSubmissionDialog({
       setItems([
         {
           id: `item-${Date.now()}`,
+          farmerId: null,
           farmerName: "",
           purok: "Purok 1",
           livestockType: "Cattle (Baka)",
@@ -194,10 +196,11 @@ export default function CensusSubmissionDialog({
     }
 
     const invalidItem = items.find(
-      (item) => !item.farmerName.trim() || Number(item.numberOfHeads) <= 0
+      (item) => !item.farmerId || Number(item.numberOfHeads) <= 0
     );
+
     if (invalidItem) {
-      toast.error("Please fill in farmer name and positive number of heads for all rows.");
+      toast.error("Please select a farmer and enter a positive number of heads for all rows.");
       return;
     }
 
@@ -208,17 +211,20 @@ export default function CensusSubmissionDialog({
 
     setIsSubmitting(true);
 
+
     const submissionPayload: CreateCensusPayload = {
       barangay: barangay,
       report_year: reportYear,
       report_quarter: reportQuarter,
+      remarks: remarks.trim() || undefined,
       items: items.map((item) => ({
-        farmer: farmer,
-        livestock_type: 1,
+        farmer: item.farmerId!,
+        livestock_type: livestockById[item.livestockType] ?? 1,
         number_of_heads: Number(item.numberOfHeads),
         remarks: item.remarks,
       })),
     };
+    console.log(items);
 
     submitMutation.mutate(submissionPayload);
   };
@@ -283,11 +289,14 @@ export default function CensusSubmissionDialog({
                   <Label className="text-xs font-bold text-slate-700">
                     Barangay <span className="text-rose-500">*</span>
                   </Label>
-                  <Select value={barangay ? String(barangay) : ""} onValueChange={(val) => setBarangay(Number(val))}>
+                  <Select
+                    value={barangay ? String(barangay) : undefined}
+                    onValueChange={(val) => setBarangay(Number(val))}
+                  >
                     <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
+                      <SelectValue placeholder="Select Barangay" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 rounded-xl">
-                      <SelectValue placeholder="Select Barangay" />
                       {barangays?.map((brgy) => (
                         <SelectItem key={brgy.id} value={String(brgy.id)} className="text-xs font-medium">
                           Brgy. {brgy.barangayName}
@@ -417,29 +426,47 @@ export default function CensusSubmissionDialog({
                         <Label className="text-[11px] font-bold text-slate-600">
                           Farmer Name <span className="text-rose-500">*</span>
                         </Label>
-                        <Select value={farmer ? String(farmer) : ""} onValueChange={(val) => setFarmer(Number(val))}>
-                          <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
-                            <SelectValue placeholder="Select Farmer Name" />
+                        <Select
+                          disabled={!barangay}
+                          value={item.farmerId ? String(item.farmerId) : undefined}
+                          onValueChange={(val) => {
+                            const farmerIdNum = Number(val);
+                            const selected = farmersByBarangay?.find((f) => f.farmerId === farmerIdNum);
+                            handleUpdateItem(item.id, "farmerId", farmerIdNum);
+                            if (selected) {
+                              handleUpdateItem(item.id, "farmerName", selected.farmerName);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                            <SelectValue
+                              placeholder={!barangay ? "Select a Barangay first" : "Select Farmer Name"}
+                            />
                           </SelectTrigger>
-                          <SelectContent>
-                            {
-                              (farmersByBarangay ?? []).map((item) => (
-                                <SelectItem key={item.farmerId} value={String(item.farmerId)}>
-                                  {item.farmerName}
+                          <SelectContent className="max-h-60 rounded-xl">
+                            {(farmersByBarangay ?? []).length === 0 ? (
+                              <div className="p-3 text-xs text-slate-500 text-center font-medium">
+                                No registered farmers found in this barangay.
+                              </div>
+                            ) : (
+                              (farmersByBarangay ?? []).map((f) => (
+                                <SelectItem key={f.farmerId} value={String(f.farmerId)} className="text-xs font-medium">
+                                  {f.farmerName}
                                 </SelectItem>
                               ))
-                            }
+                            )}
                           </SelectContent>
                         </Select>
-                        <Input
-                          placeholder="e.g. Juan Dela Cruz"
-                          value={item.farmerName}
-                          onChange={(e) =>
-                            handleUpdateItem(item.id, "farmerName", e.target.value)
-                          }
-                          className="h-9 text-xs rounded-xl bg-slate-50/70 border-slate-200 font-medium"
-                          required
-                        />
+
+                        {/* <Input */}
+                        {/*   placeholder="e.g. Juan Dela Cruz" */}
+                        {/*   value={item.farmerName} */}
+                        {/*   onChange={(e) => */}
+                        {/*     handleUpdateItem(item.id, "farmerName", e.target.value) */}
+                        {/*   } */}
+                        {/*   className="h-9 text-xs rounded-xl bg-slate-50/70 border-slate-200 font-medium" */}
+                        {/*   required */}
+                        {/* /> */}
                       </div>
 
                       {/* Purok / Sitio */}
@@ -459,15 +486,14 @@ export default function CensusSubmissionDialog({
                           Livestock Type <span className="text-rose-500">*</span>
                         </Label>
                         <Select
-                          value={item.livestockType}
+                          value={item.livestockType || undefined}
                           onValueChange={(val) => handleUpdateItem(item.id, "livestockType", val)}
                         >
-                          <SelectTrigger className="h-9 text-xs rounded-xl bg-slate-50/70 border-slate-200 font-medium">
-                            <SelectValue placeholder="Animal type" />
+                          <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
+                            <SelectValue placeholder="Select Animal Type" />
                           </SelectTrigger>
-                          <SelectContent className="rounded-xl">
+                          <SelectContent className="max-h-60 rounded-xl">
                             {LIVESTOCK_TYPES.map((lt) => (
-
                               <SelectItem key={lt.name} value={lt.name} className="text-xs font-medium">
                                 <span className="mr-1.5">{lt.emoji}</span>
                                 {lt.name}

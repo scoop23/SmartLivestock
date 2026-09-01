@@ -14,6 +14,7 @@ class CensusService:
         barangay,
         report_year,
         report_quarter,
+        remarks="",
         items=None,  # items = the CensusSubmissionItems.
     ):
         """
@@ -42,6 +43,7 @@ class CensusService:
             barangay=barangay,
             report_year=report_year,
             report_quarter=report_quarter,
+            remarks=remarks,
             status=CensusSubmission.StatusType.PENDING,
         )
 

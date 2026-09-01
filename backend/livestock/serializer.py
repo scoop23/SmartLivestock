@@ -114,6 +114,7 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
             "status",
             "submission_date",
             "submitted_by_name",
+            "remarks",
             "review_remarks",
             "items",
         ]

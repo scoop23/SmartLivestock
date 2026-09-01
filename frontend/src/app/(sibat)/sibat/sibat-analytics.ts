@@ -16,6 +16,7 @@ export type CensusStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface CensusItemEntry {
   id: string;
+  farmerId?: number | null;
   farmerName: string;
   purok: string;
   livestockType: string;
@@ -33,6 +34,7 @@ export interface CensusSubmissionRecord {
   submittedBy: string;
   totalHeads: number;
   totalFarmers: number;
+  remarks?: string;
   reviewRemarks?: string;
   items: CensusItemEntry[];
 }
@@ -44,6 +46,7 @@ export interface ApiCensusSubmissionItem {
   livestock_type: number;
   livestock_type_name?: string;
   number_of_heads: number;
+  remarks?: string;
 }
 
 export interface ApiCensusSubmission {
@@ -55,6 +58,7 @@ export interface ApiCensusSubmission {
   status: CensusStatus;
   submission_date: string;
   submitted_by_name?: string;
+  remarks?: string;
   review_remarks?: string;
   items: ApiCensusSubmissionItem[];
 }
@@ -71,6 +75,7 @@ export interface CreateCensusPayload {
   barangay: number;
   report_year: number;
   report_quarter: number;
+  remarks?: string;
   items: CreateCensusItemPayload[];
 }
 
@@ -90,6 +95,7 @@ export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmission
     status: item.status,
     submissionDate: item.submission_date,
     submittedBy: item.submitted_by_name || "SIBAT Officer",
+    remarks: item.remarks || "",
     reviewRemarks: item.review_remarks || "",
     totalHeads: totalHeads,
     totalFarmers: uniqueFarmers || items.length,
@@ -99,7 +105,7 @@ export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmission
       purok: "",
       livestockType: subItem.livestock_type_name || `Type #${subItem.livestock_type}`,
       numberOfHeads: subItem.number_of_heads,
-      remarks: "",
+      remarks: subItem.remarks || "",
     })),
   };
 };
