@@ -538,6 +538,7 @@ export default function LivestockRecordList({
                     </Button>
 
                     <Button
+                      disabled={item.status === "APPROVED"}
                       variant="ghost"
                       size="icon"
                       onClick={() => onDelete(item)}

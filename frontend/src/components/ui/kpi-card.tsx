@@ -15,6 +15,7 @@ export interface KpiCardProps {
   badge?: React.ReactNode;
   badgeClassName?: string;
   variant?: KpiVariant;
+  size?: "sm" | "default";
   isLoading?: boolean;
   className?: string;
   onClick?: () => void;
@@ -82,23 +83,25 @@ export const KpiCard: React.FC<KpiCardProps> = ({
   badge,
   badgeClassName,
   variant = "default",
+  size = "default",
   isLoading = false,
   className,
   onClick,
   accentBarColor,
 }) => {
   const styles = variantStyles[variant] || variantStyles.default;
+  const isSm = size === "sm";
 
   if (isLoading) {
     return (
-      <Card className="border-2 border-stone-200/60 bg-white/70 shadow-xs rounded-2xl">
-        <CardContent className="p-4 space-y-3">
+      <Card className={cn("border-2 border-stone-200/60 bg-white/70 shadow-xs rounded-2xl", isSm ? "p-0" : "")}>
+        <CardContent className={cn("space-y-2.5", isSm ? "p-3.5" : "p-4 space-y-3")}>
           <div className="flex items-center justify-between">
-            <Skeleton className="size-9 rounded-xl" />
-            <Skeleton className="h-4 w-24 rounded-full" />
+            <Skeleton className={cn("rounded-xl", isSm ? "size-7" : "size-9")} />
+            <Skeleton className="h-4 w-20 rounded-full" />
           </div>
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-7 w-20" />
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className={cn("w-16", isSm ? "h-6" : "h-7")} />
         </CardContent>
       </Card>
     );
@@ -115,14 +118,15 @@ export const KpiCard: React.FC<KpiCardProps> = ({
         className
       )}
     >
-      <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full relative z-10">
+      <CardContent className={cn("flex flex-col justify-between h-full relative z-10", isSm ? "p-3.5 sm:p-4" : "p-4 sm:p-5")}>
         <div>
           {/* Header Row: Icon + Badge */}
-          <div className="flex items-center justify-between gap-2 mb-3">
+          <div className={cn("flex items-center justify-between gap-2", isSm ? "mb-2" : "mb-3")}>
             {icon && (
               <div
                 className={cn(
-                  "p-2.5 rounded-xl transition-transform duration-200 group-hover:scale-105 shrink-0 flex items-center justify-center",
+                  "transition-transform duration-200 group-hover:scale-105 shrink-0 flex items-center justify-center",
+                  isSm ? "p-2 rounded-lg text-sm [&_svg]:w-3.5 [&_svg]:h-3.5" : "p-2.5 rounded-xl",
                   styles.iconWrapper
                 )}
               >
@@ -132,7 +136,8 @@ export const KpiCard: React.FC<KpiCardProps> = ({
             {badge && (
               <span
                 className={cn(
-                  "text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap",
+                  "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap",
+                  isSm ? "text-[9px]" : "text-[10px] px-2.5 py-1",
                   badgeClassName || styles.badgeDefault
                 )}
               >
@@ -142,23 +147,24 @@ export const KpiCard: React.FC<KpiCardProps> = ({
           </div>
 
           {/* Title / Label */}
-          <p className="text-xs font-bold text-stone-600 truncate">{title}</p>
+          <p className={cn("font-bold text-stone-600 truncate", isSm ? "text-[11px]" : "text-xs")}>{title}</p>
 
           {/* Metric Value */}
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1 truncate">
+          <div className={cn("font-black text-slate-900 tracking-tight truncate", isSm ? "text-xl sm:text-2xl mt-0.5" : "text-2xl sm:text-3xl mt-1")}>
             {value}
           </div>
 
           {/* Optional extra description */}
           {description && (
-            <p className="text-[11px] text-stone-500 font-medium mt-1 truncate">{description}</p>
+            <p className={cn("text-stone-500 font-medium truncate", isSm ? "text-[10px] mt-0.5" : "text-[11px] mt-1")}>{description}</p>
           )}
         </div>
 
         {/* Decorative bottom accent bar */}
         <div
           className={cn(
-            "h-1 w-12 rounded-full mt-4 transition-all duration-300 group-hover:w-20",
+            "h-1 rounded-full transition-all duration-300",
+            isSm ? "w-8 mt-2.5 group-hover:w-14" : "w-12 mt-4 group-hover:w-20",
             accentBarColor || styles.accentBar
           )}
         />

@@ -33,6 +33,7 @@ import CensusDetailsDialog from "./census-details-dialog";
 import CensusSubmissionsView from "./census-submissions-view";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCensusSubmission } from "./sibat-analytics";
+import { KpiCard } from "@/components/ui/kpi-card";
 
 import {
   CensusSubmissionRecord,
@@ -105,41 +106,6 @@ export default function SibatPortal() {
   // Census totals
   const totalCensusHeads = calculateTotalCensusHeads(censuses);
 
-  const stats = [
-    {
-      label: "Pending Validation",
-      value: pendingRecords.length,
-      icon: Clock,
-      iconBg: "bg-amber-100/80",
-      iconClass: "text-amber-700",
-      accentBar: "bg-amber-500",
-    },
-    {
-      label: "Validated Today",
-      value: validatedRecords.length,
-      icon: CheckCircle2,
-      iconBg: "bg-emerald-100/80",
-      iconClass: "text-emerald-700",
-      accentBar: "bg-emerald-500",
-    },
-    {
-      label: "Quarterly Census Total",
-      value: `${totalCensusHeads} Heads`,
-      icon: FileSpreadsheet,
-      iconBg: "bg-purple-100/80",
-      iconClass: "text-purple-700",
-      accentBar: "bg-purple-500",
-    },
-    {
-      label: "Sent to MAO",
-      value: censuses.length,
-      icon: Send,
-      iconBg: "bg-blue-100/80",
-      iconClass: "text-blue-700",
-      accentBar: "bg-blue-500",
-    },
-  ];
-
   return (
     <>
       <PageHeader
@@ -179,25 +145,55 @@ export default function SibatPortal() {
 
       <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
         {/* ═══ Stat Cards ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* for KpiCard props: label, icon, variant, value, sub */}
-          {stats.map((stat) => (
-            <Card
-              key={stat.label}
-              className="relative overflow-hidden border border-slate-200 bg-white shadow-sm rounded-2xl"
-            >
-              <div className={`absolute left-0 top-0 h-full w-1 ${stat.accentBar}`} />
-              <CardContent className="p-4 pl-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`p-2 rounded-xl ${stat.iconBg}`}>
-                    <stat.icon className={`w-4 h-4 ${stat.iconClass}`} />
-                  </div>
-                </div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{stat.label}</p>
-                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">{stat.value}</p>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard
+            size="sm"
+            title="Pending Validation"
+            value={pendingRecords.length}
+            variant="amber"
+            icon={<Clock className="w-4 h-4" />}
+            badge="Needs Action"
+            description="Awaiting SIBAT review"
+            onClick={() => {
+              setSectionTab("records");
+              setActiveTab("pending");
+            }}
+          />
+          <KpiCard
+            size="sm"
+            title="Validated Today"
+            value={validatedRecords.length}
+            variant="emerald"
+            icon={<CheckCircle2 className="w-4 h-4" />}
+            badge="Verified"
+            description="Forwarded to MAO queue"
+            onClick={() => {
+              setSectionTab("records");
+              setActiveTab("validated");
+            }}
+          />
+          <KpiCard
+            size="sm"
+            title="Quarterly Census Total"
+            value={`${totalCensusHeads} Heads`}
+            variant="sky"
+            icon={<FileSpreadsheet className="w-4 h-4" />}
+            badge="Head Count"
+            description="Total animals recorded"
+            isLoading={isLoadingCensus}
+            onClick={() => setSectionTab("census")}
+          />
+          <KpiCard
+            size="sm"
+            title="Sent to MAO"
+            value={censuses.length}
+            variant="orange"
+            icon={<Send className="w-4 h-4" />}
+            badge="Batches"
+            description="Official submissions"
+            isLoading={isLoadingCensus}
+            onClick={() => setSectionTab("census")}
+          />
         </div>
 
         {/* ═══ Main Section Switcher Tabs ═══ */}

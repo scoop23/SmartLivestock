@@ -90,7 +90,7 @@ export default function AllLivestockInventoryPage() {
           </Link>
         </div>
 
-        <InventoryStats inventories={inventories} isLoading={isLoading} />
+        {/* <InventoryStats inventories={inventories} isLoading={isLoading} /> */}
 
         <LivestockRecordList
           items={inventories}
