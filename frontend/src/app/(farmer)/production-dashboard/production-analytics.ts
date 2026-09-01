@@ -88,6 +88,8 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 
 export interface ProductionRecordItem {
   id: number;
+  barangayName: string | null;
+  farmerName: string | null;
   livestockId: number;
   livestockTypeName: string | null;
   productionType: ProductionType;
@@ -102,6 +104,8 @@ export interface ProductionRecordItem {
 
 export interface ApiProductionRecord {
   id: number;
+  barangay_name?: string | null;
+  farmer_name: string;
   livestock: number;
   livestock_type_name?: string | null;
   production_type?: string;
@@ -116,6 +120,8 @@ export interface ApiProductionRecord {
 
 export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecordItem => ({
   id: item.id,
+  barangayName: item.barangay_name ?? null,
+  farmerName: item.farmer_name ?? null,
   livestockId: item.livestock,
   livestockTypeName: item.livestock_type_name ?? null,
   productionType: (item.production_type ?? "milk").toLowerCase() as ProductionType,

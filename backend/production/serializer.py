@@ -8,12 +8,26 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     livestock_type_name = serializers.CharField(
         source="livestock.livestock_type.name", read_only=True
     )
+    farmer_name = serializers.SerializerMethodField()
+    barangay_name = serializers.CharField(
+        source="livestock.farmer.barangay.barangay_name", read_only=True
+    )
+
+    def get_farmer_name(self, obj):
+        try:
+            user = obj.livestock.farmer.user
+            full_name = user.get_full_name().strip()
+            return full_name if full_name else user.username
+        except Exception:
+            return "Unknown Farmer"
 
     class Meta:
         model = ProductionRecord
         fields = (
             "id",
+            "barangay_name",
             "livestock",
+            "farmer_name",
             "livestock_type_name",
             "production_type",
             "quantity",

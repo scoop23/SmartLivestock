@@ -34,6 +34,7 @@ import CensusSubmissionsView from "./census-submissions-view";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCensusSubmission } from "./sibat-analytics";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { useProductionFromFarmers } from "./sibat-analytics";
 
 import {
   CensusSubmissionRecord,
@@ -42,7 +43,7 @@ import {
   TabKey,
   TAB_CHIPS,
   MOCK_PENDING_RECORDS as pendingRecords,
-  MOCK_VALIDATED_RECORDS as validatedRecords,
+  MOCK_APPROVED_RECORDS as approvedRecords,
   getTypeBadgeStyle,
   calculateTotalCensusHeads,
 } from "./sibat-analytics";
@@ -68,13 +69,15 @@ export default function SibatPortal() {
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
 
   const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
+  const { data: productionFromFarmers = [] } = useProductionFromFarmers();
+  console.log(productionFromFarmers);
 
   const handleCensusSubmissionSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
     setSectionTab("census");
   };
 
-  const allRecords = [...pendingRecords, ...validatedRecords];
+  const allRecords = [...pendingRecords, ...approvedRecords];
 
   const toggleRecord = (id: number) => {
     setSelectedRecords((prev) =>
@@ -88,7 +91,7 @@ export default function SibatPortal() {
     const matchesTab =
       activeTab === "all" ||
       (activeTab === "pending" && record.status === "pending") ||
-      (activeTab === "validated" && record.status === "validated");
+      (activeTab === "approved" && record.status === "approved");
     const matchesSearch =
       !query ||
       record.farmer.toLowerCase().includes(query) ||
@@ -100,7 +103,7 @@ export default function SibatPortal() {
   const tabCounts: Record<string, number> = {
     all: allRecords.length,
     pending: pendingRecords.length,
-    validated: validatedRecords.length,
+    approved: approvedRecords.length,
   };
 
   // Census totals
@@ -161,15 +164,15 @@ export default function SibatPortal() {
           />
           <KpiCard
             layout="horizontal"
-            title="Validated Today"
-            value={validatedRecords.length}
+            title="Approved Today"
+            value={approvedRecords.length}
             variant="emerald"
             icon={<CheckCircle2 className="w-4 h-4" />}
-            badge="Verified"
-            description="Forwarded to MAO"
+            badge="Approved"
+            description="Verified by SIBAT / MAO"
             onClick={() => {
               setSectionTab("records");
-              setActiveTab("validated");
+              setActiveTab("approved");
             }}
           />
           <KpiCard
@@ -393,7 +396,7 @@ export default function SibatPortal() {
                               {isPending ? (
                                 <><Clock className="w-3 h-3 mr-1" />Pending</>
                               ) : (
-                                <><CheckCircle2 className="w-3 h-3 mr-1" />Validated</>
+                                <><CheckCircle2 className="w-3 h-3 mr-1" />Approved</>
                               )}
                             </Badge>
                           </div>

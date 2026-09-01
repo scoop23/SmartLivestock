@@ -57,11 +57,26 @@ def get_single_production_record(request, pk):
 def get_production_records(
     request,
 ):  # provides a list of production records for the logged-in user
-    records = ProductionRecord.objects.filter(
-        created_by=request.user
-    ).order_by("-created_at")  # get the user using request as jwt binds it.
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", None)
+
+    if role_name == "FARMER":
+        records = ProductionRecord.objects.filter(created_by=user)
+    elif role_name in ["MAO", "SIBAT", "ADMIN"]:
+        records = ProductionRecord.objects.all()
+    else:
+        records = ProductionRecord.objects.all()
+
+    records = records.select_related(
+        "livestock__farmer__user",
+        "livestock__farmer__barangay",
+        "livestock__livestock_type",
+        "created_by",
+        "reviewed_by",
+    ).order_by("-record_date", "-created_at")
+
     serializer = ProductionRecordSerializer(records, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=200)
 
 
 @api_view(["DELETE"])

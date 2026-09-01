@@ -9,6 +9,7 @@ import api from "@/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LivestockType } from "@/app/(farmer)/livestock-inventory/page";
 import { map } from "leaflet";
+import { fetchProductionRecords } from "../../(farmer)/production-dashboard/production-analytics";
 
 // ── Types: Census Submissions ──
 
@@ -137,7 +138,7 @@ export type FarmerActivityType =
   | "Inventory Update"
   | string;
 
-export type FarmerActivityStatus = "pending" | "validated";
+export type FarmerActivityStatus = "pending" | "approved";
 
 export interface FarmerActivityRecord {
   id: number;
@@ -191,7 +192,7 @@ export function useFarmersByBarangay(barangayId: number | null) {
 
 // ── Types: UI & Navigation ──
 export type SectionTab = "records" | "census";
-export type TabKey = "pending" | "validated" | "all";
+export type TabKey = "pending" | "approved" | "all";
 
 export interface TabChipConfig {
   value: TabKey;
@@ -222,8 +223,8 @@ export const TAB_CHIPS: TabChipConfig[] = [
     dotClass: "bg-amber-500",
   },
   {
-    value: "validated",
-    label: "Validated",
+    value: "approved",
+    label: "Approved",
     activeClass: "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25",
     dotClass: "bg-emerald-500",
   },
@@ -320,10 +321,18 @@ export const MOCK_PENDING_RECORDS: FarmerActivityRecord[] = [
   { id: 4, farmer: "Rosa Garcia", type: "Slaughter Record", breed: "Crossbreed", count: 1, date: "2026-04-24", status: "pending" },
 ];
 
-export const MOCK_VALIDATED_RECORDS: FarmerActivityRecord[] = [
-  { id: 5, farmer: "Antonio Cruz", type: "Inventory Update", breed: "Brahman", count: 5, date: "2026-04-23", status: "validated" },
-  { id: 6, farmer: "Luz Mendoza", type: "Production Update", breed: "Holstein-Friesian", count: 2, date: "2026-04-22", status: "validated" },
+export const MOCK_APPROVED_RECORDS: FarmerActivityRecord[] = [
+  { id: 5, farmer: "Antonio Cruz", type: "Inventory Update", breed: "Brahman", count: 5, date: "2026-04-23", status: "approved" },
+  { id: 6, farmer: "Luz Mendoza", type: "Production Update", breed: "Holstein-Friesian", count: 2, date: "2026-04-22", status: "approved" },
 ];
+
+export function useProductionFromFarmers() {
+  return useQuery({
+    queryKey: ["sibat-production-records"],
+    queryFn: fetchProductionRecords,
+    staleTime: 60_000,
+  });
+};
 
 // ── Mock Data: Quarterly Census Submissions ──
 
