@@ -39,7 +39,7 @@ export default function DataUploadsPage() {
   ];
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
       <div className="hidden md:block">
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
       </div>
@@ -47,20 +47,20 @@ export default function DataUploadsPage() {
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <PageHeader
           title="Data Uploads"
-          subtitle="Import bulk records into the livestock management system"
-          icon={<UploadCloud className="h-7 w-7" />}
+          subtitle="Import bulk records into the livestock management system — Municipal Agriculture Office"
+          icon={<UploadCloud className="h-6 w-6" />}
           variant="admin"
           maxWidthClass="max-w-5xl"
           mobileMenuOffset={false}
         />
 
-        <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
+        <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Upload Section */}
             <div className="lg:col-span-2 space-y-6">
-              <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <section className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6">
+                <h3 className="font-black text-slate-900 text-base tracking-tight mb-4 flex items-center gap-2">
                   <FileUp className="w-5 h-5 text-[#2D5A27]" />
                   Import Data Section
                 </h3>

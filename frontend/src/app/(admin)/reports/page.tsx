@@ -44,7 +44,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
       {/* Sidebar - Desktop */}
       <div className="hidden md:block">
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
@@ -53,19 +53,19 @@ export default function ReportsPage() {
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <PageHeader
           title="Reports & Analytics"
-          subtitle="Generate and manage your farm data exports"
-          icon={<FilePieChart className="h-7 w-7" />}
+          subtitle="Generate and manage your farm data exports — Municipal Agriculture Office"
+          icon={<FilePieChart className="h-6 w-6" />}
           variant="admin"
           maxWidthClass="max-w-4xl"
           mobileMenuOffset={false}
         />
 
-        <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
+        <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
 
           {/* Generate Reports Section */}
-          <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+          <section className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50/70 border-b border-slate-200 p-4">
+              <h3 className="font-black text-slate-900 text-sm tracking-tight flex items-center gap-2">
                 <Filter className="w-4 h-4 text-[#2D5A27]" />
                 Generate New Report
               </h3>

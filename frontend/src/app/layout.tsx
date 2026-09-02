@@ -2,10 +2,20 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { Inter } from "next/font/google";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
+  variable: "--font-plus-jakarta-sans",
+  display: "swap",
 });
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 
 // TODO: Update metadata title/description to "SmartLivestock Batangas"
 export const metadata: Metadata = {
@@ -22,7 +32,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${plusJakartaSans.className} h-full antialiased`}
+      className={`${inter.variable} ${inter.className} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>

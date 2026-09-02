@@ -119,7 +119,7 @@ export default function AnalyticsPage() {
 
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
       <div className="hidden md:block">
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
       </div>
@@ -127,19 +127,20 @@ export default function AnalyticsPage() {
       <main className="flex-1 overflow-auto">
         <PageHeader
           title="Advanced Analytics"
-          subtitle="AI-powered insights and predictions"
+          subtitle="AI-powered insights and predictions — Municipal Agriculture Office"
+          variant="admin"
         />
 
         {/* AI Search Bar */}
-        <div className="p-4 md:p-6 bg-white border-b border-gray-200">
+        <div className="p-4 md:p-6 bg-white border-b border-slate-200 shadow-xs">
           <div className="max-w-7xl mx-auto">
             <AskAIBar />
           </div>
         </div>
 
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
           {/* Analytics Type Selector */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="bg-white p-3 rounded-2xl shadow-xs border border-slate-200">
             <div className="flex flex-wrap gap-2">
               {([
                 { value: 'descriptive', label: '📊 Descriptive Analytics' },

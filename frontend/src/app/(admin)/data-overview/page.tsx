@@ -72,7 +72,7 @@ export default function DataOverviewPage() {
   const handleLogout = () => router.push('/');
 
   return (
-    <div className="flex min-h-screen bg-gray-50 font-sans">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
 
       <div className='hidden md:block'>
         <Sidebar role="lgu" onLogout={handleLogout} />
@@ -81,16 +81,17 @@ export default function DataOverviewPage() {
       <main className="flex-1 overflow-auto">
         <PageHeader
           title="System Data Overview"
-          subtitle="Comprehensive view of all livestock records and logistics"
+          subtitle="Comprehensive view of all livestock records and logistics — Municipal Agriculture Office"
+          variant="admin"
         />
 
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
           {/* Filters */}
-          <div className="bg-white p-4 rounded-lg border mb-6 flex flex-col md:flex-row gap-4 shadow-sm">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-3 shadow-xs">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#2D5A27] outline-none transition-all"
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2D5A27]/30 outline-none transition-all"
                 placeholder={`Search records in ${activeTab}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -98,7 +99,7 @@ export default function DataOverviewPage() {
             </div>
 
             <select
-              className="md:w-64 border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#2D5A27] bg-white"
+              className="md:w-64 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2D5A27]/30 bg-white"
               value={filterBarangay}
               onChange={(e) => setFilterBarangay(e.target.value)}
             >
@@ -109,7 +110,7 @@ export default function DataOverviewPage() {
 
             <button
               onClick={handleExport}
-              className="bg-[#2D5A27] hover:bg-[#23461f] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
+              className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
             >
               <Download className="w-4 h-4" />
               Export Excel
@@ -203,7 +204,7 @@ export default function DataOverviewPage() {
                       <>
                         <td className="p-4">
                           <div className="flex flex-col">
-                            <span className="font-mono text-xs font-bold text-blue-600">{item.cattleId}</span>
+                            <span className=" text-xs font-bold text-blue-600">{item.cattleId}</span>
                             <span className="text-gray-500 text-[11px]">{item.breed}</span>
                           </div>
                         </td>
@@ -263,7 +264,7 @@ export default function DataOverviewPage() {
                     {/* Mortality Specific */}
                     {activeTab === 'mortality' && (
                       <>
-                        <td className="p-4 font-mono text-xs">{item.cattleId}</td>
+                        <td className="p-4 text-xs">{item.cattleId}</td>
                         <td className="p-4 text-gray-700">{item.cause}</td>
                         <td className="p-4 text-gray-500">{item.dateOfDeath}</td>
                       </>

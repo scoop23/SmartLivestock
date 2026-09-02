@@ -4,18 +4,36 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
+
 import {
-  Search,
-  X,
-  MapPin,
-  Users,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ShieldCheck,
-  ChevronRight,
+  Users,
+  MapPin,
   Key,
   UserMinus,
   Edit3,
-  CheckCircle2
-} from 'lucide-react';
+  ChevronRight,
+  Search,
+  CheckCircle2,
+} from "lucide-react";
 
 interface User {
   id: string;
@@ -87,11 +105,9 @@ export default function UserManagementPage() {
     <div className="flex min-h-screen bg-[#F9FAFB]">
       <div className='hidden md:block'>
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
-
       </div>
 
       <main className="flex-1 overflow-auto relative">
-
         {/* Floating Notification Toast */}
         {notification && (
           <div className="fixed top-8 right-8 z-[100] animate-in slide-in-from-right-full duration-300">
@@ -112,124 +128,167 @@ export default function UserManagementPage() {
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100">
             <div className="relative w-full md:w-96">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input
+              <Input
                 type="text"
                 placeholder="Search name or barangay..."
-                className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all"
+                className="w-full pl-12 pr-4 py-6 bg-gray-50 border-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#2D5A27] transition-all"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
 
-            <div className="flex bg-gray-100 p-1 rounded-2xl overflow-hidden">
-              {['all', 'farmer', 'sibat'].map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter as any)}
-                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeFilter === filter ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'
-                    }`}
-                >
-                  {filter}
-                </button>
-              ))}
-            </div>
+            <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as any)} className="w-full md:w-auto">
+              <TabsList className="bg-gray-100 p-1 rounded-2xl h-auto">
+                {['all', 'farmer', 'sibat'].map((filter) => (
+                  <TabsTrigger
+                    key={filter}
+                    value={filter}
+                    className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-400"
+                  >
+                    {filter}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* List Table */}
           <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50/50 text-left">
-                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">User / Role</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Barangay</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Quick Actions</th>
-                  <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
+                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    User / Role
+                  </TableHead>
+                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    Barangay
+                  </TableHead>
+                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    Status
+                  </TableHead>
+                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+                    Quick Actions
+                  </TableHead>
+                  <TableHead className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    Details
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody className="divide-y divide-gray-50">
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="group hover:bg-gray-50/80 transition-all">
-                    <td className="px-8 py-6">
+                  <TableRow
+                    key={user.id}
+                    className="group hover:bg-gray-50/80 transition-all border-none"
+                  >
+                    <TableCell className="px-5 py-5">
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${user.role === 'SIBAT' ? 'bg-blue-600 text-white' : 'bg-green-100 text-[#2D5A27]'
-                          }`}>
-                          {user.role === 'SIBAT' ? <ShieldCheck size={20} /> : <Users size={20} />}
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center ${user.role === "SIBAT"
+                            ? "bg-blue-600 text-white"
+                            : "bg-green-100 text-[#2D5A27]"
+                            }`}
+                        >
+                          {user.role === "SIBAT" ? (
+                            <ShieldCheck size={20} />
+                          ) : (
+                            <Users size={20} />
+                          )}
                         </div>
                         <div>
                           <p className="font-bold text-gray-800">{user.name}</p>
-                          <span className="text-[9px] font-black text-gray-400 uppercase">{user.role}</span>
+                          <span className="text-[9px] font-black text-gray-400 uppercase">
+                            {user.role}
+                          </span>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-8 py-6 text-sm font-bold text-gray-600">
+                    </TableCell>
+
+                    <TableCell className="px-8 py-6 text-sm font-bold text-gray-600">
                       <div className="flex items-center gap-2">
                         <MapPin size={14} className="text-gray-300" /> {user.barangay}
                       </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
+                    </TableCell>
+
+                    <TableCell className="px-8 py-6">
+                      <Badge
+                        variant="outline"
+                        className={`border-none text-[9px] font-black uppercase px-3 py-1 rounded-full ${user.status === "active"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                          }`}
+                      >
                         {user.status}
-                      </span>
-                    </td>
-                    <td className="px-8 py-6">
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="px-8 py-6">
                       <div className="flex items-center justify-center gap-2">
-                        {/* Quick Action Buttons */}
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handlePasswordReset(user.name)}
                           title="Reset Password"
-                          className="p-2 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-blue-600 transition-all"
+                          className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-blue-600 transition-all"
                         >
                           <Key size={16} />
-                        </button>
-                        <button
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleStatusToggle(user.id)}
-                          title={user.status === 'active' ? 'Suspend User' : 'Activate User'}
-                          className={`p-2 hover:bg-white hover:shadow-md rounded-lg transition-all ${user.status === 'active' ? 'text-gray-400 hover:text-red-600' : 'text-red-600 hover:text-green-600'
+                          title={
+                            user.status === "active" ? "Suspend User" : "Activate User"
+                          }
+                          className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all ${user.status === "active"
+                            ? "text-gray-400 hover:text-red-600"
+                            : "text-red-600 hover:text-green-600"
                             }`}
                         >
                           <UserMinus size={16} />
-                        </button>
-                        <button
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           title="Edit Basic Info"
-                          className="p-2 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-[#2D5A27] transition-all"
+                          className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-[#2D5A27] transition-all"
                         >
                           <Edit3 size={16} />
-                        </button>
+                        </Button>
                       </div>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <button
+                    </TableCell>
+
+                    <TableCell className="px-8 py-6 text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setSelectedUser(user)}
-                        className="p-2 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all"
+                        className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all"
                       >
                         <ChevronRight size={18} />
-                      </button>
-                    </td>
-                  </tr>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
 
-        {/* PROFILE MODAL (Remains as Detail View) */}
-        {selectedUser && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-[3rem] p-10 relative shadow-2xl">
-              <button onClick={() => setSelectedUser(null)} className="absolute top-8 right-8 p-2 hover:bg-gray-100 rounded-full">
-                <X size={24} className="text-gray-400" />
-              </button>
-
-              <div className="text-center mb-8">
+        {/* PROFILE MODAL (shadcn Dialog) */}
+        <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+          {selectedUser && (
+            <DialogContent className="sm:max-w-md rounded-[3rem] p-10 bg-white border-none shadow-2xl [&>button]:right-8 [&>button]:top-8 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-gray-100">
+              <DialogHeader className="text-center mb-4">
                 <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-4 ${selectedUser.role === 'SIBAT' ? 'bg-blue-600 text-white' : 'bg-green-100 text-[#2D5A27]'
                   }`}>
                   {selectedUser.role === 'SIBAT' ? <ShieldCheck size={40} /> : <Users size={40} />}
                 </div>
-                <h2 className="text-2xl font-black text-gray-900">{selectedUser.name}</h2>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{selectedUser.id}</p>
-              </div>
+                <DialogTitle className="text-2xl font-black text-gray-900 text-center">{selectedUser.name}</DialogTitle>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center mt-1">{selectedUser.id}</p>
+              </DialogHeader>
 
               <div className="space-y-3">
                 <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
@@ -248,15 +307,15 @@ export default function UserManagementPage() {
                 )}
               </div>
 
-              <button
+              <Button
                 onClick={() => setSelectedUser(null)}
-                className="w-full mt-8 py-5 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:shadow-xl transition-all"
+                className="w-full mt-6 py-6 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-gray-800 hover:shadow-xl transition-all"
               >
                 Done
-              </button>
-            </div>
-          </div>
-        )}
+              </Button>
+            </DialogContent>
+          )}
+        </Dialog>
       </main>
     </div>
   );

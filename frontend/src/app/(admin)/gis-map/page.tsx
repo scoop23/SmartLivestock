@@ -271,7 +271,7 @@ export default function GISMapPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
 
       <div className="hidden md:block">
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
@@ -279,9 +279,10 @@ export default function GISMapPage() {
 
       <main className="flex-1 overflow-auto">
         <PageHeader
-          title="GIS Mapping - Padre Garcia"
-          subtitle="Barangay-level cattle, production & disease heat map ? 18 barangays"
+          title="GIS Mapping — Padre Garcia"
+          subtitle="Barangay-level cattle, production & disease heat map — 18 barangays"
           icon={<MapIcon className="h-6 w-6 text-[#2D5A27]" />}
+          variant="admin"
           action={
             <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-3">
               <div className="rounded-lg border border-[#c3dbb8] bg-[#f0f7ee] px-3 py-2 text-center">

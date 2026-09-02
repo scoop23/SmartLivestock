@@ -95,7 +95,7 @@ export default function DataValidationPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
 
       <div className="hidden md:block">
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
@@ -104,16 +104,17 @@ export default function DataValidationPage() {
       <main className="flex-1 overflow-auto">
         <PageHeader
           title="Data Validation Center"
-          subtitle="Review and approve farmer-submitted records"
+          subtitle="Review and approve farmer-submitted records — Municipal Agriculture Office"
+          variant="admin"
         />
 
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
               <div className="flex items-center gap-3 mb-2">
                 <Clock className="w-5 h-5 text-yellow-600" />
-                <p className="text-2xl">{records.filter(r => r.status === 'pending').length}</p>
+                <p className="text-2xl font-bold">{records.filter(r => r.status === 'pending').length}</p>
               </div>
               <p className="text-sm text-gray-600">Pending Review</p>
             </div>
@@ -148,8 +149,8 @@ export default function DataValidationPage() {
                   key={type}
                   onClick={() => setFilter(type)}
                   className={`px-4 py-2 rounded-lg capitalize transition-colors ${filter === type
-                      ? 'bg-[#2D5A27] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[#2D5A27] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   {type}

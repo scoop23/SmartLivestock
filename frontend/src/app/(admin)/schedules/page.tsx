@@ -137,7 +137,7 @@ export default function AdminAvailabilityPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
       <div className="hidden md:block">
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
       </div>
@@ -145,19 +145,19 @@ export default function AdminAvailabilityPage() {
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <PageHeader
           title="MAO Admin Console"
-          subtitle="Global Program Availability & Farmer Scheduling"
-          icon={<Building2 className="h-7 w-7" />}
+          subtitle="Global Program Availability & Farmer Scheduling — Municipal Agriculture Office"
+          icon={<Building2 className="h-6 w-6" />}
           variant="admin"
           maxWidthClass="max-w-6xl"
           mobileMenuOffset={false}
         />
 
-        <div className="p-4 md:p-6 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
 
           {/* Left: Schedule Window Creation */}
           <div className="lg:col-span-5 space-y-6">
-            <section className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-6">
+            <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+              <h3 className="font-black text-slate-900 text-base tracking-tight flex items-center gap-2 mb-6">
                 <Send className="w-5 h-5 text-[#2D5A27]" />
                 Broadcast Availability
               </h3>

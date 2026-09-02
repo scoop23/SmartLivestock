@@ -54,7 +54,7 @@ export default function NewsAnnouncementsPage() {
     : announcements.filter(item => item.status === 'Draft');
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
       <div className="hidden md:block">
         <Sidebar role="lgu" onLogout={() => router.push('/')} />
       </div>
@@ -62,22 +62,22 @@ export default function NewsAnnouncementsPage() {
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <PageHeader
           title="News & Announcements"
-          subtitle="Manage public bulletins and community alerts"
-          icon={<Megaphone className="h-7 w-7" />}
+          subtitle="Manage public bulletins and community alerts — Municipal Agriculture Office"
+          icon={<Megaphone className="h-6 w-6" />}
           variant="admin"
           maxWidthClass="max-w-6xl"
           mobileMenuOffset={false}
           action={
             <button
               onClick={() => setIsCreating(!isCreating)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 font-bold text-[#2D5A27] shadow-lg transition-all hover:bg-gray-100 active:scale-95"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#2D5A27] px-5 py-2.5 font-bold text-white text-xs shadow-md transition-all hover:bg-[#23461f] active:scale-95 cursor-pointer"
             >
-              {isCreating ? <><X className="h-5 w-5" /> Cancel</> : <><Plus className="h-5 w-5" /> New Announcement</>}
+              {isCreating ? <><X className="h-4 w-4" /> Cancel</> : <><Plus className="h-4 w-4" /> New Announcement</>}
             </button>
           }
         />
 
-        <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
 
           {/* Create Section */}
           {isCreating && (
@@ -239,8 +239,8 @@ export default function NewsAnnouncementsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest border ${item.status === 'Published' ? 'bg-green-50 text-green-700 border-green-100' :
-                              item.status === 'Scheduled' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                'bg-gray-100 text-gray-500 border-gray-200'
+                            item.status === 'Scheduled' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                              'bg-gray-100 text-gray-500 border-gray-200'
                             }`}>
                             {item.status}
                           </span>
