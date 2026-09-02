@@ -34,7 +34,6 @@ import CensusSubmissionsView from "./census-submissions-view";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCensusSubmission } from "./sibat-analytics";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { useProductionFromFarmers } from "./sibat-analytics";
 
 import {
   CensusSubmissionRecord,
@@ -69,8 +68,6 @@ export default function SibatPortal() {
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
 
   const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
-  const { data: productionFromFarmers = [] } = useProductionFromFarmers();
-  console.log(productionFromFarmers);
 
   const handleCensusSubmissionSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
@@ -120,7 +117,7 @@ export default function SibatPortal() {
 
       {/* Barangay lockdown indicator */}
       <div className="bg-amber-400/90 border-l-4 border-[#1A365D]">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-[#1A365D]/10 shrink-0">
               <Shield className="w-4 h-4 text-[#1A365D]" />
@@ -138,7 +135,7 @@ export default function SibatPortal() {
           <Button
             size="sm"
             onClick={() => setIsCensusDialogOpen(true)}
-            className="bg-[#1A365D] hover:bg-[#152944] text-white text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
+            className="bg-[#1A365D] hover:bg-[#152944] text-white text-xs font-black rounded-xl shadow-md gap-1.5"
           >
             <Plus className="w-3.5 h-3.5 text-amber-300" />
             New Census Submission
@@ -146,11 +143,11 @@ export default function SibatPortal() {
         </div>
       </div>
 
-      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
         {/* ═══ Stat Cards ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
-            layout="horizontal"
+            size="sm"
             title="Pending Validation"
             value={pendingRecords.length}
             variant="amber"
@@ -163,20 +160,20 @@ export default function SibatPortal() {
             }}
           />
           <KpiCard
-            layout="horizontal"
-            title="Approved Today"
+            size="sm"
+            title="Validated Today"
             value={approvedRecords.length}
             variant="emerald"
             icon={<CheckCircle2 className="w-4 h-4" />}
-            badge="Approved"
-            description="Verified by SIBAT / MAO"
+            badge="Verified"
+            description="Forwarded to MAO queue"
             onClick={() => {
               setSectionTab("records");
               setActiveTab("approved");
             }}
           />
           <KpiCard
-            layout="horizontal"
+            size="sm"
             title="Quarterly Census Total"
             value={`${totalCensusHeads} Heads`}
             variant="sky"
@@ -187,7 +184,7 @@ export default function SibatPortal() {
             onClick={() => setSectionTab("census")}
           />
           <KpiCard
-            layout="horizontal"
+            size="sm"
             title="Sent to MAO"
             value={censuses.length}
             variant="orange"
@@ -396,7 +393,7 @@ export default function SibatPortal() {
                               {isPending ? (
                                 <><Clock className="w-3 h-3 mr-1" />Pending</>
                               ) : (
-                                <><CheckCircle2 className="w-3 h-3 mr-1" />Approved</>
+                                <><CheckCircle2 className="w-3 h-3 mr-1" />Validated</>
                               )}
                             </Badge>
                           </div>

@@ -81,6 +81,7 @@ Table livestock_types {
   livestock_type_id integer [pk]
 
   livestock_name varchar [unique]
+  description text
 }
 
 Table livestock_inventory {
@@ -117,6 +118,7 @@ Table production_records {
   record_date date
   unit varchar
   status varchar [note: 'Pending, Verified, Approved, Rejected']
+  notes text
 
   reviewed_by integer
   reviewed_at timestamp
@@ -169,6 +171,7 @@ Table slaughter_records {
   barangay_id integer [note: 'Nullable - used when livestock_id is null']
   livestock_type_id integer [note: 'slaughterhouse likely knows the animal type even if not the farmer']
   quantity integer
+  carcass_weight decimal [note: 'Optional total dressed meat in kg']
 
   record_date date
 
@@ -208,6 +211,7 @@ Table live_animal_sales {
 Table livestock_inspections {
   inspection_id integer [pk]
 
+  shipper_id integer [note: 'Nullable - FK to farmers.farmer_id']
   shipper_name varchar [not null]
 
   destination varchar [not null]
@@ -231,6 +235,7 @@ Table livestock_inspection_items {
   quantity integer [not null]
 
   sex varchar [note: 'Male, Female, Mixed']
+  classification varchar [note: 'Breeder, Slaughter, Fattening, Other']
 
   remarks text
 }
@@ -270,11 +275,12 @@ Table census_submission_items {
 
     submission_id integer [not null]
 
-    farmer_id integer [not null]
+    farmer_id integer [null, note: 'Nullable - farmer profile']
 
     livestock_type_id integer [not null]
 
     number_of_heads integer [not null]
+    remarks text
 }
 
 Table census_submissions {  
@@ -290,6 +296,7 @@ Table census_submissions {
     submission_date date
 
     status varchar
+    remarks text
 
     reviewed_by integer
     reviewed_at timestamp
