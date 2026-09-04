@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
+
 import { PageHeader } from '@/app/components/page-header';
 import { AskAIBar } from '@/app/components/ask-ai-bar';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -11,7 +10,6 @@ import PredictiveCharts from '@/app/components/analytics/predictiveCharts';
 import AdminForecastingConsole from '@/app/components/analytics/adminforecasting';
 
 export default function AnalyticsPage() {
-  const router = useRouter();
   const [analyticsView, setAnalyticsView] = useState<'descriptive' | 'predictive' | 'prescriptive'>('descriptive');
 
   const mortalityByDisease = [
@@ -119,13 +117,8 @@ export default function AnalyticsPage() {
 
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
-      <div className="hidden md:block">
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto">
-        <PageHeader
+    <>
+      <PageHeader
           title="Advanced Analytics"
           subtitle="AI-powered insights and predictions — Municipal Agriculture Office"
           variant="admin"
@@ -427,7 +420,6 @@ export default function AnalyticsPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </>
   );
 }

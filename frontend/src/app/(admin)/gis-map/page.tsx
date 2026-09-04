@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 import { Map as MapIcon, Layers, AlertTriangle, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -156,7 +154,6 @@ const FitBoundsComponent = dynamic(
 );
 
 export default function GISMapPage() {
-  const router = useRouter();
   const [mapLayer, setMapLayer] = useState<MapLayer>('cattle');
   const [selectedBarangay, setSelectedBarangay] = useState<BarangayData | null>(null);
 
@@ -271,14 +268,8 @@ export default function GISMapPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
-
-      <div className="hidden md:block">
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto">
-        <PageHeader
+    <>
+      <PageHeader
           title="GIS Mapping — Padre Garcia"
           subtitle="Barangay-level cattle, production & disease heat map — 18 barangays"
           icon={<MapIcon className="h-6 w-6 text-[#2D5A27]" />}
@@ -570,7 +561,6 @@ export default function GISMapPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

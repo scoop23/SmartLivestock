@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 import { AskAIBar } from '@/app/components/ask-ai-bar';
 import {
@@ -58,13 +57,8 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
-      <div className="hidden md:block">
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto">
-        <PageHeader
+    <>
+      <PageHeader
           title="LGU/MAO Dashboard"
           subtitle="Padre Garcia Municipal Agriculture Office — Livestock Monitoring & Analytics"
           variant="admin"
@@ -224,7 +218,6 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

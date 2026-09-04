@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 import {
   Megaphone,
@@ -35,7 +33,6 @@ interface Announcement {
 }
 
 export default function NewsAnnouncementsPage() {
-  const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   // State to filter the list
@@ -54,13 +51,8 @@ export default function NewsAnnouncementsPage() {
     : announcements.filter(item => item.status === 'Draft');
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
-      <div className="hidden md:block">
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        <PageHeader
+    <>
+      <PageHeader
           title="News & Announcements"
           subtitle="Manage public bulletins and community alerts — Municipal Agriculture Office"
           icon={<Megaphone className="h-6 w-6" />}
@@ -265,7 +257,6 @@ export default function NewsAnnouncementsPage() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

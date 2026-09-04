@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 import {
   UploadCloud,
@@ -27,7 +25,6 @@ interface UploadHistory {
 }
 
 export default function DataUploadsPage() {
-  const router = useRouter();
   const [dataType, setDataType] = useState<'Production' | 'Disease' | 'Inventory'>('Production');
   const [dragActive, setDragActive] = useState(false);
 
@@ -39,13 +36,8 @@ export default function DataUploadsPage() {
   ];
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
-      <div className="hidden md:block">
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        <PageHeader
+    <>
+      <PageHeader
           title="Data Uploads"
           subtitle="Import bulk records into the livestock management system — Municipal Agriculture Office"
           icon={<UploadCloud className="h-6 w-6" />}
@@ -207,7 +199,6 @@ export default function DataUploadsPage() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

@@ -1,15 +1,12 @@
 "use client"
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 import { Search, Download, MapPin } from 'lucide-react';
 
 type DataTab = 'livestock' | 'production' | 'sales' | 'disease' | 'mortality' | 'slaughter';
 
 export default function DataOverviewPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<DataTab>('livestock');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterBarangay, setFilterBarangay] = useState('all');
@@ -69,17 +66,10 @@ export default function DataOverviewPage() {
   });
 
   const handleExport = () => alert(`Exporting ${activeTab} data to Excel...`);
-  const handleLogout = () => router.push('/');
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
-
-      <div className='hidden md:block'>
-        <Sidebar role="lgu" onLogout={handleLogout} />
-      </div>
-
-      <main className="flex-1 overflow-auto">
-        <PageHeader
+    <>
+      <PageHeader
           title="System Data Overview"
           subtitle="Comprehensive view of all livestock records and logistics — Municipal Agriculture Office"
           variant="admin"
@@ -292,7 +282,6 @@ export default function DataOverviewPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

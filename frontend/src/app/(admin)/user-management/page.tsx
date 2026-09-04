@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 
 import {
@@ -46,7 +44,6 @@ interface User {
 }
 
 export default function UserManagementPage() {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'farmer' | 'sibat'>('all');
@@ -102,13 +99,8 @@ export default function UserManagementPage() {
   });
 
   return (
-    <div className="flex min-h-screen bg-[#F9FAFB]">
-      <div className='hidden md:block'>
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto relative">
-        {/* Floating Notification Toast */}
+    <>
+      {/* Floating Notification Toast */}
         {notification && (
           <div className="fixed top-8 right-8 z-[100] animate-in slide-in-from-right-full duration-300">
             <div className="bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
@@ -316,7 +308,6 @@ export default function UserManagementPage() {
             </DialogContent>
           )}
         </Dialog>
-      </main>
-    </div>
+    </>
   );
 }

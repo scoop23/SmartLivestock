@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 import {
   FileText,
@@ -22,8 +20,6 @@ interface Report {
 }
 
 export default function ReportsPage() {
-  const router = useRouter();
-
   // State for Form
   const [reportType, setReportType] = useState('Production Summary');
   const [dateFrom, setDateFrom] = useState('');
@@ -44,14 +40,8 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
-      {/* Sidebar - Desktop */}
-      <div className="hidden md:block">
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        <PageHeader
+    <>
+      <PageHeader
           title="Reports & Analytics"
           subtitle="Generate and manage your farm data exports — Municipal Agriculture Office"
           icon={<FilePieChart className="h-6 w-6" />}
@@ -204,7 +194,6 @@ export default function ReportsPage() {
           </section>
 
         </div>
-      </main>
-    </div>
+    </>
   );
 }

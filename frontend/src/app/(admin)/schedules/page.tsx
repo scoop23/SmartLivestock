@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/app/components/sidebar';
 import { PageHeader } from '@/app/components/page-header';
 import {
   Calendar,
@@ -20,7 +18,7 @@ import {
   Clock,
   Send
 } from 'lucide-react';
-import MobileNav from '@/app/components/mobilenav';
+
 
 interface FarmerAppointment {
   id: string;
@@ -36,8 +34,6 @@ interface DailyProgram {
 }
 
 export default function AdminAvailabilityPage() {
-  const router = useRouter();
-
   // Configuration for Activity Types
   const availableActivityTypes = [
     { id: 'vac', name: 'Vaccination', icon: Syringe, color: 'text-orange-600 bg-orange-50' },
@@ -137,13 +133,8 @@ export default function AdminAvailabilityPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased font-sans">
-      <div className="hidden md:block">
-        <Sidebar role="lgu" onLogout={() => router.push('/')} />
-      </div>
-
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        <PageHeader
+    <>
+      <PageHeader
           title="MAO Admin Console"
           subtitle="Global Program Availability & Farmer Scheduling — Municipal Agriculture Office"
           icon={<Building2 className="h-6 w-6" />}
@@ -385,9 +376,6 @@ export default function AdminAvailabilityPage() {
             </div>
           </div>
         )}
-      </main>
-
-      <MobileNav />
-    </div>
+    </>
   );
 }
