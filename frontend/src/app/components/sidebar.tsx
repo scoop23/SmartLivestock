@@ -102,16 +102,16 @@ function SidebarNav({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 p-4 pb-2">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#2D5A27]">
-          <Icon iconNode={cowHead} className="size-4" />
+      <div className="flex items-center gap-3 p-3.5 pb-2">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#2D5A27] shadow-xs">
+          <Icon iconNode={cowHead} className="size-5" />
         </div>
 
         <div className={`flex flex-col min-w-0 transition-opacity duration-200 ${collapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-          <span className="text-sm font-semibold text-white truncate">
+          <span className="text-base font-bold text-white truncate leading-tight">
             SmartLivestock
           </span>
-          <span className="text-[11px] text-white/50 truncate">
+          <span className="text-xs text-white/60 truncate">
             Padre Garcia, Batangas
           </span>
         </div>
@@ -120,8 +120,8 @@ function SidebarNav({
       <Separator className="bg-white/10 w-full my-1" />
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-1">
-        <p className={`px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30 transition-opacity duration-200 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-1">
+        <p className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white/40 transition-opacity duration-200 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>
           Navigation
         </p>
         {links.map((link) => {
@@ -133,13 +133,13 @@ function SidebarNav({
               href={link.path}
               onClick={() => onNavigate?.()}
               className={cn(
-                "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition-colors",
                 isActive
-                  ? "bg-white text-[#2D5A27]"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  ? "bg-white text-[#2D5A27] font-bold shadow-xs"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
               )}
             >
-              <Icon className="size-4 shrink-0" />
+              <Icon className="size-5 shrink-0" />
               <span className={`truncate transition-opacity duration-200 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>{link.label}</span>
             </Link>
           );
@@ -149,12 +149,12 @@ function SidebarNav({
       <Separator className="bg-white/10 mx-3 my-1" />
 
       {/* Footer */}
-      <div className="px-3 pb-3">
+      <div className="px-2.5 pb-3">
         <button
           onClick={onLogout}
-          className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-base font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
         >
-          <LogOut className="size-4 shrink-0" />
+          <LogOut className="size-5 shrink-0" />
           <span className={`truncate transition-opacity duration-200 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>Logout</span>
         </button>
       </div>
@@ -181,7 +181,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [isHovered, setIsHovered] = useSharedHovered();
 
   const collapsed = !isHovered;
-  const width = collapsed ? 60 : 256;
+  const width = collapsed ? 64 : 280;
   const links = getLinks(role);
 
   useEffect(() => {
@@ -203,7 +203,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       </aside>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-64 p-0 border-0 bg-[#2D5A27] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
+        <SheetContent side="left" className="w-72 p-0 border-0 bg-[#2D5A27] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav
             collapsed={false}
