@@ -3,6 +3,14 @@
 import { useState } from 'react';
 import { PageHeader } from '@/app/components/page-header';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Calendar,
   Plus,
   Trash2,
@@ -327,30 +335,34 @@ export default function AdminAvailabilityPage() {
                     </label>
                   </div>
 
-                  <div className="border border-gray-100 rounded-2xl overflow-hidden">
+                  <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-xs">
                     {selectedDateDetails.appointments.length > 0 ? (
-                      <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase text-gray-400 font-bold">
-                          <tr>
-                            <th className="px-4 py-3">Farmer</th>
-                            <th className="px-4 py-3">Activity</th>
-                            <th className="px-4 py-3 text-right">Schedule</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50/60 hover:bg-gray-50/60 border-b border-gray-100">
+                            <TableHead className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Farmer</TableHead>
+                            <TableHead className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Activity</TableHead>
+                            <TableHead className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Schedule</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-gray-50">
                           {selectedDateDetails.appointments.map((apt) => (
-                            <tr key={apt.id}>
-                              <td className="px-4 py-3 font-medium text-gray-700">{apt.farmerName}</td>
-                              <td className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">{apt.program}</td>
-                              <td className="px-4 py-3 text-right">
-                                <span className="inline-flex items-center gap-1 text-xs font-mono bg-gray-100 px-2 py-1 rounded">
-                                  <Clock className="w-3 h-3" /> {apt.time}
+                            <TableRow key={apt.id} className="group hover:bg-gray-50/80 transition-all border-none">
+                              <TableCell className="px-5 py-3.5 font-semibold text-gray-800">{apt.farmerName}</TableCell>
+                              <TableCell className="px-5 py-3.5">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-[#2D5A27] border border-green-100 uppercase">
+                                  {apt.program}
                                 </span>
-                              </td>
-                            </tr>
+                              </TableCell>
+                              <TableCell className="px-5 py-3.5 text-right">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-mono font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg">
+                                  <Clock className="w-3 h-3 text-gray-400" /> {apt.time}
+                                </span>
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     ) : (
                       <div className="p-10 text-center text-gray-400 text-sm">
                         No appointments registered for this window.

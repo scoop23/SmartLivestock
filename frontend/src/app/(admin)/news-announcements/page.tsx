@@ -3,6 +3,15 @@
 import { useState } from 'react';
 import { PageHeader } from '@/app/components/page-header';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
   Megaphone,
   Plus,
   Search,
@@ -187,74 +196,76 @@ export default function NewsAnnouncementsPage() {
           </div>
 
           {/* List Section */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/50">
-                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cover & Title</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Details</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filteredAnnouncements.length > 0 ? (
-                    filteredAnnouncements.map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50/50 group transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
-                              {item.thumbnail ? (
-                                <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-300"><ImageIcon className="w-5 h-5" /></div>
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-bold text-gray-800 line-clamp-1 group-hover:text-[#2D5A27] transition-colors">{item.title}</div>
-                              <div className="text-[10px] font-bold text-gray-400 uppercase mt-1 flex items-center gap-1">
-                                <Tag className="w-3 h-3" /> {item.category}
-                              </div>
+          <section className="bg-white rounded-2xl md:rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-gray-100 bg-gray-50/50 hover:bg-gray-50/50">
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cover & Title</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Details</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-50">
+                {filteredAnnouncements.length > 0 ? (
+                  filteredAnnouncements.map((item) => (
+                    <TableRow key={item.id} className="group hover:bg-gray-50/80 transition-all border-none">
+                      <TableCell className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0 shadow-xs">
+                            {item.thumbnail ? (
+                              <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300"><ImageIcon className="w-5 h-5" /></div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-bold text-gray-800 line-clamp-1 group-hover:text-[#2D5A27] transition-colors">{item.title}</div>
+                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mt-1 flex items-center gap-1">
+                              <Tag className="w-3 h-3 text-gray-400" /> {item.category}
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                              <User className="w-3 h-3 text-[#2D5A27]" /> {item.author}
-                            </div>
-                            <div className="text-[10px] text-gray-500 flex items-center gap-1.5">
-                              <Calendar className="w-3 h-3" /> {item.date}
-                            </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div className="space-y-1">
+                          <div className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-[#2D5A27]" /> {item.author}
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest border ${item.status === 'Published' ? 'bg-green-50 text-green-700 border-green-100' :
-                            item.status === 'Scheduled' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                              'bg-gray-100 text-gray-500 border-gray-200'
-                            }`}>
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-1">
-                            <button className="p-2 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-[#2D5A27] transition-all"><Edit3 className="w-4 h-4" /></button>
-                            <button className="p-2 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
+                          <div className="text-[10px] text-gray-400 font-medium flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" /> {item.date}
                           </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-gray-400 text-sm italic">
-                        No {activeTab} found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <Badge
+                          variant="outline"
+                          className={`border-none text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                            item.status === 'Published' ? 'bg-green-100 text-green-700' :
+                            item.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#2D5A27] transition-all" title="Edit"><Edit3 className="w-4 h-4" /></button>
+                          <button className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-all" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="px-6 py-12 text-center text-gray-400 text-sm italic">
+                      No {activeTab} found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </section>
         </div>
     </>

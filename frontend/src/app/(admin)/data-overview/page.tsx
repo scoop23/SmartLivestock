@@ -2,7 +2,19 @@
 
 import { useState } from 'react';
 import { PageHeader } from '@/app/components/page-header';
-import { Search, Download, MapPin } from 'lucide-react';
+import { Search, Download, MapPin, ChevronDown } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type DataTab = 'livestock' | 'production' | 'sales' | 'disease' | 'mortality' | 'slaughter';
 
@@ -76,137 +88,148 @@ export default function DataOverviewPage() {
         />
 
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-          {/* Filters */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-3 shadow-xs">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#2D5A27]/30 outline-none transition-all"
-                placeholder={`Search records in ${activeTab}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          {/* Controls Area */}
+          <div className="bg-white p-4 md:p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
+            {/* Top Bar: Category Tabs & Export Action */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DataTab)} className="w-full lg:w-auto">
+                <TabsList className="bg-gray-100 p-1 rounded-2xl h-auto flex flex-wrap gap-1">
+                  {(['livestock', 'production', 'sales', 'disease', 'mortality', 'slaughter'] as DataTab[]).map((tab) => (
+                    <TabsTrigger
+                      key={tab}
+                      value={tab}
+                      className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-400 hover:text-gray-700"
+                    >
+                      {tab}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+
+              <Button
+                onClick={handleExport}
+                className="bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold px-6 py-5 rounded-2xl flex items-center gap-2 shadow-sm transition-all cursor-pointer text-xs uppercase tracking-wider shrink-0 self-end lg:self-auto"
+              >
+                <Download size={15} />
+                Export Excel
+              </Button>
             </div>
 
-            <select
-              className="md:w-64 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2D5A27]/30 bg-white"
-              value={filterBarangay}
-              onChange={(e) => setFilterBarangay(e.target.value)}
-            >
-              {barangays.map(b => (
-                <option key={b} value={b === 'All Barangays' ? 'all' : b}>{b}</option>
-              ))}
-            </select>
+            {/* Bottom Bar: Search & Location Filter */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between pt-4 border-t border-gray-100">
+              <div className="relative w-full md:w-96">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <Input
+                  type="text"
+                  placeholder={`Search records in ${activeTab}...`}
+                  className="w-full pl-12 pr-4 py-6 bg-gray-50 border-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#2D5A27] transition-all text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
 
-            <button
-              onClick={handleExport}
-              className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              Export Excel
-            </button>
-          </div>
-
-          {/* Tabs Navigation */}
-          <div className="bg-white border rounded-lg mb-6 overflow-hidden shadow-sm">
-            <div className="flex overflow-x-auto">
-              {(['livestock', 'production', 'sales', 'disease', 'mortality', 'slaughter'] as DataTab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all ${activeTab === tab
-                    ? 'border-[#2D5A27] text-[#2D5A27] bg-green-50/50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                    }`}
+              <div className="relative w-full sm:w-64">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                <select
+                  className="w-full pl-10 pr-9 py-3.5 bg-gray-50 border-none rounded-2xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer appearance-none"
+                  value={filterBarangay}
+                  onChange={(e) => setFilterBarangay(e.target.value)}
                 >
-                  {tab.toUpperCase()}
-                </button>
-              ))}
+                  {barangays.map(b => (
+                    <option key={b} value={b === 'All Barangays' ? 'all' : b}>{b}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+              </div>
             </div>
           </div>
 
           {/* Dynamic Table */}
-          <div className="overflow-x-auto bg-white rounded-xl border shadow-sm">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-600 font-semibold border-b">
-                <tr>
-                  <th className="p-4">ID</th>
-                  <th className="p-4">Farmer</th>
-                  <th className="p-4">Location</th>
+          <div className="bg-white rounded-2xl md:rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">ID</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Farmer</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Location</TableHead>
                   {activeTab === 'livestock' && (
                     <>
-                      <th className="p-4">Cattle Info</th>
-                      <th className="p-4">Acquisition</th>
-                      <th className="p-4">Route (Origin-Dest)</th>
-                      <th className="p-4">Status</th>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cattle Info</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Acquisition</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Route (Origin-Dest)</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</TableHead>
                     </>
                   )}
                   {activeTab === 'production' && (
                     <>
-                      <th className="p-4">Type</th>
-                      <th className="p-4">Quantity</th>
-                      <th className="p-4">Date</th>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Type</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Quantity</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</TableHead>
                     </>
                   )}
                   {activeTab === 'sales' && (
                     <>
-                      <th className="p-4">Product</th>
-                      <th className="p-4">Amount</th>
-                      <th className="p-4">Buyer</th>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Product</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Buyer</TableHead>
                     </>
                   )}
                   {activeTab === 'disease' && (
                     <>
-                      <th className="p-4">Disease</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Veterinarian</th>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Disease</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Veterinarian</TableHead>
                     </>
                   )}
                   {activeTab === 'mortality' && (
                     <>
-                      <th className="p-4">Cattle ID</th>
-                      <th className="p-4">Cause</th>
-                      <th className="p-4">Date</th>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cattle ID</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cause</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</TableHead>
                     </>
                   )}
                   {activeTab === 'slaughter' && (
                     <>
-                      <th className="p-4">Cattle ID</th>
-                      <th className="p-4">Purpose</th>
-                      <th className="p-4">Health Status</th>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Cattle ID</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Purpose</TableHead>
+                      <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Health Status</TableHead>
                     </>
                   )}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-50">
                 {filteredItems.map((item: any) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4 font-bold text-gray-900">{item.id}</td>
-                    <td className="p-4">{item.farmerName}</td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <MapPin className="w-3.5 h-3.5" /> {item.barangay}
+                  <TableRow key={item.id} className="group hover:bg-gray-50/80 transition-all border-none">
+                    <TableCell className="px-6 py-4 font-bold text-gray-900">{item.id}</TableCell>
+                    <TableCell className="px-6 py-4 font-medium text-gray-800">{item.farmerName}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 text-gray-600 text-xs font-medium">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400" /> {item.barangay}
                       </div>
-                    </td>
+                    </TableCell>
 
                     {/* Livestock Custom Columns */}
                     {activeTab === 'livestock' && (
                       <>
-                        <td className="p-4">
+                        <TableCell className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className=" text-xs font-bold text-blue-600">{item.cattleId}</span>
+                            <span className="text-xs font-bold text-blue-600">{item.cattleId}</span>
                             <span className="text-gray-500 text-[11px]">{item.breed}</span>
                           </div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${item.acquisition === 'Import' ? 'bg-blue-100 text-blue-700' :
-                            item.acquisition === 'Export' ? 'bg-orange-100 text-orange-700' :
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
+                          <Badge
+                            variant="outline"
+                            className={`border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${
+                              item.acquisition === 'Import' ? 'bg-blue-100 text-blue-700' :
+                              item.acquisition === 'Export' ? 'bg-orange-100 text-orange-700' :
                               'bg-gray-100 text-gray-700'
-                            }`}>
+                            }`}
+                          >
                             {item.acquisition}
-                          </span>
-                        </td>
-                        <td className="p-4">
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
                           <div className="flex flex-col text-[11px] text-gray-600 gap-0.5">
                             <span className="flex items-center gap-1">
                               <span className="w-10 text-gray-400 font-bold">FROM:</span> {item.origin}
@@ -215,69 +238,86 @@ export default function DataOverviewPage() {
                               <span className="w-10 text-gray-400 font-bold">TO:</span> {item.destination}
                             </span>
                           </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-1 rounded-full text-[11px] bg-green-100 text-green-700 font-medium">
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
+                          <Badge
+                            variant="outline"
+                            className="border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full bg-green-100 text-green-700"
+                          >
                             {item.status}
-                          </span>
-                        </td>
+                          </Badge>
+                        </TableCell>
                       </>
                     )}
 
                     {/* Production Specific */}
                     {activeTab === 'production' && (
                       <>
-                        <td className="p-4">{item.type}</td>
-                        <td className="p-4 font-bold text-[#2D5A27]">{item.quantity}</td>
-                        <td className="p-4 text-gray-500">{item.date}</td>
+                        <TableCell className="px-6 py-4 font-medium text-gray-800">{item.type}</TableCell>
+                        <TableCell className="px-6 py-4 font-black text-[#2D5A27]">{item.quantity}</TableCell>
+                        <TableCell className="px-6 py-4 text-xs text-gray-500">{item.date}</TableCell>
                       </>
                     )}
 
                     {/* Sales Specific */}
                     {activeTab === 'sales' && (
                       <>
-                        <td className="p-4">{item.product}</td>
-                        <td className="p-4 text-green-700 font-bold">{item.amount}</td>
-                        <td className="p-4 font-medium">{item.buyer}</td>
+                        <TableCell className="px-6 py-4 font-medium text-gray-800">{item.product}</TableCell>
+                        <TableCell className="px-6 py-4 text-green-700 font-black">{item.amount}</TableCell>
+                        <TableCell className="px-6 py-4 font-medium text-gray-700">{item.buyer}</TableCell>
                       </>
                     )}
 
                     {/* Disease Specific */}
                     {activeTab === 'disease' && (
                       <>
-                        <td className="p-4 text-red-600 font-semibold">{item.disease}</td>
-                        <td className="p-4 text-orange-600">{item.status}</td>
-                        <td className="p-4">{item.veterinarian}</td>
+                        <TableCell className="px-6 py-4 text-red-600 font-bold">{item.disease}</TableCell>
+                        <TableCell className="px-6 py-4">
+                          <Badge
+                            variant="outline"
+                            className="border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full bg-amber-100 text-amber-800"
+                          >
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-xs text-gray-600">{item.veterinarian}</TableCell>
                       </>
                     )}
 
                     {/* Mortality Specific */}
                     {activeTab === 'mortality' && (
                       <>
-                        <td className="p-4 text-xs">{item.cattleId}</td>
-                        <td className="p-4 text-gray-700">{item.cause}</td>
-                        <td className="p-4 text-gray-500">{item.dateOfDeath}</td>
+                        <TableCell className="px-6 py-4 font-mono text-xs font-bold text-gray-700">{item.cattleId}</TableCell>
+                        <TableCell className="px-6 py-4 text-gray-700 font-medium">{item.cause}</TableCell>
+                        <TableCell className="px-6 py-4 text-xs text-gray-500">{item.dateOfDeath}</TableCell>
                       </>
                     )}
 
                     {/* Slaughter Specific */}
                     {activeTab === 'slaughter' && (
                       <>
-                        <td className="p-4 font-mono text-xs">{item.cattleId}</td>
-                        <td className="p-4">{item.purpose}</td>
-                        <td className="p-4 text-blue-600 font-bold italic">{item.status}</td>
+                        <TableCell className="px-6 py-4 font-mono text-xs font-bold text-gray-700">{item.cattleId}</TableCell>
+                        <TableCell className="px-6 py-4 text-gray-700 font-medium">{item.purpose}</TableCell>
+                        <TableCell className="px-6 py-4">
+                          <Badge
+                            variant="outline"
+                            className="border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full bg-blue-100 text-blue-700"
+                          >
+                            {item.status}
+                          </Badge>
+                        </TableCell>
                       </>
                     )}
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {filteredItems.length === 0 && (
               <div className="p-12 text-center">
                 <div className="bg-gray-50 inline-block p-4 rounded-full mb-3">
                   <Search className="w-8 h-8 text-gray-300" />
                 </div>
-                <p className="text-gray-500 font-medium">No records found matching your current filters.</p>
+                <p className="text-gray-500 font-medium text-sm">No records found matching your current filters.</p>
               </div>
             )}
           </div>

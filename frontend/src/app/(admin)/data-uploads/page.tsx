@@ -3,6 +3,15 @@
 import { useState } from 'react';
 import { PageHeader } from '@/app/components/page-header';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
   UploadCloud,
   FileUp,
   Info,
@@ -144,59 +153,61 @@ export default function DataUploadsPage() {
           </div>
 
           {/* History Table */}
-          <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 p-4">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm">
+          <section className="bg-white rounded-2xl md:rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-gray-50/70 border-b border-gray-100 px-6 py-4">
+              <h3 className="font-black text-gray-800 flex items-center gap-2 text-sm tracking-tight">
                 <Clock className="w-4 h-4 text-[#2D5A27]" />
                 Recent Upload History
               </h3>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50/50">
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Code</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Type</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">File Name</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Records</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">By</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {uploadHistory.map((log) => (
-                    <tr key={log.code} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 text-sm font-mono font-bold text-[#2D5A27]">{log.code}</td>
-                      <td className="px-4 py-4 text-sm font-medium text-gray-700">{log.type}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600 truncate max-w-[150px]">{log.fileName}</td>
-                      <td className="px-4 py-4 text-sm font-bold text-center">{log.records}</td>
-                      <td className="px-4 py-4">
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${log.status === 'Completed' ? 'bg-green-50 text-green-700' :
-                          log.status === 'Processing' ? 'bg-blue-50 text-blue-700' :
-                            'bg-red-50 text-red-700'
-                          }`}>
-                          {log.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-xs text-gray-600">{log.uploadedBy}</td>
-                      <td className="px-4 py-4 text-xs text-gray-500">{log.date}</td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#2D5A27] transition-colors" title="View Logs">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#2D5A27] transition-colors" title="Download File">
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Code</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Type</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">File Name</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Records</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">By</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-50">
+                {uploadHistory.map((log) => (
+                  <TableRow key={log.code} className="group hover:bg-gray-50/80 transition-all border-none">
+                    <TableCell className="px-6 py-4 text-xs font-mono font-bold text-[#2D5A27]">{log.code}</TableCell>
+                    <TableCell className="px-6 py-4 text-sm font-semibold text-gray-800">{log.type}</TableCell>
+                    <TableCell className="px-6 py-4 text-sm text-gray-600 truncate max-w-[180px]">{log.fileName}</TableCell>
+                    <TableCell className="px-6 py-4 text-sm font-bold text-center text-gray-800">{log.records}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <Badge
+                        variant="outline"
+                        className={`border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${
+                          log.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                          log.status === 'Processing' ? 'bg-blue-100 text-blue-700' :
+                          'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {log.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-xs font-medium text-gray-600">{log.uploadedBy}</TableCell>
+                    <TableCell className="px-6 py-4 text-xs text-gray-400">{log.date}</TableCell>
+                    <TableCell className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#2D5A27] transition-colors" title="View Logs">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#2D5A27] transition-colors" title="Download File">
+                          <Download className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </section>
         </div>
     </>

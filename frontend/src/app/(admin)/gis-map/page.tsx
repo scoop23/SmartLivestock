@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/app/components/page-header';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Map as MapIcon, Layers, AlertTriangle, TrendingUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { FeatureCollection } from 'geojson';
@@ -514,51 +524,57 @@ export default function GISMapPage() {
           <PadreGarciaForecaster />
 
           {/* Production Summary Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-4 overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+          <div className="bg-white rounded-2xl md:rounded-[2.5rem] shadow-sm border border-gray-100 mt-6 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50/70">
               <TrendingUp className="w-4 h-4 text-[#2D5A27]" />
-              <h3 className="text-sm font-semibold text-gray-800">Production Summary — All Barangays (Monthly)</h3>
+              <h3 className="text-sm font-black text-gray-800 tracking-tight">Production Summary — All Barangays (Monthly)</h3>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
-                    <th className="text-left px-4 py-3 font-semibold">Barangay</th>
-                    <th className="text-right px-4 py-3 font-semibold">🐄 Cattle</th>
-                    <th className="text-right px-4 py-3 font-semibold">🥛 Milk (L)</th>
-                    <th className="text-right px-4 py-3 font-semibold">🥩 Katay (kg)</th>
-                    <th className="text-center px-4 py-3 font-semibold">Risk</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {sortedBarangays.map((b) => (
-                    <tr key={b.name} className="hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => setSelectedBarangay(b)}>
-                      <td className="px-4 py-2.5 font-medium text-gray-800">{b.name}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-700">{b.cattle}</td>
-                      <td className="px-4 py-2.5 text-right text-blue-700 font-medium">{b.milk.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-right text-red-700 font-medium">{b.meat.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.diseaseRisk === 'high' ? 'bg-red-100 text-red-700' :
-                          b.diseaseRisk === 'medium' ? 'bg-orange-100 text-orange-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>
-                          {b.diseaseRisk.toUpperCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#f0f7ee] font-bold border-t-2 border-[#c3dbb8]">
-                    <td className="px-4 py-3 text-[#2D5A27]">TOTAL</td>
-                    <td className="px-4 py-3 text-right text-[#2D5A27]">{totalCattle.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-blue-700">{totalMilk.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-red-700">{totalMeat.toLocaleString()}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Barangay</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">🐄 Cattle</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">🥛 Milk (L)</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">🥩 Katay (kg)</TableHead>
+                  <TableHead className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Risk</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-50">
+                {sortedBarangays.map((b) => (
+                  <TableRow
+                    key={b.name}
+                    className="hover:bg-gray-50/80 cursor-pointer transition-colors border-none group"
+                    onClick={() => setSelectedBarangay(b)}
+                  >
+                    <TableCell className="px-6 py-3.5 font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">{b.name}</TableCell>
+                    <TableCell className="px-6 py-3.5 text-right font-medium text-gray-700">{b.cattle}</TableCell>
+                    <TableCell className="px-6 py-3.5 text-right text-blue-700 font-bold">{b.milk.toLocaleString()}</TableCell>
+                    <TableCell className="px-6 py-3.5 text-right text-red-700 font-bold">{b.meat.toLocaleString()}</TableCell>
+                    <TableCell className="px-6 py-3.5 text-center">
+                      <Badge
+                        variant="outline"
+                        className={`border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${
+                          b.diseaseRisk === 'high' ? 'bg-red-100 text-red-700' :
+                          b.diseaseRisk === 'medium' ? 'bg-amber-100 text-amber-800' :
+                          'bg-green-100 text-green-700'
+                        }`}
+                      >
+                        {b.diseaseRisk}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter className="bg-[#f0f7ee] border-t border-[#c3dbb8]">
+                <TableRow className="hover:bg-transparent font-bold">
+                  <TableCell className="px-6 py-4 text-[#2D5A27] font-black">TOTAL</TableCell>
+                  <TableCell className="px-6 py-4 text-right text-[#2D5A27] font-black">{totalCattle.toLocaleString()}</TableCell>
+                  <TableCell className="px-6 py-4 text-right text-blue-700 font-black">{totalMilk.toLocaleString()}</TableCell>
+                  <TableCell className="px-6 py-4 text-right text-red-700 font-black">{totalMeat.toLocaleString()}</TableCell>
+                  <TableCell className="px-6 py-4"></TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
           </div>
         </div>
     </>
