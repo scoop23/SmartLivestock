@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from django.views import View
 from rest_framework_simplejwt.views import TokenObtainPairView  # type: ignore
-from .serializer import CurrentUserSerializer, MyTokenSerialier, RegisterSerializer
+from .serializer import CurrentUserSerializer, MyTokenSerializer, RegisterSerializer
 from rest_framework.generics import CreateAPIView
 
 from users import serializer  # type: ignore
@@ -24,7 +24,7 @@ class HelloView(View):
 # Uses MyTokenSerialier which validates account_status=APPROVED before issuing tokens
 # and includes user role + email in the JWT payload for frontend routing.
 class MyTokenView(TokenObtainPairView):
-    serializer_class = MyTokenSerialier
+    serializer_class = MyTokenSerializer
 
 
 # Registration view for new farmers.

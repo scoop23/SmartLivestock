@@ -4,12 +4,13 @@ from livestock.models import Farmer, Barangay
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  # type: ignore
 from django.db import transaction
 from django.db.models import Max
+from typing import cast
 
 
 # Custom JWT serializer that:
 # 1. Adds role and email to the JWT payload (so frontend can decode for routing)
 # 2. Validates that the user's account_status is APPROVED before allowing login
-class MyTokenSerialier(TokenObtainPairSerializer):
+class MyTokenSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
@@ -22,15 +23,19 @@ class MyTokenSerialier(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
 
-        if self.user.account_status != User.AccountStatus.APPROVED:
+        user = cast(User, self.user)
+
+        if user.account_status != User.AccountStatus.APPROVED:
             raise serializers.ValidationError(
                 {"account_status": "Your account is not approved yet."}
             )
 
+        data = cast(dict, data)
+
         data["user"] = {
-            "id": self.user.id,
-            "email": self.user.email,
-            "role": self.user.role.role_name,
+            "id": user.id, #type: ignore[reportAttributeAccesssIssues]
+            "email": user.email,
+            "role": user.role.role_name,
         }
 
         return data
