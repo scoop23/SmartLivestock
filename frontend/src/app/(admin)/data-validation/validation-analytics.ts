@@ -308,7 +308,7 @@ export async function fetchAdminProductionRecords(): Promise<ProductionRecordIte
   } catch (err) {
     console.warn("Using seed production records for validation portal:", err);
   }
-  return SEED_PRODUCTION_VALIDATION;
+  // return SEED_PRODUCTION_VALIDATION;
 }
 
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {

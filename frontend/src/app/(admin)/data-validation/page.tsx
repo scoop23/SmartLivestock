@@ -229,6 +229,7 @@ export default function AdminDataValidationPage() {
       return matchSearch && matchStatus && matchBarangay;
     });
   }, [incidents, searchQuery, statusFilter, barangayFilter]);
+  console.log(filteredIncidents);
 
   // Current tab active item IDs for select-all
   const currentActiveRecordIds = useMemo(() => {
@@ -420,35 +421,79 @@ export default function AdminDataValidationPage() {
               }}
               className="w-full sm:w-auto"
             >
-              <TabsList className="bg-gray-100 p-1 rounded-2xl h-auto flex flex-nowrap min-w-max gap-1">
-                {VALIDATION_DOMAINS.map((domain) => {
-                  const pendingCount = domainPendingCounts[domain.id];
-                  return (
-                    <TabsTrigger
-                      key={domain.id}
-                      value={domain.id}
-                      className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider sm:tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-400 flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      {domain.id === "census" && <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />}
-                      {domain.id === "production" && <Milk className="w-3.5 h-3.5 shrink-0" />}
-                      {domain.id === "inventory" && <Tag className="w-3.5 h-3.5 shrink-0" />}
-                      {domain.id === "incidents" && <Activity className="w-3.5 h-3.5 shrink-0" />}
-                      <span className="sm:hidden">{domain.shortLabel}</span>
-                      <span className="hidden sm:inline">{domain.label}</span>
-                      {pendingCount > 0 ? (
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-white font-mono">
-                          {pendingCount}
-                        </span>
-                      ) : null}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-            </Tabs>
-          </div>
+              <div className="w-full overflow-x-auto rounded-2xl no-scrollbar">
+                  <TabsList
+                    className="
+                      bg-gray-100
+                      p-1
+                      rounded-2xl
+                      h-auto
+                      flex
+                      flex-nowrap
+                      w-max
+                      min-w-full
+                      gap-1
+                    "
+                  >
+                    {VALIDATION_DOMAINS.map((domain) => {
+                      const pendingCount = domainPendingCounts[domain.id];
 
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block">
-            {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
+                      return (
+                        <TabsTrigger
+                          key={domain.id}
+                          value={domain.id}
+                          className="
+                            px-3 sm:px-5
+                            py-2 sm:py-2.5
+                            rounded-xl
+                            text-[10px]
+                            font-black
+                            uppercase
+                            tracking-wider sm:tracking-widest
+                            transition-all
+                            data-[state=active]:bg-white
+                            data-[state=active]:text-gray-900
+                            data-[state=active]:shadow-sm
+                            text-gray-400
+                            flex items-center
+                            gap-1.5
+                            whitespace-nowrap
+                          "
+                        >
+                          {domain.id === "census" && (
+                            <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                          )}
+
+                          {domain.id === "production" && (
+                            <Milk className="w-3.5 h-3.5 shrink-0" />
+                          )}
+
+                          {domain.id === "inventory" && (
+                            <Tag className="w-3.5 h-3.5 shrink-0" />
+                          )}
+
+                          {domain.id === "incidents" && (
+                            <Activity className="w-3.5 h-3.5 shrink-0" />
+                          )}
+
+                          <span className="sm:hidden">{domain.shortLabel}</span>
+                          <span className="hidden sm:inline">{domain.label}</span>
+
+                          {pendingCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-white font-mono">
+                              {pendingCount}
+                            </span>
+                          )}
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                </div>            
+              </Tabs>
+            </div>
+
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block">
+              {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
           </p>
         </div>
 
