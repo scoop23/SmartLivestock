@@ -88,9 +88,9 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 
 export interface ProductionRecordItem {
   id: number;
-  barangayName: string | null;
+  barangayName?: string | null;
   farmerName: string | null;
-  livestockId: number;
+  livestockId: number; 
   livestockTypeName: string | null;
   productionType: ProductionType;
   quantity: number;

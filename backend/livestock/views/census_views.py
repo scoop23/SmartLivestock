@@ -1,38 +1,38 @@
+from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework import status
+
 from livestock.serializer import CensusSubmissionSerializer
 from livestock.models import CensusSubmission
 from livestock.services import CensusService
 
 
-@api_view(["POST"])
-def create_census_submission(request):
-    serializer = CensusSubmissionSerializer(
-        data=request.data,
-    )
+@api_view(["GET", "POST"])
+def census_list_create(request):
+    """
+    GET  /api/livestock/census/ -> List all quarterly census submissions
+    POST /api/livestock/census/ -> Submit a new quarterly census batch
+    """
+    if request.method == "POST":
+        serializer = CensusSubmissionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+        assert isinstance(validated_data, dict)
 
-    serializer.is_valid(raise_exception=True)
-    validated_data = serializer.validated_data
-    assert isinstance(
-        validated_data, dict
-    )  # because pyright have no knowledge if validated_data is dict, it could be list or empty
+        submission = CensusService.create_census_submission(
+            user=request.user,
+            barangay=validated_data["barangay"],
+            report_year=validated_data["report_year"],
+            report_quarter=validated_data["report_quarter"],
+            remarks=validated_data.get("remarks", ""),
+            items=validated_data.get("items", []),
+        )
 
-    submission = CensusService.create_census_submission(
-        user=request.user,
-        barangay=validated_data["barangay"],
-        report_year=validated_data["report_year"],
-        report_quarter=validated_data["report_quarter"],
-        remarks=validated_data.get("remarks", ""),
-        items=validated_data.get("items", []),
-    )
+        response_serializer = CensusSubmissionSerializer(submission)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-    response_serializer = CensusSubmissionSerializer(submission)
-
-    return Response(response_serializer.data, status=201)
-
-
-@api_view(["GET"])
-def get_census_submissions(request):
+    # GET
     submissions = (
         CensusSubmission.objects.select_related(
             "barangay", "submitted_by", "reviewed_by"
@@ -41,12 +41,63 @@ def get_census_submissions(request):
         .order_by("-created_at", "-submission_date")
     )
 
-    serializer = CensusSubmissionSerializer(
-        submissions, many=True
-    )  # serialize submissions
-    return Response(serializer.data, status=200)
+    serializer = CensusSubmissionSerializer(submissions, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@api_view(["UPDATE", "PATCH"])
-def update_census_submission(request, pk):
-    pass
+@api_view(["GET", "PUT", "PATCH"])
+def census_detail(request, pk):
+    """
+    GET       /api/livestock/census/<id>/ -> Retrieve single census submission
+    PUT/PATCH /api/livestock/census/<id>/ -> Update census submission header/remarks
+    """
+    census = get_object_or_404(
+        CensusSubmission.objects.select_related("barangay", "submitted_by", "reviewed_by")
+        .prefetch_related("items__farmer__user", "items__livestock_type"),
+        pk=pk,
+    )
+
+    if request.method in ["PUT", "PATCH"]:
+        if census.status == CensusSubmission.StatusType.APPROVED:
+            return Response(
+                {"error": "Cannot modify a census submission that has already been approved."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = CensusSubmissionSerializer(
+            census,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # GET
+    serializer = CensusSubmissionSerializer(census)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+def review_census_submission(request, pk):
+    """
+    POST /api/livestock/census/<id>/review/
+    MAO official review action (APPROVE / REJECT)
+    """
+    new_status = request.data.get("status")
+    remarks = request.data.get("remarks", "")
+
+    if not new_status:
+        return Response(
+            {"error": "status is required (APPROVED or REJECTED)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    submission = CensusService.review_census_submission(
+        submission_id=pk,
+        reviewer=request.user,
+        new_status=new_status,
+        remarks=remarks,
+    )
+
+    return Response(CensusSubmissionSerializer(submission).data, status=status.HTTP_200_OK)

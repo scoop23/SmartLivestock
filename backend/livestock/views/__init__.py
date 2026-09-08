@@ -1,24 +1,25 @@
 from .inventory_views import (
-    create_inventory,
+    inventory_list_create,
+    inventory_detail,
+    review_inventory,
     list_livestock_types,
-    get_user_inventory,
-    get_single_record,
-    delete_user_inventory,
-    update_user_inventory,
     get_barangays,
     get_farmer_by_barangays,
 )
-from .census_views import create_census_submission, get_census_submissions
+from .census_views import (
+    census_list_create,
+    census_detail,
+    review_census_submission,
+)
 
 __all__ = [
-    "create_inventory",
+    "inventory_list_create",
+    "inventory_detail",
+    "review_inventory",
     "list_livestock_types",
-    "get_user_inventory",
-    "get_single_record",
-    "delete_user_inventory",
-    "update_user_inventory",
-    "create_census_submission",
-    "get_census_submissions",
     "get_barangays",
     "get_farmer_by_barangays",
+    "census_list_create",
+    "census_detail",
+    "review_census_submission",
 ]

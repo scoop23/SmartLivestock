@@ -287,7 +287,7 @@ export const SEED_INCIDENTS_VALIDATION: ValidationIncidentItem[] = [
 
 export async function fetchAdminCensusSubmissions(): Promise<CensusSubmissionRecord[]> {
   try {
-    const response = await api.get("livestock/get_submissions/");
+    const response = await api.get("livestock/census/");
     const data = response.data as ApiCensusSubmission[];
     if (Array.isArray(data) && data.length > 0) {
       return data.map(mapCensusSubmission);
@@ -303,12 +303,12 @@ export async function fetchAdminProductionRecords(): Promise<ProductionRecordIte
     const response = await api.get("production/view_records/");
     const data = response.data as ApiProductionRecord[];
     if (Array.isArray(data) && data.length > 0) {
-      return data.map(mapProductionRecord);
+      return data.map(mapProductionRecord) as ProductionRecordItem[];
     }
   } catch (err) {
     console.warn("Using seed production records for validation portal:", err);
   }
-  // return SEED_PRODUCTION_VALIDATION;
+  return SEED_PRODUCTION_VALIDATION;
 }
 
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {

@@ -66,6 +66,7 @@ export default function SibatPortal() {
   // Census dialog states
   const [isCensusDialogOpen, setIsCensusDialogOpen] = useState(false);
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
+  const [kpisize, setKpisize] = useState<"sm" | "default">("default");
 
   const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
 
@@ -105,6 +106,7 @@ export default function SibatPortal() {
 
   // Census totals
   const totalCensusHeads = calculateTotalCensusHeads(censuses);
+  
 
   return (
     <>
@@ -147,7 +149,7 @@ export default function SibatPortal() {
         {/* ═══ Stat Cards ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
-            size="default"
+            size={kpisize}
             title="Pending Validation"
             value={pendingRecords.length}
             variant="amber"
@@ -160,7 +162,7 @@ export default function SibatPortal() {
             }}
           />
           <KpiCard
-            size="sm"
+            size={kpisize}
             title="Validated Today"
             value={approvedRecords.length}
             variant="emerald"
@@ -173,7 +175,7 @@ export default function SibatPortal() {
             }}
           />
           <KpiCard
-            size="sm"
+            size={kpisize}
             title="Quarterly Census Total"
             value={`${totalCensusHeads} Heads`}
             variant="sky"
@@ -184,7 +186,7 @@ export default function SibatPortal() {
             onClick={() => setSectionTab("census")}
           />
           <KpiCard
-            size="sm"
+            size={kpisize}
             title="Sent to MAO"
             value={censuses.length}
             variant="orange"

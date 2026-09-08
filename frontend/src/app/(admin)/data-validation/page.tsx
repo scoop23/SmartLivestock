@@ -337,7 +337,7 @@ export default function AdminDataValidationPage() {
       });
       itemIds.forEach(async (id) => {
         try {
-          await api.post(`livestock/review_submission/${id}/`, { status: action, remarks });
+          await api.post(`livestock/census/${id}/review/`, { status: action, remarks });
         } catch {
           // Graceful fallback
         }
@@ -367,7 +367,7 @@ export default function AdminDataValidationPage() {
       });
       itemIds.forEach(async (id) => {
         try {
-          await api.post(`livestock/review_inventory/${id}/`, { status: action, remarks });
+          await api.post(`livestock/inventory/${id}/review/`, { status: action, remarks });
         } catch {
           // Graceful fallback
         }
@@ -411,7 +411,7 @@ export default function AdminDataValidationPage() {
         <ValidationKpis kpis={kpis} />
 
         {/* Domain Switcher Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 ">
           <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
             <Tabs
               value={activeDomain}
@@ -492,10 +492,13 @@ export default function AdminDataValidationPage() {
               </Tabs>
             </div>
 
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block">
+          {/* <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block"> */}
+          {/*     {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description} */}
+          {/* </p> */}
+        </div>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block p-2">
               {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
           </p>
-        </div>
 
         {/* Search, Filter & Bulk Actions Toolbar */}
         <ValidationToolbar

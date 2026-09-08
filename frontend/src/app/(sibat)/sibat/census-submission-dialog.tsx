@@ -144,7 +144,7 @@ export default function CensusSubmissionDialog({
 
   const submitMutation = useMutation({
     mutationFn: async (payload: CreateCensusPayload) => {
-      const response = await api.post("livestock/create_submission/", payload)
+      const response = await api.post("livestock/census/", payload)
       return response.data;
     },
     onSuccess: () => {

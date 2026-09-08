@@ -93,7 +93,7 @@ export default function LivestockInventoryPage() {
 
   const addMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post('/livestock/create/', {
+      const response = await api.post('/livestock/inventory/', {
         livestock_type: livestockTypes[formData.livestockType],
         entry_type: formData.entryType,
         quantity: formData.entryType === "INDIVIDUAL" ? 1 : Number(formData.quantity),
@@ -119,7 +119,7 @@ export default function LivestockInventoryPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/livestock/inventory_delete/${id}/`, { data: { id } });
+      await api.delete(`/livestock/inventory/${id}/`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -134,7 +134,7 @@ export default function LivestockInventoryPage() {
     mutationFn: async (payload: UpdateInventoryPayload) => {
       if (!editTarget) throw new Error("No record selected");
       const response = await api.put(
-        `/livestock/inventory_update/${editTarget.id}`,
+        `/livestock/inventory/${editTarget.id}/`,
         payload
       );
       return response.data;

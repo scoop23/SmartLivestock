@@ -115,7 +115,7 @@ export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmission
 };
 
 export async function fetchCensusSubmissions(): Promise<CensusSubmissionRecord[]> {
-  const response = await api.get("livestock/get_submissions/");
+  const response = await api.get("livestock/census/");
   return (response.data as ApiCensusSubmission[]).map(mapCensusSubmission);
 }
 

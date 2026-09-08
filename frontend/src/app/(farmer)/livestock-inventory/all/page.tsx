@@ -37,7 +37,7 @@ export default function AllLivestockInventoryPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/livestock/inventory_delete/${id}/`, { data: { id } });
+      await api.delete(`/livestock/inventory/${id}/`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -52,7 +52,7 @@ export default function AllLivestockInventoryPage() {
     mutationFn: async (payload: UpdateInventoryPayload) => {
       if (!editTarget) throw new Error("No record selected");
       const response = await api.put(
-        `/livestock/inventory_update/${editTarget.id}`,
+        `/livestock/inventory/${editTarget.id}/`,
         payload
       );
       return response.data;

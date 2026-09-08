@@ -99,17 +99,17 @@ export async function fetchUserInventory(): Promise<LivestockInventoryItem[]> {
 }
 
 export async function createInventoryRecord(payload: CreateInventoryPayload) {
-  const res = await api.post("livestock/create/", payload);
+  const res = await api.post("livestock/inventory/", payload);
   return res.data;
 }
 
 export async function updateInventoryRecord(id: string, payload: UpdateInventoryPayload) {
-  const res = await api.put(`livestock/inventory_update/${id}/`, payload);
+  const res = await api.put(`livestock/inventory/${id}/`, payload);
   return res.data;
 }
 
 export async function deleteInventoryRecord(id: string) {
-  const res = await api.delete(`livestock/inventory_delete/${id}/`);
+  const res = await api.delete(`livestock/inventory/${id}/`);
   return res.data;
 }
 
