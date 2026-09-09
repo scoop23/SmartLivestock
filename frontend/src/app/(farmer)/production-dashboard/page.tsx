@@ -173,7 +173,7 @@ export default function ProductionLoggerPage() {
 
   const submitMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api.post("/production/create/", payload);
+      const res = await api.post("production/records/", payload);
       return res.data;
     },
     onSuccess: () => {
@@ -194,7 +194,7 @@ export default function ProductionLoggerPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, payload }: UpdateProductionPayload) => {
-      const response = await api.patch(`/production/update_record/${id}/`, payload);
+      const response = await api.patch(`production/records/${id}/`, payload);
       return response.data;
     },
     onSuccess: () => {

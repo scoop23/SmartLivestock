@@ -352,7 +352,7 @@ export default function AdminDataValidationPage() {
       });
       itemIds.forEach(async (id) => {
         try {
-          await api.post(`production/review_record/${id}/`, { status: action, remarks });
+          await api.post(`production/records/${id}/review/`, { status: action, remarks });
         } catch {
           // Graceful fallback
         }

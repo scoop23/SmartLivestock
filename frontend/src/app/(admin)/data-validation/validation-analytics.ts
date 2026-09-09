@@ -300,7 +300,7 @@ export async function fetchAdminCensusSubmissions(): Promise<CensusSubmissionRec
 
 export async function fetchAdminProductionRecords(): Promise<ProductionRecordItem[]> {
   try {
-    const response = await api.get("production/view_records/");
+    const response = await api.get("production/records/");
     const data = response.data as ApiProductionRecord[];
     if (Array.isArray(data) && data.length > 0) {
       return data.map(mapProductionRecord) as ProductionRecordItem[];

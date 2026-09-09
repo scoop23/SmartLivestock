@@ -1,70 +1,35 @@
-from django.shortcuts import render
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.utils import serializer_helpers
-from production.serializer import ProductionRecordSerializer
 from rest_framework import status
-from users import serializer
 from .models import ProductionRecord
-
-# TODO: Build CRUD viewsets for:
-#   - ProductionRecord (create, list by farmer, review by SIBAT/MAO)
-#   - SlaughterRecord (create, list, review — nullable livestock FK for batch slaughter)
-#   - LiveAnimalSale (create, list, review)
-#
-# Consider nested routes: /api/livestock/{id}/production-records/
+from .serializer import ProductionRecordSerializer
 
 
-@api_view(["POST"])
-def create_production_record(request):
-    serializer = ProductionRecordSerializer(
-        data=request.data, context={"request": request}
-    )
-    if serializer.is_valid():
+@api_view(["GET", "POST"])
+def production_record_list_create(request):
+    """
+    GET  /production/records/ -> List production records (filtered by user/role)
+    POST /production/records/ -> Create a new production record
+    """
+    if request.method == "POST":
+        serializer = ProductionRecordSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.data, status=201)
 
-
-@api_view(["PUT", "PATCH"])
-def update_production_record(request, pk):
-    record = get_object_or_404(
-        ProductionRecord,
-        pk=pk,
-        created_by=request.user,
-    )
-    serializer = ProductionRecordSerializer(
-        record,
-        data=request.data,
-        partial=True,
-        context={"request": request},
-    )
-
-    serializer.is_valid(raise_exception=True)
-    serializer.save()
-    return Response(serializer.data)
-
-
-@api_view(["GET"])
-def get_single_production_record(request, pk):
-    record = get_object_or_404(ProductionRecord, pk=pk, created_by=request.user)
-    serializer = ProductionRecordSerializer(record)
-    return Response(serializer.data)
-
-
-@api_view(["GET"])
-def get_production_records(
-    request,
-):  # provides a list of production records for the logged-in user
+    # GET
     user = request.user
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
         records = ProductionRecord.objects.filter(created_by=user)
-    elif role_name in ["MAO", "SIBAT", "ADMIN"]:
-        records = ProductionRecord.objects.all()
     else:
+        # MAO, SIBAT, ADMIN: list all records
         records = ProductionRecord.objects.all()
 
     records = records.select_related(
@@ -79,26 +44,71 @@ def get_production_records(
     return Response(serializer.data, status=200)
 
 
-@api_view(["DELETE"])
-def delete_production_record(request, pk):
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def production_record_detail(request, pk):
     """
-    Delete/cancel a production record.
-    Only PENDING records can be deleted — approved or rejected records are protected.
+    GET    /production/records/<pk>/ -> Retrieve single production record
+    PUT    /production/records/<pk>/ -> Full update
+    PATCH  /production/records/<pk>/ -> Partial update
+    DELETE /production/records/<pk>/ -> Delete record (only PENDING allowed)
     """
-    record = get_object_or_404(
-        ProductionRecord,
-        pk=pk,
-        created_by=request.user,
-    )
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", None)
 
-    if record.status != ProductionRecord.ProductionStatus.PENDING:
+    if role_name == "FARMER":
+        record = get_object_or_404(ProductionRecord, pk=pk, created_by=user)
+    else:
+        record = get_object_or_404(ProductionRecord, pk=pk)
+
+    if request.method == "DELETE":
+        if record.status != ProductionRecord.ProductionStatus.PENDING:
+            return Response(
+                {
+                    "error": f"Cannot delete a production record with status '{record.status}'. "
+                    "Only PENDING records can be deleted."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        record.delete()
+        return Response(status=204)
+
+    if request.method in ["PUT", "PATCH"]:
+        serializer = ProductionRecordSerializer(
+            record,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=200)
+
+    # GET
+    serializer = ProductionRecordSerializer(record)
+    return Response(serializer.data, status=200)
+
+
+@api_view(["POST"])
+def review_production_record(request, pk):
+    """
+    POST /production/records/<pk>/review/
+    Official MAO verification action (APPROVE / REJECT)
+    """
+    record = get_object_or_404(ProductionRecord, pk=pk)
+    new_status = request.data.get("status")
+    remarks = request.data.get("remarks", "")
+
+    if not new_status:
         return Response(
-            {
-                "error": f"Cannot delete a production record with status '{record.status}'. "
-                "Only PENDING records can be deleted."
-            },
-            status=status.HTTP_403_FORBIDDEN,
+            {"error": "status is required (APPROVED or REJECTED)."},
+            status=400,
         )
 
-    record.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    record.status = new_status
+    record.reviewed_by = request.user
+    record.review_remarks = remarks
+    record.reviewed_at = timezone.now()
+    record.save()
+
+    serializer = ProductionRecordSerializer(record)
+    return Response(serializer.data, status=200)

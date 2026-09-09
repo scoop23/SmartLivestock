@@ -135,12 +135,12 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
 });
 
 export async function fetchProductionRecords(): Promise<ProductionRecordItem[]> {
-  const response = await api.get("production/view_records/");
+  const response = await api.get("production/records/");
   return (response.data as ApiProductionRecord[]).map(mapProductionRecord);
 }
 
 export async function deleteProductionRecord(id: number): Promise<void> {
-  await api.delete(`production/delete_record/${id}/`);
+  await api.delete(`production/records/${id}/`);
 }
 
 // ---------------------------------------------------------------------------
