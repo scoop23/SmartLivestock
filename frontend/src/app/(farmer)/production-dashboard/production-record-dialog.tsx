@@ -150,14 +150,61 @@ export default function ProductionRecordDialog({
                 </p>
               </div>
 
-              {record.reviewRemarks ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                    Review Remarks
-                  </p>
-                  <p className="text-sm text-amber-900 mt-1">{record.reviewRemarks}</p>
+              {/* Approval / Remarks Callouts */}
+              {isApproved && (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-emerald-50/90 border border-emerald-200 flex items-start gap-3">
+                    <div className="size-8 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
+                      <Lock className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-wider text-emerald-900">
+                        Validated & Approved
+                      </p>
+                      <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
+                        This production entry has been inspected, verified, and officially logged into municipal records.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/40 p-4 space-y-1.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                      Reviewer Remarks
+                    </p>
+                    {record.reviewRemarks && record.reviewRemarks.trim() ? (
+                      <p className="text-sm font-medium text-emerald-950 italic whitespace-pre-wrap">
+                        &ldquo;{record.reviewRemarks}&rdquo;
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic">
+                        Approved with standard validation. No additional remarks noted by the reviewer.
+                      </p>
+                    )}
+                  </div>
                 </div>
-              ) : null}
+              )}
+
+              {record.status === "PENDING" && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed">
+                  <p className="font-bold uppercase tracking-wider text-amber-800 mb-0.5">
+                    Awaiting Validation
+                  </p>
+                  This record is awaiting review by your local SIBAT officer.
+                </div>
+              )}
+
+              {record.status === "REJECTED" && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-1.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-rose-800">
+                    Rejection Remarks
+                  </p>
+                  <p className="text-sm text-rose-950 font-medium italic">
+                    {record.reviewRemarks
+                      ? `"${record.reviewRemarks}"`
+                      : "No rejection remarks were provided."}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
