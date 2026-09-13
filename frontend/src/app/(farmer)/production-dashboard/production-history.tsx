@@ -178,6 +178,11 @@ export default function ProductionHistory() {
     return filtered.length > 0 ? filtered[0] : null;
   }, [selected, filtered]);
 
+  const activeDialogRecord = useMemo(() => {
+    if (!dialogRecord) return null;
+    return filtered.find((item) => item.id === dialogRecord.id) ?? dialogRecord;
+  }, [dialogRecord, filtered]);
+
   return (
     <div className="space-y-6">
       {/* Search and Filters Header */}
@@ -285,15 +290,15 @@ export default function ProductionHistory() {
           </Button>
         </Card>
       ) : filtered.length === 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-7">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+          <div className="md:col-span-7">
             <Card className="p-10 text-center border-dashed border-slate-200 bg-white">
               <p className="text-slate-500 font-medium">
                 No production records match your filter criteria.
               </p>
             </Card>
           </div>
-          <div className="lg:col-span-5">
+          <div className="hidden md:block md:col-span-5">
             <ProductionApprovalCard
               record={null}
               totalApprovedCount={statusCounts.APPROVED ?? 0}
@@ -302,14 +307,14 @@ export default function ProductionHistory() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
           {/* Left: Production Records List */}
-          <div className="lg:col-span-7 space-y-3">
+          <div className="md:col-span-7 space-y-3">
             <div className="flex items-center justify-between px-1">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Showing {filtered.length} {filtered.length === 1 ? "Record" : "Records"}
               </p>
-              <p className="text-xs text-slate-400 hidden lg:block">
+              <p className="text-xs text-slate-400 hidden md:block">
                 Click any record to view approval & remark details on the right
               </p>
             </div>
@@ -325,7 +330,7 @@ export default function ProductionHistory() {
                   tabIndex={0}
                   onClick={() => {
                     setSelected(record);
-                    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                    if (typeof window !== "undefined" && window.innerWidth < 768) {
                       setDialogRecord(record);
                     }
                   }}
@@ -333,6 +338,9 @@ export default function ProductionHistory() {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       setSelected(record);
+                      if (typeof window !== "undefined" && window.innerWidth < 768) {
+                        setDialogRecord(record);
+                      }
                     }
                   }}
                   className="w-full text-left transition-all cursor-pointer group focus:outline-none"
@@ -363,7 +371,7 @@ export default function ProductionHistory() {
                               {record.status}
                             </Badge>
                             {isSelected && (
-                              <span className="hidden lg:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full">
+                              <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full">
                                 Selected Details
                               </span>
                             )}
@@ -439,7 +447,7 @@ export default function ProductionHistory() {
           </div>
 
           {/* Right: Approval & Remark Details Side Card */}
-          <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-4">
+          <div className="hidden md:block md:col-span-5 md:sticky md:top-6 space-y-4">
             <ProductionApprovalCard
               record={activeRecord}
               onDelete={handleDelete}
@@ -453,7 +461,7 @@ export default function ProductionHistory() {
 
       {/* Mobile Detailed Dialog */}
       <ProductionRecordDialog
-        record={dialogRecord}
+        record={activeDialogRecord}
         open={dialogRecord !== null}
         onOpenChange={(open) => {
           if (!open) setDialogRecord(null);
