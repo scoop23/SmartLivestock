@@ -1,20 +1,26 @@
 from django.shortcuts import get_object_or_404
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 
 from livestock.serializer import CensusSubmissionSerializer
 from livestock.models import CensusSubmission
 from livestock.services import CensusService
+from livestock.permission import isSibat, isMAO
 
 
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated, isSibat | isMAO])
 def census_list_create(request):
     """
     GET  /api/livestock/census/ -> List all quarterly census submissions
     POST /api/livestock/census/ -> Submit a new quarterly census batch
     """
     if request.method == "POST":
+        if not isSibat().has_permission(request, census_list_create):
+            raise PermissionDenied("Only Sibat cooperative staff can submit census batches.")
         serializer = CensusSubmissionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
