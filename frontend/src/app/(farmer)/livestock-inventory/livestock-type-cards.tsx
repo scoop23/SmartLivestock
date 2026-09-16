@@ -142,7 +142,7 @@ export default function LivestockTypeCards({ inventories, isLoading, onSelectTyp
 
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <Spinner className="size-10 text-emerald-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
         </div>
       ) : typeSummaries.length === 0 ? (
         <Card className="p-8 text-center border-2 border-dashed border-emerald-900/10 bg-emerald-50/20 rounded-2xl">

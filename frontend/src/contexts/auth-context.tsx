@@ -1,62 +1,91 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+"use client";
 
-export type UserRole = 'Farmer' | 'MAO' | 'Sibat' | 'Admin';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import api from "@/lib/axios";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  barangay?: string;
+export interface User {
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  role: string | null;
+}
+
+interface AuthProviderProps {
+  children: ReactNode;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  accessToken: string | null;
+  isLoading: boolean;
+  fetchUser: () => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const login = async (email: string, password: string) => {
-    // Mock login - in production, this would call an API
-    await new Promise(resolve => setTimeout(resolve, 500));
+  const fetchUser = useCallback(async () => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("access") : null;
 
-    // Demo users
-    if (email.includes('admin') || email.includes('lgu')) {
-      setUser({
-        id: '1',
-        name: 'Admin User',
-        email: email,
-        role: 'Sibat',
-      });
-    } else if (email.includes('da')) {
-      setUser({
-        id: '2',
-        name: 'DA Official',
-        email: email,
-        role: 'MAO',
-      });
-    } else {
-      setUser({
-        id: '3',
-        name: 'Juan Dela Cruz',
-        email: email,
-        role: 'Farmer',
-        barangay: 'San Roque',
-      });
+    if (!token) {
+      setUser(null);
+      setAccessToken(null);
+      setIsLoading(false);
+      return;
     }
-  };
 
-  const logout = () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get("/api/users/me/");
+      const data = response.data;
+
+      setUser({
+        firstName: data.first_name,
+        lastName: data.last_name,
+        email: data.email,
+        role: data.role,
+      });
+      setAccessToken(token);
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+      setUser(null);
+      setAccessToken(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      window.location.href = "/login";
+    }
     setUser(null);
-  };
+    setAccessToken(null);
+  }, []);
+
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, accessToken, isLoading, fetchUser, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -65,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

@@ -273,7 +273,7 @@ export default function ProductionHistory() {
       {/* Main Content Area */}
       {isLoading ? (
         <div className="flex justify-center py-16">
-          <Spinner className="size-16 text-emerald-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
         </div>
       ) : isError ? (
         <Card className="p-8 text-center border-red-200 bg-red-50">

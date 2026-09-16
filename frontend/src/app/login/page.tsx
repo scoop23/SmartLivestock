@@ -6,6 +6,8 @@ import { Sprout } from 'lucide-react';
 import api from '../../lib/axios';
 import { jwtDecode } from 'jwt-decode';
 
+import { useAuth } from '@/contexts/auth-context';
+
 interface DecodedJWT {
   email: string
   role: "ADMIN" | "FARMER" | "SIBAT" | "AUCTION" | "SLAUGHTERHOUSESTAFF"
@@ -14,6 +16,7 @@ interface DecodedJWT {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { fetchUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,6 +38,8 @@ export default function LoginPage() {
       const decoded: DecodedJWT = jwtDecode(access);
       localStorage.setItem("access", access);
       localStorage.setItem("refresh", refresh);
+      await fetchUser();
+
       // Role-based redirect to the appropriate dashboard
       if (decoded.role === "ADMIN") {
         router.push("/admin");

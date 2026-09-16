@@ -112,7 +112,7 @@ export default function FarmerRegistrationPage() {
     setError('');
 
     try {
-      await api.post('/users/register/', {
+      await api.post('/api/users/register/', {
         username: formData.email,
         email: formData.email,
         password: formData.password,

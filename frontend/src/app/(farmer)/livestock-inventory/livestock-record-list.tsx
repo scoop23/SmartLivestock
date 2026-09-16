@@ -384,7 +384,7 @@ export default function LivestockRecordList({
       <div className="space-y-3">
         {isLoading ? (
           <div className="flex justify-center py-16">
-            <Spinner className="size-16 text-emerald-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
           </div>
         ) : filtered.length === 0 ? (
           <Card className="py-12 border-dashed border-slate-200 rounded-2xl">

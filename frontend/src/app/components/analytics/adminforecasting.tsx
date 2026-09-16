@@ -6,7 +6,7 @@ import {
   Calendar, Layers, CheckCircle2, 
   AlertTriangle, Database, Search,
   Filter, MoreHorizontal, Download,
-  Loader2, Info
+  Info
 } from 'lucide-react';
 
 // --- Prediction Record Type ---
@@ -151,7 +151,7 @@ export default function AdminForecastingSystem() {
 
             <button onClick={runPrediction} disabled={isRunning}
               className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
-              {isRunning ? <><Loader2 className="w-4 h-4 animate-spin" /> Computing...</> : <><Play className="w-4 h-4 fill-white" /> Run Risk Prediction</>}
+              {isRunning ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Computing...</> : <><Play className="w-4 h-4 fill-white" /> Run Risk Prediction</>}
             </button>
           </div>
         </div>
