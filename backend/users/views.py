@@ -1,5 +1,5 @@
-from django.shortcuts import render
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
 from django.views import View
@@ -36,6 +36,8 @@ class RegisterView(CreateAPIView):
 
 # Basically just get the user info
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_user_information(request):
     serializer = CurrentUserSerializer(request.user)
     return Response(serializer.data)
+

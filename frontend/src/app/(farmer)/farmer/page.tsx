@@ -142,7 +142,7 @@ export default function FarmerDashboard() {
                 </button>
 
                 <button
-                  onClick={() => setIsReportModalOpen(true)}
+                  onClick={() => router.push("/report-observation")}
                   className="group flex flex-col items-center gap-3 p-5 bg-amber-50/40 rounded-2xl border-2 border-transparent hover:border-amber-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer"
                 >
                   <div className="p-3 bg-white rounded-2xl shadow-xs border border-amber-900/10 group-hover:scale-110 transition-transform">
@@ -225,12 +225,20 @@ export default function FarmerDashboard() {
 
             <Card className="border-2 border-emerald-900/10 bg-linear-to-b from-emerald-50/20 to-white shadow-xs rounded-3xl overflow-hidden">
               <CardContent className="p-5">
-                <h3 className="text-base font-black text-slate-900 mb-4 flex items-center gap-2">
-                  <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
-                    <Stethoscope className="size-4" />
-                  </div>
-                  Observation Log
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
+                      <Stethoscope className="size-4" />
+                    </div>
+                    Observation Log
+                  </h3>
+                  <button
+                    onClick={() => router.push("/report-observation")}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  >
+                    View All →
+                  </button>
+                </div>
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-2xl bg-white border border-stone-200/70 shadow-2xs flex items-start gap-3">
                     <div className="w-2.5 h-2.5 bg-amber-500 rounded-full mt-1.5 shrink-0 ring-4 ring-amber-100" />

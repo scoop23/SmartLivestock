@@ -64,7 +64,7 @@ export interface UpdateInventoryPayload {
 }
 
 export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
-  id: item.id,
+  id: String(item.id),
   farmerName: item.farmer_name,
   livestockTypeName: item.livestock_type_name,
   entryType: item.entry_type,

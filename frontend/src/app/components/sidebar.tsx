@@ -19,6 +19,7 @@ import {
   Activity,
   Megaphone,
   BarChart3,
+  Stethoscope,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -57,6 +58,7 @@ const farmerLinks: SidebarLink[] = [
   { path: '/farmer', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/livestock-inventory', label: 'Livestock Inventory', icon: Sprout },
   { path: '/production-dashboard', label: 'Production Dashboard', icon: ClipboardCheck },
+  { path: '/report-observation', label: 'Report Observation', icon: Stethoscope },
   { path: '/gis-user-map', label: 'GIS User Map', icon: Map },
   { path: '/alerts', label: 'Alerts', icon: Bell },
   { path: '/farmer-announcement', label: 'News & Announcements', icon: Megaphone },
