@@ -4,3 +4,5 @@ export { CensusTable } from "./census-table";
 export { ProductionTable } from "./production-table";
 export { InventoryTable } from "./inventory-table";
 export { IncidentsTable } from "./incidents-table";
+export { DiseaseMortalityReviewDialog } from "./disease-mortality-review-dialog";
+

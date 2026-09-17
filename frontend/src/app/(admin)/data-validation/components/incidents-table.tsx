@@ -21,10 +21,16 @@ import {
   CheckCircle2,
   AlertTriangle,
   User,
+  Stethoscope,
+  Skull,
+  Beef,
+  Scale,
+  Sparkles,
 } from "lucide-react";
 import {
   ValidationIncidentItem,
   getIncidentTypeBadge,
+  getStatusPill,
 } from "../validation-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
 import { DetailRecordData } from "../record-detail-dialog";
@@ -36,6 +42,7 @@ interface IncidentsTableProps {
   onSelectAll: (checked: boolean) => void;
   onViewDetail: (detail: DetailRecordData) => void;
   onReview: (target: ReviewTargetItem) => void;
+  onReviewHealth?: (record: ValidationIncidentItem) => void;
 }
 
 export function IncidentsTable({
@@ -45,6 +52,7 @@ export function IncidentsTable({
   onSelectAll,
   onViewDetail,
   onReview,
+  onReviewHealth,
 }: IncidentsTableProps) {
   const allSelected = records.length > 0 && records.every((inc) => selectedIds.includes(inc.id));
 
@@ -62,6 +70,37 @@ export function IncidentsTable({
     weight: inc.weight,
     tagNumber: inc.tagNumber,
   });
+
+  const getIncidentIcon = (type: string) => {
+    switch (type) {
+      case "disease":
+        return {
+          icon: <Stethoscope size={20} />,
+          bg: "bg-amber-100 text-amber-800",
+        };
+      case "mortality":
+        return {
+          icon: <Skull size={20} />,
+          bg: "bg-rose-100 text-rose-700",
+        };
+      case "slaughter":
+        return {
+          icon: <Beef size={20} />,
+          bg: "bg-purple-100 text-purple-800",
+        };
+      case "birth":
+        return {
+          icon: <Activity size={20} />,
+          bg: "bg-green-100 text-[#2D5A27]",
+        };
+      case "sale":
+      default:
+        return {
+          icon: <Scale size={20} />,
+          bg: "bg-blue-100 text-blue-700",
+        };
+    }
+  };
 
   return (
     <>
@@ -82,13 +121,13 @@ export function IncidentsTable({
                   Event / Declaration Type
                 </TableHead>
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Farmer
+                  Farmer / Raiser
                 </TableHead>
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                   Barangay
                 </TableHead>
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Summary Details
+                  Summary & Symptoms
                 </TableHead>
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                   Date
@@ -120,8 +159,10 @@ export function IncidentsTable({
                 records.map((inc) => {
                   const isSelected = selectedIds.includes(inc.id);
                   const typeBadge = getIncidentTypeBadge(inc.type);
-                  const statusNorm = (inc.status || "PENDING").toUpperCase();
+                  const statusPill = getStatusPill(inc.status);
                   const detailPayload = buildDetailPayload(inc);
+                  const iconStyle = getIncidentIcon(inc.type);
+                  const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";
 
                   return (
                     <TableRow
@@ -139,26 +180,14 @@ export function IncidentsTable({
                       </TableCell>
 
                       <TableCell className="px-8 py-5">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3.5">
                           <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                              inc.type === "slaughter"
-                                ? "bg-purple-100 text-purple-800"
-                                : inc.type === "mortality"
-                                ? "bg-red-100 text-red-700"
-                                : inc.type === "birth"
-                                ? "bg-green-100 text-[#2D5A27]"
-                                : "bg-blue-100 text-blue-700"
-                            }`}
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconStyle.bg}`}
                           >
-                            {inc.type === "mortality" ? (
-                              <AlertTriangle size={20} />
-                            ) : (
-                              <Activity size={20} />
-                            )}
+                            {iconStyle.icon}
                           </div>
                           <div>
-                            <p className="font-bold text-gray-800 text-sm capitalize">{inc.type}</p>
+                            <p className="font-bold text-gray-900 text-sm capitalize">{inc.type}</p>
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                               {typeBadge.label}
                             </span>
@@ -167,27 +196,45 @@ export function IncidentsTable({
                       </TableCell>
 
                       <TableCell className="px-8 py-5">
-                        <p className="font-bold text-gray-700 text-sm">{inc.farmerName}</p>
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">
-                          Farmer
+                        <p className="font-bold text-gray-800 text-sm">{inc.farmerName}</p>
+                        <span className="text-[9px] font-bold text-gray-400">
+                          {inc.tagNumber ? `Tag: ${inc.tagNumber}` : "Registered Raiser"}
                         </span>
                       </TableCell>
 
                       <TableCell className="px-8 py-5 text-sm font-bold text-gray-600">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <MapPin size={14} className="text-gray-300" />
                           <span>{inc.barangayName}</span>
                         </div>
                       </TableCell>
 
                       <TableCell className="px-8 py-5 max-w-xs">
-                        <p className="text-xs text-gray-600 font-medium line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-gray-700 font-medium line-clamp-2 leading-relaxed">
+                          {inc.conditionName ? `${inc.conditionName}: ` : ""}
                           {inc.details}
                         </p>
+                        {inc.symptoms && inc.symptoms.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap mt-1">
+                            {inc.symptoms.slice(0, 2).map((s, idx) => (
+                              <span
+                                key={idx}
+                                className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 text-gray-600"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                            {inc.symptoms.length > 2 && (
+                              <span className="text-[9px] text-gray-400 font-bold">
+                                +{inc.symptoms.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
 
                       <TableCell className="px-8 py-5 text-sm font-bold text-gray-600">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <Calendar size={14} className="text-gray-300" />
                           <span>{inc.date}</span>
                         </div>
@@ -196,53 +243,45 @@ export function IncidentsTable({
                       <TableCell className="px-8 py-5 text-center">
                         <Badge
                           variant="outline"
-                          className={`border-none text-[9px] font-black uppercase px-3 py-1 rounded-full ${
-                            statusNorm === "APPROVED"
-                              ? "bg-green-100 text-green-700"
-                              : statusNorm === "REJECTED" || statusNorm === "FLAGGED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
+                          className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${statusPill.bg}`}
                         >
-                          {statusNorm === "APPROVED" ? "Approved" : statusNorm === "REJECTED" ? "Rejected" : "Pending"}
+                          <span className={`size-1.5 rounded-full mr-1.5 ${statusPill.dot}`} />
+                          {statusPill.label}
                         </Badge>
                       </TableCell>
 
-                      <TableCell className="px-8 py-5">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onViewDetail(detailPayload)}
-                            title="View Incident Details"
-                            className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-blue-600 transition-all"
-                          >
-                            <Eye size={16} />
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              onReview({
-                                id: inc.id,
-                                domain: "incidents",
-                                title: `${typeBadge.label} — ${inc.farmerName}`,
-                                farmerOrSubmitter: inc.farmerName,
-                                barangay: inc.barangayName,
-                                keyMetric: inc.type.toUpperCase(),
-                                currentRemarks: inc.reviewRemarks,
-                              })
-                            }
-                            title={inc.status === "PENDING" ? "Validate & Certify" : "Re-evaluate"}
-                            className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all ${
-                              inc.status === "PENDING"
-                                ? "text-amber-600 hover:text-green-700"
-                                : "text-gray-400 hover:text-gray-900"
-                            }`}
-                          >
-                            <ShieldCheck size={16} />
-                          </Button>
+                      <TableCell className="px-8 py-5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {isHealthOrMortality ? (
+                            <Button
+                              size="sm"
+                              onClick={() => onReviewHealth ? onReviewHealth(inc) : onViewDetail(detailPayload)}
+                              className="h-8 px-3 rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-[11px] font-black uppercase tracking-wider gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <ShieldCheck size={14} />
+                              <span>Review SIBAT</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                onReview({
+                                  id: inc.id,
+                                  domain: "incidents",
+                                  title: `${typeBadge.label} — ${inc.farmerName}`,
+                                  farmerOrSubmitter: inc.farmerName,
+                                  barangay: inc.barangayName,
+                                  keyMetric: inc.type.toUpperCase(),
+                                  currentRemarks: inc.reviewRemarks,
+                                })
+                              }
+                              title="Validate Record"
+                              className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-green-700 transition-all cursor-pointer"
+                            >
+                              <ShieldCheck size={16} />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
 
@@ -250,8 +289,8 @@ export function IncidentsTable({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => onViewDetail(detailPayload)}
-                          className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all"
+                          onClick={() => isHealthOrMortality && onReviewHealth ? onReviewHealth(inc) : onViewDetail(detailPayload)}
+                          className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all cursor-pointer"
                         >
                           <ChevronRight size={18} />
                         </Button>
@@ -267,7 +306,6 @@ export function IncidentsTable({
 
       {/* ── MOBILE CARD LIST VIEW (under md) ── */}
       <div className="md:hidden space-y-3">
-        {/* Mobile Header with Select All */}
         {records.length > 0 && (
           <div className="flex items-center justify-between px-2.5 py-1">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -298,8 +336,10 @@ export function IncidentsTable({
           records.map((inc) => {
             const isSelected = selectedIds.includes(inc.id);
             const typeBadge = getIncidentTypeBadge(inc.type);
-            const statusNorm = (inc.status || "PENDING").toUpperCase();
+            const statusPill = getStatusPill(inc.status);
             const detailPayload = buildDetailPayload(inc);
+            const iconStyle = getIncidentIcon(inc.type);
+            const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";
 
             return (
               <div
@@ -327,21 +367,9 @@ export function IncidentsTable({
                       />
                     </div>
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        inc.type === "slaughter"
-                          ? "bg-purple-100 text-purple-800"
-                          : inc.type === "mortality"
-                          ? "bg-red-100 text-red-700"
-                          : inc.type === "birth"
-                          ? "bg-green-100 text-[#2D5A27]"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconStyle.bg}`}
                     >
-                      {inc.type === "mortality" ? (
-                        <AlertTriangle size={20} />
-                      ) : (
-                        <Activity size={20} />
-                      )}
+                      {iconStyle.icon}
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold text-gray-800 text-sm truncate">{inc.farmerName}</p>
@@ -353,20 +381,15 @@ export function IncidentsTable({
 
                   <Badge
                     variant="outline"
-                    className={`border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${
-                      statusNorm === "APPROVED"
-                        ? "bg-green-100 text-green-700"
-                        : statusNorm === "REJECTED" || statusNorm === "FLAGGED"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
+                    className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${statusPill.bg}`}
                   >
-                    {statusNorm}
+                    {statusPill.label}
                   </Badge>
                 </div>
 
                 {/* Details snippet */}
                 <div className="p-3 bg-gray-50 rounded-2xl text-xs text-gray-700 font-medium leading-relaxed">
+                  {inc.conditionName ? `${inc.conditionName}: ` : ""}
                   {inc.details}
                 </div>
 
@@ -384,40 +407,50 @@ export function IncidentsTable({
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onViewDetail(detailPayload)}
-                    className="flex-1 py-2.5 h-auto rounded-xl border-gray-200 text-gray-700 text-xs font-bold gap-1.5"
-                  >
-                    <Eye size={15} />
-                    <span>Details</span>
-                  </Button>
+                  {isHealthOrMortality ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => onReviewHealth ? onReviewHealth(inc) : onViewDetail(detailPayload)}
+                      className="w-full py-3 h-auto rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-black uppercase tracking-wider gap-2 shadow-xs cursor-pointer"
+                    >
+                      <ShieldCheck size={16} />
+                      <span>Review SIBAT Health Report</span>
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onViewDetail(detailPayload)}
+                        className="flex-1 py-2.5 h-auto rounded-xl border-gray-200 text-gray-700 text-xs font-bold gap-1.5"
+                      >
+                        <Eye size={15} />
+                        <span>Details</span>
+                      </Button>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() =>
-                      onReview({
-                        id: inc.id,
-                        domain: "incidents",
-                        title: `${typeBadge.label} — ${inc.farmerName}`,
-                        farmerOrSubmitter: inc.farmerName,
-                        barangay: inc.barangayName,
-                        keyMetric: inc.type.toUpperCase(),
-                        currentRemarks: inc.reviewRemarks,
-                      })
-                    }
-                    className={`flex-1 py-2.5 h-auto rounded-xl text-xs font-bold gap-1.5 shadow-xs ${
-                      inc.status === "PENDING"
-                        ? "bg-[#2D5A27] hover:bg-[#23471f] text-white"
-                        : "bg-gray-900 hover:bg-gray-800 text-white"
-                    }`}
-                  >
-                    <ShieldCheck size={15} />
-                    <span>{inc.status === "PENDING" ? "Validate" : "Re-evaluate"}</span>
-                  </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() =>
+                          onReview({
+                            id: inc.id,
+                            domain: "incidents",
+                            title: `${typeBadge.label} — ${inc.farmerName}`,
+                            farmerOrSubmitter: inc.farmerName,
+                            barangay: inc.barangayName,
+                            keyMetric: inc.type.toUpperCase(),
+                            currentRemarks: inc.reviewRemarks,
+                          })
+                        }
+                        className="flex-1 py-2.5 h-auto rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold gap-1.5 shadow-xs"
+                      >
+                        <ShieldCheck size={15} />
+                        <span>Validate</span>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             );

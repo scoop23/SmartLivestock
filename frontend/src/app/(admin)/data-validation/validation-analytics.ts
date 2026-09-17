@@ -82,20 +82,42 @@ export interface ValidationInventoryItem {
 
 // ── Types: Incident / Declaration Item ──
 
-export type IncidentType = "slaughter" | "mortality" | "birth" | "sale";
+export type IncidentType = "disease" | "mortality" | "slaughter" | "birth" | "sale";
+
+export interface SibatInspectionData {
+  verifiedBy: string;
+  verifiedAt: string;
+  tagConfirmed: boolean;
+  confirmedCount: number;
+  confirmedSymptoms: string[];
+  severity: string;
+  biosecurityAction: string;
+  remarks: string;
+  temperatureCelsius?: number;
+}
 
 export interface ValidationIncidentItem {
   id: string;
   type: IncidentType;
   farmerName: string;
   barangayName: string;
+  purok?: string;
+  farmerContact?: string;
   details: string;
   date: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
   reviewRemarks: string | null;
   headCount?: number;
   weight?: string;
   tagNumber?: string;
+  livestockBreed?: string;
+  livestockType?: string;
+  conditionName?: string;
+  symptoms?: string[];
+  photoName?: string;
+  sibatInspection?: SibatInspectionData;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
 }
 
 // ── Mock / Seed Data ──
@@ -232,6 +254,111 @@ export const SEED_INVENTORY_VALIDATION: ValidationInventoryItem[] = [
 
 export const SEED_INCIDENTS_VALIDATION: ValidationIncidentItem[] = [
   {
+    id: "DIS-001",
+    type: "disease",
+    farmerName: "Juan Dela Cruz",
+    barangayName: "Banaba Ibaba",
+    purok: "Purok 2",
+    farmerContact: "0917-882-9912",
+    tagNumber: "B-042",
+    livestockBreed: "Brahman Cross",
+    livestockType: "Cattle",
+    conditionName: "Limping / Weak Legs",
+    headCount: 1,
+    symptoms: ["Limping / Weak Legs", "Not Eating / Off-Feed"],
+    details: "Animal refused to stand this morning; left rear hoof is swollen. No open cuts visible.",
+    date: "2026-04-21",
+    status: "VERIFIED",
+    photoName: "swollen_left_hoof.jpg",
+    reviewRemarks: null,
+    sibatInspection: {
+      verifiedBy: "Officer R. Mendoza (SIBAT Sector 1)",
+      verifiedAt: "2026-04-21 10:45",
+      tagConfirmed: true,
+      confirmedCount: 1,
+      confirmedSymptoms: ["Limping / Weak Legs", "Not Eating / Off-Feed"],
+      severity: "MODERATE",
+      biosecurityAction: "PEN_ISOLATION",
+      remarks: "On-farm physical check completed. Mild hoof swelling confirmed; prescribed oral electrolytes and temporary stall isolation.",
+      temperatureCelsius: 39.4,
+    },
+  },
+  {
+    id: "MOR-001",
+    type: "mortality",
+    farmerName: "Mateo Dimaculangan",
+    barangayName: "San Roque",
+    purok: "Purok 1",
+    farmerContact: "0919-445-8821",
+    tagNumber: "A-099",
+    livestockBreed: "Native Murrah",
+    livestockType: "Carabao",
+    conditionName: "Sudden Death / Severe Bloat",
+    headCount: 1,
+    symptoms: ["Bloated Belly"],
+    details: "Carabao died overnight following heavy feeding on damp legumes. Bloat suspected.",
+    date: "2026-04-18",
+    status: "VERIFIED",
+    reviewRemarks: null,
+    sibatInspection: {
+      verifiedBy: "Officer C. Batangas (SIBAT)",
+      verifiedAt: "2026-04-18 11:30",
+      tagConfirmed: true,
+      confirmedCount: 1,
+      confirmedSymptoms: ["Bloated Belly"],
+      severity: "CRITICAL",
+      biosecurityAction: "BIOSECURE_BURIAL",
+      remarks: "Carcass verified on site. Severe tympany/bloat with no signs of anthrax. Supervised 2m deep pit burial with lime.",
+    },
+  },
+  {
+    id: "DIS-002",
+    type: "disease",
+    farmerName: "Elena Vilia",
+    barangayName: "Lipay",
+    purok: "Purok 4",
+    farmerContact: "0928-334-1188",
+    tagNumber: "B-011",
+    livestockBreed: "Holstein Sahiwal",
+    livestockType: "Cattle",
+    conditionName: "Coughing / Runny Nose",
+    headCount: 2,
+    symptoms: ["Coughing / Runny Nose", "High Fever / Hot Ears", "Lethargic / Isolated"],
+    details: "Two calves wheezing heavily and coughing after sudden rainstorm.",
+    date: "2026-04-20",
+    status: "VERIFIED",
+    reviewRemarks: null,
+    sibatInspection: {
+      verifiedBy: "Officer R. Mendoza (SIBAT Sector 1)",
+      verifiedAt: "2026-04-20 16:45",
+      tagConfirmed: true,
+      confirmedCount: 2,
+      confirmedSymptoms: ["Coughing / Runny Nose", "High Fever / Hot Ears"],
+      severity: "MODERATE",
+      biosecurityAction: "PEN_ISOLATION",
+      remarks: "On-farm physical check completed. Mild pneumonic wheezing. Prescribed oral electrolytes and temporary stall isolation.",
+      temperatureCelsius: 39.8,
+    },
+  },
+  {
+    id: "MOR-002",
+    type: "mortality",
+    farmerName: "Ricardo Gomez",
+    barangayName: "Quilo-quilo",
+    purok: "Purok 3",
+    farmerContact: "0939-556-7722",
+    tagNumber: "D-055",
+    livestockBreed: "Dairy Jersey",
+    livestockType: "Cattle",
+    conditionName: "Calving / Birthing Complications",
+    headCount: 1,
+    symptoms: ["Lethargic / Isolated"],
+    details: "Severe dystocia during unassisted nighttime birth resulting in maternal death.",
+    date: "2026-04-21",
+    status: "PENDING",
+    reviewRemarks: null,
+  },
+  {
     id: "inc-1",
     type: "slaughter",
     farmerName: "Juan Dela Cruz",
@@ -243,19 +370,6 @@ export const SEED_INCIDENTS_VALIDATION: ValidationIncidentItem[] = [
     headCount: 1,
     weight: "350kg live / 210kg dressed",
     tagNumber: "PH-BTG-B-042",
-  },
-  {
-    id: "inc-2",
-    type: "mortality",
-    farmerName: "Maria Santos",
-    barangayName: "Banaba Ibaba",
-    details: "Dairy Cow #D-128 - 8 years old. Deceased on farm. Blood smear negative for anthrax; suspected bloat/respiratory.",
-    date: "2026-09-03",
-    status: "PENDING",
-    reviewRemarks: null,
-    headCount: 1,
-    weight: "480kg",
-    tagNumber: "PH-BTG-D-128",
   },
   {
     id: "inc-3",
@@ -403,15 +517,20 @@ export function getStatusPill(status: string) {
 
 export function getIncidentTypeBadge(type: IncidentType) {
   switch (type) {
+    case "disease":
+      return {
+        label: "Disease / Health Case",
+        color: "bg-amber-100 text-amber-800 border-amber-200",
+      };
+    case "mortality":
+      return {
+        label: "Mortality Record",
+        color: "bg-rose-100 text-rose-800 border-rose-200",
+      };
     case "slaughter":
       return {
         label: "Slaughter Inspection",
         color: "bg-purple-100 text-purple-800 border-purple-200",
-      };
-    case "mortality":
-      return {
-        label: "Mortality Report",
-        color: "bg-rose-100 text-rose-800 border-rose-200",
       };
     case "birth":
       return {

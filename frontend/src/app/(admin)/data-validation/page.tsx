@@ -39,6 +39,7 @@ import {
   ProductionTable,
   InventoryTable,
   IncidentsTable,
+  DiseaseMortalityReviewDialog,
 } from "./components";
 
 // Dialog Modals
@@ -62,6 +63,10 @@ export default function AdminDataValidationPage() {
   // Dialog states
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewTargetItems, setReviewTargetItems] = useState<ReviewTargetItem[]>([]);
+  const [healthReviewDialog, setHealthReviewDialog] = useState<{
+    open: boolean;
+    record: ValidationIncidentItem | null;
+  }>({ open: false, record: null });
   const [recordDetailModal, setRecordDetailModal] = useState<{
     open: boolean;
     data: DetailRecordData | null;
@@ -396,6 +401,36 @@ export default function AdminDataValidationPage() {
     }
   };
 
+  // ── Confirmation Handler for Disease & Mortality SIBAT Review ──
+  const handleConfirmHealthAction = (
+    action: "APPROVED" | "REJECTED",
+    remarks: string,
+    recordId: string
+  ) => {
+    setIncidents((prev) =>
+      prev.map((inc) =>
+        inc.id === recordId
+          ? {
+              ...inc,
+              status: action,
+              reviewRemarks:
+                remarks ||
+                (action === "APPROVED"
+                  ? "Official MAO Health & Quarantine Certificate Issued."
+                  : "Flagged by MAO for Veterinary re-inspection."),
+              reviewedBy: "Dr. A. Laurel (MAO Chief Veterinarian)",
+              reviewedAt: new Date().toISOString(),
+            }
+          : inc
+      )
+    );
+
+    const actionVerb = action === "APPROVED" ? "certified & approved" : "flagged / rejected";
+    toast.success(`Health declaration ${recordId} ${actionVerb}.`, {
+      description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
+    });
+  };
+
   return (
     <>
       <PageHeader
@@ -491,10 +526,6 @@ export default function AdminDataValidationPage() {
                 </div>            
               </Tabs>
             </div>
-
-          {/* <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block"> */}
-          {/*     {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description} */}
-          {/* </p> */}
         </div>
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block p-2">
               {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
@@ -556,6 +587,7 @@ export default function AdminDataValidationPage() {
             onSelectAll={handleSelectAll}
             onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
             onReview={openReviewSingle}
+            onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
           />
         )}
       </div>
@@ -595,12 +627,20 @@ export default function AdminDataValidationPage() {
         </div>
       )}
 
-      {/* Review Dialog */}
+      {/* Batch / Single Review Dialog */}
       <ValidationReviewDialog
         open={reviewDialogOpen}
         onOpenChange={setReviewDialogOpen}
         items={reviewTargetItems}
         onConfirmAction={handleConfirmAction}
+      />
+
+      {/* Dedicated SIBAT Disease & Mortality Review Popup */}
+      <DiseaseMortalityReviewDialog
+        record={healthReviewDialog.record}
+        open={healthReviewDialog.open}
+        onOpenChange={(open) => setHealthReviewDialog((prev) => ({ ...prev, open }))}
+        onConfirmAction={handleConfirmHealthAction}
       />
 
       {/* Unified Record Inspection Dialog */}

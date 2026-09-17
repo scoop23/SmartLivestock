@@ -190,8 +190,8 @@ export default function ReportObservationPage() {
       (selectedSymptoms.length > 0
         ? selectedSymptoms[0]
         : reportType === "DISEASE"
-        ? "General Health Concern"
-        : "Unspecified Cause");
+          ? "General Health Concern"
+          : "Unspecified Cause");
 
     setIsSubmitting(true);
 
@@ -264,35 +264,35 @@ export default function ReportObservationPage() {
     icon: React.ReactNode;
     variant: KpiVariant;
   }[] = [
-    {
-      label: "Sick Animals Reported",
-      value: totalDiseaseCases,
-      sub: "Active health cases",
-      icon: <Stethoscope className="size-4.5" />,
-      variant: "amber",
-    },
-    {
-      label: "Deceased Animals",
-      value: totalMortality,
-      sub: "Mortality records",
-      icon: <Skull className="size-4.5" />,
-      variant: "rose",
-    },
-    {
-      label: "Waiting for Inspector",
-      value: pendingVerification,
-      sub: "Pending SIBAT check",
-      icon: <Clock className="size-4.5" />,
-      variant: "sky",
-    },
-    {
-      label: "Verified & Approved",
-      value: approvedCases,
-      sub: "Confirmed by MAO",
-      icon: <ShieldCheck className="size-4.5" />,
-      variant: "emerald",
-    },
-  ];
+      {
+        label: "Sick Animals Reported",
+        value: totalDiseaseCases,
+        sub: "Active health cases",
+        icon: <Stethoscope className="size-4.5" />,
+        variant: "amber",
+      },
+      {
+        label: "Deceased Animals",
+        value: totalMortality,
+        sub: "Mortality records",
+        icon: <Skull className="size-4.5" />,
+        variant: "rose",
+      },
+      {
+        label: "Waiting for Inspector",
+        value: pendingVerification,
+        sub: "Pending SIBAT check",
+        icon: <Clock className="size-4.5" />,
+        variant: "sky",
+      },
+      {
+        label: "Verified & Approved",
+        value: approvedCases,
+        sub: "Confirmed by MAO",
+        icon: <ShieldCheck className="size-4.5" />,
+        variant: "emerald",
+      },
+    ];
 
   return (
     <>
@@ -325,11 +325,10 @@ export default function ReportObservationPage() {
             <Card className="border-2 border-emerald-900/10 shadow-sm rounded-3xl overflow-hidden bg-white">
               {/* Form Top Title */}
               <div
-                className={`p-5 sm:p-6 text-white transition-all duration-300 ${
-                  reportType === "DISEASE"
+                className={`p-5 sm:p-6 text-white transition-all duration-300 ${reportType === "DISEASE"
                     ? "bg-[#2D5A27]"
                     : "bg-rose-800"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-white/10 rounded-2xl border border-white/20">
@@ -346,7 +345,7 @@ export default function ReportObservationPage() {
                         : "Report Deceased Animal"}
                     </h2>
                     <p className="text-xs text-white/80 font-medium">
-                      Easy step-by-step report for municipal veterinary assistance
+                      Report for municipal veterinary assistance
                     </p>
                   </div>
                 </div>
@@ -369,17 +368,15 @@ export default function ReportObservationPage() {
                         setReportType("DISEASE");
                         setConditionName("");
                       }}
-                      className={`p-4 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                        reportType === "DISEASE"
+                      className={`p-4 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between ${reportType === "DISEASE"
                           ? "border-emerald-700 bg-emerald-50/70 shadow-xs"
                           : "border-slate-200 bg-white hover:border-slate-300 text-slate-600"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <Stethoscope
-                          className={`size-6 ${
-                            reportType === "DISEASE" ? "text-emerald-700" : "text-slate-400"
-                          }`}
+                          className={`size-6 ${reportType === "DISEASE" ? "text-emerald-700" : "text-slate-400"
+                            }`}
                         />
                         {reportType === "DISEASE" && (
                           <span className="text-[10px] font-black px-2 py-0.5 bg-emerald-700 text-white rounded-full">
@@ -399,17 +396,15 @@ export default function ReportObservationPage() {
                         setReportType("MORTALITY");
                         setConditionName("");
                       }}
-                      className={`p-4 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                        reportType === "MORTALITY"
+                      className={`p-4 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between ${reportType === "MORTALITY"
                           ? "border-rose-700 bg-rose-50/70 shadow-xs"
                           : "border-slate-200 bg-white hover:border-slate-300 text-slate-600"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <Skull
-                          className={`size-6 ${
-                            reportType === "MORTALITY" ? "text-rose-700" : "text-slate-400"
-                          }`}
+                          className={`size-6 ${reportType === "MORTALITY" ? "text-rose-700" : "text-slate-400"
+                            }`}
                         />
                         {reportType === "MORTALITY" && (
                           <span className="text-[10px] font-black px-2 py-0.5 bg-rose-700 text-white rounded-full">
@@ -597,11 +592,10 @@ export default function ReportObservationPage() {
                               key={sign.id}
                               type="button"
                               onClick={() => toggleSymptom(sign.label)}
-                              className={`p-3 rounded-xl text-left border-2 transition-all cursor-pointer flex items-start gap-2 ${
-                                isSelected
+                              className={`p-3 rounded-xl text-left border-2 transition-all cursor-pointer flex items-start gap-2 ${isSelected
                                   ? "bg-emerald-700 text-white border-emerald-700 shadow-2xs"
                                   : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                              }`}
+                                }`}
                             >
                               <span className="text-base font-bold">
                                 {isSelected ? "✓" : "○"}
@@ -611,9 +605,8 @@ export default function ReportObservationPage() {
                                   {sign.label}
                                 </p>
                                 <p
-                                  className={`text-[10px] font-medium leading-tight mt-0.5 ${
-                                    isSelected ? "text-emerald-100" : "text-slate-400"
-                                  }`}
+                                  className={`text-[10px] font-medium leading-tight mt-0.5 ${isSelected ? "text-emerald-100" : "text-slate-400"
+                                    }`}
                                 >
                                   {sign.sub}
                                 </p>
@@ -694,11 +687,10 @@ export default function ReportObservationPage() {
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`w-full py-6.5 rounded-2xl font-black text-base tracking-wide shadow-md cursor-pointer flex items-center justify-center gap-2 text-white transition-all ${
-                      reportType === "DISEASE"
+                    className={`w-full py-6.5 rounded-2xl font-black text-base tracking-wide shadow-md cursor-pointer flex items-center justify-center gap-2 text-white transition-all ${reportType === "DISEASE"
                         ? "bg-[#2D5A27] hover:bg-[#23471f]"
                         : "bg-rose-700 hover:bg-rose-800"
-                    }`}
+                      }`}
                   >
                     {isSubmitting ? (
                       <>
@@ -742,11 +734,10 @@ export default function ReportObservationPage() {
                   <button
                     key={tab.id}
                     onClick={() => setFilterType(tab.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                      filterType === tab.id
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${filterType === tab.id
                         ? "bg-[#2D5A27] text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                      }`}
                   >
                     {tab.label}
                   </button>
@@ -812,11 +803,10 @@ export default function ReportObservationPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <div
-                              className={`p-2 rounded-xl ${
-                                isMortality
+                              className={`p-2 rounded-xl ${isMortality
                                   ? "bg-rose-100 text-rose-800"
                                   : "bg-emerald-100 text-emerald-800"
-                              }`}
+                                }`}
                             >
                               {isMortality ? (
                                 <Skull className="size-4" />

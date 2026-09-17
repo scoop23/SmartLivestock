@@ -78,7 +78,7 @@ export type DetailRecordData =
   | {
       kind: "incident";
       id: string | number;
-      type: "slaughter" | "mortality" | "birth" | "sale";
+      type: "disease" | "slaughter" | "mortality" | "birth" | "sale";
       farmerName: string;
       barangayName: string;
       details: string;
@@ -173,8 +173,8 @@ export function RecordDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`rounded-[2rem] sm:rounded-[3rem] p-5 sm:p-8 md:p-10 bg-white border-none shadow-2xl [&>button]:right-5 [&>button]:top-5 sm:[&>button]:right-8 sm:[&>button]:top-8 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-gray-100 max-h-[90vh] overflow-y-auto ${
-          record.kind === "census" ? "sm:max-w-2xl" : "sm:max-w-md"
+        className={`w-full max-w-[95vw] rounded-[2rem] sm:rounded-[3rem] p-5 sm:p-8 md:p-10 bg-white border border-slate-100 shadow-2xl [&>button]:right-5 [&>button]:top-5 sm:[&>button]:right-8 sm:[&>button]:top-8 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-gray-100 max-h-[90vh] overflow-y-auto ${
+          record.kind === "census" ? "sm:max-w-3xl md:max-w-4xl" : "sm:max-w-xl md:max-w-2xl"
         }`}
       >
         <DialogHeader className="text-center mb-3 sm:mb-4">
