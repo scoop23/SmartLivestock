@@ -34,13 +34,13 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
       <Sidebar
         role="lgu"
         onLogout={logout}
       />
 
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
 
       <Toaster
         position="top-center"

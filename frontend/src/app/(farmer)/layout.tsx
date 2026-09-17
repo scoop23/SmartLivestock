@@ -12,7 +12,7 @@ export default function FarmerLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading, logout, accessToken } = useAuth();
 
   useEffect(() => {
     if (!isLoading && (!user || user.role?.toUpperCase() !== "FARMER")) {
@@ -29,13 +29,13 @@ export default function FarmerLayout({
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
       <Sidebar
         role="farmer"
         onLogout={logout}
       />
 
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
 
       <Toaster
         position="top-center"

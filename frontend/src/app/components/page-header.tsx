@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { HeaderMenuButton } from "./header-menu-button";
 
 type PageHeaderVariant = "admin" | "farmer" | "sibat" | "auction";
@@ -51,11 +51,11 @@ export function PageHeader({
     >
       <div
         aria-hidden
-        className={`pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full blur-3xl ${glowClasses[variant]}`}
+        className={`pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
       />
       <div
         aria-hidden
-        className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl ${glowClasses[variant]}`}
+        className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
       />
       <div className={`relative ${maxWidthClass} mx-auto px-4 py-5 md:px-6 md:py-7`}>
         <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">

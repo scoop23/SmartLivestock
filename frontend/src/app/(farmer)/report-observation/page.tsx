@@ -300,10 +300,10 @@ export default function ReportObservationPage() {
         title="Report Sick or Dead Animal"
         subtitle="Quickly notify SIBAT inspectors and MAO municipal vets about sick or deceased livestock"
         variant="farmer"
-        maxWidthClass="max-w-7xl"
+        maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 w-full space-y-6">
         {/* ── TOP KPI STATS ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {kpis.map((kpi) => (

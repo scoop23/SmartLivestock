@@ -77,7 +77,7 @@ export default function FarmerCharts({
 
         <CardContent className="p-5 pt-0">
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" debounce={150}>
               <PieChart margin={{ top: -50, right: 12, bottom: 12, left: 12 }}>
                 {/* Inner Level: Primary Species */}
                 <Pie
@@ -153,7 +153,7 @@ export default function FarmerCharts({
 
         <CardContent className="p-5 pt-0">
           <div className="h-[270px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" debounce={150}>
               <BarChart data={milkTrend} margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis
