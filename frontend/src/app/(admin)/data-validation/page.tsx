@@ -437,11 +437,11 @@ export default function AdminDataValidationPage() {
         title="Municipal Data Validation Center"
         subtitle="Official Municipal Agriculture Office (MAO) verification, review, and certification command center"
         variant="admin"
-        maxWidthClass="max-w-7xl"
+        maxWidthClass="w-full"
         icon={<ShieldCheck className="w-6 h-6 text-slate-900" />}
       />
 
-      <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-3.5 sm:space-y-6 pb-24 sm:pb-8">
+      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
         {/* KPI Strip */}
         <ValidationKpis kpis={kpis} />
 

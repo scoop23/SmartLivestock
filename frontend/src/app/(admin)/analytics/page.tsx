@@ -119,22 +119,23 @@ export default function AnalyticsPage() {
   return (
     <>
       <PageHeader
-          title="Advanced Analytics"
-          subtitle="AI-powered insights and predictions — Municipal Agriculture Office"
-          variant="admin"
-        />
+        title="Advanced Analytics"
+        subtitle="AI-powered insights and predictions — Municipal Agriculture Office"
+        variant="admin"
+        maxWidthClass="w-full"
+      />
 
-        {/* AI Search Bar */}
-        <div className="p-4 md:p-6 bg-white border-b border-slate-200 shadow-xs">
-          <div className="max-w-7xl mx-auto">
-            <AskAIBar />
-          </div>
+      {/* AI Search Bar */}
+      <div className="p-3 sm:p-4 bg-white border-b border-slate-200 shadow-2xs">
+        <div className="w-full">
+          <AskAIBar />
         </div>
+      </div>
 
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
           {/* Analytics Type Selector */}
-          <div className="bg-white p-3 rounded-2xl shadow-xs border border-slate-200">
-            <div className="flex flex-wrap gap-2">
+          <div className="bg-white p-2 rounded-xl shadow-2xs border border-slate-200">
+            <div className="flex flex-wrap gap-1.5">
               {([
                 { value: 'descriptive', label: '📊 Descriptive Analytics' },
                 { value: 'predictive', label: '🔮 Predictive Analytics' },
@@ -143,9 +144,9 @@ export default function AnalyticsPage() {
                 <button
                   key={value}
                   onClick={() => setAnalyticsView(value)}
-                  className={`px-6 py-3 rounded-lg transition-colors ${analyticsView === value
-                    ? 'bg-[#2D5A27] text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${analyticsView === value
+                    ? 'bg-[#2D5A27] text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                 >
                   {label}
@@ -156,27 +157,27 @@ export default function AnalyticsPage() {
 
           {/* Descriptive Analytics View */}
           {analyticsView === 'descriptive' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <h3 className="mb-4">Historical Mortality Rates</h3>
-                <ResponsiveContainer width="100%" height={300}>
+            <div className="space-y-3.5">
+              <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
+                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-3">Historical Mortality Rates</h3>
+                <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={monthlyMortality}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft' }} />
-                    <YAxis yAxisId="right" orientation="right" label={{ value: 'Cases', angle: 90, position: 'insideRight' }} />
-                    <Tooltip />
-                    <Legend />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#64748b' }} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Cases', angle: 90, position: 'insideRight', fontSize: 10, fill: '#64748b' }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
                     <Line yAxisId="left" type="monotone" dataKey="rate" stroke="#D32F2F" name="Mortality Rate (%)" strokeWidth={2} />
                     <Line yAxisId="right" type="monotone" dataKey="cases" stroke="#2D5A27" name="Total Cases" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                  <h3 className="mb-4">Mortality Causes Distribution</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-3">Mortality Causes Distribution</h3>
+                  <ResponsiveContainer width="100%" height={240}>
                     <PieChart>
                       <Pie
                         data={mortalityByDisease}
@@ -186,38 +187,38 @@ export default function AnalyticsPage() {
                         cy="50%"
                         labelLine={false}
                         label={({ name, percent = 0 }) => `${name}: ${percent}%`}
-                        outerRadius={80}
+                        outerRadius={75}
                         fill="#8884d8"
                       >
                         {mortalityByDisease.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={['#D32F2F', '#F57C00', '#FBC02D', '#8BC34A'][index]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                  <h3 className="mb-4">Disease Occurrence by Type</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={mortalityByDisease}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="disease" tick={{ fontSize: 12 }} />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="cases" fill="#2D5A27" />
+                <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-3">Disease Occurrence by Type</h3>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={mortalityByDisease} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="disease" tick={{ fontSize: 11, fill: '#64748b' }} />
+                      <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
+                      <Bar dataKey="cases" fill="#2D5A27" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+              <div className="bg-blue-50/80 border border-blue-200/80 rounded-xl p-3.5 sm:p-4">
+                <div className="flex items-start gap-2.5">
+                  <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="mb-2 text-blue-900">Key Insights</h4>
-                    <ul className="space-y-2 text-sm text-blue-800">
+                    <h4 className="text-xs font-black text-blue-900 uppercase tracking-wider mb-1">Key Insights</h4>
+                    <ul className="space-y-1 text-xs text-blue-800 font-medium">
                       <li>• Mortality rate decreased by 16.7% compared to last quarter</li>
                       <li>• FMD remains the leading cause at 40% of all cases</li>
                       <li>• San Roque and Quilo-quilo show lowest mortality rates</li>

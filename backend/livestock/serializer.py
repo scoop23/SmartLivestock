@@ -24,6 +24,13 @@ class BarangaySerializer(serializers.ModelSerializer):
 class LivestockInventorySerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
+    farmer_name = serializers.SerializerMethodField(read_only=True)
+    barangay_name = serializers.CharField(
+        source="farmer.barangay.barangay_name", read_only=True
+    )
+    barangay_id = serializers.IntegerField(
+        source="farmer.barangay.id", read_only=True
+    )
     livestock_type = serializers.PrimaryKeyRelatedField(
         queryset=LivestockType.objects.all()
     )
@@ -41,6 +48,14 @@ class LivestockInventorySerializer(serializers.Serializer):
     last_vaccination_date = serializers.DateField(required=False, allow_null=True)
     status = serializers.CharField(max_length=25, read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
+
+    def get_farmer_name(self, obj):
+        try:
+            user = obj.farmer.user
+            full_name = user.get_full_name().strip()
+            return full_name if full_name else user.username
+        except Exception:
+            return "Unknown Farmer"
 
     def create(self, validated_data):
         user = self.context["request"].user

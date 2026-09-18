@@ -361,11 +361,11 @@ export default function SibatValidationPage() {
         title="SIBAT On-Farm Field Inspection Portal"
         subtitle="Step 2: Conduct on-farm physical examinations, verify clinical signs, and certify records for MAO municipal approval."
         variant="sibat"
-        maxWidthClass="max-w-7xl"
+        maxWidthClass="w-full"
         icon={<Stethoscope className="size-6 text-white" />}
       />
 
-      <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6 pb-24">
+      <div className="p-3 sm:p-6 md:p-8 w-full space-y-6 pb-24">
         {/* ══ KPI SUMMARY STRIP ══ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs">

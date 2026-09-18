@@ -67,25 +67,25 @@ export default function FarmerNewsPage() {
         }
       />
 
-      {/* Filters Row */}
-      <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm mx-4 md:mx-8">
-        {filters.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-              activeFilter === filter
-                ? 'bg-[#2D5A27] text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
-
-      {/* News Feed */}
       <div className="p-4 md:p-8 w-full space-y-6">
+        {/* Filters Row */}
+        <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          {filters.map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                activeFilter === filter
+                  ? 'bg-[#2D5A27] text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+
+        {/* News Feed */}
         {newsItems
           .filter(item => activeFilter === 'All' || item.category === activeFilter)
           .map((news) => (

@@ -88,10 +88,10 @@ export default function AuctionInspections() {
         title="Livestock Inspections & Clearances"
         subtitle="Market trade checkpoints, veterinary clearance permits, and transport inspections"
         variant="auction"
-        maxWidthClass="max-w-7xl"
+        maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 w-full space-y-6">
         {/* Header Actions & Mode Switcher */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>

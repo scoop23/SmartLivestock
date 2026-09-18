@@ -113,29 +113,30 @@ export default function UserManagementPage() {
         <PageHeader
           title="Personnel Directory"
           subtitle="Manage 18 Barangay Personnel & SIBAT Audit Officers"
+          maxWidthClass="w-full"
         />
 
-        <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-8">
+        <div className="w-full space-y-3.5 p-3 sm:p-4 md:p-5">
           {/* Controls Area */}
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100">
-            <div className="relative w-full md:w-96">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <div className="flex flex-col md:flex-row gap-2.5 items-center justify-between bg-white p-3 rounded-xl shadow-2xs border border-slate-200/80">
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <Input
                 type="text"
                 placeholder="Search name or barangay..."
-                className="w-full pl-12 pr-4 py-6 bg-gray-50 border-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#2D5A27] transition-all"
+                className="w-full pl-9 pr-3 py-1.5 h-8 bg-slate-50/80 border-slate-200/80 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#2D5A27] transition-all text-xs font-medium"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
 
             <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as any)} className="w-full md:w-auto">
-              <TabsList className="bg-gray-100 p-1 rounded-2xl h-auto">
+              <TabsList className="bg-slate-100/80 p-0.5 rounded-lg h-auto border border-slate-200/60">
                 {['all', 'farmer', 'sibat'].map((filter) => (
                   <TabsTrigger
                     key={filter}
                     value={filter}
-                    className="px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-400"
+                    className="px-3.5 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs text-slate-400"
                   >
                     {filter}
                   </TabsTrigger>
@@ -145,85 +146,85 @@ export default function UserManagementPage() {
           </div>
 
           {/* List Table */}
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xs border border-slate-200/80 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
-                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 border-b border-slate-200/70">
+                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     User / Role
                   </TableHead>
-                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     Barangay
                   </TableHead>
-                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     Status
                   </TableHead>
-                  <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider text-center">
                     Quick Actions
                   </TableHead>
-                  <TableHead className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <TableHead className="px-3.5 py-2.5 text-right text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     Details
                   </TableHead>
                 </TableRow>
               </TableHeader>
 
-              <TableBody className="divide-y divide-gray-50">
+              <TableBody className="divide-y divide-slate-100">
                 {filteredUsers.map((user) => (
                   <TableRow
                     key={user.id}
-                    className="group hover:bg-gray-50/80 transition-all border-none"
+                    className="group hover:bg-slate-50/90 transition-colors border-none cursor-pointer"
                   >
-                    <TableCell className="px-5 py-5">
-                      <div className="flex items-center gap-4">
+                    <TableCell className="px-3.5 py-2">
+                      <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center ${user.role === "SIBAT"
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${user.role === "SIBAT"
                             ? "bg-blue-600 text-white"
-                            : "bg-green-100 text-[#2D5A27]"
+                            : "bg-emerald-100 text-[#2D5A27]"
                             }`}
                         >
                           {user.role === "SIBAT" ? (
-                            <ShieldCheck size={20} />
+                            <ShieldCheck size={14} />
                           ) : (
-                            <Users size={20} />
+                            <Users size={14} />
                           )}
                         </div>
                         <div>
-                          <p className="font-bold text-gray-800">{user.name}</p>
-                          <span className="text-[9px] font-black text-gray-400 uppercase">
+                          <p className="font-bold text-xs text-slate-800">{user.name}</p>
+                          <span className="text-[9px] font-black text-slate-400 uppercase">
                             {user.role}
                           </span>
                         </div>
                       </div>
                     </TableCell>
 
-                    <TableCell className="px-8 py-6 text-sm font-bold text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <MapPin size={14} className="text-gray-300" /> {user.barangay}
+                    <TableCell className="px-3.5 py-2 text-xs font-semibold text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin size={13} className="text-[#2D5A27] shrink-0" /> {user.barangay}
                       </div>
                     </TableCell>
 
-                    <TableCell className="px-8 py-6">
+                    <TableCell className="px-3.5 py-2">
                       <Badge
                         variant="outline"
-                        className={`border-none text-[9px] font-black uppercase px-3 py-1 rounded-full ${user.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
+                        className={`border-none text-[9px] font-black uppercase px-2 py-0.2 rounded-full ${user.status === "active"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-rose-100 text-rose-800"
                           }`}
                       >
                         {user.status}
                       </Badge>
                     </TableCell>
 
-                    <TableCell className="px-8 py-6">
-                      <div className="flex items-center justify-center gap-2">
+                    <TableCell className="px-3.5 py-2">
+                      <div className="flex items-center justify-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handlePasswordReset(user.name)}
                           title="Reset Password"
-                          className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-blue-600 transition-all"
+                          className="h-7 w-7 hover:bg-slate-100 rounded-md text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
                         >
-                          <Key size={16} />
+                          <Key size={13} />
                         </Button>
 
                         <Button
@@ -233,33 +234,34 @@ export default function UserManagementPage() {
                           title={
                             user.status === "active" ? "Suspend User" : "Activate User"
                           }
-                          className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all ${user.status === "active"
-                            ? "text-gray-400 hover:text-red-600"
-                            : "text-red-600 hover:text-green-600"
+                          className={`h-7 w-7 hover:bg-slate-100 rounded-md transition-colors cursor-pointer ${user.status === "active"
+                            ? "text-slate-400 hover:text-rose-600"
+                            : "text-rose-600 hover:text-emerald-600"
                             }`}
                         >
-                          <UserMinus size={16} />
+                          <UserMinus size={13} />
                         </Button>
 
                         <Button
                           variant="ghost"
                           size="icon"
                           title="Edit Basic Info"
-                          className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-[#2D5A27] transition-all"
+                          className="h-7 w-7 hover:bg-slate-100 rounded-md text-slate-400 hover:text-[#2D5A27] transition-colors cursor-pointer"
                         >
-                          <Edit3 size={16} />
+                          <Edit3 size={13} />
                         </Button>
                       </div>
                     </TableCell>
 
-                    <TableCell className="px-8 py-6 text-right">
+                    <TableCell className="px-3.5 py-2 text-right">
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => setSelectedUser(user)}
-                        className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all"
+                        className="h-7 px-2 text-xs font-bold text-[#2D5A27] hover:bg-emerald-50 rounded-md gap-0.5 cursor-pointer"
                       >
-                        <ChevronRight size={18} />
+                        <span>Profile</span>
+                        <ChevronRight size={13} />
                       </Button>
                     </TableCell>
                   </TableRow>

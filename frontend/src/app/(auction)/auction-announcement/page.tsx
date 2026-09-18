@@ -29,10 +29,10 @@ export default function AuctionAnnouncement() {
         title="Auction Announcements & Bulletins"
         subtitle="Official notices, market schedules, and biosecurity advisories for auction inspectors"
         variant="auction"
-        maxWidthClass="max-w-7xl"
+        maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 w-full space-y-6">
         {/* Search & Filter Bar */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-3">
           <div className="flex flex-col sm:flex-row gap-3">

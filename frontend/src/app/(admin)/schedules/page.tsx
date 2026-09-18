@@ -143,56 +143,56 @@ export default function AdminAvailabilityPage() {
   return (
     <>
       <PageHeader
-          title="MAO Admin Console"
-          subtitle="Global Program Availability & Farmer Scheduling — Municipal Agriculture Office"
-          icon={<Building2 className="h-6 w-6" />}
-          variant="admin"
-          maxWidthClass="max-w-6xl"
-          mobileMenuOffset={false}
-        />
+        title="MAO Admin Console"
+        subtitle="Global Program Availability & Farmer Scheduling — Municipal Agriculture Office"
+        icon={<Building2 className="h-6 w-6" />}
+        variant="admin"
+        maxWidthClass="w-full"
+        mobileMenuOffset={false}
+      />
 
-        <div className="p-4 md:p-8 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="p-3 sm:p-4 md:p-5 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4">
 
           {/* Left: Schedule Window Creation */}
-          <div className="lg:col-span-5 space-y-6">
-            <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-              <h3 className="font-black text-slate-900 text-base tracking-tight flex items-center gap-2 mb-6">
-                <Send className="w-5 h-5 text-[#2D5A27]" />
+          <div className="lg:col-span-5 space-y-3.5">
+            <section className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-2xs">
+              <h3 className="font-black text-slate-900 text-xs tracking-tight flex items-center gap-2 mb-3.5">
+                <Send className="w-4 h-4 text-[#2D5A27]" />
                 Broadcast Availability
               </h3>
 
-              <div className="space-y-5">
+              <div className="space-y-3">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Target Date</label>
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Target Date</label>
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#2D5A27] outline-none"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-[#2D5A27] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Select Programs to Open</label>
-                  <div className="grid grid-cols-1 gap-2">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Select Programs to Open</label>
+                  <div className="grid grid-cols-1 gap-1.5">
                     {availableActivityTypes.map((type) => (
                       <button
                         key={type.id}
                         onClick={() => toggleProgramSelection(type.name)}
-                        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selectedPrograms.includes(type.name)
+                        className={`flex items-center justify-between p-2 rounded-lg border transition-all ${selectedPrograms.includes(type.name)
                             ? 'border-[#2D5A27] bg-green-50'
                             : 'border-gray-100 bg-white hover:border-gray-300'
                           }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${type.color}`}>
-                            <type.icon className="w-4 h-4" />
+                        <div className="flex items-center gap-2.5">
+                          <div className={`p-1.5 rounded-md ${type.color}`}>
+                            <type.icon className="w-3.5 h-3.5" />
                           </div>
-                          <span className={`text-sm font-bold ${selectedPrograms.includes(type.name) ? 'text-[#2D5A27]' : 'text-gray-600'}`}>
+                          <span className={`text-xs font-bold ${selectedPrograms.includes(type.name) ? 'text-[#2D5A27]' : 'text-gray-600'}`}>
                             {type.name}
                           </span>
                         </div>
-                        {selectedPrograms.includes(type.name) && <CheckCircle2 className="w-5 h-5 text-[#2D5A27]" />}
+                        {selectedPrograms.includes(type.name) && <CheckCircle2 className="w-4 h-4 text-[#2D5A27]" />}
                       </button>
                     ))}
                   </div>
@@ -201,7 +201,7 @@ export default function AdminAvailabilityPage() {
                 <button
                   onClick={handleAddSchedule}
                   disabled={!selectedDate || selectedPrograms.length === 0}
-                  className="w-full bg-[#2D5A27] text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-[#1e3d1a] disabled:bg-gray-200 transition-all mt-4"
+                  className="w-full h-8.5 bg-[#2D5A27] text-white font-bold rounded-lg shadow-xs hover:bg-[#1e3d1a] disabled:bg-gray-200 transition-all text-xs cursor-pointer mt-2"
                 >
                   Notify Farmers & Set Available
                 </button>
@@ -211,36 +211,36 @@ export default function AdminAvailabilityPage() {
 
           {/* Right: Active Windows List */}
           <div className="lg:col-span-7">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4 px-2">
-              <Calendar className="w-5 h-5 text-[#2D5A27]" />
+            <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 mb-2.5 px-1">
+              <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
               Current Schedule Windows
             </h3>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-2.5">
               {scheduleData.length > 0 ? (
                 scheduleData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((item) => (
-                  <div key={item.date} className="bg-white rounded-2xl border border-gray-200 shadow-sm group">
-                    <div className="p-5 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-gray-50 p-3 rounded-2xl text-center min-w-[70px]">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase">
+                  <div key={item.date} className="bg-white rounded-xl border border-gray-200 shadow-2xs group">
+                    <div className="p-3 sm:p-3.5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-gray-50 p-2 rounded-lg text-center min-w-[56px]">
+                          <p className="text-[9px] font-bold text-gray-400 uppercase">
                             {new Date(item.date).toLocaleDateString('en-US', { month: 'short' })}
                           </p>
-                          <p className="text-xl font-black text-gray-800">
+                          <p className="text-lg font-black text-gray-800">
                             {new Date(item.date).toLocaleDateString('en-US', { day: '2-digit' })}
                           </p>
                         </div>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
                             <User className="w-3 h-3 text-[#2D5A27]" />
                             <span className="text-xs font-bold text-gray-700 uppercase">
                               {item.appointments.length} Scheduled
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1">
                             {item.programs.map((p) => (
-                              <span key={p} className="px-2 py-0.5 bg-green-50 text-[#2D5A27] text-[9px] font-bold rounded border border-green-100 uppercase">
+                              <span key={p} className="px-1.5 py-0.5 bg-green-50 text-[#2D5A27] text-[9px] font-bold rounded border border-green-100 uppercase">
                                 {p}
                               </span>
                             ))}
@@ -248,26 +248,26 @@ export default function AdminAvailabilityPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setSelectedDateDetails(item)}
-                          className="bg-gray-50 text-gray-500 font-bold text-[10px] uppercase px-4 py-2 rounded-lg hover:bg-[#2D5A27] hover:text-white transition-all flex items-center gap-1"
+                          className="bg-gray-50 text-gray-500 font-bold text-[10px] uppercase px-2.5 py-1.5 rounded-lg hover:bg-[#2D5A27] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
                         >
-                          Manage List <ChevronRight className="w-4 h-4" />
+                          Manage List <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => removeSchedule(item.date)}
-                          className="p-2 text-red-300 hover:text-red-500 rounded-lg"
+                          className="p-1.5 text-red-300 hover:text-red-500 rounded-lg cursor-pointer"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="bg-white rounded-2xl p-20 text-center border-2 border-dashed">
-                  <p className="text-gray-400 font-bold">No active programs.</p>
+                <div className="bg-white rounded-xl p-10 text-center border-2 border-dashed border-gray-200">
+                  <p className="text-gray-400 text-xs font-bold">No active programs.</p>
                 </div>
               )}
             </div>
@@ -276,37 +276,37 @@ export default function AdminAvailabilityPage() {
 
         {/* DETAILS & MANUAL BOOKING MODAL */}
         {selectedDateDetails && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-              <div className="bg-[#2D5A27] p-6 text-white flex justify-between items-center shrink-0">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="bg-[#2D5A27] px-4 py-3 text-white flex justify-between items-center shrink-0">
                 <div>
-                  <h2 className="text-xl font-bold italic">Schedule Management</h2>
-                  <p className="text-white/80 text-sm">Window for: {selectedDateDetails.date}</p>
+                  <h2 className="text-base font-bold italic">Schedule Management</h2>
+                  <p className="text-white/80 text-xs">Window for: {selectedDateDetails.date}</p>
                 </div>
-                <button onClick={() => setSelectedDateDetails(null)} className="p-2 hover:bg-white/10 rounded-full">
-                  <X className="w-6 h-6" />
+                <button onClick={() => setSelectedDateDetails(null)} className="p-1 hover:bg-white/10 rounded-lg cursor-pointer">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto space-y-8">
+              <div className="p-4 overflow-y-auto space-y-4">
                 {/* MANUAL ADDITION FORM */}
-                <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl">
-                  <h4 className="text-xs font-bold text-blue-800 uppercase mb-4 flex items-center gap-2">
-                    <Plus className="w-4 h-4" /> Manual Farmer Registration (Walk-in/Call-in)
+                <div className="bg-blue-50/70 border border-blue-100 p-3.5 rounded-xl">
+                  <h4 className="text-[11px] font-bold text-blue-800 uppercase mb-2.5 flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5" /> Manual Farmer Registration (Walk-in/Call-in)
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <div className="md:col-span-2">
                       <input
                         placeholder="Farmer Full Name"
                         value={newFarmerName}
                         onChange={(e) => setNewFarmerName(e.target.value)}
-                        className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full px-3 py-1.5 border border-blue-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                       />
                     </div>
                     <select
                       value={selectedProgramForFarmer}
                       onChange={(e) => setSelectedProgramForFarmer(e.target.value)}
-                      className="px-3 py-2 border border-blue-200 rounded-lg text-sm outline-none bg-white"
+                      className="px-3 py-1.5 border border-blue-200 rounded-lg text-xs outline-none bg-white"
                     >
                       <option value="">Select Activity</option>
                       {selectedDateDetails.programs.map(p => <option key={p} value={p}>{p}</option>)}
@@ -315,12 +315,12 @@ export default function AdminAvailabilityPage() {
                       type="time"
                       value={selectedTime}
                       onChange={(e) => setSelectedTime(e.target.value)}
-                      className="px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white"
+                      className="px-3 py-1.5 border border-blue-200 rounded-lg text-xs bg-white"
                     />
                     <button
                       onClick={handleManualBook}
                       disabled={!newFarmerName || !selectedProgramForFarmer || !selectedTime}
-                      className="md:col-span-2 bg-blue-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-blue-700 disabled:bg-blue-300 transition-all"
+                      className="md:col-span-2 bg-blue-600 text-white font-bold py-1.5 rounded-lg text-xs hover:bg-blue-700 disabled:bg-blue-300 transition-all cursor-pointer"
                     >
                       Add Farmer to Masterlist
                     </button>
@@ -329,33 +329,33 @@ export default function AdminAvailabilityPage() {
 
                 {/* CURRENT APPOINTMENT LIST */}
                 <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
                       Confirmed Appointments ({selectedDateDetails.appointments.length})
                     </label>
                   </div>
 
-                  <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-xs">
+                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
                     {selectedDateDetails.appointments.length > 0 ? (
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-gray-50/60 hover:bg-gray-50/60 border-b border-gray-100">
-                            <TableHead className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Farmer</TableHead>
-                            <TableHead className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Activity</TableHead>
-                            <TableHead className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Schedule</TableHead>
+                            <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest">Farmer</TableHead>
+                            <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest">Activity</TableHead>
+                            <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Schedule</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody className="divide-y divide-gray-50">
                           {selectedDateDetails.appointments.map((apt) => (
                             <TableRow key={apt.id} className="group hover:bg-gray-50/80 transition-all border-none">
-                              <TableCell className="px-5 py-3.5 font-semibold text-gray-800">{apt.farmerName}</TableCell>
-                              <TableCell className="px-5 py-3.5">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-[#2D5A27] border border-green-100 uppercase">
+                              <TableCell className="px-3.5 py-2 font-semibold text-xs text-gray-800">{apt.farmerName}</TableCell>
+                              <TableCell className="px-3.5 py-2">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-[#2D5A27] border border-green-100 uppercase">
                                   {apt.program}
                                 </span>
                               </TableCell>
-                              <TableCell className="px-5 py-3.5 text-right">
-                                <span className="inline-flex items-center gap-1.5 text-xs font-mono font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg">
+                              <TableCell className="px-3.5 py-2 text-right">
+                                <span className="inline-flex items-center gap-1 text-xs font-mono font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
                                   <Clock className="w-3 h-3 text-gray-400" /> {apt.time}
                                 </span>
                               </TableCell>
@@ -364,7 +364,7 @@ export default function AdminAvailabilityPage() {
                         </TableBody>
                       </Table>
                     ) : (
-                      <div className="p-10 text-center text-gray-400 text-sm">
+                      <div className="p-6 text-center text-gray-400 text-xs">
                         No appointments registered for this window.
                       </div>
                     )}
@@ -372,15 +372,15 @@ export default function AdminAvailabilityPage() {
                 </div>
               </div>
 
-              <div className="p-6 border-t bg-gray-50 flex gap-3">
+              <div className="p-3 border-t bg-gray-50 flex gap-2">
                 <button
                   onClick={() => setSelectedDateDetails(null)}
-                  className="flex-1 bg-white border border-gray-200 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-100 transition-all"
+                  className="flex-1 bg-white border border-gray-200 text-gray-600 font-bold py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs cursor-pointer"
                 >
                   Close Manager
                 </button>
                 <button
-                  className="flex-1 bg-red-50 text-red-600 font-bold py-3 rounded-xl hover:bg-red-100 transition-all"
+                  className="flex-1 bg-red-50 text-red-600 font-bold py-1.5 rounded-lg hover:bg-red-100 transition-all text-xs cursor-pointer"
                 >
                   Cancel All & Broadcast
                 </button>

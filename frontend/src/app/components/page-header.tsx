@@ -41,7 +41,7 @@ export function PageHeader({
   icon,
   action,
   variant = "admin",
-  maxWidthClass = "max-w-7xl",
+  maxWidthClass = "w-full",
   sticky = false,
   className = "",
 }: PageHeaderProps) {

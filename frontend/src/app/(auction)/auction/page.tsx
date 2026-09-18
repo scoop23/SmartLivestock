@@ -111,12 +111,12 @@ export default function AuctionDashboard() {
         title="Livestock Auction & Inspection Portal"
         subtitle="Padre Garcia Livestock Market & Slaughterhouse Checkpoint — Batangas"
         variant="auction"
-        maxWidthClass="max-w-7xl"
+        maxWidthClass="w-full"
       />
 
       {/* Market active status banner */}
       <div className="bg-purple-600/95 text-white shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="w-full px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-white/20 shrink-0">
               <ClipboardCheck className="w-4 h-4 text-white" />
@@ -142,7 +142,7 @@ export default function AuctionDashboard() {
         </div>
       </div>
 
-      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="p-4 md:p-8 w-full space-y-6">
         {/* ═══ Compact KPI Cards ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard

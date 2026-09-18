@@ -55,6 +55,7 @@ export default function PadreGarciaGIS() {
         subtitle="Batangas SmartLivestock System"
         icon={<MapIcon className="text-amber-400" />}
         variant="sibat"
+        maxWidthClass="w-full"
         mobileMenuOffset={false}
         action={
           <div className="hidden items-center gap-4 md:flex">
@@ -67,7 +68,7 @@ export default function PadreGarciaGIS() {
         }
       />
 
-      <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
+      <div className="p-4 lg:p-8 space-y-6 w-full">
         {/* Stats Section */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((s, i) => (

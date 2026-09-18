@@ -6,17 +6,17 @@ import { AskAIBar } from '@/app/components/ask-ai-bar';
 import {
   Users, CheckSquare, Map, TrendingUp, AlertTriangle,
   Sprout, FileText, Download, FileSpreadsheet,
-  FileBarChart, Database
+  FileBarChart, Database, Milk, Scale, ChevronRight
 } from 'lucide-react';
+import { Icon } from 'lucide-react';
+import { cowHead } from '@lucide/lab';
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie,
-  Cell, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer
-} from 'recharts';
+import { AdminChartsView } from './admin-charts-view';
+import { useAdminDashboardAnalytics } from './admin-charts';
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { data } = useAdminDashboardAnalytics();
 
   // --- Handlers ---
   const handleExportExcel = (reportType: string) => {
@@ -27,62 +27,77 @@ export default function AdminDashboard() {
     alert(`Generating ${reportType} report in PDF format...\nThis will download the report for Department of Agriculture submission.`);
   };
 
-  // --- Mock Data ---
+  // --- Executive Stats ---
   const statsCards: {
     label: string;
     value: string;
     change: string;
     icon: React.ReactNode;
     variant: KpiVariant;
+    description: string;
   }[] = [
-      { label: 'Total Cattle', value: '1,234', change: '+3.2%', icon: <Sprout className="w-5 h-5" />, variant: 'emerald' },
-      { label: 'Active Farmers', value: '156', change: '+5', icon: <Users className="w-5 h-5" />, variant: 'sky' },
-      { label: 'Pending Records', value: '12', change: '-3', icon: <CheckSquare className="w-5 h-5" />, variant: 'amber' },
-      { label: 'Disease Alerts', value: '2', change: 'Active', icon: <AlertTriangle className="w-5 h-5" />, variant: 'rose' },
+      {
+        label: 'Total Livestock',
+        value: (data.totalLivestock || 314).toLocaleString(),
+        change: '+4.8% MoM',
+        icon: <Icon iconNode={cowHead} className="size-5" />,
+        variant: 'emerald',
+        description: 'Across 17 Barangays'
+      },
+      {
+        label: 'Monthly Dairy Yield',
+        value: `${((data.monthlyDairyYieldL || 186400) / 1000).toFixed(1)}k L`,
+        change: '+4.2% MoM',
+        icon: <Milk className="w-5 h-5" />,
+        variant: 'sky',
+        description: 'Avg. 18.5 L/head/day'
+      },
+      {
+        label: 'Auction Turnover',
+        value: `₱${(data.auctionTurnoverM || 1.52).toFixed(2)}M`,
+        change: 'Active Market',
+        icon: <TrendingUp className="w-5 h-5" />,
+        variant: 'amber',
+        description: 'Padre Garcia Trading'
+      },
+      {
+        label: 'Biosecurity Alerts',
+        value: String(data.biosecurityAlerts || 2),
+        change: 'Monitored',
+        icon: <AlertTriangle className="w-5 h-5" />,
+        variant: 'rose',
+        description: '1 Quarantined sector'
+      },
+      {
+        label: 'Registered Raisers',
+        value: String(data.registeredFarmers || 156),
+        change: '+8 New',
+        icon: <Users className="w-5 h-5" />,
+        variant: 'default',
+        description: 'Verified MAO farmers'
+      },
     ];
-
-  const cattleDistribution = [
-    { barangay: 'San Roque', cattle: 245 },
-    { barangay: 'Banaba Ibaba', cattle: 198 },
-    { barangay: 'Quilo-quilo', cattle: 167 },
-    { barangay: 'Castillo', cattle: 143 },
-    { barangay: 'Maugat', cattle: 121 },
-  ];
-
-  const monthlyProduction = [
-    { month: 'Oct', milk: 95000, meat: 3200 },
-    { month: 'Nov', milk: 97000, meat: 3400 },
-    { month: 'Dec', milk: 94000, meat: 3100 },
-    { month: 'Jan', milk: 98000, meat: 3500 },
-    { month: 'Feb', milk: 99000, meat: 3600 },
-    { month: 'Mar', milk: 99900, meat: 3700 },
-  ];
-
-  const livestockBreakdown = [
-    { name: 'Dairy Cattle', value: 740, color: '#2D5A27' },
-    { name: 'Beef Cattle', value: 494, color: '#5A8F4F' },
-  ];
 
   return (
     <>
       <PageHeader
-        title="LGU/MAO Dashboard"
-        subtitle="Padre Garcia Municipal Agriculture Office — Livestock Monitoring & Analytics"
+        title="LGU/MAO Municipal Executive Dashboard"
+        subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
         variant="admin"
+        maxWidthClass="w-full"
       />
 
       {/* AI Search Bar */}
-      <div className="p-4 md:p-6 bg-white border-b border-slate-200 shadow-xs">
-        <div className="max-w-7xl mx-auto">
+      <div className="p-3 sm:p-4 bg-white border-b border-slate-200 shadow-2xs">
+        <div className="w-full">
           <AskAIBar />
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Main Content Area */}
+      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
+        {/* Executive Stats Strip */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
           {statsCards.map((stat) => (
             <KpiCard
               key={stat.label}
@@ -90,108 +105,57 @@ export default function AdminDashboard() {
               value={stat.value}
               icon={stat.icon}
               badge={stat.change}
+              description={stat.description}
               variant={stat.variant}
             />
           ))}
         </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
-            <h3 className="font-black text-slate-900 text-base tracking-tight mb-4">Cattle Distribution by Barangay</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={cattleDistribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="barangay" tick={{ fontSize: 12, fill: '#64748b' }} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                <Tooltip cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="cattle" fill="#2D5A27" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        {/* ── Visualizations & Charts Matrix ── */}
+        <AdminChartsView />
 
-          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
-            <h3 className="font-black text-slate-900 text-base tracking-tight mb-4">Livestock Type Distribution</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={livestockBreakdown}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {livestockBreakdown.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+        {/* ── Generate Reports ── */}
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
+          <div className="flex items-center gap-2 mb-1">
+            <FileText className="w-4 h-4 text-[#2D5A27]" />
+            <h3 className="font-black text-slate-900 text-sm sm:text-base tracking-tight">Generate Official Reports</h3>
           </div>
-        </div>
-
-        {/* Production Trends */}
-        <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
-          <h3 className="font-black text-slate-900 text-base tracking-tight mb-4">Monthly Production Trends</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyProduction}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} />
-              <YAxis yAxisId="left" orientation="left" stroke="#2D5A27" tick={{ fontSize: 12, fill: '#64748b' }} />
-              <YAxis yAxisId="right" orientation="right" stroke="#D32F2F" tick={{ fontSize: 12, fill: '#64748b' }} />
-              <Tooltip />
-              <Legend />
-              <Line yAxisId="left" type="monotone" dataKey="milk" stroke="#2D5A27" name="Milk (L)" strokeWidth={3} dot={{ r: 4 }} />
-              <Line yAxisId="right" type="monotone" dataKey="meat" stroke="#D32F2F" name="Meat (kg)" strokeWidth={3} dot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Generate Reports Section */}
-        <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
-          <div className="flex items-center gap-2 mb-2">
-            <FileText className="w-5 h-5 text-[#2D5A27]" />
-            <h3 className="font-black text-slate-900 text-base tracking-tight">Generate Reports</h3>
-          </div>
-          <p className="text-xs text-slate-500 font-medium mb-6">
-            Export comprehensive data for Municipal Agriculture Office (MAO) official submissions.
+          <p className="text-xs text-slate-500 font-medium mb-3">
+            Export comprehensive data packages for Department of Agriculture (DA) and Municipal Agriculture Office (MAO) submissions.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5">
             {[
-              { title: 'Livestock Inventory', desc: 'Complete cattle census data', icon: Sprout, color: 'bg-[#2D5A27]/10', iconColor: 'text-[#2D5A27]' },
-              { title: 'Production Summary', desc: 'Milk & meat production data', icon: TrendingUp, color: 'bg-blue-600/10', iconColor: 'text-blue-600' },
-              { title: 'Disease & Mortality', desc: 'Health incidents & cases', icon: AlertTriangle, color: 'bg-red-600/10', iconColor: 'text-red-600' },
-              { title: 'Farmer Registry', desc: 'Complete farmer database', icon: Users, color: 'bg-purple-600/10', iconColor: 'text-purple-600' },
-              { title: 'Monthly Analytics', desc: 'Comprehensive data analysis', icon: FileBarChart, color: 'bg-orange-600/10', iconColor: 'text-orange-600' },
-              { title: 'Full DA Submission', desc: 'Complete quarterly report', icon: Download, color: 'bg-[#2D5A27]/10', iconColor: 'text-[#2D5A27]' },
-            ].map(({ title, desc, icon: Icon, color, iconColor }) => (
-              <div key={title} className="border border-slate-200 rounded-2xl p-4 hover:border-[#2D5A27] transition-all bg-white group hover:shadow-xs">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className={`p-2 ${color} rounded-xl group-hover:scale-105 transition-transform`}>
-                    <Icon className={`w-4 h-4 ${iconColor}`} />
+              { title: 'Livestock Inventory', desc: 'Complete cattle census', icon: Sprout, color: 'bg-emerald-50 text-emerald-800' },
+              { title: 'Production Summary', desc: 'Milk & meat yield logs', icon: TrendingUp, color: 'bg-blue-50 text-blue-800' },
+              { title: 'Disease & Mortality', desc: 'Surveillance & clinical reports', icon: AlertTriangle, color: 'bg-rose-50 text-rose-800' },
+              { title: 'Farmer Registry', desc: '18-Barangay raisers directory', icon: Users, color: 'bg-purple-50 text-purple-800' },
+              { title: 'Auction Ledger', desc: 'Trading center transactions', icon: Scale, color: 'bg-amber-50 text-amber-800' },
+              { title: 'Full DA Submission', desc: 'Quarterly compliance pack', icon: Download, color: 'bg-slate-100 text-slate-800' },
+            ].map(({ title, desc, icon: IconComponent, color }) => (
+              <div key={title} className="border border-slate-200/80 rounded-lg p-3 bg-white hover:border-[#2D5A27] transition-all flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className={`p-1.5 rounded-md ${color} shrink-0`}>
+                      <IconComponent className="w-3.5 h-3.5" />
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-900 truncate">{title}</h4>
                   </div>
-                  <div className="flex-1">
-                    <h4 className="text-xs font-black text-slate-900 mb-0.5 tracking-tight">{title}</h4>
-                    <p className="text-[11px] text-slate-500 font-medium leading-tight">{desc}</p>
-                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium leading-tight line-clamp-1">{desc}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 mt-2.5">
                   <button
                     onClick={() => handleExportExcel(title)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors text-xs font-bold shadow-xs cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <FileSpreadsheet className="w-3 h-3" />
                     Excel
                   </button>
                   <button
                     onClick={() => handleExportPDF(title)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-colors text-xs font-bold shadow-xs cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-1 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
                   >
-                    <FileBarChart className="w-3.5 h-3.5" />
+                    <FileBarChart className="w-3 h-3" />
                     PDF
                   </button>
                 </div>
@@ -201,21 +165,26 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Navigation Footer */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           {[
             { path: '/data-overview', icon: Database, label: 'Data Overview' },
             { path: '/user-management', icon: Users, label: 'User Accounts' },
             { path: '/data-validation', icon: CheckSquare, label: 'Record Validation' },
             { path: '/gis-map', icon: Map, label: 'GIS Mapping' },
             { path: '/analytics', icon: TrendingUp, label: 'AI Analytics' },
-          ].map(({ path, icon: Icon, label }) => (
+          ].map(({ path, icon: IconComponent, label }) => (
             <button
               key={path}
               onClick={() => router.push(path)}
-              className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 hover:border-[#2D5A27] hover:bg-[#2D5A27]/5 transition-all flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+              className="bg-white p-2.5 sm:p-3 rounded-xl shadow-2xs border border-slate-200 hover:border-[#2D5A27] hover:bg-emerald-50/50 transition-all flex items-center justify-between text-left group cursor-pointer"
             >
-              <Icon className="w-5 h-5 text-[#2D5A27] group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-tight">{label}</span>
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-slate-100 text-[#2D5A27] group-hover:bg-emerald-100 transition-colors">
+                  <IconComponent className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-slate-800">{label}</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all" />
             </button>
           ))}
         </div>
