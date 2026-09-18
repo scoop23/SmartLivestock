@@ -185,15 +185,21 @@ export default function DataOverviewPage() {
     const uniqueBarangays = Array.from(new Set(officialBarangays));
 
     return uniqueBarangays.map((brgyName) => {
-      // Find matching items
+      // Find matching items (filtering for APPROVED / Certified records for official tallies)
       const brgyInventories = livestockList.filter(
-        (l) => l.barangay?.toLowerCase() === brgyName.toLowerCase()
+        (l) =>
+          l.barangay?.toLowerCase() === brgyName.toLowerCase() &&
+          (!l.status || l.status.toUpperCase() === "APPROVED")
       );
       const brgyCensus = censusList.filter(
-        (c) => c.barangay?.toLowerCase() === brgyName.toLowerCase()
+        (c) =>
+          c.barangay?.toLowerCase() === brgyName.toLowerCase() &&
+          (c.status === "MAO Verified" || c.verifiedByMAO || c.status?.toUpperCase() === "APPROVED")
       );
       const brgyProduction = productionList.filter(
-        (p) => p.barangay?.toLowerCase() === brgyName.toLowerCase()
+        (p) =>
+          p.barangay?.toLowerCase() === brgyName.toLowerCase() &&
+          (p.status === "Certified" || p.status?.toUpperCase() === "APPROVED")
       );
       const brgyDiseases = diseaseList.filter(
         (d) => d.barangay?.toLowerCase() === brgyName.toLowerCase()

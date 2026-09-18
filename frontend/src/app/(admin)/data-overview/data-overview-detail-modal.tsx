@@ -70,8 +70,8 @@ export function DataOverviewDetailModal({
             </span>
           </div>
 
-          <div className="mt-2.5">
-            <h2 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5">
+          <DialogHeader className="mt-2.5 text-left">
+            <DialogTitle className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5">
               {record.cattleId ? (
                 <>
                   <Tag className="w-4 h-4 text-emerald-300" />
@@ -80,11 +80,11 @@ export function DataOverviewDetailModal({
               ) : (
                 <span>{record.product || record.disease || record.quarter || record.id}</span>
               )}
-            </h2>
-            <p className="text-[11px] text-emerald-100/80 mt-0.5">
+            </DialogTitle>
+            <DialogDescription className="text-[11px] text-emerald-100/80 mt-0.5">
               Padre Garcia Municipal Agriculture Office — Official Certified Ledger Entry
-            </p>
-          </div>
+            </DialogDescription>
+          </DialogHeader>
         </div>
 
         {/* Modal Body */}

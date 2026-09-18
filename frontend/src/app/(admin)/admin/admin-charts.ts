@@ -437,7 +437,12 @@ export function computeAdminAnalytics(
 
   const uniqueFarmerIdentifiers = new Set<string>();
 
-  inventories.forEach((inv) => {
+  // Only tally approved inventory records into municipal totals
+  const approvedInventories = inventories.filter(
+    (inv) => !inv.status || inv.status.toUpperCase() === "APPROVED"
+  );
+
+  approvedInventories.forEach((inv) => {
     const bName = inv.barangayName || "Banaba";
     if (!barangayHerdMap[bName]) {
       barangayHerdMap[bName] = {
@@ -473,8 +478,12 @@ export function computeAdminAnalytics(
     }
   });
 
-  // 3. Tally heads from Census Submissions (`CensusSubmission` & `CensusSubmissionItem`)
-  censusSubmissions.forEach((census) => {
+  // 3. Tally heads from APPROVED Census Submissions (`CensusSubmission` & `CensusSubmissionItem`)
+  const approvedCensusSubmissions = censusSubmissions.filter(
+    (census) => !census.status || census.status.toUpperCase() === "APPROVED"
+  );
+
+  approvedCensusSubmissions.forEach((census) => {
     const bName = census.barangayName || "Banaba";
     if (!barangayHerdMap[bName]) {
       barangayHerdMap[bName] = {
@@ -559,8 +568,11 @@ export function computeAdminAnalytics(
 
   // 7. Production Analytics (Dairy Milk Yield & Department of Agriculture Targets)
   // Backend `ProductionRecord` with `production_type = 'MILK'`, `unit = 'LITERS'`
+  // Filter for APPROVED / VERIFIED production logs only
   const milkRecords = productionRecords.filter(
-    (p) => (p.productionType || "").toUpperCase() === "MILK"
+    (p) =>
+      (p.productionType || "").toUpperCase() === "MILK" &&
+      (!p.status || p.status.toUpperCase() === "APPROVED" || p.status.toUpperCase() === "VERIFIED")
   );
 
   const totalLiveMilkLiters = milkRecords.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
