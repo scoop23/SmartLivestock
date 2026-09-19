@@ -7,6 +7,7 @@ import api from '../../lib/axios';
 import { jwtDecode } from 'jwt-decode';
 
 import { useAuth } from '@/contexts/auth-context';
+import { toast } from 'sonner';
 
 interface DecodedJWT {
   email: string
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registerLoading, setRegisterLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +66,18 @@ export default function LoginPage() {
     }
   };
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegisterLoading(true);
+
+    toast.success("Routing to Registration");
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+
+    router.push("/farmer-registration");
+  
+  }
+
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -105,49 +119,52 @@ export default function LoginPage() {
           <h2 className="text-2xl mb-2">Welcome Back</h2>
           <p className="text-gray-600 mb-8">Sign in to access your dashboard</p>
 
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block mb-2">Email Address</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your.email@example.com"
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] focus:border-transparent outline-none"
-                required
-              />
-            </div>
+          <div className='flex flex-col gap-2'>
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div>
+                  <label htmlFor="email" className="block mb-2">Email Address</label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your.email@example.com"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] focus:border-transparent outline-none"
+                    required
+                  />
+                </div>
 
-            <div>
-              <label htmlFor="password" className="block mb-2">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] focus:border-transparent outline-none"
-                required
-              />
-            </div>
+                <div>
+                  <label htmlFor="password" className="block mb-2">Password</label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D5A27] focus:border-transparent outline-none"
+                    required
+                  />
+                </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#2D5A27] text-white py-3 rounded-lg hover:bg-[#3d7234] transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#2D5A27] text-white py-3 rounded-lg hover:bg-[#3d7234] transition-colors disabled:opacity-50"
-              onClick={() => router.push('/farmer-registration')}
-            >
-              {loading ? 'Signing in...' : 'Register'}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#2D5A27] text-white py-3 rounded-lg hover:bg-[#3d7234] transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+
+              <button
+                type="submit"
+                disabled={registerLoading}
+                className="w-full bg-[#2D5A27] text-white py-3 rounded-lg hover:bg-[#3d7234] transition-colors disabled:opacity-50"
+                onClick={(e) => handleRegister(e)}
+              >
+                {registerLoading ? 'Registering in...' : 'Register'}
+              </button>
+              </div>
 
           <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <p className="text-sm mb-2">Demo Accounts:</p>
