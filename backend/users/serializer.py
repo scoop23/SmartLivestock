@@ -110,3 +110,82 @@ class CurrentUserSerializer(serializers.Serializer):
     last_name = serializers.CharField()
     email = serializers.EmailField()
     role = serializers.CharField(source="role.role_name")
+
+
+class UserManagementSerializer(serializers.ModelSerializer):
+    """
+    Serializer for MAO user management & pending approvals.
+    Exposes essential profile & farmer details without sensitive auth data.
+    """
+    role = serializers.CharField(source="role.role_name", read_only=True)
+    full_name = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    barangay = serializers.SerializerMethodField()
+    barangay_id = serializers.SerializerMethodField()
+    farm_size = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
+    cattle_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "phone_number",
+            "role",
+            "account_status",
+            "created_at",
+            "approved_at",
+            "barangay",
+            "barangay_id",
+            "farm_size",
+            "address",
+            "cattle_count",
+        )
+        read_only_fields = fields
+
+    def get_full_name(self, obj):
+        name = f"{obj.first_name} {obj.last_name}".strip()
+        return name if name else obj.username
+
+    def get_phone_number(self, obj):
+        return str(obj.phone_number) if obj.phone_number else ""
+
+    def get_barangay(self, obj):
+        if hasattr(obj, "farmer_profile") and obj.farmer_profile.barangay:
+            return obj.farmer_profile.barangay.barangay_name
+        return ""
+
+    def get_barangay_id(self, obj):
+        if hasattr(obj, "farmer_profile") and obj.farmer_profile.barangay_id:
+            return obj.farmer_profile.barangay_id
+        return None
+
+    def get_farm_size(self, obj):
+        if hasattr(obj, "farmer_profile") and obj.farmer_profile.farm_size is not None:
+            return float(obj.farmer_profile.farm_size)
+        return None
+
+    def get_address(self, obj):
+        if hasattr(obj, "farmer_profile"):
+            return obj.farmer_profile.address
+        return ""
+
+    def get_cattle_count(self, obj):
+        if hasattr(obj, "farmer_profile"):
+            inventories = getattr(obj.farmer_profile, "inventories", None)
+            if inventories is not None:
+                return sum(inv.quantity for inv in inventories.all())
+        return 0
+
+
+class UserStatusUpdateSerializer(serializers.Serializer):
+    """
+    Validates status updates submitted by MAO.
+    """
+    status = serializers.ChoiceField(choices=User.AccountStatus.choices)
+

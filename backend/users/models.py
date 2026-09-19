@@ -47,7 +47,6 @@ class Role(models.Model):
         FARMER = "FARMER", "Farmer"
         MAO = "MAO", "Municipal Agriculturist Office"
         SIBAT = "SIBAT", "Sibat"
-        ADMIN = "ADMIN", "Admin"
         AUCTION = "AUCTION", "Auction"
         SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF", "SlaughterhouseStaff"
 

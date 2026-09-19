@@ -53,8 +53,10 @@ class LivestockInventory(models.Model):
 
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
+        VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
+
 
     farmer = models.ForeignKey(
         "Farmer", on_delete=models.PROTECT, related_name="inventories"

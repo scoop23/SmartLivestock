@@ -88,11 +88,16 @@ def inventory_detail(request, pk):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+from rest_framework.exceptions import PermissionDenied
+
+
 @api_view(["POST"])
 def review_inventory(request, pk):
     """
     POST /api/livestock/inventory/<id>/review/
-    Official MAO verification action (APPROVE / REJECT)
+    Review and verify livestock inventory:
+    - SIBAT: Field tagging & verification (status = VERIFIED)
+    - MAO: Official municipal certification (status = APPROVED or REJECTED)
     """
     inventory = get_object_or_404(LivestockInventory, pk=pk)
     new_status = request.data.get("status")
@@ -100,9 +105,34 @@ def review_inventory(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (APPROVED or REJECTED)."},
+            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+
+    if role_name == "FARMER":
+        raise PermissionDenied("Farmers are not authorized to review livestock inventory.")
+
+    if role_name == "SIBAT":
+        if new_status == LivestockInventory.StatusType.APPROVED:
+            raise PermissionDenied(
+                "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
+            )
+        if new_status not in [LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.REJECTED]:
+            return Response(
+                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or REJECTED."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif role_name == "MAO":
+        if new_status not in LivestockInventory.StatusType.values:
+            return Response(
+                {"error": f"Invalid status '{new_status}'. Valid choices are: {list(LivestockInventory.StatusType.values)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    else:
+        raise PermissionDenied("You do not have permission to review livestock inventory.")
 
     inventory.status = new_status
     inventory.reviewed_by = request.user
@@ -112,6 +142,7 @@ def review_inventory(request, pk):
 
     serializer = LivestockInventorySerializer(inventory)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 @api_view(["GET"])
