@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Beef,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -37,6 +38,7 @@ const statusClasses: Record<ProductionStatus, string> = {
 
 const typeMeta = {
   milk: { label: "Milk", icon: Milk, colorClass: "text-blue-700 bg-blue-100/80 border-blue-200" },
+  meat: { label: "Meat & Carcass", icon: Beef, colorClass: "text-rose-700 bg-rose-100/80 border-rose-200" },
   eggs: { label: "Eggs", icon: Egg, colorClass: "text-amber-700 bg-amber-100/80 border-amber-200" },
   wool: { label: "Wool", icon: Package, colorClass: "text-sky-700 bg-sky-100/80 border-sky-200" },
 } as const;

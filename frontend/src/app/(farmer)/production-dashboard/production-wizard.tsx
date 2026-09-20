@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import {
+  Beef,
   Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Egg,
   Milk,
   Package,
   Send,
@@ -27,17 +29,16 @@ import {
 import { cn } from "@/components/ui/utils";
 import ProductionFormFields, {
   ProductionFormState,
-  type ProductionType,
 } from "./production-form-fields";
 import SelectLivestockDialog from "./select-livestock-dialog";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import type { UpdateProductionPayload, WizardMode } from "./page";
 
-import { ProductionRecordItem } from "./production-analytics";
+import { type ProductionType, ProductionRecordItem } from "./production-analytics";
 
 export type ProductionPayload = {
   livestock: number;
-  production_type: "MILK" | "EGGS" | "WOOL";
+  production_type: "MILK" | "MEAT" | "EGGS" | "WOOL";
   quantity: number;
   unit: "LITERS" | "PIECES" | "KILOGRAMS";
   record_date: string;
@@ -56,10 +57,10 @@ interface ProductionWizardProps {
   isSubmitting: boolean;
   resetSignal: number;
   onSubmit: (payload: ProductionPayload) => void;
-  open: boolean
+  open: boolean;
   onClose: () => void;
   mode: WizardMode;
-  editingRecord: Partial<ProductionRecordItem> | null
+  editingRecord: Partial<ProductionRecordItem> | null;
 }
 
 const STEP_LABELS = ["Livestock", "Production", "Details", "Review"];
@@ -76,33 +77,88 @@ const formatDate = (date: string | null | undefined) => {
 };
 
 const typeMeta: Record<ProductionType, { icon: typeof Milk; label: string; desc: string }> = {
-  milk: { icon: Milk, label: "Milk", desc: "Log liters collected for the day" },
-  eggs: { icon: Milk, label: "Eggs", desc: "Log eggs produced" },
+  milk: { icon: Milk, label: "Dairy Milk", desc: "Log liters collected for the day" },
+  meat: { icon: Beef, label: "Meat & Carcass", desc: "Log kilograms of butchered / meat yield" },
+  eggs: { icon: Egg, label: "Eggs", desc: "Log eggs produced" },
   wool: { icon: Package, label: "Wool", desc: "Log wool produced in kilograms" },
 };
 
 const typeDetails: Record<ProductionType, { label: string; value: keyof ProductionFormState }[]> = {
   milk: [
-    { label: "Quantity", value: "milkQty" },
-    { label: "Time", value: "milkTime" },
+    { label: "Quantity (L)", value: "milkQty" },
+    { label: "Milking Session", value: "milkTime" },
+  ],
+  meat: [
+    { label: "Meat Yield (kg)", value: "meatQty" },
+    { label: "Purpose", value: "meatPurpose" },
   ],
   eggs: [
-    { label: "Quantity", value: "eggQty" },
+    { label: "Quantity (pcs)", value: "eggQty" },
     { label: "Collection Time", value: "collectionTime" },
   ],
   wool: [
-    { label: "Quantity", value: "woolQty" },
+    { label: "Quantity (kg)", value: "woolQty" },
   ],
 };
 
-const livestockTypeToProductionTypes: Record<string, ProductionType[]> = {
-  Cattle: ["milk"],
-  Carabao: ["milk"],
-  Goat: ["milk"],
-  Sheep: ["wool"],
-  Poultry: ["eggs"],
-};
+export function getProductionTypesForLivestock(livestockTypeName?: string | null): ProductionType[] {
+  if (!livestockTypeName) return ["milk", "meat"];
+  const name = livestockTypeName.trim().toLowerCase();
 
+  if (
+    name.includes("cattle") ||
+    name.includes("baka") ||
+    name.includes("bovine") ||
+    name.includes("cow")
+  ) {
+    return ["milk", "meat"];
+  }
+  if (
+    name.includes("carabao") ||
+    name.includes("kalabaw") ||
+    name.includes("buffalo")
+  ) {
+    return ["milk", "meat"];
+  }
+  if (
+    name.includes("goat") ||
+    name.includes("kambing") ||
+    name.includes("caprine")
+  ) {
+    return ["milk", "meat"];
+  }
+  if (
+    name.includes("sheep") ||
+    name.includes("tupa") ||
+    name.includes("ovine") ||
+    name.includes("lamb") ||
+    name.includes("ram")
+  ) {
+    return ["meat", "wool"];
+  }
+  if (
+    name.includes("swine") ||
+    name.includes("pig") ||
+    name.includes("baboy") ||
+    name.includes("hog") ||
+    name.includes("porcine")
+  ) {
+    return ["meat"];
+  }
+  if (
+    name.includes("poultry") ||
+    name.includes("chicken") ||
+    name.includes("manok") ||
+    name.includes("duck") ||
+    name.includes("itik") ||
+    name.includes("hen") ||
+    name.includes("layer")
+  ) {
+    return ["eggs", "meat"];
+  }
+
+  return ["milk", "meat"];
+}
 
 export default function ProductionWizard({
   productionType,
@@ -142,25 +198,32 @@ export default function ProductionWizard({
     }
   }
 
-  const meta = typeMeta[productionType];
+  const availableTypes = getProductionTypesForLivestock(clickedInventory?.livestockTypeName);
+  const meta = typeMeta[productionType] ?? typeMeta[availableTypes[0]] ?? typeMeta.milk;
 
-  const livestockTypeName = clickedInventory?.livestockTypeName ?? "";
-  const availableTypes = livestockTypeToProductionTypes[livestockTypeName] ?? Object.keys(typeMeta);
+  const handleSelectInventory = (item: LivestockInventoryItem | null) => {
+    onSelectInventory(item);
+    if (item) {
+      const allowed = getProductionTypesForLivestock(item.livestockTypeName);
+      if (!allowed.includes(productionType)) {
+        onTypeChange(allowed[0]);
+      }
+    }
+  };
 
   const canContinue =
     step === 0
       ? !!clickedInventory
       : step === 1
         ? !!productionType
-        : step === 2
-          ? true
-          : true;
+        : true;
 
   const buildPayload = (): ProductionPayload | null => {
     if (!clickedInventory) return null;
 
     const unitMap: Record<ProductionType, ProductionPayload["unit"]> = {
       milk: "LITERS",
+      meat: "KILOGRAMS",
       eggs: "PIECES",
       wool: "KILOGRAMS",
     };
@@ -170,6 +233,7 @@ export default function ProductionWizard({
       ProductionPayload["production_type"]
     > = {
       milk: "MILK",
+      meat: "MEAT",
       eggs: "EGGS",
       wool: "WOOL",
     };
@@ -186,11 +250,19 @@ export default function ProductionWizard({
     };
 
     if (productionType === "milk") {
-      payload.quantity = Number(formState.milkQty);
+      payload.quantity = Number(formState.milkQty) || 0;
+      if (formState.milkTime) {
+        payload.notes = `[${formState.milkTime}] ${payload.notes}`.trim();
+      }
+    } else if (productionType === "meat") {
+      payload.quantity = Number(formState.meatQty) || 0;
+      if (formState.meatPurpose) {
+        payload.notes = `[Purpose: ${formState.meatPurpose}] ${payload.notes}`.trim();
+      }
     } else if (productionType === "eggs") {
-      payload.quantity = Number(formState.eggQty);
+      payload.quantity = Number(formState.eggQty) || 0;
     } else if (productionType === "wool") {
-      payload.quantity = Number(formState.woolQty);
+      payload.quantity = Number(formState.woolQty) || 0;
     }
     console.log("Payload:", payload);
     return payload;
@@ -211,10 +283,12 @@ export default function ProductionWizard({
 
   const typeTitle =
     productionType === "milk"
-      ? "Log Milk Production"
-      : productionType === "eggs"
-        ? "Log Egg Production"
-        : "Log Wool Production";
+      ? "Log Dairy Milk Production"
+      : productionType === "meat"
+        ? "Log Meat & Carcass Yield"
+        : productionType === "eggs"
+          ? "Log Egg Production"
+          : "Log Wool Production";
 
   const TypeIcon = meta.icon;
 
@@ -271,14 +345,21 @@ export default function ProductionWizard({
           </div>
 
           <div className="flex items-center gap-3 mb-5">
-            <div className={cn("p-2.5 rounded-xl", productionType === "milk" ? "bg-emerald-100 text-emerald-700" : productionType === "eggs" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700")}>
-              {
-                step === 0 ? (
-                  <Package className="w-5 h-5" />
-                ) : (
-                  <TypeIcon className="w-5 h-5" />
-                )
-              }
+            <div
+              className={cn(
+                "p-2.5 rounded-xl",
+                step === 0
+                  ? "bg-slate-100 text-slate-700"
+                  : productionType === "milk"
+                  ? "bg-sky-100 text-sky-700"
+                  : productionType === "meat"
+                  ? "bg-rose-100 text-rose-700"
+                  : productionType === "eggs"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-stone-200 text-stone-700"
+              )}
+            >
+              {step === 0 ? <Package className="w-5 h-5" /> : <TypeIcon className="w-5 h-5" />}
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 leading-tight">
@@ -350,7 +431,7 @@ export default function ProductionWizard({
                     onOpenChange={setSelectOpen}
                     items={approvedInventories}
                     selectedId={clickedInventory?.id ?? null}
-                    onSelect={onSelectInventory}
+                    onSelect={handleSelectInventory}
                   />
                 </>
               )}
@@ -358,29 +439,51 @@ export default function ProductionWizard({
           )}
 
           {step === 1 && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {(availableTypes as ProductionType[])
-                .map((t) => {
-                  const TIcon = typeMeta[t].icon;
-                  const isActive = productionType === t;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => handleTypePick(t)}
+            <div
+              className={cn(
+                "grid gap-3.5",
+                availableTypes.length === 1
+                  ? "grid-cols-1 max-w-md mx-auto"
+                  : availableTypes.length === 2
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : "grid-cols-1 sm:grid-cols-3"
+              )}
+            >
+              {availableTypes.map((t) => {
+                const TIcon = typeMeta[t]?.icon ?? Milk;
+                const isActive = productionType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => handleTypePick(t)}
+                    className={cn(
+                      "p-5 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer",
+                      isActive
+                        ? "border-[#2D5A27] bg-[#2D5A27]/5 shadow-sm ring-1 ring-[#2D5A27]/30"
+                        : "border-slate-200 hover:border-[#2D5A27]/40 bg-white hover:bg-slate-50/70",
+                    )}
+                  >
+                    <div
                       className={cn(
-                        "p-6 rounded-xl border-2 text-left transition-all",
-                        isActive
-                          ? "border-[#2D5A27] bg-[#2D5A27]/5"
-                          : "border-slate-100 hover:border-slate-300 bg-slate-50",
+                        "p-3 rounded-xl w-fit mb-3 transition-colors",
+                        isActive ? "bg-[#2D5A27] text-white" : "bg-slate-100 text-slate-600"
                       )}
                     >
-                      <TIcon className={cn("w-7 h-7 mb-2", isActive ? "text-[#2D5A27]" : "text-slate-400")} />
-                      <p className="text-sm font-bold text-slate-900">{typeMeta[t].label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{typeMeta[t].desc}</p>
-                    </button>
-                  );
-                })}
+                      <TIcon className="w-6 h-6" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-base font-bold text-slate-900">{typeMeta[t]?.label ?? t}</p>
+                      {isActive && (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27]">
+                          <Check className="w-4 h-4" /> Selected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1 leading-normal">{typeMeta[t]?.desc ?? ""}</p>
+                  </button>
+                );
+              })}
             </div>
           )}
 

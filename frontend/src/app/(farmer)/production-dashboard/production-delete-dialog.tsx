@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Egg, Milk, Package, Trash2 } from "lucide-react";
+import { Beef, CalendarDays, Egg, Milk, Package, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import {
 
 const typeIcons = {
   milk: Milk,
+  meat: Beef,
   eggs: Egg,
   wool: Package,
 };

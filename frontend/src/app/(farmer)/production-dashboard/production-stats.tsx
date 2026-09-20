@@ -8,6 +8,7 @@ import {
   PhilippinePeso,
   TrendingDown,
   TrendingUp,
+  Beef,
 } from "lucide-react";
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import {
@@ -26,6 +27,11 @@ const TYPE_META: Record<
     icon: Milk,
     variant: "sky",
     sub: "Milk output",
+  },
+  meat: {
+    icon: Beef,
+    variant: "rose",
+    sub: "Meat output",
   },
   eggs: {
     icon: Egg,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Egg, Milk, Package } from "lucide-react";
+import { Egg, Milk, Package, Beef } from "lucide-react";
 import {
   PRODUCTION_TYPE_LABELS,
   type ProductionType,
@@ -8,6 +8,7 @@ import {
 
 const TYPE_ICONS: Record<ProductionType, typeof Milk> = {
   milk: Milk,
+  meat: Beef,
   eggs: Egg,
   wool: Package,
 };

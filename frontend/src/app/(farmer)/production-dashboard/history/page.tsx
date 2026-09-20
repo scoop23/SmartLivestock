@@ -20,7 +20,7 @@ export default function ProductionHistoryPage() {
               type="button"
               className="bg-white text-[#2D5A27] hover:bg-white/90 shadow-sm px-4"
             >
-              <ArrowLeft className="size-4" /> Back to Analytics
+              <ArrowLeft className="size-4" /> Back to Production Logs
             </Button>
           </Link>
         }

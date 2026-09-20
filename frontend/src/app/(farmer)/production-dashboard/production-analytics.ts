@@ -9,16 +9,18 @@ import api from "@/lib/axios";
 
 export type ProductionStatus = "PENDING" | "APPROVED" | "REJECTED";
 
-export type ProductionType = "milk" | "eggs" | "wool";
+export type ProductionType = "milk" | "meat" | "eggs" | "wool";
 
 export const PRODUCTION_TYPE_LABELS: Record<ProductionType, string> = {
-  milk: "Milk",
+  milk: "Dairy Milk",
+  meat: "Meat & Carcass",
   eggs: "Eggs",
   wool: "Wool",
 };
 
 export const PRODUCTION_TYPE_UNITS: Record<ProductionType, string> = {
   milk: "L",
+  meat: "kg",
   eggs: "pc",
   wool: "kg",
 };
@@ -146,9 +148,10 @@ export async function deleteProductionRecord(id: number): Promise<void> {
 
 // Estimated market prices per unit (in PHP)
 const ESTIMATED_UNIT_PRICES: Record<ProductionType, number> = {
-  milk: 50, // PHP 50 per liter
-  eggs: 9,  // PHP 9 per piece
-  wool: 250 // PHP 250 per kg
+  milk: 50,  // PHP 50 per liter
+  meat: 320, // PHP 320 per kg
+  eggs: 9,   // PHP 9 per piece
+  wool: 250  // PHP 250 per kg
 };
 
 async function fetchProductionAnalytics(): Promise<ProductionAnalytics> {

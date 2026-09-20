@@ -149,13 +149,14 @@ export default function LoginPage() {
       });
 
       // Role-based redirect to the appropriate dashboard
-      if (decoded.role === 'MAO') {
+      const normalizedRole = decoded.role?.toUpperCase();
+      if (normalizedRole === 'MAO' || normalizedRole === 'ADMIN') {
         router.push('/admin');
-      } else if (decoded.role === 'FARMER') {
+      } else if (normalizedRole === 'FARMER') {
         router.push('/farmer');
-      } else if (decoded.role === 'SIBAT') {
+      } else if (normalizedRole === 'SIBAT') {
         router.push('/sibat');
-      } else if (decoded.role === 'AUCTION') {
+      } else if (normalizedRole === 'AUCTION') {
         router.push('/auction');
       } else {
         router.push('/farmer');

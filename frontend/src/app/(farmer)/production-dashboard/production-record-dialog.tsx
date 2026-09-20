@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Egg, Lock, Milk, Package, Pencil, Trash2 } from "lucide-react";
+import { Beef, CalendarDays, Egg, Lock, Milk, Package, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,7 @@ const DEFAULT_STATUS_CLASS =
 
 const typeMeta = {
   milk: { label: "Milk", icon: Milk },
+  meat: { label: "Meat & Carcass", icon: Beef },
   eggs: { label: "Eggs", icon: Egg },
   wool: { label: "Wool", icon: Package },
 } as const;

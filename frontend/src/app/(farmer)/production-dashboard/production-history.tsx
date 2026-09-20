@@ -62,6 +62,7 @@ const DEFAULT_STATUS_CLASS =
 
 const typeClasses: Record<string, string> = {
   milk: "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200",
+  meat: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200",
   eggs: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
   wool: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
 };
@@ -222,6 +223,7 @@ export default function ProductionHistory() {
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 <SelectItem value="milk">Milk</SelectItem>
+                <SelectItem value="meat">Meat & Carcass</SelectItem>
                 <SelectItem value="eggs">Eggs</SelectItem>
                 <SelectItem value="wool">Wool</SelectItem>
               </SelectContent>
