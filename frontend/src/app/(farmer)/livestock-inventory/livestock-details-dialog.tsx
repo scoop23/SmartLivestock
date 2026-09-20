@@ -1,4 +1,21 @@
-import { Layers } from "lucide-react";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import {
+  Baby,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Dna,
+  HeartPulse,
+  Layers,
+  Milk,
+  Scale,
+  ShieldCheck,
+  Tag,
+  Weight,
+  XCircle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -9,63 +26,40 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/lib/axios";
 import type { LivestockInventoryItem } from "./page";
 
-// ─── Backend model matches ──────────────────────────────────────────
-
-interface ProductionRecord {
-  id: string;
-  production_type: "MILK" | "EGGS" | "WOOL";
+interface ProductionRecordItem {
+  id: number;
+  livestockId?: number;
+  livestock?: number;
+  productionType: string;
   quantity: number;
-  unit: "LITERS" | "PIECES" | "KILOGRAMS";
-  record_date: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+  unit: string;
+  recordDate: string;
+  status: string;
+  notes?: string;
 }
 
-interface SlaughterRecord {
-  id: string;
-  livestock_type_name: string;
-  quantity: number;
-  carcass_weight: number | null;
-  record_date: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+interface WeightRecordItem {
+  id: number;
+  livestock: number;
+  weight: number;
+  weighing_date: string;
+  notes?: string;
 }
 
-interface LiveAnimalSale {
-  id: string;
-  quantity: number;
-  sale_method: "MATA-MATA" | "WEIGHING" | "OTHER";
-  total_live_weight: number | null;
-  price_per_head: number | null;
-  price_per_kg: number | null;
-  total_price: number | null;
-  destination: string;
-  sale_date: string;
-  purpose: "BREEDING" | "FATTENING" | "SLAUGHTER" | "UNKNOWN";
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+interface CalvingRecordItem {
+  id: number;
+  dam: number;
+  calf_tag: string;
+  calf_sex: string;
+  birth_weight: number | null;
+  calving_date: string;
+  breed: string;
+  calving_ease: string;
+  notes?: string;
 }
-
-interface DiseaseCase {
-  id: string;
-  name: string;
-  affected_count: number;
-  record_date: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
-}
-
-interface MortalityRecord {
-  id: string;
-  death_count: number;
-  cause: string;
-  record_date: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
-}
-
-const mockProduction: ProductionRecord[] = [];
-const mockSlaughter: SlaughterRecord[] = [];
-const mockSales: LiveAnimalSale[] = [];
-const mockDisease: DiseaseCase[] = [];
-const mockMortality: MortalityRecord[] = [];
 
 interface LivestockDetailsDialogProps {
   livestock: LivestockInventoryItem | null;
@@ -73,118 +67,228 @@ interface LivestockDetailsDialogProps {
   onOpenChange: () => void;
 }
 
-const getStatusBadge = (status: string) => {
-  const isApproved = status === "APPROVED";
-  return (
-    <Badge
-      variant="outline"
-      className={
-        isApproved
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-          : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50"
-      }
-    >
-      {status}
-    </Badge>
-  );
+const getStatusBadge = (status?: string) => {
+  switch (status) {
+    case "APPROVED":
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
+          <CheckCircle2 className="size-3 text-emerald-600" />
+          Approved
+        </Badge>
+      );
+    case "PENDING":
+      return (
+        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
+          <Clock className="size-3 text-amber-600" />
+          Pending Review
+        </Badge>
+      );
+    case "REJECTED":
+      return (
+        <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
+          <XCircle className="size-3 text-rose-600" />
+          Rejected
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline">{status ?? "Unknown"}</Badge>;
+  }
 };
-
-// Fixed EmptyState to fill height naturally without collapsing
-const EmptyState = ({ message }: { message: string }) => (
-  <div className="flex flex-col items-center justify-center flex-1 h-full min-h-[250px] text-center p-6">
-    <p className="text-sm text-slate-500 font-medium">{message}</p>
-  </div>
-);
-
-// Unified card container wrapper
-const RecordCard = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-3.5 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200/80 transition-colors duration-150">
-    {children}
-  </div>
-);
 
 export default function LivestockDetailsDialog({
   livestock,
   open,
   onOpenChange,
 }: LivestockDetailsDialogProps) {
+  const animalId = livestock?.id ? Number(livestock.id) : null;
+
+  // Real production records
+  const { data: productionRecords = [] } = useQuery<ProductionRecordItem[]>({
+    queryKey: ["production"],
+    queryFn: async () => {
+      const res = await api.get("production/records/");
+      return (res.data || []).map((r: any) => ({
+        id: r.id,
+        livestockId: r.livestock,
+        productionType: r.production_type?.toLowerCase() || "milk",
+        quantity: Number(r.quantity) || 0,
+        unit: r.unit || "LITERS",
+        recordDate: r.record_date,
+        status: r.status,
+        notes: r.notes,
+      }));
+    },
+    enabled: open && !!animalId,
+  });
+
+  // Real weight records
+  const { data: weightRecords = [] } = useQuery<WeightRecordItem[]>({
+    queryKey: ["weight_records"],
+    queryFn: async () => {
+      const res = await api.get("production/weights/");
+      return res.data || [];
+    },
+    enabled: open && !!animalId,
+  });
+
+  // Real calving records
+  const { data: calvingRecords = [] } = useQuery<CalvingRecordItem[]>({
+    queryKey: ["calving_records"],
+    queryFn: async () => {
+      const res = await api.get("production/calving/");
+      return res.data || [];
+    },
+    enabled: open && !!animalId,
+  });
+
+  // Filter for this specific animal
+  const animalProductions = productionRecords.filter(
+    (p) => p.livestockId === animalId
+  );
+  const animalWeights = weightRecords
+    .filter((w) => w.livestock === animalId)
+    .sort((a, b) => new Date(b.weighing_date).getTime() - new Date(a.weighing_date).getTime());
+  const animalCalves = calvingRecords.filter((c) => c.dam === animalId);
+
+  const titleText =
+    livestock?.entryType === "INDIVIDUAL"
+      ? livestock.tagNumber || `Tagged #${livestock.id}`
+      : `${livestock?.quantity}x ${livestock?.livestockTypeName} (Batch)`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* 
-        Key fix: Fixed dialog dimensions using `h-[580px]` instead of flexible `vh` limits,
-        ensuring the frame size stays 100% constant across tab switches.
-      */}
-      <DialogContent className="sm:max-w-2xl w-[95vw] h-[580px] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl">
-        {/* Header */}
-        <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-white flex-shrink-0">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2.5 text-slate-900">
-            <div className="p-2 rounded-lg bg-[#2D5A27]/10 text-[#2D5A27]">
-              <Layers className="w-5 h-5" />
+      <DialogContent className="sm:max-w-2xl w-[95vw] h-[600px] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-slate-200 shadow-2xl">
+        {/* Header Ribbon */}
+        <DialogHeader className="p-5 sm:p-6 pb-4 border-b border-slate-100 bg-white shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-emerald-100/80 text-emerald-800">
+                <Layers className="size-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-black text-slate-900 leading-tight">
+                  {titleText}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-slate-800">{livestock?.livestockTypeName}</span>
+                  <span>•</span>
+                  <span>{livestock?.breed || "Standard Breed"}</span>
+                  <span>•</span>
+                  <span>{livestock?.sex}</span>
+                </DialogDescription>
+              </div>
             </div>
-            {livestock?.entryType === "INDIVIDUAL"
-              ? livestock?.tagNumber
-              : `${livestock?.quantity}x ${livestock?.livestockTypeName} (Batch)`}
-          </DialogTitle>
-          <DialogDescription className="text-sm text-slate-500 mt-1">
-            {[livestock?.livestockTypeName, livestock?.breed, livestock?.sex]
-              .filter(Boolean)
-              .join(" • ")}
-          </DialogDescription>
+            {getStatusBadge(livestock?.status)}
+          </div>
         </DialogHeader>
 
-        {/* Content Tabs */}
+        {/* Tabbed Profile & Live Activity */}
         {livestock && (
-          <Tabs defaultValue="production" className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Horizontal Tabs Header */}
-            <div className="px-6 py-2 bg-slate-50/50 border-b border-slate-100 flex-shrink-0">
+          <Tabs defaultValue="profile" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="px-5 sm:px-6 py-2 bg-slate-50 border-b border-slate-100 shrink-0">
               <ScrollArea className="w-full">
-                <TabsList className="bg-slate-200/60 p-1 h-auto inline-flex gap-1 rounded-lg">
-                  <TabsTrigger value="production" className="px-3 py-1.5 text-xs font-medium">
-                    Production
+                <TabsList className="bg-slate-200/70 p-1 h-auto inline-flex gap-1 rounded-xl">
+                  <TabsTrigger value="profile" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
+                    Overview Profile
                   </TabsTrigger>
-                  <TabsTrigger value="slaughter" className="px-3 py-1.5 text-xs font-medium">
-                    Slaughter
+                  <TabsTrigger value="production" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
+                    Yields ({animalProductions.length})
                   </TabsTrigger>
-                  <TabsTrigger value="sales" className="px-3 py-1.5 text-xs font-medium">
-                    Live Sales
+                  <TabsTrigger value="weights" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
+                    Weight Logs ({animalWeights.length})
                   </TabsTrigger>
-                  <TabsTrigger value="disease" className="px-3 py-1.5 text-xs font-medium">
-                    Disease
-                  </TabsTrigger>
-                  <TabsTrigger value="mortality" className="px-3 py-1.5 text-xs font-medium">
-                    Mortality
+                  <TabsTrigger value="calving" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
+                    Calves ({animalCalves.length})
                   </TabsTrigger>
                 </TabsList>
               </ScrollArea>
             </div>
 
-            {/* Locked Content Container */}
             <div className="flex-1 min-h-0 relative">
-              {/* Production */}
+              {/* Tab 1: Profile & Registry Details */}
+              <TabsContent value="profile" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full">
+                  <div className="p-5 sm:p-6 space-y-4">
+                    {/* Quick Specs Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Entry Mode</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.entryType}</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Head Count</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.quantity} head{livestock.quantity > 1 ? "s" : ""}</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scale Weight</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">
+                          {livestock.weight != null ? `${livestock.weight} kg` : "Not weighed"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Vaccination Status</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">
+                          {livestock.lastVaccinationDate ? `Vaccinated (${livestock.lastVaccinationDate})` : "Unvaccinated"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Registration Date</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">
+                          {livestock.createdAt ? new Date(livestock.createdAt).toLocaleDateString() : "—"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Internal ID</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">#{livestock.id}</p>
+                      </div>
+                    </div>
+
+                    {/* Official Review Remarks */}
+                    {livestock.reviewRemarks && (
+                      <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-950 mb-1">
+                          <ShieldCheck className="size-4 text-emerald-700" />
+                          <span>Municipal SIBAT / MAO Review Remarks</span>
+                        </div>
+                        <p className="text-emerald-900 leading-relaxed italic">
+                          &ldquo;{livestock.reviewRemarks}&rdquo;
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              {/* Tab 2: Production Records */}
               <TabsContent value="production" className="m-0 h-full focus-visible:outline-none">
-                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
-                  <div className="p-6 flex-1 flex flex-col">
-                    {mockProduction.length === 0 ? (
-                      <EmptyState message="No production records found." />
+                <ScrollArea className="h-full w-full">
+                  <div className="p-5 sm:p-6">
+                    {animalProductions.length === 0 ? (
+                      <div className="py-12 text-center text-xs text-slate-400">
+                        <Milk className="size-8 mx-auto mb-2 text-slate-300" />
+                        <p className="font-semibold text-slate-600">No production records for this animal</p>
+                        <p className="mt-0.5">Daily milk yields or outputs will appear here when logged.</p>
+                      </div>
                     ) : (
                       <div className="space-y-2.5">
-                        {mockProduction.map((r: ProductionRecord) => (
-                          <RecordCard key={r.id}>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-900">
-                                  {r.production_type}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-0.5">
-                                  {r.record_date} •{" "}
-                                  <span className="font-medium text-slate-700">
-                                    {r.quantity} {r.unit}
-                                  </span>
-                                </p>
-                              </div>
-                              {getStatusBadge(r.status)}
+                        {animalProductions.map((p) => (
+                          <div
+                            key={p.id}
+                            className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                          >
+                            <div>
+                              <p className="font-bold text-slate-900 capitalize">{p.productionType} Output</p>
+                              <p className="text-slate-500 text-[11px] mt-0.5">
+                                {p.recordDate} {p.notes ? `• "${p.notes}"` : ""}
+                              </p>
                             </div>
-                          </RecordCard>
+                            <div className="text-right">
+                              <span className="font-black text-slate-900 block text-sm">
+                                {p.quantity} {p.unit === "LITERS" ? "L" : p.unit}
+                              </span>
+                              <span className="text-[10px] font-semibold text-emerald-700">{p.status}</span>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -192,151 +296,85 @@ export default function LivestockDetailsDialog({
                 </ScrollArea>
               </TabsContent>
 
-              {/* Slaughter */}
-              <TabsContent value="slaughter" className="m-0 h-full focus-visible:outline-none">
-                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
-                  <div className="p-6 flex-1 flex flex-col">
-                    {mockSlaughter.length === 0 ? (
-                      <EmptyState message="No slaughter records found." />
+              {/* Tab 3: Weight History */}
+              <TabsContent value="weights" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full">
+                  <div className="p-5 sm:p-6">
+                    {animalWeights.length === 0 ? (
+                      <div className="py-12 text-center text-xs text-slate-400">
+                        <Scale className="size-8 mx-auto mb-2 text-slate-300" />
+                        <p className="font-semibold text-slate-600">No weight records logged</p>
+                        <p className="mt-0.5">Log scale weight in the Production Hub to calculate ADG velocity.</p>
+                      </div>
                     ) : (
                       <div className="space-y-2.5">
-                        {mockSlaughter.map((r: SlaughterRecord) => (
-                          <RecordCard key={r.id}>
-                            <div className="flex items-start justify-between">
+                        {animalWeights.map((w, idx) => {
+                          const prev = animalWeights[idx + 1];
+                          const gainKg = prev ? Number((w.weight - prev.weight).toFixed(1)) : null;
+                          return (
+                            <div
+                              key={w.id}
+                              className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                            >
                               <div>
-                                <p className="text-sm font-semibold text-slate-900">
-                                  {r.livestock_type_name}
+                                <p className="font-bold text-slate-900">{w.weighing_date}</p>
+                                <p className="text-slate-500 text-[11px] mt-0.5">
+                                  {w.notes || "Periodic weighing measurement"}
                                 </p>
-                                <p className="text-xs text-slate-500 mt-0.5">
-                                  {r.record_date} • {r.quantity} head
-                                  {r.quantity > 1 ? "s" : ""}
-                                </p>
-                                {r.carcass_weight && (
-                                  <p className="text-xs text-slate-500 mt-1">
-                                    Dressed Weight:{" "}
-                                    <span className="font-medium text-slate-700">
-                                      {r.carcass_weight} kg
-                                    </span>
-                                  </p>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-black text-slate-900 block text-sm">
+                                  {w.weight} kg
+                                </span>
+                                {gainKg !== null && (
+                                  <span
+                                    className={`text-[10px] font-bold ${
+                                      gainKg >= 0 ? "text-emerald-700" : "text-rose-600"
+                                    }`}
+                                  >
+                                    {gainKg >= 0 ? `+${gainKg}` : gainKg} kg gain
+                                  </span>
                                 )}
                               </div>
-                              {getStatusBadge(r.status)}
                             </div>
-                          </RecordCard>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 </ScrollArea>
               </TabsContent>
 
-              {/* Live Sales */}
-              <TabsContent value="sales" className="m-0 h-full focus-visible:outline-none">
-                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
-                  <div className="p-6 flex-1 flex flex-col">
-                    {mockSales.length === 0 ? (
-                      <EmptyState message="No live sale records found." />
+              {/* Tab 4: Calving / Offspring */}
+              <TabsContent value="calving" className="m-0 h-full focus-visible:outline-none">
+                <ScrollArea className="h-full w-full">
+                  <div className="p-5 sm:p-6">
+                    {animalCalves.length === 0 ? (
+                      <div className="py-12 text-center text-xs text-slate-400">
+                        <Baby className="size-8 mx-auto mb-2 text-slate-300" />
+                        <p className="font-semibold text-slate-600">No calving records on file</p>
+                        <p className="mt-0.5">Newborn calves linked to this dam will appear here.</p>
+                      </div>
                     ) : (
                       <div className="space-y-2.5">
-                        {mockSales.map((r: LiveAnimalSale) => (
-                          <RecordCard key={r.id}>
-                            <div className="flex items-start justify-between mb-1.5">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-900">
-                                  {r.destination}
-                                </p>
-                                {r.price_per_head && (
-                                  <p className="text-xs text-slate-500">
-                                    ₱{r.price_per_head.toLocaleString()} / head
-                                  </p>
-                                )}
-                              </div>
-                              {r.total_price && (
-                                <p className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                  ₱{r.total_price.toLocaleString()}
-                                </p>
-                              )}
+                        {animalCalves.map((c) => (
+                          <div
+                            key={c.id}
+                            className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                          >
+                            <div>
+                              <p className="font-bold text-slate-900">{c.calf_tag || `Calf #${c.id}`}</p>
+                              <p className="text-slate-500 text-[11px] mt-0.5">
+                                Born {c.calving_date} • {c.calf_sex} • {c.breed}
+                              </p>
                             </div>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 border-t border-slate-200/60 pt-2 mt-2">
-                              <span>{r.sale_date}</span>
-                              <span>•</span>
-                              <span>
-                                {r.quantity} head{r.quantity > 1 ? "s" : ""}
+                            <div className="text-right">
+                              <span className="font-bold text-slate-900 block">
+                                {c.birth_weight ? `${c.birth_weight} kg` : "No birth weight"}
                               </span>
-                              {r.total_live_weight && (
-                                <>
-                                  <span>•</span>
-                                  <span>{r.total_live_weight} kg</span>
-                                </>
-                              )}
-                              <span>•</span>
-                              <span className="capitalize">
-                                {r.sale_method?.toLowerCase().replace("-", " ")}
-                              </span>
-                              <span>•</span>
-                              <span className="capitalize">{r.purpose?.toLowerCase()}</span>
+                              <span className="text-[10px] text-slate-400">{c.calving_ease}</span>
                             </div>
-                          </RecordCard>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              {/* Disease */}
-              <TabsContent value="disease" className="m-0 h-full focus-visible:outline-none">
-                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
-                  <div className="p-6 flex-1 flex flex-col">
-                    {mockDisease.length === 0 ? (
-                      <EmptyState message="No disease records found." />
-                    ) : (
-                      <div className="space-y-2.5">
-                        {mockDisease.map((r: DiseaseCase) => (
-                          <RecordCard key={r.id}>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-900">{r.name}</p>
-                                <p className="text-xs text-slate-500 mt-0.5">
-                                  {r.record_date} •{" "}
-                                  <span className="font-medium text-slate-700">
-                                    {r.affected_count} affected
-                                  </span>
-                                </p>
-                              </div>
-                              {getStatusBadge(r.status)}
-                            </div>
-                          </RecordCard>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              {/* Mortality */}
-              <TabsContent value="mortality" className="m-0 h-full focus-visible:outline-none">
-                <ScrollArea className="h-full w-full [&>div>div]:!flex [&>div>div]:!flex-col [&>div>div]:min-h-full">
-                  <div className="p-6 flex-1 flex flex-col">
-                    {mockMortality.length === 0 ? (
-                      <EmptyState message="No mortality records found." />
-                    ) : (
-                      <div className="space-y-2.5">
-                        {mockMortality.map((r: MortalityRecord) => (
-                          <RecordCard key={r.id}>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-900">{r.cause}</p>
-                                <p className="text-xs text-slate-500 mt-0.5">{r.record_date}</p>
-                              </div>
-                              <Badge
-                                variant="outline"
-                                className="bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-50"
-                              >
-                                {r.death_count} head{r.death_count > 1 ? "s" : ""}
-                              </Badge>
-                            </div>
-                          </RecordCard>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -350,3 +388,4 @@ export default function LivestockDetailsDialog({
     </Dialog>
   );
 }
+

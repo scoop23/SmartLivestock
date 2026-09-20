@@ -8,6 +8,7 @@ from django.conf import settings
 class ProductionRecord(models.Model):
     class ProductionType(models.TextChoices):
         MILK = "MILK", "Milk"
+        MEAT = "MEAT", "Meat"
         EGGS = "EGGS", "Eggs"
         WOOL = "WOOL", "Wool"
 
@@ -268,3 +269,101 @@ class LiveAnimalSale(models.Model):  # may be removed
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
+
+
+# Historical body weight logs for cattle and other livestock to monitor weight gain (ADG)
+class WeightRecord(models.Model):
+    livestock = models.ForeignKey(
+        "livestock.LivestockInventory",
+        on_delete=models.CASCADE,
+        related_name="weight_records",
+    )
+    weight = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        help_text="Recorded weight in kilograms.",
+    )
+    weighing_date = models.DateField()
+    notes = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_weight_records",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-weighing_date", "-created_at"]
+
+
+# Birth and calving records linking mother (dam) to offspring
+class CalvingRecord(models.Model):
+    class SexType(models.TextChoices):
+        MALE = "MALE", "Male"
+        FEMALE = "FEMALE", "Female"
+
+    dam = models.ForeignKey(
+        "livestock.LivestockInventory",
+        on_delete=models.PROTECT,
+        related_name="calving_records",
+        help_text="Mother cow / dam.",
+    )
+    calf_tag = models.CharField(max_length=50, blank=True)
+    calf_sex = models.CharField(max_length=10, choices=SexType.choices, default=SexType.FEMALE)
+    birth_weight = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Birth weight in kilograms.",
+    )
+    sire_tag = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Father / sire bull tag or breed origin.",
+    )
+    calving_date = models.DateField()
+    breed = models.CharField(max_length=50, blank=True)
+    calving_ease = models.CharField(max_length=50, blank=True, default="Normal / Unassisted")
+    notes = models.TextField(max_length=500, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_calving_records",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-calving_date", "-created_at"]
+
+
+# Declared commercial disposition intent (For Sale, For Slaughter, Farm Movement)
+class AnimalDisposition(models.Model):
+    class IntentType(models.TextChoices):
+        FOR_SALE = "FOR_SALE", "Intended for Sale"
+        FOR_SLAUGHTER = "FOR_SLAUGHTER", "Intended for Slaughter"
+        FOR_MOVEMENT = "FOR_MOVEMENT", "Farm Transfer / Movement"
+        NONE = "NONE", "Active in Herd"
+
+    livestock = models.ForeignKey(
+        "livestock.LivestockInventory",
+        on_delete=models.CASCADE,
+        related_name="dispositions",
+    )
+    intent = models.CharField(
+        max_length=20,
+        choices=IntentType.choices,
+        default=IntentType.FOR_SALE,
+    )
+    target_date = models.DateField(null=True, blank=True)
+    target_destination = models.CharField(max_length=255, blank=True)
+    notes = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_dispositions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]

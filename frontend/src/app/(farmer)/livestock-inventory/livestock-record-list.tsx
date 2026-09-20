@@ -19,6 +19,9 @@ import {
   Weight,
   X,
   XCircle,
+  Eye,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +41,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Spinner } from "@/components/ui/spinner";
 import type { LivestockInventoryItem, StatusType, EntryType } from "./page";
 
 /* ── Status badge for record cards ── */
@@ -46,21 +48,21 @@ const getStatusBadge = (status: StatusType) => {
   switch (status) {
     case "APPROVED":
       return (
-        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 flex items-center gap-1 font-medium">
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 flex items-center gap-1 font-bold text-[11px]">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           Approved
         </Badge>
       );
     case "PENDING":
       return (
-        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 flex items-center gap-1 font-medium">
+        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 flex items-center gap-1 font-bold text-[11px]">
           <Clock className="w-3.5 h-3.5 text-amber-600" />
           Pending Review
         </Badge>
       );
     case "REJECTED":
       return (
-        <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200 flex items-center gap-1 font-medium">
+        <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200 flex items-center gap-1 font-bold text-[11px]">
           <XCircle className="w-3.5 h-3.5 text-rose-600" />
           Rejected
         </Badge>
@@ -81,28 +83,28 @@ export const STATUS_CHIPS: {
       value: "ALL",
       label: "All",
       icon: Layers,
-      activeClass: "bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/20",
+      activeClass: "bg-slate-900 text-white border-slate-900 shadow-sm",
       dotClass: "bg-slate-400",
     },
     {
       value: "APPROVED",
       label: "Approved",
       icon: CheckCircle2,
-      activeClass: "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25",
+      activeClass: "bg-emerald-700 text-white border-emerald-700 shadow-sm",
       dotClass: "bg-emerald-500",
     },
     {
       value: "PENDING",
       label: "Pending",
       icon: Clock,
-      activeClass: "bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25",
+      activeClass: "bg-amber-600 text-white border-amber-600 shadow-sm",
       dotClass: "bg-amber-500",
     },
     {
       value: "REJECTED",
       label: "Rejected",
       icon: XCircle,
-      activeClass: "bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/25",
+      activeClass: "bg-rose-600 text-white border-rose-600 shadow-sm",
       dotClass: "bg-rose-500",
     },
   ];
@@ -118,7 +120,7 @@ const SORT_OPTIONS: { value: SortKey; label: string; icon: React.ElementType }[]
   { value: "breed_az", label: "Breed A → Z", icon: ArrowDownAZ },
 ];
 
-/* ── Component ── */
+/* ── Component Props ── */
 interface LivestockRecordListProps {
   items: LivestockInventoryItem[];
   isLoading: boolean;
@@ -160,8 +162,15 @@ export default function LivestockRecordList({
 
   /* Status counts for chips */
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: items.length, APPROVED: 0, PENDING: 0, REJECTED: 0, };
-    items.forEach((item) => { counts[item.status] = (counts[item.status] ?? 0) + 1; });
+    const counts: Record<string, number> = {
+      ALL: items.length,
+      APPROVED: 0,
+      PENDING: 0,
+      REJECTED: 0,
+    };
+    items.forEach((item) => {
+      counts[item.status] = (counts[item.status] ?? 0) + 1;
+    });
     return counts;
   }, [items]);
 
@@ -171,7 +180,7 @@ export default function LivestockRecordList({
 
     let result = items.filter((item) => {
       const matchesSearch =
-        !query || // if query is nothing then true so bassically saying if query is nothing then show all.
+        !query ||
         item?.tagNumber?.toLowerCase().includes(query) ||
         item.breed.toLowerCase().includes(query) ||
         item.livestockTypeName.toLowerCase().includes(query);
@@ -206,17 +215,16 @@ export default function LivestockRecordList({
     <div className="space-y-4">
       {/* ═══ Filter Bar ═══ */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-
         {/* Row 1: Search + Sort + Filter count */}
         <div className="p-3 flex flex-col sm:flex-row gap-3">
           {/* Search input */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <Input
-              placeholder="Search breed, tag number, type…"
+              placeholder="Search ear tag, breed, species..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 bg-slate-50/60 border-slate-200 rounded-xl h-10 text-sm focus-visible:ring-emerald-500/30"
+              className="pl-9 pr-9 bg-slate-50/70 border-slate-200 rounded-xl h-10 text-sm focus-visible:ring-emerald-500/30"
             />
             {searchQuery && (
               <button
@@ -232,7 +240,7 @@ export default function LivestockRecordList({
           {/* Sort + Filter badge */}
           <div className="flex items-center gap-2">
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-              <SelectTrigger className="w-full sm:w-[165px] rounded-xl h-10 border-slate-200 bg-slate-50/60 text-sm">
+              <SelectTrigger className="w-full sm:w-[165px] rounded-xl h-10 border-slate-200 bg-slate-50/70 text-sm">
                 <div className="flex items-center gap-2">
                   <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <SelectValue placeholder="Sort by" />
@@ -250,13 +258,15 @@ export default function LivestockRecordList({
             {/* Livestock type filter (only when types are passed) */}
             {livestockTypes && (
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full sm:w-[155px] rounded-xl h-10 border-slate-200 bg-slate-50/60 text-sm">
+                <SelectTrigger className="w-full sm:w-[155px] rounded-xl h-10 border-slate-200 bg-slate-50/70 text-sm">
                   <SelectValue placeholder="Animal type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All Types</SelectItem>
+                  <SelectItem value="ALL">All Species</SelectItem>
                   {Object.entries(livestockTypes).map(([name, id]) => (
-                    <SelectItem key={id} value={name}>{name}</SelectItem>
+                    <SelectItem key={id} value={name}>
+                      {name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -270,10 +280,10 @@ export default function LivestockRecordList({
                     <button
                       type="button"
                       onClick={clearAllFilters}
-                      className="relative flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-rose-50 hover:border-rose-200 transition-all group shrink-0"
+                      className="relative flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-rose-50 hover:border-rose-200 transition-all group shrink-0"
                     >
                       <RotateCcw className="w-4 h-4 text-slate-500 group-hover:text-rose-500 transition-colors" />
-                      <span className="absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white px-1 leading-none shadow-sm">
+                      <span className="absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-700 text-[10px] font-bold text-white px-1 leading-none shadow-sm">
                         {activeFilterCount}
                       </span>
                     </button>
@@ -306,20 +316,19 @@ export default function LivestockRecordList({
                     inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
                     border transition-all duration-200 active:scale-95
                     ${isActive
-                      ? chip.activeClass // if is active then change design
+                      ? chip.activeClass
                       : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                     }
                   `}
                 >
                   {!isActive && <span className={`w-1.5 h-1.5 rounded-full ${chip.dotClass}`} />}
                   {chip.label}
-                  <span className={`
+                  <span
+                    className={`
                     text-[10px] font-extrabold tabular-nums ml-0.5 px-1.5 py-0.5 rounded-full leading-none
-                    ${isActive
-                      ? "bg-white/25 text-white"
-                      : "bg-slate-100 text-slate-500"
-                    }
-                  `}>
+                    ${isActive ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"}
+                  `}
+                  >
                     {count}
                   </span>
                 </button>
@@ -332,10 +341,12 @@ export default function LivestockRecordList({
 
           {/* Entry type toggles */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 hidden sm:inline">Entry</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 hidden sm:inline">
+              Entry Mode
+            </span>
             {(["ALL", "BATCH", "INDIVIDUAL"] as const).map((val) => {
               const isActive = entryTypeFilter === val;
-              const label = val === "ALL" ? "All" : val === "BATCH" ? "Batch" : "Individual";
+              const label = val === "ALL" ? "All" : val === "BATCH" ? "Batch" : "Individual Tag";
               return (
                 <button
                   key={val}
@@ -344,7 +355,7 @@ export default function LivestockRecordList({
                   className={`
                     px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-200 active:scale-95
                     ${isActive
-                      ? "bg-emerald-900 text-white border-emerald-900 shadow-md shadow-emerald-900/15"
+                      ? "bg-emerald-900 text-white border-emerald-900 shadow-sm"
                       : "bg-white border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-700"
                     }
                   `}
@@ -362,10 +373,10 @@ export default function LivestockRecordList({
         <div className="flex items-center justify-between px-1">
           <p className="text-xs font-semibold text-slate-500">
             Showing{" "}
-            <span className="text-emerald-950 font-extrabold tabular-nums">{filtered.length}</span>
-            {" "}of{" "}
-            <span className="text-emerald-950 font-extrabold tabular-nums">{items.length}</span>
-            {" "}record{items.length !== 1 ? "s" : ""}
+            <span className="text-emerald-950 font-extrabold tabular-nums">{filtered.length}</span>{" "}
+            of{" "}
+            <span className="text-emerald-950 font-extrabold tabular-nums">{items.length}</span>{" "}
+            record{items.length !== 1 ? "s" : ""}
           </p>
           {activeFilterCount > 0 && (
             <button
@@ -416,141 +427,174 @@ export default function LivestockRecordList({
             </div>
           </Card>
         ) : (
-          filtered.map((item) => (
-            <Card
-              key={item.id}
-              className="relative overflow-hidden border-2 border-emerald-900/10 bg-emerald-50/30 hover:bg-emerald-50/60 shadow-xs hover:shadow-sm rounded-2xl transition-all duration-200"
-            >
-              <CardContent className="p-3.5 sm:p-4 flex flex-col justify-between h-full space-y-3">
-                {/* Top Header Row */}
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
-                  <div className="space-y-1.5 flex-1 w-full">
-                    {/* Main Title & Badges */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-black text-emerald-950 tracking-tight">
-                        {item.entryType === "INDIVIDUAL"
-                          ? item.tagNumber || "Un-tagged"
-                          : `${item.quantity}x ${item.livestockTypeName} (Batch)`}
-                      </h3>
+          filtered.map((item) => {
+            const hasVax = Boolean(item.lastVaccinationDate);
+            return (
+              <Card
+                key={item.id}
+                className="relative overflow-hidden border border-slate-200 bg-white hover:border-emerald-700/40 hover:shadow-md rounded-2xl transition-all duration-200"
+              >
+                <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full space-y-3">
+                  {/* Top Header Row */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                    <div className="space-y-1.5 flex-1 w-full">
+                      {/* Main Title & Badges */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {item.entryType === "INDIVIDUAL" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono px-2.5 py-0.5 rounded-lg bg-emerald-950 text-white font-black text-sm tracking-wide shadow-xs">
+                              {item.tagNumber || "TAG-UNASSIGNED"}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                              Tagged Individual
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-black text-slate-900 tracking-tight">
+                              {item.quantity}x {item.livestockTypeName}
+                            </h3>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                              Batch Group
+                            </span>
+                          </div>
+                        )}
 
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/70 bg-emerald-900/10 px-2 py-0.5 rounded-full">
-                        {item.entryType}
-                      </span>
+                        {getStatusBadge(item.status)}
+                      </div>
 
-                      {getStatusBadge(item.status)}
-                    </div>
+                      {/* Subtitle */}
+                      <p className="text-xs font-semibold text-slate-500">
+                        <span className="text-slate-900 font-bold">{item.livestockTypeName}</span>{" "}
+                        • {item.breed || "Standard Breed"} • {item.sex}
+                      </p>
 
-                    {/* Subtitle */}
-                    <p className="text-xs font-semibold text-stone-600">
-                      <span className="text-emerald-950 font-bold">
-                        {item.livestockTypeName}
-                      </span>{" "}
-                      • {item.breed || "Standard Breed"} • {item.sex}
-                    </p>
-
-                    {/* Slimmer Stats Grid with Inner Depth */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
-                      {/* Weight */}
-                      {item.weight && (
-                        <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
-                          <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
-                            <Weight className="w-3.5 h-3.5 text-emerald-900" />
+                      {/* Biometric & Registry Stats Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                        {/* Weight */}
+                        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                          <div className="p-1 rounded-lg bg-white text-slate-700 shadow-2xs shrink-0">
+                            <Weight className="w-3.5 h-3.5 text-emerald-700" />
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Weight</span>
-                            <span className="font-extrabold text-emerald-950 truncate leading-tight">{item.weight} kg</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                              Weight
+                            </span>
+                            <span className="font-extrabold text-slate-900 truncate leading-tight">
+                              {item.weight ? `${item.weight} kg` : "Not recorded"}
+                            </span>
                           </div>
                         </div>
+
+                        {/* Vaccination */}
+                        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                          <div className="p-1 rounded-lg bg-white text-slate-700 shadow-2xs shrink-0">
+                            {hasVax ? (
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                              Immunization
+                            </span>
+                            {hasVax ? (
+                              <span className="font-extrabold text-emerald-700 truncate leading-tight">
+                                {item.lastVaccinationDate}
+                              </span>
+                            ) : (
+                              <span className="font-extrabold text-amber-600 truncate leading-tight">
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Head Count */}
+                        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                          <div className="p-1 rounded-lg bg-white text-slate-700 shadow-2xs shrink-0">
+                            <Tag className="w-3.5 h-3.5 text-teal-700" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                              Head Count
+                            </span>
+                            <span className="font-extrabold text-slate-900 truncate leading-tight">
+                              {item.quantity} {item.quantity === 1 ? "head" : "heads"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Created Date */}
+                        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                          <div className="p-1 rounded-lg bg-white text-slate-700 shadow-2xs shrink-0">
+                            <CalendarDays className="w-3.5 h-3.5 text-slate-600" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                              Registered
+                            </span>
+                            <span className="font-extrabold text-slate-900 truncate leading-tight">
+                              {item.createdAt
+                                ? new Date(item.createdAt).toLocaleDateString()
+                                : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Review Remarks Note */}
+                      {item.reviewRemarks && (
+                        <div className="mt-2 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900">
+                          <strong className="font-bold">Officer Feedback:</strong>{" "}
+                          {item.reviewRemarks}
+                        </div>
                       )}
-
-                      {/* Vaccination */}
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
-                        <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
-                          <Calendar className="w-3.5 h-3.5 text-emerald-900" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Vaccinated</span>
-                          {item.lastVaccinationDate ? (
-                            <span className="font-extrabold text-emerald-950 truncate leading-tight">{item.lastVaccinationDate}</span>
-                          ) : (
-                            <span className="font-extrabold text-amber-700 truncate leading-tight">No</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Quantity */}
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
-                        <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
-                          <Tag className="w-3.5 h-3.5 text-emerald-900" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Quantity</span>
-                          <span className="font-extrabold text-emerald-950 truncate leading-tight">{item.quantity} head</span>
-                        </div>
-                      </div>
-
-                      {/* Created Date */}
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 border border-emerald-900/10 shadow-2xs">
-                        <div className="p-1 rounded-lg bg-emerald-900/10 shrink-0">
-                          <CalendarDays className="w-3.5 h-3.5 text-emerald-900" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">Created</span>
-                          <span className="font-extrabold text-emerald-950 truncate leading-tight">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
-                          </span>
-                        </div>
-                      </div>
                     </div>
 
-                    {/* Review Remarks Note */}
-                    {item.reviewRemarks && (
-                      <div className="mt-2 p-2.5 bg-rose-500/10 border-2 border-rose-900/10 rounded-xl text-xs text-rose-950">
-                        <strong className="font-extrabold">Review Note:</strong> {item.reviewRemarks}
-                      </div>
-                    )}
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1.5 self-end sm:self-start shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onView(item)}
+                        className="rounded-xl h-8 px-3 text-xs font-bold text-slate-800 hover:bg-slate-100 gap-1"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                        Details
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEdit(item)}
+                        disabled={item.status === "APPROVED"}
+                        title={
+                          item.status === "APPROVED"
+                            ? "Approved entries are locked in registry"
+                            : "Edit entry"
+                        }
+                        className="rounded-xl text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed h-8 w-8"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+
+                      <Button
+                        disabled={item.status === "APPROVED"}
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDelete(item)}
+                        className="rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-8 w-8 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-1 self-end sm:self-start shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onView(item)}
-                      className="rounded-xl h-8 px-2.5 text-xs font-extrabold text-emerald-950 hover:bg-emerald-900/10"
-                    >
-                      View Details
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEdit(item)}
-                      disabled={item.status === "APPROVED"}
-                      title={
-                        item.status === "APPROVED"
-                          ? "Approved entries can no longer be edited"
-                          : "Edit entry"
-                      }
-                      className="rounded-xl text-emerald-950 hover:bg-emerald-900/10 disabled:opacity-30 disabled:cursor-not-allowed h-8 w-8"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-
-                    <Button
-                      disabled={item.status === "APPROVED"}
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(item)}
-                      className="rounded-xl text-stone-600 hover:text-rose-600 hover:bg-rose-500/10 h-8 w-8"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

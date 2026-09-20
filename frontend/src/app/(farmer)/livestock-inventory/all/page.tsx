@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Layers } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import LivestockDetailsDialog from "../livestock-details-dialog";
 import LivestockEditDialog, { type UpdateInventoryPayload } from "../livestock-edit-dialog";
 import LivestockRecordList from "../livestock-record-list";
-import InventoryStats from "../inventory-stats";
 import api from "@/lib/axios";
 import {
   type LivestockInventoryItem,
@@ -51,10 +50,7 @@ export default function AllLivestockInventoryPage() {
   const updateMutation = useMutation({
     mutationFn: async (payload: UpdateInventoryPayload) => {
       if (!editTarget) throw new Error("No record selected");
-      const response = await api.put(
-        `/livestock/inventory/${editTarget.id}/`,
-        payload
-      );
+      const response = await api.put(`/livestock/inventory/${editTarget.id}/`, payload);
       return response.data;
     },
     onSuccess: () => {
@@ -71,26 +67,28 @@ export default function AllLivestockInventoryPage() {
   return (
     <>
       <PageHeader
-        title="All Livestock Inventory"
-        subtitle="Every livestock record across all types."
+        title="All Livestock Registry"
+        subtitle="Complete centralized registry of all animal entries across every species."
         variant="farmer"
         maxWidthClass="w-full"
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        <div className="flex items-center justify-between gap-2 py-1.5">
+        <div className="flex items-center justify-between gap-3">
           <Link href="/livestock-inventory">
             <Button
               type="button"
               variant="outline"
-              className="gap-2 border-slate-300"
+              className="gap-2 border-slate-300 rounded-xl h-10 px-4 font-bold"
             >
-              <ArrowLeft className="size-4" /> Back to Inventory
+              <ArrowLeft className="size-4" /> Back to Herd Overview
             </Button>
           </Link>
-        </div>
 
-        {/* <InventoryStats inventories={inventories} isLoading={isLoading} /> */}
+          <span className="text-xs font-bold text-slate-500">
+            {inventories.length} Total Registered Records
+          </span>
+        </div>
 
         <LivestockRecordList
           items={inventories}
@@ -121,32 +119,42 @@ export default function AllLivestockInventoryPage() {
       />
 
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Delete Livestock Record</DialogTitle>
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Delete Livestock Record
+            </DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this record? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           {deleteTarget && (
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm">
-              <p><strong>{deleteTarget.entryType === "INDIVIDUAL" ? deleteTarget.tagNumber : `${deleteTarget.quantity}x ${deleteTarget.livestockTypeName} (Batch)`}</strong></p>
-              <p className="text-slate-500 mt-1">{deleteTarget.livestockTypeName} • {deleteTarget.breed} • {deleteTarget.sex}</p>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-1">
+              <p className="font-bold text-slate-900">
+                {deleteTarget.entryType === "INDIVIDUAL"
+                  ? deleteTarget.tagNumber || "Un-tagged"
+                  : `${deleteTarget.quantity}x ${deleteTarget.livestockTypeName} (Batch)`}
+              </p>
+              <p className="text-slate-500 text-xs">
+                {deleteTarget.livestockTypeName} • {deleteTarget.breed} • {deleteTarget.sex}
+              </p>
             </div>
           )}
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} className="rounded-xl">
               Cancel
             </Button>
             <Button
               variant="destructive"
+              disabled={deleteMutation.isPending}
               onClick={() => {
                 if (!deleteTarget) return;
                 deleteMutation.mutate(deleteTarget.id);
                 setDeleteTarget(null);
               }}
+              className="rounded-xl font-bold"
             >
-              Delete
+              {deleteMutation.isPending ? "Deleting..." : "Delete Record"}
             </Button>
           </DialogFooter>
         </DialogContent>

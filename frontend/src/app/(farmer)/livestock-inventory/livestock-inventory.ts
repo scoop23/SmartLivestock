@@ -63,6 +63,114 @@ export interface UpdateInventoryPayload {
   last_vaccination_date?: string | null;
 }
 
+// ── Common Species Presets & Guidelines ────────────────────────────────────
+
+export interface SpeciesPreset {
+  name: string;
+  tagPrefix: string;
+  commonBreeds: string[];
+  suggestedWeightKg: string;
+  iconName: string;
+}
+
+export const SPECIES_PRESETS: Record<string, SpeciesPreset> = {
+  Cattle: {
+    name: "Cattle",
+    tagPrefix: "CAT",
+    commonBreeds: [
+      "Brahman",
+      "Holstein-Friesian",
+      "Jersey",
+      "Black Angus",
+      "Simmental",
+      "Philippine Native (Batangas)",
+      "Crossbred Dairy",
+    ],
+    suggestedWeightKg: "350 - 450",
+    iconName: "beef",
+  },
+  Carabao: {
+    name: "Carabao",
+    tagPrefix: "CAR",
+    commonBreeds: [
+      "Philippine Carabao (Native)",
+      "Murrah Buffalo",
+      "Bulgarian Murrah",
+      "Crossbred Dairy Carabao",
+    ],
+    suggestedWeightKg: "400 - 550",
+    iconName: "shield",
+  },
+  Goat: {
+    name: "Goat",
+    tagPrefix: "GOAT",
+    commonBreeds: [
+      "Boer",
+      "Anglo-Nubian",
+      "Saanen",
+      "Toggenburg",
+      "Alpine",
+      "Philippine Native Goat",
+    ],
+    suggestedWeightKg: "30 - 55",
+    iconName: "sparkles",
+  },
+  Sheep: {
+    name: "Sheep",
+    tagPrefix: "SHP",
+    commonBreeds: [
+      "Philippine Native Sheep",
+      "Katahdin",
+      "Dorper",
+      "St. Croix",
+      "Barbados Blackbelly",
+    ],
+    suggestedWeightKg: "35 - 60",
+    iconName: "package",
+  },
+  Swine: {
+    name: "Swine",
+    tagPrefix: "SWN",
+    commonBreeds: [
+      "Large White",
+      "Landrace",
+      "Duroc",
+      "Pietrain",
+      "Philippine Native Pig",
+    ],
+    suggestedWeightKg: "85 - 110",
+    iconName: "layers",
+  },
+  Poultry: {
+    name: "Poultry",
+    tagPrefix: "PLT",
+    commonBreeds: [
+      "Broiler (Cobb/Ross)",
+      "Layer (Lohmann/Hy-Line)",
+      "Philippine Native Chicken",
+      "Pekin Duck",
+      "Mallard Duck (Itik)",
+    ],
+    suggestedWeightKg: "1.5 - 2.5",
+    iconName: "egg",
+  },
+};
+
+export function getSpeciesPreset(typeName?: string): SpeciesPreset {
+  if (!typeName) return SPECIES_PRESETS.Cattle;
+  const match = Object.keys(SPECIES_PRESETS).find((key) =>
+    typeName.toLowerCase().includes(key.toLowerCase())
+  );
+  return match ? SPECIES_PRESETS[match] : SPECIES_PRESETS.Cattle;
+}
+
+export function generateSuggestedTag(typeName?: string): string {
+  const preset = getSpeciesPreset(typeName);
+  const year = new Date().getFullYear();
+  const randomNum = Math.floor(100 + Math.random() * 900);
+  return `${preset.tagPrefix}-${year}-${randomNum}`;
+}
+
 export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
   id: String(item.id),
   farmerName: item.farmer_name,
@@ -115,7 +223,7 @@ export async function deleteInventoryRecord(id: string) {
 
 export const INVENTORY_QUERY_KEYS = {
   types: ["livestock-types"] as const,
-  inventory: ["user-inventory"] as const,
+  inventory: ["inventory"] as const,
 };
 
 export function useLivestockTypes() {
@@ -152,3 +260,4 @@ export function useDeleteInventory() {
     },
   });
 }
+
