@@ -15,12 +15,7 @@ export default function AdminLayout({
   const { user, isLoading, logout } = useAuth();
 
   useEffect(() => {
-    if (
-      !isLoading &&
-      (!user ||
-        (user.role?.toUpperCase() !== "ADMIN" &&
-          user.role?.toUpperCase() !== "MAO"))
-    ) {
+    if (!isLoading && (!user || user.role?.toUpperCase() !== "MAO")) {
       router.push("/login");
     }
   }, [user, isLoading, router]);

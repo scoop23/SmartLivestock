@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 interface DecodedJWT {
   email: string
-  role: "ADMIN" | "FARMER" | "SIBAT" | "AUCTION" | "SLAUGHTERHOUSESTAFF"
+  role: "MAO" | "FARMER" | "SIBAT" | "AUCTION" | "SLAUGHTERHOUSESTAFF"
 }
 
 
@@ -43,7 +43,7 @@ export default function LoginPage() {
       await fetchUser();
 
       // Role-based redirect to the appropriate dashboard
-      if (decoded.role === "ADMIN") {
+      if (decoded.role === "MAO") {
         router.push("/admin");
       } else if (decoded.role === "FARMER") {
         router.push("/farmer");
