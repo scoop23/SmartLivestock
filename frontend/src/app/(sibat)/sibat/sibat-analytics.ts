@@ -313,18 +313,8 @@ export const getTypeBadgeStyle = (type: string) => {
 
 // ── Mock Data: Farmer Activity Records ──
 
-
-export const MOCK_PENDING_RECORDS: FarmerActivityRecord[] = [
-
-  { id: 2, farmer: "Maria Santos", type: "Production Update", breed: "Holstein-Friesian", count: 3, date: "2026-04-25", status: "pending" },
-  { id: 3, farmer: "Pedro Reyes", type: "Disease Report", breed: "Native Cattle", count: 2, date: "2026-04-24", status: "pending" },
-  { id: 4, farmer: "Rosa Garcia", type: "Slaughter Record", breed: "Crossbreed", count: 1, date: "2026-04-24", status: "pending" },
-];
-
-export const MOCK_APPROVED_RECORDS: FarmerActivityRecord[] = [
-  { id: 5, farmer: "Antonio Cruz", type: "Inventory Update", breed: "Brahman", count: 5, date: "2026-04-23", status: "approved" },
-  { id: 6, farmer: "Luz Mendoza", type: "Production Update", breed: "Holstein-Friesian", count: 2, date: "2026-04-22", status: "approved" },
-];
+export const MOCK_PENDING_RECORDS: FarmerActivityRecord[] = [];
+export const MOCK_APPROVED_RECORDS: FarmerActivityRecord[] = [];
 
 export function useProductionFromFarmers() {
   return useQuery({
@@ -336,43 +326,7 @@ export function useProductionFromFarmers() {
 
 // ── Mock Data: Quarterly Census Submissions ──
 
-export const MOCK_CENSUS_SUBMISSIONS: CensusSubmissionRecord[] = [
-  {
-    id: "CEN-2026-Q2-0081",
-    barangay: "Brgy. Lipay",
-    reportYear: 2026,
-    reportQuarter: 2,
-    status: "PENDING",
-    submissionDate: "2026-04-25",
-    submittedBy: "SIBAT Field Officer (Lipay)",
-    totalHeads: 78,
-    totalFarmers: 16,
-    reviewRemarks: "Comprehensive Q2 inventory sweep across Purok 1 to Purok 5.",
-    items: [
-      { id: "c-1", farmerName: "Danilo Marasigan", purok: "Purok 1", livestockType: "Cattle (Baka)", numberOfHeads: 12, remarks: "Breeder cows" },
-      { id: "c-2", farmerName: "Elena Vilia", purok: "Purok 2", livestockType: "Carabao (Kalabaw)", numberOfHeads: 6, remarks: "Working draft" },
-      { id: "c-3", farmerName: "Ramon Castillo", purok: "Purok 3", livestockType: "Swine (Baboy)", numberOfHeads: 42, remarks: "Commercial pen" },
-      { id: "c-4", farmerName: "Luzviminda Cruz", purok: "Purok 4", livestockType: "Goat (Kambing)", numberOfHeads: 18, remarks: "Meat type" },
-    ],
-  },
-  {
-    id: "CEN-2026-Q1-0043",
-    barangay: "Brgy. Lipay",
-    reportYear: 2026,
-    reportQuarter: 1,
-    status: "APPROVED",
-    submissionDate: "2026-01-18",
-    submittedBy: "SIBAT Field Officer (Lipay)",
-    totalHeads: 64,
-    totalFarmers: 14,
-    reviewRemarks: "Validated and verified by MAO Batangas. Accurate head counts.",
-    items: [
-      { id: "c-5", farmerName: "Mariano Garcia", purok: "Purok 2", livestockType: "Cattle (Baka)", numberOfHeads: 10, remarks: "Native breed" },
-      { id: "c-6", farmerName: "Teresa Hernandez", purok: "Purok 1", livestockType: "Carabao (Kalabaw)", numberOfHeads: 4, remarks: "Dairy cross" },
-      { id: "c-7", farmerName: "Joaquin Bautista", purok: "Purok 5", livestockType: "Swine (Baboy)", numberOfHeads: 50, remarks: "Backyard piggery" },
-    ],
-  },
-];
+export const MOCK_CENSUS_SUBMISSIONS: CensusSubmissionRecord[] = [];
 
 
 

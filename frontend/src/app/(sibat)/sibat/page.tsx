@@ -32,17 +32,16 @@ import CensusSubmissionDialog from "./census-submission-dialog";
 import CensusDetailsDialog from "./census-details-dialog";
 import CensusSubmissionsView from "./census-submissions-view";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCensusSubmission } from "./sibat-analytics";
+import { useCensusSubmission, useProductionFromFarmers } from "./sibat-analytics";
 import { KpiCard } from "@/components/ui/kpi-card";
 
 import {
   CensusSubmissionRecord,
   FarmerActivityRecord,
+  FarmerActivityStatus,
   SectionTab,
   TabKey,
   TAB_CHIPS,
-  MOCK_PENDING_RECORDS as pendingRecords,
-  MOCK_APPROVED_RECORDS as approvedRecords,
   getTypeBadgeStyle,
   calculateTotalCensusHeads,
 } from "./sibat-analytics";
@@ -69,13 +68,25 @@ export default function SibatPortal() {
   const [kpisize, setKpisize] = useState<"sm" | "default">("default");
 
   const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
+  const { data: productionRecords = [] } = useProductionFromFarmers();
 
   const handleCensusSubmissionSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
     setSectionTab("census");
   };
 
-  const allRecords = [...pendingRecords, ...approvedRecords];
+  const allRecords: FarmerActivityRecord[] = productionRecords.map((p) => ({
+    id: p.id,
+    farmer: p.farmerName || "Farmer",
+    type: "Production Update",
+    breed: p.livestockTypeName || "Livestock",
+    count: p.quantity,
+    date: p.recordDate,
+    status: (p.status === "APPROVED" ? "approved" : "pending") as FarmerActivityStatus,
+  }));
+
+  const pendingRecords = allRecords.filter((r) => r.status === "pending");
+  const approvedRecords = allRecords.filter((r) => r.status === "approved");
 
   const toggleRecord = (id: number) => {
     setSelectedRecords((prev) =>

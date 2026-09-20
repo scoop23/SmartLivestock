@@ -61,29 +61,11 @@ interface MortalityRecord {
   status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
 }
 
-const mockProduction: ProductionRecord[] = [
-  { id: 'p1', production_type: 'MILK', quantity: 450, unit: 'LITERS', record_date: '2026-04-23', status: 'APPROVED' },
-  { id: 'p2', production_type: 'MILK', quantity: 445, unit: 'LITERS', record_date: '2026-04-22', status: 'APPROVED' },
-];
-
-const mockSlaughter: SlaughterRecord[] = [
-  { id: 's1', livestock_type_name: 'Cattle', quantity: 1, carcass_weight: 158, record_date: '2026-04-15', status: 'APPROVED' },
-];
-
-const mockSales: LiveAnimalSale[] = [
-  { id: 'ls1', quantity: 2, sale_method: 'WEIGHING', total_live_weight: 620, price_per_head: null, price_per_kg: 251.61, total_price: 156000, destination: 'Batangas Meat Packing', sale_date: '2026-03-15', purpose: 'SLAUGHTER', status: 'APPROVED' },
-  { id: 'ls2', quantity: 1, sale_method: 'MATA-MATA', total_live_weight: null, price_per_head: 85000, price_per_kg: null, total_price: 85000, destination: 'Local Trader - R. Santos', sale_date: '2026-02-10', purpose: 'FATTENING', status: 'APPROVED' },
-];
-
-const mockDisease: DiseaseCase[] = [
-  { id: 'd1', name: 'Foot rot', affected_count: 2, record_date: '2026-01-20', status: 'APPROVED' },
-  { id: 'd2', name: 'Mastitis', affected_count: 1, record_date: '2025-11-05', status: 'APPROVED' },
-];
-
-const mockMortality: MortalityRecord[] = [
-  { id: 'm1', death_count: 1, cause: 'Old age', record_date: '2026-03-28', status: 'APPROVED' },
-  { id: 'm2', death_count: 1, cause: 'Injury from fencing', record_date: '2026-02-14', status: 'APPROVED' },
-];
+const mockProduction: ProductionRecord[] = [];
+const mockSlaughter: SlaughterRecord[] = [];
+const mockSales: LiveAnimalSale[] = [];
+const mockDisease: DiseaseCase[] = [];
+const mockMortality: MortalityRecord[] = [];
 
 interface LivestockDetailsDialogProps {
   livestock: LivestockInventoryItem | null;

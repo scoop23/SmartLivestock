@@ -5,10 +5,6 @@ import api from "@/lib/axios";
 
 // ---------------------------------------------------------------------------
 // Production Analytics types
-//
-// These mirror the response the Django endpoint `/production/analytics/` will
-// eventually return. Keep them in sync with the backend serializer when it is
-// implemented.
 // ---------------------------------------------------------------------------
 
 export type ProductionStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -60,7 +56,7 @@ export interface RecentProductionRecord {
 }
 
 export interface ProductionAnalytics {
-  /** Production types that have at least one approved record. */
+  /** Production types that have at least one record. */
   available_types: ProductionType[];
   /** Per-type analytics so the dashboard can switch types without extra requests. */
   by_type: Partial<Record<ProductionType, ProductionTypeAnalytics>>;
@@ -80,10 +76,7 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 };
 
 // ---------------------------------------------------------------------------
-// Real production records (from GET production/view_records/)
-//
-// Shared between the dashboard recent list and the production history page so
-// both show the same real data.
+// Real production records (from GET production/records/)
 // ---------------------------------------------------------------------------
 
 export interface ProductionRecordItem {
@@ -125,7 +118,7 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   livestockId: item.livestock,
   livestockTypeName: item.livestock_type_name ?? null,
   productionType: (item.production_type ?? "milk").toLowerCase() as ProductionType,
-  quantity: Number(item.quantity),
+  quantity: Number(item.quantity) || 0,
   unit: item.unit,
   recordDate: item.record_date,
   notes: item.notes ?? "",
@@ -135,93 +128,118 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
 });
 
 export async function fetchProductionRecords(): Promise<ProductionRecordItem[]> {
-  const response = await api.get("production/records/");
-  return (response.data as ApiProductionRecord[]).map(mapProductionRecord);
+  try {
+    const response = await api.get("production/records/");
+    const data = response.data as ApiProductionRecord[];
+    if (Array.isArray(data)) {
+      return data.map(mapProductionRecord);
+    }
+  } catch (err) {
+    console.error("Error fetching production records:", err);
+  }
+  return [];
 }
 
 export async function deleteProductionRecord(id: number): Promise<void> {
   await api.delete(`production/records/${id}/`);
 }
 
-// ---------------------------------------------------------------------------
-// MOCK DATA — TEMPORARY
-// ---------------------------------------------------------------------------
-// TODO: (backend): Delete this block once the Django analytics endpoint is
-// implemented. It exists only so the dashboard can be previewed today.
-// Mock includes eggs so the type selector and the "View more production →"
-const MOCK_ANALYTICS: ProductionAnalytics = {
-  // link are visible while previewing. A milk-only farm would send
-  // ["milk"] and hide both.
-  available_types: ["milk", "eggs"],
-  // available_types: ["milk"],
-  by_type: {
-    milk: {
-      summary: {
-        total: 1250.5,
-        record_count: 32,
-        estimated_value: 62500,
-        growth_pct: 12.5,
-        has_records: true,
-      },
-      trend: [
-        { period: "2026-04", quantity: 850 },
-        { period: "2026-05", quantity: 920 },
-        { period: "2026-06", quantity: 1050 },
-        { period: "2026-07", quantity: 1100 },
-        { period: "2026-08", quantity: 1250 },
-      ],
-      value_trend: [
-        { period: "2026-04", value: 42500 },
-        { period: "2026-05", value: 46000 },
-        { period: "2026-06", value: 52500 },
-        { period: "2026-07", value: 55000 },
-        { period: "2026-08", value: 62500 },
-      ],
-    },
-    // eggs: {
-    //   summary: {
-    //     total: 420,
-    //     record_count: 14,
-    //     estimated_value: 3780,
-    //     growth_pct: -4.2,
-    //     has_records: true,
-    //   },
-    //   trend: [
-    //     { period: "2026-04", quantity: 480 },
-    //     { period: "2026-05", quantity: 450 },
-    //     { period: "2026-06", quantity: 460 },
-    //     { period: "2026-07", quantity: 440 },
-    //     { period: "2026-08", quantity: 420 },
-    //   ],
-    //   value_trend: [
-    //     { period: "2026-04", value: 4320 },
-    //     { period: "2026-05", value: 4050 },
-    //     { period: "2026-06", value: 4140 },
-    //     { period: "2026-07", value: 3960 },
-    //     { period: "2026-08", value: 3780 },
-    //   ],
-    // },
-  },
-  recent_records: [
-    { id: 8, record_date: "2026-08-10", quantity: 25, unit: "LITERS", status: "APPROVED" },
-    { id: 7, record_date: "2026-08-09", quantity: 23, unit: "LITERS", status: "APPROVED" },
-    { id: 6, record_date: "2026-08-08", quantity: 27, unit: "LITERS", status: "PENDING" },
-    { id: 5, record_date: "2026-08-07", quantity: 24, unit: "LITERS", status: "APPROVED" },
-    { id: 4, record_date: "2026-08-06", quantity: 21, unit: "LITERS", status: "REJECTED" },
-  ],
+// Estimated market prices per unit (in PHP)
+const ESTIMATED_UNIT_PRICES: Record<ProductionType, number> = {
+  milk: 50, // PHP 50 per liter
+  eggs: 9,  // PHP 9 per piece
+  wool: 250 // PHP 250 per kg
 };
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 async function fetchProductionAnalytics(): Promise<ProductionAnalytics> {
-  // TODO: (backend): Replace the mock below with the real request once the
-  // Django endpoint `/production/analytics/` is implemented:
-  //
-  //   const res = await api.get("production/analytics/");
-  //   return res.data as ProductionAnalytics;
-  //
-  await delay(700); // simulate network latency so loading states are visible
-  return MOCK_ANALYTICS;
+  const records = await fetchProductionRecords();
+
+  const typesFound = new Set<ProductionType>();
+  const groupedByType: Record<string, ProductionRecordItem[]> = {};
+
+  records.forEach((rec) => {
+    const t = rec.productionType;
+    typesFound.add(t);
+    if (!groupedByType[t]) {
+      groupedByType[t] = [];
+    }
+    groupedByType[t].push(rec);
+  });
+
+  const available_types: ProductionType[] = typesFound.size > 0 
+    ? Array.from(typesFound) 
+    : ["milk"];
+
+  const by_type: Partial<Record<ProductionType, ProductionTypeAnalytics>> = {};
+
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+
+  available_types.forEach((type) => {
+    const typeRecords = groupedByType[type] || [];
+    const unitPrice = ESTIMATED_UNIT_PRICES[type] || 50;
+
+    let totalQty = 0;
+    let currentMonthQty = 0;
+    let prevMonthQty = 0;
+
+    const monthlyMap = new Map<string, number>();
+
+    typeRecords.forEach((r) => {
+      totalQty += r.quantity;
+      const mStr = (r.recordDate || "").slice(0, 7);
+      if (mStr) {
+        monthlyMap.set(mStr, (monthlyMap.get(mStr) || 0) + r.quantity);
+      }
+      if (mStr === currentMonthStr) {
+        currentMonthQty += r.quantity;
+      } else if (mStr === prevMonthStr) {
+        prevMonthQty += r.quantity;
+      }
+    });
+
+    let growth_pct = 0;
+    if (prevMonthQty > 0) {
+      growth_pct = ((currentMonthQty - prevMonthQty) / prevMonthQty) * 100;
+    }
+
+    const trend: ProductionTrendPoint[] = Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, quantity]) => ({ period, quantity }));
+
+    const value_trend: ProductionValuePoint[] = trend.map((t) => ({
+      period: t.period,
+      value: t.quantity * unitPrice,
+    }));
+
+    by_type[type] = {
+      summary: {
+        total: totalQty,
+        record_count: typeRecords.length,
+        estimated_value: totalQty * unitPrice,
+        growth_pct,
+        has_records: typeRecords.length > 0,
+      },
+      trend,
+      value_trend,
+    };
+  });
+
+  const recent_records: RecentProductionRecord[] = records.slice(0, 10).map((r) => ({
+    id: r.id,
+    record_date: r.recordDate,
+    quantity: r.quantity,
+    unit: r.unit,
+    status: r.status,
+  }));
+
+  return {
+    available_types,
+    by_type,
+    recent_records,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -232,14 +250,12 @@ export function useProductionAnalytics() {
   return useQuery<ProductionAnalytics>({
     queryKey: ["production_analytics"],
     queryFn: fetchProductionAnalytics,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 }
 
 // ---------------------------------------------------------------------------
 // Presentation formatting helpers
-//
-// Small, presentational only. All business calculations stay on the backend.
 // ---------------------------------------------------------------------------
 
 export function formatQty(n: number): string {
@@ -259,7 +275,6 @@ export function formatPesoCompact(n: number): string {
   return `₱${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-/** "2026-08" -> "Aug" */
 export function formatPeriodMonth(period: string): string {
   const [y, m] = period.split("-").map(Number);
   return new Date(Number(y) || 2026, (Number(m) || 1) - 1, 1).toLocaleDateString(
@@ -268,7 +283,6 @@ export function formatPeriodMonth(period: string): string {
   );
 }
 
-/** "2026-08-10" -> "Aug 10" */
 export function formatRecordDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(Number(y) || 2026, (Number(m) || 1) - 1, Number(d) || 1).toLocaleDateString(

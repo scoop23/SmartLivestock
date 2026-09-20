@@ -1,44 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/axios";
 
 // ---------------------------------------------------------------------------
 // Farmer Dashboard Analytics types
-//
-// These mirror the response a backend `/farmer/dashboard/` endpoint will
-// eventually return. Keep them in sync with the backend serializer when it is
-// implemented.
-//
-// Honesty rules baked into the contract:
-//   - avg_carcass_weight_kg is NULL when no slaughter record can be reliably
-//     attributed to the farmer (SlaughterRecord.livestock == NULL is excluded).
-//   - milk_production_liters is NULL when there is no approved milk data.
-//   - milk_growth_pct is NULL when the month-over-month comparison cannot be
-//     calculated.
-//   - cattle_trend stays EMPTY because LivestockInventory has no historical
-//     snapshots — we never fabricate a herd history.
 // ---------------------------------------------------------------------------
-
-export interface FarmerDashboardAnalytics {
-  /** Sum of LivestockInventory.quantity for the authenticated farmer. */
-  cattle_count: number;
-  /** Avg SlaughterRecord.carcass_weight for farmer-owned records; NULL if none. */
-  avg_carcass_weight_kg: number | null;
-  /** Active DiseaseCase count (PENDING / VERIFIED) for the farmer. */
-  active_health_alerts: number;
-  /** Approved MILK production (liters) this month; NULL if none. */
-  milk_production_liters: number | null;
-  /** Month-over-month growth % of milk production; NULL if not calculable. */
-  milk_growth_pct: number | null;
-  /** Empty while the backend has no historical inventory snapshots. */
-  cattle_trend: FarmerTrendPoint[];
-  /** Approved MILK production (liters) per month, most recent months first. */
-  milk_trend: FarmerTrendPoint[];
-  /** Primary livestock species distribution for the two-level pie chart inner ring. */
-  herd_categories: HerdCategoryPoint[];
-  /** Sub-category / breed / purpose breakdown for the two-level pie chart outer ring. */
-  herd_subcategories: HerdSubcategoryPoint[];
-}
 
 export interface HerdCategoryPoint {
   name: string;
@@ -58,60 +25,228 @@ export interface FarmerTrendPoint {
   quantity: number;
 }
 
-// ---------------------------------------------------------------------------
-// MOCK DATA — TEMPORARY
-// ---------------------------------------------------------------------------
-// TODO(backend): Delete this block once the Django `/farmer/dashboard/`
-// endpoint is implemented. It exists only so the dashboard can be previewed.
-const MOCK_FARMER_ANALYTICS: FarmerDashboardAnalytics = {
-  cattle_count: 42,
-  avg_carcass_weight_kg: 245,
-  active_health_alerts: 2,
-  milk_production_liters: 1240,
-  milk_growth_pct: 12.4,
-  // Intentionally empty: the backend does not track historical inventory.
-  cattle_trend: [],
-  milk_trend: [
-    { period: "2026-04", quantity: 780 },
-    { period: "2026-05", quantity: 850 },
-    { period: "2026-06", quantity: 920 },
-    { period: "2026-07", quantity: 1100 },
-    { period: "2026-08", quantity: 1240 },
-  ],
-  herd_categories: [
-    { name: "Cattle", value: 26, color: "#059669" },
-    { name: "Carabao", value: 8, color: "#d97706" },
-    { name: "Goat", value: 5, color: "#ea580c" },
-    { name: "Swine", value: 3, color: "#0284c7" },
-  ],
-  herd_subcategories: [
-    // Cattle (26 total)
-    { name: "Dairy Cows", category: "Cattle", value: 14, color: "#10b981" },
-    { name: "Beef Cattle", category: "Cattle", value: 8, color: "#34d399" },
-    { name: "Calves & Heifers", category: "Cattle", value: 4, color: "#6ee7b7" },
-    // Carabao (8 total)
-    { name: "Draft / Working", category: "Carabao", value: 5, color: "#f59e0b" },
-    { name: "Dairy Carabao", category: "Carabao", value: 3, color: "#fbbf24" },
-    // Goat (5 total)
-    { name: "Dairy Goats", category: "Goat", value: 3, color: "#f97316" },
-    { name: "Native / Meat", category: "Goat", value: 2, color: "#fdba74" },
-    // Swine (3 total)
-    { name: "Breeding Sows", category: "Swine", value: 1, color: "#38bdf8" },
-    { name: "Growers", category: "Swine", value: 2, color: "#7dd3fc" },
-  ],
+export interface FarmerActivityItem {
+  id: string | number;
+  type: "INVENTORY" | "PRODUCTION" | "DISEASE" | "MORTALITY";
+  title: string;
+  description: string;
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+  date: string;
+  remarks?: string | null;
+}
+
+export interface FarmerDashboardAnalytics {
+  /** Sum of LivestockInventory.quantity for the authenticated farmer. */
+  cattle_count: number;
+  approved_count: number;
+  pending_count: number;
+  /** Avg SlaughterRecord.carcass_weight for farmer-owned records; NULL if none. */
+  avg_carcass_weight_kg: number | null;
+  /** Active DiseaseCase count (PENDING / VERIFIED) for the farmer. */
+  active_health_alerts: number;
+  /** Approved MILK production (liters) this month; NULL if none. */
+  milk_production_liters: number | null;
+  /** Month-over-month growth % of milk production; NULL if not calculable. */
+  milk_growth_pct: number | null;
+  /** Historical cattle trend */
+  cattle_trend: FarmerTrendPoint[];
+  /** Approved MILK production (liters) per month, most recent months first. */
+  milk_trend: FarmerTrendPoint[];
+  /** Primary livestock species distribution for the two-level pie chart inner ring. */
+  herd_categories: HerdCategoryPoint[];
+  /** Sub-category / breed / purpose breakdown for the two-level pie chart outer ring. */
+  herd_subcategories: HerdSubcategoryPoint[];
+  /** Recent live activities logged by the farmer */
+  recent_activities: FarmerActivityItem[];
+}
+
+const SPECIES_COLORS: Record<string, string> = {
+  cattle: "#059669",
+  cow: "#059669",
+  carabao: "#d97706",
+  goat: "#ea580c",
+  swine: "#0284c7",
+  pig: "#0284c7",
+  sheep: "#8b5cf6",
+  poultry: "#ec4899",
 };
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const DEFAULT_COLORS = ["#059669", "#d97706", "#ea580c", "#0284c7", "#8b5cf6", "#ec4899", "#14b8a6", "#f43f5e"];
 
 async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics> {
-  // TODO(backend): Replace the mock below with the real request once the
-  // Django endpoint `/farmer/dashboard/` is implemented:
-  //
-  //   const res = await api.get("farmer/dashboard/");
-  //   return res.data as FarmerDashboardAnalytics;
-  //
-  await delay(700); // simulate network latency so loading states are visible
-  return MOCK_FARMER_ANALYTICS;
+  const [invRes, prodRes, diseaseRes, mortRes] = await Promise.allSettled([
+    api.get("livestock/inventory/"),
+    api.get("production/records/"),
+    api.get("diseases/cases/"),
+    api.get("diseases/mortality/"),
+  ]);
+
+  const inventories: any[] = invRes.status === "fulfilled" && Array.isArray(invRes.value.data) ? invRes.value.data : [];
+  const productions: any[] = prodRes.status === "fulfilled" && Array.isArray(prodRes.value.data) ? prodRes.value.data : [];
+  const diseaseCases: any[] = diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data) ? diseaseRes.value.data : [];
+  const mortalities: any[] = mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data) ? mortRes.value.data : [];
+
+  // 1. Livestock Inventory calculations
+  let totalHeads = 0;
+  let approvedHeads = 0;
+  let pendingHeads = 0;
+
+  const speciesMap = new Map<string, number>();
+  const breedMap = new Map<string, { category: string; count: number }>();
+
+  inventories.forEach((item) => {
+    const qty = Number(item.quantity) || 1;
+    totalHeads += qty;
+
+    const st = String(item.status || "PENDING").toUpperCase();
+    if (st === "APPROVED" || st === "VERIFIED") {
+      approvedHeads += qty;
+    } else {
+      pendingHeads += qty;
+    }
+
+    const species = (item.livestock_type_name || item.livestock_type?.name || "Other Livestock").trim();
+    speciesMap.set(species, (speciesMap.get(species) || 0) + qty);
+
+    const breed = (item.breed || "Standard").trim();
+    const existingBreed = breedMap.get(breed);
+    if (existingBreed) {
+      existingBreed.count += qty;
+    } else {
+      breedMap.set(breed, { category: species, count: qty });
+    }
+  });
+
+  const herd_categories: HerdCategoryPoint[] = Array.from(speciesMap.entries()).map(([name, value], i) => {
+    const key = name.toLowerCase();
+    const matchedKey = Object.keys(SPECIES_COLORS).find((k) => key.includes(k));
+    const color = matchedKey ? SPECIES_COLORS[matchedKey] : DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+    return { name, value, color };
+  });
+
+  const herd_subcategories: HerdSubcategoryPoint[] = Array.from(breedMap.entries()).map(([name, { category, count }], i) => {
+    const catObj = herd_categories.find((c) => c.name === category);
+    const color = catObj ? catObj.color : DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+    return { name, category, value: count, color };
+  });
+
+  // 2. Production calculations (Milk & Monthly Trends)
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+
+  let currentMonthMilk = 0;
+  let prevMonthMilk = 0;
+  let hasMilkData = false;
+
+  const monthlyMilkMap = new Map<string, number>();
+
+  productions.forEach((prod) => {
+    const type = String(prod.production_type || "").toUpperCase();
+    const qty = Number(prod.quantity) || 0;
+    const dateStr = String(prod.record_date || prod.created_at || "");
+    const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
+
+    if (type === "MILK") {
+      hasMilkData = true;
+      if (monthKey) {
+        monthlyMilkMap.set(monthKey, (monthlyMilkMap.get(monthKey) || 0) + qty);
+      }
+      if (monthKey === currentMonthStr) {
+        currentMonthMilk += qty;
+      } else if (monthKey === prevMonthStr) {
+        prevMonthMilk += qty;
+      }
+    }
+  });
+
+  const milk_trend: FarmerTrendPoint[] = Array.from(monthlyMilkMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, quantity]) => ({ period, quantity }));
+
+  let milk_growth_pct: number | null = null;
+  if (prevMonthMilk > 0) {
+    milk_growth_pct = ((currentMonthMilk - prevMonthMilk) / prevMonthMilk) * 100;
+  }
+
+  // 3. Health & Disease Alerts
+  let activeAlerts = 0;
+  diseaseCases.forEach((dc) => {
+    const st = String(dc.status || "PENDING").toUpperCase();
+    if (st === "PENDING" || st === "VERIFIED") {
+      activeAlerts += 1;
+    }
+  });
+
+  // 4. Combined Recent Activity Feed
+  const activities: FarmerActivityItem[] = [];
+
+  inventories.slice(0, 5).forEach((inv) => {
+    activities.push({
+      id: `inv-${inv.id}`,
+      type: "INVENTORY",
+      title: `${inv.livestock_type_name || "Livestock"} Registered`,
+      description: `${inv.breed || "Standard"} • ${inv.quantity || 1} Head(s) • Tag: ${inv.tag_number || "Pending"}`,
+      status: (inv.status || "PENDING").toUpperCase(),
+      date: inv.created_at || inv.date_acquired || new Date().toISOString(),
+      remarks: inv.review_remarks,
+    });
+  });
+
+  productions.slice(0, 5).forEach((prod) => {
+    activities.push({
+      id: `prod-${prod.id}`,
+      type: "PRODUCTION",
+      title: `${prod.production_type || "Production"} Logged`,
+      description: `${prod.quantity} ${prod.unit || "Units"} • Recorded: ${prod.record_date || "Recent"}`,
+      status: (prod.status || "PENDING").toUpperCase(),
+      date: prod.created_at || prod.record_date || new Date().toISOString(),
+      remarks: prod.review_remarks,
+    });
+  });
+
+  diseaseCases.slice(0, 5).forEach((dc) => {
+    activities.push({
+      id: `dc-${dc.id}`,
+      type: "DISEASE",
+      title: `Observation: ${dc.name || "Health Issue"}`,
+      description: `Affected: ${dc.affected_count || 1} head(s) • Tag: ${dc.tag_number || "General"}`,
+      status: (dc.status || "PENDING").toUpperCase(),
+      date: dc.created_at || dc.record_date || new Date().toISOString(),
+      remarks: dc.review_remarks,
+    });
+  });
+
+  mortalities.slice(0, 5).forEach((m) => {
+    activities.push({
+      id: `mort-${m.id}`,
+      type: "MORTALITY",
+      title: `Mortality Record: ${m.cause || "Deceased"}`,
+      description: `Count: ${m.death_count || 1} head(s) • Tag: ${m.tag_number || "General"}`,
+      status: (m.status || "PENDING").toUpperCase(),
+      date: m.created_at || m.record_date || new Date().toISOString(),
+      remarks: m.review_remarks,
+    });
+  });
+
+  // Sort activities newest first
+  activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return {
+    cattle_count: totalHeads,
+    approved_count: approvedHeads,
+    pending_count: pendingHeads,
+    avg_carcass_weight_kg: null,
+    active_health_alerts: activeAlerts,
+    milk_production_liters: hasMilkData ? currentMonthMilk : null,
+    milk_growth_pct,
+    cattle_trend: [],
+    milk_trend,
+    herd_categories,
+    herd_subcategories,
+    recent_activities: activities.slice(0, 8),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -122,21 +257,18 @@ export function useFarmerDashboardAnalytics() {
   return useQuery<FarmerDashboardAnalytics>({
     queryKey: ["farmer_analytics"],
     queryFn: fetchFarmerDashboardAnalytics,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 }
 
 // ---------------------------------------------------------------------------
-// Presentation formatting helpers
-//
-// Small, presentational only. All business calculations stay on the backend.
+// Formatting Helpers
 // ---------------------------------------------------------------------------
 
 export function formatQty(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-/** "2026-08" -> "Aug" */
 export function formatPeriodMonth(period: string): string {
   const [y, m] = period.split("-").map(Number);
   return new Date(Number(y) || 2026, (Number(m) || 1) - 1, 1).toLocaleDateString(

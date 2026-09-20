@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertTriangle, Milk, Weight } from "lucide-react";
+import { AlertTriangle, Milk, ShieldCheck, Activity } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
@@ -17,6 +17,7 @@ interface CardConfig {
   value: string;
   sub: string;
   subClass?: string;
+  description?: string;
 }
 
 export default function FarmerStats({
@@ -37,48 +38,43 @@ export default function FarmerStats({
   }
 
   const cattleCount = data?.cattle_count ?? 0;
-  const avgCarcassKg = data?.avg_carcass_weight_kg ?? null;
+  const approvedCount = data?.approved_count ?? 0;
+  const pendingCount = data?.pending_count ?? 0;
   const activeAlerts = data?.active_health_alerts ?? 0;
   const milkLiters = data?.milk_production_liters ?? null;
   const milkGrowth = data?.milk_growth_pct ?? null;
+  console.log(milkGrowth);
+
+  const livestockSub =
+    cattleCount === 0
+      ? "No animals registered"
+      : pendingCount > 0
+        ? `${approvedCount} verified • ${pendingCount} pending`
+        : `${approvedCount} verified heads`;
 
   const milkSub =
-    milkLiters === null
-      ? "No production data"
+    milkLiters === null || milkLiters === 0
+      ? "0 L this month"
       : milkGrowth === null
         ? "This month"
         : milkGrowth >= 0
-          ? `↑ ${milkGrowth.toFixed(1)}% vs last month`
-          : `↓ ${Math.abs(milkGrowth).toFixed(1)}% vs last month`;
+          ? `↑ ${milkGrowth.toFixed(1)}% MoM`
+          : `↓ ${Math.abs(milkGrowth).toFixed(1)}% MoM`;
 
   const allCards: CardConfig[] = [
     {
-      label: "My Livestock",
+      label: "My Livestock Herd",
       icon: <Icon iconNode={cowHead} className="size-4.5" />,
       variant: "emerald",
       value: cattleCount.toLocaleString(),
-      sub: "Heads in your farm",
+      sub: livestockSub,
+      description: "Padre Garcia registry",
     },
     {
-      label: "Avg. Carcass Weight",
-      icon: <Weight className="size-4.5" />,
-      variant: "sky",
-      value: avgCarcassKg !== null ? `${formatQty(avgCarcassKg)} kg` : "—",
-      sub: avgCarcassKg !== null ? "Avg. per slaughter" : "No slaughter data",
-    },
-    {
-      label: "Active Health Alerts",
-      icon: <AlertTriangle className="size-4.5" />,
-      variant: activeAlerts > 0 ? "rose" : "stone",
-      value: activeAlerts.toLocaleString(),
-      sub: activeAlerts > 0 ? "Needs attention" : "No active alerts",
-      subClass: activeAlerts > 0 ? "text-rose-700 bg-rose-100 border-rose-200" : undefined,
-    },
-    {
-      label: "Milk Production This Month",
+      label: "Monthly Dairy Yield",
       icon: <Milk className="size-4.5" />,
-      variant: "amber",
-      value: milkLiters !== null ? `${formatQty(milkLiters)} L` : "—",
+      variant: "sky",
+      value: milkLiters !== null && milkLiters > 0 ? `${formatQty(milkLiters)} L` : "0 L",
       sub: milkSub,
       subClass:
         milkLiters !== null && milkGrowth !== null
@@ -86,6 +82,24 @@ export default function FarmerStats({
             ? "text-emerald-700 bg-emerald-100 border-emerald-200"
             : "text-rose-700 bg-rose-100 border-rose-200"
           : undefined,
+      description: "Approved milk output",
+    },
+    {
+      label: "Health & Symptom Alerts",
+      icon: <AlertTriangle className="size-4.5" />,
+      variant: activeAlerts > 0 ? "rose" : "stone",
+      value: activeAlerts.toLocaleString(),
+      sub: activeAlerts > 0 ? "Needs inspection" : "All healthy",
+      subClass: activeAlerts > 0 ? "text-rose-700 bg-rose-100 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200",
+      description: "Surveillance cases",
+    },
+    {
+      label: "Inspection Compliance",
+      icon: <ShieldCheck className="size-4.5" />,
+      variant: "amber",
+      value: cattleCount > 0 ? `${Math.round((approvedCount / cattleCount) * 100)}%` : "100%",
+      sub: pendingCount === 0 ? "Fully certified" : `${pendingCount} awaiting SIBAT`,
+      description: "Cooperative verification",
     },
   ];
 
@@ -100,6 +114,7 @@ export default function FarmerStats({
           badge={card.sub}
           badgeClassName={card.subClass}
           variant={card.variant}
+          description={card.description}
         />
       ))}
     </div>

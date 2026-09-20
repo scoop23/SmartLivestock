@@ -6,7 +6,6 @@ import {
   CensusSubmissionRecord,
   mapCensusSubmission,
   ApiCensusSubmission,
-  MOCK_CENSUS_SUBMISSIONS,
 } from "@/app/(sibat)/sibat/sibat-analytics";
 import {
   ProductionRecordItem,
@@ -55,7 +54,7 @@ export const VALIDATION_DOMAINS: ValidationDomainConfig[] = [
     label: "Field Declarations",
     shortLabel: "Incidents",
     badgeLabel: "Disposals & Events",
-    description: "Slaughter inspections, on-farm mortalities, certified births, and transfer/sales",
+    description: "Disease surveillance cases and mortality records requiring municipal veterinary review",
   },
 ];
 
@@ -120,320 +119,49 @@ export interface ValidationIncidentItem {
   reviewedAt?: string | null;
 }
 
-// ── Mock / Seed Data ──
+// ── Seed / Mock Fallbacks (Empty for live production mode) ──
 
-export const SEED_PRODUCTION_VALIDATION: ProductionRecordItem[] = [
-  {
-    id: 101,
-    barangayName: "Banaba Ibaba",
-    farmerName: "Danilo Marasigan",
-    livestockId: 14,
-    livestockTypeName: "Dairy Cattle",
-    productionType: "milk",
-    quantity: 28.5,
-    unit: "LITERS",
-    recordDate: "2026-09-04",
-    notes: "Morning milking yield certified at cooperative collection chiller.",
-    status: "PENDING",
-    reviewRemarks: null,
-    createdAt: "2026-09-04T07:15:00Z",
-  },
-  {
-    id: 102,
-    barangayName: "Lipay",
-    farmerName: "Elena Vilia",
-    livestockId: 22,
-    livestockTypeName: "Swine / Sows",
-    productionType: "wool",
-    quantity: 12.0,
-    unit: "KILOGRAMS",
-    recordDate: "2026-09-03",
-    notes: "Organic feed supplement trial cycle output batch.",
-    status: "PENDING",
-    reviewRemarks: null,
-    createdAt: "2026-09-03T16:40:00Z",
-  },
-  {
-    id: 103,
-    barangayName: "San Roque",
-    farmerName: "Ramon Castillo",
-    livestockId: 35,
-    livestockTypeName: "Layer Poultry",
-    productionType: "eggs",
-    quantity: 450,
-    unit: "PIECES",
-    recordDate: "2026-09-02",
-    notes: "Purok 3 flock layer harvest, grade A eggs inspected.",
-    status: "APPROVED",
-    reviewRemarks: "Certified accurate by MAO Livestock Inspector.",
-    createdAt: "2026-09-02T11:20:00Z",
-  },
-  {
-    id: 104,
-    barangayName: "Quilo-quilo",
-    farmerName: "Pedro Garcia",
-    livestockId: 19,
-    livestockTypeName: "Dairy Carabao",
-    productionType: "milk",
-    quantity: 14.2,
-    unit: "LITERS",
-    recordDate: "2026-09-01",
-    notes: "Calf nursing period finished; commercial raw milk collection.",
-    status: "PENDING",
-    reviewRemarks: null,
-    createdAt: "2026-09-01T08:00:00Z",
-  },
-];
+export const SEED_PRODUCTION_VALIDATION: ProductionRecordItem[] = [];
+export const SEED_INVENTORY_VALIDATION: ValidationInventoryItem[] = [];
+export const MOCK_INCIDENT_RECORDS: ValidationIncidentItem[] = [];
 
-export const SEED_INVENTORY_VALIDATION: ValidationInventoryItem[] = [
-  {
-    id: 201,
-    farmerName: "Mateo Dimaculangan",
-    barangayName: "Castillo",
-    livestockType: "Cattle",
-    tagNumber: "PH-BTG-2026-091",
-    breed: "Brahman Cross",
-    sex: "Male",
-    weight: 385,
-    entryType: "INDIVIDUAL",
-    quantity: 1,
-    lastVaccinationDate: "2026-08-15",
-    status: "PENDING",
-    reviewRemarks: null,
-    createdAt: "2026-09-03T09:30:00Z",
-  },
-  {
-    id: 202,
-    farmerName: "Luzviminda Cruz",
-    barangayName: "Maugat",
-    livestockType: "Goat",
-    tagNumber: "PH-BTG-2026-104",
-    breed: "Boer Cross",
-    sex: "Female",
-    weight: 42,
-    entryType: "INDIVIDUAL",
-    quantity: 1,
-    lastVaccinationDate: "2026-08-20",
-    status: "PENDING",
-    reviewRemarks: null,
-    createdAt: "2026-09-02T14:15:00Z",
-  },
-  {
-    id: 203,
-    farmerName: "Eduardo Santos",
-    barangayName: "Banaba Ibaba",
-    livestockType: "Swine",
-    tagNumber: "BATCH-SW-26-04",
-    breed: "Landrace / Large White",
-    sex: "Mixed",
-    weight: 75,
-    entryType: "BATCH",
-    quantity: 15,
-    lastVaccinationDate: "2026-08-10",
-    status: "APPROVED",
-    reviewRemarks: "Verified by CBAT Animal Health Officer.",
-    createdAt: "2026-08-28T10:00:00Z",
-  },
-  {
-    id: 204,
-    farmerName: "Carmen Villanueva",
-    barangayName: "Lipay",
-    livestockType: "Carabao",
-    tagNumber: "PH-BTG-2026-118",
-    breed: "Philippine Native Carabao",
-    sex: "Female",
-    weight: 420,
-    entryType: "INDIVIDUAL",
-    quantity: 1,
-    lastVaccinationDate: "2026-07-29",
-    status: "PENDING",
-    reviewRemarks: null,
-    createdAt: "2026-09-01T15:00:00Z",
-  },
-];
-
-export const SEED_INCIDENTS_VALIDATION: ValidationIncidentItem[] = [
-  {
-    id: "DIS-001",
-    type: "disease",
-    farmerName: "Juan Dela Cruz",
-    barangayName: "Banaba Ibaba",
-    purok: "Purok 2",
-    farmerContact: "0917-882-9912",
-    tagNumber: "B-042",
-    livestockBreed: "Brahman Cross",
-    livestockType: "Cattle",
-    conditionName: "Limping / Weak Legs",
-    headCount: 1,
-    symptoms: ["Limping / Weak Legs", "Not Eating / Off-Feed"],
-    details: "Animal refused to stand this morning; left rear hoof is swollen. No open cuts visible.",
-    date: "2026-04-21",
-    status: "VERIFIED",
-    photoName: "swollen_left_hoof.jpg",
-    reviewRemarks: null,
-    sibatInspection: {
-      verifiedBy: "Officer R. Mendoza (SIBAT Sector 1)",
-      verifiedAt: "2026-04-21 10:45",
-      tagConfirmed: true,
-      confirmedCount: 1,
-      confirmedSymptoms: ["Limping / Weak Legs", "Not Eating / Off-Feed"],
-      severity: "MODERATE",
-      biosecurityAction: "PEN_ISOLATION",
-      remarks: "On-farm physical check completed. Mild hoof swelling confirmed; prescribed oral electrolytes and temporary stall isolation.",
-      temperatureCelsius: 39.4,
-    },
-  },
-  {
-    id: "MOR-001",
-    type: "mortality",
-    farmerName: "Mateo Dimaculangan",
-    barangayName: "San Roque",
-    purok: "Purok 1",
-    farmerContact: "0919-445-8821",
-    tagNumber: "A-099",
-    livestockBreed: "Native Murrah",
-    livestockType: "Carabao",
-    conditionName: "Sudden Death / Severe Bloat",
-    headCount: 1,
-    symptoms: ["Bloated Belly"],
-    details: "Carabao died overnight following heavy feeding on damp legumes. Bloat suspected.",
-    date: "2026-04-18",
-    status: "VERIFIED",
-    reviewRemarks: null,
-    sibatInspection: {
-      verifiedBy: "Officer C. Batangas (SIBAT)",
-      verifiedAt: "2026-04-18 11:30",
-      tagConfirmed: true,
-      confirmedCount: 1,
-      confirmedSymptoms: ["Bloated Belly"],
-      severity: "CRITICAL",
-      biosecurityAction: "BIOSECURE_BURIAL",
-      remarks: "Carcass verified on site. Severe tympany/bloat with no signs of anthrax. Supervised 2m deep pit burial with lime.",
-    },
-  },
-  {
-    id: "DIS-002",
-    type: "disease",
-    farmerName: "Elena Vilia",
-    barangayName: "Lipay",
-    purok: "Purok 4",
-    farmerContact: "0928-334-1188",
-    tagNumber: "B-011",
-    livestockBreed: "Holstein Sahiwal",
-    livestockType: "Cattle",
-    conditionName: "Coughing / Runny Nose",
-    headCount: 2,
-    symptoms: ["Coughing / Runny Nose", "High Fever / Hot Ears", "Lethargic / Isolated"],
-    details: "Two calves wheezing heavily and coughing after sudden rainstorm.",
-    date: "2026-04-20",
-    status: "VERIFIED",
-    reviewRemarks: null,
-    sibatInspection: {
-      verifiedBy: "Officer R. Mendoza (SIBAT Sector 1)",
-      verifiedAt: "2026-04-20 16:45",
-      tagConfirmed: true,
-      confirmedCount: 2,
-      confirmedSymptoms: ["Coughing / Runny Nose", "High Fever / Hot Ears"],
-      severity: "MODERATE",
-      biosecurityAction: "PEN_ISOLATION",
-      remarks: "On-farm physical check completed. Mild pneumonic wheezing. Prescribed oral electrolytes and temporary stall isolation.",
-      temperatureCelsius: 39.8,
-    },
-  },
-  {
-    id: "MOR-002",
-    type: "mortality",
-    farmerName: "Ricardo Gomez",
-    barangayName: "Quilo-quilo",
-    purok: "Purok 3",
-    farmerContact: "0939-556-7722",
-    tagNumber: "D-055",
-    livestockBreed: "Dairy Jersey",
-    livestockType: "Cattle",
-    conditionName: "Calving / Birthing Complications",
-    headCount: 1,
-    symptoms: ["Lethargic / Isolated"],
-    details: "Severe dystocia during unassisted nighttime birth resulting in maternal death.",
-    date: "2026-04-21",
-    status: "PENDING",
-    reviewRemarks: null,
-  },
-  {
-    id: "inc-1",
-    type: "slaughter",
-    farmerName: "Juan Dela Cruz",
-    barangayName: "San Roque",
-    details: "Cattle #B-042 - 350kg beef cattle slaughtered at Municipal Abattoir. Dressed weight 210kg.",
-    date: "2026-09-04",
-    status: "PENDING",
-    reviewRemarks: null,
-    headCount: 1,
-    weight: "350kg live / 210kg dressed",
-    tagNumber: "PH-BTG-B-042",
-  },
-  {
-    id: "inc-3",
-    type: "birth",
-    farmerName: "Pedro Garcia",
-    barangayName: "Quilo-quilo",
-    details: "New calf born - Female, mother #D-089. Excellent vigor, colostrum intake verified within 2 hours.",
-    date: "2026-09-02",
-    status: "APPROVED",
-    reviewRemarks: "Birth recorded; provisional ear tag assigned.",
-    headCount: 1,
-    tagNumber: "CALF-2026-089",
-  },
-  {
-    id: "inc-4",
-    type: "sale",
-    farmerName: "Ana Reyes",
-    barangayName: "Castillo",
-    details: "Commercial live cattle transfer to Batangas Regional Livestock Market. 2 heads, 320kg & 340kg.",
-    date: "2026-09-01",
-    status: "PENDING",
-    reviewRemarks: null,
-    headCount: 2,
-    weight: "660kg total",
-  },
-];
-
-// ── API Fetchers with Graceful Fallbacks ──
+// ── API Fetchers ──
 
 export async function fetchAdminCensusSubmissions(): Promise<CensusSubmissionRecord[]> {
   try {
     const response = await api.get("livestock/census/");
     const data = response.data as ApiCensusSubmission[];
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       return data.map(mapCensusSubmission);
     }
   } catch (err) {
-    console.warn("Using seed census submissions for validation portal:", err);
+    console.warn("Failed to fetch census submissions for validation portal:", err);
   }
-  return MOCK_CENSUS_SUBMISSIONS;
+  return [];
 }
 
 export async function fetchAdminProductionRecords(): Promise<ProductionRecordItem[]> {
   try {
     const response = await api.get("production/records/");
     const data = response.data as ApiProductionRecord[];
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       return data.map(mapProductionRecord) as ProductionRecordItem[];
     }
   } catch (err) {
-    console.warn("Using seed production records for validation portal:", err);
+    console.warn("Failed to fetch production records for validation portal:", err);
   }
-  return SEED_PRODUCTION_VALIDATION;
+  return [];
 }
 
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {
   try {
     const response = await api.get("livestock/inventory/");
     const data = response.data;
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       return data.map((item: any) => ({
         id: item.id,
         farmerName: item.farmer_name || (item.farmer ? `Farmer #${item.farmer}` : "Registered Farmer"),
-        barangayName: item.barangay_name || "Batangas Municipality",
+        barangayName: item.barangay_name || "Padre Garcia",
         livestockType: item.livestock_type_name || "Livestock",
         tagNumber: item.tag_number || `TAG-${item.id}`,
         breed: item.breed || "Standard Breed",
@@ -450,9 +178,74 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
       }));
     }
   } catch (err) {
-    console.warn("Using seed inventory records for validation portal:", err);
+    console.warn("Failed to fetch inventory records for validation portal:", err);
   }
-  return SEED_INVENTORY_VALIDATION;
+  return [];
+}
+
+export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentItem[]> {
+  try {
+    const [diseaseRes, mortRes] = await Promise.allSettled([
+      api.get("diseases/cases/"),
+      api.get("diseases/mortality/"),
+    ]);
+
+    const diseaseCases: any[] =
+      diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data)
+        ? diseaseRes.value.data
+        : [];
+    const mortalities: any[] =
+      mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data)
+        ? mortRes.value.data
+        : [];
+
+    const incidents: ValidationIncidentItem[] = [];
+
+    diseaseCases.forEach((dc) => {
+      incidents.push({
+        id: `dis-${dc.id}`,
+        type: "disease",
+        farmerName: dc.farmer_name || "Registered Farmer",
+        barangayName: dc.barangay_name || "Padre Garcia",
+        details: `Disease case: ${dc.name}. Affected: ${dc.affected_count || 1} head(s). Tag: ${dc.tag_number || "N/A"}`,
+        date: dc.record_date || (dc.created_at ? dc.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        status: (dc.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
+        reviewRemarks: dc.review_remarks || null,
+        headCount: dc.affected_count || 1,
+        tagNumber: dc.tag_number || undefined,
+        livestockBreed: dc.breed || undefined,
+        livestockType: dc.livestock_type_name || "Livestock",
+        conditionName: dc.name || "Disease Case",
+        reviewedBy: dc.reviewed_by_name || null,
+        reviewedAt: dc.reviewed_at || null,
+      });
+    });
+
+    mortalities.forEach((m) => {
+      incidents.push({
+        id: `mor-${m.id}`,
+        type: "mortality",
+        farmerName: m.farmer_name || "Registered Farmer",
+        barangayName: m.barangay_name || "Padre Garcia",
+        details: `Mortality cause: ${m.cause || "Unspecified"}. Death count: ${m.death_count || 1} head(s). Tag: ${m.tag_number || "N/A"}`,
+        date: m.record_date || (m.created_at ? m.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        status: (m.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
+        reviewRemarks: m.review_remarks || null,
+        headCount: m.death_count || 1,
+        tagNumber: m.tag_number || undefined,
+        livestockBreed: m.breed || undefined,
+        livestockType: m.livestock_type_name || "Livestock",
+        conditionName: m.cause || "Mortality Record",
+        reviewedBy: m.reviewed_by_name || null,
+        reviewedAt: m.reviewed_at || null,
+      });
+    });
+
+    return incidents;
+  } catch (err) {
+    console.warn("Failed to fetch incident records for validation portal:", err);
+  }
+  return [];
 }
 
 // ── Query Hooks ──
@@ -477,6 +270,14 @@ export function useAdminInventoryRecords() {
   return useQuery({
     queryKey: ["admin-inventory-records"],
     queryFn: fetchAdminInventoryRecords,
+    staleTime: 30_000,
+  });
+}
+
+export function useAdminIncidentRecords() {
+  return useQuery({
+    queryKey: ["admin-incident-records"],
+    queryFn: fetchAdminIncidentRecords,
     staleTime: 30_000,
   });
 }

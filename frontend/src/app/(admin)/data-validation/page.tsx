@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ import {
   useAdminCensusSubmissions,
   useAdminProductionRecords,
   useAdminInventoryRecords,
-  SEED_INCIDENTS_VALIDATION,
+  useAdminIncidentRecords,
   ValidationIncidentItem,
   ValidationInventoryItem,
   getIncidentTypeBadge,
@@ -53,6 +54,8 @@ import {
 } from "./record-detail-dialog";
 
 export default function AdminDataValidationPage() {
+  const queryClient = useQueryClient();
+
   // Domain tab & filter states
   const [activeDomain, setActiveDomain] = useState<ValidationDomain>("census");
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,6 +79,7 @@ export default function AdminDataValidationPage() {
   const { data: rawCensusData } = useAdminCensusSubmissions();
   const { data: rawProductionData } = useAdminProductionRecords();
   const { data: rawInventoryData } = useAdminInventoryRecords();
+  const { data: rawIncidentData } = useAdminIncidentRecords();
 
   // Local state overlays for optimistic updates
   const [localCensusOverrides, setLocalCensusOverrides] = useState<
@@ -87,9 +91,9 @@ export default function AdminDataValidationPage() {
   const [localInventoryOverrides, setLocalInventoryOverrides] = useState<
     Record<number, { status: "APPROVED" | "REJECTED"; remarks: string }>
   >({});
-  const [incidents, setIncidents] = useState<ValidationIncidentItem[]>(
-    SEED_INCIDENTS_VALIDATION
-  );
+  const [localIncidentOverrides, setLocalIncidentOverrides] = useState<
+    Record<string, { status: "APPROVED" | "REJECTED"; remarks: string }>
+  >({});
 
   // Consolidated Data with Overrides
   const censusSubmissions: CensusSubmissionRecord[] = useMemo(() => {
@@ -133,6 +137,20 @@ export default function AdminDataValidationPage() {
       return inv;
     });
   }, [rawInventoryData, localInventoryOverrides]);
+
+  const incidents: ValidationIncidentItem[] = useMemo(() => {
+    return (rawIncidentData || []).map((inc) => {
+      const override = localIncidentOverrides[inc.id];
+      if (override) {
+        return {
+          ...inc,
+          status: override.status,
+          reviewRemarks: override.remarks || inc.reviewRemarks,
+        };
+      }
+      return inc;
+    });
+  }, [rawIncidentData, localIncidentOverrides]);
 
   // Unique Barangays for dropdown filter
   const uniqueBarangays = useMemo(() => {
@@ -340,13 +358,12 @@ export default function AdminDataValidationPage() {
         });
         return next;
       });
-      itemIds.forEach(async (id) => {
-        try {
-          await api.post(`livestock/census/${id}/review/`, { status: action, remarks });
-        } catch {
-          // Graceful fallback
-        }
-      });
+      await Promise.allSettled(
+        itemIds.map((id) =>
+          api.post(`livestock/census/${id}/review/`, { status: action, remarks })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-census-submissions"] });
     } else if (activeDomain === "production") {
       setLocalProductionOverrides((prev) => {
         const next = { ...prev };
@@ -355,13 +372,12 @@ export default function AdminDataValidationPage() {
         });
         return next;
       });
-      itemIds.forEach(async (id) => {
-        try {
-          await api.post(`production/records/${id}/review/`, { status: action, remarks });
-        } catch {
-          // Graceful fallback
-        }
-      });
+      await Promise.allSettled(
+        itemIds.map((id) =>
+          api.post(`production/records/${id}/review/`, { status: action, remarks })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-production-records"] });
     } else if (activeDomain === "inventory") {
       setLocalInventoryOverrides((prev) => {
         const next = { ...prev };
@@ -370,21 +386,34 @@ export default function AdminDataValidationPage() {
         });
         return next;
       });
-      itemIds.forEach(async (id) => {
-        try {
-          await api.post(`livestock/inventory/${id}/review/`, { status: action, remarks });
-        } catch {
-          // Graceful fallback
-        }
-      });
-    } else {
-      setIncidents((prev) =>
-        prev.map((inc) =>
-          itemIds.includes(inc.id)
-            ? { ...inc, status: action, reviewRemarks: remarks || inc.reviewRemarks }
-            : inc
+      await Promise.allSettled(
+        itemIds.map((id) =>
+          api.post(`livestock/inventory/${id}/review/`, { status: action, remarks })
         )
       );
+      queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
+    } else {
+      setLocalIncidentOverrides((prev) => {
+        const next = { ...prev };
+        itemIds.forEach((id) => {
+          next[String(id)] = { status: action, remarks };
+        });
+        return next;
+      });
+      await Promise.allSettled(
+        itemIds.map((id) => {
+          const strId = String(id);
+          if (strId.startsWith("dis-")) {
+            const cleanId = strId.replace("dis-", "");
+            return api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks });
+          } else if (strId.startsWith("mor-")) {
+            const cleanId = strId.replace("mor-", "");
+            return api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
+          }
+          return Promise.resolve();
+        })
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
     }
 
     setSelectedIds([]);
@@ -402,28 +431,28 @@ export default function AdminDataValidationPage() {
   };
 
   // ── Confirmation Handler for Disease & Mortality SIBAT Review ──
-  const handleConfirmHealthAction = (
+  const handleConfirmHealthAction = async (
     action: "APPROVED" | "REJECTED",
     remarks: string,
     recordId: string
   ) => {
-    setIncidents((prev) =>
-      prev.map((inc) =>
-        inc.id === recordId
-          ? {
-              ...inc,
-              status: action,
-              reviewRemarks:
-                remarks ||
-                (action === "APPROVED"
-                  ? "Official MAO Health & Quarantine Certificate Issued."
-                  : "Flagged by MAO for Veterinary re-inspection."),
-              reviewedBy: "Dr. A. Laurel (MAO Chief Veterinarian)",
-              reviewedAt: new Date().toISOString(),
-            }
-          : inc
-      )
-    );
+    setLocalIncidentOverrides((prev) => ({
+      ...prev,
+      [recordId]: { status: action, remarks },
+    }));
+
+    try {
+      if (recordId.startsWith("dis-")) {
+        const cleanId = recordId.replace("dis-", "");
+        await api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks });
+      } else if (recordId.startsWith("mor-")) {
+        const cleanId = recordId.replace("mor-", "");
+        await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+    } catch (err) {
+      console.error("Failed to review health incident:", err);
+    }
 
     const actionVerb = action === "APPROVED" ? "certified & approved" : "flagged / rejected";
     toast.success(`Health declaration ${recordId} ${actionVerb}.`, {
