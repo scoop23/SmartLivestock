@@ -154,44 +154,56 @@ export default function LivestockTypeCards({
 
   return (
     <div className="py-2 space-y-4">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 py-1">
-        <div>
-          <h2 className="text-lg font-black text-emerald-950 tracking-tight">Species Breakdown</h2>
-          <p className="text-xs font-semibold text-stone-500">
-            Click any category to filter records and view individual profiles
-          </p>
+      {/* Elevated Header Control Strip */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 p-3.5 sm:px-4 sm:py-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="size-9 rounded-xl bg-emerald-100/80 text-emerald-800 flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200/60">
+            <Layers className="size-4.5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-emerald-950 tracking-tight">
+                Species Explorer
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200/60 shrink-0">
+                {typeSummaries.length} {typeSummaries.length === 1 ? "Category" : "Categories"}
+              </span>
+            </div>
+            <p className="text-xs font-medium text-slate-500 truncate">
+              Click any category card to filter herd records & view individual biometric profiles
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Mode Switcher Buttons */}
-          <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          {/* View Mode Switcher */}
+          <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/80 shadow-2xs">
             <button
               type="button"
               onClick={() => setViewMode("card")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "card"
-                  ? "bg-white text-emerald-950 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-white/40"
               }`}
-              title="Card View"
+              title="Card Grid View"
             >
-              <LayoutGrid className="size-3.5" />
-              <span className="hidden xs:inline">Cards</span>
+              <LayoutGrid className="size-3.5 text-emerald-700" />
+              <span>Cards</span>
             </button>
 
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "table"
-                  ? "bg-white text-emerald-950 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-white/40"
               }`}
-              title="Table View"
+              title="Tabular Matrix View"
             >
-              <TableIcon className="size-3.5" />
-              <span className="hidden xs:inline">Table</span>
+              <TableIcon className="size-3.5 text-teal-700" />
+              <span>Table</span>
             </button>
           </div>
 
@@ -200,9 +212,11 @@ export default function LivestockTypeCards({
             <Button
               type="button"
               variant="outline"
-              className="gap-2 border border-emerald-900/15 bg-white font-extrabold text-xs text-emerald-950 hover:bg-emerald-50 rounded-xl h-9"
+              className="gap-2 bg-white hover:bg-emerald-50/80 border border-slate-200/90 hover:border-emerald-300 text-emerald-950 font-bold text-xs shadow-2xs rounded-xl h-9 px-3.5 transition-all cursor-pointer"
             >
-              <Layers className="w-4 h-4 text-emerald-900" /> View All Records
+              <Layers className="size-3.5 text-emerald-700" />
+              <span>All Records</span>
+              <ChevronRight className="size-3 text-slate-400 -ml-1" />
             </Button>
           </Link>
         </div>

@@ -141,6 +141,10 @@ export default function LivestockInventoryPage() {
   );
   const vaxRate = totalHeads > 0 ? Math.round((vaccinatedHeads / totalHeads) * 100) : 0;
   const approvalRate = totalHeads > 0 ? Math.round((approvedHeads / totalHeads) * 100) : 0;
+  const speciesCount = useMemo(() => {
+    const set = new Set(inventories.map((i) => i.livestockTypeName).filter(Boolean));
+    return set.size || Object.keys(livestockTypes).length;
+  }, [inventories, livestockTypes]);
 
   // Filtered inventories when a specific species is clicked
   const typeFilteredInventories = selectedType
@@ -776,29 +780,70 @@ export default function LivestockInventoryPage() {
             onValueChange={(val) => setActiveTab(val as any)}
             className="space-y-4"
           >
-            <TabsList className="bg-slate-100 p-1 rounded-2xl border border-slate-200 h-auto">
+            {/* Elevated Modern Segmented Tab Console */}
+            <TabsList className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-2 bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs h-auto">
+              {/* Tab 1: Species Breakdown */}
               <TabsTrigger
                 value="types"
-                className="rounded-xl px-4 py-2.5 text-xs font-black data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-sm"
+                className="group relative flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left border border-transparent data-[state=active]:bg-white data-[state=active]:border-emerald-200/80 data-[state=active]:shadow-sm data-[state=active]:text-emerald-950 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer h-auto"
               >
-                <Layers className="w-4 h-4 mr-2 text-emerald-700" />
-                Species Breakdown
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 rounded-xl flex items-center justify-center shrink-0 transition-all bg-emerald-100/80 text-emerald-800 group-data-[state=active]:bg-emerald-700 group-data-[state=active]:text-white shadow-2xs">
+                    <Layers className="size-4.5" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="text-xs font-black tracking-tight leading-tight">Species Breakdown</p>
+                    <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-emerald-700/80 truncate">
+                      Herd Categories & Distribution
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-colors bg-slate-200/70 text-slate-700 group-data-[state=active]:bg-emerald-100 group-data-[state=active]:text-emerald-800 shrink-0 border border-transparent group-data-[state=active]:border-emerald-200/60">
+                  {speciesCount > 0 ? `${speciesCount} Species` : "Species"}
+                </span>
               </TabsTrigger>
 
+              {/* Tab 2: Complete Herd Registry */}
               <TabsTrigger
                 value="all"
-                className="rounded-xl px-4 py-2.5 text-xs font-black data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-sm"
+                className="group relative flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left border border-transparent data-[state=active]:bg-white data-[state=active]:border-teal-200/80 data-[state=active]:shadow-sm data-[state=active]:text-teal-950 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer h-auto"
               >
-                <Tag className="w-4 h-4 mr-2 text-teal-700" />
-                Complete Herd Registry ({inventories.length})
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 rounded-xl flex items-center justify-center shrink-0 transition-all bg-teal-100/80 text-teal-800 group-data-[state=active]:bg-teal-700 group-data-[state=active]:text-white shadow-2xs">
+                    <Tag className="size-4.5" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="text-xs font-black tracking-tight leading-tight">Complete Herd Registry</p>
+                    <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-teal-700/80 truncate">
+                      Ear Tags, Biometrics & Actions
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-colors bg-slate-200/70 text-slate-700 group-data-[state=active]:bg-teal-100 group-data-[state=active]:text-teal-800 shrink-0 border border-transparent group-data-[state=active]:border-teal-200/60">
+                  {inventories.length} {inventories.length === 1 ? "Record" : "Records"}
+                </span>
               </TabsTrigger>
 
+              {/* Tab 3: Health & Immunization Tracker */}
               <TabsTrigger
                 value="health"
-                className="rounded-xl px-4 py-2.5 text-xs font-black data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-sm"
+                className="group relative flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left border border-transparent data-[state=active]:bg-white data-[state=active]:border-emerald-200/80 data-[state=active]:shadow-sm data-[state=active]:text-emerald-950 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer h-auto"
               >
-                <ShieldCheck className="w-4 h-4 mr-2 text-emerald-600" />
-                Health & Immunization Tracker
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 rounded-xl flex items-center justify-center shrink-0 transition-all bg-emerald-100/80 text-emerald-800 group-data-[state=active]:bg-[#2D5A27] group-data-[state=active]:text-white shadow-2xs">
+                    <ShieldCheck className="size-4.5" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="text-xs font-black tracking-tight leading-tight">Health & Immunization</p>
+                    <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-emerald-700/80 truncate">
+                      Surveillance & Biosecurity
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-colors bg-emerald-50 text-emerald-800 shrink-0 border border-emerald-200/60">
+                  <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  {vaxRate}% Vax
+                </span>
               </TabsTrigger>
             </TabsList>
 
