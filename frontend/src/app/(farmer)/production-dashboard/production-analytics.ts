@@ -154,9 +154,7 @@ const ESTIMATED_UNIT_PRICES: Record<ProductionType, number> = {
   wool: 250  // PHP 250 per kg
 };
 
-async function fetchProductionAnalytics(): Promise<ProductionAnalytics> {
-  const records = await fetchProductionRecords();
-
+export function computeProductionAnalytics(records: ProductionRecordItem[]): ProductionAnalytics {
   const typesFound = new Set<ProductionType>();
   const groupedByType: Record<string, ProductionRecordItem[]> = {};
 
@@ -245,9 +243,10 @@ async function fetchProductionAnalytics(): Promise<ProductionAnalytics> {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+async function fetchProductionAnalytics(): Promise<ProductionAnalytics> {
+  const records = await fetchProductionRecords();
+  return computeProductionAnalytics(records);
+}
 
 export function useProductionAnalytics() {
   return useQuery<ProductionAnalytics>({

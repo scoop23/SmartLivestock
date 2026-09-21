@@ -32,7 +32,7 @@ import ProductionFormFields, {
 } from "./production-form-fields";
 import SelectLivestockDialog from "./select-livestock-dialog";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
-import type { UpdateProductionPayload, WizardMode } from "./page";
+import type { UpdateProductionPayload, WizardMode } from "./production-dashboard-view";
 
 import { type ProductionType, ProductionRecordItem } from "./production-analytics";
 
