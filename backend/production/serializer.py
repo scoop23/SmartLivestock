@@ -20,6 +20,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         source="livestock.farmer.barangay.barangay_name", read_only=True
     )
 
+    reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+
     def get_farmer_name(self, obj):
         try:
             user = obj.livestock.farmer.user
@@ -27,6 +29,15 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             return full_name if full_name else user.username
         except Exception:
             return "Unknown Farmer"
+
+    def get_reviewed_by_name(self, obj):
+        try:
+            if obj.reviewed_by:
+                full_name = obj.reviewed_by.get_full_name().strip()
+                return full_name if full_name else obj.reviewed_by.username
+        except Exception:
+            pass
+        return None
 
     class Meta:
         model = ProductionRecord
@@ -43,9 +54,11 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "notes",
             "status",
             "review_remarks",
+            "reviewed_at",
+            "reviewed_by_name",
             "created_at",
         )
-        read_only_fields = ("status", "review_remarks", "created_at")
+        read_only_fields = ("status", "review_remarks", "reviewed_at", "created_at")
 
     def validate_livestock(
         self,
@@ -54,10 +67,19 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         # If user has a farmer profile, enforce that they can only log for their own animals
         if hasattr(user, "farmer_profile"):
-            if value.farmer_id != user.farmer_profile.id:
+            if value.farmer_id != user.farmer_profile.id and value.created_by_id != user.id:
                 raise ValidationError(
                     "You can only log production against your own livestock."
                 )
+        elif value.created_by_id != user.id:
+            raise ValidationError(
+                "You can only log production against your own livestock."
+            )
+
+        if value.status != "APPROVED":
+            raise ValidationError(
+                "Only approved livestock can be logged for production."
+            )
         return value
 
     def validate(self, attrs):

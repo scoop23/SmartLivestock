@@ -1,10 +1,13 @@
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
+from django.db.models import Q
 from django.utils import timezone
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.cache import cache_page
+from rest_framework.exceptions import PermissionDenied
 
 from livestock.models import Barangay, LivestockInventory, LivestockType, Farmer
 from livestock.serializer import (
@@ -15,11 +18,15 @@ from livestock.serializer import (
 
 
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def inventory_list_create(request):
     """
-    GET  /api/livestock/inventory/ -> List livestock inventory for logged-in farmer
+    GET  /api/livestock/inventory/ -> List livestock inventory for logged-in farmer (or all for MAO/SIBAT/Admin)
     POST /api/livestock/inventory/ -> Register a new livestock inventory entry
     """
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+
     if request.method == "POST":
         serializer = LivestockInventorySerializer(
             data=request.data,
@@ -29,23 +36,29 @@ def inventory_list_create(request):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    # GET
-    # Check if user has farmer_profile or is staff/admin
-    if hasattr(request.user, "farmer_profile"):
-        inventories = LivestockInventory.objects.filter(
-            farmer=request.user.farmer_profile
-        ).select_related("livestock_type", "farmer__user", "farmer__barangay")
+    # GET: Enforce strict farmer data isolation
+    if role_name == "FARMER":
+        farmer_profile = getattr(user, "farmer_profile", None)
+        if farmer_profile:
+            inventories = LivestockInventory.objects.filter(
+                Q(farmer=farmer_profile) | Q(created_by=user)
+            ).distinct()
+        else:
+            inventories = LivestockInventory.objects.filter(created_by=user)
     else:
-        # Admin / MAO fallback: list all inventories
-        inventories = LivestockInventory.objects.all().select_related(
-            "livestock_type", "farmer__user", "farmer__barangay"
-        )
+        # Admin / MAO / SIBAT / AUCTION: list all municipal inventories
+        inventories = LivestockInventory.objects.all()
+
+    inventories = inventories.select_related(
+        "livestock_type", "farmer__user", "farmer__barangay"
+    ).order_by("-created_at")
 
     serializer = LivestockInventorySerializer(inventories, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
 def inventory_detail(request, pk):
     """
     GET    /api/livestock/inventory/<id>/ -> Retrieve single livestock inventory item
@@ -53,10 +66,17 @@ def inventory_detail(request, pk):
     PATCH  /api/livestock/inventory/<id>/ -> Partial update
     DELETE /api/livestock/inventory/<id>/ -> Delete entry (only if unreferenced)
     """
-    if hasattr(request.user, "farmer_profile"):
-        inventory = get_object_or_404(
-            LivestockInventory, pk=pk, farmer=request.user.farmer_profile
-        )
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+
+    if role_name == "FARMER":
+        farmer_profile = getattr(user, "farmer_profile", None)
+        if farmer_profile:
+            inventory = get_object_or_404(
+                LivestockInventory, Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
+            )
+        else:
+            inventory = get_object_or_404(LivestockInventory, created_by=user, pk=pk)
     else:
         inventory = get_object_or_404(LivestockInventory, pk=pk)
 
@@ -88,10 +108,8 @@ def inventory_detail(request, pk):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-from rest_framework.exceptions import PermissionDenied
-
-
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def review_inventory(request, pk):
     """
     POST /api/livestock/inventory/<id>/review/
@@ -142,7 +160,6 @@ def review_inventory(request, pk):
 
     serializer = LivestockInventorySerializer(inventory)
     return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 
 @api_view(["GET"])

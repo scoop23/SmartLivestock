@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 
 export type SibatReportType = "DISEASE" | "MORTALITY" | "SLAUGHTER" | "PRODUCTION" | "SALE";
-export type SibatStatus = "PENDING" | "VERIFIED" | "APPROVED" | "FLAGGED" | "FALSE_ALARM";
+export type SibatStatus = "PENDING" | "VERIFIED" | "APPROVED" | "FLAGGED" | "FALSE_ALARM" | "REJECTED";
 export type SeverityLevel = "MILD" | "MODERATE" | "SEVERE" | "CRITICAL";
 export type BiosecurityAction =
   | "NONE"

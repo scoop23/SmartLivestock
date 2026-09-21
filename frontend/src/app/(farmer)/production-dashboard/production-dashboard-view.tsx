@@ -125,14 +125,16 @@ export default function ProductionDashboardView({
     },
   });
 
-  const approvedInventories = inventories.filter((item) => item.status === "APPROVED");
+  const approvedInventories = useMemo(() => {
+    return inventories.filter((item) => item.status === "APPROVED");
+  }, [inventories]);
 
   const filteredInventories = useMemo(() => {
-    if (!selectedSpecies || selectedSpecies === "ALL") return approvedInventories;
-    return approvedInventories.filter(
-      (item) => item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase()
-    );
-  }, [approvedInventories, selectedSpecies]);
+    if (!selectedSpecies || selectedSpecies === "ALL") return inventories.filter((item) => item.status !== "REJECTED");
+    return inventories
+      .filter((item) => item.status !== "REJECTED")
+      .filter((item) => item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase());
+  }, [inventories, selectedSpecies]);
 
   const filteredProductionRecords = useMemo(() => {
     if (!selectedSpecies || selectedSpecies === "ALL") return productionRecords;
@@ -164,15 +166,89 @@ export default function ProductionDashboardView({
   const handleOpenNewWizard = () => {
     setEditingRecord(null);
     setClickedInventory(null);
-    setFormState({});
-    // Pre-set production type matching species if possible
+    let initialType: ProductionType = "milk";
     if (selectedSpecies) {
       const s = selectedSpecies.toLowerCase();
-      if (s.includes("poultry")) setProductionType("eggs");
-      else if (s.includes("sheep")) setProductionType("wool");
-      else if (s.includes("swine")) setProductionType("meat");
-      else setProductionType("milk");
+      if (s.includes("poultry")) initialType = "eggs";
+      else if (s.includes("sheep")) initialType = "wool";
+      else if (s.includes("swine")) initialType = "meat";
+      else initialType = "milk";
     }
+    setProductionType(initialType);
+    setFormState({
+      prodDate: new Date().toISOString().split("T")[0],
+      milkTime: "Morning",
+      collectionTime: "Morning",
+      meatPurpose: "Auction / Market Sale",
+      notes: "",
+    });
+    setResetSignal((prev) => prev + 1);
+    setIsWizardOpen(true);
+  };
+
+  const handleOpenEditWizard = (record: ProductionRecordItem) => {
+    setEditingRecord(record);
+    setProductionType(record.productionType);
+    const targetLivestockId = String(record.livestockId || (record as any).livestock || "");
+    const matchedInv =
+      inventories.find((i) => String(i.id) === targetLivestockId) ||
+      (targetLivestockId
+        ? ({
+            id: targetLivestockId,
+            livestockTypeName: record.livestockTypeName || "Livestock",
+            entryType: "INDIVIDUAL",
+            status: "APPROVED",
+            tagNumber: `ID #${targetLivestockId}`,
+            breed: "",
+            sex: "",
+            farmerName: record.farmerName || "",
+            quantity: 1,
+            weight: null,
+            lastVaccinationDate: null,
+            createdAt: record.createdAt,
+          } as LivestockInventoryItem)
+        : null);
+
+    setClickedInventory(matchedInv);
+
+    let rawNotes = record.notes || "";
+    let extractedMilkTime = "Morning";
+    let extractedMeatPurpose = "Auction / Market Sale";
+
+    if (record.productionType === "milk") {
+      const timeMatch = rawNotes.match(/\[(Morning|Afternoon|Evening)\]/i);
+      if (timeMatch) {
+        extractedMilkTime =
+          timeMatch[1].charAt(0).toUpperCase() + timeMatch[1].slice(1).toLowerCase();
+        rawNotes = rawNotes.replace(timeMatch[0], "").trim();
+      }
+    } else if (record.productionType === "meat") {
+      const purposeMatch = rawNotes.match(/\[Purpose:\s*([^\]]+)\]/i);
+      if (purposeMatch) {
+        extractedMeatPurpose = purposeMatch[1].trim();
+        rawNotes = rawNotes.replace(purposeMatch[0], "").trim();
+      }
+    }
+
+    const newFormState: Record<string, string | number> = {
+      prodDate: record.recordDate,
+      notes: rawNotes,
+      milkTime: extractedMilkTime,
+      meatPurpose: extractedMeatPurpose,
+      collectionTime: "Morning",
+    };
+
+    if (record.productionType === "milk") {
+      newFormState.milkQty = Number(record.quantity);
+    } else if (record.productionType === "meat") {
+      newFormState.meatQty = Number(record.quantity);
+    } else if (record.productionType === "eggs") {
+      newFormState.eggQty = Number(record.quantity);
+    } else if (record.productionType === "wool") {
+      newFormState.woolQty = Number(record.quantity);
+    }
+
+    setFormState(newFormState);
     setResetSignal((prev) => prev + 1);
     setIsWizardOpen(true);
   };
@@ -435,10 +511,7 @@ export default function ProductionDashboardView({
               <div className="space-y-6">
                 <ProductionRecent
                   records={filteredProductionRecords}
-                  onEdit={(record) => {
-                    setEditingRecord(record);
-                    setIsWizardOpen(true);
-                  }}
+                  onEdit={handleOpenEditWizard}
                   onDelete={(record) => setDeleteTarget(record)}
                 />
 
@@ -498,10 +571,10 @@ export default function ProductionDashboardView({
         onFieldChange={handleFieldChange}
         approvedInventories={approvedInventories}
         isLoading={isInventoryLoading}
-        isSubmitting={submitMutation.isPending}
+        isSubmitting={submitMutation.isPending || updateMutation.isPending}
         resetSignal={resetSignal}
         onSubmit={(payload) => {
-          if (editingRecord) {
+          if (editingRecord && editingRecord.id) {
             updateMutation.mutate({
               id: editingRecord.id as number,
               payload,

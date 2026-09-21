@@ -51,6 +51,7 @@ import {
   useFarmersByBarangay,
   FarmerOptionItem,
   APIFarmerBarangayRecord,
+  LivestockTypeOption,
 } from "./sibat-analytics";
 import { LivestockType } from "@/app/(farmer)/livestock-inventory/page";
 
@@ -100,12 +101,12 @@ export default function CensusSubmissionDialog({
   ).size;
 
   // Breakdown by animal type
-  const breakdown = LIVESTOCK_TYPES.map((type) => {
+  const breakdown = LIVESTOCK_TYPES.map((type: LivestockTypeOption) => {
     const count = items
       .filter((i) => i.livestockType === type.name)
       .reduce((sum, i) => sum + (Number(i.numberOfHeads) || 0), 0);
     return { ...type, count };
-  }).filter((t) => t.count > 0);
+  }).filter((t: LivestockTypeOption & { count: number }) => t.count > 0);
 
   const handleAddItem = () => {
     setItems((prev) => [
@@ -235,7 +236,7 @@ export default function CensusSubmissionDialog({
 
   const livestockById = useMemo(() => {
     const array = Object.fromEntries(Object.entries(livestockRecords ?? {}).map(([key, id]) => {
-      const livestockType = LIVESTOCK_TYPES.find((type) => type.name.toLowerCase().includes(key.toLowerCase()));
+      const livestockType = LIVESTOCK_TYPES.find((type: LivestockTypeOption) => type.name.toLowerCase().includes(key.toLowerCase()));
       return [livestockType?.name ?? key, id];
     }));
     return array;
@@ -491,7 +492,7 @@ export default function CensusSubmissionDialog({
                             <SelectValue placeholder="Select Animal Type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-60 rounded-xl">
-                            {LIVESTOCK_TYPES.map((lt) => (
+                            {LIVESTOCK_TYPES.map((lt: LivestockTypeOption) => (
                               <SelectItem key={lt.name} value={lt.name} className="text-xs font-medium">
                                 <span className="mr-1.5">{lt.emoji}</span>
                                 {lt.name}
@@ -573,7 +574,7 @@ export default function CensusSubmissionDialog({
                   {breakdown.length === 0 ? (
                     <span className="text-xs text-slate-400 italic">No entries yet</span>
                   ) : (
-                    breakdown.map((b) => (
+                    breakdown.map((b: LivestockTypeOption & { count: number }) => (
                       <Badge
                         key={b.name}
                         className="bg-white/15 text-white hover:bg-white/20 border-white/20 text-[10px] font-bold"

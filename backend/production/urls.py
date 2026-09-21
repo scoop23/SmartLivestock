@@ -10,6 +10,7 @@ urlpatterns = [
     # Live Animal Sales
     path("sales/", views.live_animal_sales_list_create, name="sales_list_create"),
     path("sales/<int:pk>/", views.live_animal_sale_delete, name="sales_delete"),
+    path("sales/<int:pk>/review/", views.review_live_animal_sale, name="review_sale"),
 
     # Weight Logs & ADG
     path("weights/", views.weight_records_list_create, name="weights_list_create"),

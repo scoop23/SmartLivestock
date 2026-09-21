@@ -34,8 +34,11 @@ def disease_case_list_create(request):
     user = request.user
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
+    from django.db.models import Q
     if role_name == "FARMER":
-        records = DiseaseCase.objects.filter(created_by=user)
+        records = DiseaseCase.objects.filter(
+            Q(created_by=user) | Q(livestock__farmer__user=user)
+        ).distinct()
     else:
         # MAO, SIBAT: list all municipal disease cases
         records = DiseaseCase.objects.all()
@@ -191,7 +194,9 @@ def mortality_record_list_create(request):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        records = MortalityRecord.objects.filter(created_by=user)
+        records = MortalityRecord.objects.filter(
+            Q(created_by=user) | Q(livestock__farmer__user=user)
+        ).distinct()
     else:
         # MAO, SIBAT: list all municipal mortality records
         records = MortalityRecord.objects.all()

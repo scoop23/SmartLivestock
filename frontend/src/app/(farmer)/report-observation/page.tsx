@@ -38,6 +38,9 @@ import {
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
 
+import api from "@/lib/axios";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
 export type ReportType = "DISEASE" | "MORTALITY";
 export type BackendStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
 
@@ -79,57 +82,71 @@ const EASY_MORTALITY_CAUSES = [
   "Unknown (Needs Vet Inspection)",
 ];
 
-const INITIAL_REPORTS: FarmerReport[] = [
-  {
-    id: "DIS-001",
-    reportType: "DISEASE",
-    inventoryId: "1",
-    cattleTag: "B-042",
-    cattleBreed: "Brahman Cross",
-    cattleType: "Cattle",
-    name: "Limping / Weak Legs",
-    affectedCount: 1,
-    recordDate: "2026-04-21",
-    status: "PENDING",
-    symptoms: ["Limping / Weak Legs", "Not Eating / Off-Feed"],
-    description: "Animal refused to stand this morning; left rear hoof is swollen.",
-    createdAt: "2026-04-21T08:30:00Z",
-  },
-  {
-    id: "DIS-002",
-    reportType: "DISEASE",
-    inventoryId: "2",
-    cattleTag: "B-011",
-    cattleBreed: "Holstein Sahiwal",
-    cattleType: "Cattle",
-    name: "Not Eating / Off-Feed",
-    affectedCount: 2,
-    recordDate: "2026-04-20",
-    status: "VERIFIED",
-    symptoms: ["Not Eating / Off-Feed", "Lethargic / Weak"],
-    description: "Inspected by SIBAT officer on-farm. Prescribed oral electrolytes.",
-    createdAt: "2026-04-20T14:15:00Z",
-  },
-  {
-    id: "MOR-001",
-    reportType: "MORTALITY",
-    inventoryId: "3",
-    cattleTag: "A-099",
-    cattleBreed: "Native Murrah",
-    cattleType: "Carabao",
-    name: "Sudden Death / Severe Bloat",
-    affectedCount: 1,
-    recordDate: "2026-04-18",
-    status: "APPROVED",
-    symptoms: ["Bloated Belly"],
-    description: "Died overnight following heavy feeding on damp legumes. Verified by MAO vet.",
-    createdAt: "2026-04-18T10:00:00Z",
-  },
-];
-
 export default function ReportObservationPage() {
+  const queryClient = useQueryClient();
+
   // ── Fetch Cattle Inventory from Backend API ──
   const { data: inventories = [], isLoading: isLoadingInventory } = useUserInventory();
+
+  // ── Live Queries for Farmer's Previous Reports ──
+  const { data: diseaseCases = [] } = useQuery({
+    queryKey: ["farmer-disease-cases"],
+    queryFn: async () => {
+      const res = await api.get("diseases/cases/");
+      return Array.isArray(res.data) ? res.data : [];
+    },
+  });
+
+  const { data: mortalityRecords = [] } = useQuery({
+    queryKey: ["farmer-mortality-records"],
+    queryFn: async () => {
+      const res = await api.get("diseases/mortality/");
+      return Array.isArray(res.data) ? res.data : [];
+    },
+  });
+
+  // ── Consolidated Reports from Database ──
+  const reports: FarmerReport[] = useMemo(() => {
+    const list: FarmerReport[] = [];
+
+    diseaseCases.forEach((dc: any) => {
+      list.push({
+        id: `DIS-${dc.id}`,
+        reportType: "DISEASE",
+        inventoryId: String(dc.livestock),
+        cattleTag: dc.tag_number || `Animal #${dc.livestock}`,
+        cattleBreed: dc.breed || "Standard",
+        cattleType: dc.livestock_type_name || "Livestock",
+        name: dc.name || "Disease Case",
+        affectedCount: dc.affected_count || 1,
+        recordDate: dc.record_date || (dc.created_at ? dc.created_at.slice(0, 10) : ""),
+        status: (dc.status || "PENDING").toUpperCase() as BackendStatus,
+        symptoms: [dc.name],
+        description: dc.name,
+        createdAt: dc.created_at || new Date().toISOString(),
+      });
+    });
+
+    mortalityRecords.forEach((m: any) => {
+      list.push({
+        id: `MOR-${m.id}`,
+        reportType: "MORTALITY",
+        inventoryId: String(m.livestock),
+        cattleTag: m.tag_number || `Animal #${m.livestock}`,
+        cattleBreed: m.breed || "Standard",
+        cattleType: m.livestock_type_name || "Livestock",
+        name: m.cause || "Mortality Record",
+        affectedCount: m.death_count || 1,
+        recordDate: m.record_date || (m.created_at ? m.created_at.slice(0, 10) : ""),
+        status: (m.status || "PENDING").toUpperCase() as BackendStatus,
+        symptoms: [m.cause],
+        description: m.cause,
+        createdAt: m.created_at || new Date().toISOString(),
+      });
+    });
+
+    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [diseaseCases, mortalityRecords]);
 
   // ── Form State ──
   const [reportType, setReportType] = useState<ReportType>("DISEASE");
@@ -144,8 +161,7 @@ export default function ReportObservationPage() {
   const [photoName, setPhotoName] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // ── Log & Filter State ──
-  const [reports, setReports] = useState<FarmerReport[]>(INITIAL_REPORTS);
+  // ── Filter State ──
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("ALL");
 
@@ -177,7 +193,7 @@ export default function ReportObservationPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedInventoryId) {
@@ -188,36 +204,37 @@ export default function ReportObservationPage() {
     const mainName =
       conditionName.trim() ||
       (selectedSymptoms.length > 0
-        ? selectedSymptoms[0]
+        ? selectedSymptoms.join(", ")
         : reportType === "DISEASE"
           ? "General Health Concern"
           : "Unspecified Cause");
 
     setIsSubmitting(true);
 
-    const tagDisplay = selectedCattle?.tagNumber || `Animal #${selectedInventoryId}`;
-    const idPrefix = reportType === "DISEASE" ? "DIS" : "MOR";
-
-    const newRecord: FarmerReport = {
-      id: `${idPrefix}-${String(reports.length + 1).padStart(3, "0")}`,
-      reportType,
-      inventoryId: String(selectedInventoryId),
-      cattleTag: tagDisplay,
-      cattleBreed: selectedCattle?.breed || "Livestock",
-      cattleType: selectedCattle?.livestockTypeName || "Livestock",
-      name: mainName,
-      affectedCount,
-      recordDate,
-      status: "PENDING",
-      symptoms: selectedSymptoms,
-      description: description.trim(),
-      photoName: photoName || undefined,
-      createdAt: new Date().toISOString(),
-    };
-
-    setTimeout(() => {
-      setReports((prev) => [newRecord, ...prev]);
-      setIsSubmitting(false);
+    try {
+      if (reportType === "DISEASE") {
+        await api.post("diseases/cases/", {
+          livestock: Number(selectedInventoryId),
+          name: mainName,
+          affected_count: affectedCount,
+          record_date: recordDate,
+        });
+        queryClient.invalidateQueries({ queryKey: ["farmer-disease-cases"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-disease-cases"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+        toast.success("Disease report submitted! SIBAT field officers & MAO have been notified.");
+      } else {
+        await api.post("diseases/mortality/", {
+          livestock: Number(selectedInventoryId),
+          cause: mainName,
+          death_count: affectedCount,
+          record_date: recordDate,
+        });
+        queryClient.invalidateQueries({ queryKey: ["farmer-mortality-records"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-mortality-records"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+        toast.success("Mortality record logged! SIBAT & MAO will review this incident.");
+      }
 
       // Reset form
       setSelectedInventoryId("");
@@ -226,13 +243,18 @@ export default function ReportObservationPage() {
       setDescription("");
       setSelectedSymptoms([]);
       setPhotoName("");
-
-      toast.success(
-        reportType === "DISEASE"
-          ? "Report submitted! SIBAT & MAO have been notified for farm inspection."
-          : "Mortality record logged! SIBAT & MAO will review this incident."
-      );
-    }, 500);
+    } catch (err: any) {
+      console.error("Failed to submit observation report:", err);
+      const errorMsg =
+        err?.response?.data?.error ||
+        err?.response?.data?.affected_count?.[0] ||
+        err?.response?.data?.death_count?.[0] ||
+        err?.response?.data?.detail ||
+        "Failed to submit report. Please check required fields.";
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Filtered reports

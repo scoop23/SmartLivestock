@@ -119,13 +119,7 @@ export interface ValidationIncidentItem {
   reviewedAt?: string | null;
 }
 
-// ── Seed / Mock Fallbacks (Empty for live production mode) ──
-
-export const SEED_PRODUCTION_VALIDATION: ProductionRecordItem[] = [];
-export const SEED_INVENTORY_VALIDATION: ValidationInventoryItem[] = [];
-export const MOCK_INCIDENT_RECORDS: ValidationIncidentItem[] = [];
-
-// ── API Fetchers ──
+// ── API Fetchers (Connected directly to Django REST Backend) ──
 
 export async function fetchAdminCensusSubmissions(): Promise<CensusSubmissionRecord[]> {
   try {
@@ -185,9 +179,11 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
 
 export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentItem[]> {
   try {
-    const [diseaseRes, mortRes] = await Promise.allSettled([
+    const [diseaseRes, mortRes, salesRes, calvingRes] = await Promise.allSettled([
       api.get("diseases/cases/"),
       api.get("diseases/mortality/"),
+      api.get("production/sales/"),
+      api.get("production/calving/"),
     ]);
 
     const diseaseCases: any[] =
@@ -198,6 +194,14 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
       mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data)
         ? mortRes.value.data
         : [];
+    const sales: any[] =
+      salesRes.status === "fulfilled" && Array.isArray(salesRes.value.data)
+        ? salesRes.value.data
+        : [];
+    const calvings: any[] =
+      calvingRes.status === "fulfilled" && Array.isArray(calvingRes.value.data)
+        ? calvingRes.value.data
+        : [];
 
     const incidents: ValidationIncidentItem[] = [];
 
@@ -207,7 +211,9 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         type: "disease",
         farmerName: dc.farmer_name || "Registered Farmer",
         barangayName: dc.barangay_name || "Padre Garcia",
-        details: `Disease case: ${dc.name}. Affected: ${dc.affected_count || 1} head(s). Tag: ${dc.tag_number || "N/A"}`,
+        details: dc.name
+          ? `Disease case: ${dc.name}. Affected: ${dc.affected_count || 1} head(s). Tag: ${dc.tag_number || "N/A"}`
+          : "Disease condition reported",
         date: dc.record_date || (dc.created_at ? dc.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
         status: (dc.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
         reviewRemarks: dc.review_remarks || null,
@@ -238,6 +244,41 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         conditionName: m.cause || "Mortality Record",
         reviewedBy: m.reviewed_by_name || null,
         reviewedAt: m.reviewed_at || null,
+      });
+    });
+
+    sales.forEach((s) => {
+      incidents.push({
+        id: `sale-${s.id}`,
+        type: "sale",
+        farmerName: s.farmer_name || "Registered Farmer",
+        barangayName: s.barangay_name || "Padre Garcia",
+        details: `Live sale: ${s.quantity || 1} head(s) (${s.sale_method || "Direct"}). Destination: ${s.destination || "Market"}. Total: ₱${Number(s.total_price || 0).toLocaleString()}`,
+        date: s.sale_date || (s.created_at ? s.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        status: (s.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
+        reviewRemarks: s.review_remarks || null,
+        headCount: s.quantity || 1,
+        tagNumber: s.tag_number || undefined,
+        livestockType: s.livestock_type_name || "Livestock",
+        conditionName: s.purpose ? `Sale Purpose: ${s.purpose}` : "Live Animal Sale",
+      });
+    });
+
+    calvings.forEach((c) => {
+      incidents.push({
+        id: `birth-${c.id}`,
+        type: "birth",
+        farmerName: c.farmer_name || "Registered Farmer",
+        barangayName: c.barangay_name || "Padre Garcia",
+        details: `Calf Birth: Tag ${c.calf_tag || "N/A"}. Dam: ${c.dam_tag || "N/A"}. Sex: ${c.calf_sex || "Unspecified"}. Calving Ease: ${c.calving_ease || "Normal"}`,
+        date: c.calving_date || (c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        status: "APPROVED",
+        reviewRemarks: null,
+        headCount: 1,
+        tagNumber: c.calf_tag || undefined,
+        livestockBreed: c.breed || c.dam_breed || undefined,
+        livestockType: "Cattle",
+        conditionName: `Calf Birth (${c.calf_sex || "Unspecified"})`,
       });
     });
 

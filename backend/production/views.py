@@ -1,13 +1,29 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.decorators import api_view
+from django.db.models import Q
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .models import ProductionRecord,LiveAnimalSale,SlaughterRecord, WeightRecord, CalvingRecord,AnimalDisposition
-from .serializer import ProductionRecordSerializer, LiveAnimalSaleSerializer, AnimalDispositionSerializer, WeightRecordSerializer, CalvingRecordSerializer
+from .models import (
+    ProductionRecord,
+    LiveAnimalSale,
+    SlaughterRecord,
+    WeightRecord,
+    CalvingRecord,
+    AnimalDisposition,
+)
+from .serializer import (
+    ProductionRecordSerializer,
+    LiveAnimalSaleSerializer,
+    AnimalDispositionSerializer,
+    WeightRecordSerializer,
+    CalvingRecordSerializer,
+)
 
 
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def production_record_list_create(request):
     """
     GET  /production/records/ -> List production records (filtered by user/role)
@@ -27,7 +43,9 @@ def production_record_list_create(request):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        records = ProductionRecord.objects.filter(created_by=user)
+        records = ProductionRecord.objects.filter(
+            Q(created_by=user) | Q(livestock__farmer__user=user)
+        ).distinct()
     else:
         # MAO, SIBAT, ADMIN: list all records
         records = ProductionRecord.objects.all()
@@ -45,6 +63,7 @@ def production_record_list_create(request):
 
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
 def production_record_detail(request, pk):
     """
     GET    /production/records/<pk>/ -> Retrieve single production record
@@ -56,23 +75,29 @@ def production_record_detail(request, pk):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        record = get_object_or_404(ProductionRecord, pk=pk, created_by=user)
+        record = get_object_or_404(
+            ProductionRecord,
+            Q(created_by=user) | Q(livestock__farmer__user=user),
+            pk=pk,
+        )
     else:
         record = get_object_or_404(ProductionRecord, pk=pk)
 
     if request.method == "DELETE":
-        if record.status != ProductionRecord.ProductionStatus.PENDING:
+        if record.status != ProductionRecord.StatusType.PENDING:
             return Response(
-                {
-                    "error": f"Cannot delete a production record with status '{record.status}'. "
-                    "Only PENDING records can be deleted."
-                },
+                {"error": "Only PENDING production records can be deleted."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         record.delete()
-        return Response(status=204)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method in ["PUT", "PATCH"]:
+        if record.status != ProductionRecord.StatusType.PENDING:
+            return Response(
+                {"error": "Only PENDING production records can be edited."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = ProductionRecordSerializer(
             record,
             data=request.data,
@@ -89,10 +114,13 @@ def production_record_detail(request, pk):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def review_production_record(request, pk):
     """
     POST /production/records/<pk>/review/
-    Official MAO verification action (APPROVE / REJECT)
+    Review and verify production records:
+    - SIBAT: Field verification (status = VERIFIED)
+    - MAO: Official municipal certification (status = APPROVED or REJECTED)
     """
     record = get_object_or_404(ProductionRecord, pk=pk)
     new_status = request.data.get("status")
@@ -100,9 +128,36 @@ def review_production_record(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (APPROVED or REJECTED)."},
+            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
             status=400,
         )
+
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+
+    if role_name == "FARMER":
+        return Response(
+            {"error": "Farmers are not authorized to review production records."},
+            status=403,
+        )
+
+    if role_name == "SIBAT":
+        if new_status == ProductionRecord.ProductionStatus.APPROVED:
+            return Response(
+                {"error": "SIBAT officers can only verify (VERIFIED). Final approval is reserved for MAO."},
+                status=403,
+            )
+        if new_status not in [ProductionRecord.ProductionStatus.VERIFIED, ProductionRecord.ProductionStatus.REJECTED]:
+            return Response(
+                {"error": "Invalid status for SIBAT. Valid choices are VERIFIED or REJECTED."},
+                status=400,
+            )
+    elif role_name == "MAO":
+        if new_status not in ProductionRecord.ProductionStatus.values:
+            return Response(
+                {"error": f"Invalid status '{new_status}'. Valid choices: {list(ProductionRecord.ProductionStatus.values)}"},
+                status=400,
+            )
 
     record.status = new_status
     record.reviewed_by = request.user
@@ -118,6 +173,7 @@ def review_production_record(request, pk):
 # Live Animal Sales Endpoints
 # ===========================================================================
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def live_animal_sales_list_create(request):
     """
     GET  /production/sales/ -> List live animal sales
@@ -136,7 +192,9 @@ def live_animal_sales_list_create(request):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        sales = LiveAnimalSale.objects.filter(created_by=user)
+        sales = LiveAnimalSale.objects.filter(
+            Q(created_by=user) | Q(livestock__farmer__user=user)
+        ).distinct()
     else:
         sales = LiveAnimalSale.objects.all()
 
@@ -152,6 +210,7 @@ def live_animal_sales_list_create(request):
 
 
 @api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
 def live_animal_sale_delete(request, pk):
     """
     DELETE /production/sales/<pk>/ -> Delete pending sale record
@@ -160,7 +219,11 @@ def live_animal_sale_delete(request, pk):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        sale = get_object_or_404(LiveAnimalSale, pk=pk, created_by=user)
+        sale = get_object_or_404(
+            LiveAnimalSale,
+            Q(created_by=user) | Q(livestock__farmer__user=user),
+            pk=pk,
+        )
     else:
         sale = get_object_or_404(LiveAnimalSale, pk=pk)
 
@@ -173,10 +236,47 @@ def live_animal_sale_delete(request, pk):
     return Response(status=204)
 
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def review_live_animal_sale(request, pk):
+    """
+    POST /production/sales/<pk>/review/
+    Official MAO / SIBAT verification action (VERIFIED / APPROVED / REJECTED)
+    """
+    sale = get_object_or_404(LiveAnimalSale, pk=pk)
+    new_status = request.data.get("status")
+    remarks = request.data.get("remarks", "")
+
+    if not new_status:
+        return Response(
+            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
+            status=400,
+        )
+
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+
+    if role_name == "FARMER":
+        return Response(
+            {"error": "Farmers are not authorized to review sales records."},
+            status=403,
+        )
+
+    sale.status = new_status
+    sale.reviewed_by = request.user
+    sale.review_remarks = remarks
+    sale.reviewed_at = timezone.now()
+    sale.save()
+
+    serializer = LiveAnimalSaleSerializer(sale)
+    return Response(serializer.data, status=200)
+
+
 # ===========================================================================
 # Weight & Growth Records Endpoints
 # ===========================================================================
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def weight_records_list_create(request):
     """
     GET  /production/weights/ -> List weight logs
@@ -195,7 +295,9 @@ def weight_records_list_create(request):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        records = WeightRecord.objects.filter(created_by=user)
+        records = WeightRecord.objects.filter(
+            Q(created_by=user) | Q(livestock__farmer__user=user)
+        ).distinct()
     else:
         records = WeightRecord.objects.all()
 
@@ -212,6 +314,7 @@ def weight_records_list_create(request):
 # Calving & Birth Registry Endpoints
 # ===========================================================================
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def calving_records_list_create(request):
     """
     GET  /production/calving/ -> List calving & birth records
@@ -230,7 +333,9 @@ def calving_records_list_create(request):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        records = CalvingRecord.objects.filter(created_by=user)
+        records = CalvingRecord.objects.filter(
+            Q(created_by=user) | Q(dam__farmer__user=user)
+        ).distinct()
     else:
         records = CalvingRecord.objects.all()
 
@@ -247,6 +352,7 @@ def calving_records_list_create(request):
 # Animal Disposition Intent Endpoints
 # ===========================================================================
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def animal_disposition_list_create(request):
     """
     GET  /production/dispositions/ -> List intent declarations
@@ -265,7 +371,9 @@ def animal_disposition_list_create(request):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        records = AnimalDisposition.objects.filter(created_by=user)
+        records = AnimalDisposition.objects.filter(
+            Q(created_by=user) | Q(livestock__farmer__user=user)
+        ).distinct()
     else:
         records = AnimalDisposition.objects.all()
 
@@ -276,4 +384,3 @@ def animal_disposition_list_create(request):
 
     serializer = AnimalDispositionSerializer(records, many=True)
     return Response(serializer.data, status=200)
-

@@ -252,7 +252,6 @@ export default function AdminDataValidationPage() {
       return matchSearch && matchStatus && matchBarangay;
     });
   }, [incidents, searchQuery, statusFilter, barangayFilter]);
-  console.log(filteredIncidents);
 
   // Current tab active item IDs for select-all
   const currentActiveRecordIds = useMemo(() => {
@@ -350,83 +349,96 @@ export default function AdminDataValidationPage() {
     remarks: string,
     itemIds: (string | number)[]
   ) => {
-    if (activeDomain === "census") {
-      setLocalCensusOverrides((prev) => {
-        const next = { ...prev };
-        itemIds.forEach((id) => {
-          next[id] = { status: action, remarks };
+    try {
+      if (activeDomain === "census") {
+        setLocalCensusOverrides((prev) => {
+          const next = { ...prev };
+          itemIds.forEach((id) => {
+            next[id] = { status: action, remarks };
+          });
+          return next;
         });
-        return next;
-      });
-      await Promise.allSettled(
-        itemIds.map((id) =>
-          api.post(`livestock/census/${id}/review/`, { status: action, remarks })
-        )
-      );
-      queryClient.invalidateQueries({ queryKey: ["admin-census-submissions"] });
-    } else if (activeDomain === "production") {
-      setLocalProductionOverrides((prev) => {
-        const next = { ...prev };
-        itemIds.forEach((id) => {
-          next[Number(id)] = { status: action, remarks };
+        await Promise.allSettled(
+          itemIds.map((id) =>
+            api.post(`livestock/census/${id}/review/`, { status: action, remarks })
+          )
+        );
+        queryClient.invalidateQueries({ queryKey: ["admin-census-submissions"] });
+        queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
+      } else if (activeDomain === "production") {
+        setLocalProductionOverrides((prev) => {
+          const next = { ...prev };
+          itemIds.forEach((id) => {
+            next[Number(id)] = { status: action, remarks };
+          });
+          return next;
         });
-        return next;
-      });
-      await Promise.allSettled(
-        itemIds.map((id) =>
-          api.post(`production/records/${id}/review/`, { status: action, remarks })
-        )
-      );
-      queryClient.invalidateQueries({ queryKey: ["admin-production-records"] });
-    } else if (activeDomain === "inventory") {
-      setLocalInventoryOverrides((prev) => {
-        const next = { ...prev };
-        itemIds.forEach((id) => {
-          next[Number(id)] = { status: action, remarks };
+        await Promise.allSettled(
+          itemIds.map((id) =>
+            api.post(`production/records/${id}/review/`, { status: action, remarks })
+          )
+        );
+        queryClient.invalidateQueries({ queryKey: ["admin-production-records"] });
+        queryClient.invalidateQueries({ queryKey: ["production-records"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
+      } else if (activeDomain === "inventory") {
+        setLocalInventoryOverrides((prev) => {
+          const next = { ...prev };
+          itemIds.forEach((id) => {
+            next[Number(id)] = { status: action, remarks };
+          });
+          return next;
         });
-        return next;
-      });
-      await Promise.allSettled(
-        itemIds.map((id) =>
-          api.post(`livestock/inventory/${id}/review/`, { status: action, remarks })
-        )
-      );
-      queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
-    } else {
-      setLocalIncidentOverrides((prev) => {
-        const next = { ...prev };
-        itemIds.forEach((id) => {
-          next[String(id)] = { status: action, remarks };
+        await Promise.allSettled(
+          itemIds.map((id) =>
+            api.post(`livestock/inventory/${id}/review/`, { status: action, remarks })
+          )
+        );
+        queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
+        queryClient.invalidateQueries({ queryKey: ["inventory"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
+      } else {
+        setLocalIncidentOverrides((prev) => {
+          const next = { ...prev };
+          itemIds.forEach((id) => {
+            next[String(id)] = { status: action, remarks };
+          });
+          return next;
         });
-        return next;
-      });
-      await Promise.allSettled(
-        itemIds.map((id) => {
-          const strId = String(id);
-          if (strId.startsWith("dis-")) {
-            const cleanId = strId.replace("dis-", "");
-            return api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks });
-          } else if (strId.startsWith("mor-")) {
-            const cleanId = strId.replace("mor-", "");
-            return api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
-          }
-          return Promise.resolve();
-        })
-      );
-      queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
-    }
+        await Promise.allSettled(
+          itemIds.map((id) => {
+            const strId = String(id);
+            if (strId.startsWith("dis-")) {
+              const cleanId = strId.replace("dis-", "");
+              return api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks });
+            } else if (strId.startsWith("mor-")) {
+              const cleanId = strId.replace("mor-", "");
+              return api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
+            } else if (strId.startsWith("sale-")) {
+              const cleanId = strId.replace("sale-", "");
+              return api.post(`production/sales/${cleanId}/review/`, { status: action, remarks });
+            }
+            return Promise.resolve();
+          })
+        );
+        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+      }
 
-    setSelectedIds([]);
+      setSelectedIds([]);
 
-    const actionVerb = action === "APPROVED" ? "approved & certified" : "flagged / rejected";
-    if (itemIds.length === 1) {
-      toast.success(`Record successfully ${actionVerb}.`, {
-        description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
-      });
-    } else {
-      toast.success(`${itemIds.length} records successfully ${actionVerb}.`, {
-        description: remarks ? `Remarks: "${remarks}"` : "Batch status updated across selected entries.",
-      });
+      const actionVerb = action === "APPROVED" ? "approved & certified" : "flagged / rejected";
+      if (itemIds.length === 1) {
+        toast.success(`Record successfully ${actionVerb}.`, {
+          description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
+        });
+      } else {
+        toast.success(`${itemIds.length} records successfully ${actionVerb}.`, {
+          description: remarks ? `Remarks: "${remarks}"` : "Batch status updated across selected entries.",
+        });
+      }
+    } catch (err) {
+      console.error("Failed to perform validation review action:", err);
+      toast.error("Failed to complete review action. Please check network or permissions.");
     }
   };
 
@@ -450,14 +462,14 @@ export default function AdminDataValidationPage() {
         await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
       }
       queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+      const actionVerb = action === "APPROVED" ? "certified & approved" : "flagged / rejected";
+      toast.success(`Health declaration ${recordId} ${actionVerb}.`, {
+        description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
+      });
     } catch (err) {
       console.error("Failed to review health incident:", err);
+      toast.error("Failed to update health review status.");
     }
-
-    const actionVerb = action === "APPROVED" ? "certified & approved" : "flagged / rejected";
-    toast.success(`Health declaration ${recordId} ${actionVerb}.`, {
-      description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
-    });
   };
 
   return (

@@ -175,6 +175,7 @@ export default function ProductionWizard({
   open,
   onClose,
   mode,
+  editingRecord,
 }: ProductionWizardProps) {
   const [step, setStep] = useState(0);
   const [selectOpen, setSelectOpen] = useState(false);
@@ -184,17 +185,17 @@ export default function ProductionWizard({
 
   if (resetSignal !== prevResetSignal) {
     setPrevResetSignal(resetSignal);
-    setStep(0);
+    setStep(mode === "edit" ? 2 : 0);
     setSelectOpen(false);
-    setIsCertified(false);
+    setIsCertified(mode === "edit");
   }
 
   if (open !== prevOpen) {
     setPrevOpen(open);
     if (open) {
-      setStep(0);
+      setStep(mode === "edit" ? 2 : 0);
       setSelectOpen(false);
-      setIsCertified(false);
+      setIsCertified(mode === "edit");
     }
   }
 
@@ -211,12 +212,22 @@ export default function ProductionWizard({
     }
   };
 
+  const getEnteredQty = () => {
+    if (productionType === "milk") return Number(formState.milkQty) || 0;
+    if (productionType === "meat") return Number(formState.meatQty) || 0;
+    if (productionType === "eggs") return Number(formState.eggQty) || 0;
+    if (productionType === "wool") return Number(formState.woolQty) || 0;
+    return 0;
+  };
+
   const canContinue =
     step === 0
       ? !!clickedInventory
       : step === 1
         ? !!productionType
-        : true;
+        : step === 2
+          ? getEnteredQty() > 0
+          : true;
 
   const buildPayload = (): ProductionPayload | null => {
     if (!clickedInventory) return null;
@@ -244,9 +255,8 @@ export default function ProductionWizard({
       quantity: 0,
       unit: unitMap[productionType],
       record_date:
-        formState.prodDate ??
-        new Date().toISOString().split("T")[0],
-      notes: formState.notes ?? "",
+        String(formState.prodDate ?? new Date().toISOString().split("T")[0]),
+      notes: String(formState.notes ?? "").trim(),
     };
 
     if (productionType === "milk") {
@@ -264,7 +274,7 @@ export default function ProductionWizard({
     } else if (productionType === "wool") {
       payload.quantity = Number(formState.woolQty) || 0;
     }
-    console.log("Payload:", payload);
+
     return payload;
   };
 
@@ -302,10 +312,12 @@ export default function ProductionWizard({
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl border-slate-200 shadow-2xl">
         <DialogHeader className="px-5 md:px-6 pt-5 md:pt-6 pb-3 border-b border-slate-100 text-left">
           <DialogTitle className="text-xl font-bold text-slate-900">
-            Log Production
+            {mode === "edit" ? "Edit Production Record" : "Log Production"}
           </DialogTitle>
           <DialogDescription className="text-sm text-slate-500 mt-1">
-            Record milk, eggs, and wool production
+            {mode === "edit"
+              ? "Update production yield details and notes"
+              : "Record milk, meat, eggs, and wool production"}
           </DialogDescription>
         </DialogHeader>
 
@@ -364,7 +376,7 @@ export default function ProductionWizard({
             <div>
               <h3 className="text-lg font-bold text-slate-900 leading-tight">
                 {step === 0
-                  ? "Select Livestock"
+                  ? "Select Approved Livestock"
                   : step === 1
                     ? "Select Production Type"
                     : typeTitle}
@@ -382,7 +394,7 @@ export default function ProductionWizard({
               ) : approvedInventories.length === 0 ? (
                 <div className="p-6 text-center rounded-xl border border-dashed border-slate-200">
                   <p className="text-sm text-slate-500">
-                    No approved livestock inventory found. Add livestock in the Livestock Inventory page first.
+                    No approved livestock found. Only livestock approved by SIBAT / MAO can be logged for production.
                   </p>
                 </div>
               ) : (
@@ -492,7 +504,7 @@ export default function ProductionWizard({
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                handleNext();
+                if (canContinue) handleNext();
               }}
             >
               <div className="space-y-2">
@@ -585,11 +597,15 @@ export default function ProductionWizard({
 
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || !isCertified} // only enable if certified 
+                disabled={isSubmitting || !isCertified}
                 className="w-full mt-4 bg-emerald-700 p-6 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                {isSubmitting ? "Submitting..." : "Submit Record"}
+                {isSubmitting
+                  ? "Saving..."
+                  : mode === "edit"
+                  ? "Update Record"
+                  : "Submit Record"}
               </Button>
               <p className="text-[11px] text-slate-400 text-center mt-2">
                 Submitted records go through LGU validation before approval.

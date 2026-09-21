@@ -12,7 +12,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/components/ui/utils";
-import type { LivestockInventoryItem } from "../livestock-inventory/page";
+import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import { cowHead } from "@lucide/lab";
 import { Icon } from 'lucide-react';
 
@@ -67,10 +67,10 @@ export default function SelectLivestockDialog({
             <div className="p-2.5 rounded-lg bg-[#2D5A27]/10 text-[#2D5A27]">
               <Icon iconNode={cowHead} className="size-5" />
             </div>
-            Select Livestock
+            Select Approved Livestock
           </DialogTitle>
           <DialogDescription className="text-base text-slate-500 mt-1.5">
-            Choose the batch or animal to link to this production record.
+            Choose an approved batch or animal to link to this production record.
           </DialogDescription>
         </DialogHeader>
 
@@ -97,7 +97,7 @@ export default function SelectLivestockDialog({
               )}
             </div>
             <p className="text-xs text-slate-400 mt-2">
-              Showing {filtered.length} of {items.length} approved inventory
+              Showing {filtered.length} of {items.length} approved livestock
               {filtered.length !== items.length ? ` matching "${query.trim()}"` : ""}
             </p>
           </div>
@@ -106,11 +106,11 @@ export default function SelectLivestockDialog({
         <div className="flex-1 justify-center p-4 min-h-0">
           {items.length === 0 ? (
             <p className="text-base text-slate-500 text-center py-12 px-6">
-              No approved livestock inventory found. Add livestock in the Livestock Inventory page first.
+              No approved livestock found. Livestock must be validated and approved by SIBAT / MAO before logging production.
             </p>
           ) : filtered.length === 0 ? (
             <p className="text-base text-slate-500 text-center py-12 px-6">
-              No inventory matches your search.
+              No livestock matches your search.
             </p>
           ) : (
             <ScrollArea className="h-full w-full ">
@@ -136,7 +136,7 @@ export default function SelectLivestockDialog({
                           <Icon iconNode={cowHead} className="size-6" />
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-base font-bold text-slate-900 truncate">
                               {item.entryType === "INDIVIDUAL"
                                 ? item.tagNumber || "Un-tagged"
@@ -149,6 +149,14 @@ export default function SelectLivestockDialog({
                                 : "bg-emerald-50 text-emerald-700 border-emerald-200",
                             )}>
                               {item.entryType === "BATCH" ? "Batch" : "Individual"}
+                            </span>
+                            <span className={cn(
+                              "shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                              item.status === "APPROVED"
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                : "bg-amber-100 text-amber-800 border-amber-300"
+                            )}>
+                              {item.status}
                             </span>
                           </div>
                           <p className="text-sm text-slate-500 mt-1 truncate">

@@ -86,11 +86,10 @@ const farmerLinks: SidebarLink[] = [
 ];
 
 const sibatLinks: SidebarLink[] = [
-  { path: '/sibat', label: 'Inspection Home', icon: LayoutDashboard },
-  { path: '/sibat-validation', label: 'Data Validation', icon: ShieldCheck },
-  { path: '/sibat-monitoring', label: 'Field Monitoring', icon: Activity },
-  { path: '/sibat-alerts', label: 'Alerts & Flags', icon: Bell },
-  { path: '/sibat-announcement', label: 'Announcements', icon: Megaphone },
+  { path: '/sibat', label: 'Field Inspection Center', icon: ClipboardCheck },
+  { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Activity },
+  { path: '/sibat-alerts', label: 'Outbreak Alerts & Flags', icon: Bell },
+  { path: '/sibat-announcement', label: 'Field Announcements', icon: Megaphone },
 ];
 
 const auctionLinks: SidebarLink[] = [

@@ -1,453 +1,346 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  Shield,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Send,
-  Layers,
-  ClipboardCheck,
-  Eye,
-  Search,
-  RotateCcw,
-  X,
-  SlidersHorizontal,
-  Plus,
   FileSpreadsheet,
-  Calendar,
-  Users,
+  Layers,
+  Milk,
+  Plus,
+  Shield,
+  Stethoscope,
+  Tag,
+  AlertTriangle,
+  ClipboardCheck,
+  Sparkles,
   MapPin,
-  ChevronRight,
-  TrendingUp,
+  CheckCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import SibatKpiSection from "./components/sibat-kpi-section";
+import SibatHealthQueue from "./components/sibat-health-queue";
+import SibatProductionQueue from "./components/sibat-production-queue";
+import SibatInventoryQueue from "./components/sibat-inventory-queue";
+import SibatReviewDialog from "./components/sibat-review-dialog";
+import {
+  SibatInspectionDialog,
+  type SibatValidationRecord,
+  type SibatInspectionData,
+} from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
 import CensusSubmissionDialog from "./census-submission-dialog";
 import CensusDetailsDialog from "./census-details-dialog";
 import CensusSubmissionsView from "./census-submissions-view";
-import { useQueryClient } from "@tanstack/react-query";
-import { useCensusSubmission, useProductionFromFarmers } from "./sibat-analytics";
-import { KpiCard } from "@/components/ui/kpi-card";
 
 import {
-  CensusSubmissionRecord,
-  FarmerActivityRecord,
-  FarmerActivityStatus,
-  SectionTab,
-  TabKey,
-  TAB_CHIPS,
-  getTypeBadgeStyle,
-  calculateTotalCensusHeads,
+  useSibatSubmissions,
+  useCensusSubmission,
+  useClinicalHealthRecords,
+  useReviewClinicalHealth,
+  type UnifiedSubmissionItem,
+  type CensusSubmissionRecord,
 } from "./sibat-analytics";
 
-const getTypeBadge = (type: string) => {
-  const style = getTypeBadgeStyle(type);
-  return (
-    <Badge className={`${style.bg} ${style.text} hover:${style.bg} border font-bold text-[10px] uppercase tracking-wider`}>
-      {type}
-    </Badge>
-  );
-};
+type SibatActiveTab = "health" | "production" | "inventory" | "census";
 
-export default function SibatPortal() {
+function SibatPortalContent() {
   const queryClient = useQueryClient();
-  const [sectionTab, setSectionTab] = useState<SectionTab>("records");
-  const [selectedRecords, setSelectedRecords] = useState<number[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  // Census dialog states
-  const [isCensusDialogOpen, setIsCensusDialogOpen] = useState(false);
-  const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
-  const [kpisize, setKpisize] = useState<"sm" | "default">("default");
+  // Active Tab: "health" | "production" | "inventory" | "census"
+  const tabParam = searchParams.get("tab") as SibatActiveTab | null;
+  const [activeTab, setActiveTab] = useState<SibatActiveTab>(
+    tabParam && ["health", "production", "inventory", "census"].includes(tabParam)
+      ? tabParam
+      : "health"
+  );
 
-  const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
-  const { data: productionRecords = [] } = useProductionFromFarmers();
+  useEffect(() => {
+    if (tabParam && ["health", "production", "inventory", "census"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
-  const handleCensusSubmissionSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
-    setSectionTab("census");
+  const handleTabChange = (newTab: SibatActiveTab) => {
+    setActiveTab(newTab);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", newTab);
+    window.history.replaceState({}, "", url.toString());
   };
 
-  const allRecords: FarmerActivityRecord[] = productionRecords.map((p) => ({
-    id: p.id,
-    farmer: p.farmerName || "Farmer",
-    type: "Production Update",
-    breed: p.livestockTypeName || "Livestock",
-    count: p.quantity,
-    date: p.recordDate,
-    status: (p.status === "APPROVED" ? "approved" : "pending") as FarmerActivityStatus,
-  }));
+  // ── 1. Clinical Health & Mortality State ──
+  const { records: healthRecords, isLoading: isLoadingHealth } = useClinicalHealthRecords();
+  const [selectedHealthRecord, setSelectedHealthRecord] = useState<SibatValidationRecord | null>(null);
+  const [isInspectionDialogOpen, setIsInspectionDialogOpen] = useState(false);
+  const [healthStatusFilter, setHealthStatusFilter] = useState("ALL");
+  const [healthTypeFilter, setHealthTypeFilter] = useState<"ALL" | "DISEASE" | "MORTALITY">("ALL");
+  const [healthBarangayFilter, setHealthBarangayFilter] = useState("ALL");
+  const [healthSearchQuery, setHealthSearchQuery] = useState("");
 
-  const pendingRecords = allRecords.filter((r) => r.status === "pending");
-  const approvedRecords = allRecords.filter((r) => r.status === "approved");
+  const reviewHealthMutation = useReviewClinicalHealth();
 
-  const toggleRecord = (id: number) => {
-    setSelectedRecords((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+  // ── 2. Production & Inventory State ──
+  const { submissions, isLoading: isLoadingSubmissions } = useSibatSubmissions();
+  const [selectedSubmissionForReview, setSelectedSubmissionForReview] = useState<UnifiedSubmissionItem | null>(null);
+
+  // Production Filters
+  const [prodStatusFilter, setProdStatusFilter] = useState<"all" | "pending" | "verified" | "decided">("all");
+  const [prodSearchQuery, setProdSearchQuery] = useState("");
+  const [prodTypeFilter, setProdTypeFilter] = useState("ALL");
+
+  // Inventory Filters
+  const [invStatusFilter, setInvStatusFilter] = useState<"all" | "pending" | "verified" | "decided">("all");
+  const [invSearchQuery, setInvSearchQuery] = useState("");
+  const [invEntryTypeFilter, setInvEntryTypeFilter] = useState<"ALL" | "INDIVIDUAL" | "BATCH">("ALL");
+
+  // ── 3. Census State ──
+  const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
+  const [isCensusDialogOpen, setIsCensusDialogOpen] = useState(false);
+  const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
+
+  // Health Inspection Dialog triggers
+  const handleOpenInspection = (record: SibatValidationRecord) => {
+    setSelectedHealthRecord(record);
+    setIsInspectionDialogOpen(true);
+  };
+
+  const handleConfirmInspection = (
+    recordId: string,
+    action: "VERIFIED" | "FLAGGED" | "FALSE_ALARM",
+    inspectionData: SibatInspectionData
+  ) => {
+    reviewHealthMutation.mutate(
+      {
+        recordId,
+        action,
+        inspectionData,
+      },
+      {
+        onSuccess: () => {
+          if (action === "VERIFIED") {
+            toast.success(`Record ${recordId} verified! ✨`, {
+              description: "Status updated to VERIFIED. Forwarded to MAO queue for municipal sign-off.",
+            });
+          } else if (action === "FLAGGED") {
+            toast.warning(`Record ${recordId} flagged for vet review.`, {
+              description: "Quarantine & diagnostic follow-up logged.",
+            });
+          } else {
+            toast.info(`Record ${recordId} marked as discrepancy / false alarm.`);
+          }
+          setIsInspectionDialogOpen(false);
+          setSelectedHealthRecord(null);
+        },
+        onError: (err: any) => {
+          toast.error("Failed to submit review", {
+            description: err?.response?.data?.error || err?.message || "Check network connection",
+          });
+        },
+      }
     );
   };
 
-  /* Filter pipeline for Farmer submissions */
-  const query = searchQuery.toLowerCase().trim();
-  const filteredRecords = allRecords.filter((record) => {
-    const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "pending" && record.status === "pending") ||
-      (activeTab === "approved" && record.status === "approved");
-    const matchesSearch =
-      !query ||
-      record.farmer.toLowerCase().includes(query) ||
-      record.type.toLowerCase().includes(query) ||
-      record.breed.toLowerCase().includes(query);
-    return matchesTab && matchesSearch;
-  });
-
-  const tabCounts: Record<string, number> = {
-    all: allRecords.length,
-    pending: pendingRecords.length,
-    approved: approvedRecords.length,
+  // Census dialog callbacks
+  const handleCensusSubmissionSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
+    handleTabChange("census");
   };
 
-  // Census totals
-  const totalCensusHeads = calculateTotalCensusHeads(censuses);
-  
+  const handleReviewSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
+    queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
+  };
+
+  // Counts for Badges
+  const pendingHealthCount = healthRecords.filter((r) => r.status === "PENDING").length;
+  const pendingProdCount = submissions.filter((s) => s.sourceType === "PRODUCTION" && s.status === "PENDING").length;
+  const pendingInvCount = submissions.filter((s) => s.sourceType === "INVENTORY" && s.status === "PENDING").length;
 
   return (
     <>
       <PageHeader
-        title="SIBAT Dashboard"
-        subtitle="Cooperative & Barangay Livestock Portal — Padre Garcia, Batangas"
+        title="Field Inspection Hub"
+        subtitle="Padre Garcia Municipal Field Sector — On-Farm Inspections, Yield Calibrations & Barangay Census"
         variant="sibat"
         maxWidthClass="w-full"
       />
 
-      {/* Barangay lockdown indicator */}
-      <div className="bg-amber-400/90 border-l-4 border-[#1A365D]">
-        <div className="w-full px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+      {/* ═══ Warm, Friendly Welcome Banner ═══ */}
+      <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 border-b border-amber-500/20 shadow-xs">
+        <div className="w-full px-4 md:px-8 py-3.5 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-[#1A365D]/10 shrink-0">
-              <Shield className="w-4 h-4 text-[#1A365D]" />
+            <div className="size-10 rounded-2xl bg-[#1A365D] text-amber-300 flex items-center justify-center font-black shrink-0 shadow-xs text-lg">
+              👋
             </div>
             <div>
-              <p className="text-xs font-extrabold text-[#1A365D]">
-                Barangay Sector Active — Assigned: Brgy. Lipay
-              </p>
-              <p className="text-[10px] font-semibold text-[#1A365D]/70">
-                Quarterly census surveys and field validations are filtered for your cooperative sector.
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-black text-[#1A365D]">
+                  Welcome back, SIBAT Field Officer!
+                </p>
+                <span className="bg-[#1A365D]/15 text-[#1A365D] font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+                  🌾 Padre Garcia Field Sector
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-[#1A365D]/80">
+                Tip: When you verify records on the farm, they are instantly sent to MAO for municipal sign-off.
               </p>
             </div>
           </div>
 
-          <Button
-            size="sm"
-            onClick={() => setIsCensusDialogOpen(true)}
-            className="bg-[#1A365D] hover:bg-[#152944] text-white text-xs font-black rounded-xl shadow-md gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5 text-amber-300" />
-            New Census Submission
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setIsCensusDialogOpen(true)}
+              className="bg-[#1A365D] hover:bg-[#132742] text-white text-xs font-bold rounded-2xl shadow-xs gap-1.5 h-9 px-4 cursor-pointer"
+            >
+              <Plus className="size-3.5 text-amber-300" />
+              New Census Survey
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        {/* ═══ Stat Cards ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard
-            size={kpisize}
-            title="Pending Validation"
-            value={pendingRecords.length}
-            variant="amber"
-            icon={<Clock className="w-4 h-4" />}
-            badge="Needs Action"
-            description="Awaiting SIBAT review"
-            onClick={() => {
-              setSectionTab("records");
-              setActiveTab("pending");
-            }}
-          />
-          <KpiCard
-            size={kpisize}
-            title="Validated Today"
-            value={approvedRecords.length}
-            variant="emerald"
-            icon={<CheckCircle2 className="w-4 h-4" />}
-            badge="Verified"
-            description="Forwarded to MAO queue"
-            onClick={() => {
-              setSectionTab("records");
-              setActiveTab("approved");
-            }}
-          />
-          <KpiCard
-            size={kpisize}
-            title="Quarterly Census Total"
-            value={`${totalCensusHeads} Heads`}
-            variant="sky"
-            icon={<FileSpreadsheet className="w-4 h-4" />}
-            badge="Head Count"
-            description="Total animals recorded"
-            isLoading={isLoadingCensus}
-            onClick={() => setSectionTab("census")}
-          />
-          <KpiCard
-            size={kpisize}
-            title="Sent to MAO"
-            value={censuses.length}
-            variant="orange"
-            icon={<Send className="w-4 h-4" />}
-            badge="Batches"
-            description="Official submissions"
-            isLoading={isLoadingCensus}
-            onClick={() => setSectionTab("census")}
-          />
-        </div>
+        {/* ═══ Live High-Level Telemetry ═══ */}
+        <SibatKpiSection
+          healthRecords={healthRecords}
+          submissions={submissions}
+          censuses={censuses}
+          isLoadingHealth={isLoadingHealth}
+          isLoadingSubmissions={isLoadingSubmissions}
+          isLoadingCensus={isLoadingCensus}
+          onSelectTab={handleTabChange}
+        />
 
-        {/* ═══ Main Section Switcher Tabs ═══ */}
-        <div className="flex items-center gap-2 p-1.5 bg-slate-200/70 rounded-2xl max-w-fit border border-slate-200">
+        {/* ═══ 4 Master Operational Tabs (Casual & Friendly) ═══ */}
+        <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 rounded-3xl max-w-full overflow-x-auto border border-slate-200">
+          {/* Tab 1: Clinical Health */}
           <button
             type="button"
-            onClick={() => setSectionTab("records")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${sectionTab === "records"
-              ? "bg-[#1A365D] text-white shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
-              }`}
+            onClick={() => handleTabChange("health")}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === "health"
+                ? "bg-[#1A365D] text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <Layers className="w-4 h-4" />
-            Farmer Activity Submissions ({allRecords.length})
+            <span className="text-sm">🩺</span>
+            <span>Health & Illness Visits</span>
+            {pendingHealthCount > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">
+                {pendingHealthCount}
+              </span>
+            )}
           </button>
+
+          {/* Tab 2: Production Logs */}
           <button
             type="button"
-            onClick={() => setSectionTab("census")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${sectionTab === "census"
-              ? "bg-[#1A365D] text-white shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
-              }`}
+            onClick={() => handleTabChange("production")}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === "production"
+                ? "bg-[#1A365D] text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <FileSpreadsheet className="w-4 h-4 text-amber-300" />
-            Quarterly Census Submissions ({censuses.length})
+            <span className="text-sm">🥛</span>
+            <span>Milk & Harvest Logs</span>
+            {pendingProdCount > 0 && (
+              <span className="bg-amber-400 text-slate-900 text-[10px] px-2 py-0.5 rounded-full font-black">
+                {pendingProdCount}
+              </span>
+            )}
+          </button>
+
+          {/* Tab 3: Livestock Inventory */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("inventory")}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === "inventory"
+                ? "bg-[#1A365D] text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span className="text-sm">🏷️</span>
+            <span>Animal Ear Tagging</span>
+            {pendingInvCount > 0 && (
+              <span className="bg-amber-400 text-slate-900 text-[10px] px-2 py-0.5 rounded-full font-black">
+                {pendingInvCount}
+              </span>
+            )}
+          </button>
+
+          {/* Tab 4: Quarterly Census */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("census")}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === "census"
+                ? "bg-[#1A365D] text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span className="text-sm">📋</span>
+            <span>Barangay Census Surveys ({censuses.length})</span>
           </button>
         </div>
 
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        {/* VIEW 1: FARMER ACTIVITY SUBMISSIONS */}
-        {/* FETCH ALL FARMER SUBMISSION FROM THE SPECIFIC BARANGAY THE SIBAT IS ASSIGNED TO. */}
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        {sectionTab === "records" && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-[#1A365D]" />
-                  Farmer Daily Reports & Activity
-                </h2>
-                <p className="text-xs text-slate-500 font-medium">
-                  Review mortality, production, and disease logs submitted by farmers.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={selectedRecords.length === 0}
-                  className="gap-1.5 border-slate-300 text-xs font-bold"
-                  onClick={() => setSelectedRecords(pendingRecords.map((r) => r.id))}
-                >
-                  <ClipboardCheck className="w-3.5 h-3.5" />
-                  Select All Pending
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={selectedRecords.length === 0}
-                  className="gap-1.5 bg-[#1A365D] hover:bg-[#152944] text-white text-xs font-bold"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  Push to MAO ({selectedRecords.length})
-                </Button>
-              </div>
-            </div>
-
-            {/* Filter Bar */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              {/* Row 1: Search */}
-              <div className="p-3 flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  <Input
-                    placeholder="Search farmer, type, breed…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 pr-9 bg-slate-50/60 border-slate-200 rounded-xl h-10 text-sm focus-visible:ring-blue-500/30"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                {(searchQuery || activeTab !== "all") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setSearchQuery(""); setActiveTab("all"); }}
-                    className="rounded-xl text-xs font-bold gap-1.5 h-10 shrink-0"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Clear
-                  </Button>
-                )}
-              </div>
-
-              <Separator className="opacity-60" />
-
-              {/* Row 2: Status chips */}
-              <div className="px-3 py-2.5 flex items-center gap-1.5 flex-wrap">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 mr-0.5 shrink-0 hidden sm:block" />
-                {TAB_CHIPS.map((chip) => {
-                  const isActive = activeTab === chip.value;
-                  const count = tabCounts[chip.value] ?? 0;
-                  return (
-                    <button
-                      key={chip.value}
-                      type="button"
-                      onClick={() => setActiveTab(chip.value)}
-                      className={`
-                        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
-                        border transition-all duration-200 active:scale-95 cursor-pointer
-                        ${isActive
-                          ? chip.activeClass
-                          : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                        }
-                      `}
-                    >
-                      {!isActive && <span className={`w-1.5 h-1.5 rounded-full ${chip.dotClass}`} />}
-                      {chip.label}
-                      <span className={`
-                        text-[10px] font-extrabold tabular-nums ml-0.5 px-1.5 py-0.5 rounded-full leading-none
-                        ${isActive ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"}
-                      `}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Results count */}
-            <div className="flex items-center justify-between px-1">
-              <p className="text-xs font-semibold text-slate-500">
-                Showing <span className="text-slate-900 font-extrabold tabular-nums">{filteredRecords.length}</span> of <span className="text-slate-900 font-extrabold tabular-nums">{allRecords.length}</span> record{allRecords.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-
-            {/* Record Cards */}
-            <div className="space-y-3">
-              {filteredRecords.length === 0 ? (
-                <Card className="py-12 border-dashed border-slate-200 rounded-2xl">
-                  <div className="flex flex-col items-center text-center space-y-3 px-6">
-                    <div className="p-3 rounded-2xl bg-slate-100">
-                      <Search className="w-6 h-6 text-slate-400" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-slate-700">No records found</p>
-                      <p className="text-xs text-slate-500 max-w-xs">
-                        {searchQuery
-                          ? `No results for "${searchQuery}".`
-                          : "Try adjusting your filters."}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              ) : (
-                filteredRecords.map((record) => {
-                  const isPending = record.status === "pending";
-                  return (
-                    <Card
-                      key={record.id}
-                      className={`relative overflow-hidden border-2 shadow-xs hover:shadow-sm rounded-2xl transition-all duration-200 ${isPending
-                        ? "border-amber-200/60 bg-amber-50/20 hover:bg-amber-50/40"
-                        : "border-emerald-200/60 bg-emerald-50/20 hover:bg-emerald-50/40"
-                        }`}
-                    >
-                      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                        {/* Checkbox */}
-                        {isPending && (
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-slate-300 cursor-pointer shrink-0 accent-[#1A365D]"
-                            checked={selectedRecords.includes(record.id)}
-                            onChange={() => toggleRecord(record.id)}
-                          />
-                        )}
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-base font-black text-slate-900 tracking-tight">
-                              {record.farmer}
-                            </h3>
-                            {getTypeBadge(record.type)}
-                            <Badge className={`font-bold text-[10px] uppercase tracking-wider ${isPending
-                              ? "bg-amber-100 text-amber-800 border-amber-200"
-                              : "bg-emerald-100 text-emerald-800 border-emerald-200"
-                              }`}>
-                              {isPending ? (
-                                <><Clock className="w-3 h-3 mr-1" />Pending</>
-                              ) : (
-                                <><CheckCircle2 className="w-3 h-3 mr-1" />Validated</>
-                              )}
-                            </Badge>
-                          </div>
-                          <p className="text-xs font-semibold text-slate-500">
-                            {record.breed} • {record.count} head{record.count !== 1 ? "s" : ""} • {record.date}
-                          </p>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="rounded-xl h-8 px-3 text-xs font-extrabold text-[#1A365D] hover:bg-blue-50"
-                          >
-                            <Eye className="w-3.5 h-3.5 mr-1.5" />
-                            Review
-                          </Button>
-                          {isPending && (
-                            <Button
-                              size="sm"
-                              className="rounded-xl h-8 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                              Validate
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          </div>
+        {/* ═══ TAB 1 VIEW: Clinical Health & Mortality ═══ */}
+        {activeTab === "health" && (
+          <SibatHealthQueue
+            records={healthRecords}
+            isLoading={isLoadingHealth}
+            onInspectRecord={handleOpenInspection}
+            statusFilter={healthStatusFilter}
+            onStatusFilterChange={setHealthStatusFilter}
+            typeFilter={healthTypeFilter}
+            onTypeFilterChange={setHealthTypeFilter}
+            barangayFilter={healthBarangayFilter}
+            onBarangayFilterChange={setHealthBarangayFilter}
+            searchQuery={healthSearchQuery}
+            onSearchChange={setHealthSearchQuery}
+          />
         )}
 
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        {/* VIEW 2: QUARTERLY CENSUS SUBMISSIONS */}
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        {sectionTab === "census" && (
+        {/* ═══ TAB 2 VIEW: Production Logs ═══ */}
+        {activeTab === "production" && (
+          <SibatProductionQueue
+            submissions={submissions}
+            isLoading={isLoadingSubmissions}
+            onReview={(item) => setSelectedSubmissionForReview(item)}
+            statusFilter={prodStatusFilter}
+            onStatusFilterChange={setProdStatusFilter}
+            searchQuery={prodSearchQuery}
+            onSearchChange={setProdSearchQuery}
+            prodTypeFilter={prodTypeFilter}
+            onProdTypeFilterChange={setProdTypeFilter}
+          />
+        )}
+
+        {/* ═══ TAB 3 VIEW: Livestock & Ear Tagging ═══ */}
+        {activeTab === "inventory" && (
+          <SibatInventoryQueue
+            submissions={submissions}
+            isLoading={isLoadingSubmissions}
+            onReview={(item) => setSelectedSubmissionForReview(item)}
+            statusFilter={invStatusFilter}
+            onStatusFilterChange={setInvStatusFilter}
+            searchQuery={invSearchQuery}
+            onSearchChange={setInvSearchQuery}
+            entryTypeFilter={invEntryTypeFilter}
+            onEntryTypeFilterChange={setInvEntryTypeFilter}
+          />
+        )}
+
+        {/* ═══ TAB 4 VIEW: Quarterly Census Surveys ═══ */}
+        {activeTab === "census" && (
           <CensusSubmissionsView
             censusSubmissions={censuses}
             onOpenSubmitDialog={() => setIsCensusDialogOpen(true)}
@@ -456,7 +349,25 @@ export default function SibatPortal() {
         )}
       </div>
 
-      {/* ═══ Modal Dialogs ═══ */}
+      {/* ═══ Clinical Health Physical Inspection Modal ═══ */}
+      <SibatInspectionDialog
+        record={selectedHealthRecord}
+        open={isInspectionDialogOpen}
+        onOpenChange={setIsInspectionDialogOpen}
+        onConfirmInspection={handleConfirmInspection}
+      />
+
+      {/* ═══ Production & Inventory Review Dialog ═══ */}
+      <SibatReviewDialog
+        submission={selectedSubmissionForReview}
+        open={selectedSubmissionForReview !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedSubmissionForReview(null);
+        }}
+        onReviewSuccess={handleReviewSuccess}
+      />
+
+      {/* ═══ Census Survey & Details Dialogs ═══ */}
       <CensusSubmissionDialog
         open={isCensusDialogOpen}
         onOpenChange={setIsCensusDialogOpen}
@@ -465,11 +376,19 @@ export default function SibatPortal() {
 
       <CensusDetailsDialog
         submission={selectedCensusForDetail}
-        open={!!selectedCensusForDetail}
+        open={selectedCensusForDetail !== null}
         onOpenChange={(open) => {
           if (!open) setSelectedCensusForDetail(null);
         }}
       />
     </>
+  );
+}
+
+export default function SibatPortal() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Field Inspection Center...</div>}>
+      <SibatPortalContent />
+    </Suspense>
   );
 }

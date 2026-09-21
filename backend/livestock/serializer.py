@@ -45,8 +45,10 @@ class LivestockInventorySerializer(serializers.Serializer):
     weight = serializers.DecimalField(
         max_digits=6, decimal_places=2, required=False, allow_null=True
     )
-    last_vaccination_date = serializers.DateField(required=False, allow_null=True)
     status = serializers.CharField(max_length=25, read_only=True)
+    review_remarks = serializers.CharField(read_only=True, allow_null=True)
+    reviewed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    reviewed_by_name = serializers.SerializerMethodField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 
     def get_farmer_name(self, obj):
@@ -56,6 +58,15 @@ class LivestockInventorySerializer(serializers.Serializer):
             return full_name if full_name else user.username
         except Exception:
             return "Unknown Farmer"
+
+    def get_reviewed_by_name(self, obj):
+        try:
+            if obj.reviewed_by:
+                full_name = obj.reviewed_by.get_full_name().strip()
+                return full_name if full_name else obj.reviewed_by.username
+        except Exception:
+            pass
+        return None
 
     def create(self, validated_data):
         user = self.context["request"].user

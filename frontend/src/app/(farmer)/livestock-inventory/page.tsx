@@ -98,6 +98,7 @@ export default function LivestockInventoryPage() {
 
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading } = useUserInventory();
+  console.log(inventories);
 
   // Form State matching Django LivestockInventory
   const initialFormData = {
@@ -942,7 +943,7 @@ export default function LivestockInventoryPage() {
                     <Layers className="size-4.5" />
                   </div>
                   <div className="text-left min-w-0">
-                    <p className="text-xs font-black tracking-tight leading-tight">Species Breakdown</p>
+                    <p className="text-sm font-black tracking-tight leading-tight">Species Breakdown</p>
                     <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-emerald-700/80 truncate">
                       Herd Categories & Distribution
                     </p>
@@ -963,7 +964,7 @@ export default function LivestockInventoryPage() {
                     <Tag className="size-4.5" />
                   </div>
                   <div className="text-left min-w-0">
-                    <p className="text-xs font-black tracking-tight leading-tight">Complete Herd Registry</p>
+                    <p className="text-sm font-black tracking-tight leading-tight">Complete Herd Registry</p>
                     <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-teal-700/80 truncate">
                       Ear Tags, Biometrics & Actions
                     </p>
@@ -984,7 +985,7 @@ export default function LivestockInventoryPage() {
                     <ShieldCheck className="size-4.5" />
                   </div>
                   <div className="text-left min-w-0">
-                    <p className="text-xs font-black tracking-tight leading-tight">Health & Immunization</p>
+                    <p className="text-sm font-black tracking-tight leading-tight">Health & Immunization</p>
                     <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-emerald-700/80 truncate">
                       Surveillance & Biosecurity
                     </p>

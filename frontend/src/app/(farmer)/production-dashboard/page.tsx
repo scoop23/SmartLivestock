@@ -24,6 +24,7 @@ export default function ProductionDashboardPage() {
     queryKey: ["production_records"],
     queryFn: fetchProductionRecords,
   });
+  console.log(productionRecords)
 
   const approvedInventories = useMemo(
     () => inventories.filter((item) => item.status === "APPROVED"),
