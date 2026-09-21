@@ -16,9 +16,11 @@ export interface InventoryCardConfig {
 export default function InventoryStats({
   inventories,
   isLoading = false,
+  layout = "horizontal",
 }: {
   inventories: LivestockInventoryItem[];
   isLoading?: boolean;
+  layout?: "vertical" | "horizontal";
 }) {
   const hasRecords = inventories.length > 0;
   const totalHeads = inventories.reduce((acc, curr) => acc + curr.quantity, 0);
@@ -81,16 +83,16 @@ export default function InventoryStats({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <KpiCard key={i} title="" value="" isLoading />
+          <KpiCard key={i} title="" value="" isLoading layout={layout} />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
       {allCards.map((card) => (
         <KpiCard
           key={card.label}
@@ -100,6 +102,7 @@ export default function InventoryStats({
           badge={card.sub}
           badgeClassName={card.subClass}
           variant={card.variant}
+          layout={layout}
         />
       ))}
     </div>
