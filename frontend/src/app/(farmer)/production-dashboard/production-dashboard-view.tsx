@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -148,15 +148,41 @@ export default function ProductionDashboardView({
 
   const terms = getBirthingTerminology(selectedSpecies);
 
-  const quickLogLabel = useMemo(() => {
-    if (!selectedSpecies || selectedSpecies === "ALL") return "Log Daily Yield";
-    const s = selectedSpecies.toLowerCase();
-    if (s.includes("goat")) return "Log Goat Milk Yield";
-    if (s.includes("sheep")) return "Log Wool Shearing";
-    if (s.includes("poultry")) return "Log Egg Collection";
-    if (s.includes("swine")) return "Log Meat & Carcass";
-    return "Log Daily Milk Yield";
+  // Sync initial productionType default when selectedSpecies changes
+  useEffect(() => {
+    if (selectedSpecies && selectedSpecies !== "ALL") {
+      const s = selectedSpecies.toLowerCase();
+      if (s.includes("swine") || s.includes("pig")) setProductionType("meat");
+      else if (s.includes("poultry") || s.includes("chicken")) setProductionType("eggs");
+      else if (s.includes("sheep")) setProductionType("wool");
+      else setProductionType("milk");
+    }
   }, [selectedSpecies]);
+
+  // Dynamically adapt button label when user changes between Milk, Meat, Eggs, Wool
+  const quickLogLabel = useMemo(() => {
+    const s = (selectedSpecies || "").toLowerCase();
+    switch (productionType) {
+      case "meat":
+        if (s.includes("swine") || s.includes("pig")) return "Log Pork & Carcass";
+        if (s.includes("cattle")) return "Log Beef & Carcass";
+        if (s.includes("carabao")) return "Log Carabeef & Carcass";
+        if (s.includes("goat")) return "Log Chevon & Meat";
+        if (s.includes("sheep")) return "Log Mutton & Meat";
+        if (s.includes("poultry") || s.includes("chicken")) return "Log Poultry Meat";
+        return "Log Meat & Carcass";
+      case "eggs":
+        return "Log Egg Collection";
+      case "wool":
+        return "Log Wool Shearing";
+      case "milk":
+      default:
+        if (s.includes("goat")) return "Log Goat Milk Yield";
+        if (s.includes("carabao")) return "Log Carabao Milk Yield";
+        if (s.includes("cattle")) return "Log Cow Milk Yield";
+        return "Log Daily Milk Yield";
+    }
+  }, [productionType, selectedSpecies]);
 
   const handleFieldChange = (field: string, val: string | number) => {
     setFormState((prev) => ({ ...prev, [field]: val }));
@@ -169,15 +195,7 @@ export default function ProductionDashboardView({
   const handleOpenNewWizard = () => {
     setEditingRecord(null);
     setClickedInventory(null);
-    let initialType: ProductionType = "milk";
-    if (selectedSpecies) {
-      const s = selectedSpecies.toLowerCase();
-      if (s.includes("poultry")) initialType = "eggs";
-      else if (s.includes("sheep")) initialType = "wool";
-      else if (s.includes("swine")) initialType = "meat";
-      else initialType = "milk";
-    }
-    setProductionType(initialType);
+    // Keep currently active productionType selected by user!
     setFormState({
       prodDate: new Date().toISOString().split("T")[0],
       milkTime: "Morning",
@@ -384,18 +402,6 @@ export default function ProductionDashboardView({
         filteredInventories={filteredInventories}
         filteredProductionRecords={filteredProductionRecords}
         calvingRecords={calvingRecords}
-        onOpenWizard={handleOpenNewWizard}
-        onOpenBirthing={() => setActiveMainTab("calving")}
-        quickLogLabel={quickLogLabel}
-      />
-
-      {/* Dynamic Species Telemetry KPI Cards */}
-      <SpeciesKpiCards
-        species={selectedSpecies}
-        inventories={filteredInventories}
-        productionRecords={filteredProductionRecords}
-        calvingRecords={calvingRecords}
-        weightRecords={weightRecords}
       />
 
       {/* Main Unified Navigation Tabs */}
@@ -490,24 +496,45 @@ export default function ProductionDashboardView({
 
       {/* Tab 1: Daily Yield Logs */}
       {activeMainTab === "production" && (
-        <>
+        <div className="space-y-6">
+          {/* Dynamic Species Telemetry KPI Cards (4 Cards) */}
+          <SpeciesKpiCards
+            species={selectedSpecies}
+            inventories={filteredInventories}
+            productionRecords={filteredProductionRecords}
+            calvingRecords={calvingRecords}
+            weightRecords={weightRecords}
+          />
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
             <ProductionTypeSelector
               types={analytics.available_types}
               selected={productionType}
               onSelect={handleTypeSelect}
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={isRefetching}
-              className="gap-2 rounded-xl text-xs font-semibold text-slate-600 border-slate-200 self-end sm:self-auto"
-            >
-              <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin" : ""}`} />
-              Refresh Feed
-            </Button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                disabled={isRefetching}
+                className="gap-2 rounded-xl text-xs font-semibold text-slate-600 border-slate-200 cursor-pointer"
+              >
+                <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin" : ""}`} />
+                Refresh Feed
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleOpenNewWizard}
+                className="gap-1.5 rounded-xl text-xs font-black bg-[#2D5A27] hover:bg-[#23471f] text-white shadow-xs cursor-pointer h-9 px-3.5"
+              >
+                <Plus className="size-4" />
+                <span>{quickLogLabel}</span>
+              </Button>
+            </div>
           </div>
 
           {isRecordsLoading ? (
@@ -553,7 +580,7 @@ export default function ProductionDashboardView({
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Tab 2: Birthing & Offspring Registry */}

@@ -6,16 +6,7 @@ import { PageHeader } from "@/app/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 import { toast } from "sonner";
@@ -35,62 +26,44 @@ import {
   ShieldCheck,
   Calendar,
   RotateCcw,
+  ChevronRight,
+  Filter,
+  RefreshCw,
 } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
 
 import api from "@/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-
-export type ReportType = "DISEASE" | "MORTALITY";
-export type BackendStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
-
-export interface FarmerReport {
-  id: string;
-  reportType: ReportType;
-  inventoryId: string;
-  cattleTag: string;
-  cattleBreed: string;
-  cattleType: string;
-  name: string; // Disease / Symptom or Cause
-  affectedCount: number;
-  recordDate: string;
-  status: BackendStatus;
-  symptoms: string[];
-  description: string;
-  photoName?: string;
-  createdAt: string;
-}
-
-// Simple, clear English symptoms
-const EASY_SIGNS = [
-  { id: "not_eating", label: "Not Eating / Off-Feed", sub: "Refusing food or water" },
-  { id: "fever", label: "High Fever / Hot Ears", sub: "Body feels unusually hot" },
-  { id: "limping", label: "Limping / Weak Legs", sub: "Difficulty walking or standing" },
-  { id: "salivating", label: "Excessive Drooling", sub: "Saliva dripping from mouth" },
-  { id: "coughing", label: "Coughing / Runny Nose", sub: "Nasal discharge or wheezing" },
-  { id: "bloating", label: "Bloated Belly", sub: "Swollen stomach or gas" },
-  { id: "wounds", label: "Skin Sores / Blisters", sub: "Lesions on mouth, feet, or skin" },
-  { id: "weak", label: "Lethargic / Weak", sub: "Lying down, isolating from herd" },
-];
-
-const EASY_MORTALITY_CAUSES = [
-  "Sudden Death / Severe Bloat",
-  "Severe Respiratory / Lung Infection",
-  "Calving / Birthing Complications",
-  "Physical Injury / Accident",
-  "Old Age / Natural Causes",
-  "Unknown (Needs Vet Inspection)",
-];
+import {
+  FarmerReport,
+  ReportType,
+  BackendStatus,
+} from "./report-observation-types";
+import ReportIllnessDialog from "./components/report-illness-dialog";
+import ReportDetailDialog from "./components/report-detail-dialog";
 
 export default function ReportObservationPage() {
   const queryClient = useQueryClient();
 
-  // ── Fetch Cattle Inventory from Backend API ──
-  const { data: inventories = [], isLoading: isLoadingInventory } = useUserInventory();
+  // ── Dialog States ──
+  const [isReportIllnessOpen, setIsReportIllnessOpen] = useState<boolean>(false);
+  const [reportIllnessDefaultType, setReportIllnessDefaultType] = useState<ReportType>("DISEASE");
+  const [selectedReport, setSelectedReport] = useState<FarmerReport | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
+
+  const handleOpenReportIllness = (type: ReportType = "DISEASE") => {
+    setReportIllnessDefaultType(type);
+    setIsReportIllnessOpen(true);
+  };
 
   // ── Live Queries for Farmer's Previous Reports ──
-  const { data: diseaseCases = [] } = useQuery({
+  const {
+    data: diseaseCases = [],
+    isLoading: isLoadingDiseases,
+    refetch: refetchDiseases,
+    isFetching: isFetchingDiseases,
+  } = useQuery({
     queryKey: ["farmer-disease-cases"],
     queryFn: async () => {
       const res = await api.get("diseases/cases/");
@@ -98,13 +71,26 @@ export default function ReportObservationPage() {
     },
   });
 
-  const { data: mortalityRecords = [] } = useQuery({
+  const {
+    data: mortalityRecords = [],
+    isLoading: isLoadingMortality,
+    refetch: refetchMortality,
+    isFetching: isFetchingMortality,
+  } = useQuery({
     queryKey: ["farmer-mortality-records"],
     queryFn: async () => {
       const res = await api.get("diseases/mortality/");
       return Array.isArray(res.data) ? res.data : [];
     },
   });
+
+  const isRefreshing = isFetchingDiseases || isFetchingMortality;
+
+  const handleRefresh = () => {
+    refetchDiseases();
+    refetchMortality();
+    toast.success("Health surveillance records updated.");
+  };
 
   // ── Consolidated Reports from Database ──
   const reports: FarmerReport[] = useMemo(() => {
@@ -125,6 +111,11 @@ export default function ReportObservationPage() {
         symptoms: [dc.name],
         description: dc.name,
         createdAt: dc.created_at || new Date().toISOString(),
+        reviewedBy: dc.reviewed_by,
+        reviewedByName: dc.reviewed_by_name,
+        reviewedAt: dc.reviewed_at,
+        reviewRemarks: dc.review_remarks,
+        rawItem: dc,
       });
     });
 
@@ -143,120 +134,20 @@ export default function ReportObservationPage() {
         symptoms: [m.cause],
         description: m.cause,
         createdAt: m.created_at || new Date().toISOString(),
+        reviewedBy: m.reviewed_by,
+        reviewedByName: m.reviewed_by_name,
+        reviewedAt: m.reviewed_at,
+        reviewRemarks: m.review_remarks,
+        rawItem: m,
       });
     });
 
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [diseaseCases, mortalityRecords]);
 
-  // ── Form State ──
-  const [reportType, setReportType] = useState<ReportType>("DISEASE");
-  const [selectedInventoryId, setSelectedInventoryId] = useState<string>("");
-  const [conditionName, setConditionName] = useState<string>("");
-  const [affectedCount, setAffectedCount] = useState<number>(1);
-  const [recordDate, setRecordDate] = useState<string>(
-    () => new Date().toISOString().split("T")[0]
-  );
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
-  const [description, setDescription] = useState<string>("");
-  const [photoName, setPhotoName] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
   // ── Filter State ──
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("ALL");
-
-  // Selected Cattle Object
-  const selectedCattle = useMemo(() => {
-    return inventories.find((inv) => String(inv.id) === String(selectedInventoryId));
-  }, [inventories, selectedInventoryId]);
-
-  const maxAvailableCount = selectedCattle?.quantity || 1;
-
-  const handleCattleSelect = (id: string) => {
-    setSelectedInventoryId(id);
-    setAffectedCount(1);
-  };
-
-  const toggleSymptom = (label: string) => {
-    setSelectedSymptoms((prev) =>
-      prev.includes(label)
-        ? prev.filter((s) => s !== label)
-        : [...prev, label]
-    );
-  };
-
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPhotoName(file.name);
-      toast.success(`Photo "${file.name}" attached successfully`);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedInventoryId) {
-      toast.error("Please select an animal from your inventory first.");
-      return;
-    }
-
-    const mainName =
-      conditionName.trim() ||
-      (selectedSymptoms.length > 0
-        ? selectedSymptoms.join(", ")
-        : reportType === "DISEASE"
-          ? "General Health Concern"
-          : "Unspecified Cause");
-
-    setIsSubmitting(true);
-
-    try {
-      if (reportType === "DISEASE") {
-        await api.post("diseases/cases/", {
-          livestock: Number(selectedInventoryId),
-          name: mainName,
-          affected_count: affectedCount,
-          record_date: recordDate,
-        });
-        queryClient.invalidateQueries({ queryKey: ["farmer-disease-cases"] });
-        queryClient.invalidateQueries({ queryKey: ["sibat-disease-cases"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
-        toast.success("Disease report submitted! SIBAT field officers & MAO have been notified.");
-      } else {
-        await api.post("diseases/mortality/", {
-          livestock: Number(selectedInventoryId),
-          cause: mainName,
-          death_count: affectedCount,
-          record_date: recordDate,
-        });
-        queryClient.invalidateQueries({ queryKey: ["farmer-mortality-records"] });
-        queryClient.invalidateQueries({ queryKey: ["sibat-mortality-records"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
-        toast.success("Mortality record logged! SIBAT & MAO will review this incident.");
-      }
-
-      // Reset form
-      setSelectedInventoryId("");
-      setConditionName("");
-      setAffectedCount(1);
-      setDescription("");
-      setSelectedSymptoms([]);
-      setPhotoName("");
-    } catch (err: any) {
-      console.error("Failed to submit observation report:", err);
-      const errorMsg =
-        err?.response?.data?.error ||
-        err?.response?.data?.affected_count?.[0] ||
-        err?.response?.data?.death_count?.[0] ||
-        err?.response?.data?.detail ||
-        "Failed to submit report. Please check required fields.";
-      toast.error(errorMsg);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // Filtered reports
   const filteredReports = useMemo(() => {
@@ -265,12 +156,19 @@ export default function ReportObservationPage() {
         rep.cattleTag.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rep.cattleBreed.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rep.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rep.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rep.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesType =
-        filterType === "ALL" || rep.reportType === filterType;
+      if (!matchesSearch) return false;
 
-      return matchesSearch && matchesType;
+      if (filterType === "ALL") return true;
+      if (filterType === "DISEASE") return rep.reportType === "DISEASE";
+      if (filterType === "MORTALITY") return rep.reportType === "MORTALITY";
+      if (filterType === "PENDING") return rep.status === "PENDING";
+      if (filterType === "REVISION") return rep.status === "SUBJECT_TO_REVISION";
+      if (filterType === "APPROVED") return rep.status === "APPROVED" || rep.status === "VERIFIED";
+
+      return true;
     });
   }, [reports, searchQuery, filterType]);
 
@@ -278,7 +176,9 @@ export default function ReportObservationPage() {
   const totalDiseaseCases = reports.filter((r) => r.reportType === "DISEASE").length;
   const totalMortality = reports.filter((r) => r.reportType === "MORTALITY").length;
   const pendingVerification = reports.filter((r) => r.status === "PENDING").length;
-  const approvedCases = reports.filter((r) => r.status === "APPROVED" || r.status === "VERIFIED").length;
+  const approvedCases = reports.filter(
+    (r) => r.status === "APPROVED" || r.status === "VERIFIED"
+  ).length;
 
   const kpis: {
     label: string;
@@ -287,43 +187,72 @@ export default function ReportObservationPage() {
     icon: React.ReactNode;
     variant: KpiVariant;
   }[] = [
-      {
-        label: "Sick Animals Reported",
-        value: totalDiseaseCases,
-        sub: "Active health cases",
-        icon: <Stethoscope className="size-4.5" />,
-        variant: "amber",
-      },
-      {
-        label: "Deceased Animals",
-        value: totalMortality,
-        sub: "Mortality records",
-        icon: <Skull className="size-4.5" />,
-        variant: "rose",
-      },
-      {
-        label: "Waiting for Inspector",
-        value: pendingVerification,
-        sub: "Pending SIBAT check",
-        icon: <Clock className="size-4.5" />,
-        variant: "sky",
-      },
-      {
-        label: "Verified & Approved",
-        value: approvedCases,
-        sub: "Confirmed by MAO",
-        icon: <ShieldCheck className="size-4.5" />,
-        variant: "emerald",
-      },
-    ];
+    {
+      label: "Sick Animals Reported",
+      value: totalDiseaseCases,
+      sub: "Active health incidents",
+      icon: <Stethoscope className="size-4.5" />,
+      variant: "amber",
+    },
+    {
+      label: "Deceased Animals",
+      value: totalMortality,
+      sub: "Mortality records",
+      icon: <Skull className="size-4.5" />,
+      variant: "rose",
+    },
+    {
+      label: "Waiting for SIBAT",
+      value: pendingVerification,
+      sub: "Pending field inspection",
+      icon: <Clock className="size-4.5" />,
+      variant: "sky",
+    },
+    {
+      label: "Verified & Approved",
+      value: approvedCases,
+      sub: "Certified by MAO Vet",
+      icon: <ShieldCheck className="size-4.5" />,
+      variant: "emerald",
+    },
+  ];
 
   return (
     <>
       <PageHeader
-        title="Report Sick or Dead Animal"
-        subtitle="Quickly notify SIBAT inspectors and MAO municipal vets about sick or deceased livestock"
+        title="Livestock Health & Mortality Surveillance"
+        subtitle="Padre Garcia Municipal Agriculture Office • Rapid Disease Reporting & SIBAT Inspection System"
         variant="farmer"
         maxWidthClass="w-full"
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefresh}
+              className="rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+              title="Refresh Surveillance Feed"
+            >
+              <RefreshCw className={`size-4.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
+
+            <Button
+              onClick={() => handleOpenReportIllness("MORTALITY")}
+              className="rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 border border-white/20 cursor-pointer hidden sm:flex"
+            >
+              <Skull className="size-4 text-rose-300" />
+              <span>Report Mortality</span>
+            </Button>
+
+            <Button
+              onClick={() => handleOpenReportIllness("DISEASE")}
+              className="rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 text-xs font-black h-9 px-4 gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Stethoscope className="size-4 text-emerald-800" />
+              <span>Report Sickness</span>
+            </Button>
+          </div>
+        }
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
@@ -341,506 +270,180 @@ export default function ReportObservationPage() {
           ))}
         </div>
 
-        {/* ── MAIN 2-COLUMN LAYOUT: FORM (LEFT) + EASY HISTORY (RIGHT) ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* ════ LEFT: SIMPLE STEP-BY-STEP REPORT FORM ════ */}
-          <div className="lg:col-span-6 space-y-6">
-            <Card className="border-2 border-emerald-900/10 shadow-sm rounded-3xl overflow-hidden bg-white">
-              {/* Form Top Title */}
-              <div
-                className={`p-5 sm:p-6 text-white transition-all duration-300 ${reportType === "DISEASE"
-                    ? "bg-[#2D5A27]"
-                    : "bg-rose-800"
-                  }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-white/10 rounded-2xl border border-white/20">
-                    {reportType === "DISEASE" ? (
-                      <Stethoscope className="size-6 text-emerald-200" />
-                    ) : (
-                      <Skull className="size-6 text-rose-200" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black text-white">
-                      {reportType === "DISEASE"
-                        ? "Report Sick or Injured Animal"
-                        : "Report Deceased Animal"}
-                    </h2>
-                    <p className="text-xs text-white/80 font-medium">
-                      Report for municipal veterinary assistance
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <CardContent className="p-5 sm:p-6 space-y-6">
-                {/* ══ STEP 1: SELECT SICK OR DECEASED ══ */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                    <span className="flex items-center justify-center size-5 rounded-full bg-emerald-700 text-white text-[11px]">
-                      1
-                    </span>
-                    <span>What happened to the animal?</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReportType("DISEASE");
-                        setConditionName("");
-                      }}
-                      className={`p-4 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between ${reportType === "DISEASE"
-                          ? "border-emerald-700 bg-emerald-50/70 shadow-xs"
-                          : "border-slate-200 bg-white hover:border-slate-300 text-slate-600"
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <Stethoscope
-                          className={`size-6 ${reportType === "DISEASE" ? "text-emerald-700" : "text-slate-400"
-                            }`}
-                        />
-                        {reportType === "DISEASE" && (
-                          <span className="text-[10px] font-black px-2 py-0.5 bg-emerald-700 text-white rounded-full">
-                            Selected
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-900">Sick / Injured Animal</p>
-                        <p className="text-[11px] text-slate-500 font-medium">Disease or symptoms</p>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReportType("MORTALITY");
-                        setConditionName("");
-                      }}
-                      className={`p-4 rounded-2xl text-left border-2 transition-all cursor-pointer flex flex-col justify-between ${reportType === "MORTALITY"
-                          ? "border-rose-700 bg-rose-50/70 shadow-xs"
-                          : "border-slate-200 bg-white hover:border-slate-300 text-slate-600"
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <Skull
-                          className={`size-6 ${reportType === "MORTALITY" ? "text-rose-700" : "text-slate-400"
-                            }`}
-                        />
-                        {reportType === "MORTALITY" && (
-                          <span className="text-[10px] font-black px-2 py-0.5 bg-rose-700 text-white rounded-full">
-                            Selected
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-900">Deceased Animal</p>
-                        <p className="text-[11px] text-slate-500 font-medium">Animal passed away</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* ══ STEP 2: SELECT ANIMAL / BATCH (POWERED BY API) ══ */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                        <span className="flex items-center justify-center size-5 rounded-full bg-emerald-700 text-white text-[11px]">
-                          2
-                        </span>
-                        <span>Which animal or batch?</span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 font-bold">
-                        {inventories.length} in your inventory
-                      </span>
-                    </div>
-
-                    {isLoadingInventory ? (
-                      <div className="flex items-center gap-2 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-500">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600 shrink-0" />
-                        <span>Loading your livestock list...</span>
-                      </div>
-                    ) : inventories.length === 0 ? (
-                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-2">
-                        <p className="font-semibold">No animals found in your inventory.</p>
-                        <Link
-                          href="/livestock-inventory"
-                          className="inline-flex items-center gap-1 text-emerald-700 font-bold hover:underline"
-                        >
-                          <Plus className="size-3.5" /> Add livestock first
-                        </Link>
-                      </div>
-                    ) : (
-                      <Select
-                        value={selectedInventoryId}
-                        onValueChange={handleCattleSelect}
-                      >
-                        <SelectTrigger
-                          id="cattle-select"
-                          className="w-full py-6 rounded-2xl border-slate-200 bg-slate-50 hover:bg-white text-sm font-bold text-slate-900 focus:ring-2 focus:ring-emerald-600"
-                        >
-                          <SelectValue placeholder="Click to select Tag # or animal..." />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-64 rounded-2xl">
-                          {inventories.map((inv) => (
-                            <SelectItem
-                              key={String(inv.id)}
-                              value={String(inv.id)}
-                              className="py-3 rounded-xl cursor-pointer"
-                            >
-                              <div className="flex items-center justify-between w-full gap-4">
-                                <span className="font-black text-slate-900">
-                                  {inv.tagNumber ? `Tag #${inv.tagNumber}` : `Record #${inv.id}`}
-                                </span>
-                                <span className="text-xs text-slate-500 font-medium">
-                                  {inv.breed || inv.livestockTypeName}
-                                </span>
-                                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                                  Qty: {inv.quantity}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-
-                    {/* Simple summary card of selected animal */}
-                    {selectedCattle && (
-                      <div className="p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200 text-xs space-y-1">
-                        <div className="flex items-center justify-between font-black text-emerald-950">
-                          <span className="text-sm">
-                            {selectedCattle.tagNumber
-                              ? `Tag #${selectedCattle.tagNumber}`
-                              : `Animal #${selectedCattle.id}`}
-                          </span>
-                          <Badge className="bg-emerald-200 text-emerald-900 text-[10px] font-bold">
-                            {selectedCattle.livestockTypeName}
-                          </Badge>
-                        </div>
-                        <p className="text-slate-600 font-medium pt-1">
-                          Breed: <span className="font-bold text-slate-800">{selectedCattle.breed || "Not specified"}</span> • Total in herd:{" "}
-                          <span className="font-bold text-slate-800">{selectedCattle.quantity} heads</span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ══ STEP 3: HOW MANY ARE AFFECTED & DATE ══ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                        <span className="flex items-center justify-center size-5 rounded-full bg-emerald-700 text-white text-[11px]">
-                          3
-                        </span>
-                        <span>How many animals affected?</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setAffectedCount((prev) => Math.max(1, prev - 1))}
-                          className="h-12 w-12 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 font-black text-lg text-slate-700 flex items-center justify-center cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={maxAvailableCount}
-                          value={affectedCount}
-                          onChange={(e) =>
-                            setAffectedCount(
-                              Math.min(
-                                maxAvailableCount,
-                                Math.max(1, parseInt(e.target.value) || 1)
-                              )
-                            )
-                          }
-                          className="text-center font-black text-lg py-5 rounded-xl border-slate-200 bg-slate-50 focus:ring-2 focus:ring-emerald-600"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAffectedCount((prev) =>
-                              Math.min(maxAvailableCount, prev + 1)
-                            )
-                          }
-                          className="h-12 w-12 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 font-black text-lg text-slate-700 flex items-center justify-center cursor-pointer"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-slate-400 font-medium">
-                        (Maximum: {maxAvailableCount} head{maxAvailableCount > 1 ? "s" : ""})
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                        <Calendar className="size-4 text-emerald-700" />
-                        <span>When did you notice it?</span>
-                      </div>
-                      <Input
-                        type="date"
-                        value={recordDate}
-                        onChange={(e) => setRecordDate(e.target.value)}
-                        className="py-5.5 rounded-xl border-slate-200 bg-slate-50 font-bold text-sm focus:ring-2 focus:ring-emerald-600"
-                      />
-                    </div>
-                  </div>
-
-                  {/* ══ STEP 4: SYMPTOMS OR REASON OBSERVED ══ */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                      <span className="flex items-center justify-center size-5 rounded-full bg-emerald-700 text-white text-[11px]">
-                        4
-                      </span>
-                      <span>
-                        {reportType === "DISEASE"
-                          ? "Select what signs you noticed:"
-                          : "Suspected cause of death:"}
-                      </span>
-                    </div>
-
-                    {reportType === "DISEASE" ? (
-                      /* Easy symptom chips in English */
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        {EASY_SIGNS.map((sign) => {
-                          const isSelected = selectedSymptoms.includes(sign.label);
-                          return (
-                            <button
-                              key={sign.id}
-                              type="button"
-                              onClick={() => toggleSymptom(sign.label)}
-                              className={`p-3 rounded-xl text-left border-2 transition-all cursor-pointer flex items-start gap-2 ${isSelected
-                                  ? "bg-emerald-700 text-white border-emerald-700 shadow-2xs"
-                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                                }`}
-                            >
-                              <span className="text-base font-bold">
-                                {isSelected ? "✓" : "○"}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-xs font-black leading-tight">
-                                  {sign.label}
-                                </p>
-                                <p
-                                  className={`text-[10px] font-medium leading-tight mt-0.5 ${isSelected ? "text-emerald-100" : "text-slate-400"
-                                    }`}
-                                >
-                                  {sign.sub}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      /* Easy cause selector for mortality */
-                      <div className="space-y-2 pt-1">
-                        <Select
-                          value={conditionName}
-                          onValueChange={(val) => setConditionName(val)}
-                        >
-                          <SelectTrigger className="w-full py-5 rounded-xl border-slate-200 bg-slate-50 text-sm font-bold">
-                            <SelectValue placeholder="Select suspected cause..." />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {EASY_MORTALITY_CAUSES.map((cause) => (
-                              <SelectItem
-                                key={cause}
-                                value={cause}
-                                className="py-2.5 rounded-lg font-medium text-xs cursor-pointer"
-                              >
-                                {cause}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ══ STEP 5: NOTES & PHOTO (OPTIONAL) ══ */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                      <span className="flex items-center justify-center size-5 rounded-full bg-emerald-700 text-white text-[11px]">
-                        5
-                      </span>
-                      <span>Additional Notes & Photo (Optional)</span>
-                    </div>
-
-                    <Textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="e.g. Animal refused to stand this morning, isolated in clean pen with fresh water..."
-                      className="min-h-[85px] rounded-2xl border-slate-200 text-sm bg-slate-50/60 focus:ring-2 focus:ring-emerald-600"
-                    />
-
-                    {/* Simple Camera / Photo Button */}
-                    <div className="flex items-center gap-3">
-                      <label className="flex-1 flex items-center justify-center gap-2 p-3.5 border-2 border-dashed border-slate-300 hover:border-emerald-600 rounded-2xl bg-slate-50 cursor-pointer transition-colors text-xs font-bold text-slate-600 hover:text-emerald-700">
-                        <Camera className="w-4 h-4 text-emerald-600" />
-                        <span>{photoName ? photoName : "Take or Attach Photo"}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoSelect}
-                          className="hidden"
-                        />
-                      </label>
-                      {photoName && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setPhotoName("")}
-                          className="text-slate-400 hover:text-rose-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ══ BIG FRIENDLY SUBMIT BUTTON ══ */}
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className={`w-full py-6.5 rounded-2xl font-black text-base tracking-wide shadow-md cursor-pointer flex items-center justify-center gap-2 text-white transition-all ${reportType === "DISEASE"
-                        ? "bg-[#2D5A27] hover:bg-[#23471f]"
-                        : "bg-rose-700 hover:bg-rose-800"
-                      }`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                        <span>Sending Report...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-5 h-5" />
-                        <span>Send Report to SIBAT & MAO</span>
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+        {/* ── ACTION BANNER ── */}
+        <div className="rounded-3xl bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800 p-5 sm:p-6 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-700/30">
+          <div className="space-y-1">
+            <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+              <Activity className="size-5 text-emerald-200" />
+              Municipal Biosecurity Surveillance Hub
+            </h3>
+            <p className="text-xs text-emerald-100/85 font-medium max-w-xl leading-relaxed">
+              Timely reporting helps the Padre Garcia Municipal Agriculture Office prevent disease outbreaks. SIBAT validators are deployed within 24 hours of report lodgement.
+            </p>
           </div>
 
-          {/* ════ RIGHT: EASY-TO-READ STATUS LOG OF YOUR REPORTS ════ */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="bg-white p-5 rounded-3xl border-2 border-emerald-900/10 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    <Activity className="size-5 text-emerald-700" />
-                    Status of Your Reports
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Track inspector visits and official approval status
-                  </p>
-                </div>
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto shrink-0">
+            <Button
+              onClick={() => handleOpenReportIllness("MORTALITY")}
+              className="flex-1 sm:flex-none rounded-xl bg-rose-600/25 hover:bg-rose-600/40 text-rose-100 text-xs font-bold h-10 px-4 gap-1.5 border border-rose-400/30 cursor-pointer"
+            >
+              <Skull className="size-4 text-rose-300" />
+              <span>Report Mortality</span>
+            </Button>
+
+            <Button
+              onClick={() => handleOpenReportIllness("DISEASE")}
+              className="flex-1 sm:flex-none rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-black h-10 px-4 gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Stethoscope className="size-4" />
+              <span>Report Sickness</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* ── INTERACTIVE REPORTS SURVEILLANCE LEDGER ── */}
+        <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden">
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            {/* Header with Title & Live Stats */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Activity className="size-5 text-emerald-700" />
+                  Your Lodged Health & Mortality Reports
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Click on any report to inspect the SIBAT field validation dossier, inspector findings, and official MAO review remarks
+                </p>
               </div>
 
+              <span className="text-xs font-bold text-slate-400 self-start sm:self-center">
+                Showing {filteredReports.length} of {reports.length} reports
+              </span>
+            </div>
+
+            {/* Filter Pills & Live Search */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
               {/* Filter Pills */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {[
-                  { id: "ALL", label: "All Reports" },
-                  { id: "DISEASE", label: "Sick Animals" },
-                  { id: "MORTALITY", label: "Deceased" },
+                  { id: "ALL", label: `All (${reports.length})` },
+                  { id: "DISEASE", label: `Sick Animals (${totalDiseaseCases})` },
+                  { id: "MORTALITY", label: `Deceased (${totalMortality})` },
+                  { id: "PENDING", label: `Pending Visit (${pendingVerification})` },
+                  { id: "REVISION", label: "Subject to Revision" },
+                  { id: "APPROVED", label: `Approved (${approvedCases})` },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setFilterType(tab.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${filterType === tab.id
-                        ? "bg-[#2D5A27] text-white"
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      filterType === tab.id
+                        ? "bg-[#2D5A27] text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                    }`}
                   >
                     {tab.label}
                   </button>
                 ))}
               </div>
 
-              {/* Search */}
-              <div className="relative">
+              {/* Search Bar */}
+              <div className="relative w-full md:w-72">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by Tag # or symptoms..."
-                  className="pl-10 rounded-xl bg-slate-50 border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-600"
+                  placeholder="Search tag #, symptoms, diagnosis..."
+                  className="pl-10 h-10 rounded-xl bg-slate-50 border-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#2D5A27]"
                 />
               </div>
+            </div>
 
-              {/* List of Simple Cards */}
-              <div className="space-y-3 pt-1">
-                {filteredReports.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">
-                    <HeartPulse className="size-8 mx-auto mb-2 text-slate-300" />
-                    <p className="text-xs font-bold">No reports found.</p>
+            {/* Grid of Report Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+              {isLoadingDiseases || isLoadingMortality ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="p-4 rounded-2xl bg-slate-50 animate-pulse space-y-3">
+                    <div className="h-4 bg-slate-200 rounded w-1/2" />
+                    <div className="h-3 bg-slate-100 rounded w-3/4" />
+                    <div className="h-8 bg-slate-100 rounded w-full" />
                   </div>
-                ) : (
-                  filteredReports.map((rep) => {
-                    const isMortality = rep.reportType === "MORTALITY";
+                ))
+              ) : filteredReports.length === 0 ? (
+                <div className="col-span-full py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl">
+                  <HeartPulse className="size-10 mx-auto mb-2.5 text-slate-300" />
+                  <p className="text-sm font-black text-slate-700">No reports found</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    {searchQuery || filterType !== "ALL"
+                      ? "No records match your active search or filter criteria."
+                      : "You haven't submitted any disease or mortality reports yet."}
+                  </p>
+                  <div className="mt-4 flex justify-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setIsReportIllnessOpen(true)}
+                      className="bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold rounded-xl h-8 px-3.5"
+                    >
+                      + File Incident Report
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                filteredReports.map((rep) => {
+                  const isMortality = rep.reportType === "MORTALITY";
 
-                    // Easy Status Info
-                    const statusConfig = {
-                      PENDING: {
-                        bg: "bg-amber-50 border-amber-200 text-amber-900",
-                        icon: <Clock className="size-3.5 text-amber-600" />,
-                        title: "Waiting for Inspector",
-                        desc: "SIBAT validator will visit your farm soon.",
-                      },
-                      VERIFIED: {
-                        bg: "bg-sky-50 border-sky-200 text-sky-900",
-                        icon: <ShieldCheck className="size-3.5 text-sky-600" />,
-                        title: "Inspected by SIBAT",
-                        desc: "Farm visit completed; awaiting MAO vet sign-off.",
-                      },
-                      APPROVED: {
-                        bg: "bg-emerald-50 border-emerald-200 text-emerald-900",
-                        icon: <CheckCircle2 className="size-3.5 text-emerald-600" />,
-                        title: "Approved by MAO",
-                        desc: "Official municipal livestock record updated.",
-                      },
-                      SUBJECT_TO_REVISION: {
-                        bg: "bg-amber-50 border-amber-200 text-amber-900",
-                        icon: <RotateCcw className="size-3.5 text-amber-700" />,
-                        title: "Subject to Revision",
-                        desc: "Returned for field clarification or data update.",
-                      },
-                      REJECTED: {
-                        bg: "bg-amber-50 border-amber-200 text-amber-900",
-                        icon: <RotateCcw className="size-3.5 text-amber-700" />,
-                        title: "Subject to Revision",
-                        desc: "Returned for field clarification or data update.",
-                      },
-                    }[rep.status] || {
-                      bg: "bg-slate-50 border-slate-200 text-slate-900",
-                      icon: <Clock className="size-3.5 text-slate-700" />,
-                      title: "Pending Review",
-                      desc: "Record submitted for inspection.",
-                    };
+                  // Status Badge Styles
+                  const statusInfo = {
+                    APPROVED: {
+                      badgeClass: "bg-emerald-100 text-emerald-800 border-0",
+                      icon: <CheckCircle2 className="size-3 text-emerald-600" />,
+                      label: "MAO Approved",
+                    },
+                    VERIFIED: {
+                      badgeClass: "bg-sky-100 text-sky-800 border-0",
+                      icon: <ShieldCheck className="size-3 text-sky-600" />,
+                      label: "SIBAT Verified",
+                    },
+                    SUBJECT_TO_REVISION: {
+                      badgeClass: "bg-amber-100 text-amber-900 border-0",
+                      icon: <RotateCcw className="size-3 text-amber-700" />,
+                      label: "Needs Revision",
+                    },
+                    REJECTED: {
+                      badgeClass: "bg-amber-100 text-amber-900 border-0",
+                      icon: <RotateCcw className="size-3 text-amber-700" />,
+                      label: "Needs Revision",
+                    },
+                    PENDING: {
+                      badgeClass: "bg-amber-50 text-amber-800 border border-amber-200",
+                      icon: <Clock className="size-3 text-amber-600" />,
+                      label: "Pending SIBAT Visit",
+                    },
+                  }[rep.status] || {
+                    badgeClass: "bg-slate-100 text-slate-700 border-0",
+                    icon: <Clock className="size-3 text-slate-500" />,
+                    label: "Pending",
+                  };
 
-                    return (
-                      <div
-                        key={rep.id}
-                        className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-emerald-700/40 transition-all space-y-2.5 shadow-2xs"
-                      >
-                        {/* Animal Tag & Status */}
+                  return (
+                    <div
+                      key={rep.id}
+                      onClick={() => {
+                        setSelectedReport(rep);
+                        setIsDetailOpen(true);
+                      }}
+                      className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-[#2D5A27] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group space-y-3"
+                    >
+                      {/* Top Row: Animal Info & Date */}
+                      <div>
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <div
-                              className={`p-2 rounded-xl ${isMortality
+                              className={`p-2 rounded-xl shrink-0 ${
+                                isMortality
                                   ? "bg-rose-100 text-rose-800"
                                   : "bg-emerald-100 text-emerald-800"
-                                }`}
+                              }`}
                             >
                               {isMortality ? (
                                 <Skull className="size-4" />
@@ -849,53 +452,72 @@ export default function ReportObservationPage() {
                               )}
                             </div>
                             <div>
-                              <p className="text-sm font-black text-slate-900">
-                                {rep.cattleTag}
+                              <p className="text-xs font-black text-slate-900 group-hover:text-[#2D5A27] transition-colors">
+                                #{rep.cattleTag}
                               </p>
-                              <p className="text-[11px] text-slate-500 font-semibold">
-                                {rep.cattleBreed} • {rep.affectedCount} head{rep.affectedCount > 1 ? "s" : ""}
+                              <p className="text-[10px] text-slate-500 font-semibold">
+                                {rep.cattleBreed} • {rep.cattleType}
                               </p>
                             </div>
                           </div>
 
-                          <span className="text-[11px] text-slate-400 font-mono">
+                          <span className="text-[10px] font-mono text-slate-400 font-medium">
                             {rep.recordDate}
                           </span>
                         </div>
 
-                        {/* Symptoms or Cause reported */}
-                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                          <p className="font-black text-slate-900">
+                        {/* Symptoms / Diagnosis */}
+                        <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100/80">
+                          <p className="text-xs font-black text-slate-900 line-clamp-1">
                             {rep.name}
                           </p>
-                          {rep.description && (
-                            <p className="text-[11px] text-slate-600 mt-1 line-clamp-2">
-                              {rep.description}
-                            </p>
-                          )}
+                          <p className="text-[10px] text-slate-500 mt-0.5">
+                            Affected: <strong className="text-slate-800">{rep.affectedCount}</strong> Head{rep.affectedCount > 1 ? "s" : ""}
+                          </p>
                         </div>
 
-                        {/* Easy Status Bar */}
-                        <div
-                          className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${statusConfig.bg}`}
-                        >
-                          <div className="flex items-center gap-1.5 font-black">
-                            {statusConfig.icon}
-                            <span>{statusConfig.title}</span>
+                        {/* Revision Callout if Subject to Revision */}
+                        {rep.status === "SUBJECT_TO_REVISION" && rep.reviewRemarks && (
+                          <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-900 font-medium line-clamp-2">
+                            <strong>Validator Note:</strong> {rep.reviewRemarks}
                           </div>
-                          <span className="text-[10px] font-bold text-slate-500">
-                            Ref: {rep.id}
-                          </span>
-                        </div>
+                        )}
                       </div>
-                    );
-                  })
-                )}
-              </div>
+
+                      {/* Bottom Row: Status Badge & Dossier Button */}
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <Badge className={`text-[10px] font-extrabold px-2 py-0.5 gap-1 ${statusInfo.badgeClass}`}>
+                          {statusInfo.icon}
+                          <span>{statusInfo.label}</span>
+                        </Badge>
+
+                        <span className="text-xs font-black text-[#2D5A27] group-hover:underline flex items-center gap-0.5">
+                          <span>Dossier</span>
+                          <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* ── MODALS ── */}
+      <ReportIllnessDialog
+        open={isReportIllnessOpen}
+        onOpenChange={setIsReportIllnessOpen}
+        defaultType={reportIllnessDefaultType}
+        onSuccess={handleRefresh}
+      />
+
+      <ReportDetailDialog
+        report={selectedReport}
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+      />
     </>
   );
 }

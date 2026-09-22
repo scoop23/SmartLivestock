@@ -33,6 +33,19 @@ export interface FarmerActivityItem {
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   date: string;
   remarks?: string | null;
+  rawItem?: any;
+}
+
+export interface StatusBreakdownPoint {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface HealthIncidentTrendPoint {
+  period: string;
+  disease: number;
+  mortality: number;
 }
 
 export interface FarmerDashboardAnalytics {
@@ -56,6 +69,10 @@ export interface FarmerDashboardAnalytics {
   herd_categories: HerdCategoryPoint[];
   /** Sub-category / breed / purpose breakdown for the two-level pie chart outer ring. */
   herd_subcategories: HerdSubcategoryPoint[];
+  /** Breakdown by verification / audit status */
+  status_breakdown: StatusBreakdownPoint[];
+  /** Recent 6 months disease & mortality occurrences */
+  health_incident_trend: HealthIncidentTrendPoint[];
   /** Recent live activities logged by the farmer */
   recent_activities: FarmerActivityItem[];
 }
@@ -89,7 +106,9 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   // 1. Livestock Inventory calculations
   let totalHeads = 0;
   let approvedHeads = 0;
+  let verifiedHeads = 0;
   let pendingHeads = 0;
+  let revisionHeads = 0;
 
   const speciesMap = new Map<string, number>();
   const breedMap = new Map<string, { category: string; count: number }>();
@@ -99,8 +118,12 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     totalHeads += qty;
 
     const st = String(item.status || "PENDING").toUpperCase();
-    if (st === "APPROVED" || st === "VERIFIED") {
+    if (st === "APPROVED") {
       approvedHeads += qty;
+    } else if (st === "VERIFIED") {
+      verifiedHeads += qty;
+    } else if (st === "SUBJECT_TO_REVISION" || st === "REJECTED") {
+      revisionHeads += qty;
     } else {
       pendingHeads += qty;
     }
@@ -116,6 +139,13 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       breedMap.set(breed, { category: species, count: qty });
     }
   });
+
+  const status_breakdown: StatusBreakdownPoint[] = [
+    { name: "MAO Certified", value: approvedHeads, color: "#10b981" },
+    { name: "SIBAT Verified", value: verifiedHeads, color: "#0284c7" },
+    { name: "Pending Review", value: pendingHeads, color: "#f59e0b" },
+    { name: "Needs Revision", value: revisionHeads, color: "#ef4444" },
+  ].filter((p) => p.value > 0);
 
   const herd_categories: HerdCategoryPoint[] = Array.from(speciesMap.entries()).map(([name, value], i) => {
     const key = name.toLowerCase();
@@ -191,6 +221,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       status: (inv.status || "PENDING").toUpperCase(),
       date: inv.created_at || inv.date_acquired || new Date().toISOString(),
       remarks: inv.review_remarks,
+      rawItem: inv,
     });
   });
 
@@ -203,6 +234,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       status: (prod.status || "PENDING").toUpperCase(),
       date: prod.created_at || prod.record_date || new Date().toISOString(),
       remarks: prod.review_remarks,
+      rawItem: prod,
     });
   });
 
@@ -215,6 +247,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       status: (dc.status || "PENDING").toUpperCase(),
       date: dc.created_at || dc.record_date || new Date().toISOString(),
       remarks: dc.review_remarks,
+      rawItem: dc,
     });
   });
 
@@ -227,11 +260,46 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       status: (m.status || "PENDING").toUpperCase(),
       date: m.created_at || m.record_date || new Date().toISOString(),
       remarks: m.review_remarks,
+      rawItem: m,
     });
   });
 
   // Sort activities newest first
   activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // 5. Monthly Health Surveillance Incident Trends (Last 6 Months)
+  const monthLabels: { key: string; label: string }[] = [];
+  const monthMap = new Map<string, { disease: number; mortality: number; label: string }>();
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("en-US", { month: "short" });
+    monthLabels.push({ key, label });
+    monthMap.set(key, { disease: 0, mortality: 0, label });
+  }
+
+  diseaseCases.forEach((dc) => {
+    const dStr = String(dc.record_date || dc.created_at || "");
+    const key = dStr.slice(0, 7);
+    if (monthMap.has(key)) {
+      monthMap.get(key)!.disease += Number(dc.affected_count) || 1;
+    }
+  });
+
+  mortalities.forEach((m) => {
+    const dStr = String(m.record_date || m.created_at || "");
+    const key = dStr.slice(0, 7);
+    if (monthMap.has(key)) {
+      monthMap.get(key)!.mortality += Number(m.death_count) || 1;
+    }
+  });
+
+  const health_incident_trend: HealthIncidentTrendPoint[] = monthLabels.map(({ key, label }) => ({
+    period: label,
+    disease: monthMap.get(key)!.disease,
+    mortality: monthMap.get(key)!.mortality,
+  }));
 
   return {
     cattle_count: totalHeads,
@@ -245,6 +313,8 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     milk_trend,
     herd_categories,
     herd_subcategories,
+    status_breakdown,
+    health_incident_trend,
     recent_activities: activities.slice(0, 8),
   };
 }

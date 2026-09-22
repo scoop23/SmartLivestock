@@ -1,27 +1,33 @@
 "use client";
 
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/app/components/page-header";
-import { Icon } from "lucide-react";
-import { cowHead } from "@lucide/lab";
 import {
-  Package,
   Bell,
-  Plus,
-  Stethoscope,
   RefreshCw,
-  CalendarDays,
+  Skull,
+  Stethoscope,
+  ClipboardList,
+  Sparkles,
+  Command as CommandIcon,
+  Search,
   Map,
+  CalendarDays,
   Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import FarmerStats from "./farmer-stats";
 import FarmerCharts from "./farmer-charts";
 import FarmerActivityFeed from "./farmer-activity-feed";
-import { useFarmerDashboardAnalytics } from "./farmer-analytics";
+import FarmerActionDock from "./components/farmer-action-dock";
+import { useFarmerDashboardAnalytics, type FarmerActivityItem } from "./farmer-analytics";
+import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
+import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
+import FarmerReportsListDialog from "../components/farmer-reports-list-dialog";
+import { FarmerReport, BackendStatus, ReportType } from "../report-observation/report-observation-types";
 
 export default function FarmerDashboard() {
   const router = useRouter();
@@ -35,19 +41,103 @@ export default function FarmerDashboard() {
     isFetching,
   } = useFarmerDashboardAnalytics();
 
+  // ── Dialog States ──
+  const [isReportIllnessOpen, setIsReportIllnessOpen] = useState(false);
+  const [reportIllnessDefaultType, setReportIllnessDefaultType] = useState<"DISEASE" | "MORTALITY">("DISEASE");
+  const [isReportsListOpen, setIsReportsListOpen] = useState(false);
+  const [selectedReportDetail, setSelectedReportDetail] = useState<FarmerReport | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
   const farmerName = user?.firstName
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
     : "Farmer";
 
+  // Dynamic greeting based on current local hour
+  const currentHour = new Date().getHours();
+  const greeting =
+    currentHour < 12
+      ? "Good morning"
+      : currentHour < 18
+      ? "Good afternoon"
+      : "Good evening";
+
+  // Handle opening illness dialog with specific default type
+  const handleOpenReportIllness = (defaultType: "DISEASE" | "MORTALITY" = "DISEASE") => {
+    setReportIllnessDefaultType(defaultType);
+    setIsReportIllnessOpen(true);
+  };
+
+  // Handle clicking on an activity in the feed to open its full dossier
+  const handleSelectActivity = (act: FarmerActivityItem) => {
+    if (act.type !== "DISEASE" && act.type !== "MORTALITY") return;
+
+    const raw = act.rawItem || {};
+    const reportType: ReportType = act.type === "MORTALITY" ? "MORTALITY" : "DISEASE";
+    const reportId = String(act.id).replace(/^(dc-|mort-)/, "");
+
+    const report: FarmerReport = {
+      id: reportType === "MORTALITY" ? `MOR-${reportId}` : `DIS-${reportId}`,
+      reportType,
+      inventoryId: String(raw.livestock || ""),
+      cattleTag: raw.tag_number || "Animal Record",
+      cattleBreed: raw.breed || "Standard",
+      cattleType: raw.livestock_type_name || "Livestock",
+      name: raw.name || raw.cause || act.title,
+      affectedCount: raw.affected_count || raw.death_count || 1,
+      recordDate: raw.record_date || act.date.slice(0, 10),
+      status: (act.status || "PENDING") as BackendStatus,
+      symptoms: [raw.name || raw.cause || act.title],
+      description: raw.name || raw.cause || act.description,
+      createdAt: raw.created_at || act.date,
+      reviewedByName: raw.reviewed_by_name,
+      reviewedAt: raw.reviewed_at,
+      reviewRemarks: raw.review_remarks || act.remarks,
+      rawItem: raw,
+    };
+
+    setSelectedReportDetail(report);
+    setIsDetailOpen(true);
+  };
+
   return (
     <>
       <PageHeader
-        title={`Welcome, ${farmerName}!`}
-        subtitle="Padre Garcia, Batangas — Municipal Livestock Management Portal"
+        title={`${greeting}, ${farmerName}!`}
+        subtitle="Padre Garcia, Batangas — Municipal Livestock Operations & Biosecurity Portal"
         variant="farmer"
         maxWidthClass="w-full"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleOpenReportIllness("DISEASE")}
+              className="rounded-xl border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 cursor-pointer hidden sm:flex"
+            >
+              <Stethoscope className="size-4 text-emerald-200" />
+              <span>Report Sickness</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleOpenReportIllness("MORTALITY")}
+              className="rounded-xl border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 cursor-pointer hidden sm:flex"
+            >
+              <Skull className="size-4 text-rose-300" />
+              <span>Report Mortality</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsReportsListOpen(true)}
+              className="rounded-xl border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 cursor-pointer hidden sm:flex"
+            >
+              <ClipboardList className="size-4" />
+              <span>Health Reports</span>
+            </Button>
+
             <Button
               variant="ghost"
               size="icon"
@@ -57,6 +147,7 @@ export default function FarmerDashboard() {
             >
               <RefreshCw className={`size-4.5 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
+
             <Button
               variant="ghost"
               size="icon"
@@ -70,7 +161,7 @@ export default function FarmerDashboard() {
         }
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6">
+      <div className="p-4 md:p-8 w-full space-y-6 pb-28">
         {/* 1. KEY EXECUTIVE METRICS */}
         {isLoading ? (
           <FarmerStats isLoading />
@@ -94,100 +185,83 @@ export default function FarmerDashboard() {
           <FarmerStats data={analytics} />
         )}
 
-        {/* 2. QUICK ACTIONS HUB */}
-        <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden">
-          <CardContent className="p-5">
-            <h3 className="text-base font-black text-emerald-950 mb-4 flex items-center gap-2">
-              <div className="p-1.5 rounded-xl bg-emerald-100/80 text-emerald-900">
-                <Icon iconNode={cowHead} className="size-4" />
-              </div>
-              Farmer Quick Actions
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <button
-                onClick={() => router.push("/livestock-inventory")}
-                className="group flex flex-col items-center gap-2.5 p-4 bg-emerald-50/40 rounded-2xl border-2 border-transparent hover:border-emerald-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer text-center"
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-2xs border border-emerald-900/10 group-hover:scale-110 transition-transform">
-                  <Plus className="size-5 text-emerald-800" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-950">
-                  Register Animal
-                </span>
-              </button>
-
-              <button
-                onClick={() => router.push("/production-dashboard")}
-                className="group flex flex-col items-center gap-2.5 p-4 bg-sky-50/40 rounded-2xl border-2 border-transparent hover:border-sky-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer text-center"
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-2xs border border-sky-900/10 group-hover:scale-110 transition-transform">
-                  <Package className="size-5 text-sky-800" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-wider text-sky-950">
-                  Log Production
-                </span>
-              </button>
-
-              <button
-                onClick={() => router.push("/report-observation")}
-                className="group flex flex-col items-center gap-2.5 p-4 bg-amber-50/40 rounded-2xl border-2 border-transparent hover:border-amber-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer text-center"
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-2xs border border-amber-900/10 group-hover:scale-110 transition-transform">
-                  <Stethoscope className="size-5 text-amber-800" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-wider text-amber-950">
-                  Report Sickness
-                </span>
-              </button>
-
-              <button
-                onClick={() => router.push("/farmer-scheduling")}
-                className="group flex flex-col items-center gap-2.5 p-4 bg-indigo-50/40 rounded-2xl border-2 border-transparent hover:border-indigo-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer text-center"
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-2xs border border-indigo-900/10 group-hover:scale-110 transition-transform">
-                  <CalendarDays className="size-5 text-indigo-800" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-wider text-indigo-950">
-                  MAO Programs
-                </span>
-              </button>
-
-              <button
-                onClick={() => router.push("/gis-user-map")}
-                className="group flex flex-col items-center gap-2.5 p-4 bg-teal-50/40 rounded-2xl border-2 border-transparent hover:border-teal-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer text-center"
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-2xs border border-teal-900/10 group-hover:scale-110 transition-transform">
-                  <Map className="size-5 text-teal-800" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-wider text-teal-950">
-                  Pasture GIS Map
-                </span>
-              </button>
-
-              <button
-                onClick={() => router.push("/farmer-announcement")}
-                className="group flex flex-col items-center gap-2.5 p-4 bg-rose-50/40 rounded-2xl border-2 border-transparent hover:border-rose-700/40 hover:bg-white hover:shadow-md transition-all cursor-pointer text-center"
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-2xs border border-rose-900/10 group-hover:scale-110 transition-transform">
-                  <Megaphone className="size-5 text-rose-800" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-wider text-rose-950">
-                  Announcements
-                </span>
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 3. VISUALIZATION & CHARTS MATRIX */}
+        {/* 2. VISUALIZATION & CHARTS MATRIX (4-CHART GRID) */}
         <FarmerCharts data={analytics} isLoading={isLoading} />
+
+        {/* 3. MUNICIPAL RESOURCES STRIP (COMPACT COMPLEMENT TO FLOATING DOCK) */}
+        <div className="rounded-2xl bg-slate-50/80 border border-slate-200/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-700 font-bold">
+            <Sparkles className="size-4 text-[#2D5A27]" />
+            <span>Padre Garcia Municipal Field Services</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => router.push("/farmer-scheduling")}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/90 text-slate-700 font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs text-[11px]"
+            >
+              <CalendarDays className="size-3.5 text-indigo-600" />
+              <span>MAO Programs</span>
+            </button>
+
+            <button
+              onClick={() => router.push("/gis-user-map")}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/90 text-slate-700 font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs text-[11px]"
+            >
+              <Map className="size-3.5 text-teal-600" />
+              <span>Pasture GIS Map</span>
+            </button>
+
+            <button
+              onClick={() => router.push("/farmer-announcement")}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/90 text-slate-700 font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs text-[11px]"
+            >
+              <Megaphone className="size-3.5 text-amber-600" />
+              <span>Announcements</span>
+            </button>
+          </div>
+        </div>
 
         {/* 4. LIVE FARM ACTIVITY & REVIEW STATUS FEED */}
         <FarmerActivityFeed
           activities={analytics?.recent_activities}
           isLoading={isLoading}
+          onSelectActivity={handleSelectActivity}
+          onOpenReportIllness={() => handleOpenReportIllness("DISEASE")}
+          onOpenReportsList={() => setIsReportsListOpen(true)}
         />
       </div>
+
+      {/* ── RESPONSIVE FLOATING DOCK & COMMAND PALETTE (⌘K) ── */}
+      <FarmerActionDock
+        onOpenReportIllness={handleOpenReportIllness}
+        onOpenReportsList={() => setIsReportsListOpen(true)}
+      />
+
+      {/* ── MODAL DIALOGS ── */}
+
+      <ReportIllnessDialog
+        open={isReportIllnessOpen}
+        onOpenChange={setIsReportIllnessOpen}
+        defaultType={reportIllnessDefaultType}
+        onSuccess={() => refetch()}
+      />
+
+      <FarmerReportsListDialog
+        open={isReportsListOpen}
+        onOpenChange={setIsReportsListOpen}
+        onSelectReport={(rep) => {
+          setSelectedReportDetail(rep);
+          setIsDetailOpen(true);
+        }}
+        onOpenNewReport={() => handleOpenReportIllness("DISEASE")}
+      />
+
+      <ReportDetailDialog
+        report={selectedReportDetail}
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+      />
     </>
   );
 }

@@ -217,7 +217,7 @@ export default function ProductionCalvingTab({
         </div>
         <Button
           onClick={() => setIsRecordOpen(true)}
-          className="bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs font-semibold gap-2"
+          className="bg-[#2D5A27] hover:bg-[#23471f] text-white shadow-xs font-black text-xs rounded-xl h-9 px-4 gap-2 cursor-pointer"
         >
           <Plus className="size-4" /> Record New {terms.eventName}
         </Button>

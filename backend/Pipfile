@@ -13,6 +13,9 @@ djangorestframework = "*"
 djangorestframework-simplejwt = "*"
 django-types = "*"
 django-cors-headers = "*"
+dj-database-url = "*"
+gunicorn = "*"
+whitenoise = "*"
 
 [dev-packages]
 mypy = "*"
