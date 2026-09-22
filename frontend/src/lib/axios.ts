@@ -7,18 +7,29 @@ declare module 'axios' {
   }
 }
 
-// Primary backend (Render production) and local fallback backend (Django local dev)
-export const PRIMARY_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://smartlivestock-xkx4.onrender.com';
-export const LOCAL_FALLBACK_URL =
-  process.env.NEXT_PUBLIC_FALLBACK_API_URL || 'http://localhost:8000';
+export const LOCAL_API_URL =
+  process.env.NEXT_PUBLIC_LOCAL_API_URL || 'http://localhost:8000';
+export const RENDER_API_URL = 'https://smartlivestock-xkx4.onrender.com';
 
-// Check if fallback to local is allowed (safe against browser mixed-content restrictions)
-const canFallbackToLocal = (): boolean => {
+// Primary backend (local Django by default, or Render in production)
+export const PRIMARY_API_URL =
+  process.env.NEXT_PUBLIC_API_URL || LOCAL_API_URL;
+
+// Dynamic fallback backend: if primary is Render, fallback to local; if primary is local, fallback to Render
+export const FALLBACK_API_URL =
+  process.env.NEXT_PUBLIC_FALLBACK_API_URL ||
+  (PRIMARY_API_URL.includes('onrender.com') ? LOCAL_API_URL : RENDER_API_URL);
+
+export const LOCAL_FALLBACK_URL = LOCAL_API_URL;
+
+// Check if fallback URL is allowed (safe against browser mixed-content restrictions)
+const canFallbackTo = (url: string): boolean => {
   if (typeof window === 'undefined') return true;
-  if (LOCAL_FALLBACK_URL.startsWith('https://')) return true;
+  if (url.startsWith('https://')) return true;
   return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 };
+
+const canFallbackToLocal = (): boolean => canFallbackTo(LOCAL_API_URL);
 
 // Axios instance pre-configured to talk to the Django backend.
 const api = axios.create({
@@ -61,7 +72,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
 };
 
 // Intercept responses:
-// 1. Failover to local backend if Render is down / unreachable / timing out.
+// 1. Failover if the current backend is down / unreachable / timing out.
 // 2. Refresh expired access tokens on 401.
 api.interceptors.response.use(
   (response) => response,
@@ -72,38 +83,40 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // --- Automatic Failover to Local if Render is Down ---
+    // --- Automatic Failover if Backend is Down ---
     const isNetworkOrServerError =
       !error.response ||
       error.code === 'ERR_NETWORK' ||
       error.code === 'ECONNABORTED' ||
       [502, 503, 504].includes(error.response?.status);
 
-    const isCurrentTargetRender =
-      (api.defaults.baseURL || '').includes('onrender.com') ||
-      (originalRequest.baseURL || '').includes('onrender.com') ||
-      (originalRequest.url || '').includes('onrender.com');
+    const currentBaseUrl = api.defaults.baseURL || PRIMARY_API_URL;
+    // Target the opposite backend: Render -> Local, or Local -> Render
+    const targetFallbackUrl = currentBaseUrl.includes('onrender.com')
+      ? LOCAL_API_URL
+      : RENDER_API_URL;
 
-    if (
+    const canAttemptFallback =
       isNetworkOrServerError &&
       !originalRequest._fallbackRetried &&
-      isCurrentTargetRender &&
-      canFallbackToLocal()
-    ) {
+      targetFallbackUrl !== currentBaseUrl &&
+      canFallbackTo(targetFallbackUrl);
+
+    if (canAttemptFallback) {
       originalRequest._fallbackRetried = true;
       console.warn(
-        `[SmartLivestock API] Render backend unreachable (${error.code || error.response?.status || 'Network Error'}). Failing over to local backend: ${LOCAL_FALLBACK_URL}`
+        `[SmartLivestock API] Backend unreachable (${error.code || error.response?.status || 'Network Error'}). Failing over from ${currentBaseUrl} to ${targetFallbackUrl}`
       );
 
       // Permanently switch defaults for this tab session so upcoming calls don't lag
-      api.defaults.baseURL = LOCAL_FALLBACK_URL;
-      originalRequest.baseURL = LOCAL_FALLBACK_URL;
+      api.defaults.baseURL = targetFallbackUrl;
+      originalRequest.baseURL = targetFallbackUrl;
 
-      if (originalRequest.url && originalRequest.url.startsWith(PRIMARY_API_URL)) {
-        originalRequest.url = originalRequest.url.replace(PRIMARY_API_URL, LOCAL_FALLBACK_URL);
+      if (originalRequest.url && originalRequest.url.startsWith(currentBaseUrl)) {
+        originalRequest.url = originalRequest.url.replace(currentBaseUrl, targetFallbackUrl);
       }
 
-      // Retry request on the local backend
+      // Retry request on the fallback backend
       try {
         return await api(originalRequest);
       } catch (fallbackErr) {
@@ -144,7 +157,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const refreshUrl = `${api.defaults.baseURL || LOCAL_FALLBACK_URL}/api/token/refresh/`;
+        const refreshUrl = `${api.defaults.baseURL || PRIMARY_API_URL}/api/token/refresh/`;
         const response = await axios.post(refreshUrl, { refresh: refreshToken });
 
         const newAccessToken = response.data.access;

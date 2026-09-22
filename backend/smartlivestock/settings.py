@@ -86,41 +86,20 @@ MIDDLEWARE = [
 ROOT_URLCONF = "smartlivestock.urls"
 
 # CORS & CSRF configuration for local development and production
-def _normalize_origin(origin: str) -> str:
-    origin = origin.strip()
-    if origin and not origin.startswith(("http://", "https://")):
-        return f"https://{origin}"
-    return origin
-
-# Always allow local Next.js frontend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
 cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS")
 if cors_origins_env:
-    for orig in cors_origins_env.split(","):
-        normalized = _normalize_origin(orig)
-        if normalized and normalized not in CORS_ALLOWED_ORIGINS:
-            CORS_ALLOWED_ORIGINS.append(normalized)
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+    CORS_ALLOWED_ORIGINS = [orig.strip() for orig in cors_origins_env.split(",") if orig.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
 csrf_trusted_env = os.environ.get("CSRF_TRUSTED_ORIGINS")
 if csrf_trusted_env:
-    for orig in csrf_trusted_env.split(","):
-        normalized = _normalize_origin(orig)
-        if normalized and normalized not in CSRF_TRUSTED_ORIGINS:
-            CSRF_TRUSTED_ORIGINS.append(normalized)
-
-if RENDER_EXTERNAL_HOSTNAME:
-    render_origin = f"https://{RENDER_EXTERNAL_HOSTNAME}"
-    if render_origin not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(render_origin)
+    CSRF_TRUSTED_ORIGINS = [orig.strip() for orig in csrf_trusted_env.split(",") if orig.strip()]
+elif RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"]
 
 # JWT token configuration
 # Access token = short-lived (30 min), Refresh token = long-lived (7 days)
@@ -153,40 +132,33 @@ WSGI_APPLICATION = "smartlivestock.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-LOCAL_DATABASE = {
-    "ENGINE": "django.db.backends.postgresql",
-    "NAME": os.environ.get("DATABASE_NAME", "smart_livestock"),
-    "USER": os.environ.get("DATABASE_USER", "smart_livestock_user"),
-    "PASSWORD": os.environ.get("DATABASE_PASS"),
-    "HOST": os.environ.get("DATABASE_HOST", "localhost"),
-    "PORT": os.environ.get("DATABASE_PORT", "5433"),
-}
+# ==============================================================================
+# DATABASE CONFIGURATION
+# Simply comment/uncomment the block you want to use:
+# ==============================================================================
 
-RENDER_DB_URL = os.environ.get("RENDER_DATABASE_URL") or os.environ.get("DATABASE_URL")
+# --- [1. LOCAL DATABASE] (Active: PostgreSQL on Port 5433) ---
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": "smart_livestock",
+#         "USER": "smart_livestock_user",
+#         "PASSWORD": os.environ.get("DATABASE_PASS"),
+#         "HOST": "localhost",
+#         "PORT": "5432",
+#     }
+# }
 
+# --- [2. RENDER DATABASE] ---
+# (To use Render: uncomment the lines below, and comment out [1. LOCAL DATABASE] above)
 DATABASES = {
-    "local": LOCAL_DATABASE,
-}
-
-if RENDER_DB_URL:
-    DATABASES["render"] = dj_database_url.config(
-        default=RENDER_DB_URL,
+    "default": dj_database_url.parse(
+        os.environ.get("DATABASE_URL")
+        or 'postgresql://smartlivestock_postgresql_db_user:CN3rZmEn6VH7QIm3QWg25qbZKNxE9x0n@dpg-dap908tg1s2s739s1890-a.singapore-postgres.render.com/smartlivestock_postgresql_db',
         conn_max_age=600,
         conn_health_checks=True,
     )
-
-# Choose which database is active by default:
-# - On Render cloud deployment, automatically defaults to 'render'.
-# - Locally, defaults to 'local' unless USE_RENDER_DB=True is set in .env.
-use_render_as_default = (
-    os.environ.get("USE_RENDER_DB", "").lower() in ("true", "1")
-    or bool(RENDER_EXTERNAL_HOSTNAME)
-)
-
-if use_render_as_default and "render" in DATABASES:
-    DATABASES["default"] = DATABASES["render"]
-else:
-    DATABASES["default"] = DATABASES["local"]
+}
 
 
 # Password validation
