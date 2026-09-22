@@ -52,6 +52,7 @@ def census_list_create(request):
 
 
 @api_view(["GET", "PUT", "PATCH"])
+@permission_classes([IsAuthenticated, isSibat | isMAO])
 def census_detail(request, pk):
     """
     GET       /api/livestock/census/<id>/ -> Retrieve single census submission
@@ -85,6 +86,7 @@ def census_detail(request, pk):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated, isMAO])
 def review_census_submission(request, pk):
     """
     POST /api/livestock/census/<id>/review/

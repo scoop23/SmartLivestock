@@ -83,29 +83,40 @@ export function ValidationToolbar({
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 w-full pt-1">
-        {/* Status Filter Tabs (4-col segmented control on mobile, flex on desktop) */}
-        <div className="w-full sm:w-auto">
-          <div className="bg-gray-100 p-1 rounded-2xl grid grid-cols-4 sm:flex sm:items-center gap-1 w-full sm:w-auto">
-            {(["ALL", "PENDING", "APPROVED", "REJECTED"] as const).map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => onStatusChange(status)}
-                className={`px-2 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider sm:tracking-widest transition-all text-center truncate ${
-                  statusFilter === status
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-400 hover:text-gray-700"
-                }`}
-              >
-                {status === "ALL"
-                  ? "All"
-                  : status === "PENDING"
-                  ? "Pending"
-                  : status === "APPROVED"
-                  ? "Approved"
-                  : "Flagged"}
-              </button>
-            ))}
+        {/* Status Filter Tabs (scrollable flex on mobile, flex on desktop) */}
+        <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+          <div className="bg-gray-100 p-1 rounded-2xl flex items-center gap-1 w-max min-w-full sm:min-w-0 sm:w-auto">
+            {(
+              [
+                { id: "ALL", label: "All", shortLabel: "All" },
+                { id: "PENDING", label: "Pending", shortLabel: "Pending" },
+                { id: "VERIFIED", label: "Verified by SIBAT", shortLabel: "Verified (SIBAT)" },
+                { id: "APPROVED", label: "Approved", shortLabel: "Approved" },
+                { id: "REJECTED", label: "Flagged", shortLabel: "Flagged" },
+              ] as const
+            ).map((item) => {
+              const isActive = statusFilter === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onStatusChange(item.id as ValidationStatus)}
+                  className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider sm:tracking-widest transition-all text-center whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                    isActive
+                      ? item.id === "VERIFIED"
+                        ? "bg-sky-50 text-sky-800 shadow-sm ring-1 ring-sky-200"
+                        : "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-400 hover:text-gray-700"
+                  }`}
+                >
+                  {item.id === "VERIFIED" && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-sky-500" : "bg-sky-400/60"}`} />
+                  )}
+                  <span className="sm:hidden">{item.shortLabel}</span>
+                  <span className="hidden sm:inline">{item.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

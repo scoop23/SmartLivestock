@@ -133,7 +133,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
         onClick={onClick}
         className={cn(
           "group relative overflow-hidden rounded-2xl border-2 shadow-2xs transition-all duration-200",
-          "hover:-translate-y-0.5 hover:shadow-xs",
+          "hover:-translate-y-0.5 hover:shadow-xs flex justify-center",
           styles.card,
           onClick && "cursor-pointer",
           className
@@ -160,10 +160,8 @@ export const KpiCard: React.FC<KpiCardProps> = ({
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-[11px] font-bold text-stone-600 truncate leading-tight">{title}</p>
-              <div className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-tight mt-0.5">
-                {value}
-              </div>
+              <p className="text-[11px] font-bold text-stone-600 line-clamp-2 leading-tight">{title}</p>
+
               {description && (
                 <p className="text-[10px] text-stone-500 font-medium truncate mt-0.5">{description}</p>
               )}
@@ -171,14 +169,19 @@ export const KpiCard: React.FC<KpiCardProps> = ({
           </div>
 
           {badge && (
-            <span
-              className={cn(
-                "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 self-start text-[9px]",
-                badgeClassName || styles.badgeDefault
-              )}
-            >
-              {badge}
-            </span>
+            <div>
+              <span
+                className={cn(
+                  "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 self-start text-[9px]",
+                  badgeClassName || styles.badgeDefault
+                )}
+              >
+                {badge}
+              </span>
+              <div className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-tight mt-0.5">
+                {value}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -200,54 +203,54 @@ export const KpiCard: React.FC<KpiCardProps> = ({
       <CardContent className={cn("flex flex-col justify-between h-full relative z-10", isSm ? "p-3.5 sm:p-4" : "p-4 sm:p-5")}>
         <div>
           {/* Header Row: Icon + Badge */}
-          <div className={cn("flex items-center justify-between gap-2", isSm ? "mb-2" : "mb-3")}>
-            {icon && (
-              <div
-                className={cn(
-                  "transition-transform duration-200 group-hover:scale-105 shrink-0 flex items-center justify-center",
-                  isSm ? "p-2 rounded-lg text-sm [&_svg]:w-3.5 [&_svg]:h-3.5" : "p-2.5 rounded-xl",
-                  styles.iconWrapper
-                )}
-              >
-                {icon}
-              </div>
-            )}
-            {badge && (
-              <span
-                className={cn(
-                  "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap",
-                  isSm ? "text-[9px]" : "text-[10px] px-2.5 py-1",
-                  badgeClassName || styles.badgeDefault
-                )}
-              >
-                {badge}
-              </span>
-            )}
-          </div>
-
-          {/* Title / Label */}
-          <p className={cn("font-bold text-stone-600 truncate", isSm ? "text-[11px]" : "text-xs")}>{title}</p>
-
-          {/* Metric Value */}
-          <div className={cn("font-black text-slate-900 tracking-tight truncate", isSm ? "text-xl sm:text-2xl mt-0.5" : "text-2xl sm:text-3xl mt-1")}>
-            {value}
-          </div>
-
-          {/* Optional extra description */}
-          {description && (
-            <p className={cn("text-stone-500 font-medium truncate", isSm ? "text-[10px] mt-0.5" : "text-[11px] mt-1")}>{description}</p>
+        <div className={cn("flex items-center justify-between gap-2", isSm ? "mb-2" : "mb-3")}>
+          {icon && (
+            <div
+              className={cn(
+                "transition-transform duration-200 group-hover:scale-105 shrink-0 flex items-center justify-center",
+                isSm ? "p-2 rounded-lg text-sm [&_svg]:w-3.5 [&_svg]:h-3.5" : "p-2.5 rounded-xl",
+                styles.iconWrapper
+              )}
+            >
+              {icon}
+            </div>
+          )}
+          {badge && (
+            <span
+              className={cn(
+                "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap",
+                isSm ? "text-[9px]" : "text-[10px] px-2.5 py-1",
+                badgeClassName || styles.badgeDefault
+              )}
+            >
+              {badge}
+            </span>
           )}
         </div>
 
-        {/* Decorative bottom accent bar */}
-        <div
-          className={cn(
-            "h-1 rounded-full transition-all duration-300",
-            isSm ? "w-8 mt-2.5 group-hover:w-14" : "w-12 mt-4 group-hover:w-20",
-            accentBarColor || styles.accentBar
-          )}
-        />
-      </CardContent>
-    </Card>
+        {/* Title / Label */}
+        <p className={cn("font-bold text-stone-600 truncate", isSm ? "text-[11px]" : "text-xs")}>{title}</p>
+
+        {/* Metric Value */}
+        <div className={cn("font-black text-slate-900 tracking-tight truncate", isSm ? "text-xl sm:text-2xl mt-0.5" : "text-2xl sm:text-3xl mt-1")}>
+          {value}
+        </div>
+
+        {/* Optional extra description */}
+        {description && (
+          <p className={cn("text-stone-500 font-medium truncate", isSm ? "text-[10px] mt-0.5" : "text-[11px] mt-1")}>{description}</p>
+        )}
+      </div>
+
+        {/* Decorative bottom accent bar */ }
+    <div
+      className={cn(
+        "h-1 rounded-full transition-all duration-300",
+        isSm ? "w-8 mt-2.5 group-hover:w-14" : "w-12 mt-4 group-hover:w-20",
+        accentBarColor || styles.accentBar
+      )}
+    />
+      </CardContent >
+    </Card >
   );
 };

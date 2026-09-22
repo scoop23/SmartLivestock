@@ -25,6 +25,7 @@ import {
 import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
 import { DetailRecordData } from "../record-detail-dialog";
+import { getStatusPill } from "../validation-analytics";
 
 interface ProductionTableProps {
   records: ProductionRecordItem[];
@@ -58,6 +59,8 @@ export function ProductionTable({
     notes: prod.notes,
     status: prod.status,
     reviewRemarks: prod.reviewRemarks,
+    reviewedByName: prod.reviewedByName,
+    reviewedAt: prod.reviewedAt,
     createdAt: prod.createdAt,
   });
 
@@ -190,16 +193,16 @@ export function ProductionTable({
                       <TableCell className="px-8 py-5 text-center">
                         <Badge
                           variant="outline"
-                          className={`border-none text-[9px] font-black uppercase px-3 py-1 rounded-full ${
-                            statusNorm === "APPROVED"
-                              ? "bg-green-100 text-green-700"
-                              : statusNorm === "REJECTED" || statusNorm === "FLAGGED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
+                          className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${getStatusPill(prod.status).bg}`}
                         >
-                          {statusNorm === "APPROVED" ? "Approved" : statusNorm === "REJECTED" ? "Rejected" : "Pending"}
+                          <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(prod.status).dot}`} />
+                          {getStatusPill(prod.status).label}
                         </Badge>
+                        {statusNorm === "VERIFIED" && prod.reviewedByName && (
+                          <span className="block text-[8px] text-sky-700 font-bold tracking-tight mt-0.5">
+                            By {prod.reviewedByName}
+                          </span>
+                        )}
                       </TableCell>
 
                       <TableCell className="px-8 py-5">
@@ -228,9 +231,17 @@ export function ProductionTable({
                                 currentRemarks: prod.reviewRemarks,
                               })
                             }
-                            title={prod.status === "PENDING" ? "Validate & Certify" : "Re-evaluate"}
+                            title={
+                              prod.status === "VERIFIED"
+                                ? "MAO Approve SIBAT-Verified Record"
+                                : prod.status === "PENDING"
+                                ? "Validate & Certify"
+                                : "Re-evaluate"
+                            }
                             className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all ${
-                              prod.status === "PENDING"
+                              prod.status === "VERIFIED"
+                                ? "text-sky-700 hover:text-sky-900 bg-sky-50/70"
+                                : prod.status === "PENDING"
                                 ? "text-amber-600 hover:text-green-700"
                                 : "text-gray-400 hover:text-gray-900"
                             }`}
@@ -340,17 +351,19 @@ export function ProductionTable({
 
                   <Badge
                     variant="outline"
-                    className={`border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${
-                      statusNorm === "APPROVED"
-                        ? "bg-green-100 text-green-700"
-                        : statusNorm === "REJECTED" || statusNorm === "FLAGGED"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
+                    className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${getStatusPill(prod.status).bg}`}
                   >
-                    {statusNorm}
+                    <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(prod.status).dot}`} />
+                    {getStatusPill(prod.status).label}
                   </Badge>
                 </div>
+
+                {statusNorm === "VERIFIED" && prod.reviewedByName && (
+                  <div className="text-[10px] text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 flex items-center justify-between">
+                    <span className="font-bold">Verified by SIBAT Officer</span>
+                    <span className="font-mono font-bold">{prod.reviewedByName}</span>
+                  </div>
+                )}
 
                 {/* Info Pills */}
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -406,13 +419,21 @@ export function ProductionTable({
                       })
                     }
                     className={`flex-1 py-2.5 h-auto rounded-xl text-xs font-bold gap-1.5 shadow-xs ${
-                      prod.status === "PENDING"
+                      prod.status === "VERIFIED"
+                        ? "bg-sky-700 hover:bg-sky-800 text-white"
+                        : prod.status === "PENDING"
                         ? "bg-[#2D5A27] hover:bg-[#23471f] text-white"
                         : "bg-gray-900 hover:bg-gray-800 text-white"
                     }`}
                   >
                     <ShieldCheck size={15} />
-                    <span>{prod.status === "PENDING" ? "Validate" : "Re-evaluate"}</span>
+                    <span>
+                      {prod.status === "VERIFIED"
+                        ? "MAO Approve"
+                        : prod.status === "PENDING"
+                        ? "Validate"
+                        : "Re-evaluate"}
+                    </span>
                   </Button>
                 </div>
               </div>

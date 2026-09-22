@@ -100,21 +100,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true);
       const response = await api.get("/api/users/me/");
       const data = response.data;
+      const latestToken =
+        typeof window !== "undefined" ? localStorage.getItem("access") : token;
 
       setUser({
-        firstName: data.first_name,
-        lastName: data.last_name,
+        firstName: data.first_name || null,
+        lastName: data.last_name || null,
         email: data.email,
         role: data.role,
       });
-      setAccessToken(token);
+      setAccessToken(latestToken);
     } catch (error: any) {
       if (error?.response?.status === 401) {
         console.warn("Session expired. Clearing invalid token.");
         setUser(null);
         setAccessToken(null);
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("access");
+          localStorage.removeItem("refresh");
+        }
+      } else {
+        // Transient network error or temporary server error: maintain session from decoded JWT
+        try {
+          const currentToken =
+            typeof window !== "undefined" ? localStorage.getItem("access") : token;
+          if (currentToken) {
+            const decoded = jwtDecode<DecodedToken>(currentToken);
+            if (!decoded.exp || decoded.exp * 1000 > Date.now()) {
+              setUser((prev) => ({
+                firstName: prev?.firstName || null,
+                lastName: prev?.lastName || null,
+                email: decoded.email || prev?.email || null,
+                role: decoded.role || prev?.role || null,
+              }));
+              setAccessToken(currentToken);
+            }
+          }
+        } catch {
+          // ignore
+        }
       }
     } finally {
       setIsLoading(false);

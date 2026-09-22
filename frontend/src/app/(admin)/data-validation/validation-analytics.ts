@@ -17,7 +17,7 @@ import {
 
 export type ValidationDomain = "census" | "production" | "inventory" | "incidents";
 
-export type ValidationStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
+export type ValidationStatus = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
 
 export interface ValidationDomainConfig {
   id: ValidationDomain;
@@ -72,7 +72,7 @@ export interface ValidationInventoryItem {
   entryType: "INDIVIDUAL" | "BATCH";
   quantity: number;
   lastVaccinationDate: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
   reviewRemarks: string | null;
   reviewedBy?: string | null;
   reviewedAt?: string | null;
@@ -164,7 +164,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
         entryType: item.entry_type || "INDIVIDUAL",
         quantity: Number(item.quantity) || 1,
         lastVaccinationDate: item.last_vaccination_date || null,
-        status: (item.status || "PENDING").toUpperCase() as "PENDING" | "APPROVED" | "REJECTED",
+        status: (item.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
         reviewRemarks: item.review_remarks || null,
         reviewedBy: item.reviewed_by_name || null,
         reviewedAt: item.reviewed_at || null,
@@ -330,27 +330,31 @@ export function getStatusPill(status: string) {
   switch (norm) {
     case "APPROVED":
       return {
-        label: "Approved",
+        label: "MAO Certified",
+        shortLabel: "Approved",
         bg: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
         dot: "bg-emerald-500",
       };
     case "REJECTED":
     case "FLAGGED":
       return {
-        label: norm === "FLAGGED" ? "Flagged" : "Rejected",
+        label: norm === "FLAGGED" ? "Flagged" : "Rejected / Returned",
+        shortLabel: "Flagged",
         bg: "bg-rose-50 text-rose-700 border-rose-200/80",
         dot: "bg-rose-500",
       };
     case "VERIFIED":
       return {
-        label: "Verified (Field)",
+        label: "Verified by SIBAT",
+        shortLabel: "Verified",
         bg: "bg-sky-50 text-sky-700 border-sky-200/80",
         dot: "bg-sky-500",
       };
     case "PENDING":
     default:
       return {
-        label: "Pending Review",
+        label: "Awaiting SIBAT",
+        shortLabel: "Pending",
         bg: "bg-amber-50 text-amber-700 border-amber-200/80",
         dot: "bg-amber-500 animate-pulse",
       };

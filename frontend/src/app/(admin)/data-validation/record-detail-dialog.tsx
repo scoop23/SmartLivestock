@@ -41,6 +41,8 @@ export type DetailRecordData =
       status: string;
       remarks?: string;
       reviewRemarks?: string | null;
+      reviewedByName?: string | null;
+      reviewedAt?: string | null;
       items?: CensusItemEntry[];
     }
   | {
@@ -56,6 +58,8 @@ export type DetailRecordData =
       notes: string;
       status: string;
       reviewRemarks?: string | null;
+      reviewedByName?: string | null;
+      reviewedAt?: string | null;
       createdAt: string;
     }
   | {
@@ -73,6 +77,8 @@ export type DetailRecordData =
       lastVaccinationDate: string | null;
       status: string;
       reviewRemarks?: string | null;
+      reviewedByName?: string | null;
+      reviewedAt?: string | null;
       createdAt: string;
     }
   | {
@@ -85,6 +91,8 @@ export type DetailRecordData =
       date: string;
       status: string;
       reviewRemarks?: string | null;
+      reviewedByName?: string | null;
+      reviewedAt?: string | null;
       headCount?: number;
       weight?: string;
       tagNumber?: string;
@@ -406,8 +414,43 @@ export function RecordDetailDialog({
             </>
           )}
 
-          {/* Audit Remarks */}
-          {record.reviewRemarks && (
+          {/* SIBAT Field Verification Details */}
+          {(record.reviewedByName || statusNorm === "VERIFIED") && (
+            <div className="p-3.5 sm:p-4 bg-sky-50/70 border border-sky-100 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-sky-800 uppercase flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-sky-500" />
+                  Verified by SIBAT Field Officer
+                </span>
+                {record.reviewedAt && (
+                  <span className="text-[10px] font-bold text-sky-600">
+                    {new Date(record.reviewedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                )}
+              </div>
+              {record.reviewedByName && (
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-medium">SIBAT Technologist:</span>
+                  <span className="font-bold text-gray-900">{record.reviewedByName}</span>
+                </div>
+              )}
+              {record.reviewRemarks && (
+                <div className="pt-1 text-xs text-sky-950 bg-white/70 p-2.5 rounded-xl border border-sky-100">
+                  <span className="text-[9px] font-black text-sky-700 uppercase block mb-0.5">
+                    Field Officer Notes
+                  </span>
+                  <p className="italic">"{record.reviewRemarks}"</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Audit Remarks (If Approved/Rejected) */}
+          {record.reviewRemarks && statusNorm !== "VERIFIED" && !record.reviewedByName && (
             <div className="p-3.5 sm:p-4 bg-green-50 rounded-2xl space-y-1">
               <span className="text-[10px] font-black text-[#2D5A27] uppercase block">Official Audit Notes</span>
               <p className="text-xs text-[#2D5A27]">{record.reviewRemarks}</p>
@@ -426,7 +469,7 @@ export function RecordDetailDialog({
             Close
           </Button>
 
-          {record.status === "PENDING" && (
+          {(statusNorm === "PENDING" || statusNorm === "VERIFIED") && (
             <Button
               type="button"
               onClick={() => {
@@ -436,7 +479,7 @@ export function RecordDetailDialog({
               className="flex-1 py-4 sm:py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:shadow-xl transition-all gap-2"
             >
               <ShieldCheck size={18} />
-              <span>Validate & Certify</span>
+              <span>{statusNorm === "VERIFIED" ? "MAO Approve & Certify" : "Validate & Certify"}</span>
             </Button>
           )}
         </div>

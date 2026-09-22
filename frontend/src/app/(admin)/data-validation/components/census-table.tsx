@@ -24,6 +24,7 @@ import {
 import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
 import { DetailRecordData } from "../record-detail-dialog";
+import { getStatusPill } from "../validation-analytics";
 
 interface CensusTableProps {
   records: CensusSubmissionRecord[];
@@ -57,6 +58,8 @@ export function CensusTable({
     status: census.status,
     remarks: census.remarks,
     reviewRemarks: census.reviewRemarks,
+    reviewedByName: census.submittedBy,
+    reviewedAt: census.submissionDate,
     items: census.items,
   });
 
@@ -169,15 +172,10 @@ export function CensusTable({
                       <TableCell className="px-8 py-5 text-center">
                         <Badge
                           variant="outline"
-                          className={`border-none text-[9px] font-black uppercase px-3 py-1 rounded-full ${
-                            statusNorm === "APPROVED"
-                              ? "bg-green-100 text-green-700"
-                              : statusNorm === "REJECTED" || statusNorm === "FLAGGED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
+                          className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${getStatusPill(census.status).bg}`}
                         >
-                          {statusNorm === "APPROVED" ? "Approved" : statusNorm === "REJECTED" ? "Rejected" : "Pending"}
+                          <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(census.status).dot}`} />
+                          {getStatusPill(census.status).label}
                         </Badge>
                       </TableCell>
 
@@ -207,7 +205,11 @@ export function CensusTable({
                                 currentRemarks: census.reviewRemarks,
                               })
                             }
-                            title={census.status === "PENDING" ? "Validate & Certify" : "Re-evaluate"}
+                            title={
+                              census.status === "PENDING"
+                                ? "Validate & Certify"
+                                : "Re-evaluate"
+                            }
                             className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all ${
                               census.status === "PENDING"
                                 ? "text-amber-600 hover:text-green-700"
@@ -311,15 +313,10 @@ export function CensusTable({
 
                   <Badge
                     variant="outline"
-                    className={`border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${
-                      statusNorm === "APPROVED"
-                        ? "bg-green-100 text-green-700"
-                        : statusNorm === "REJECTED" || statusNorm === "FLAGGED"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
+                    className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${getStatusPill(census.status).bg}`}
                   >
-                    {statusNorm}
+                    <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(census.status).dot}`} />
+                    {getStatusPill(census.status).label}
                   </Badge>
                 </div>
 

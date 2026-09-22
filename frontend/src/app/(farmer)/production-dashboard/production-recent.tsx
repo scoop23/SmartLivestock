@@ -26,6 +26,7 @@ import ProductionRecordDialog from "./production-record-dialog";
 
 const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
+  VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
   REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200",
 };

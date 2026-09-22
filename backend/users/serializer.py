@@ -105,11 +105,19 @@ class RegisterSerializer(serializers.ModelSerializer):
         return f"FMR-{last_user + 1:06d}"
 
 
-class CurrentUserSerializer(serializers.Serializer):
-    first_name = serializers.CharField()
-    last_name = serializers.CharField()
-    email = serializers.EmailField()
-    role = serializers.CharField(source="role.role_name")
+class CurrentUserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "first_name", "last_name", "email", "role")
+
+    def get_role(self, obj):
+        if hasattr(obj, "role") and obj.role:
+            return obj.role.role_name
+        if obj.is_superuser or obj.is_staff:
+            return "MAO"
+        return "FARMER"
 
 
 class UserManagementSerializer(serializers.ModelSerializer):

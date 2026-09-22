@@ -32,6 +32,7 @@ import {
 
 const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  VERIFIED: "bg-sky-100 text-sky-800 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
   REJECTED: "bg-rose-100 text-rose-800 border-rose-200",
 };
@@ -119,6 +120,7 @@ export default function ProductionApprovalCard({
   }
 
   const isApproved = record.status === "APPROVED";
+  const isVerified = record.status === "VERIFIED";
   const isPending = record.status === "PENDING";
   const isRejected = record.status === "REJECTED";
 
@@ -132,6 +134,8 @@ export default function ProductionApprovalCard({
         className={`px-5 py-4 text-white ${
           isApproved
             ? "bg-gradient-to-r from-[#2D5A27] via-[#356B2E] to-[#47873E]"
+            : isVerified
+            ? "bg-gradient-to-r from-sky-600 via-sky-600 to-sky-700"
             : isPending
             ? "bg-gradient-to-r from-amber-600 via-amber-600 to-amber-700"
             : "bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700"
@@ -244,6 +248,43 @@ export default function ProductionApprovalCard({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {isVerified && (
+          <div className="space-y-3">
+            <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 flex items-start gap-3">
+              <div className="size-8 rounded-lg bg-sky-100 border border-sky-200 flex items-center justify-center text-sky-700 shrink-0 mt-0.5">
+                <ShieldCheck className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-sky-900">
+                    Verified by SIBAT Field Officer
+                  </h4>
+                  <Badge className="bg-sky-600 text-white text-[9px] px-1.5 py-0 font-bold hover:bg-sky-600">
+                    Ready for MAO
+                  </Badge>
+                </div>
+                <p className="text-xs text-sky-800 mt-1 leading-relaxed">
+                  Your entry has been field-verified by SIBAT and is awaiting final MAO certification.
+                </p>
+              </div>
+            </div>
+
+            {record.reviewRemarks && (
+              <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3.5 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-sky-800">
+                  <MessageSquareQuote className="size-4" />
+                  <p className="text-xs font-bold uppercase tracking-wider">
+                    SIBAT Inspection Notes
+                  </p>
+                </div>
+                <p className="text-xs text-sky-900 italic">
+                  &ldquo;{record.reviewRemarks}&rdquo;
+                </p>
+              </div>
+            )}
           </div>
         )}
 

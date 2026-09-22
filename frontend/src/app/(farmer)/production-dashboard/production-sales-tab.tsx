@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/select";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
-import type { LivestockInventoryItem } from "../livestock-inventory/page";
+import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 
 export interface LiveSaleItem {
   id: number;

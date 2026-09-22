@@ -36,16 +36,16 @@ interface ValidationReviewDialogProps {
 }
 
 const PRESET_APPROVAL_NOTES = [
-  "Verified against barangay survey records.",
-  "Inspected & certified by Municipal Agriculture Office.",
+  "SIBAT field inspection report confirmed & certified by MAO.",
+  "Verified against SIBAT technologist assessment and barangay records.",
   "Data cross-checked with cooperative collection logs.",
-  "Ear tag & health credentials confirmed.",
+  "Ear tag, livestock health credentials, and count verified.",
 ];
 
 const PRESET_REJECTION_NOTES = [
-  "Discrepancy in recorded animal head counts.",
-  "Missing required inspection certification.",
-  "Volume exceeds biological baseline; please re-verify.",
+  "Discrepancy with SIBAT field inspection findings.",
+  "Missing required field inspection certification.",
+  "Volume exceeds biological baseline; returned for SIBAT re-check.",
   "Incorrect ear tag or farmer profile association.",
 ];
 

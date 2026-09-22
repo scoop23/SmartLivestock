@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Scale,
   ShieldCheck,
+  ShoppingBag,
   TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import ProductionCalvingTab, {
   CalvingRecordItem,
 } from "./production-calving-tab";
 import ProductionWeightTab from "./production-weight-tab";
+import ProductionSalesTab from "./production-sales-tab";
 import ProductionForecastsTab from "./production-forecasts-tab";
 import { ENTERPRISE_CONFIGS } from "./production-enterprise-hub";
 import ProductionWizard from "./production-wizard";
@@ -86,9 +88,9 @@ export default function ProductionDashboardView({
   const [formState, setFormState] = useState<Record<string, string | number>>({});
   const [resetSignal, setResetSignal] = useState(0);
 
-  // Main Tabs State: "production" | "calving" | "weights" | "forecasts"
+  // Main Tabs State: "production" | "calving" | "weights" | "sales" | "forecasts"
   const [activeMainTab, setActiveMainTab] = useState<
-    "production" | "calving" | "weights" | "forecasts"
+    "production" | "calving" | "weights" | "sales" | "forecasts"
   >("production");
 
   // Fetch Inventory with standard hook & mapper
@@ -460,6 +462,19 @@ export default function ProductionDashboardView({
 
         <button
           type="button"
+          onClick={() => setActiveMainTab("sales")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
+            activeMainTab === "sales"
+              ? "bg-emerald-800 text-white shadow-emerald-950/20"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+          }`}
+        >
+          <ShoppingBag className="size-4" />
+          <span>Live Sales & Outlets</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveMainTab("forecasts")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
             activeMainTab === "forecasts"
@@ -553,7 +568,12 @@ export default function ProductionDashboardView({
         <ProductionWeightTab approvedInventories={filteredInventories} />
       )}
 
-      {/* Tab 4: Forecasts & Analytics */}
+      {/* Tab 4: Live Animal Sales & Commercial Outlets */}
+      {activeMainTab === "sales" && (
+        <ProductionSalesTab approvedInventories={approvedInventories} />
+      )}
+
+      {/* Tab 5: Forecasts & Analytics */}
       {activeMainTab === "forecasts" && (
         <ProductionForecastsTab
           inventories={filteredInventories}

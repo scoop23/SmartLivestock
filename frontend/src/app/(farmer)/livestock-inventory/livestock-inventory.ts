@@ -202,7 +202,7 @@ export async function fetchLivestockTypesMap(): Promise<Record<string, number>> 
 }
 
 export async function fetchUserInventory(): Promise<LivestockInventoryItem[]> {
-  const res = await api.get<InventoryApiItem[]>("livestock/inventory/");
+  const res = await api.get<InventoryApiItem[]>("livestock/inventory/?mine=true");
   return res.data.map(mapInventory);
 }
 

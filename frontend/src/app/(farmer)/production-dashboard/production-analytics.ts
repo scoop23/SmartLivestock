@@ -7,7 +7,7 @@ import api from "@/lib/axios";
 // Production Analytics types
 // ---------------------------------------------------------------------------
 
-export type ProductionStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
 
 export type ProductionType = "milk" | "meat" | "eggs" | "wool";
 
@@ -94,6 +94,8 @@ export interface ProductionRecordItem {
   notes: string;
   status: ProductionStatus;
   reviewRemarks: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
   createdAt: string;
 }
 
@@ -110,6 +112,8 @@ export interface ApiProductionRecord {
   notes?: string;
   status: ProductionStatus;
   review_remarks?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
   created_at: string;
 }
 
@@ -126,6 +130,8 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   notes: item.notes ?? "",
   status: item.status,
   reviewRemarks: item.review_remarks ?? null,
+  reviewedByName: item.reviewed_by_name ?? null,
+  reviewedAt: item.reviewed_at ?? null,
   createdAt: item.created_at,
 });
 

@@ -66,6 +66,8 @@ export function IncidentsTable({
     date: inc.date,
     status: inc.status,
     reviewRemarks: inc.reviewRemarks,
+    reviewedByName: inc.reviewedBy,
+    reviewedAt: inc.reviewedAt,
     headCount: inc.headCount,
     weight: inc.weight,
     tagNumber: inc.tagNumber,
@@ -248,6 +250,11 @@ export function IncidentsTable({
                           <span className={`size-1.5 rounded-full mr-1.5 ${statusPill.dot}`} />
                           {statusPill.label}
                         </Badge>
+                        {(inc.status === "VERIFIED" || statusPill.label.includes("Verified")) && inc.reviewedBy && (
+                          <span className="block text-[8px] text-sky-700 font-bold tracking-tight mt-0.5">
+                            By {inc.reviewedBy}
+                          </span>
+                        )}
                       </TableCell>
 
                       <TableCell className="px-8 py-5 text-center">
@@ -383,9 +390,17 @@ export function IncidentsTable({
                     variant="outline"
                     className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${statusPill.bg}`}
                   >
+                    <span className={`size-1.5 rounded-full mr-1.5 ${statusPill.dot}`} />
                     {statusPill.label}
                   </Badge>
                 </div>
+
+                {(inc.status === "VERIFIED" || statusPill.label.includes("Verified")) && inc.reviewedBy && (
+                  <div className="text-[10px] text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 flex items-center justify-between">
+                    <span className="font-bold">Verified by SIBAT Officer</span>
+                    <span className="font-mono font-bold">{inc.reviewedBy}</span>
+                  </div>
+                )}
 
                 {/* Details snippet */}
                 <div className="p-3 bg-gray-50 rounded-2xl text-xs text-gray-700 font-medium leading-relaxed">

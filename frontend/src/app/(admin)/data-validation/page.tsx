@@ -172,6 +172,7 @@ export default function AdminDataValidationPage() {
     ];
 
     const pending = allRecords.filter((r) => (r.status || "PENDING").toUpperCase() === "PENDING").length;
+    const verified = allRecords.filter((r) => (r.status || "").toUpperCase() === "VERIFIED").length;
     const approved = allRecords.filter((r) => (r.status || "").toUpperCase() === "APPROVED").length;
     const flagged = allRecords.filter((r) => {
       const s = (r.status || "").toUpperCase();
@@ -180,15 +181,15 @@ export default function AdminDataValidationPage() {
 
     const activeBarangays = new Set(allRecords.map((r) => r.barangay).filter(Boolean)).size;
 
-    return { pending, approved, flagged, activeBarangays };
+    return { pending, verified, approved, flagged, activeBarangays };
   }, [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
   // Tab Badge Counters
   const domainPendingCounts = useMemo(() => ({
     census: censusSubmissions.filter((c) => c.status === "PENDING").length,
-    production: productionRecords.filter((p) => p.status === "PENDING").length,
-    inventory: inventoryRecords.filter((i) => i.status === "PENDING").length,
-    incidents: incidents.filter((inc) => inc.status === "PENDING").length,
+    production: productionRecords.filter((p) => p.status === "PENDING" || p.status === "VERIFIED").length,
+    inventory: inventoryRecords.filter((i) => i.status === "PENDING" || i.status === "VERIFIED").length,
+    incidents: incidents.filter((inc) => inc.status === "PENDING" || inc.status === "VERIFIED").length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
   // ── Filtered Domain Data ──
