@@ -45,20 +45,21 @@ interface TypeSummary {
   pending: number;
 }
 
+interface SpeciesVisualConfig {
+  icon: React.ElementType;
+  image?: string;
+  cardBg: string;
+  border: string;
+  iconBg: string;
+  iconColor: string;
+  chip: string;
+}
+
 // Species-specific visual styling & icons
-const SPECIES_CONFIG: Record<
-  string,
-  {
-    icon: React.ElementType;
-    cardBg: string;
-    border: string;
-    iconBg: string;
-    iconColor: string;
-    chip: string;
-  }
-> = {
+const SPECIES_CONFIG: Record<string, SpeciesVisualConfig> = {
   Cattle: {
     icon: Beef,
+    image: "/images/species-cattle.jpg",
     cardBg: "bg-emerald-50/40 hover:bg-emerald-50/70",
     border: "border-emerald-900/15",
     iconBg: "bg-emerald-900/10",
@@ -67,6 +68,7 @@ const SPECIES_CONFIG: Record<
   },
   Carabao: {
     icon: Shield,
+    image: "/images/species-carabao.jpg",
     cardBg: "bg-teal-50/40 hover:bg-teal-50/70",
     border: "border-teal-900/15",
     iconBg: "bg-teal-900/10",
@@ -75,6 +77,7 @@ const SPECIES_CONFIG: Record<
   },
   Goat: {
     icon: Sparkles,
+    image: "/images/species-goat.jpg",
     cardBg: "bg-amber-50/40 hover:bg-amber-50/70",
     border: "border-amber-900/15",
     iconBg: "bg-amber-900/10",
@@ -91,6 +94,7 @@ const SPECIES_CONFIG: Record<
   },
   Swine: {
     icon: Layers,
+    image: "/images/species-swine.jpg",
     cardBg: "bg-sky-50/40 hover:bg-sky-50/70",
     border: "border-sky-900/15",
     iconBg: "bg-sky-900/10",
@@ -107,7 +111,7 @@ const SPECIES_CONFIG: Record<
   },
 };
 
-const DEFAULT_SPECIES_CONFIG = {
+const DEFAULT_SPECIES_CONFIG: SpeciesVisualConfig = {
   icon: Tag,
   cardBg: "bg-slate-50/50 hover:bg-slate-50/80",
   border: "border-slate-900/10",
@@ -116,7 +120,7 @@ const DEFAULT_SPECIES_CONFIG = {
   chip: "bg-slate-900/10 text-slate-950 font-bold border-slate-900/20",
 };
 
-function getSpeciesConfig(name: string) {
+function getSpeciesConfig(name: string): SpeciesVisualConfig {
   const key = Object.keys(SPECIES_CONFIG).find((k) =>
     name.toLowerCase().includes(k.toLowerCase())
   );
@@ -245,69 +249,108 @@ export default function LivestockTypeCards({
               <Card
                 key={type.name}
                 onClick={() => onSelectType(type.name)}
-                className={`group relative overflow-hidden rounded-2xl border-2 ${config.border} ${config.cardBg} shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between p-4 space-y-3.5`}
+                className={`group relative overflow-hidden rounded-2xl border-2 ${config.border} ${config.cardBg} shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between`}
               >
-                {/* Header: Icon Box + Title + Head Count Pill */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`p-2.5 rounded-xl ${config.iconBg} shrink-0`}>
-                      <Icon className={`size-5 ${config.iconColor}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <CardTitle className="text-xl font-black text-emerald-950 tracking-tight truncate">
-                        {type.name}
-                      </CardTitle>
-                      <CardDescription className="text-xs font-semibold text-stone-600 truncate mt-0.5">
-                        {type.approved} verified • {type.batches + type.individuals} entries
-                      </CardDescription>
-                    </div>
-                  </div>
-
-                  <Badge
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider shrink-0 ${config.chip}`}
-                  >
-                    {type.heads} {type.heads === 1 ? "head" : "heads"}
-                  </Badge>
-                </div>
-
-                {/* Progress Bar of Approved Ratio */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-stone-600">
-                    <span>Registry Verification</span>
-                    <span className="font-bold text-emerald-950">{approvedRate}%</span>
-                  </div>
-                  <div className="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-emerald-600 h-full rounded-full transition-all duration-300"
-                      style={{ width: `${approvedRate}%` }}
+                {/* Visual Image Banner (if available) */}
+                {config.image ? (
+                  <div className="relative w-full h-36 overflow-hidden bg-slate-100 shrink-0">
+                    <img
+                      src={config.image}
+                      alt={type.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                  </div>
-                </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/85 via-emerald-950/25 to-transparent" />
 
-                {/* Inner Stat Pill Cards */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2 rounded-xl bg-white/80 border border-emerald-900/10 shadow-2xs flex flex-col">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">
-                      Batches
-                    </span>
-                    <span className="font-extrabold text-emerald-950 leading-tight">
-                      {type.batches} groups
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white/80 border border-emerald-900/10 shadow-2xs flex flex-col">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">
-                      Individual Tags
-                    </span>
-                    <span className="font-extrabold text-emerald-950 leading-tight">
-                      {type.individuals} tagged
-                    </span>
-                  </div>
-                </div>
+                    {/* Top Head Count Pill */}
+                    <div className="absolute top-2.5 right-2.5">
+                      <Badge
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider backdrop-blur-md shadow-xs ${config.chip}`}
+                      >
+                        {type.heads} {type.heads === 1 ? "head" : "heads"}
+                      </Badge>
+                    </div>
 
-                {/* Bottom Action Button */}
-                <Button className="w-full h-9 rounded-xl bg-emerald-950 text-white font-extrabold text-xs hover:bg-emerald-900 transition-colors shadow-xs flex items-center justify-center gap-1.5">
-                  Manage {type.name} <ChevronRight className="size-3.5" />
-                </Button>
+                    {/* Bottom Overlay Title + Icon */}
+                    <div className="absolute bottom-2.5 left-3 right-3 flex items-center gap-2.5 min-w-0">
+                      <div className={`p-1.5 rounded-lg ${config.iconBg} bg-white/95 backdrop-blur-md shrink-0 shadow-xs border border-white/60`}>
+                        <Icon className={`size-4 ${config.iconColor}`} />
+                      </div>
+                      <div className="min-w-0 text-white drop-shadow-sm">
+                        <CardTitle className="text-lg font-black tracking-tight truncate leading-tight text-white">
+                          {type.name}
+                        </CardTitle>
+                        <CardDescription className="text-[11px] font-medium text-white/85 truncate">
+                          {type.approved} verified • {type.batches + type.individuals} entries
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Standard Header: Icon Box + Title + Head Count Pill */
+                  <div className="p-4 pb-0 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`p-2.5 rounded-xl ${config.iconBg} shrink-0`}>
+                        <Icon className={`size-5 ${config.iconColor}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <CardTitle className="text-xl font-black text-emerald-950 tracking-tight truncate">
+                          {type.name}
+                        </CardTitle>
+                        <CardDescription className="text-xs font-semibold text-stone-600 truncate mt-0.5">
+                          {type.approved} verified • {type.batches + type.individuals} entries
+                        </CardDescription>
+                      </div>
+                    </div>
+
+                    <Badge
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider shrink-0 ${config.chip}`}
+                    >
+                      {type.heads} {type.heads === 1 ? "head" : "heads"}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Card Body Details */}
+                <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+                  {/* Progress Bar of Approved Ratio */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-stone-600">
+                      <span>Registry Verification</span>
+                      <span className="font-bold text-emerald-950">{approvedRate}%</span>
+                    </div>
+                    <div className="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${approvedRate}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Inner Stat Pill Cards */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded-xl bg-white/80 border border-emerald-900/10 shadow-2xs flex flex-col">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">
+                        Batches
+                      </span>
+                      <span className="font-extrabold text-emerald-950 leading-tight">
+                        {type.batches} groups
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/80 border border-emerald-900/10 shadow-2xs flex flex-col">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">
+                        Individual Tags
+                      </span>
+                      <span className="font-extrabold text-emerald-950 leading-tight">
+                        {type.individuals} tagged
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Button */}
+                  <Button className="w-full h-9 rounded-xl bg-emerald-950 text-white font-extrabold text-xs hover:bg-emerald-900 transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                    Manage {type.name} <ChevronRight className="size-3.5" />
+                  </Button>
+                </div>
               </Card>
             );
           })}
@@ -350,12 +393,22 @@ export default function LivestockTypeCards({
                       onClick={() => onSelectType(type.name)}
                       className="cursor-pointer border-b border-slate-100 hover:bg-emerald-50/40 transition-colors"
                     >
-                      {/* Livestock Type Name + Icon */}
-                      <TableCell className="py-3.5 pl-5">
+                      {/* Livestock Type Name + Icon + Thumbnail */}
+                      <TableCell className="py-3 pl-5">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${config.iconBg} shrink-0`}>
-                            <Icon className={`size-4 ${config.iconColor}`} />
-                          </div>
+                          {config.image ? (
+                            <div className="relative size-10 rounded-xl overflow-hidden shrink-0 border border-slate-200/90 shadow-2xs">
+                              <img
+                                src={config.image}
+                                alt={type.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className={`p-2 rounded-xl ${config.iconBg} shrink-0`}>
+                              <Icon className={`size-4 ${config.iconColor}`} />
+                            </div>
+                          )}
                           <div>
                             <p className="font-black text-sm text-emerald-950">{type.name}</p>
                             <p className="text-[11px] font-semibold text-stone-500">
