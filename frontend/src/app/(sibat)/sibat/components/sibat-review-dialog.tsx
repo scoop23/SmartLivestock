@@ -64,9 +64,9 @@ export default function SibatReviewDialog({
   const isPending = submission.status === "PENDING";
   const isVerified = submission.status === "VERIFIED";
   const isApproved = submission.status === "APPROVED";
-  const isRejected = submission.status === "REJECTED";
+  const isRejected = submission.status === "SUBJECT_TO_REVISION" || submission.status === "REJECTED";
 
-  const handleReviewAction = (newStatus: "VERIFIED" | "REJECTED") => {
+  const handleReviewAction = (newStatus: "VERIFIED" | "SUBJECT_TO_REVISION") => {
     reviewMutation.mutate(
       {
         item: submission,
@@ -78,14 +78,13 @@ export default function SibatReviewDialog({
           if (newStatus === "VERIFIED") {
             toast.success("Submission verified and forwarded to MAO queue for municipal approval.");
           } else {
-            toast.info("Submission returned for revision with reviewer remarks.");
+            toast.success("Submission returned to raiser for revision & clarification.");
           }
           onOpenChange(false);
-          onReviewSuccess?.();
         },
-        onError: (err: any) => {
-          const msg = err?.response?.data?.error || "Failed to submit review action.";
-          toast.error(msg);
+        onError: (err) => {
+          console.error("Failed to submit review action:", err);
+          toast.error("Failed to update status. Please try again.");
         },
       }
     );
@@ -380,7 +379,7 @@ export default function SibatReviewDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => handleReviewAction("REJECTED")}
+                onClick={() => handleReviewAction("SUBJECT_TO_REVISION")}
                 disabled={reviewMutation.isPending}
                 className="border-amber-300 text-amber-900 hover:bg-amber-50 font-bold text-xs rounded-xl gap-1.5 flex-1 sm:flex-initial"
               >

@@ -97,7 +97,7 @@ def review_census_submission(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (APPROVED or REJECTED)."},
+            {"error": "status is required (APPROVED or SUBJECT_TO_REVISION)."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 

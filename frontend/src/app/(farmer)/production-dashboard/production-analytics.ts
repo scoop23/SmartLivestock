@@ -7,7 +7,7 @@ import api from "@/lib/axios";
 // Production Analytics types
 // ---------------------------------------------------------------------------
 
-export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export type ProductionType = "milk" | "meat" | "eggs" | "wool";
 

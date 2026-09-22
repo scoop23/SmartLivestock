@@ -163,7 +163,12 @@ class Command(BaseCommand):
         parser.add_argument(
             "--clean",
             action="store_true",
-            help="Deletes only the seeded test farmers, inventories, and users (reverts the seed data).",
+            help="Deletes seeded test farmers, inventories, and users (reverts the seed data).",
+        )
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Used with --clean to delete ALL farmer records, inventories, disease cases, mortalities, production records, sales, clearances, and census submissions (preserving only Roles, Barangays, and Admin/MAO/SIBAT staff).",
         )
 
     @transaction.atomic
@@ -172,23 +177,94 @@ class Command(BaseCommand):
         # REVERT / CLEAN MODE
         # -------------------------------------------------------------------
         if options["clean"]:
-            self.stdout.write(self.style.WARNING("🧹 Cleaning up seeded test data..."))
+            from diseases.models import DiseaseCase, MortalityRecord
+            from production.models import (
+                ProductionRecord, SlaughterRecord, LiveAnimalSale,
+                WeightRecord, CalvingRecord, AnimalDisposition
+            )
+            from movements.models import (
+                LivestockInspectionClearance, MeatMovementRecord,
+                LivestockInspectionItem, LivestockInspection
+            )
+            from livestock.models import CensusSubmissionItem, CensusSubmission
+
+            if options.get("all"):
+                self.stdout.write(self.style.WARNING("Cleaning up ALL operational data (farmers, herds, health, production, census, movements)..."))
+
+                # Delete all health & mortalities
+                d_cnt = DiseaseCase.objects.all().delete()[0]
+                m_cnt = MortalityRecord.objects.all().delete()[0]
+
+                # Delete all clearances & movements
+                mm_cnt = MeatMovementRecord.objects.all().delete()[0]
+                lic_cnt = LivestockInspectionClearance.objects.all().delete()[0]
+                lii_cnt = LivestockInspectionItem.objects.all().delete()[0]
+                li_cnt = LivestockInspection.objects.all().delete()[0]
+
+                # Delete all production & dispositions
+                pr_cnt = ProductionRecord.objects.all().delete()[0]
+                sr_cnt = SlaughterRecord.objects.all().delete()[0]
+                las_cnt = LiveAnimalSale.objects.all().delete()[0]
+                w_cnt = WeightRecord.objects.all().delete()[0]
+                c_cnt = CalvingRecord.objects.all().delete()[0]
+                ad_cnt = AnimalDisposition.objects.all().delete()[0]
+
+                # Delete all census records
+                csi_cnt = CensusSubmissionItem.objects.all().delete()[0]
+                cs_cnt = CensusSubmission.objects.all().delete()[0]
+
+                # Delete all livestock inventories
+                inv_cnt = LivestockInventory.objects.all().delete()[0]
+
+                # Delete all farmers
+                f_cnt = Farmer.objects.all().delete()[0]
+
+                # Delete farmer user accounts, keeping Admin/SIBAT/MAO
+                u_cnt = User.objects.filter(role__role_name=Role.UserRoles.FARMER).delete()[0]
+
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Complete Database Cleanup Finished!\n"
+                        f"   - Removed {inv_cnt} livestock inventories\n"
+                        f"   - Removed {f_cnt} farmer profiles & {u_cnt} farmer user accounts\n"
+                        f"   - Removed {d_cnt} disease cases & {m_cnt} mortality logs\n"
+                        f"   - Removed {pr_cnt} production, {sr_cnt} slaughter, {las_cnt} live animal sales, {mm_cnt} meat movements\n"
+                        f"   - Removed {cs_cnt} census submissions ({csi_cnt} line items)\n"
+                        f"   - Preserved system Roles, Barangays, LivestockTypes, and Staff/Admin accounts."
+                    )
+                )
+                return
+
+            self.stdout.write(self.style.WARNING("Cleaning up seeded test data..."))
             
             # Find all users with email ending in @smartlivestock.ph
             seeded_users = User.objects.filter(email__endswith="@smartlivestock.ph")
             user_count = seeded_users.count()
 
-            # Delete related livestock inventories and farmer profiles
+            # Delete related livestock inventories, dependent records, and farmer profiles
             farmers = Farmer.objects.filter(user__in=seeded_users)
             farmer_count = farmers.count()
 
-            LivestockInventory.objects.filter(farmer__in=farmers).delete()
+            inventories = LivestockInventory.objects.filter(farmer__in=farmers)
+            DiseaseCase.objects.filter(livestock__in=inventories).delete()
+            MortalityRecord.objects.filter(livestock__in=inventories).delete()
+            ProductionRecord.objects.filter(livestock__in=inventories).delete()
+            SlaughterRecord.objects.filter(livestock__in=inventories).delete()
+            LiveAnimalSale.objects.filter(livestock__in=inventories).delete()
+            WeightRecord.objects.filter(livestock__in=inventories).delete()
+            CalvingRecord.objects.filter(dam__in=inventories).delete()
+            AnimalDisposition.objects.filter(livestock__in=inventories).delete()
+
+            CensusSubmissionItem.objects.filter(farmer__in=farmers).delete()
+            LivestockInspection.objects.filter(shipper__in=farmers).delete()
+
+            inventories.delete()
             farmers.delete()
             seeded_users.delete()
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"✅ Cleanup Complete! Reverted {farmer_count} farmers, their inventories, and {user_count} user accounts.\n"
+                    f"Cleanup Complete! Reverted {farmer_count} farmers, their inventories, dependent health/production logs, and {user_count} user accounts.\n"
                     f"   (Barangays and Roles were preserved)."
                 )
             )

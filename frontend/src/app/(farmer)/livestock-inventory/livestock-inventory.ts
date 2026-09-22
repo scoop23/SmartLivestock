@@ -2,7 +2,7 @@ import api from "@/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type EntryType = "INDIVIDUAL" | "BATCH";
-export type StatusType = "PENDING" | "APPROVED" | "REJECTED";
+export type StatusType = "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export interface LivestockType {
   id: number;

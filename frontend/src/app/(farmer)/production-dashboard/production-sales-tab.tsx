@@ -58,7 +58,7 @@ export interface LiveSaleItem {
   destination: string;
   sale_date: string;
   purpose: "BREEDING" | "FATTENING" | "SLAUGHTER" | "UNKNOWN";
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   created_at: string;
 }
 

@@ -100,7 +100,7 @@ class LivestockInspectionClearance(models.Model):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     inspection = models.OneToOneField(
         LivestockInspection,
@@ -145,7 +145,7 @@ class LivestockInspectionClearance(models.Model):
     )
 
     status = models.CharField(
-        max_length=20,
+        max_length=25,
         choices=StatusType.choices,
         default=StatusType.PENDING,
     )
@@ -191,7 +191,7 @@ class MeatMovementRecord(models.Model):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     slaughter = models.ForeignKey(
         "production.SlaughterRecord",
@@ -240,7 +240,7 @@ class MeatMovementRecord(models.Model):
     movement_date = models.DateField()
 
     status = models.CharField(
-        max_length=20,
+        max_length=25,
         choices=StatusType.choices,
         default=StatusType.PENDING,
     )

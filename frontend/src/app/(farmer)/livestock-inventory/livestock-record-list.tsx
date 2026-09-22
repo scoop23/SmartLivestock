@@ -60,6 +60,7 @@ const getStatusBadge = (status: StatusType) => {
           Pending Review
         </Badge>
       );
+    case "SUBJECT_TO_REVISION":
     case "REJECTED":
       return (
         <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 flex items-center gap-1 font-bold text-[11px]">
@@ -101,7 +102,7 @@ export const STATUS_CHIPS: {
       dotClass: "bg-amber-500",
     },
     {
-      value: "REJECTED",
+      value: "SUBJECT_TO_REVISION",
       label: "Subject to Revision",
       icon: RotateCcw,
       activeClass: "bg-amber-700 text-white border-amber-700 shadow-sm",
@@ -166,11 +167,13 @@ export default function LivestockRecordList({
       ALL: items.length,
       APPROVED: 0,
       PENDING: 0,
+      SUBJECT_TO_REVISION: 0,
       REJECTED: 0,
     };
     items.forEach((item) => {
       counts[item.status] = (counts[item.status] ?? 0) + 1;
     });
+    counts["SUBJECT_TO_REVISION"] = (counts["SUBJECT_TO_REVISION"] ?? 0) + (counts["REJECTED"] ?? 0);
     return counts;
   }, [items]);
 
@@ -184,7 +187,10 @@ export default function LivestockRecordList({
         item?.tagNumber?.toLowerCase().includes(query) ||
         item.breed.toLowerCase().includes(query) ||
         item.livestockTypeName.toLowerCase().includes(query);
-      const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "ALL" ||
+        item.status === statusFilter ||
+        (statusFilter === "SUBJECT_TO_REVISION" && (item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED"));
       const matchesEntryType = entryTypeFilter === "ALL" || item.entryType === entryTypeFilter;
       const matchesType = typeFilter === "ALL" || item.livestockTypeName === typeFilter;
       return matchesSearch && matchesStatus && matchesEntryType && matchesType;

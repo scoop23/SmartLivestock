@@ -122,7 +122,7 @@ def review_disease_case(request, pk):
     POST /diseases/cases/<pk>/review/
     Review and update the status of a disease case:
     - SIBAT: Can verify (status = VERIFIED)
-    - MAO: Final municipal approval (status = APPROVED or REJECTED)
+    - MAO: Final municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
     record = get_object_or_404(DiseaseCase, pk=pk)
     new_status = request.data.get("status")
@@ -130,7 +130,7 @@ def review_disease_case(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
+            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -145,9 +145,9 @@ def review_disease_case(request, pk):
             raise PermissionDenied(
                 "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
             )
-        if new_status not in [DiseaseCase.DiseaseStatus.VERIFIED, DiseaseCase.DiseaseStatus.REJECTED]:
+        if new_status not in [DiseaseCase.DiseaseStatus.VERIFIED, DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION]:
             return Response(
-                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or REJECTED."},
+                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif role_name == "MAO":
@@ -285,7 +285,7 @@ def review_mortality_record(request, pk):
     POST /diseases/mortality/<pk>/review/
     Review and update the status of a mortality record:
     - SIBAT: Can verify on-farm (status = VERIFIED)
-    - MAO: Final municipal approval (status = APPROVED or REJECTED)
+    - MAO: Final municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
     record = get_object_or_404(MortalityRecord, pk=pk)
     new_status = request.data.get("status")
@@ -293,7 +293,7 @@ def review_mortality_record(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
+            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -308,9 +308,9 @@ def review_mortality_record(request, pk):
             raise PermissionDenied(
                 "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
             )
-        if new_status not in [MortalityRecord.MortalityRecordStatus.VERIFIED, MortalityRecord.MortalityRecordStatus.REJECTED]:
+        if new_status not in [MortalityRecord.MortalityRecordStatus.VERIFIED, MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION]:
             return Response(
-                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or REJECTED."},
+                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif role_name == "MAO":

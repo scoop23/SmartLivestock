@@ -55,7 +55,7 @@ class LivestockInventory(models.Model):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
 
     farmer = models.ForeignKey(
@@ -107,7 +107,7 @@ class CensusSubmission(models.Model):
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     barangay = models.ForeignKey(
         Barangay, on_delete=models.PROTECT, related_name="barangay_census_submission"
@@ -128,7 +128,7 @@ class CensusSubmission(models.Model):
     submission_date = models.DateField(auto_now_add=True)
 
     status = models.CharField(
-        max_length=20, choices=StatusType.choices, default=StatusType.PENDING
+        max_length=25, choices=StatusType.choices, default=StatusType.PENDING
     )
 
     reviewed_by = models.ForeignKey(

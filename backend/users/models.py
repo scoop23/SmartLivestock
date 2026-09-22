@@ -11,11 +11,11 @@ class User(AbstractUser):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
 
-    # Account lifecycle: PENDING (after registration) → APPROVED (by admin) → REJECTED or SUSPENDED
+    # Account lifecycle: PENDING (after registration) → APPROVED (by admin) → SUBJECT_TO_REVISION or SUSPENDED
     class AccountStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
         SUSPENDED = "SUSPENDED", "Suspended"
 
     account_status = models.CharField(
@@ -58,7 +58,7 @@ class Role(models.Model):
 
 # Documents uploaded by farmers during registration for identity verification.
 # RSBSA = Registry System for Basic Sectors in Agriculture (government farmer ID)
-# Documents go through PENDING → APPROVED/REJECTED workflow before the farmer's account is activated
+# Documents go through PENDING → APPROVED/SUBJECT_TO_REVISION workflow before the farmer's account is activated
 class UserDocument(models.Model):
     class DocumentType(models.TextChoices):
         RSBSA = "RSBSA", "RSBSA Certificate"
@@ -69,7 +69,7 @@ class UserDocument(models.Model):
     class VerificationStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     verification_status = models.CharField(
         max_length=20,

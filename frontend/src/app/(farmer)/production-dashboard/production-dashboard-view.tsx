@@ -132,9 +132,10 @@ export default function ProductionDashboardView({
   }, [inventories]);
 
   const filteredInventories = useMemo(() => {
-    if (!selectedSpecies || selectedSpecies === "ALL") return inventories.filter((item) => item.status !== "REJECTED");
+    if (!selectedSpecies || selectedSpecies === "ALL")
+      return inventories.filter((item) => item.status !== "SUBJECT_TO_REVISION" && item.status !== "REJECTED");
     return inventories
-      .filter((item) => item.status !== "REJECTED")
+      .filter((item) => item.status !== "SUBJECT_TO_REVISION" && item.status !== "REJECTED")
       .filter((item) => item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase());
   }, [inventories, selectedSpecies]);
 

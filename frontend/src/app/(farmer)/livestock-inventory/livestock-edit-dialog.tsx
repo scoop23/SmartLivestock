@@ -38,6 +38,7 @@ export interface UpdateInventoryPayload {
 const statusClasses: Record<string, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  SUBJECT_TO_REVISION: "bg-amber-100 text-amber-900 border-amber-300",
   REJECTED: "bg-amber-100 text-amber-900 border-amber-300",
 };
 
@@ -171,7 +172,7 @@ export default function LivestockEditDialog({
                 <Badge
                   className={`shrink-0 uppercase tracking-wider bg-white text-slate-800 border-0 hover:bg-white ${(statusClasses[item.status] ?? "").split(" ")[0]}`}
                 >
-                  {item.status === "REJECTED" ? "Subject to Revision" : item.status}
+                  {(item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED") ? "Subject to Revision" : item.status}
                 </Badge>
               </div>
             </div>

@@ -4,4 +4,4 @@ from django.test import TestCase
 #   - ProductionRecord creation (milk/eggs/wool with correct units)
 #   - SlaughterRecord with nullable livestock FK (batch slaughter)
 #   - LiveAnimalSale with different sale methods (MATA-MATA vs WEIGHING)
-#   - Status workflow: PENDING → VERIFIED → APPROVED/REJECTED
+#   - Status workflow: PENDING → VERIFIED → APPROVED/SUBJECT_TO_REVISION

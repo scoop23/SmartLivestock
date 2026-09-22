@@ -84,6 +84,7 @@ const getStatusBadge = (status?: string) => {
           Pending Review
         </Badge>
       );
+    case "SUBJECT_TO_REVISION":
     case "REJECTED":
       return (
         <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">

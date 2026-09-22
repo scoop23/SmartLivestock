@@ -83,16 +83,16 @@ export default function AdminDataValidationPage() {
 
   // Local state overlays for optimistic updates
   const [localCensusOverrides, setLocalCensusOverrides] = useState<
-    Record<string | number, { status: "APPROVED" | "REJECTED"; remarks: string }>
+    Record<string | number, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
   >({});
   const [localProductionOverrides, setLocalProductionOverrides] = useState<
-    Record<number, { status: "APPROVED" | "REJECTED"; remarks: string }>
+    Record<number, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
   >({});
   const [localInventoryOverrides, setLocalInventoryOverrides] = useState<
-    Record<number, { status: "APPROVED" | "REJECTED"; remarks: string }>
+    Record<number, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
   >({});
   const [localIncidentOverrides, setLocalIncidentOverrides] = useState<
-    Record<string, { status: "APPROVED" | "REJECTED"; remarks: string }>
+    Record<string, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
   >({});
 
   // Consolidated Data with Overrides
@@ -176,7 +176,7 @@ export default function AdminDataValidationPage() {
     const approved = allRecords.filter((r) => (r.status || "").toUpperCase() === "APPROVED").length;
     const flagged = allRecords.filter((r) => {
       const s = (r.status || "").toUpperCase();
-      return s === "REJECTED" || s === "FLAGGED";
+      return s === "SUBJECT_TO_REVISION" || s === "REJECTED" || s === "FLAGGED";
     }).length;
 
     const activeBarangays = new Set(allRecords.map((r) => r.barangay).filter(Boolean)).size;
@@ -346,7 +346,7 @@ export default function AdminDataValidationPage() {
   // ── Confirmation Handler for Single & Batch Review ──
 
   const handleConfirmAction = async (
-    action: "APPROVED" | "REJECTED",
+    action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
     itemIds: (string | number)[]
   ) => {
@@ -445,7 +445,7 @@ export default function AdminDataValidationPage() {
 
   // ── Confirmation Handler for Disease & Mortality SIBAT Review ──
   const handleConfirmHealthAction = async (
-    action: "APPROVED" | "REJECTED",
+    action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
     recordId: string
   ) => {

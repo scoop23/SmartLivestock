@@ -40,7 +40,7 @@ interface ValidationReviewDialogProps {
   onOpenChange: (open: boolean) => void;
   items: ReviewTargetItem[];
   onConfirmAction: (
-    action: "APPROVED" | "REJECTED",
+    action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
     itemIds: (string | number)[]
   ) => void;
@@ -83,7 +83,7 @@ export function ValidationReviewDialog({
   const isBatch = items.length > 1;
   const singleItem = items[0];
 
-  const handleAction = async (status: "APPROVED" | "REJECTED") => {
+  const handleAction = async (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
     setIsSubmitting(true);
     try {
       await onConfirmAction(status, remarks.trim(), items.map((i) => i.id));
@@ -249,7 +249,7 @@ export function ValidationReviewDialog({
             type="button"
             variant="outline"
             disabled={isSubmitting}
-            onClick={() => handleAction("REJECTED")}
+            onClick={() => handleAction("SUBJECT_TO_REVISION")}
             className="flex-1 py-4 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-xl text-xs font-black uppercase tracking-wider gap-2 cursor-pointer"
           >
             <RotateCcw className="size-4 text-amber-700" />

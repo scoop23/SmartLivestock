@@ -37,7 +37,7 @@ interface DiseaseMortalityReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirmAction: (
-    action: "APPROVED" | "REJECTED",
+    action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
     recordId: string
   ) => void;
@@ -50,9 +50,9 @@ const MAO_DISEASE_APPROVAL_PRESETS = [
 ];
 
 const MAO_MORTALITY_APPROVAL_PRESETS = [
-  "Mortality verified by SIBAT on site; biosecure deep pit burial with lime confirmed.",
-  "Official Mortality Certificate issued; municipal livestock registry and census adjusted.",
-  "Non-contagious cause of death verified; indemnity claim logged for processing.",
+  "Biosecure carcass deep pit burial supervised & certified by MAO.",
+  "Official mortality certificate issued; herd census records decremented.",
+  "Epidemiological post-mortem inspection cleared of anthrax/ASF risk.",
 ];
 
 const MAO_REVISION_PRESETS = [
@@ -69,12 +69,6 @@ export function DiseaseMortalityReviewDialog({
 }: DiseaseMortalityReviewDialogProps) {
   const [remarks, setRemarks] = useState("");
 
-  useEffect(() => {
-    if (open && record) {
-      setRemarks(record.reviewRemarks || "");
-    }
-  }, [open, record]);
-
   if (!record) return null;
 
   const isMortality = record.type === "mortality";
@@ -82,7 +76,7 @@ export function DiseaseMortalityReviewDialog({
   const isSibatVerified = (record.status || "PENDING").toUpperCase() === "VERIFIED";
   const statusPill = getStatusPill(record.status);
 
-  const handleAction = (status: "APPROVED" | "REJECTED") => {
+  const handleAction = (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
     onConfirmAction(status, remarks.trim(), record.id);
     onOpenChange(false);
   };
@@ -413,7 +407,7 @@ export function DiseaseMortalityReviewDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => handleAction("REJECTED")}
+                  onClick={() => handleAction("SUBJECT_TO_REVISION")}
                   className="py-5 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-2xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
                 >
                   <RotateCcw className="size-4 text-amber-700" />

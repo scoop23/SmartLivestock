@@ -17,7 +17,7 @@ import {
 
 export type ValidationDomain = "census" | "production" | "inventory" | "incidents";
 
-export type ValidationStatus = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+export type ValidationStatus = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export interface ValidationDomainConfig {
   id: ValidationDomain;
@@ -72,7 +72,7 @@ export interface ValidationInventoryItem {
   entryType: "INDIVIDUAL" | "BATCH";
   quantity: number;
   lastVaccinationDate: string | null;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
   reviewedBy?: string | null;
   reviewedAt?: string | null;
@@ -104,7 +104,7 @@ export interface ValidationIncidentItem {
   farmerContact?: string;
   details: string;
   date: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
   headCount?: number;
   weight?: string;
@@ -335,6 +335,7 @@ export function getStatusPill(status: string) {
         bg: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
         dot: "bg-emerald-500",
       };
+    case "SUBJECT_TO_REVISION":
     case "REJECTED":
     case "FLAGGED":
       return {

@@ -69,6 +69,7 @@ export default function SibatStatusBadge({
         </div>
       );
 
+    case "SUBJECT_TO_REVISION":
     case "REJECTED":
     case "FLAGGED":
       return (

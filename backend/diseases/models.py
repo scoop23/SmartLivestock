@@ -11,7 +11,7 @@ class DiseaseCase(models.Model):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",
@@ -52,7 +52,7 @@ class MortalityRecord(models.Model):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",

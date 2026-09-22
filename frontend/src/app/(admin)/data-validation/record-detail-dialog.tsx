@@ -123,7 +123,7 @@ interface RecordDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   onOpenReview?: (record: DetailRecordData) => void;
   onConfirmAction?: (
-    action: "APPROVED" | "REJECTED",
+    action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
     itemIds: (string | number)[]
   ) => void;
@@ -160,7 +160,7 @@ export function RecordDetailDialog({
   const isPending = statusNorm === "PENDING";
   const isVerified = statusNorm === "VERIFIED";
   const isApproved = statusNorm === "APPROVED";
-  const isRejected = statusNorm === "REJECTED" || statusNorm === "FLAGGED";
+  const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
 
   const handleCopyId = () => {
     const idStr = String(record.id);
@@ -172,7 +172,7 @@ export function RecordDetailDialog({
     window.print();
   };
 
-  const handleAction = async (action: "APPROVED" | "REJECTED") => {
+  const handleAction = async (action: "APPROVED" | "SUBJECT_TO_REVISION") => {
     if (onConfirmAction) {
       setIsSubmitting(true);
       try {
@@ -752,7 +752,7 @@ export function RecordDetailDialog({
                   type="button"
                   variant="outline"
                   disabled={isSubmitting}
-                  onClick={() => handleAction("REJECTED")}
+                  onClick={() => handleAction("SUBJECT_TO_REVISION")}
                   className="flex-1 py-4 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-xl text-xs font-black uppercase tracking-wider gap-2 cursor-pointer"
                 >
                   <RotateCcw className="size-4 text-amber-700" />

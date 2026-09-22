@@ -58,6 +58,7 @@ export default function FarmerActivityFeed({
             <CheckCircle2 className="size-3 text-sky-600" /> SIBAT Verified
           </Badge>
         );
+      case "SUBJECT_TO_REVISION":
       case "REJECTED":
         return (
           <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] gap-1">

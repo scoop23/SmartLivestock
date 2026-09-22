@@ -113,14 +113,14 @@ class UserApprovalAndManagementAPITests(APITestCase):
     def test_mao_can_reject_or_suspend_user(self):
         self.client.force_authenticate(user=self.mao_user)
 
-        # Reject
+        # Return for revision
         response = self.client.patch(
             f"/api/users/{self.pending_user.pk}/status/",
-            {"status": "REJECTED"}
+            {"status": "SUBJECT_TO_REVISION"}
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.pending_user.refresh_from_db()
-        self.assertEqual(self.pending_user.account_status, User.AccountStatus.REJECTED)
+        self.assertEqual(self.pending_user.account_status, User.AccountStatus.SUBJECT_TO_REVISION)
 
         # Suspend
         response = self.client.patch(

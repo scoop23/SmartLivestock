@@ -55,6 +55,7 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
+  SUBJECT_TO_REVISION: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
   REJECTED: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
 };
 
@@ -131,10 +132,11 @@ export default function ProductionHistory() {
   };
 
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: userProductions.length, APPROVED: 0, PENDING: 0, REJECTED: 0 };
+    const counts: Record<string, number> = { ALL: userProductions.length, APPROVED: 0, PENDING: 0, SUBJECT_TO_REVISION: 0, REJECTED: 0 };
     userProductions.forEach((item) => {
       counts[item.status] = (counts[item.status] ?? 0) + 1;
     });
+    counts["SUBJECT_TO_REVISION"] = (counts["SUBJECT_TO_REVISION"] ?? 0) + (counts["REJECTED"] ?? 0);
     return counts;
   }, [userProductions]);
 
@@ -371,7 +373,7 @@ export default function ProductionHistory() {
                                 statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
                               }`}
                             >
-                              {record.status === "REJECTED" ? "Subject to Revision" : record.status}
+                              {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") ? "Subject to Revision" : record.status}
                             </Badge>
                             {isSelected && (
                               <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full">

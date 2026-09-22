@@ -30,7 +30,7 @@ export interface FarmerActivityItem {
   type: "INVENTORY" | "PRODUCTION" | "DISEASE" | "MORTALITY";
   title: string;
   description: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   date: string;
   remarks?: string | null;
 }

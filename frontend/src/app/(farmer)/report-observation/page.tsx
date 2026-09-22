@@ -43,7 +43,7 @@ import api from "@/lib/axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type ReportType = "DISEASE" | "MORTALITY";
-export type BackendStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+export type BackendStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export interface FarmerReport {
   id: string;
@@ -809,13 +809,24 @@ export default function ReportObservationPage() {
                         title: "Approved by MAO",
                         desc: "Official municipal livestock record updated.",
                       },
+                      SUBJECT_TO_REVISION: {
+                        bg: "bg-amber-50 border-amber-200 text-amber-900",
+                        icon: <RotateCcw className="size-3.5 text-amber-700" />,
+                        title: "Subject to Revision",
+                        desc: "Returned for field clarification or data update.",
+                      },
                       REJECTED: {
                         bg: "bg-amber-50 border-amber-200 text-amber-900",
                         icon: <RotateCcw className="size-3.5 text-amber-700" />,
                         title: "Subject to Revision",
                         desc: "Returned for field clarification or data update.",
                       },
-                    }[rep.status];
+                    }[rep.status] || {
+                      bg: "bg-slate-50 border-slate-200 text-slate-900",
+                      icon: <Clock className="size-3.5 text-slate-700" />,
+                      title: "Pending Review",
+                      desc: "Record submitted for inspection.",
+                    };
 
                     return (
                       <div

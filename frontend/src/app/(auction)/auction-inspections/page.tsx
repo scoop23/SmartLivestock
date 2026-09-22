@@ -74,6 +74,7 @@ export default function AuctionInspections() {
             <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
           </Badge>
         );
+      case "SUBJECT_TO_REVISION":
       case "REJECTED":
         return (
           <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
@@ -168,7 +169,7 @@ export default function AuctionInspections() {
 
             {/* Filter Chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-              {(["ALL", "PENDING", "VERIFIED", "APPROVED", "REJECTED"] as InspectionStatusTab[]).map((tab) => (
+              {(["ALL", "PENDING", "VERIFIED", "APPROVED", "SUBJECT_TO_REVISION"] as InspectionStatusTab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -177,7 +178,7 @@ export default function AuctionInspections() {
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
-                  {tab === "ALL" ? "All Clearances" : tab === "REJECTED" ? "For Revision" : tab}
+                  {tab === "ALL" ? "All Clearances" : tab === "SUBJECT_TO_REVISION" ? "For Revision" : tab}
                 </button>
               ))}
             </div>

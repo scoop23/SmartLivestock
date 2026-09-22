@@ -49,6 +49,7 @@ export default function CensusDetailsDialog({
             <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approved by MAO
           </Badge>
         );
+      case "SUBJECT_TO_REVISION":
       case "REJECTED":
         return (
           <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-xs">

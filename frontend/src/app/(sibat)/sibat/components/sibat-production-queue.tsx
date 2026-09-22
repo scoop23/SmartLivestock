@@ -80,7 +80,7 @@ export default function SibatProductionQueue({
       all: prodSubmissions.length,
       pending: prodSubmissions.filter((s) => s.status === "PENDING").length,
       verified: prodSubmissions.filter((s) => s.status === "VERIFIED").length,
-      decided: prodSubmissions.filter((s) => s.status === "APPROVED" || s.status === "REJECTED").length,
+      decided: prodSubmissions.filter((s) => s.status === "APPROVED" || s.status === "SUBJECT_TO_REVISION" || s.status === "REJECTED").length,
     };
   }, [prodSubmissions]);
 
@@ -93,7 +93,7 @@ export default function SibatProductionQueue({
         statusFilter === "all" ||
         (statusFilter === "pending" && item.status === "PENDING") ||
         (statusFilter === "verified" && item.status === "VERIFIED") ||
-        (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "REJECTED"));
+        (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED"));
 
       const matchesProdType =
         prodTypeFilter === "ALL" ||

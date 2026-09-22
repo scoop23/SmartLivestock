@@ -11,7 +11,7 @@ import type { SibatValidationRecord, SibatStatus, SibatInspectionData, SeverityL
 
 // ── Types: Submission Statuses ──
 
-export type UnifiedStatus = "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+export type UnifiedStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export type UnifiedSubmissionType = "ALL" | "PRODUCTION" | "INVENTORY";
 
@@ -242,7 +242,7 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
 
 // ── Types: Census Submissions ──
 
-export type CensusStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type CensusStatus = "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export interface CensusItemEntry {
   id: string;
@@ -466,7 +466,7 @@ export function useReviewSubmission() {
       remarks,
     }: {
       item: UnifiedSubmissionItem;
-      status: "VERIFIED" | "REJECTED";
+      status: "VERIFIED" | "SUBJECT_TO_REVISION" | "REJECTED";
       remarks: string;
     }) => {
       const endpoint =
@@ -505,7 +505,7 @@ export function useReviewClinicalHealth() {
     }) => {
       const isDisease = recordId.startsWith("DIS-");
       const cleanId = recordId.replace(/^(DIS|MOR)-/, "");
-      const reviewStatus = action === "VERIFIED" ? "VERIFIED" : "REJECTED";
+      const reviewStatus = action === "VERIFIED" ? "VERIFIED" : "SUBJECT_TO_REVISION";
 
       const formattedRemarks = [
         inspectionData.remarks,

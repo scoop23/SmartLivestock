@@ -115,7 +115,7 @@ def review_inventory(request, pk):
     POST /api/livestock/inventory/<id>/review/
     Review and verify livestock inventory:
     - SIBAT: Field tagging & verification (status = VERIFIED)
-    - MAO: Official municipal certification (status = APPROVED or REJECTED)
+    - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
     inventory = get_object_or_404(LivestockInventory, pk=pk)
     new_status = request.data.get("status")
@@ -123,7 +123,7 @@ def review_inventory(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
+            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -138,9 +138,9 @@ def review_inventory(request, pk):
             raise PermissionDenied(
                 "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
             )
-        if new_status not in [LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.REJECTED]:
+        if new_status not in [LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.SUBJECT_TO_REVISION]:
             return Response(
-                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or REJECTED."},
+                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif role_name == "MAO":

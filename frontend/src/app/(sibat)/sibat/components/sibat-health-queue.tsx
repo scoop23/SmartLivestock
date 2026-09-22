@@ -46,7 +46,7 @@ const STATUS_TABS = [
   { value: "PENDING", label: "Needs Field Visit", emoji: "⏳" },
   { value: "VERIFIED", label: "Verified / In MAO Queue", emoji: "✨" },
   { value: "APPROVED", label: "MAO Certified", emoji: "✅" },
-  { value: "REJECTED", label: "For Revision", emoji: "🔄" },
+  { value: "SUBJECT_TO_REVISION", label: "For Revision", emoji: "🔄" },
 ];
 
 const getAnimalEmoji = (typeStr: string = "") => {
@@ -80,7 +80,7 @@ export default function SibatHealthQueue({
       pending: records.filter((r) => r.status === "PENDING").length,
       verified: records.filter((r) => r.status === "VERIFIED").length,
       approved: records.filter((r) => r.status === "APPROVED").length,
-      rejected: records.filter((r) => r.status === "REJECTED" || r.status === "FLAGGED").length,
+      rejected: records.filter((r) => r.status === "SUBJECT_TO_REVISION" || r.status === "REJECTED" || r.status === "FLAGGED").length,
     };
   }, [records]);
 
@@ -107,7 +107,8 @@ export default function SibatHealthQueue({
       const matchesStatus =
         statusFilter === "ALL" ||
         rec.status === statusFilter ||
-        (statusFilter === "REJECTED" && (rec.status === "REJECTED" || rec.status === "FLAGGED"));
+        ((statusFilter === "SUBJECT_TO_REVISION" || statusFilter === "REJECTED") &&
+          (rec.status === "SUBJECT_TO_REVISION" || rec.status === "REJECTED" || rec.status === "FLAGGED"));
 
       const matchesType = typeFilter === "ALL" || rec.reportType === typeFilter;
       const matchesBarangay = barangayFilter === "ALL" || rec.barangayName === barangayFilter;

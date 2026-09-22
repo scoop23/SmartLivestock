@@ -34,6 +34,7 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  SUBJECT_TO_REVISION: "bg-amber-100 text-amber-900 border-amber-300",
   REJECTED: "bg-amber-100 text-amber-900 border-amber-300",
 };
 
@@ -122,7 +123,7 @@ export default function ProductionApprovalCard({
   const isApproved = record.status === "APPROVED";
   const isVerified = record.status === "VERIFIED";
   const isPending = record.status === "PENDING";
-  const isRejected = record.status === "REJECTED";
+  const isRejected = record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED";
 
   const meta = typeMeta[record.productionType] ?? typeMeta.milk;
   const TypeIcon = meta.icon;
@@ -164,7 +165,7 @@ export default function ProductionApprovalCard({
                 : "bg-white text-amber-900 hover:bg-white"
             }`}
           >
-            {record.status === "REJECTED" ? "Subject to Revision" : record.status}
+            {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") ? "Subject to Revision" : record.status}
           </Badge>
         </div>
       </div>

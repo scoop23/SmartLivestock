@@ -16,7 +16,7 @@ Table users {
   role_id integer [not null]
   email varchar [unique, not null]
   password_hash varchar [not null]
-  account_status varchar [default: 'PENDING', note: 'PENDING, APPROVED, REJECTED, SUSPENDED']
+  account_status varchar [default: 'PENDING', note: 'PENDING, APPROVED, SUBJECT_TO_REVISION, SUSPENDED']
   phone_number varchar [note: 'E.164 phone number format']
   created_at timestamp
   approved_at timestamp
@@ -27,7 +27,7 @@ Table user_documents {
   user_id integer [not null, note: 'FK to users.user_id']
   document_type varchar [not null, note: 'RSBSA, GOVERNMENT_ID, BARANGAY_CERTIFICATE, OTHER']
   document_file varchar [not null, note: 'Path or file URI of uploaded document']
-  verification_status varchar [default: 'PENDING', note: 'PENDING, APPROVED, REJECTED']
+  verification_status varchar [default: 'PENDING', note: 'PENDING, APPROVED, SUBJECT_TO_REVISION']
   approved_by integer [note: 'FK to users.user_id - MAO / Admin verifier']
   uploaded_at timestamp
   reviewed_at timestamp
@@ -90,7 +90,7 @@ Table livestock_inventory {
   sex varchar [note: 'MALE, FEMALE, MIXED']
   weight decimal [note: 'Current body weight in kg']
   last_vaccination_date date
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer [note: 'FK to users.user_id']
   reviewed_at timestamp
   review_remarks text
@@ -109,7 +109,7 @@ Table production_records {
   quantity decimal [not null]
   unit varchar [not null, note: 'LITERS, PIECES, KILOGRAMS']
   record_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   notes text
   reviewed_by integer
   reviewed_at timestamp
@@ -162,7 +162,7 @@ Table slaughter_records {
   quantity integer [not null]
   carcass_weight decimal [note: 'Dressed meat yield in kilograms']
   record_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
@@ -181,7 +181,7 @@ Table live_animal_sales {
   total_price decimal
   destination varchar [note: 'Buyer or destination municipality']
   sale_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   purpose varchar [default: 'UNKNOWN', note: 'BREEDING, FATTENING, SLAUGHTER, UNKNOWN']
   reviewed_by integer
   reviewed_at timestamp
@@ -200,7 +200,7 @@ Table disease_cases {
   name varchar [not null, note: 'e.g. Foot-and-Mouth Disease, Hemorrhagic Septicemia']
   affected_count integer [default: 0]
   record_date date
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
@@ -215,7 +215,7 @@ Table mortality_records {
   cause text [not null]
   source_disease_case_id integer [note: 'Nullable - linked disease case if applicable']
   record_date date
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
@@ -271,7 +271,7 @@ Table livestock_inspection_clearances {
   destination varchar [not null]
   vehicle_plate_number varchar
   livestock_handler_license_no varchar
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   issued_by integer [not null]
   reviewed_by integer
   reviewed_at timestamp
@@ -290,7 +290,7 @@ Table meat_movement_records {
   price_per_kg decimal
   total_price decimal
   movement_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
@@ -309,7 +309,7 @@ Table census_submissions {
   report_quarter integer [not null, note: '1 to 4']
   submitted_by integer [not null]
   submission_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, APPROVED, REJECTED']
+  status varchar [default: 'PENDING', note: 'PENDING, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer
   reviewed_at timestamp
   remarks text

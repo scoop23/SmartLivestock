@@ -120,7 +120,7 @@ def review_production_record(request, pk):
     POST /production/records/<pk>/review/
     Review and verify production records:
     - SIBAT: Field verification (status = VERIFIED)
-    - MAO: Official municipal certification (status = APPROVED or REJECTED)
+    - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
     record = get_object_or_404(ProductionRecord, pk=pk)
     new_status = request.data.get("status")
@@ -128,7 +128,7 @@ def review_production_record(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
+            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
             status=400,
         )
 
@@ -147,9 +147,9 @@ def review_production_record(request, pk):
                 {"error": "SIBAT officers can only verify (VERIFIED). Final approval is reserved for MAO."},
                 status=403,
             )
-        if new_status not in [ProductionRecord.ProductionStatus.VERIFIED, ProductionRecord.ProductionStatus.REJECTED]:
+        if new_status not in [ProductionRecord.ProductionStatus.VERIFIED, ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION]:
             return Response(
-                {"error": "Invalid status for SIBAT. Valid choices are VERIFIED or REJECTED."},
+                {"error": "Invalid status for SIBAT. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=400,
             )
     elif role_name == "MAO":
@@ -241,7 +241,7 @@ def live_animal_sale_delete(request, pk):
 def review_live_animal_sale(request, pk):
     """
     POST /production/sales/<pk>/review/
-    Official MAO / SIBAT verification action (VERIFIED / APPROVED / REJECTED)
+    Official MAO / SIBAT verification action (VERIFIED / APPROVED / SUBJECT_TO_REVISION)
     """
     sale = get_object_or_404(LiveAnimalSale, pk=pk)
     new_status = request.data.get("status")
@@ -249,7 +249,7 @@ def review_live_animal_sale(request, pk):
 
     if not new_status:
         return Response(
-            {"error": "status is required (VERIFIED, APPROVED, or REJECTED)."},
+            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
             status=400,
         )
 

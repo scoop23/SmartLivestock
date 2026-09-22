@@ -37,6 +37,7 @@ import {
   Loader2,
   Clock,
   RefreshCw,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,7 +50,7 @@ export interface ApiUser {
   full_name: string;
   phone_number: string;
   role: string;
-  account_status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+  account_status: "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED" | "SUSPENDED";
   created_at: string;
   approved_at: string | null;
   barangay: string;
@@ -84,12 +85,12 @@ export default function UserManagementPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleStatusUpdate = async (id: number, newStatus: "APPROVED" | "REJECTED" | "SUSPENDED" | "PENDING") => {
+  const handleStatusUpdate = async (id: number, newStatus: "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED" | "SUSPENDED" | "PENDING") => {
     setActionLoadingId(id);
     try {
       const response = await api.patch(`/api/users/${id}/status/`, { status: newStatus });
       setUsers(prev => prev.map(u => u.id === id ? response.data : u));
-      const verb = newStatus === 'APPROVED' ? 'approved' : newStatus === 'REJECTED' ? 'rejected' : newStatus === 'SUSPENDED' ? 'suspended' : 'updated';
+      const verb = newStatus === 'APPROVED' ? 'approved' : (newStatus === 'REJECTED' || newStatus === 'SUBJECT_TO_REVISION') ? 'returned for revision' : newStatus === 'SUSPENDED' ? 'suspended' : 'updated';
       toast.success(`User account ${verb} successfully.`);
     } catch (err: any) {
       console.error("Status update error:", err);
@@ -146,10 +147,11 @@ export default function UserManagementPage() {
             Suspended
           </Badge>
         );
+      case 'SUBJECT_TO_REVISION':
       case 'REJECTED':
         return (
-          <Badge variant="outline" className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">
-            Rejected
+          <Badge variant="outline" className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">
+            For Revision
           </Badge>
         );
       default:
@@ -351,13 +353,13 @@ export default function UserManagementPage() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStatusUpdate(user.id, "REJECTED");
+                                  handleStatusUpdate(user.id, "SUBJECT_TO_REVISION");
                                 }}
-                                title="Reject Registration"
-                                className="h-7 px-2 text-[10px] font-black text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md gap-1 cursor-pointer"
+                                title="Return for Revision"
+                                className="h-7 px-2 text-[10px] font-black text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md gap-1 cursor-pointer"
                               >
-                                <X size={12} />
-                                <span>Reject</span>
+                                <RotateCcw size={12} />
+                                <span>Revision</span>
                               </Button>
                             </>
                           ) : (
@@ -492,12 +494,13 @@ export default function UserManagementPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    handleStatusUpdate(selectedUser.id, "REJECTED");
+                    handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION");
                     setSelectedUser(null);
                   }}
-                  className="flex-1 py-6 border-slate-200 text-rose-700 hover:bg-rose-50 rounded-2xl font-black uppercase text-xs tracking-widest"
+                  className="flex-1 py-6 border-amber-300 text-amber-900 hover:bg-amber-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2"
                 >
-                  Reject
+                  <RotateCcw className="size-4 text-amber-700" />
+                  Return for Revision
                 </Button>
               </div>
             ) : (

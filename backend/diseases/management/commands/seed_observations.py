@@ -8,7 +8,22 @@ from users.models import User
 class Command(BaseCommand):
     help = "Seeds realistic disease cases and mortality records linked to existing livestock inventory"
 
-    def handle(self, *args, **kwargs):
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--clean",
+            action="store_true",
+            help="Deletes all seeded disease cases and mortality records.",
+        )
+
+    def handle(self, *args, **options):
+        if options.get("clean"):
+            dc = DiseaseCase.objects.all().delete()[0]
+            mr = MortalityRecord.objects.all().delete()[0]
+            self.stdout.write(
+                self.style.SUCCESS(f"Cleanup Complete! Removed {dc} disease cases and {mr} mortality records.")
+            )
+            return
+
         inventories = list(LivestockInventory.objects.select_related("created_by").all()[:10])
         if not inventories:
             self.stdout.write(self.style.WARNING("No livestock inventories found. Run seed_farmers first."))

@@ -86,7 +86,7 @@ export default function SibatSubmissionQueue({
       all: submissions.length,
       pending: submissions.filter((s) => s.status === "PENDING").length,
       verified: submissions.filter((s) => s.status === "VERIFIED").length,
-      decided: submissions.filter((s) => s.status === "APPROVED" || s.status === "REJECTED").length,
+      decided: submissions.filter((s) => s.status === "APPROVED" || s.status === "SUBJECT_TO_REVISION" || s.status === "REJECTED").length,
     };
   }, [submissions]);
 
@@ -100,7 +100,7 @@ export default function SibatSubmissionQueue({
         activeStatus === "all" ||
         (activeStatus === "pending" && item.status === "PENDING") ||
         (activeStatus === "verified" && item.status === "VERIFIED") ||
-        (activeStatus === "decided" && (item.status === "APPROVED" || item.status === "REJECTED"));
+        (activeStatus === "decided" && (item.status === "APPROVED" || item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED"));
 
       // Type filter
       const matchesType =

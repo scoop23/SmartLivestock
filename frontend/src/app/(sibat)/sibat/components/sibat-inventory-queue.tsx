@@ -80,7 +80,7 @@ export default function SibatInventoryQueue({
       all: invSubmissions.length,
       pending: invSubmissions.filter((s) => s.status === "PENDING").length,
       verified: invSubmissions.filter((s) => s.status === "VERIFIED").length,
-      decided: invSubmissions.filter((s) => s.status === "APPROVED" || s.status === "REJECTED").length,
+      decided: invSubmissions.filter((s) => s.status === "APPROVED" || s.status === "SUBJECT_TO_REVISION" || s.status === "REJECTED").length,
     };
   }, [invSubmissions]);
 
@@ -93,7 +93,7 @@ export default function SibatInventoryQueue({
         statusFilter === "all" ||
         (statusFilter === "pending" && item.status === "PENDING") ||
         (statusFilter === "verified" && item.status === "VERIFIED") ||
-        (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "REJECTED"));
+        (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED"));
 
       const matchesEntryType =
         entryTypeFilter === "ALL" || item.entryType === entryTypeFilter;

@@ -4,7 +4,7 @@ from django.conf import settings
 
 # Tracks daily/non-daily production output from livestock.
 # Supports three production types: milk (liters), eggs (pieces), wool (kilograms).
-# Status lifecycle: PENDING → VERIFIED → APPROVED/REJECTED
+# Status lifecycle: PENDING → VERIFIED → APPROVED/SUBJECT_TO_REVISION
 class ProductionRecord(models.Model):
     class ProductionType(models.TextChoices):
         MILK = "MILK", "Milk"
@@ -21,7 +21,7 @@ class ProductionRecord(models.Model):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified" # might remove
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",
@@ -47,7 +47,7 @@ class ProductionRecord(models.Model):
     record_date = models.DateField()
 
     status = models.CharField(
-        max_length=20,
+        max_length=25,
         choices=ProductionStatus.choices,
         default=ProductionStatus.PENDING,
     )
@@ -86,7 +86,7 @@ class SlaughterRecord(models.Model):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",
@@ -123,7 +123,7 @@ class SlaughterRecord(models.Model):
     record_date = models.DateField()
 
     status = models.CharField(
-        max_length=20,
+        max_length=25,
         choices=StatusType.choices,
         default=StatusType.PENDING,
     )
@@ -166,7 +166,7 @@ class LiveAnimalSale(models.Model):  # may be removed
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     class SalePurpose(models.TextChoices):
         BREEDING = "BREEDING", "Breeding"
@@ -234,7 +234,7 @@ class LiveAnimalSale(models.Model):  # may be removed
     sale_date = models.DateField()
 
     status = models.CharField(
-        max_length=20,
+        max_length=25,
         choices=StatusType.choices,
         default=StatusType.PENDING,
     )

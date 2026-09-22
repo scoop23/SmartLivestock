@@ -97,7 +97,7 @@ export default function SibatAlertsPage() {
     return records.filter((r) =>
       activeTab === "pending"
         ? r.status === "PENDING"
-        : r.status === "VERIFIED" || r.status === "APPROVED" || r.status === "REJECTED"
+        : r.status === "VERIFIED" || r.status === "APPROVED" || r.status === "SUBJECT_TO_REVISION" || r.status === "REJECTED"
     );
   }, [records, activeTab]);
 
@@ -324,7 +324,7 @@ export default function SibatAlertsPage() {
                                 MAO Certified
                               </>
                             )}
-                            {alert.status === "REJECTED" && (
+                            {(alert.status === "SUBJECT_TO_REVISION" || alert.status === "REJECTED") && (
                               <>
                                 <RotateCcw className="w-3 h-3 mr-1" />
                                 Subject to Revision

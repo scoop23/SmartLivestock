@@ -28,6 +28,7 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
+  SUBJECT_TO_REVISION: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
   REJECTED: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
 };
 
@@ -112,7 +113,7 @@ export default function ProductionRecent({
           </div>
 
           <div className="flex items-center gap-1 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-            {(["ALL", "APPROVED", "PENDING", "REJECTED"] as const).map((st) => (
+            {(["ALL", "APPROVED", "PENDING", "SUBJECT_TO_REVISION"] as const).map((st) => (
               <button
                 key={st}
                 type="button"
@@ -123,7 +124,7 @@ export default function ProductionRecent({
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                {st === "ALL" ? "All Status" : st === "REJECTED" ? "For Revision" : st}
+                {st === "ALL" ? "All Status" : st === "SUBJECT_TO_REVISION" ? "For Revision" : st}
               </button>
             ))}
           </div>
@@ -167,7 +168,7 @@ export default function ProductionRecent({
                             statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
                           }`}
                         >
-                          {record.status === "REJECTED" ? "Subject to Revision" : record.status}
+                          {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") ? "Subject to Revision" : record.status}
                         </Badge>
                         <span className="text-xs text-slate-400">
                           • {formatRecordDate(record.recordDate)}

@@ -22,6 +22,7 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
+  SUBJECT_TO_REVISION: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
   REJECTED: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
 };
 
@@ -105,7 +106,7 @@ export default function ProductionRecordDialog({
                 <Badge
                   className={`shrink-0 uppercase tracking-wider bg-white text-slate-800 border-0 hover:bg-white ${(statusClasses[record.status] ?? DEFAULT_STATUS_CLASS).split(" ")[0]}`}
                 >
-                  {record.status === "REJECTED" ? "Subject to Revision" : record.status}
+                  {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") ? "Subject to Revision" : record.status}
                 </Badge>
               </div>
             </div>
@@ -195,7 +196,7 @@ export default function ProductionRecordDialog({
                 </div>
               )}
 
-              {record.status === "REJECTED" && (
+              {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 space-y-1.5">
                   <p className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                     <RotateCcw className="size-3.5 text-amber-700" />

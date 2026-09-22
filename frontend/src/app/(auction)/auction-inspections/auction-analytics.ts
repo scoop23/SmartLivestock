@@ -19,11 +19,11 @@ export interface InspectionRecord {
   time_issued: string;
   vehicle_plate_number: string;
   livestock_handler_license_no: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   items: InspectionItem[];
 }
 
-export type InspectionStatusTab = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED";
+export type InspectionStatusTab = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export const INITIAL_INSPECTIONS: InspectionRecord[] = [
   {
