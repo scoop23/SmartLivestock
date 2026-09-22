@@ -86,9 +86,17 @@ MIDDLEWARE = [
 ROOT_URLCONF = "smartlivestock.urls"
 
 # CORS & CSRF configuration for local development and production
+def _normalize_origin(origin: str) -> str:
+    origin = origin.strip()
+    if origin and not origin.startswith(("http://", "https://")):
+        return f"https://{origin}"
+    return origin
+
 cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS")
 if cors_origins_env:
-    CORS_ALLOWED_ORIGINS = [orig.strip() for orig in cors_origins_env.split(",") if orig.strip()]
+    CORS_ALLOWED_ORIGINS = [
+        _normalize_origin(orig) for orig in cors_origins_env.split(",") if orig.strip()
+    ]
 else:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:3000",
@@ -97,7 +105,9 @@ else:
 
 csrf_trusted_env = os.environ.get("CSRF_TRUSTED_ORIGINS")
 if csrf_trusted_env:
-    CSRF_TRUSTED_ORIGINS = [orig.strip() for orig in csrf_trusted_env.split(",") if orig.strip()]
+    CSRF_TRUSTED_ORIGINS = [
+        _normalize_origin(orig) for orig in csrf_trusted_env.split(",") if orig.strip()
+    ]
 elif RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"]
 
