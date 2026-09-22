@@ -153,26 +153,40 @@ WSGI_APPLICATION = "smartlivestock.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if DATABASE_URL:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
+LOCAL_DATABASE = {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": os.environ.get("DATABASE_NAME", "smart_livestock"),
+    "USER": os.environ.get("DATABASE_USER", "smart_livestock_user"),
+    "PASSWORD": os.environ.get("DATABASE_PASS"),
+    "HOST": os.environ.get("DATABASE_HOST", "localhost"),
+    "PORT": os.environ.get("DATABASE_PORT", "5433"),
+}
+
+RENDER_DB_URL = os.environ.get("RENDER_DATABASE_URL") or os.environ.get("DATABASE_URL")
+
+DATABASES = {
+    "local": LOCAL_DATABASE,
+}
+
+if RENDER_DB_URL:
+    DATABASES["render"] = dj_database_url.config(
+        default=RENDER_DB_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+
+# Choose which database is active by default:
+# - On Render cloud deployment, automatically defaults to 'render'.
+# - Locally, defaults to 'local' unless USE_RENDER_DB=True is set in .env.
+use_render_as_default = (
+    os.environ.get("USE_RENDER_DB", "").lower() in ("true", "1")
+    or bool(RENDER_EXTERNAL_HOSTNAME)
+)
+
+if use_render_as_default and "render" in DATABASES:
+    DATABASES["default"] = DATABASES["render"]
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": "smart_livestock",
-            "USER": "smart_livestock_user",
-            "PASSWORD": os.environ.get("DATABASE_PASS"),
-            "HOST": "localhost",
-            "PORT": "5432",
-        }
-    }
+    DATABASES["default"] = DATABASES["local"]
 
 
 # Password validation
