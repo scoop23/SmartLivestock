@@ -1,7 +1,7 @@
 export async function POST(request: Request) {
   const body = await request.json()
-  const primaryUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartlivestock-xkx4.onrender.com'
-  const fallbackUrl = process.env.NEXT_PUBLIC_FALLBACK_API_URL || 'http://localhost:8000'
+  const primaryUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const fallbackUrl = process.env.NEXT_PUBLIC_FALLBACK_API_URL || 'https://smartlivestock-xkx4.onrender.com'
 
   try {
     const res = await fetch(`${primaryUrl}/api/users/register/`, {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const data = await res.json()
     return Response.json(data, { status: res.status })
   } catch {
-    // If Render backend is down or unreachable, fall back to local Django
+    // If primary backend is down or unreachable, fall back to fallbackUrl
     try {
       const res = await fetch(`${fallbackUrl}/api/users/register/`, {
         method: 'POST',
