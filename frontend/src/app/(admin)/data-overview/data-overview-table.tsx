@@ -317,11 +317,11 @@ export function DataOverviewTable({
                           item.status === "APPROVED"
                             ? "bg-emerald-100 text-emerald-800"
                             : item.status === "REJECTED"
-                            ? "bg-rose-100 text-rose-800"
+                            ? "bg-amber-100 text-amber-900 border border-amber-300"
                             : "bg-amber-100 text-amber-800"
                         }`}
                       >
-                        {item.status || "PENDING"}
+                        {item.status === "REJECTED" ? "Subject to Revision" : (item.status || "PENDING")}
                       </Badge>
                     </TableCell>
                   </>

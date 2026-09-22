@@ -18,6 +18,8 @@ import {
   Tag,
   User,
   XCircle,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -76,7 +78,7 @@ export default function SibatReviewDialog({
           if (newStatus === "VERIFIED") {
             toast.success("Submission verified and forwarded to MAO queue for municipal approval.");
           } else {
-            toast.info("Submission returned / flagged with reviewer remarks.");
+            toast.info("Submission returned for revision with reviewer remarks.");
           }
           onOpenChange(false);
           onReviewSuccess?.();
@@ -244,7 +246,7 @@ export default function SibatReviewDialog({
                   ? "This submission has been field-verified by SIBAT and is queued for final municipal certification by MAO."
                   : isApproved
                   ? "This submission is officially approved by the Municipal Agriculture Office."
-                  : "This submission was flagged or returned. The farmer must update the entry."}
+                  : "This submission was returned for revision. The farmer must update the entry."}
               </p>
             </div>
 
@@ -341,21 +343,21 @@ export default function SibatReviewDialog({
               isApproved
                 ? "bg-emerald-100 border-emerald-300 text-emerald-950 font-bold"
                 : isRejected
-                ? "bg-rose-50 border-rose-200 text-rose-900 font-bold"
+                ? "bg-amber-50 border-amber-300 text-amber-950 font-bold"
                 : "bg-slate-50 border-slate-200 text-slate-400"
             }`}>
               <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
                 {isApproved ? (
                   <CheckCircle2 className="size-3.5 text-emerald-700" />
                 ) : isRejected ? (
-                  <XCircle className="size-3.5 text-rose-700" />
+                  <AlertCircle className="size-3.5 text-amber-700" />
                 ) : (
                   <div className="size-3 rounded-full border border-slate-300" />
                 )}
                 <span>4. MAO Decision</span>
               </div>
               <span className="text-[10px] opacity-80 block mt-0.5">
-                {isApproved ? "Approved" : isRejected ? "Returned" : "Awaiting MAO"}
+                {isApproved ? "Approved" : isRejected ? "Subject to Revision" : "Awaiting MAO"}
               </span>
             </div>
           </div>
@@ -380,10 +382,10 @@ export default function SibatReviewDialog({
                 variant="outline"
                 onClick={() => handleReviewAction("REJECTED")}
                 disabled={reviewMutation.isPending}
-                className="border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs rounded-xl gap-1.5 flex-1 sm:flex-initial"
+                className="border-amber-300 text-amber-900 hover:bg-amber-50 font-bold text-xs rounded-xl gap-1.5 flex-1 sm:flex-initial"
               >
-                <XCircle className="size-3.5" />
-                Return / Flag
+                <RotateCcw className="size-3.5 text-amber-700" />
+                Return for Revision
               </Button>
 
               <Button

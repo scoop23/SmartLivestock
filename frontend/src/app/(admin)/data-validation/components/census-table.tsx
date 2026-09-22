@@ -207,10 +207,10 @@ export function CensusTable({
                             }
                             title={
                               census.status === "PENDING"
-                                ? "Validate & Certify"
-                                : "Re-evaluate"
+                                ? "Quick Action: Validate & Certify"
+                                : "Quick Action: Re-evaluate Determination"
                             }
-                            className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all ${
+                            className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all cursor-pointer ${
                               census.status === "PENDING"
                                 ? "text-amber-600 hover:text-green-700"
                                 : "text-gray-400 hover:text-gray-900"
@@ -226,7 +226,8 @@ export function CensusTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => onViewDetail(detailPayload)}
-                          className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all"
+                          title="Open Full Record Audit & Ledger Inspector"
+                          className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all cursor-pointer"
                         >
                           <ChevronRight size={18} />
                         </Button>

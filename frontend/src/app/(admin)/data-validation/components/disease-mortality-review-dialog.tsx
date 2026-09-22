@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
   Camera,
   HeartPulse,
+  RotateCcw,
 } from "lucide-react";
 import {
   ValidationIncidentItem,
@@ -54,10 +55,10 @@ const MAO_MORTALITY_APPROVAL_PRESETS = [
   "Non-contagious cause of death verified; indemnity claim logged for processing.",
 ];
 
-const MAO_REJECTION_PRESETS = [
-  "Clinical evidence inconclusive; requested Provincial Veterinary blood smear analysis.",
-  "Discrepancy in recorded ear tag or raiser ownership; requested SIBAT re-inspection.",
-  "Incomplete carcass disposal documentation; re-audit required.",
+const MAO_REVISION_PRESETS = [
+  "Clinical evidence requires clarification; requested Provincial Veterinary blood smear analysis.",
+  "Discrepancy in recorded ear tag or raiser ownership; returned for SIBAT field correction.",
+  "Incomplete carcass disposal documentation; returned for compliance.",
 ];
 
 export function DiseaseMortalityReviewDialog({
@@ -413,10 +414,10 @@ export function DiseaseMortalityReviewDialog({
                   type="button"
                   variant="outline"
                   onClick={() => handleAction("REJECTED")}
-                  className="py-5 bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 rounded-2xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
+                  className="py-5 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-2xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
                 >
-                  <XCircle className="size-4" />
-                  <span>Flag / Re-Audit</span>
+                  <RotateCcw className="size-4 text-amber-700" />
+                  <span>Return for Revision</span>
                 </Button>
 
                 <Button

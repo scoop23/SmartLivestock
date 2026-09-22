@@ -34,6 +34,7 @@ import {
   Skull,
   ShieldCheck,
   Calendar,
+  RotateCcw,
 } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
@@ -809,10 +810,10 @@ export default function ReportObservationPage() {
                         desc: "Official municipal livestock record updated.",
                       },
                       REJECTED: {
-                        bg: "bg-rose-50 border-rose-200 text-rose-900",
-                        icon: <X className="size-3.5 text-rose-600" />,
-                        title: "Not Approved",
-                        desc: "Please visit the MAO office for assistance.",
+                        bg: "bg-amber-50 border-amber-200 text-amber-900",
+                        icon: <RotateCcw className="size-3.5 text-amber-700" />,
+                        title: "Subject to Revision",
+                        desc: "Returned for field clarification or data update.",
                       },
                     }[rep.status];
 

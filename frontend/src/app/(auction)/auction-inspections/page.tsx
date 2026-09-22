@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  RotateCcw,
   Send,
   TableIcon,
   LayoutGrid,
@@ -75,8 +76,8 @@ export default function AuctionInspections() {
         );
       case "REJECTED":
         return (
-          <Badge className="bg-rose-100 text-rose-800 border-rose-200 font-bold text-[10px] uppercase tracking-wider">
-            <AlertCircle className="w-3 h-3 mr-1" /> Rejected
+          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
+            <RotateCcw className="w-3 h-3 mr-1" /> Subject to Revision
           </Badge>
         );
     }
@@ -176,7 +177,7 @@ export default function AuctionInspections() {
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
-                  {tab === "ALL" ? "All Clearances" : tab}
+                  {tab === "ALL" ? "All Clearances" : tab === "REJECTED" ? "For Revision" : tab}
                 </button>
               ))}
             </div>

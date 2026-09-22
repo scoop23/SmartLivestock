@@ -18,7 +18,7 @@ export default function SibatAnnouncementsPage() {
       isPinned: true,
       title: "Quarterly Livestock Inventory Deadline",
       date: "April 28, 2026",
-      summary: "All SIBAT officers must submit their final validated production counts for April by Friday. Please ensure all 'Flagged' records are cleared.",
+      summary: "All SIBAT officers must submit their final validated production counts for April by Friday. Please ensure all records 'Subject to Revision' are cleared.",
       author: "Admin Office",
       tagColor: "bg-blue-100 text-blue-700 border-blue-200",
       thumbnail: "https://images.unsplash.com/photo-1500595046743-cd271d694d30?q=80&w=800&auto=format&fit=crop"

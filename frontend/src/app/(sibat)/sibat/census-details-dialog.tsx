@@ -17,6 +17,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  RotateCcw,
   MapPin,
   Calendar,
   User,
@@ -50,8 +51,8 @@ export default function CensusDetailsDialog({
         );
       case "REJECTED":
         return (
-          <Badge className="bg-rose-100 text-rose-800 border-rose-200 font-bold text-xs">
-            <AlertCircle className="w-3.5 h-3.5 mr-1" /> Needs Revision
+          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-xs">
+            <RotateCcw className="w-3.5 h-3.5 mr-1" /> Subject to Revision
           </Badge>
         );
       default:

@@ -92,7 +92,7 @@ export function ValidationToolbar({
                 { id: "PENDING", label: "Pending", shortLabel: "Pending" },
                 { id: "VERIFIED", label: "Verified by SIBAT", shortLabel: "Verified (SIBAT)" },
                 { id: "APPROVED", label: "Approved", shortLabel: "Approved" },
-                { id: "REJECTED", label: "Flagged", shortLabel: "Flagged" },
+                { id: "REJECTED", label: "Subject to Revision", shortLabel: "For Revision" },
               ] as const
             ).map((item) => {
               const isActive = statusFilter === item.id;

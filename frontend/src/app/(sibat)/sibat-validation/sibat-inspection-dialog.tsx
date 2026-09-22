@@ -189,7 +189,7 @@ export function SibatInspectionDialog({
         (status === "VERIFIED"
           ? "On-farm physical inspection completed and certified by SIBAT field officer."
           : status === "FLAGGED"
-          ? "Flagged for Veterinary follow-up / diagnostic testing."
+          ? "Returned for Veterinary follow-up / diagnostic testing."
           : "Marked as false alarm upon physical examination."),
       temperatureCelsius: temperature ? parseFloat(temperature) : undefined,
     };
@@ -263,7 +263,7 @@ export function SibatInspectionDialog({
                       : record.status === "APPROVED"
                       ? "MAO Approved"
                       : record.status === "FLAGGED"
-                      ? "Flagged"
+                      ? "Subject to Revision"
                       : "Pending On-Farm Visit"}
                   </Badge>
                   <span className="text-xs font-bold text-slate-400">
@@ -609,7 +609,7 @@ export function SibatInspectionDialog({
                   className="py-4 bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 rounded-xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
                 >
                   <AlertTriangle className="size-4" />
-                  <span>Flag for Vet Lab Sample</span>
+                  <span>Refer for Vet Lab Sample</span>
                 </Button>
 
                 <Button

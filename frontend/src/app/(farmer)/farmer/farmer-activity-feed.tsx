@@ -12,6 +12,7 @@ import {
   Milk,
   Stethoscope,
   Skull,
+  RotateCcw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,8 +60,8 @@ export default function FarmerActivityFeed({
         );
       case "REJECTED":
         return (
-          <Badge className="bg-rose-50 text-rose-800 border-rose-200 font-bold text-[10px] gap-1">
-            <XCircle className="size-3 text-rose-600" /> Rejected
+          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] gap-1">
+            <RotateCcw className="size-3 text-amber-700" /> Subject to Revision
           </Badge>
         );
       default:

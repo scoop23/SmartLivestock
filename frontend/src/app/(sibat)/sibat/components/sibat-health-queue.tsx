@@ -46,7 +46,7 @@ const STATUS_TABS = [
   { value: "PENDING", label: "Needs Field Visit", emoji: "⏳" },
   { value: "VERIFIED", label: "Verified / In MAO Queue", emoji: "✨" },
   { value: "APPROVED", label: "MAO Certified", emoji: "✅" },
-  { value: "REJECTED", label: "Needs Attention", emoji: "⚠️" },
+  { value: "REJECTED", label: "For Revision", emoji: "🔄" },
 ];
 
 const getAnimalEmoji = (typeStr: string = "") => {

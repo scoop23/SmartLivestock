@@ -74,14 +74,14 @@ export default function SibatStatusBadge({
       return (
         <div className="inline-flex flex-col items-start gap-0.5">
           <Badge
-            className={`bg-rose-50 text-rose-800 border-rose-200/80 hover:bg-rose-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
+            className={`bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
           >
-            <AlertCircle className="size-3 text-rose-600" />
-            Needs Attention
+            <AlertCircle className="size-3 text-amber-700" />
+            Subject to Revision
           </Badge>
           {showSubtitle && (
-            <span className="text-[10px] text-rose-700 font-medium">
-              Returned or flagged for correction
+            <span className="text-[10px] text-amber-800 font-medium">
+              Returned for correction or field clarification
             </span>
           )}
         </div>

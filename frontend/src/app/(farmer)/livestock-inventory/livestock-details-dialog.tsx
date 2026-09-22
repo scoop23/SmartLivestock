@@ -15,6 +15,7 @@ import {
   Tag,
   Weight,
   XCircle,
+  RotateCcw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -85,9 +86,9 @@ const getStatusBadge = (status?: string) => {
       );
     case "REJECTED":
       return (
-        <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
-          <XCircle className="size-3 text-rose-600" />
-          Rejected
+        <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
+          <RotateCcw className="size-3 text-amber-700" />
+          Subject to Revision
         </Badge>
       );
     default:

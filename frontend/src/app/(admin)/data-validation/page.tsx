@@ -427,7 +427,7 @@ export default function AdminDataValidationPage() {
 
       setSelectedIds([]);
 
-      const actionVerb = action === "APPROVED" ? "approved & certified" : "flagged / rejected";
+      const actionVerb = action === "APPROVED" ? "approved & certified" : "returned for revision";
       if (itemIds.length === 1) {
         toast.success(`Record successfully ${actionVerb}.`, {
           description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
@@ -463,7 +463,7 @@ export default function AdminDataValidationPage() {
         await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
       }
       queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
-      const actionVerb = action === "APPROVED" ? "certified & approved" : "flagged / rejected";
+      const actionVerb = action === "APPROVED" ? "certified & approved" : "returned for revision";
       toast.success(`Health declaration ${recordId} ${actionVerb}.`, {
         description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
       });
@@ -690,6 +690,9 @@ export default function AdminDataValidationPage() {
         record={recordDetailModal.data}
         open={recordDetailModal.open}
         onOpenChange={(open) => setRecordDetailModal((prev) => ({ ...prev, open }))}
+        onConfirmAction={(action, remarks, itemIds) => {
+          handleConfirmAction(action, remarks, itemIds);
+        }}
         onOpenReview={(rec) => {
           let metric = "";
           let title = "";

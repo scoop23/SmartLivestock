@@ -34,7 +34,7 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
-  REJECTED: "bg-rose-100 text-rose-800 border-rose-200",
+  REJECTED: "bg-amber-100 text-amber-900 border-amber-300",
 };
 
 const typeMeta = {
@@ -138,7 +138,7 @@ export default function ProductionApprovalCard({
             ? "bg-gradient-to-r from-sky-600 via-sky-600 to-sky-700"
             : isPending
             ? "bg-gradient-to-r from-amber-600 via-amber-600 to-amber-700"
-            : "bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700"
+            : "bg-gradient-to-r from-amber-700 via-amber-700 to-amber-800"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
@@ -161,10 +161,10 @@ export default function ProductionApprovalCard({
                 ? "bg-white text-[#2D5A27] hover:bg-white"
                 : isPending
                 ? "bg-white text-amber-800 hover:bg-white"
-                : "bg-white text-rose-800 hover:bg-white"
+                : "bg-white text-amber-900 hover:bg-white"
             }`}
           >
-            {record.status}
+            {record.status === "REJECTED" ? "Subject to Revision" : record.status}
           </Badge>
         </div>
       </div>
@@ -322,31 +322,31 @@ export default function ProductionApprovalCard({
 
         {isRejected && (
           <div className="space-y-3">
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3">
-              <div className="size-8 rounded-lg bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-700 shrink-0 mt-0.5">
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 flex items-start gap-3">
+              <div className="size-8 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0 mt-0.5">
                 <ShieldAlert className="size-5" />
               </div>
               <div className="min-w-0">
-                <h4 className="text-xs font-black uppercase tracking-wider text-rose-900">
-                  Entry Rejected
+                <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
+                  Subject to Revision
                 </h4>
-                <p className="text-xs text-rose-800 mt-1 leading-relaxed">
-                  This production entry was flagged or rejected during data validation.
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  This production entry was returned for correction during data validation.
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-rose-800">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-amber-900">
                 <MessageSquareQuote className="size-4" />
                 <p className="text-xs font-bold uppercase tracking-wider">
-                  Rejection Reason / Remarks
+                  Revision Reason / Remarks
                 </p>
               </div>
-              <p className="text-xs text-rose-950 font-medium italic">
+              <p className="text-xs text-amber-950 font-medium italic">
                 {record.reviewRemarks
                   ? `"${record.reviewRemarks}"`
-                  : "No rejection remarks were provided. Please contact your SIBAT officer."}
+                  : "Please review and adjust the declared values according to reviewer remarks."}
               </p>
             </div>
           </div>

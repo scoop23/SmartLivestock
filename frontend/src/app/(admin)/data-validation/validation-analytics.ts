@@ -338,10 +338,10 @@ export function getStatusPill(status: string) {
     case "REJECTED":
     case "FLAGGED":
       return {
-        label: norm === "FLAGGED" ? "Flagged" : "Rejected / Returned",
-        shortLabel: "Flagged",
-        bg: "bg-rose-50 text-rose-700 border-rose-200/80",
-        dot: "bg-rose-500",
+        label: "Subject to Revision",
+        shortLabel: "For Revision",
+        bg: "bg-amber-50 text-amber-900 border-amber-300",
+        dot: "bg-amber-500",
       };
     case "VERIFIED":
       return {

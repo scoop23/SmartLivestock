@@ -1,7 +1,7 @@
 "use client";
 
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Clock, CheckCircle2, XCircle, MapPin, ShieldCheck, UserCheck } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, MapPin, ShieldCheck, UserCheck, RotateCcw } from "lucide-react";
 
 interface ValidationKpisProps {
   kpis: {
@@ -80,14 +80,14 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
           </div>
         </div>
 
-        {/* Flagged / Rejected */}
-        <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-500/10 via-rose-50/50 to-white border border-rose-200/70 shadow-2xs flex flex-col justify-between">
+        {/* Subject to Revision */}
+        <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-50/50 to-white border border-amber-200/70 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <div className="p-1.5 rounded-lg bg-rose-100 text-rose-800 shrink-0">
-              <XCircle className="w-3.5 h-3.5" />
+            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-900 shrink-0">
+              <RotateCcw className="w-3.5 h-3.5" />
             </div>
-            <span className="text-[9px] font-black uppercase text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded-full">
-              Returned
+            <span className="text-[9px] font-black uppercase text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded-full">
+              For Revision
             </span>
           </div>
           <div className="mt-2">
@@ -95,7 +95,7 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
               {kpis.flagged}
             </div>
             <p className="text-[10px] font-black text-stone-500 uppercase tracking-wider mt-1 truncate">
-              Flagged
+              For Revision
             </p>
           </div>
         </div>
@@ -126,7 +126,7 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
           title="Awaiting SIBAT"
           value={kpis.pending}
           variant="amber"
-          layout="horizontal"
+          layout="vertical"
           icon={<Clock className="w-5 h-5 text-amber-700" />}
           badge={
             <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-900">
@@ -141,7 +141,7 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
           title="Verified by SIBAT"
           value={kpis.verified}
           variant="sky"
-          layout="horizontal"
+          layout="vertical"
           icon={<UserCheck className="w-5 h-5 text-sky-700" />}
           badge={
             <span className="flex items-center gap-1 text-[11px] font-semibold text-sky-900">
@@ -156,27 +156,27 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
           title="MAO Certified"
           value={kpis.approved}
           variant="emerald"
-          layout="horizontal"
+          layout="vertical"
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-700" />}
           badge="Approved"
           description="Official certified municipal records"
         />
 
         <KpiCard
-          title="Flagged / Returned"
+          title="Subject to Revision"
           value={kpis.flagged}
-          variant="rose"
-          layout="horizontal"
-          icon={<XCircle className="w-5 h-5 text-rose-700" />}
-          badge="Returned"
-          description="Requires correction or re-inspection"
+          variant="amber"
+          layout="vertical"
+          icon={<RotateCcw className="w-5 h-5 text-amber-700" />}
+          badge="For Revision"
+          description="Returned for correction or re-inspection"
         />
 
         <KpiCard
           title="Active Barangays"
           value={kpis.activeBarangays}
           variant="stone"
-          layout="horizontal"
+          layout="vertical"
           icon={<MapPin className="w-5 h-5 text-stone-700" />}
           badge="Coverage"
           description="Barangays with recorded entries"

@@ -1,6 +1,6 @@
 "use client";
 
-import { Beef, CalendarDays, Egg, Lock, Milk, Package, Pencil, Trash2 } from "lucide-react";
+import { Beef, CalendarDays, Egg, Lock, Milk, Package, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,7 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
-  REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200",
+  REJECTED: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
 };
 
 const DEFAULT_STATUS_CLASS =
@@ -105,7 +105,7 @@ export default function ProductionRecordDialog({
                 <Badge
                   className={`shrink-0 uppercase tracking-wider bg-white text-slate-800 border-0 hover:bg-white ${(statusClasses[record.status] ?? DEFAULT_STATUS_CLASS).split(" ")[0]}`}
                 >
-                  {record.status}
+                  {record.status === "REJECTED" ? "Subject to Revision" : record.status}
                 </Badge>
               </div>
             </div>
@@ -196,14 +196,15 @@ export default function ProductionRecordDialog({
               )}
 
               {record.status === "REJECTED" && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-1.5">
-                  <p className="text-xs font-bold uppercase tracking-wider text-rose-800">
-                    Rejection Remarks
+                <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 space-y-1.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <RotateCcw className="size-3.5 text-amber-700" />
+                    Revision Remarks & Required Corrections
                   </p>
-                  <p className="text-sm text-rose-950 font-medium italic">
+                  <p className="text-sm text-amber-950 font-medium italic">
                     {record.reviewRemarks
                       ? `"${record.reviewRemarks}"`
-                      : "No rejection remarks were provided."}
+                      : "Please review and correct the declared values according to reviewer instructions."}
                   </p>
                 </div>
               )}

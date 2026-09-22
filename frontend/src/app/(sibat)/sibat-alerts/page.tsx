@@ -309,7 +309,7 @@ export default function SibatAlertsPage() {
                                 ? "bg-sky-100 text-sky-800 border-sky-300"
                                 : alert.status === "APPROVED"
                                 ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                : "bg-rose-100 text-rose-800 border-rose-300"
+                                : "bg-amber-100 text-amber-900 border-amber-300"
                             }`}
                           >
                             {alert.status === "VERIFIED" && (
@@ -324,7 +324,12 @@ export default function SibatAlertsPage() {
                                 MAO Certified
                               </>
                             )}
-                            {alert.status === "REJECTED" && "Flagged / Returned"}
+                            {alert.status === "REJECTED" && (
+                              <>
+                                <RotateCcw className="w-3 h-3 mr-1" />
+                                Subject to Revision
+                              </>
+                            )}
                           </Badge>
                         )}
                       </div>

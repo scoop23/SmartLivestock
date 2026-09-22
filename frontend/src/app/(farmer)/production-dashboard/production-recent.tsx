@@ -28,7 +28,7 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
-  REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200",
+  REJECTED: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
 };
 
 const DEFAULT_STATUS_CLASS =
@@ -123,7 +123,7 @@ export default function ProductionRecent({
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                {st === "ALL" ? "All Status" : st}
+                {st === "ALL" ? "All Status" : st === "REJECTED" ? "For Revision" : st}
               </button>
             ))}
           </div>
@@ -167,7 +167,7 @@ export default function ProductionRecent({
                             statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
                           }`}
                         >
-                          {record.status}
+                          {record.status === "REJECTED" ? "Subject to Revision" : record.status}
                         </Badge>
                         <span className="text-xs text-slate-400">
                           • {formatRecordDate(record.recordDate)}

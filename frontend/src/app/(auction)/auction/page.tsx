@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   CheckCircle2,
   AlertCircle,
+  RotateCcw,
   Clock,
   Send,
   Plus,
@@ -69,8 +70,8 @@ export default function AuctionDashboard() {
         );
       case "REJECTED":
         return (
-          <Badge className="bg-rose-100 text-rose-800 border-rose-200 font-bold text-[10px] uppercase tracking-wider">
-            <AlertCircle className="w-3 h-3 mr-1" /> Rejected
+          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
+            <RotateCcw className="w-3 h-3 mr-1" /> Subject to Revision
           </Badge>
         );
     }
@@ -177,12 +178,12 @@ export default function AuctionDashboard() {
           />
           <KpiCard
             size="default"
-            title="Rejected / Flagged"
+            title="Subject to Revision"
             value={rejectedCount}
-            variant="rose"
-            icon={<AlertCircle className="w-4 h-4" />}
-            badge="Alert"
-            description="Non-compliant records"
+            variant="amber"
+            icon={<RotateCcw className="w-4 h-4" />}
+            badge="Revision"
+            description="Records requiring correction"
             onClick={() => router.push("/auction-inspections")}
           />
         </div>

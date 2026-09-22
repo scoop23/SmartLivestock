@@ -62,9 +62,9 @@ const getStatusBadge = (status: StatusType) => {
       );
     case "REJECTED":
       return (
-        <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200 flex items-center gap-1 font-bold text-[11px]">
-          <XCircle className="w-3.5 h-3.5 text-rose-600" />
-          Rejected
+        <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300 flex items-center gap-1 font-bold text-[11px]">
+          <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+          Subject to Revision
         </Badge>
       );
   }
@@ -102,10 +102,10 @@ export const STATUS_CHIPS: {
     },
     {
       value: "REJECTED",
-      label: "Rejected",
-      icon: XCircle,
-      activeClass: "bg-rose-600 text-white border-rose-600 shadow-sm",
-      dotClass: "bg-rose-500",
+      label: "Subject to Revision",
+      icon: RotateCcw,
+      activeClass: "bg-amber-700 text-white border-amber-700 shadow-sm",
+      dotClass: "bg-amber-500",
     },
   ];
 
