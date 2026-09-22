@@ -98,7 +98,6 @@ export default function LivestockInventoryPage() {
 
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading } = useUserInventory();
-  console.log(inventories);
 
   // Form State matching Django LivestockInventory
   const initialFormData = {
@@ -310,63 +309,92 @@ export default function LivestockInventoryPage() {
         {/* ═══════════════════════════════════════════════════════════════
             EXECUTIVE FARM TELEMETRY HERO BANNER (COLLAPSIBLE)
         ═══════════════════════════════════════════════════════════════ */}
-        {/* Collapsed Top Ribbon */}
-        {!showHeroBanner && (
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white border border-emerald-800/40 shadow-md animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-md">
-                <Activity className="w-3 h-3 mr-1 text-emerald-400" />
-                Live Herd Registry
-              </Badge>
-              <span className="text-xs font-black text-white">
-                Livestock Inventory & Biometric Surveillance
-              </span>
-              <span className="text-xs font-medium text-emerald-200/70 hidden md:inline">
-                • {inventories.length} Registered Records
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportCSV}
-                className="gap-1.5 border-emerald-700/50 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl h-9 px-3 text-xs backdrop-blur-md transition-all active:scale-95"
-              >
-                <FileDown className="w-3.5 h-3.5 text-emerald-300" />
-                Export CSV
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setIsAddOpen(true)}
-                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black gap-1.5 rounded-xl h-9 px-3.5 text-xs shadow-md shadow-emerald-950/40 transition-all active:scale-95"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                Register Livestock
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowHeroBanner(true)}
-                className="gap-1 text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl h-9 px-2.5 text-xs font-bold transition-colors"
-              >
-                <ChevronDown className="w-3.5 h-3.5 text-emerald-300" />
-                Show Overview
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Expanded Hero Banner with Smooth Transition */}
+        {/* 1. Collapsed Top Ribbon (Slides in/out smoothly) */}
         <div
-          className={`grid transition-all duration-300 ease-in-out ${
-            showHeroBanner
+          className={`grid transition-[grid-template-rows,opacity,margin] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            !showHeroBanner
               ? "grid-rows-[1fr] opacity-100"
-              : "grid-rows-[0fr] opacity-0 pointer-events-none hidden"
+              : "grid-rows-[0fr] opacity-0 pointer-events-none -mb-6"
           }`}
         >
-          <div className="min-h-0 overflow-hidden">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 text-white p-6 sm:p-8 border border-emerald-800/40 shadow-xl">
+          <div className="overflow-hidden min-h-0">
+            <div
+              className={`flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white border border-emerald-800/40 shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                !showHeroBanner ? "translate-y-0 scale-100 opacity-100" : "-translate-y-4 scale-[0.98] opacity-0"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-md">
+                  <Activity className="w-3 h-3 mr-1 text-emerald-400" />
+                  Live Herd Registry
+                </Badge>
+                <span className="text-xs font-black text-white">
+                  Livestock Inventory & Biometric Surveillance
+                </span>
+                <span className="text-xs font-medium text-emerald-200/70 hidden md:inline">
+                  • {inventories.length} Registered Records
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportCSV}
+                  className="gap-1.5 border-emerald-700/50 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl h-9 px-3 text-xs backdrop-blur-md transition-all active:scale-95"
+                >
+                  <FileDown className="w-3.5 h-3.5 text-emerald-300" />
+                  Export CSV
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setIsAddOpen(true)}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black gap-1.5 rounded-xl h-9 px-3.5 text-xs shadow-md shadow-emerald-950/40 transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  Register Livestock
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHeroBanner(true)}
+                  className="group relative overflow-hidden gap-1.5 border-emerald-400/40 hover:border-emerald-300/80 bg-gradient-to-r from-emerald-500/20 via-emerald-400/25 to-teal-500/20 hover:from-emerald-500/35 hover:via-emerald-400/35 hover:to-teal-500/30 text-emerald-100 hover:text-white rounded-xl h-9 px-3 text-xs font-black shadow-xs hover:shadow-md hover:shadow-emerald-950/40 backdrop-blur-md transition-all duration-300 active:scale-95 cursor-pointer"
+                >
+                  {/* Ambient Shimmer Sweep Animation */}
+                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
+                  {/* Pulsing Live Beacon Dot */}
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300" />
+                  </span>
+
+                  <span className="tracking-tight">Show Overview</span>
+
+                  {/* Animated Chevron Bounce */}
+                  <ChevronDown className="w-3.5 h-3.5 text-emerald-300 transition-transform duration-300 ease-out group-hover:translate-y-0.5 group-hover:text-emerald-100" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Expanded Hero Banner (Slides down seamlessly) */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            showHeroBanner
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0 pointer-events-none"
+          }`}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div
+              className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 text-white p-6 sm:p-8 border border-emerald-800/40 shadow-xl transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                showHeroBanner
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "-translate-y-8 scale-[0.98] opacity-0"
+              }`}
+            >
               {/* Subtle Ambient Background Gradients */}
               <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
               <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
@@ -417,9 +445,9 @@ export default function LivestockInventoryPage() {
                   <Button
                     variant="ghost"
                     onClick={() => setShowHeroBanner(false)}
-                    className="gap-1.5 text-emerald-200/90 hover:text-white hover:bg-white/10 font-bold rounded-2xl h-12 px-4 backdrop-blur-md transition-all active:scale-95"
+                    className="group relative overflow-hidden gap-1.5 border border-emerald-700/50 hover:border-emerald-600 bg-white/10 hover:bg-white/20 text-emerald-200 hover:text-white font-bold rounded-2xl h-12 px-4.5 backdrop-blur-md transition-all duration-300 active:scale-95 cursor-pointer"
                   >
-                    <ChevronUp className="w-4 h-4 text-emerald-300" />
+                    <ChevronUp className="w-4 h-4 text-emerald-300 transition-transform duration-300 ease-out group-hover:-translate-y-0.5" />
                     Hide Overview
                   </Button>
                 </div>

@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   Clock,
   ChevronRight,
+  ChevronDown,
   Calendar,
 } from "lucide-react";
 import { Icon } from "lucide-react";
@@ -389,13 +390,18 @@ export function DataOverviewOverallView({
           </Card>
 
           {/* Cross-Domain Real-Time Activity Feed */}
-          <Card className="rounded-xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-            <div className="p-3.5 border-b border-slate-100 flex items-center justify-between">
+          <Card className="rounded-xl border border-slate-200/80 bg-white shadow-xs overflow-hidden flex flex-col">
+            <div className="p-3.5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5 text-[#2D5A27]" />
                 Recent Municipal Activity Stream
               </h4>
               <div className="flex items-center gap-1.5">
+                {!isLoading && activityFeed.length > 0 && (
+                  <Badge variant="secondary" className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2">
+                    {activityFeed.length} updates
+                  </Badge>
+                )}
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <Badge variant="outline" className="text-[9px] font-bold text-slate-500 px-1.5 py-0.2">
                   Live
@@ -403,7 +409,7 @@ export function DataOverviewOverallView({
               </div>
             </div>
 
-            <CardContent className="p-3 space-y-2">
+            <CardContent className="p-3 space-y-2 max-h-[460px] sm:max-h-[500px] overflow-y-auto pr-1.5 [scrollbar-width:thin] scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
               {isLoading ? (
                 <div className="space-y-2.5 py-2">
                   {[1, 2, 3, 4].map((i) => (
@@ -480,6 +486,16 @@ export function DataOverviewOverallView({
                 ))
               )}
             </CardContent>
+
+            {!isLoading && activityFeed.length > 4 && (
+              <div className="px-3.5 py-2 bg-slate-50/80 border-t border-slate-100/80 flex items-center justify-between text-[10px] text-slate-400 font-medium shrink-0">
+                <span>Real-time cross-domain events</span>
+                <span className="flex items-center gap-1 text-slate-500 font-semibold">
+                  <span>Scroll for more</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </span>
+              </div>
+            )}
           </Card>
         </div>
       </div>

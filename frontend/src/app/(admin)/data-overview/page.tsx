@@ -494,10 +494,10 @@ export default function DataOverviewPage() {
       const filtered = liveActivities.filter(
         (a) => a.barangay.toLowerCase() === filterBarangay.toLowerCase()
       );
-      if (filtered.length > 0) return filtered.slice(0, 15);
+      if (filtered.length > 0) return filtered.slice(0, 30);
     }
 
-    return liveActivities.slice(0, 15);
+    return liveActivities.slice(0, 30);
   }, [rawInventory, rawProduction, rawCensus, rawIncidents, filterBarangay]);
 
   // ── Compute Real Master Data Matrix per Barangay across all 17 Official Barangays ──
