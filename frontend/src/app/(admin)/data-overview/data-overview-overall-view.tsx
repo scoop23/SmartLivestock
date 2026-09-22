@@ -39,6 +39,7 @@ import { cowHead } from "@lucide/lab";
 interface DataOverviewOverallViewProps {
   barangaySummaries: BarangaySummary[];
   activityFeed: ActivityFeedItem[];
+  isLoading?: boolean;
   onSelectBarangay: (barangay: string) => void;
   onNavigateTab: (tab: DataTab) => void;
 }
@@ -46,6 +47,7 @@ interface DataOverviewOverallViewProps {
 export function DataOverviewOverallView({
   barangaySummaries,
   activityFeed,
+  isLoading = false,
   onSelectBarangay,
   onNavigateTab,
 }: DataOverviewOverallViewProps) {
@@ -393,61 +395,90 @@ export function DataOverviewOverallView({
                 <Activity className="w-3.5 h-3.5 text-[#2D5A27]" />
                 Recent Municipal Activity Stream
               </h4>
-              <Badge variant="outline" className="text-[9px] font-bold text-slate-500 px-1.5 py-0.2">
-                Live
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <Badge variant="outline" className="text-[9px] font-bold text-slate-500 px-1.5 py-0.2">
+                  Live
+                </Badge>
+              </div>
             </div>
 
             <CardContent className="p-3 space-y-2">
-              {activityFeed.map((act) => (
-                <div
-                  key={act.id}
-                  className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
-                >
-                  <div className="p-1.5 rounded-lg bg-slate-100 text-slate-700 shrink-0 mt-0.5">
-                    {act.domain === "production" && <Milk className="w-3.5 h-3.5 text-sky-600" />}
-                    {act.domain === "sales" && <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />}
-                    {act.domain === "disease" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
-                    {act.domain === "livestock" && <Icon iconNode={cowHead} className="w-3.5 h-3.5 text-emerald-700" />}
-                    {act.domain === "slaughter" && <Scale className="w-3.5 h-3.5 text-amber-600" />}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <p className="text-xs font-bold text-slate-900 truncate">
-                        {act.title}
-                      </p>
-                      <span className="text-[10px] font-semibold text-slate-400 shrink-0">
-                        {act.timestamp}
-                      </span>
+              {isLoading ? (
+                <div className="space-y-2.5 py-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-start gap-2.5 p-2 rounded-lg animate-pulse">
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3 bg-slate-100 rounded w-3/4" />
+                        <div className="h-2.5 bg-slate-50 rounded w-1/2" />
+                      </div>
                     </div>
-
-                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                      {act.description}
-                    </p>
-
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[10px] font-bold text-slate-400">
-                        Brgy. {act.barangay}
-                      </span>
-                      <span className="text-slate-300">•</span>
-                      <Badge
-                        className={`text-[9px] font-extrabold px-1.5 py-0.2 border-0 ${
-                          act.badgeVariant === "emerald"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : act.badgeVariant === "sky"
-                            ? "bg-sky-100 text-sky-800"
-                            : act.badgeVariant === "rose"
-                            ? "bg-rose-100 text-rose-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {act.badge}
-                      </Badge>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              ) : activityFeed.length === 0 ? (
+                <div className="py-8 text-center text-slate-400">
+                  <Activity className="w-7 h-7 mx-auto mb-1.5 text-slate-300" />
+                  <p className="text-xs font-bold text-slate-600">No recent activity found</p>
+                  <p className="text-[10px] text-slate-400">
+                    Live operational submissions and audits will stream here.
+                  </p>
+                </div>
+              ) : (
+                activityFeed.map((act) => (
+                  <div
+                    key={act.id}
+                    onClick={() => onNavigateTab(act.domain)}
+                    className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50/80 transition-colors border border-transparent hover:border-slate-100 cursor-pointer group"
+                    title={`View ${act.domain} records`}
+                  >
+                    <div className="p-1.5 rounded-lg bg-slate-100 text-slate-700 shrink-0 mt-0.5 group-hover:bg-slate-200 transition-colors">
+                      {act.domain === "production" && <Milk className="w-3.5 h-3.5 text-sky-600" />}
+                      {act.domain === "sales" && <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />}
+                      {act.domain === "disease" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
+                      {act.domain === "mortality" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
+                      {act.domain === "livestock" && <Icon iconNode={cowHead} className="w-3.5 h-3.5 text-emerald-700" />}
+                      {act.domain === "slaughter" && <Scale className="w-3.5 h-3.5 text-amber-600" />}
+                      {act.domain === "census" && <Layers className="w-3.5 h-3.5 text-indigo-600" />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700 transition-colors">
+                          {act.title}
+                        </p>
+                        <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                          {act.timestamp}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                        {act.description}
+                      </p>
+
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] font-bold text-slate-400">
+                          Brgy. {act.barangay}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <Badge
+                          className={`text-[9px] font-extrabold px-1.5 py-0.2 border-0 ${
+                            act.badgeVariant === "emerald"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : act.badgeVariant === "sky"
+                              ? "bg-sky-100 text-sky-800"
+                              : act.badgeVariant === "rose"
+                              ? "bg-rose-100 text-rose-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {act.badge}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

@@ -25,6 +25,7 @@ import {
   MortalityRecord,
   SlaughterRecord,
   CensusRecord,
+  ActivityFeedItem,
 } from "./data-overview-types";
 
 // Modular Components
@@ -40,8 +41,10 @@ import {
   useAdminInventoryRecords,
   useAdminProductionRecords,
   useAdminCensusSubmissions,
+  useAdminIncidentRecords,
 } from "../data-validation/validation-analytics";
 import { useGetBarangays } from "@/app/(sibat)/sibat/sibat-analytics";
+import { INITIAL_INSPECTIONS } from "@/app/(auction)/auction-inspections/auction-analytics";
 
 export default function DataOverviewPage() {
   // Navigation & View States
@@ -64,6 +67,9 @@ export default function DataOverviewPage() {
   const { data: rawInventory, isLoading: isInvLoading } = useAdminInventoryRecords();
   const { data: rawProduction, isLoading: isProdLoading } = useAdminProductionRecords();
   const { data: rawCensus, isLoading: isCenLoading } = useAdminCensusSubmissions();
+  const { data: rawIncidents, isLoading: isIncLoading } = useAdminIncidentRecords();
+
+  const isDataLoading = isInvLoading || isProdLoading || isCenLoading || isIncLoading;
 
   // Combine backend records with seed datasets
   const livestockList: LivestockRecord[] = useMemo(() => {
@@ -169,10 +175,330 @@ export default function DataOverviewPage() {
     });
   }, [rawCensus]);
 
-  const salesList = SEED_SALES;
-  const diseaseList = SEED_DISEASE;
-  const mortalityList = SEED_MORTALITY;
+  // Helper for human-readable relative time formatting
+  const formatRelativeTime = (dateInput: string | Date | undefined | null): string => {
+    if (!dateInput) return "Recently";
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return "Recently";
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+
+    if (diffMs < 60_000) return "Just now";
+
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+    });
+  };
+
+  const diseaseList: DiseaseRecord[] = useMemo(() => {
+    const liveCases = rawIncidents?.filter((i) => i.type === "disease");
+    if (!liveCases || liveCases.length === 0) return SEED_DISEASE;
+    return liveCases.map((item) => ({
+      id: item.id,
+      farmerName: item.farmerName || "Registered Farmer",
+      barangay: item.barangayName || "Padre Garcia",
+      cattleId: item.tagNumber || `TAG-${item.id}`,
+      specie: item.livestockType || "Cattle",
+      disease: item.conditionName || "Reported Condition",
+      symptoms: item.symptoms && item.symptoms.length > 0 ? item.symptoms : ["Clinical surveillance record"],
+      affectedHeads: item.headCount || 1,
+      severity: (item.sibatInspection?.severity === "CRITICAL" ? "Critical" : item.sibatInspection?.severity === "MODERATE" ? "Moderate" : "Mild") as any,
+      status: (item.status === "APPROVED" ? "Quarantined" : item.status === "VERIFIED" ? "Under Treatment" : "Under Investigation") as any,
+      veterinarian: item.reviewedBy || "Municipal Veterinary Office",
+      quarantineZone: item.status === "APPROVED",
+      dateReported: item.date || "2026-04-20",
+      lastUpdated: item.createdAt?.slice(0, 10) || item.date || "2026-04-20",
+    }));
+  }, [rawIncidents]);
+
+  const mortalityList: MortalityRecord[] = useMemo(() => {
+    const liveMortalities = rawIncidents?.filter((i) => i.type === "mortality");
+    if (!liveMortalities || liveMortalities.length === 0) return SEED_MORTALITY;
+    return liveMortalities.map((item) => ({
+      id: item.id,
+      farmerName: item.farmerName || "Registered Farmer",
+      barangay: item.barangayName || "Padre Garcia",
+      cattleId: item.tagNumber || `TAG-${item.id}`,
+      specie: item.livestockType || "Cattle",
+      breed: item.livestockBreed || "Standard Breed",
+      cause: item.conditionName || "Unspecified Cause",
+      dateOfDeath: item.date || "2026-04-20",
+      necropsyPerformed: Boolean(item.reviewedBy),
+      necropsyFindings: item.reviewRemarks || undefined,
+      disposalMethod: "Burial with Lime",
+      insuranceClaimStatus: (item.status === "APPROVED" ? "Approved" : "In Review") as any,
+      verifiedBy: item.reviewedBy || "MAO Biosecurity Officer",
+    }));
+  }, [rawIncidents]);
+
+  const salesList: SalesRecord[] = useMemo(() => {
+    const liveSales = rawIncidents?.filter((i) => i.type === "sale");
+    if (!liveSales || liveSales.length === 0) return SEED_SALES;
+    return liveSales.map((item) => ({
+      id: item.id,
+      farmerName: item.farmerName || "Registered Farmer",
+      buyer: "Padre Garcia Livestock Trading Center",
+      barangay: item.barangayName || "Padre Garcia",
+      product: `${item.livestockType || "Livestock"} Trade`,
+      specie: item.livestockType || "Cattle",
+      cattleId: item.tagNumber || `TAG-${item.id}`,
+      quantity: `${item.headCount || 1} Head`,
+      amount: item.details.includes("₱") ? item.details.split("Total: ")[1] || "₱45,000" : "₱45,000",
+      amountNumber: 45000,
+      paymentMethod: "Cash",
+      transportPermitNumber: `TP-2026-${item.id.replace(/\D/g, "") || "001"}`,
+      date: item.date || "2026-04-20",
+      status: (item.status === "APPROVED" ? "Completed" : "Pending Clearance") as any,
+    }));
+  }, [rawIncidents]);
+
   const slaughterList = SEED_SLAUGHTER;
+
+  // ── Connected Recent Municipal Activity Stream (Real-Time Multi-Domain) ──
+  const recentActivityFeed: ActivityFeedItem[] = useMemo(() => {
+    const liveActivities: (ActivityFeedItem & { rawTimestamp: number })[] = [];
+
+    // 1. Live Animal Inventory Registrations
+    if (rawInventory && rawInventory.length > 0) {
+      rawInventory.forEach((inv) => {
+        const rawDate = inv.createdAt ? new Date(inv.createdAt).getTime() : 0;
+        const statusBadge =
+          inv.status === "APPROVED"
+            ? "MAO Certified"
+            : inv.status === "SUBJECT_TO_REVISION"
+            ? "Subject to Revision"
+            : inv.status === "VERIFIED"
+            ? "SIBAT Verified"
+            : "Pending Review";
+        const badgeVariant =
+          inv.status === "APPROVED"
+            ? "emerald"
+            : inv.status === "SUBJECT_TO_REVISION"
+            ? "amber"
+            : inv.status === "VERIFIED"
+            ? "sky"
+            : "amber";
+
+        liveActivities.push({
+          id: `act-inv-${inv.id}`,
+          domain: "livestock",
+          title: `${inv.livestockType || "Livestock"} Registered`,
+          description: `${inv.breed || "Standard"} (${inv.sex || "Animal"}) tagged #${inv.tagNumber || `ID-${inv.id}`} by ${inv.farmerName || "Farmer"}.`,
+          actor: inv.farmerName || "Farmer",
+          barangay: inv.barangayName || "Padre Garcia",
+          timestamp: formatRelativeTime(inv.createdAt),
+          rawTimestamp: rawDate,
+          badge: statusBadge,
+          badgeVariant,
+        });
+      });
+    }
+
+    // 2. Live Production Declarations
+    if (rawProduction && rawProduction.length > 0) {
+      rawProduction.forEach((prod) => {
+        const dateStr = prod.createdAt || prod.recordDate;
+        const rawDate = dateStr ? new Date(dateStr).getTime() : 0;
+        const typeLabel = prod.productionType
+          ? prod.productionType.charAt(0).toUpperCase() + prod.productionType.slice(1).toLowerCase()
+          : "Dairy";
+        const badgeVariant =
+          prod.status === "APPROVED"
+            ? "emerald"
+            : prod.status === "SUBJECT_TO_REVISION"
+            ? "amber"
+            : "sky";
+
+        liveActivities.push({
+          id: `act-prod-${prod.id}`,
+          domain: "production",
+          title: `${typeLabel} Yield Declared`,
+          description: `Farmer ${prod.farmerName || "Producer"} logged ${prod.quantity} ${prod.unit || "L"}.`,
+          actor: prod.farmerName || "Farmer",
+          barangay: prod.barangayName || "Padre Garcia",
+          timestamp: formatRelativeTime(dateStr),
+          rawTimestamp: rawDate,
+          badge: `${prod.quantity} ${prod.unit || "L"}`,
+          badgeVariant,
+        });
+      });
+    }
+
+    // 3. Live Quarterly Census Batches
+    if (rawCensus && rawCensus.length > 0) {
+      rawCensus.forEach((cen) => {
+        const rawDate = cen.submissionDate ? new Date(cen.submissionDate).getTime() : 0;
+        liveActivities.push({
+          id: `act-cen-${cen.id}`,
+          domain: "census",
+          title: `Q${cen.reportQuarter || 1} Census Batch Submitted`,
+          description: `${cen.totalHeads || 0} total head count logged in Brgy. ${cen.barangay} by ${cen.submittedBy || "SIBAT Officer"}.`,
+          actor: cen.submittedBy || "SIBAT Enumerator",
+          barangay: cen.barangay || "Padre Garcia",
+          timestamp: formatRelativeTime(cen.submissionDate),
+          rawTimestamp: rawDate,
+          badge:
+            cen.status === "APPROVED"
+              ? "MAO Verified"
+              : cen.status === "SUBJECT_TO_REVISION"
+              ? "Subject to Revision"
+              : "Pending Audit",
+          badgeVariant:
+            cen.status === "APPROVED"
+              ? "emerald"
+              : cen.status === "SUBJECT_TO_REVISION"
+              ? "amber"
+              : "sky",
+        });
+      });
+    }
+
+    // 4. Live Incidents: Disease, Mortality, Sales, Calvings
+    if (rawIncidents && rawIncidents.length > 0) {
+      rawIncidents.forEach((inc) => {
+        const dateStr = inc.createdAt || inc.date;
+        const rawDate = dateStr ? new Date(dateStr).getTime() : 0;
+
+        if (inc.type === "disease") {
+          liveActivities.push({
+            id: `act-${inc.id}`,
+            domain: "disease",
+            title: `Biosecurity Alert: ${inc.conditionName || "Disease Case"}`,
+            description: `${inc.details || "Suspected infection logged for veterinary review."} (${inc.farmerName})`,
+            actor: inc.reviewedBy || inc.farmerName || "Field Reporter",
+            barangay: inc.barangayName || "Padre Garcia",
+            timestamp: formatRelativeTime(dateStr),
+            rawTimestamp: rawDate,
+            badge:
+              inc.status === "APPROVED"
+                ? "Quarantine Enforced"
+                : inc.status === "SUBJECT_TO_REVISION"
+                ? "Subject to Revision"
+                : "Observation Active",
+            badgeVariant:
+              inc.status === "APPROVED"
+                ? "rose"
+                : inc.status === "SUBJECT_TO_REVISION"
+                ? "amber"
+                : "rose",
+          });
+        } else if (inc.type === "mortality") {
+          liveActivities.push({
+            id: `act-${inc.id}`,
+            domain: "mortality",
+            title: `Mortality Incident: ${inc.conditionName || "Death Reported"}`,
+            description: `${inc.headCount || 1} head(s) casualty. ${inc.details || ""}`,
+            actor: inc.reviewedBy || inc.farmerName || "Field Officer",
+            barangay: inc.barangayName || "Padre Garcia",
+            timestamp: formatRelativeTime(dateStr),
+            rawTimestamp: rawDate,
+            badge:
+              inc.status === "APPROVED"
+                ? "Verified Loss"
+                : inc.status === "SUBJECT_TO_REVISION"
+                ? "Subject to Revision"
+                : "Pending Review",
+            badgeVariant: "rose",
+          });
+        } else if (inc.type === "sale") {
+          liveActivities.push({
+            id: `act-${inc.id}`,
+            domain: "sales",
+            title: "Live Animal Trade Declared",
+            description: `${inc.details || "Livestock transaction logged for municipal trade clearance."}`,
+            actor: inc.farmerName || "Trader",
+            barangay: inc.barangayName || "Padre Garcia",
+            timestamp: formatRelativeTime(dateStr),
+            rawTimestamp: rawDate,
+            badge:
+              inc.status === "APPROVED"
+                ? "Cleared"
+                : inc.status === "SUBJECT_TO_REVISION"
+                ? "Subject to Revision"
+                : "Pending",
+            badgeVariant: inc.status === "APPROVED" ? "emerald" : "sky",
+          });
+        } else if (inc.type === "birth") {
+          liveActivities.push({
+            id: `act-${inc.id}`,
+            domain: "livestock",
+            title: "Calf Birth Registered",
+            description: `${inc.details || "New calf birth entered into registry."}`,
+            actor: inc.farmerName || "Farmer",
+            barangay: inc.barangayName || "Padre Garcia",
+            timestamp: formatRelativeTime(dateStr),
+            rawTimestamp: rawDate,
+            badge: "Born Active",
+            badgeVariant: "emerald",
+          });
+        }
+      });
+    }
+
+    // 5. Slaughterhouse & Movement Clearances
+    INITIAL_INSPECTIONS.forEach((insp) => {
+      const rawDate = insp.inspection_date ? new Date(insp.inspection_date).getTime() : 0;
+      const brgy = insp.shipper_address?.includes("Manggas")
+        ? "Manggas"
+        : insp.shipper_address?.includes("Pansol")
+        ? "Pansol"
+        : "Padre Garcia";
+
+      liveActivities.push({
+        id: `act-insp-${insp.id}`,
+        domain: "slaughter",
+        title: `Slaughter Clearance: ${insp.control_number}`,
+        description: `${insp.items?.map((i) => `${i.quantity} ${i.livestock_type}`).join(", ") || "Inspection"} cleared for ${insp.destination}.`,
+        actor: insp.shipper_name || "Meat Inspector",
+        barangay: brgy,
+        timestamp: formatRelativeTime(insp.inspection_date),
+        rawTimestamp: rawDate,
+        badge:
+          insp.status === "APPROVED"
+            ? "Passed"
+            : insp.status === "SUBJECT_TO_REVISION"
+            ? "Subject to Revision"
+            : "Inspected",
+        badgeVariant:
+          insp.status === "APPROVED"
+            ? "emerald"
+            : insp.status === "SUBJECT_TO_REVISION"
+            ? "amber"
+            : "sky",
+      });
+    });
+
+    if (liveActivities.length === 0) {
+      return SEED_ACTIVITY_FEED;
+    }
+
+    // Sort chronologically descending (newest first)
+    liveActivities.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
+
+    // If filtering by barangay in toolbar
+    if (filterBarangay !== "all") {
+      const filtered = liveActivities.filter(
+        (a) => a.barangay.toLowerCase() === filterBarangay.toLowerCase()
+      );
+      if (filtered.length > 0) return filtered.slice(0, 15);
+    }
+
+    return liveActivities.slice(0, 15);
+  }, [rawInventory, rawProduction, rawCensus, rawIncidents, filterBarangay]);
 
   // ── Compute Real Master Data Matrix per Barangay across all 17 Official Barangays ──
   const barangayMasterSummaries: BarangaySummary[] = useMemo(() => {
@@ -531,7 +857,7 @@ export default function DataOverviewPage() {
           totalAuctionValue={totalAuctionValue}
           activeIncidents={activeIncidentsCount}
           totalFarmers={totalFarmersCount}
-          isLoading={isInvLoading || isProdLoading}
+          isLoading={isDataLoading}
         />
 
         {/* Toolbar & Filter Suite */}
@@ -562,7 +888,8 @@ export default function DataOverviewPage() {
                 (searchQuery === "" ||
                   b.barangay.toLowerCase().includes(searchQuery.toLowerCase()))
             )}
-            activityFeed={SEED_ACTIVITY_FEED}
+            activityFeed={recentActivityFeed}
+            isLoading={isDataLoading}
             onSelectBarangay={(brgy) => {
               setFilterBarangay(brgy);
               toast.info(`Filtered for Brgy. ${brgy}`);

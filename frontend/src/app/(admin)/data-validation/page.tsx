@@ -184,12 +184,19 @@ export default function AdminDataValidationPage() {
     return { pending, verified, approved, flagged, activeBarangays };
   }, [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
-  // Tab Badge Counters
+  // Domain Breakdown Counters
   const domainPendingCounts = useMemo(() => ({
-    census: censusSubmissions.filter((c) => c.status === "PENDING").length,
-    production: productionRecords.filter((p) => p.status === "PENDING" || p.status === "VERIFIED").length,
-    inventory: inventoryRecords.filter((i) => i.status === "PENDING" || i.status === "VERIFIED").length,
-    incidents: incidents.filter((inc) => inc.status === "PENDING" || inc.status === "VERIFIED").length,
+    census: censusSubmissions.filter((c) => (c.status || "PENDING").toUpperCase() === "PENDING").length,
+    production: productionRecords.filter((p) => (p.status || "PENDING").toUpperCase() === "PENDING").length,
+    inventory: inventoryRecords.filter((i) => (i.status || "PENDING").toUpperCase() === "PENDING").length,
+    incidents: incidents.filter((inc) => (inc.status || "PENDING").toUpperCase() === "PENDING").length,
+  }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
+
+  const domainVerifiedCounts = useMemo(() => ({
+    census: censusSubmissions.filter((c) => (c.status || "").toUpperCase() === "VERIFIED").length,
+    production: productionRecords.filter((p) => (p.status || "").toUpperCase() === "VERIFIED").length,
+    inventory: inventoryRecords.filter((i) => (i.status || "").toUpperCase() === "VERIFIED").length,
+    incidents: incidents.filter((inc) => (inc.status || "").toUpperCase() === "VERIFIED").length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
   // ── Filtered Domain Data ──
@@ -485,7 +492,11 @@ export default function AdminDataValidationPage() {
 
       <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
         {/* KPI Strip */}
-        <ValidationKpis kpis={kpis} />
+        <ValidationKpis
+          kpis={kpis}
+          pendingBreakdown={domainPendingCounts}
+          verifiedBreakdown={domainVerifiedCounts}
+        />
 
         {/* Domain Switcher Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 ">

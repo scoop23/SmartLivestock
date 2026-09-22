@@ -11,9 +11,49 @@ interface ValidationKpisProps {
     flagged: number;
     activeBarangays: number;
   };
+  pendingBreakdown?: {
+    census: number;
+    production: number;
+    inventory: number;
+    incidents: number;
+  };
+  verifiedBreakdown?: {
+    census: number;
+    production: number;
+    inventory: number;
+    incidents: number;
+  };
 }
 
-export function ValidationKpis({ kpis }: ValidationKpisProps) {
+export function ValidationKpis({
+  kpis,
+  pendingBreakdown,
+  verifiedBreakdown,
+}: ValidationKpisProps) {
+  const pendingSummaryText =
+    pendingBreakdown && kpis.pending > 0
+      ? [
+          pendingBreakdown.inventory > 0 && `${pendingBreakdown.inventory} Inventory`,
+          pendingBreakdown.incidents > 0 && `${pendingBreakdown.incidents} Field Declarations`,
+          pendingBreakdown.census > 0 && `${pendingBreakdown.census} Census`,
+          pendingBreakdown.production > 0 && `${pendingBreakdown.production} Production`,
+        ]
+          .filter(Boolean)
+          .join(" • ")
+      : "Submissions awaiting SIBAT field check";
+
+  const verifiedSummaryText =
+    verifiedBreakdown && kpis.verified > 0
+      ? [
+          verifiedBreakdown.inventory > 0 && `${verifiedBreakdown.inventory} Inventory`,
+          verifiedBreakdown.incidents > 0 && `${verifiedBreakdown.incidents} Field Declarations`,
+          verifiedBreakdown.census > 0 && `${verifiedBreakdown.census} Census`,
+          verifiedBreakdown.production > 0 && `${verifiedBreakdown.production} Production`,
+        ]
+          .filter(Boolean)
+          .join(" • ")
+      : "Field-verified, ready for final MAO certification";
+
   return (
     <>
       {/* ── MOBILE COMPACT KPI GRID (under sm) ── */}
@@ -34,7 +74,7 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
               {kpis.pending}
             </div>
             <p className="text-[10px] font-black text-stone-500 uppercase tracking-wider mt-1 truncate">
-              Awaiting SIBAT
+              {pendingSummaryText}
             </p>
           </div>
         </div>
@@ -134,7 +174,7 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
               Pending Check
             </span>
           }
-          description="Submissions awaiting SIBAT field check"
+          description={pendingSummaryText}
         />
 
         <KpiCard
@@ -149,7 +189,7 @@ export function ValidationKpis({ kpis }: ValidationKpisProps) {
               Ready for MAO
             </span>
           }
-          description="Field-verified, ready for final MAO certification"
+          description={verifiedSummaryText}
         />
 
         <KpiCard

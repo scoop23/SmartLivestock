@@ -104,6 +104,7 @@ export interface ValidationIncidentItem {
   farmerContact?: string;
   details: string;
   date: string;
+  createdAt?: string;
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
   headCount?: number;
@@ -215,7 +216,8 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
           ? `Disease case: ${dc.name}. Affected: ${dc.affected_count || 1} head(s). Tag: ${dc.tag_number || "N/A"}`
           : "Disease condition reported",
         date: dc.record_date || (dc.created_at ? dc.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
-        status: (dc.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
+        createdAt: dc.created_at || dc.record_date,
+        status: (dc.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
         reviewRemarks: dc.review_remarks || null,
         headCount: dc.affected_count || 1,
         tagNumber: dc.tag_number || undefined,
@@ -235,7 +237,8 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         barangayName: m.barangay_name || "Padre Garcia",
         details: `Mortality cause: ${m.cause || "Unspecified"}. Death count: ${m.death_count || 1} head(s). Tag: ${m.tag_number || "N/A"}`,
         date: m.record_date || (m.created_at ? m.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
-        status: (m.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
+        createdAt: m.created_at || m.record_date,
+        status: (m.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
         reviewRemarks: m.review_remarks || null,
         headCount: m.death_count || 1,
         tagNumber: m.tag_number || undefined,
@@ -255,7 +258,8 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         barangayName: s.barangay_name || "Padre Garcia",
         details: `Live sale: ${s.quantity || 1} head(s) (${s.sale_method || "Direct"}). Destination: ${s.destination || "Market"}. Total: ₱${Number(s.total_price || 0).toLocaleString()}`,
         date: s.sale_date || (s.created_at ? s.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
-        status: (s.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
+        createdAt: s.created_at || s.sale_date,
+        status: (s.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
         reviewRemarks: s.review_remarks || null,
         headCount: s.quantity || 1,
         tagNumber: s.tag_number || undefined,
@@ -272,6 +276,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         barangayName: c.barangay_name || "Padre Garcia",
         details: `Calf Birth: Tag ${c.calf_tag || "N/A"}. Dam: ${c.dam_tag || "N/A"}. Sex: ${c.calf_sex || "Unspecified"}. Calving Ease: ${c.calving_ease || "Normal"}`,
         date: c.calving_date || (c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        createdAt: c.created_at || c.calving_date,
         status: "APPROVED",
         reviewRemarks: null,
         headCount: 1,
