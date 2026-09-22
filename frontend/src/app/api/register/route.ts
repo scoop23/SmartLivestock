@@ -1,7 +1,8 @@
 export async function POST(request: Request) {
   const body = await request.json()
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartlivestock-xkx4.onrender.com'
 
-  const res = await fetch('http://localhost:8000/api/users/register/', {
+  const res = await fetch(`${apiUrl}/api/users/register/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

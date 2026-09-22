@@ -92,24 +92,35 @@ def _normalize_origin(origin: str) -> str:
         return f"https://{origin}"
     return origin
 
+# Always allow local Next.js frontend
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS")
 if cors_origins_env:
-    CORS_ALLOWED_ORIGINS = [
-        _normalize_origin(orig) for orig in cors_origins_env.split(",") if orig.strip()
-    ]
-else:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+    for orig in cors_origins_env.split(","):
+        normalized = _normalize_origin(orig)
+        if normalized and normalized not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(normalized)
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
 csrf_trusted_env = os.environ.get("CSRF_TRUSTED_ORIGINS")
 if csrf_trusted_env:
-    CSRF_TRUSTED_ORIGINS = [
-        _normalize_origin(orig) for orig in csrf_trusted_env.split(",") if orig.strip()
-    ]
-elif RENDER_EXTERNAL_HOSTNAME:
-    CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"]
+    for orig in csrf_trusted_env.split(","):
+        normalized = _normalize_origin(orig)
+        if normalized and normalized not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(normalized)
+
+if RENDER_EXTERNAL_HOSTNAME:
+    render_origin = f"https://{RENDER_EXTERNAL_HOSTNAME}"
+    if render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_origin)
 
 # JWT token configuration
 # Access token = short-lived (30 min), Refresh token = long-lived (7 days)

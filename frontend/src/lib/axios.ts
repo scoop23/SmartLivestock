@@ -4,7 +4,7 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 // baseURL defaults to localhost:8000/api (Django dev server).
 // Override with NEXT_PUBLIC_API_URL env var for production.
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://smartlivestock-xkx4.onrender.com',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -79,7 +79,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const refreshUrl = `${api.defaults.baseURL || "http://localhost:8000"}/api/token/refresh/`;
+        const refreshUrl = `${api.defaults.baseURL || "https://smartlivestock-xkx4.onrender.com"}/api/token/refresh/`;
         const response = await axios.post(refreshUrl, { refresh: refreshToken });
 
         const newAccessToken = response.data.access;
