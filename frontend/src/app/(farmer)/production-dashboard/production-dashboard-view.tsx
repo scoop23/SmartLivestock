@@ -516,13 +516,12 @@ export default function ProductionDashboardView({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={() => refetch()}
                 disabled={isRefetching}
-                className="gap-2 rounded-xl text-xs font-semibold text-slate-600 border-slate-200 cursor-pointer"
+                className="gap-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 border-slate-200 hover:bg-slate-50 cursor-pointer h-10 px-4 active:scale-95 transition-all shadow-xs"
               >
-                <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin" : ""}`} />
-                Refresh Feed
+                <RefreshCw className={`size-4.5 ${isRefetching ? "animate-spin" : ""}`} />
+                <span>Refresh Feed</span>
               </Button>
 
               <Button

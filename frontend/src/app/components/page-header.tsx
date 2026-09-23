@@ -62,18 +62,18 @@ export function PageHeader({
         className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
       />
       <div className={`relative ${maxWidthClass} mx-auto px-4 py-5 md:px-6 md:py-7`}>
-        <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
             <HeaderMenuButton className={chipClasses[variant]} />
             {icon ? (
               <div
-                className={`shrink-0 flex items-center justify-center w-11 h-11 rounded-2xl ${chipClasses[variant]}`}
+                className={`shrink-0 flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl ${chipClasses[variant]}`}
               >
                 {icon}
               </div>
             ) : null}
-            <div className="min-w-0">
-              <h1 className="wrap-break-word text-xl font-extrabold tracking-tight leading-snug sm:text-2xl">
+            <div className="min-w-0 flex-1">
+              <h1 className="wrap-break-word text-lg sm:text-2xl font-extrabold tracking-tight leading-snug">
                 {title}
               </h1>
               {subtitle && (
@@ -83,7 +83,7 @@ export function PageHeader({
               )}
             </div>
           </div>
-          <div className="shrink-0 self-start sm:self-center flex items-center gap-2.5">
+          <div className="shrink-0 flex items-center gap-2 sm:gap-2.5 ml-2">
             {showNotifications && <HeaderNotifications variant={variant} />}
             {action ? action : null}
           </div>

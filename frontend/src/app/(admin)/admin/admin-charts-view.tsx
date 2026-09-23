@@ -43,18 +43,17 @@ export function AdminChartsView() {
 
         <div className="flex items-center gap-2">
           {isFetching && (
-            <span className="text-[10px] font-bold text-[#2D5A27] flex items-center gap-1">
-              <RotateCw className="w-3 h-3 animate-spin" /> Syncing...
+            <span className="text-xs font-bold text-[#2D5A27] flex items-center gap-1.5">
+              <RotateCw className="w-3.5 h-3.5 animate-spin" /> Syncing...
             </span>
           )}
           <Button
-            size="sm"
             variant="outline"
             onClick={() => refetchAll()}
             disabled={isFetching}
-            className="h-7 px-2.5 text-[11px] font-bold text-slate-700 hover:text-[#2D5A27] hover:border-[#2D5A27] transition-all cursor-pointer"
+            className="h-9 sm:h-9.5 px-3.5 sm:px-4 text-xs font-bold text-slate-700 hover:text-[#2D5A27] hover:border-[#2D5A27] hover:bg-emerald-50/50 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
           >
-            <RotateCw className={`w-3 h-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
+            <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh Data
           </Button>
         </div>

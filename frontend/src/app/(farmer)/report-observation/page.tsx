@@ -230,10 +230,10 @@ export default function ReportObservationPage() {
               variant="ghost"
               size="icon"
               onClick={handleRefresh}
-              className="rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+              className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
               title="Refresh Surveillance Feed"
             >
-              <RefreshCw className={`size-4.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`size-5 ${isRefreshing ? "animate-spin" : ""}`} />
             </Button>
           </div>
         }
