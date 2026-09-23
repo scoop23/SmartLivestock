@@ -109,36 +109,6 @@ export default function FarmerDashboard() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleOpenReportIllness("DISEASE")}
-              className="rounded-xl border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 cursor-pointer hidden sm:flex"
-            >
-              <Stethoscope className="size-4 text-emerald-200" />
-              <span>Report Sickness</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleOpenReportIllness("MORTALITY")}
-              className="rounded-xl border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 cursor-pointer hidden sm:flex"
-            >
-              <Skull className="size-4 text-rose-300" />
-              <span>Report Mortality</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsReportsListOpen(true)}
-              className="rounded-xl border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 cursor-pointer hidden sm:flex"
-            >
-              <ClipboardList className="size-4" />
-              <span>Health Reports</span>
-            </Button>
-
-            <Button
               variant="ghost"
               size="icon"
               onClick={() => refetch()}
@@ -231,12 +201,6 @@ export default function FarmerDashboard() {
           onOpenReportsList={() => setIsReportsListOpen(true)}
         />
       </div>
-
-      {/* ── RESPONSIVE FLOATING DOCK & COMMAND PALETTE (⌘K) ── */}
-      <FarmerActionDock
-        onOpenReportIllness={handleOpenReportIllness}
-        onOpenReportsList={() => setIsReportsListOpen(true)}
-      />
 
       {/* ── MODAL DIALOGS ── */}
 

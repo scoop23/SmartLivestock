@@ -34,7 +34,10 @@ urlpatterns = [
     path("api/token/", MyTokenView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("livestock/", include("livestock.urls"), name="livestock"),
+    path("api/livestock/", include("livestock.urls")),
     path("production/", include("production.urls"), name="production"),
+    path("api/production/", include("production.urls")),
     path("diseases/", include("diseases.urls"), name="diseases"),
+    path("api/diseases/", include("diseases.urls")),
 ]
 

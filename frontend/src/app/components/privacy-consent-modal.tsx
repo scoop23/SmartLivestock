@@ -177,7 +177,7 @@ export function PrivacyConsentModal() {
 
           {/* Agreement Checkbox */}
           <div className="p-4 rounded-2xl bg-slate-100/80 border border-slate-200 space-y-2">
-            <div className="flex items-start space-x-3">
+            <div className="flex items-center space-x-3">
               <Checkbox
                 id="modal-privacy-agree"
                 checked={agreed}
