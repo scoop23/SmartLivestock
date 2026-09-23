@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowLeft, Layers } from "lucide-react";
+import { ArrowLeft, Layers, Plus } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import LivestockDetailsDialog from "../livestock-details-dialog";
 import LivestockEditDialog, { type UpdateInventoryPayload } from "../livestock-edit-dialog";
 import LivestockRecordList from "../livestock-record-list";
 import api from "@/lib/axios";
+import { useRouter } from "next/navigation";
 import {
   type LivestockInventoryItem,
   useLivestockTypes,
@@ -26,6 +27,7 @@ import {
 } from "../livestock-inventory";
 
 export default function AllLivestockInventoryPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
@@ -79,14 +81,14 @@ export default function AllLivestockInventoryPage() {
             <Button
               type="button"
               variant="outline"
-              className="gap-2 border-slate-300 rounded-xl h-10 px-4 font-bold"
+              className="gap-2 border-slate-300 rounded-xl h-9 px-3.5 font-bold text-xs text-slate-700 hover:bg-slate-100 hover:text-slate-900"
             >
-              <ArrowLeft className="size-4" /> Back to Herd Overview
+              <ArrowLeft className="size-3.5" /> Back to Herd Overview
             </Button>
           </Link>
 
-          <span className="text-xs font-bold text-slate-500">
-            {inventories.length} Total Registered Records
+          <span className="text-xs font-semibold text-slate-500">
+            <strong className="text-slate-900 font-bold">{inventories.length}</strong> Registered Animals
           </span>
         </div>
 
@@ -97,6 +99,7 @@ export default function AllLivestockInventoryPage() {
           onView={(item) => setDetailTarget(item)}
           onEdit={(item) => setEditTarget(item)}
           onDelete={(item) => setDeleteTarget(item)}
+          onAddRecord={() => router.push("/livestock-inventory")}
         />
       </div>
 
