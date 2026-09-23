@@ -9,6 +9,7 @@ from django.views import View
 from django.db.models import Q
 from rest_framework_simplejwt.views import TokenObtainPairView  # type: ignore
 from rest_framework.generics import CreateAPIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from livestock.permission import IsMAO
 from users.models import User
@@ -43,6 +44,7 @@ class MyTokenView(TokenObtainPairView):
 # Atomically creates both a User (with status=PENDING) and a Farmer profile.
 class RegisterView(CreateAPIView):
     serializer_class = RegisterSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
 
 # Get current logged-in user basic profile

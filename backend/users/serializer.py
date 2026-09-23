@@ -1,5 +1,5 @@
 from rest_framework import serializers  # type: ignore
-from users.models import User, Role
+from users.models import User, Role, UserDocument
 from livestock.models import Farmer, Barangay
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  # type: ignore
 from django.db import transaction
@@ -33,7 +33,7 @@ class MyTokenSerializer(TokenObtainPairSerializer):
         data = cast(dict, data)
 
         data["user"] = {
-            "id": user.id, #type: ignore[reportAttributeAccesssIssues]
+            "id": user.id,  # type: ignore[reportAttributeAccessIssues]
             "email": user.email,
             "role": user.role.role_name,
         }
@@ -41,10 +41,22 @@ class MyTokenSerializer(TokenObtainPairSerializer):
         return data
 
 
+class UserDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserDocument
+        fields = (
+            "id",
+            "document_type",
+            "document_file",
+            "verification_status",
+            "uploaded_at",
+        )
+
+
 # Handles farmer registration.
-# Accepts fields from both User (email, password, name, phone) and Farmer (barangay, farm_size, address).
-# barangay, farm_size, address are write_only since they belong to the Farmer model, not User.
-# Creates User + Farmer atomically inside a transaction.
+# Accepts fields from both User (email, password, name, phone) and Farmer (barangay, farm_size, address)
+# and optional document uploads (government_id, rsbsa_document).
+# Creates User + Farmer + UserDocument records atomically inside a transaction.
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -57,6 +69,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             "barangay",
             "farm_size",
             "address",
+            "government_id",
+            "rsbsa_document",
         )
 
     password = serializers.CharField(write_only=True)
@@ -70,10 +84,19 @@ class RegisterSerializer(serializers.ModelSerializer):
     address = serializers.CharField(
         max_length=255, required=True, allow_blank=False, write_only=True
     )
+    government_id = serializers.FileField(
+        required=False, allow_null=True, write_only=True
+    )
+    rsbsa_document = serializers.FileField(
+        required=False, allow_null=True, write_only=True
+    )
 
     @transaction.atomic
     def create(self, validated_data):
-        farmer_role = Role.objects.get(role_name=Role.UserRoles.FARMER)
+        gov_id_file = validated_data.pop("government_id", None)
+        rsbsa_file = validated_data.pop("rsbsa_document", None)
+
+        farmer_role, _ = Role.objects.get_or_create(role_name=Role.UserRoles.FARMER)
 
         username = self.generate_username()
 
@@ -94,6 +117,22 @@ class RegisterSerializer(serializers.ModelSerializer):
             farm_size=validated_data["farm_size"],
             address=validated_data["address"],
         )
+
+        if gov_id_file:
+            UserDocument.objects.create(
+                user=user,
+                document_type=UserDocument.DocumentType.GOVERNMENT_ID,
+                document_file=gov_id_file,
+                verification_status=UserDocument.VerificationStatus.PENDING,
+            )
+
+        if rsbsa_file:
+            UserDocument.objects.create(
+                user=user,
+                document_type=UserDocument.DocumentType.RSBSA,
+                document_file=rsbsa_file,
+                verification_status=UserDocument.VerificationStatus.PENDING,
+            )
 
         return user
 
@@ -133,6 +172,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
     farm_size = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
     cattle_count = serializers.SerializerMethodField()
+    documents = UserDocumentSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -153,6 +193,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "farm_size",
             "address",
             "cattle_count",
+            "documents",
         )
         read_only_fields = fields
 

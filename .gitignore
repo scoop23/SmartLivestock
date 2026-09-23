@@ -14,3 +14,7 @@ Thumbs.db
 .vscode/
 .idea/
 staticfiles/
+user_documents/
+backend/user_documents/
+media/
+backend/media/

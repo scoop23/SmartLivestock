@@ -235,22 +235,6 @@ export default function ReportObservationPage() {
             >
               <RefreshCw className={`size-4.5 ${isRefreshing ? "animate-spin" : ""}`} />
             </Button>
-
-            <Button
-              onClick={() => handleOpenReportIllness("MORTALITY")}
-              className="rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 px-3 gap-1.5 border border-white/20 cursor-pointer hidden sm:flex"
-            >
-              <Skull className="size-4 text-rose-300" />
-              <span>Report Mortality</span>
-            </Button>
-
-            <Button
-              onClick={() => handleOpenReportIllness("DISEASE")}
-              className="rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 text-xs font-black h-9 px-4 gap-1.5 shadow-sm cursor-pointer"
-            >
-              <Stethoscope className="size-4 text-emerald-800" />
-              <span>Report Sickness</span>
-            </Button>
           </div>
         }
       />
