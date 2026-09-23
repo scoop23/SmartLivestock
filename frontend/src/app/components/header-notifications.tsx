@@ -112,17 +112,19 @@ export function HeaderNotifications({
     },
     onMutate: async (id: string) => {
       // Optimistic update
+      // prevents the user to fetch again while the get request is still fetching concurrently.
       await queryClient.cancelQueries({ queryKey: ["notifications"] });
+      // gets the current cached notifications.
       const previousData = queryClient.getQueryData<BackendNotificationsResponse>(["notifications"]);
 
       if (previousData) {
         const numericId = parseInt(id, 10);
-        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"], {
+        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"] , {
           ...previousData,
           unread_count: Math.max(0, previousData.unread_count - 1),
-          notifications: previousData.notifications.map((n) =>
-            n.id === numericId ? { ...n, is_read: true } : n
-          ),
+          notifications: previousData.notifications.map((n) => 
+            n.id === numericId ? { ...n, is_read: true} : n
+          )
         });
       }
       return { previousData };
@@ -200,46 +202,46 @@ export function HeaderNotifications({
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
       case "disease":
-        return <AlertTriangle className="w-4 h-4 text-rose-600" />;
+        return <AlertTriangle className="w-5 h-5 text-rose-600" />;
       case "vaccination":
-        return <Calendar className="w-4 h-4 text-amber-600" />;
+        return <Calendar className="w-5 h-5 text-amber-600" />;
       case "production":
-        return <TrendingUp className="w-4 h-4 text-emerald-600" />;
+        return <TrendingUp className="w-5 h-5 text-emerald-600" />;
       case "sibat":
-        return <ShieldCheck className="w-4 h-4 text-sky-600" />;
+        return <ShieldCheck className="w-5 h-5 text-sky-600" />;
       case "weather":
-        return <CloudSun className="w-4 h-4 text-amber-500" />;
+        return <CloudSun className="w-5 h-5 text-amber-500" />;
       default:
-        return <Bell className="w-4 h-4 text-slate-500" />;
+        return <Bell className="w-5 h-5 text-slate-500" />;
     }
   };
 
   const getIconBackground = (type: NotificationType) => {
     switch (type) {
       case "disease":
-        return "bg-rose-100/80 border-rose-200/80";
+        return "bg-rose-100/90 text-rose-600 border-rose-200/90 shadow-xs";
       case "vaccination":
-        return "bg-amber-100/80 border-amber-200/80";
+        return "bg-amber-100/90 text-amber-600 border-amber-200/90 shadow-xs";
       case "production":
-        return "bg-emerald-100/80 border-emerald-200/80";
+        return "bg-emerald-100/90 text-emerald-600 border-emerald-200/90 shadow-xs";
       case "sibat":
-        return "bg-sky-100/80 border-sky-200/80";
+        return "bg-sky-100/90 text-sky-600 border-sky-200/90 shadow-xs";
       case "weather":
-        return "bg-amber-50 border-amber-200/80";
+        return "bg-amber-50 text-amber-500 border-amber-200/90 shadow-xs";
       default:
-        return "bg-slate-100 border-slate-200";
+        return "bg-slate-100 text-slate-500 border-slate-200 shadow-xs";
     }
   };
 
   const buttonStyle = {
     admin:
-      "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 shadow-2xs",
+      "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 shadow-xs",
     farmer:
-      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-2xs",
+      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
     sibat:
-      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-2xs",
+      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
     auction:
-      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-2xs",
+      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
   }[variant];
 
   return (
@@ -249,15 +251,15 @@ export function HeaderNotifications({
           type="button"
           aria-label={`Notifications (${unreadCount} unread)`}
           className={cn(
-            "relative shrink-0 flex items-center justify-center w-10 h-10 rounded-xl border transition-all duration-150 active:scale-95 cursor-pointer backdrop-blur-xs",
+            "relative shrink-0 flex items-center justify-center w-11 h-11 rounded-xl sm:rounded-2xl border transition-all duration-150 active:scale-95 cursor-pointer backdrop-blur-xs",
             buttonStyle,
             className
           )}
         >
-          <Bell className="w-4.5 h-4.5" />
+          <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-rose-600 text-white text-[10px] font-black shadow-xs ring-2 ring-white animate-in zoom-in-75">
-              {unreadCount}
+            <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-600 text-white text-[11px] font-black shadow-xs ring-2 ring-white animate-in zoom-in-75">
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </button>
@@ -265,40 +267,41 @@ export function HeaderNotifications({
 
       <PopoverContent
         align="end"
-        sideOffset={10}
-        className="w-[340px] sm:w-[390px] p-0 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
+        sideOffset={8}
+        collisionPadding={12}
+        className="w-[calc(100vw-24px)] max-w-[460px] sm:w-[440px] md:w-[460px] p-0 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
       >
         {/* Header Bar */}
-        <div className="px-4 py-3.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#1E4D2B]/10 text-[#1E4D2B] flex items-center justify-center shrink-0">
-              <Bell className="w-3.5 h-3.5" />
+        <div className="px-4 py-3.5 sm:px-5 sm:py-4 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#1E4D2B]/10 text-[#1E4D2B] flex items-center justify-center shrink-0">
+              <Bell className="w-4.5 h-4.5" />
             </div>
             <div>
-              <h4 className="text-xs font-black text-slate-900 tracking-tight leading-none">
+              <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight leading-tight">
                 Notifications & Alerts
               </h4>
-              <p className="text-[10px] font-medium text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
                 Biosecurity & Program Advisories
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {unreadCount > 0 ? (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleMarkAllAsRead}
                 disabled={markAllReadMutation.isPending}
-                className="h-7 px-2 text-[11px] font-bold text-[#1E4D2B] hover:text-[#163b21] hover:bg-emerald-50 rounded-lg gap-1 cursor-pointer"
+                className="h-8 px-2.5 sm:px-3 text-xs font-bold text-[#1E4D2B] hover:text-[#163b21] hover:bg-emerald-50 rounded-xl gap-1.5 cursor-pointer transition-colors active:scale-95"
                 title="Mark all notifications as read"
               >
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Mark all read</span>
+                <CheckCheck className="w-4 h-4" />
+                <span>Mark all read</span>
               </Button>
             ) : (
-              <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 font-bold text-[10px] px-2 py-0.5 rounded-full">
+              <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 font-bold text-xs px-2.5 py-1 rounded-full">
                 All caught up
               </Badge>
             )}
@@ -306,16 +309,16 @@ export function HeaderNotifications({
         </div>
 
         {/* Filter Chips Strip */}
-        <div className="px-3 py-2 bg-white border-b border-slate-100 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5">
+        <div className="px-4 py-2.5 sm:px-5 bg-white border-b border-slate-100 flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setFilter("all")}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer",
+                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95",
                 filter === "all"
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               )}
             >
               All ({notifications.length})
@@ -324,46 +327,51 @@ export function HeaderNotifications({
               type="button"
               onClick={() => setFilter("unread")}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1",
+                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95",
                 filter === "unread"
-                  ? "bg-[#1E4D2B] text-white shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-[#1E4D2B] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               )}
             >
               <span>Unread</span>
               {unreadCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-black">
+                <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black leading-none">
                   {unreadCount}
                 </span>
               )}
             </button>
           </div>
 
-          <span className="text-[10px] text-slate-400 font-medium">
-            Live MAO Sync
-          </span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="hidden sm:inline">Live MAO Sync</span>
+            <span className="sm:hidden">Live</span>
+          </div>
         </div>
 
         {/* Notifications Scrollable List */}
-        <ScrollArea className="max-h-[360px] overflow-y-auto">
+        <ScrollArea className="max-h-[60vh] sm:max-h-[440px] overflow-y-auto">
           {isLoading ? (
-            <div className="py-12 px-4 text-center flex flex-col items-center justify-center space-y-2">
-              <div className="w-6 h-6 border-2 border-[#1E4D2B] border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs font-semibold text-slate-500">Checking for alerts...</p>
+            <div className="py-16 px-4 text-center flex flex-col items-center justify-center space-y-3">
+              <div className="w-8 h-8 border-3 border-[#1E4D2B] border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs sm:text-sm font-semibold text-slate-500">Checking for alerts...</p>
             </div>
           ) : filteredNotifications.length === 0 ? (
-            <div className="py-12 px-4 text-center flex flex-col items-center justify-center space-y-2">
-              <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+            <div className="py-16 px-6 text-center flex flex-col items-center justify-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center shadow-xs">
                 {filter === "unread" ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
                 ) : (
-                  <Inbox className="w-5 h-5 text-slate-400" />
+                  <Inbox className="w-7 h-7 text-slate-400" />
                 )}
               </div>
-              <p className="text-xs font-bold text-slate-700">
+              <p className="text-sm sm:text-base font-bold text-slate-800">
                 {filter === "unread" ? "No unread alerts" : "No notifications yet"}
               </p>
-              <p className="text-[11px] text-slate-400 max-w-[220px]">
+              <p className="text-xs sm:text-sm text-slate-500 max-w-[280px] leading-relaxed">
                 {filter === "unread"
                   ? "All advisory notices have been acknowledged."
                   : "New biosecurity advisories, inspection confirmations, and municipal announcements will appear here."}
@@ -376,16 +384,16 @@ export function HeaderNotifications({
                   key={notif.id}
                   onClick={() => handleMarkAsRead(notif.id, notif.link)}
                   className={cn(
-                    "p-3.5 transition-colors cursor-pointer flex items-start gap-3 text-left group",
+                    "p-4 sm:p-4.5 transition-all duration-150 cursor-pointer flex items-start gap-3.5 text-left group active:bg-slate-100/70",
                     notif.read
-                      ? "bg-white hover:bg-slate-50/80 opacity-80"
-                      : "bg-emerald-50/30 hover:bg-emerald-50/60"
+                      ? "bg-white hover:bg-slate-50/80 opacity-75 hover:opacity-100"
+                      : "bg-emerald-50/40 hover:bg-emerald-50/70"
                   )}
                 >
                   {/* Icon */}
                   <div
                     className={cn(
-                      "shrink-0 w-8 h-8 rounded-xl border flex items-center justify-center shadow-2xs mt-0.5",
+                      "shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center shadow-xs mt-0.5 transition-transform duration-150 group-hover:scale-105",
                       getIconBackground(notif.type)
                     )}
                   >
@@ -394,44 +402,44 @@ export function HeaderNotifications({
 
                   {/* Body */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                      <h5 className="text-xs font-bold text-slate-900 truncate">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h5 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2">
                         {notif.title}
                       </h5>
-                      <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                      <span className="text-xs font-medium text-slate-400 shrink-0 mt-0.5">
                         {notif.timeAgo}
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-600 leading-snug line-clamp-2">
+                    <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed line-clamp-3">
                       {notif.message}
                     </p>
 
-                    <div className="flex items-center gap-1.5 mt-2">
+                    <div className="flex items-center flex-wrap gap-2 mt-2.5">
                       {notif.priority === "high" && (
-                        <span className="px-1.5 py-0.2 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-[9px] font-black uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black uppercase tracking-wider">
                           High Priority
                         </span>
                       )}
                       {notif.priority === "medium" && (
-                        <span className="px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-bold uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase tracking-wider">
                           Advisory
                         </span>
                       )}
                       {notif.type === "sibat" && (
-                        <span className="px-1.5 py-0.2 rounded-md bg-sky-50 text-sky-700 border border-sky-200 text-[9px] font-bold uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold uppercase tracking-wider">
                           SIBAT
                         </span>
                       )}
 
                       {notif.link && (
-                        <span className="text-[10px] text-slate-400 group-hover:text-[#1E4D2B] transition-colors flex items-center gap-0.5 ml-1 font-semibold">
-                          View details <ExternalLink className="w-2.5 h-2.5" />
+                        <span className="text-xs text-slate-500 group-hover:text-[#1E4D2B] transition-colors flex items-center gap-1 font-semibold">
+                          View details <ExternalLink className="w-3 h-3" />
                         </span>
                       )}
 
                       {!notif.read && (
-                        <span className="ml-auto w-2 h-2 rounded-full bg-emerald-600 ring-4 ring-emerald-100 shrink-0" />
+                        <span className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-600 ring-4 ring-emerald-100 shrink-0" />
                       )}
                     </div>
                   </div>
@@ -442,10 +450,10 @@ export function HeaderNotifications({
         </ScrollArea>
 
         {/* Footer */}
-        <div className="px-3.5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-          <div className="flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-500" />
-            <span>Padre Garcia MAO Agriculture Portal</span>
+        <div className="px-4 py-3 sm:px-5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span className="truncate">Padre Garcia MAO Agriculture Portal</span>
           </div>
         </div>
       </PopoverContent>

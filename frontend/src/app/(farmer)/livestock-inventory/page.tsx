@@ -33,6 +33,7 @@ import {
   TrendingUp,
   Activity,
   HeartPulse,
+  RefreshCw,
 } from "lucide-react";
 
 // shadcn/ui primitives
@@ -97,7 +98,7 @@ export default function LivestockInventoryPage() {
   const [showStats, setShowStats] = useState(true);
 
   const { data: livestockTypes = {} } = useLivestockTypes();
-  const { data: inventories = [], isLoading } = useUserInventory();
+  const { data: inventories = [], isLoading, refetch, isFetching } = useUserInventory();
 
   // Form State matching Django LivestockInventory
   const initialFormData = {
@@ -303,6 +304,17 @@ export default function LivestockInventoryPage() {
         subtitle="Manage your livestock entries, track biometrics, and monitor herd health"
         variant="farmer"
         maxWidthClass="w-full"
+        action={
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => refetch()}
+            className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+            title="Refresh Inventory Records"
+          >
+            <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
+        }
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">

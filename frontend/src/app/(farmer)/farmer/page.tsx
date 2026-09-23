@@ -111,10 +111,10 @@ export default function FarmerDashboard() {
             variant="ghost"
             size="icon"
             onClick={() => refetch()}
-            className="rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+            className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
             title="Refresh Dashboard Data"
           >
-            <RefreshCw className={`size-4.5 ${isFetching ? "animate-spin" : ""}`} />
+            <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
         }
       />
@@ -133,10 +133,10 @@ export default function FarmerDashboard() {
             </p>
             <Button
               size="sm"
-              className="mt-4 bg-red-700 hover:bg-red-800 text-white rounded-xl gap-1.5"
+              className="mt-4 bg-red-700 hover:bg-red-800 text-white rounded-xl gap-2 h-10 px-4 text-xs font-bold active:scale-95 transition-all shadow-xs cursor-pointer"
               onClick={() => refetch()}
             >
-              <RefreshCw className="size-3.5" /> Retry
+              <RefreshCw className="size-4" /> Retry
             </Button>
           </Card>
         ) : (

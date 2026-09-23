@@ -226,9 +226,9 @@ export default function UserManagementPage() {
               onClick={fetchUsers}
               disabled={loading}
               title="Refresh Directory"
-              className="h-8 w-8 rounded-lg border-slate-200 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 shrink-0"
+              className="h-10 w-10 rounded-xl border-slate-200 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 shrink-0 cursor-pointer active:scale-95 transition-all shadow-xs"
             >
-              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
             </Button>
           </div>
         </div>
