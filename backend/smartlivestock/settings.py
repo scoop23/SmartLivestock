@@ -31,7 +31,7 @@ DEBUG = sys_debug == "True" or sys_debug == "1"
 # Production and local allowed hosts
 ALLOWED_HOSTS: list[str] = [
     host.strip()
-    for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
     if host.strip()
 ]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")

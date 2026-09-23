@@ -1,9 +1,11 @@
 from rest_framework import serializers  # type: ignore
-from users.models import User, Role, UserDocument
+from users.models import User, Role, UserDocument, Notification
 from livestock.models import Farmer, Barangay
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  # type: ignore
 from django.db import transaction
 from django.db.models import Max
+from django.utils.timesince import timesince
+from django.utils import timezone
 from typing import cast
 
 
@@ -237,4 +239,38 @@ class UserStatusUpdateSerializer(serializers.Serializer):
     Validates status updates submitted by MAO.
     """
     status = serializers.ChoiceField(choices=User.AccountStatus.choices)
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    type = serializers.CharField(source="notification_type")
+    time_ago = serializers.SerializerMethodField()
+    type_display = serializers.CharField(source="get_notification_type_display", read_only=True)
+    priority_display = serializers.CharField(source="get_priority_display", read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = (
+            "id",
+            "type",
+            "type_display",
+            "priority",
+            "priority_display",
+            "title",
+            "message",
+            "is_read",
+            "link",
+            "created_at",
+            "time_ago",
+        )
+        read_only_fields = ("id", "created_at", "time_ago", "type_display", "priority_display")
+
+    def get_time_ago(self, obj):
+        if not obj.created_at:
+            return ""
+        diff = timezone.now() - obj.created_at
+        if diff.total_seconds() < 60:
+            return "Just now"
+        parts = timesince(obj.created_at).split(",")
+        return f"{parts[0]} ago"
+
 

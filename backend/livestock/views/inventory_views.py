@@ -15,6 +15,9 @@ from livestock.serializer import (
     LivestockInventorySerializer,
     BarangaySerializer,
 )
+from users.models import Notification
+from users.notification_views import create_notification
+
 
 
 @api_view(["GET", "POST"])
@@ -157,6 +160,45 @@ def review_inventory(request, pk):
     inventory.review_remarks = remarks
     inventory.reviewed_at = timezone.now()
     inventory.save()
+
+    # Automatically notify the animal's owner/registrant
+    target_user = None
+    if inventory.farmer and getattr(inventory.farmer, "user", None):
+        target_user = inventory.farmer.user
+    elif inventory.created_by:
+        target_user = inventory.created_by
+
+    if target_user:
+        species_name = inventory.livestock_type.name if inventory.livestock_type else "Livestock"
+        tag_info = inventory.tag_number or f"Batch ({inventory.quantity} heads)"
+
+        if new_status == LivestockInventory.StatusType.VERIFIED:
+            create_notification(
+                user=target_user,
+                notification_type=Notification.NotificationType.SIBAT,
+                priority=Notification.Priority.MEDIUM,
+                title="Verified by SIBAT Inspector",
+                message=f"Your {species_name} [{tag_info}] has been verified on-farm by SIBAT.{f' Officer Remarks: {remarks}' if remarks else ''}",
+                link="/livestock-inventory",
+            )
+        elif new_status == LivestockInventory.StatusType.APPROVED:
+            create_notification(
+                user=target_user,
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.MEDIUM,
+                title="Livestock Record Approved",
+                message=f"Official certification approved for your {species_name} [{tag_info}].",
+                link="/livestock-inventory",
+            )
+        elif new_status == LivestockInventory.StatusType.SUBJECT_TO_REVISION:
+            create_notification(
+                user=target_user,
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.HIGH,
+                title="Revision Required on Livestock Record",
+                message=f"Your {species_name} [{tag_info}] requires revision.{f' Note: {remarks}' if remarks else ''}",
+                link="/livestock-inventory",
+            )
 
     serializer = LivestockInventorySerializer(inventory)
     return Response(serializer.data, status=status.HTTP_200_OK)

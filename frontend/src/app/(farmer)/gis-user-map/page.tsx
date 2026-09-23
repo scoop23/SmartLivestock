@@ -199,11 +199,6 @@ export default function FarmerDashboard() {
         subtitle="San Roque, Padre Garcia"
         variant="farmer"
         maxWidthClass="w-full"
-        action={
-          <Button variant="ghost" size="icon" className="rounded-lg bg-white/10 hover:bg-white/20 text-white" aria-label="Notifications">
-            <Bell className="h-5 w-5" />
-          </Button>
-        }
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
@@ -341,8 +336,8 @@ export default function FarmerDashboard() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-900">Recent Alerts</h3>
-              <Button variant="link" className="text-sm text-[#2D5A27] font-bold p-0 h-auto" onClick={() => router.push('/alerts')}>
-                View All
+              <Button variant="link" className="text-sm text-[#2D5A27] font-bold p-0 h-auto" onClick={() => router.push('/farmer-announcement')}>
+                View Announcements
               </Button>
             </div>
             <div className="space-y-3">

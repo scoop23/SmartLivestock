@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { HeaderMenuButton } from "./header-menu-button";
+import { HeaderNotifications } from "./header-notifications";
 
 type PageHeaderVariant = "admin" | "farmer" | "sibat" | "auction";
 
@@ -13,6 +14,7 @@ interface PageHeaderProps {
   mobileMenuOffset?: boolean;
   sticky?: boolean;
   className?: string;
+  showNotifications?: boolean;
 }
 
 const headerClasses: Record<PageHeaderVariant, string> = {
@@ -38,12 +40,14 @@ const chipClasses: Record<PageHeaderVariant, string> = {
 
 export function PageHeader({
   title,
+  subtitle,
   icon,
   action,
   variant = "admin",
   maxWidthClass = "w-full",
   sticky = false,
   className = "",
+  showNotifications = true,
 }: PageHeaderProps) {
   return (
     <header
@@ -68,11 +72,21 @@ export function PageHeader({
                 {icon}
               </div>
             ) : null}
-            <h1 className="wrap-break-word text-xl font-extrabold tracking-tight leading-snug sm:text-2xl">
-              {title}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="wrap-break-word text-xl font-extrabold tracking-tight leading-snug sm:text-2xl">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="text-xs sm:text-sm font-medium opacity-85 mt-0.5 truncate">
+                  {subtitle}
+                </p>
+              )}
+            </div>
           </div>
-          {action ? <div className="shrink-0 self-start sm:self-center">{action}</div> : null}
+          <div className="shrink-0 self-start sm:self-center flex items-center gap-2.5">
+            {showNotifications && <HeaderNotifications variant={variant} />}
+            {action ? action : null}
+          </div>
         </div>
       </div>
     </header>
