@@ -153,12 +153,12 @@ function SidebarNav({
     : (user?.email?.[0] || 'U').toUpperCase();
 
   return (
-    <div className="flex flex-col h-full select-none bg-gradient-to-b from-[#244b1f] via-[#2D5A27] to-[#1c3a18] text-white">
+    <div className="flex flex-col h-full select-none bg-[#1E4D2B] border-r border-[#163b21] text-white">
       {/* Top Header Logo */}
       <div className="flex items-center justify-between gap-2 p-3.5 pb-3 min-h-[68px] border-b border-white/10">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2D5A27] shadow-md shadow-black/20 ring-2 ring-white/20">
-            <Icon iconNode={cowHead} className="size-5.5 text-[#2D5A27]" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1E4D2B] shadow-md shadow-black/20 ring-2 ring-white/20">
+            <Icon iconNode={cowHead} className="size-5.5 text-[#1E4D2B]" />
           </div>
 
           <div
@@ -216,11 +216,11 @@ function SidebarNav({
               className={cn(
                 "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150",
                 isActive
-                  ? "bg-white text-[#2D5A27] font-bold shadow-md shadow-black/15 ring-1 ring-white/30"
-                  : "text-white/80 hover:bg-white/10 hover:text-white hover:translate-x-0.5"
+                  ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs"
+                  : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:translate-x-0.5"
               )}
             >
-              <Icon className={cn("size-5 shrink-0 transition-transform duration-150", isActive ? "text-[#2D5A27] scale-105" : "text-white/80 group-hover:text-white")} />
+              <Icon className={cn("size-5 shrink-0 transition-transform duration-150", isActive ? "text-emerald-300 scale-105" : "text-emerald-200/70 group-hover:text-white")} />
               <span
                 className={cn(
                   "truncate whitespace-nowrap transition-all duration-200",
@@ -231,7 +231,7 @@ function SidebarNav({
               </span>
 
               {isActive && !collapsed && (
-                <span className="ml-auto size-1.5 rounded-full bg-[#2D5A27]" />
+                <span className="ml-auto size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
               )}
             </Link>
           );

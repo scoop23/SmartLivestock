@@ -77,6 +77,13 @@ const getStatusBadge = (status?: string) => {
           Approved
         </Badge>
       );
+    case "VERIFIED":
+      return (
+        <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
+          <ShieldCheck className="size-3 text-sky-600" />
+          Verified by SIBAT
+        </Badge>
+      );
     case "PENDING":
       return (
         <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 flex items-center gap-1 font-bold text-xs uppercase tracking-wider">

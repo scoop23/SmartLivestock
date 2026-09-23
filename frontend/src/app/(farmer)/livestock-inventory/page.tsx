@@ -950,6 +950,7 @@ export default function LivestockInventoryPage() {
               onView={(item) => setDetailTarget(item)}
               onEdit={(item) => setEditTarget(item)}
               onDelete={(item) => setDeleteTarget(item)}
+              onAddRecord={() => setIsAddOpen(true)}
             />
           </div>
         ) : (
@@ -1042,6 +1043,7 @@ export default function LivestockInventoryPage() {
                 onView={(item) => setDetailTarget(item)}
                 onEdit={(item) => setEditTarget(item)}
                 onDelete={(item) => setDeleteTarget(item)}
+                onAddRecord={() => setIsAddOpen(true)}
               />
             </TabsContent>
 
