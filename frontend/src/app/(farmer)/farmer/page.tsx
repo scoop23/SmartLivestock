@@ -107,27 +107,15 @@ export default function FarmerDashboard() {
         variant="farmer"
         maxWidthClass="w-full"
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => refetch()}
-              className="rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-              title="Refresh Dashboard Data"
-            >
-              <RefreshCw className={`size-4.5 ${isFetching ? "animate-spin" : ""}`} />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/alerts")}
-              className="rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-              title="View Alerts & Advisories"
-            >
-              <Bell className="size-4.5" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => refetch()}
+            className="rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+            title="Refresh Dashboard Data"
+          >
+            <RefreshCw className={`size-4.5 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
         }
       />
 

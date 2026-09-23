@@ -321,7 +321,7 @@ export default function FarmerActionDock({
             <CommandItem
               onSelect={() => {
                 setIsCommandOpen(false);
-                router.push("/alerts");
+                router.push("/farmer-announcement");
               }}
               className="cursor-pointer gap-2 py-2.5"
             >

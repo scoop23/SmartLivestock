@@ -37,7 +37,6 @@ const links: NavLink[] = [
   { path: "/farmer", label: "Home", icon: HomeIcon },
   { path: "/livestock-inventory", label: "Inventory", icon: Package },
   { path: "/production-dashboard", label: "production Dashboard", icon: TrendingUp },
-  { path: "/alerts", label: "Alerts", icon: Bell, alert: true },
   { path: "/gis-user-map", label: "GIS", icon: GisGlobePoi },
   { path: "/farmer-announcement", label: "Announcement", icon: Megaphone },
   { path: "/farmer-scheduling", label: "Scheduling", icon: Calendar },

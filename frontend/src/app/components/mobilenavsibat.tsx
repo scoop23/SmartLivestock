@@ -42,7 +42,7 @@ export default function MobileNavSibat() {
           <span className="absolute top-0 right-2 w-2 h-2 bg-[#D32F2F] rounded-full"></span>
         </button>
         <button
-          onClick={() => router.push('/alerts')}
+          onClick={() => router.push('/sibat-announcement')}
           className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
         >
           <Bell className="w-6 h-6" />

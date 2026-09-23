@@ -95,3 +95,47 @@ class UserDocument(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.document_type}"
+
+
+# Notification model: in-app notifications and biosecurity advisories delivered to users
+class Notification(models.Model):
+    class NotificationType(models.TextChoices):
+        DISEASE = "disease", "Disease Surveillance"
+        VACCINATION = "vaccination", "Vaccination Schedule"
+        SIBAT = "sibat", "SIBAT Inspection"
+        PRODUCTION = "production", "Production Milestone"
+        WEATHER = "weather", "Weather Advisory"
+        GENERAL = "general", "General Notice"
+
+    class Priority(models.TextChoices):
+        HIGH = "high", "High"
+        MEDIUM = "medium", "Medium"
+        LOW = "low", "Low"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    notification_type = models.CharField(
+        max_length=20,
+        choices=NotificationType.choices,
+        default=NotificationType.GENERAL,
+    )
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    link = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.title} ({'Read' if self.is_read else 'Unread'})"
+

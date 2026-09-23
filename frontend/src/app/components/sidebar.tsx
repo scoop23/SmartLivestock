@@ -80,7 +80,6 @@ const farmerLinks: SidebarLink[] = [
   { path: '/production-dashboard', label: 'Production Logs', icon: ClipboardCheck },
   { path: '/report-observation', label: 'Report Illness/Mortality', icon: Stethoscope },
   { path: '/gis-user-map', label: 'GIS Farm Map', icon: Map },
-  { path: '/alerts', label: 'Alerts & Notices', icon: Bell },
   { path: '/farmer-announcement', label: 'Announcements', icon: Megaphone },
   { path: '/farmer-scheduling', label: 'Field Scheduling', icon: CalendarDays },
 ];
