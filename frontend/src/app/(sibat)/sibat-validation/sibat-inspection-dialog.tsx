@@ -31,7 +31,12 @@ import {
   Camera,
   Activity,
   X,
+  ZoomIn,
+  Maximize2,
+  ExternalLink,
+  Image as ImageIcon,
 } from "lucide-react";
+import { getAttachedPhoto, saveAttachedPhoto } from "@/lib/photo-storage";
 
 export type SibatReportType = "DISEASE" | "MORTALITY" | "SLAUGHTER" | "PRODUCTION" | "SALE";
 export type SibatStatus = "PENDING" | "VERIFIED" | "APPROVED" | "FLAGGED" | "FALSE_ALARM" | "SUBJECT_TO_REVISION" | "REJECTED";
@@ -73,6 +78,7 @@ export interface SibatValidationRecord {
   farmerSymptoms: string[];
   farmerDescription: string;
   photoName?: string;
+  photoUrl?: string;
   status: SibatStatus;
   inspection?: SibatInspectionData;
   maoApproval?: {
@@ -132,6 +138,9 @@ export function SibatInspectionDialog({
   const [biosecurityAction, setBiosecurityAction] = useState<BiosecurityAction>("PEN_ISOLATION");
   const [temperature, setTemperature] = useState<string>("");
   const [inspectorRemarks, setInspectorRemarks] = useState<string>("");
+  const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState<boolean>(false);
+  const [inspectorPhotoUrl, setInspectorPhotoUrl] = useState<string>("");
+  const [inspectorPhotoName, setInspectorPhotoName] = useState<string>("");
 
   useEffect(() => {
     if (open && record) {
@@ -145,14 +154,37 @@ export function SibatInspectionDialog({
       setSeverity(record.inspection?.severity ?? "MODERATE");
       setBiosecurityAction(
         record.inspection?.biosecurityAction ??
-          (record.reportType === "MORTALITY" ? "BIOSECURE_BURIAL" : "PEN_ISOLATION")
+        (record.reportType === "MORTALITY" ? "BIOSECURE_BURIAL" : "PEN_ISOLATION")
       );
       setTemperature(
         record.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : ""
       );
       setInspectorRemarks(record.inspection?.remarks ?? "");
+      setInspectorPhotoUrl("");
+      setInspectorPhotoName("");
     }
   }, [open, record]);
+
+  const handleInspectorPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && record) {
+      setInspectorPhotoName(file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          const dataUrl = event.target.result as string;
+          setInspectorPhotoUrl(dataUrl);
+          saveAttachedPhoto(record.id, {
+            photoUrl: dataUrl,
+            photoName: file.name,
+            timestamp: new Date().toISOString(),
+            uploaderRole: "SIBAT",
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   if (!record) return null;
 
@@ -189,8 +221,8 @@ export function SibatInspectionDialog({
         (status === "VERIFIED"
           ? "On-farm physical inspection completed and certified by SIBAT field officer."
           : status === "FLAGGED"
-          ? "Returned for Veterinary follow-up / diagnostic testing."
-          : "Marked as false alarm upon physical examination."),
+            ? "Returned for Veterinary follow-up / diagnostic testing."
+            : "Marked as false alarm upon physical examination."),
       temperatureCelsius: temperature ? parseFloat(temperature) : undefined,
     };
 
@@ -230,8 +262,22 @@ export function SibatInspectionDialog({
     }
   };
 
+  const attachedForLightbox = record
+    ? getAttachedPhoto(
+        record.id,
+        record.livestockTag,
+        record.livestockType,
+        record.name
+      )
+    : null;
+  const lightboxPhotoUrl =
+    inspectorPhotoUrl || record?.photoUrl || attachedForLightbox?.photoUrl || "";
+  const lightboxPhotoName =
+    inspectorPhotoName || record?.photoName || attachedForLightbox?.photoName || "";
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full max-w-[96vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 bg-white border border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
         {/* ══ POPUP HEADER ══ */}
         <DialogHeader className="mb-3 sm:mb-4">
@@ -248,23 +294,22 @@ export function SibatInspectionDialog({
                     Incident #{record.id}
                   </span>
                   <Badge
-                    className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
-                      record.status === "VERIFIED"
-                        ? "bg-sky-100 text-sky-800 border-sky-300"
-                        : record.status === "APPROVED"
+                    className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${record.status === "VERIFIED"
+                      ? "bg-sky-100 text-sky-800 border-sky-300"
+                      : record.status === "APPROVED"
                         ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                         : record.status === "FLAGGED"
-                        ? "bg-amber-100 text-amber-800 border-amber-300"
-                        : "bg-amber-50 text-amber-700 border-amber-300 animate-pulse"
-                    }`}
+                          ? "bg-amber-100 text-amber-800 border-amber-300"
+                          : "bg-amber-50 text-amber-700 border-amber-300 animate-pulse"
+                      }`}
                   >
                     {record.status === "VERIFIED"
                       ? "Verified (Field)"
                       : record.status === "APPROVED"
-                      ? "MAO Approved"
-                      : record.status === "FLAGGED"
-                      ? "Subject to Revision"
-                      : "Pending On-Farm Visit"}
+                        ? "MAO Approved"
+                        : record.status === "FLAGGED"
+                          ? "Subject to Revision"
+                          : "Pending On-Farm Visit"}
                   </Badge>
                   <span className="text-xs font-bold text-slate-400">
                     • {record.reportType}
@@ -274,8 +319,8 @@ export function SibatInspectionDialog({
                   {isMortality
                     ? "Step 2: SIBAT Mortality Verification"
                     : isDisease
-                    ? "Step 2: SIBAT On-Farm Health Examination"
-                    : `Step 2: SIBAT Field Inspection (${record.reportType})`}
+                      ? "Step 2: SIBAT On-Farm Health Examination"
+                      : `Step 2: SIBAT Field Inspection (${record.reportType})`}
                 </DialogTitle>
                 <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
                   Conduct on-farm physical checks, verify clinical signs, and certify records for MAO municipal approval.
@@ -357,9 +402,8 @@ export function SibatInspectionDialog({
                     {isMortality ? "Reported Dead Count" : "Reported Affected Count"}
                   </span>
                   <span
-                    className={`font-black text-sm sm:text-base ${
-                      isMortality ? "text-rose-700" : "text-[#1A365D]"
-                    }`}
+                    className={`font-black text-sm sm:text-base ${isMortality ? "text-rose-700" : "text-[#1A365D]"
+                      }`}
                   >
                     {record.reportedCount} Head{record.reportedCount > 1 ? "s" : ""}
                   </span>
@@ -395,13 +439,109 @@ export function SibatInspectionDialog({
                 </div>
               )}
 
-              {/* Attached Photo indicator */}
-              {record.photoName && (
-                <div className="flex items-center gap-2.5 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 font-bold">
-                  <Camera className="size-4 text-amber-700 shrink-0" />
-                  <span>On-Farm Photo Attached: {record.photoName}</span>
-                </div>
-              )}
+              {/* ── Farmer Attached Photo Evidence ── */}
+              {(() => {
+                const attached = getAttachedPhoto(
+                  record.id,
+                  record.livestockTag,
+                  record.livestockType,
+                  record.name
+                );
+                const activePhotoUrl = inspectorPhotoUrl || record.photoUrl || attached.photoUrl;
+                const activePhotoName = inspectorPhotoName || record.photoName || attached.photoName;
+                const isFarmerUpload = Boolean(inspectorPhotoUrl) ? false : Boolean(record.photoUrl || attached.isFarmerUpload);
+
+                return (
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-xl bg-emerald-50 text-[#1E4D2B]">
+                          <Camera className="size-4.5" />
+                        </div>
+                        <div>
+                          <span className="text-xs sm:text-sm font-black text-slate-900 block leading-tight">
+                            Farmer Attached Photo Evidence
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Visual documentation submitted with the alert
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {isFarmerUpload ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
+                            Farmer Upload
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-sky-50 text-sky-800 border-sky-200 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                            On-Farm Record Photo
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Clickable Photo Container */}
+                    <div
+                      className="relative group overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 aspect-16/10 cursor-pointer shadow-sm"
+                      onClick={() => setIsPhotoLightboxOpen(true)}
+                    >
+                      <img
+                        src={activePhotoUrl}
+                        alt={`Photo of ${record.livestockTag} (${record.name})`}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+
+                      {/* Hover Overlay with Inspect Badge */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent opacity-95 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3.5">
+                        <div className="flex justify-end">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-black/70 text-white text-xs font-bold backdrop-blur-md border border-white/20 shadow-md">
+                            <ZoomIn className="size-3.5 text-emerald-300" />
+                            <span>Click to Inspect Fullscreen</span>
+                          </span>
+                        </div>
+
+                        <div className="flex items-end justify-between gap-2 text-white">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-black tracking-tight drop-shadow-md truncate">
+                              #{record.livestockTag} • {record.livestockBreed} ({record.livestockType})
+                            </p>
+                            <p className="text-[10px] text-slate-300 font-mono mt-0.5 truncate max-w-xs">
+                              {activePhotoName}
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/90 text-emerald-950 shrink-0 font-mono shadow-xs">
+                            {record.name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Bar */}
+                    <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setIsPhotoLightboxOpen(true)}
+                        className="text-xs font-bold text-[#1A365D] hover:underline flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Maximize2 className="size-3.5 text-blue-600" />
+                        <span>Enlarge & Examine Symptoms</span>
+                      </button>
+
+                      <label className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 cursor-pointer hover:underline">
+                        <Camera className="size-3.5 text-slate-400" />
+                        <span>Add SIBAT Field Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleInspectorPhotoUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -480,11 +620,10 @@ export function SibatInspectionDialog({
                         key={sym.id}
                         type="button"
                         onClick={() => toggleSymptom(sym.label)}
-                        className={`p-2 rounded-xl border text-left flex items-start gap-2 transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-[#1A365D] text-white border-[#1A365D] shadow-2xs"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                        }`}
+                        className={`p-2 rounded-xl border text-left flex items-start gap-2 transition-all cursor-pointer ${isSelected
+                          ? "bg-[#1A365D] text-white border-[#1A365D] shadow-2xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
                       >
                         <span className="font-bold text-xs mt-0.5">
                           {isSelected ? "✓" : "○"}
@@ -492,9 +631,8 @@ export function SibatInspectionDialog({
                         <div>
                           <p className="text-xs font-black leading-tight">{sym.label}</p>
                           <p
-                            className={`text-[9px] font-medium ${
-                              isSelected ? "text-blue-200" : "text-slate-400"
-                            }`}
+                            className={`text-[9px] font-medium ${isSelected ? "text-blue-200" : "text-slate-400"
+                              }`}
                           >
                             {sym.desc}
                           </p>
@@ -562,10 +700,10 @@ export function SibatInspectionDialog({
                 <div className="flex flex-wrap gap-1.5 pt-0.5">
                   {(isMortality
                     ? [
-                        "Mortality verified on site. Carcass disinfected with lime and deep pit burial (2m) completed under SIBAT supervision.",
-                        "Death caused by severe birth complications. No signs of transmissible infectious disease.",
-                        "Discrepancy in recorded ear tag or animal identity. Requires re-audit.",
-                      ]
+                      "Mortality verified on site. Carcass disinfected with lime and deep pit burial (2m) completed under SIBAT supervision.",
+                      "Death caused by severe birth complications. No signs of transmissible infectious disease.",
+                      "Discrepancy in recorded ear tag or animal identity. Requires re-audit.",
+                    ]
                     : SIBAT_VERIFIED_PRESETS
                   ).map((preset, idx) => (
                     <button
@@ -626,5 +764,64 @@ export function SibatInspectionDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* ══ FULLSCREEN PHOTO LIGHTBOX MODAL ══ */}
+    <Dialog open={isPhotoLightboxOpen} onOpenChange={setIsPhotoLightboxOpen}>
+      <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl p-0 rounded-3xl bg-slate-950 border border-slate-800 text-white overflow-hidden shadow-2xl">
+        <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400">
+              <Camera className="size-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-base sm:text-lg font-black text-white leading-tight">
+                Farmer Photo Evidence • #{record.livestockTag}
+              </DialogTitle>
+              <p className="text-xs text-slate-400 mt-0.5 font-mono truncate max-w-md">
+                {lightboxPhotoName} • {record.farmerName} ({record.barangayName})
+              </p>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsPhotoLightboxOpen(false)}
+            className="text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl cursor-pointer"
+          >
+            <X className="size-5" />
+          </Button>
+        </div>
+
+        <div className="relative bg-black flex items-center justify-center max-h-[75vh] overflow-hidden p-2 sm:p-4">
+          <img
+            src={lightboxPhotoUrl}
+            alt={`Full-resolution evidence for ${record.livestockTag}`}
+            className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-2xl"
+          />
+        </div>
+
+        <div className="p-4 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-slate-300">Observation:</span>
+            <span className="text-white font-medium italic">"{record.name}"</span>
+            <span className="text-slate-500">•</span>
+            <span className="text-slate-400">Reported: {record.reportedDate}</span>
+          </div>
+
+          <a
+            href={lightboxPhotoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <ExternalLink className="size-3.5" />
+            <span>Open Original in New Tab</span>
+          </a>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }

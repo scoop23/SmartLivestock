@@ -8,6 +8,7 @@ import api from "@/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchProductionRecords, type ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
 import type { SibatValidationRecord, SibatStatus, SibatInspectionData, SeverityLevel, BiosecurityAction } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
+import { getAttachedPhoto } from "@/lib/photo-storage";
 
 // ── Types: Submission Statuses ──
 
@@ -176,6 +177,8 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
 
 export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationRecord => {
   const statusNorm = (dc.status || "PENDING").toUpperCase() as SibatStatus;
+  const photo = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number, dc.livestock_type_name, dc.name);
+
   return {
     id: `DIS-${dc.id}`,
     reportType: "DISEASE",
@@ -191,6 +194,8 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
     reportedAt: dc.created_at || new Date().toISOString(),
     farmerSymptoms: [dc.name || "General Health Concern"],
     farmerDescription: dc.notes || `Reported condition: ${dc.name}. Treatment: ${dc.treatment_given || "None reported"}.`,
+    photoUrl: photo.photoUrl,
+    photoName: photo.photoName,
     status: statusNorm,
     inspection: dc.reviewed_by_name
       ? {
@@ -209,6 +214,8 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
 
 export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidationRecord => {
   const statusNorm = (m.status || "PENDING").toUpperCase() as SibatStatus;
+  const photo = getAttachedPhoto(`MOR-${m.id}`, m.tag_number, m.livestock_type_name, m.cause);
+
   return {
     id: `MOR-${m.id}`,
     reportType: "MORTALITY",
@@ -224,6 +231,8 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
     reportedAt: m.created_at || new Date().toISOString(),
     farmerSymptoms: [m.cause || "Mortality"],
     farmerDescription: m.remarks || `Mortality cause: ${m.cause}. Disposal: ${m.disposal_method || "Burial"}.`,
+    photoUrl: photo.photoUrl,
+    photoName: photo.photoName,
     status: statusNorm,
     inspection: m.reviewed_by_name
       ? {

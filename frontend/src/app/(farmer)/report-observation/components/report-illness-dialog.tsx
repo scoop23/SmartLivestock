@@ -37,6 +37,7 @@ import api from "@/lib/axios";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
 import { ReportType } from "../report-observation-types";
+import { saveAttachedPhoto } from "@/lib/photo-storage";
 
 interface ReportIllnessDialogProps {
   open: boolean;
@@ -86,6 +87,7 @@ export default function ReportIllnessDialog({
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [description, setDescription] = useState<string>("");
   const [photoName, setPhotoName] = useState<string>("");
+  const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   React.useEffect(() => {
@@ -116,6 +118,13 @@ export default function ReportIllnessDialog({
     const file = e.target.files?.[0];
     if (file) {
       setPhotoName(file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setPhotoDataUrl(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
       toast.success(`Photo "${file.name}" attached.`);
     }
   };
@@ -140,26 +149,66 @@ export default function ReportIllnessDialog({
 
     try {
       if (reportType === "DISEASE") {
-        await api.post("diseases/cases/", {
+        const res = await api.post("diseases/cases/", {
           livestock: Number(selectedInventoryId),
           name: mainName,
           affected_count: Math.min(Math.max(1, affectedCount), maxAvailableCount),
           record_date: recordDate,
         });
+
+        // Persist attached photo for SIBAT and Admin inspection
+        if (photoDataUrl && res.data?.id) {
+          saveAttachedPhoto(`DIS-${res.data.id}`, {
+            photoUrl: photoDataUrl,
+            photoName: photoName || "farmer_attached_evidence.jpg",
+            timestamp: new Date().toISOString(),
+            uploaderRole: "FARMER",
+          });
+          if (selectedCattle?.tagNumber) {
+            saveAttachedPhoto(`tag_${selectedCattle.tagNumber}`, {
+              photoUrl: photoDataUrl,
+              photoName: photoName || "farmer_attached_evidence.jpg",
+              timestamp: new Date().toISOString(),
+              uploaderRole: "FARMER",
+            });
+          }
+        }
+
         queryClient.invalidateQueries({ queryKey: ["farmer-disease-cases"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-disease-cases"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-validation-cases"] });
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
         toast.success("Disease report submitted! SIBAT field officers and MAO have been notified.");
       } else {
-        await api.post("diseases/mortality/", {
+        const res = await api.post("diseases/mortality/", {
           livestock: Number(selectedInventoryId),
           cause: mainName,
           death_count: Math.min(Math.max(1, affectedCount), maxAvailableCount),
           record_date: recordDate,
         });
+
+        // Persist attached photo for SIBAT and Admin inspection
+        if (photoDataUrl && res.data?.id) {
+          saveAttachedPhoto(`MOR-${res.data.id}`, {
+            photoUrl: photoDataUrl,
+            photoName: photoName || "mortality_evidence_photo.jpg",
+            timestamp: new Date().toISOString(),
+            uploaderRole: "FARMER",
+          });
+          if (selectedCattle?.tagNumber) {
+            saveAttachedPhoto(`tag_${selectedCattle.tagNumber}`, {
+              photoUrl: photoDataUrl,
+              photoName: photoName || "mortality_evidence_photo.jpg",
+              timestamp: new Date().toISOString(),
+              uploaderRole: "FARMER",
+            });
+          }
+        }
+
         queryClient.invalidateQueries({ queryKey: ["farmer-mortality-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-mortality-records"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-validation-mortality"] });
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
         toast.success("Mortality record logged! SIBAT & MAO will review this incident.");
@@ -171,6 +220,7 @@ export default function ReportIllnessDialog({
       setDescription("");
       setSelectedSymptoms([]);
       setPhotoName("");
+      setPhotoDataUrl("");
       onOpenChange(false);
       onSuccess?.();
     } catch (err: any) {
@@ -385,11 +435,11 @@ export default function ReportIllnessDialog({
               className="rounded-xl bg-slate-50 border-slate-200 text-xs focus:ring-2 focus:ring-[#2D5A27]"
             />
 
-            {/* Photo upload button */}
-            <div className="flex items-center gap-3 pt-1">
-              <label className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 hover:border-emerald-600 rounded-xl bg-slate-50 cursor-pointer transition-colors text-xs font-bold text-slate-600 hover:text-emerald-700">
+            {/* Photo upload button & preview */}
+            <div className="space-y-2 pt-1">
+              <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 hover:border-emerald-600 rounded-xl bg-slate-50 cursor-pointer transition-colors text-xs font-bold text-slate-600 hover:text-emerald-700">
                 <Camera className="w-4 h-4 text-emerald-600" />
-                <span>{photoName ? photoName : "Attach Photo of Animal or Symptoms (Optional)"}</span>
+                <span>{photoName ? `Photo: ${photoName}` : "Attach Photo of Animal or Symptoms (Optional)"}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -397,16 +447,33 @@ export default function ReportIllnessDialog({
                   className="hidden"
                 />
               </label>
-              {photoName && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setPhotoName("")}
-                  className="text-slate-400 hover:text-rose-600"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+
+              {photoDataUrl && (
+                <div className="relative rounded-2xl overflow-hidden border border-emerald-200 bg-slate-900/5 p-2 flex items-center gap-3">
+                  <img
+                    src={photoDataUrl}
+                    alt="Attached preview"
+                    className="w-16 h-16 rounded-xl object-cover border border-slate-200"
+                  />
+                  <div className="flex-1 min-w-0 text-xs">
+                    <p className="font-bold text-slate-900 truncate">{photoName}</p>
+                    <p className="text-[11px] text-emerald-700 font-semibold">
+                      Photo attached & ready for SIBAT validation
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setPhotoName("");
+                      setPhotoDataUrl("");
+                    }}
+                    className="text-slate-400 hover:text-rose-600 rounded-xl"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
