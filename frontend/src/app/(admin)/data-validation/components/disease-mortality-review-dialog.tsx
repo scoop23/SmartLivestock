@@ -26,7 +26,9 @@ import {
   Camera,
   HeartPulse,
   RotateCcw,
+  ZoomIn,
 } from "lucide-react";
+import { getAttachedPhoto } from "@/lib/photo-storage";
 import {
   ValidationIncidentItem,
   getStatusPill,
@@ -217,13 +219,62 @@ export function DiseaseMortalityReviewDialog({
                 <p className="text-slate-700 italic leading-relaxed">"{record.details}"</p>
               </div>
 
-              {/* Attached Photo indicator */}
-              {record.photoName && (
-                <div className="flex items-center gap-2.5 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 font-bold">
-                  <Camera className="size-4 text-amber-700 shrink-0" />
-                  <span>On-Farm Photo Evidence Attached: {record.photoName}</span>
-                </div>
-              )}
+              {/* Attached Photo Evidence Card */}
+              {(() => {
+                const attached = getAttachedPhoto(
+                  record.id,
+                  record.tagNumber,
+                  record.livestockType,
+                  record.conditionName
+                );
+                const activePhotoUrl = attached.photoUrl;
+                const activePhotoName = record.photoName || attached.photoName;
+
+                return (
+                  <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-emerald-50 text-[#1E4D2B]">
+                          <Camera className="size-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-black text-slate-900 block leading-tight">
+                            Farmer Attached Photo Evidence
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Submitted by raiser during incident log
+                          </span>
+                        </div>
+                      </div>
+
+                      <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                        Photo Attached
+                      </Badge>
+                    </div>
+
+                    <div className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-950 aspect-16/10 shadow-2xs">
+                      <img
+                        src={activePhotoUrl}
+                        alt={`Photo evidence for #${record.tagNumber}`}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2.5 text-white">
+                        <span className="text-[10px] font-mono text-slate-200 truncate max-w-xs">
+                          {activePhotoName}
+                        </span>
+                        <a
+                          href={activePhotoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold text-emerald-300 hover:underline flex items-center gap-1"
+                        >
+                          <ZoomIn className="size-3" /> Full size
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* 2. SIBAT On-Farm Field Inspection Findings (Step 2) */}

@@ -17,6 +17,7 @@ import {
   Skull,
   Tag,
   ArrowRight,
+  Camera,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -334,12 +335,37 @@ export default function SibatAlertsPage() {
                         )}
                       </div>
 
-                      {/* Description */}
-                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                        <p className="text-xs text-slate-700">
-                          <strong className="text-slate-900">Farmer Observation: </strong>
-                          {alert.farmerDescription}
-                        </p>
+                      {/* Description & Photo Thumbnail */}
+                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-slate-700 leading-relaxed">
+                            <strong className="text-slate-900">Farmer Observation: </strong>
+                            {alert.farmerDescription}
+                          </p>
+                          {alert.photoName && (
+                            <p className="text-[10px] text-slate-400 font-mono mt-1.5 flex items-center gap-1">
+                              <Camera className="size-3 text-emerald-600" />
+                              <span>Attached Evidence: {alert.photoName}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        {alert.photoUrl && (
+                          <div
+                            onClick={() => handleOpenInspection(alert)}
+                            className="relative group shrink-0 w-20 h-16 sm:w-24 sm:h-18 rounded-xl overflow-hidden border border-slate-200 shadow-2xs cursor-pointer bg-slate-900"
+                            title="Click to inspect attached photo"
+                          >
+                            <img
+                              src={alert.photoUrl}
+                              alt={`Photo for ${alert.name}`}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <Camera className="size-4" />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {alert.inspection && (
