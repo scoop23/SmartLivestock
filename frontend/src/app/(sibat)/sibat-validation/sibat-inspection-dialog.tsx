@@ -58,6 +58,8 @@ export interface SibatInspectionData {
   biosecurityAction: BiosecurityAction;
   remarks: string;
   temperatureCelsius?: number;
+  inspectorPhotoFile?: File;
+  inspectorPhotoUrl?: string;
 }
 
 export interface SibatValidationRecord {
@@ -141,6 +143,7 @@ export function SibatInspectionDialog({
   const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState<boolean>(false);
   const [inspectorPhotoUrl, setInspectorPhotoUrl] = useState<string>("");
   const [inspectorPhotoName, setInspectorPhotoName] = useState<string>("");
+  const [inspectorPhotoFile, setInspectorPhotoFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (open && record) {
@@ -162,12 +165,14 @@ export function SibatInspectionDialog({
       setInspectorRemarks(record.inspection?.remarks ?? "");
       setInspectorPhotoUrl("");
       setInspectorPhotoName("");
+      setInspectorPhotoFile(null);
     }
   }, [open, record]);
 
   const handleInspectorPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && record) {
+      setInspectorPhotoFile(file);
       setInspectorPhotoName(file.name);
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -224,6 +229,8 @@ export function SibatInspectionDialog({
             ? "Returned for Veterinary follow-up / diagnostic testing."
             : "Marked as false alarm upon physical examination."),
       temperatureCelsius: temperature ? parseFloat(temperature) : undefined,
+      inspectorPhotoFile: inspectorPhotoFile || undefined,
+      inspectorPhotoUrl: inspectorPhotoUrl || undefined,
     };
 
     onConfirmInspection(record.id, status, inspectionData);

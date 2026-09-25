@@ -149,7 +149,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (typeof window !== "undefined") {
       localStorage.removeItem("access");
       localStorage.removeItem("refresh");
-      window.location.href = "/login";
+      window.location.replace("/login");
     }
     setUser(null);
     setAccessToken(null);

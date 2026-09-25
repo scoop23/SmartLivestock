@@ -88,6 +88,7 @@ export default function ReportIllnessDialog({
   const [description, setDescription] = useState<string>("");
   const [photoName, setPhotoName] = useState<string>("");
   const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   React.useEffect(() => {
@@ -117,6 +118,7 @@ export default function ReportIllnessDialog({
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoFile(file);
       setPhotoName(file.name);
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -149,24 +151,31 @@ export default function ReportIllnessDialog({
 
     try {
       if (reportType === "DISEASE") {
-        const res = await api.post("diseases/cases/", {
-          livestock: Number(selectedInventoryId),
-          name: mainName,
-          affected_count: Math.min(Math.max(1, affectedCount), maxAvailableCount),
-          record_date: recordDate,
+        const formData = new FormData();
+        formData.append("livestock", selectedInventoryId);
+        formData.append("name", mainName);
+        formData.append("affected_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
+        formData.append("record_date", recordDate);
+        if (photoFile) {
+          formData.append("photo", photoFile);
+        }
+
+        const res = await api.post("diseases/cases/", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
 
         // Persist attached photo for SIBAT and Admin inspection
-        if (photoDataUrl && res.data?.id) {
+        const activeUrl = res.data?.photo_url || res.data?.photo || photoDataUrl;
+        if (activeUrl && res.data?.id) {
           saveAttachedPhoto(`DIS-${res.data.id}`, {
-            photoUrl: photoDataUrl,
+            photoUrl: activeUrl,
             photoName: photoName || "farmer_attached_evidence.jpg",
             timestamp: new Date().toISOString(),
             uploaderRole: "FARMER",
           });
           if (selectedCattle?.tagNumber) {
             saveAttachedPhoto(`tag_${selectedCattle.tagNumber}`, {
-              photoUrl: photoDataUrl,
+              photoUrl: activeUrl,
               photoName: photoName || "farmer_attached_evidence.jpg",
               timestamp: new Date().toISOString(),
               uploaderRole: "FARMER",
@@ -181,24 +190,31 @@ export default function ReportIllnessDialog({
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
         toast.success("Disease report submitted! SIBAT field officers and MAO have been notified.");
       } else {
-        const res = await api.post("diseases/mortality/", {
-          livestock: Number(selectedInventoryId),
-          cause: mainName,
-          death_count: Math.min(Math.max(1, affectedCount), maxAvailableCount),
-          record_date: recordDate,
+        const formData = new FormData();
+        formData.append("livestock", selectedInventoryId);
+        formData.append("cause", mainName);
+        formData.append("death_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
+        formData.append("record_date", recordDate);
+        if (photoFile) {
+          formData.append("photo", photoFile);
+        }
+
+        const res = await api.post("diseases/mortality/", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
 
         // Persist attached photo for SIBAT and Admin inspection
-        if (photoDataUrl && res.data?.id) {
+        const activeUrl = res.data?.photo_url || res.data?.photo || photoDataUrl;
+        if (activeUrl && res.data?.id) {
           saveAttachedPhoto(`MOR-${res.data.id}`, {
-            photoUrl: photoDataUrl,
+            photoUrl: activeUrl,
             photoName: photoName || "mortality_evidence_photo.jpg",
             timestamp: new Date().toISOString(),
             uploaderRole: "FARMER",
           });
           if (selectedCattle?.tagNumber) {
             saveAttachedPhoto(`tag_${selectedCattle.tagNumber}`, {
-              photoUrl: photoDataUrl,
+              photoUrl: activeUrl,
               photoName: photoName || "mortality_evidence_photo.jpg",
               timestamp: new Date().toISOString(),
               uploaderRole: "FARMER",
@@ -221,17 +237,13 @@ export default function ReportIllnessDialog({
       setSelectedSymptoms([]);
       setPhotoName("");
       setPhotoDataUrl("");
-      onOpenChange(false);
+      setPhotoFile(null);
       onSuccess?.();
+      onOpenChange(false);
     } catch (err: any) {
-      console.error("Failed to submit observation report:", err);
-      const errorMsg =
-        err?.response?.data?.error ||
-        err?.response?.data?.affected_count?.[0] ||
-        err?.response?.data?.death_count?.[0] ||
-        err?.response?.data?.detail ||
-        "Failed to submit report. Please check required fields.";
-      toast.error(errorMsg);
+      console.error("Failed to submit observation:", err);
+      const msg = err.response?.data?.error || err.response?.data?.detail || "Submission failed.";
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -468,6 +480,7 @@ export default function ReportIllnessDialog({
                     onClick={() => {
                       setPhotoName("");
                       setPhotoDataUrl("");
+                      setPhotoFile(null);
                     }}
                     className="text-slate-400 hover:text-rose-600 rounded-xl"
                   >

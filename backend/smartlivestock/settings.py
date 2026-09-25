@@ -219,6 +219,12 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
+# Media files (User uploads, photo evidence, inspection attachments)
+# https://docs.djangoproject.com/en/6.0/topics/files/
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+os.makedirs(MEDIA_ROOT, exist_ok=True)
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -227,3 +233,4 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+

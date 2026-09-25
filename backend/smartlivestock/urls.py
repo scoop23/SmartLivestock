@@ -28,6 +28,9 @@ from users.views import MyTokenView  # type: ignore
 #
 # TODO: Add routes for livestock, production, diseases, movements apps
 #   e.g. path("api/livestock/", include("livestock.urls"))
+from django.conf import settings
+from django.conf.urls.static import static
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("users.urls")),
@@ -42,4 +45,8 @@ urlpatterns = [
     path("notifications/", include("users.notification_urls"), name="notifications"),
     path("api/notifications/", include("users.notification_urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
 

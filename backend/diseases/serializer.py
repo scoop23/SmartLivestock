@@ -23,6 +23,8 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
         source="livestock.breed", read_only=True
     )
     reviewed_by_name = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
+    inspector_photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = DiseaseCase
@@ -38,6 +40,10 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "affected_count",
             "record_date",
             "status",
+            "photo",
+            "photo_url",
+            "inspector_photo",
+            "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
             "reviewed_at",
@@ -47,6 +53,8 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "status",
+            "photo_url",
+            "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
             "reviewed_at",
@@ -54,6 +62,22 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
         )
+
+    def get_photo_url(self, obj):
+        if obj.photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.photo.url)
+            return obj.photo.url
+        return None
+
+    def get_inspector_photo_url(self, obj):
+        if obj.inspector_photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.inspector_photo.url)
+            return obj.inspector_photo.url
+        return None
 
     def get_farmer_name(self, obj):
         try:
@@ -111,6 +135,8 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "name",
             "affected_count",
             "record_date",
+            "photo",
+            "inspector_photo",
         ]
         for field in allowed:
             if field in validated_data:
@@ -141,6 +167,8 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         source="source_disease_case.name", read_only=True
     )
     reviewed_by_name = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
+    inspector_photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = MortalityRecord
@@ -158,6 +186,10 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "source_disease_name",
             "record_date",
             "status",
+            "photo",
+            "photo_url",
+            "inspector_photo",
+            "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
             "reviewed_at",
@@ -167,6 +199,8 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "status",
+            "photo_url",
+            "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
             "reviewed_at",
@@ -174,6 +208,22 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
         )
+
+    def get_photo_url(self, obj):
+        if obj.photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.photo.url)
+            return obj.photo.url
+        return None
+
+    def get_inspector_photo_url(self, obj):
+        if obj.inspector_photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.inspector_photo.url)
+            return obj.inspector_photo.url
+        return None
 
     def get_farmer_name(self, obj):
         try:
@@ -241,6 +291,8 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "cause",
             "source_disease_case",
             "record_date",
+            "photo",
+            "inspector_photo",
         ]
         for field in allowed:
             if field in validated_data:

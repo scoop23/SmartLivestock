@@ -78,6 +78,10 @@ export interface RawDiseaseCase {
   name: string;
   record_date: string;
   affected_count: number;
+  photo?: string | null;
+  photo_url?: string | null;
+  inspector_photo?: string | null;
+  inspector_photo_url?: string | null;
   treatment_given?: string;
   vaccine_name?: string;
   notes?: string;
@@ -100,6 +104,10 @@ export interface RawMortalityRecord {
   cause: string;
   death_count: number;
   record_date: string;
+  photo?: string | null;
+  photo_url?: string | null;
+  inspector_photo?: string | null;
+  inspector_photo_url?: string | null;
   remarks?: string;
   disposal_method?: string;
   status: string;
@@ -178,6 +186,8 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
 export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationRecord => {
   const statusNorm = (dc.status || "PENDING").toUpperCase() as SibatStatus;
   const photo = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number, dc.livestock_type_name, dc.name);
+  const resolvedPhotoUrl = dc.photo_url || dc.photo || photo.photoUrl;
+  const resolvedPhotoName = dc.photo_url ? "farmer_attached_evidence.jpg" : photo.photoName;
 
   return {
     id: `DIS-${dc.id}`,
@@ -194,8 +204,8 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
     reportedAt: dc.created_at || new Date().toISOString(),
     farmerSymptoms: [dc.name || "General Health Concern"],
     farmerDescription: dc.notes || `Reported condition: ${dc.name}. Treatment: ${dc.treatment_given || "None reported"}.`,
-    photoUrl: photo.photoUrl,
-    photoName: photo.photoName,
+    photoUrl: resolvedPhotoUrl,
+    photoName: resolvedPhotoName,
     status: statusNorm,
     inspection: dc.reviewed_by_name
       ? {
@@ -215,6 +225,8 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
 export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidationRecord => {
   const statusNorm = (m.status || "PENDING").toUpperCase() as SibatStatus;
   const photo = getAttachedPhoto(`MOR-${m.id}`, m.tag_number, m.livestock_type_name, m.cause);
+  const resolvedPhotoUrl = m.photo_url || m.photo || photo.photoUrl;
+  const resolvedPhotoName = m.photo_url ? "mortality_evidence_photo.jpg" : photo.photoName;
 
   return {
     id: `MOR-${m.id}`,
@@ -231,8 +243,8 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
     reportedAt: m.created_at || new Date().toISOString(),
     farmerSymptoms: [m.cause || "Mortality"],
     farmerDescription: m.remarks || `Mortality cause: ${m.cause}. Disposal: ${m.disposal_method || "Burial"}.`,
-    photoUrl: photo.photoUrl,
-    photoName: photo.photoName,
+    photoUrl: resolvedPhotoUrl,
+    photoName: resolvedPhotoName,
     status: statusNorm,
     inspection: m.reviewed_by_name
       ? {
@@ -529,10 +541,24 @@ export function useReviewClinicalHealth() {
 
       const endpoint = isDisease ? `diseases/cases/${cleanId}/review/` : `diseases/mortality/${cleanId}/review/`;
 
-      const response = await api.post(endpoint, {
-        status: reviewStatus,
-        remarks: formattedRemarks,
-      });
+      let payload: any;
+      let headers: Record<string, string> = {};
+
+      if (inspectionData.inspectorPhotoFile) {
+        const formData = new FormData();
+        formData.append("status", reviewStatus);
+        formData.append("remarks", formattedRemarks);
+        formData.append("inspector_photo", inspectionData.inspectorPhotoFile);
+        payload = formData;
+        headers = { "Content-Type": "multipart/form-data" };
+      } else {
+        payload = {
+          status: reviewStatus,
+          remarks: formattedRemarks,
+        };
+      }
+
+      const response = await api.post(endpoint, payload, { headers });
       return response.data;
     },
     onSuccess: () => {
