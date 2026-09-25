@@ -93,7 +93,15 @@ def batch_list_create(request):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # GET List
-    if role_name == "FARMER":
+    is_staff_or_admin = (
+        user.is_staff
+        or user.is_superuser
+        or role_name in ["MAO", "ADMIN", "SIBAT", "AUCTION"]
+        or request.query_params.get("all") == "true"
+        or request.query_params.get("scope") == "all"
+    )
+
+    if role_name == "FARMER" and not is_staff_or_admin:
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batches = LivestockBatch.objects.filter(
@@ -113,7 +121,9 @@ def batch_list_create(request):
     if status_param:
         batches = batches.filter(status=status_param)
 
-    batches = batches.select_related("livestock_type", "farmer__user", "farmer__barangay").prefetch_related("animals")
+    batches = batches.select_related(
+        "livestock_type", "farmer__user", "farmer__barangay"
+    ).prefetch_related("animals__reviewed_by")
     serializer = LivestockBatchSerializer(batches, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 

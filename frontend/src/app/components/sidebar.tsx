@@ -74,7 +74,15 @@ const adminLinks: SidebarLink[] = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/data-overview', label: 'System Data', icon: Database },
   { path: '/user-management', label: 'User Management', icon: Users },
-  { path: '/data-validation', label: 'Data Validation', icon: ShieldCheck },
+  {
+    path: '/data-validation',
+    label: 'Data Validation',
+    icon: ShieldCheck,
+    subLinks: [
+      { path: '/data-validation', label: 'Overview & Verification' },
+      { path: '/data-validation/batches', label: 'Batches & Livestock Drilldown', badge: 'Batches' },
+    ],
+  },
   { path: '/gis-map', label: 'GIS Map', icon: Map },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/reports', label: 'Reports', icon: FileText },

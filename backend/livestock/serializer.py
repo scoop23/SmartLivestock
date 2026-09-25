@@ -123,15 +123,55 @@ class LivestockInventorySerializer(serializers.Serializer):
         return instance
 
 
+class BatchChildAnimalSerializer(serializers.ModelSerializer):
+    photo_url = serializers.SerializerMethodField(read_only=True)
+    reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = LivestockInventory
+        fields = [
+            "id",
+            "tag_number",
+            "breed",
+            "sex",
+            "weight",
+            "photo",
+            "photo_url",
+            "avatar_key",
+            "last_vaccination_date",
+            "status",
+            "review_remarks",
+            "reviewed_by_name",
+            "reviewed_at",
+            "created_at",
+        ]
+
+    def get_reviewed_by_name(self, obj):
+        try:
+            if obj.reviewed_by:
+                full_name = obj.reviewed_by.get_full_name().strip()
+                return full_name if full_name else obj.reviewed_by.username
+        except Exception:
+            pass
+        return None
+
+    def get_photo_url(self, obj):
+        if obj.photo:
+            try:
+                request = self.context.get("request")
+                if request:
+                    return request.build_absolute_uri(obj.photo.url)
+                return obj.photo.url
+            except Exception:
+                return None
+        return None
+
+
 class LivestockBatchSerializer(serializers.ModelSerializer):
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)
-    barangay_name = serializers.CharField(
-        source="farmer.barangay.barangay_name", read_only=True
-    )
-    barangay_id = serializers.IntegerField(
-        source="farmer.barangay.id", read_only=True
-    )
+    barangay_name = serializers.SerializerMethodField(read_only=True)
+    barangay_id = serializers.SerializerMethodField(read_only=True)
     livestock_type_name = serializers.CharField(
         source="livestock_type.name", read_only=True
     )
@@ -182,14 +222,29 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         except Exception:
             return "Unknown Farmer"
 
+    def get_barangay_name(self, obj):
+        try:
+            return obj.farmer.barangay.barangay_name
+        except Exception:
+            return "Padre Garcia"
+
+    def get_barangay_id(self, obj):
+        try:
+            return obj.farmer.barangay.id
+        except Exception:
+            return None
+
     def get_animals(self, obj):
-        animals = obj.animals.all().order_by("id")
-        return LivestockInventorySerializer(animals, many=True, context=self.context).data
+        # Use prefetched in-memory animals without breaking prefetch cache via .order_by()
+        animals = sorted(obj.animals.all(), key=lambda a: a.id)
+        return BatchChildAnimalSerializer(animals, many=True, context=self.context).data
 
     def get_review_status(self, obj):
-        statuses = list(obj.animals.values_list("status", flat=True))
-        if not statuses:
+        # In-memory computation
+        animals = obj.animals.all()
+        if not animals:
             return "PENDING"
+        statuses = [a.status for a in animals]
         if all(s == "APPROVED" for s in statuses):
             return "APPROVED"
         if any(s == "SUBJECT_TO_REVISION" for s in statuses):
@@ -199,32 +254,30 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         return "PENDING"
 
     def get_review_remarks(self, obj):
-        latest = (
-            obj.animals.filter(review_remarks__isnull=False)
-            .exclude(review_remarks="")
-            .order_by("-reviewed_at")
-            .first()
-        )
-        return latest.review_remarks if latest else None
+        # In-memory computation
+        reviewed = [a for a in obj.animals.all() if a.review_remarks and a.reviewed_at]
+        if reviewed:
+            latest = max(reviewed, key=lambda a: a.reviewed_at)
+            return latest.review_remarks
+        return None
 
     def get_reviewed_by_name(self, obj):
-        latest = (
-            obj.animals.filter(reviewed_by__isnull=False)
-            .order_by("-reviewed_at")
-            .first()
-        )
-        if latest and latest.reviewed_by:
-            full_name = latest.reviewed_by.get_full_name().strip()
-            return full_name if full_name else latest.reviewed_by.username
+        # In-memory computation
+        reviewed = [a for a in obj.animals.all() if a.reviewed_by and a.reviewed_at]
+        if reviewed:
+            latest = max(reviewed, key=lambda a: a.reviewed_at)
+            user = latest.reviewed_by
+            full_name = user.get_full_name().strip()
+            return full_name if full_name else user.username
         return None
 
     def get_reviewed_at(self, obj):
-        latest = (
-            obj.animals.filter(reviewed_at__isnull=False)
-            .order_by("-reviewed_at")
-            .first()
-        )
-        return latest.reviewed_at if latest else None
+        # In-memory computation
+        reviewed = [a for a in obj.animals.all() if a.reviewed_at]
+        if reviewed:
+            latest = max(reviewed, key=lambda a: a.reviewed_at)
+            return latest.reviewed_at
+        return None
 
 
 class CensusSubmissionItemSerializer(serializers.ModelSerializer):

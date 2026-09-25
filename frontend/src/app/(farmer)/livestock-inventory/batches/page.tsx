@@ -30,6 +30,7 @@ import {
   Clock,
   HelpCircle,
   Printer,
+  MapPin,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ import {
   useUserInventory,
   useLivestockTypes,
   useLivestockBatches,
+  getDefaultAvatarForSpecies,
   type LivestockInventoryItem,
 } from "../livestock-inventory";
 
@@ -85,6 +87,7 @@ export interface BatchIndividual {
 export interface EnrichedBatch {
   id: string;
   batchCode: string;
+  batchName?: string;
   species: string;
   breed: string;
   totalQuantity: number;
@@ -145,6 +148,48 @@ function generateInitialIndividuals(
     });
   }
   return results;
+}
+
+// Helper to render official regulatory review badge for cohorts
+function getReviewStatusBadge(status?: string) {
+  if (status === "APPROVED") {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+      >
+        <ShieldCheck className="size-3 text-emerald-600" /> MAO Approved
+      </Badge>
+    );
+  }
+  if (status === "VERIFIED") {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-sky-50 text-sky-800 border-sky-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+      >
+        <CheckCircle2 className="size-3 text-sky-600" /> SIBAT Verified
+      </Badge>
+    );
+  }
+  if (status === "SUBJECT_TO_REVISION") {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-rose-50 text-rose-800 border-rose-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+      >
+        <AlertTriangle className="size-3 text-rose-600" /> Revision Needed
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+    >
+      <Clock className="size-3 text-amber-600" /> Pending Review
+    </Badge>
+  );
 }
 
 export default function BatchOverviewPage() {
@@ -251,6 +296,7 @@ export default function BatchOverviewPage() {
       return {
         id: String(b.id),
         batchCode: b.batchCode,
+        batchName: b.batchName || `${b.livestockTypeName} Cohort`,
         species: b.livestockTypeName,
         breed: b.animals?.[0]?.breed || "Cohort Roster",
         totalQuantity: b.totalAnimals || indList.length,
@@ -296,6 +342,7 @@ export default function BatchOverviewPage() {
       return {
         id: String(item.id),
         batchCode: batchCode,
+        batchName: item.batchName || `${item.livestockTypeName} Cohort`,
         species: item.livestockTypeName,
         breed: item.breed || "Standard Hybrid",
         totalQuantity: item.quantity,
@@ -585,54 +632,156 @@ export default function BatchOverviewPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {batches.map((batch) => {
             const isSelected = currentBatch?.id === batch.id;
+            const avatar = getDefaultAvatarForSpecies(batch.species);
+            const headCount = batch.individuals?.length || batch.totalQuantity || 0;
+            const targetKg =
+              batch.targetWeightKg > 0
+                ? batch.targetWeightKg
+                : batch.averageWeightKg > 0
+                  ? Math.round(batch.averageWeightKg * 1.3)
+                  : 90;
+            const weightProgress = Math.min(
+              100,
+              Math.max(0, Math.round((batch.averageWeightKg / targetKg) * 100))
+            );
+
             return (
               <Card
                 key={batch.id}
                 onClick={() => setSelectedBatchId(batch.id)}
-                className={`cursor-pointer transition-all duration-200 rounded-2xl border-2 overflow-hidden ${isSelected
-                    ? "border-emerald-600 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20"
-                    : "border-slate-200 hover:border-slate-300 hover:shadow-xs bg-white"
-                  }`}
+                className={`group relative cursor-pointer transition-all duration-200 rounded-2xl border-2 overflow-hidden flex flex-col justify-between ${
+                  isSelected
+                    ? "border-emerald-600 bg-gradient-to-b from-emerald-50/50 via-white to-emerald-50/20 shadow-md ring-2 ring-emerald-500/20"
+                    : "border-slate-200 hover:border-emerald-300 hover:shadow-md bg-white hover:-translate-y-0.5"
+                }`}
               >
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <Badge
-                        variant="secondary"
-                        className="bg-emerald-100 text-emerald-900 border-emerald-200 text-[10px] font-black uppercase mb-1"
-                      >
-                        {batch.species} Cohort
-                      </Badge>
-                      <h4 className="font-black text-sm text-slate-900 leading-tight">
-                        {batch.batchCode}
+                {/* Top Ambient Glow / Accent Strip */}
+                <div
+                  className={`h-1.5 w-full transition-colors ${
+                    isSelected
+                      ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500"
+                      : "bg-transparent group-hover:bg-emerald-400/40"
+                  }`}
+                />
+
+                <CardContent className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    {/* Header Row: Species & MAO Status on left, Head count on right */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide uppercase bg-emerald-100 text-emerald-900 border border-emerald-200/80 shadow-2xs">
+                          <span>{avatar.emoji}</span>
+                          <span>{batch.species}</span>
+                        </span>
+                        {getReviewStatusBadge(batch.reviewStatus)}
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="flex items-baseline justify-end gap-1">
+                          <span className="text-xl font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
+                            {headCount}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase text-slate-400">Heads</span>
+                        </div>
+                        <div className="flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-600">
+                          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Active</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Batch Name & Tag Subtitle */}
+                    <div className="space-y-1">
+                      <h4 className="font-black text-base text-slate-900 leading-snug group-hover:text-emerald-900 transition-colors line-clamp-1">
+                        {batch.batchName || `${batch.species} Cohort`}
                       </h4>
-                      <p className="text-xs text-slate-500 font-medium">{batch.breed}</p>
+                      <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                        <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                          {batch.batchCode}
+                        </span>
+                        <span className="text-slate-300 font-bold">&bull;</span>
+                        <span className="text-slate-500 font-medium truncate max-w-[160px]">
+                          {batch.breed}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-lg font-black text-emerald-800">
-                        {batch.individuals.length}
-                      </span>
-                      <p className="text-[10px] font-bold uppercase text-slate-400">Heads</p>
+                    {/* Weight & Target Progress Bar */}
+                    <div className="p-2.5 rounded-xl bg-slate-50/90 border border-slate-100/90 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                          <Scale className="size-3 text-slate-400" /> Avg Weight
+                        </span>
+                        <span className="font-bold text-slate-800 text-xs">
+                          {batch.averageWeightKg} kg{" "}
+                          <span className="text-[10px] font-medium text-slate-400">
+                            / {targetKg} kg
+                          </span>
+                          <span className="ml-1 text-[10px] font-black text-emerald-600">
+                            ({weightProgress}%)
+                          </span>
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-200/70 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            weightProgress >= 90
+                              ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                              : weightProgress >= 60
+                                ? "bg-gradient-to-r from-emerald-500 to-emerald-600"
+                                : "bg-gradient-to-r from-amber-500 to-emerald-500"
+                          }`}
+                          style={{ width: `${weightProgress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Pen & Feed Quick Specs */}
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-0.5 border-t border-slate-100/80">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <MapPin className="size-3.5 text-slate-400 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">
+                            Housing Pen
+                          </span>
+                          <p className="font-bold text-slate-700 truncate leading-tight text-xs mt-0.5">
+                            {batch.housingPen || "Standard Pen"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Flame className="size-3.5 text-amber-500 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">
+                            Feed Ration
+                          </span>
+                          <p className="font-bold text-slate-700 truncate leading-tight text-xs mt-0.5">
+                            {batch.feedType || "Farm Rations"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400">Avg Weight</span>
-                      <p className="font-bold text-slate-800">{batch.averageWeightKg} kg</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400">Pen / Area</span>
-                      <p className="font-bold text-slate-800 truncate">{batch.housingPen}</p>
-                    </div>
+                  {/* Selection Status / Inspect Action */}
+                  <div className="pt-2">
+                    {isSelected ? (
+                      <div className="flex items-center justify-between text-[11px] font-black text-emerald-800 bg-emerald-100/90 py-1.5 px-2.5 rounded-lg border border-emerald-300/80 shadow-2xs">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className="size-3.5 text-emerald-700" />
+                          <span>Currently Inspecting</span>
+                        </div>
+                        <span className="text-[9px] uppercase tracking-wider font-extrabold text-emerald-700 bg-white/90 px-1.5 py-0.5 rounded shadow-2xs">
+                          Active
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 group-hover:text-emerald-700 py-1 px-2.5 rounded-lg group-hover:bg-emerald-50/70 transition-colors">
+                        <span>Click to inspect cohort</span>
+                        <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    )}
                   </div>
-
-                  {isSelected && (
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 py-1 px-2.5 rounded-lg justify-center">
-                      <CheckCircle2 className="size-3.5" /> Currently Inspecting
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );
@@ -651,10 +800,10 @@ export default function BatchOverviewPage() {
                     <span>Cohort ID: {currentBatch.batchCode}</span>
                   </div>
                   <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                    {currentBatch.species} • {currentBatch.breed}
+                    {currentBatch.batchName || `${currentBatch.species} Cohort`}
                   </h2>
                   <p className="text-xs text-emerald-100/80 font-medium">
-                    Housing: <strong>{currentBatch.housingPen}</strong> • Registered: {currentBatch.acquiredDate} • Diet: {currentBatch.feedType}
+                    {currentBatch.batchCode} &bull; {currentBatch.species} &bull; {currentBatch.breed}
                   </p>
                   {currentBatch.reviewRemarks && (
                     <div className="inline-block mt-1">
