@@ -24,6 +24,18 @@ class DiseaseCase(models.Model):
     status = models.CharField(
         max_length=50, choices=DiseaseStatus.choices, default=DiseaseStatus.PENDING
     )
+    photo = models.ImageField(
+        upload_to="disease_evidence/%Y/%m/", # file directory the image will upload to.
+        null=True,
+        blank=True,
+        help_text="Farmer-submitted photo evidence of the illness.",
+    )
+    inspector_photo = models.ImageField(
+        upload_to="disease_inspection/%Y/%m/", # file directory the image will upload to.
+        null=True,
+        blank=True,
+        help_text="SIBAT on-site field verification photo.",
+    )
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -74,6 +86,18 @@ class MortalityRecord(models.Model):
         max_length=50,
         choices=MortalityRecordStatus.choices,
         default=MortalityRecordStatus.PENDING,
+    )
+    photo = models.ImageField(
+        upload_to="mortality_evidence/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Farmer-submitted photo evidence of the mortality.",
+    )
+    inspector_photo = models.ImageField(
+        upload_to="mortality_inspection/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="SIBAT on-site field verification photo.",
     )
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

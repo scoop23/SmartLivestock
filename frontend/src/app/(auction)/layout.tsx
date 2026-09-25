@@ -16,7 +16,7 @@ export default function AuctionLayout({
 
   useEffect(() => {
     if (!isLoading && (!user || user.role?.toUpperCase() !== "AUCTION")) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [user, isLoading, router]);
 
@@ -26,6 +26,10 @@ export default function AuctionLayout({
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
       </div>
     );
+  }
+
+  if (!user || user.role?.toUpperCase() !== "AUCTION") {
+    return null;
   }
 
   return (

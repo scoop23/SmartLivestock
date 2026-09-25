@@ -16,6 +16,7 @@ django-cors-headers = "*"
 dj-database-url = "*"
 gunicorn = "*"
 whitenoise = "*"
+pillow = "*"
 
 [dev-packages]
 mypy = "*"

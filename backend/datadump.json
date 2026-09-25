@@ -1,0 +1,6282 @@
+[
+{
+  "model": "sessions.session",
+  "pk": "mv506xszzen58fam3hbrurq9uhc5dddm",
+  "fields": {
+    "session_data": ".eJxVjDsOgzAQBe_iOrK86y8p03MGa-1dAkkEEoYqyt0jJIqkfTPz3irTvo15b7LmidVVOXX53QrVp8wH4AfN90XXZd7WqehD0Sdtul9YXrfT_TsYqY1H3UFI0ZpAHLEOLKmTAByM8QN4E9gBFGQXUQyLRCQLYp0lREw1efX5AtLUNzg:1wnxYe:AcVR8ENC3KgFS_uHxwfraK71DR1gEnRF-3Nk9Z6SqOM",
+    "expire_date": "2026-08-09T12:02:16.320Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "w5o29l487g9as7utcmcj8nmop0utdu8p",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAQRf-FtSHDY3i4dO83EGBAqoYmpV0Z_12bdKHbe865LxbitrawjbKEidiZaXb63VLMj9J3QPfYbzPPc1-XKfFd4Qcd_DpTeV4O9--gxdG-tVPWVVGd1S6BAayAkEh4pTNIQjLZI2Qim1BpJSUl5S0IdCZXZ9Cz9we-CTbD:1wiry4:D9QGvx9mShZ83Kk4tI5VwE8pcDwAktOkTuCAj-3JrR8",
+    "expire_date": "2026-07-26T11:03:28.776Z"
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$8O3x9GCxwOoeC4AwTIYZYr$3gMmP1+W/P6cnJ6QfXURg1fsw2fNCkAMcKxjDcdtkQ4=",
+    "last_login": "2026-07-26T12:02:16.317Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-07-12T11:02:49.664Z",
+    "account_status": "PENDING",
+    "email": "admin@gmail.com",
+    "created_at": "2026-07-12T11:02:50.499Z",
+    "approved_at": null,
+    "role": 1,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$VXnx52ECBrTYdM9y6mtjEN$cgsKl0rGFRqhmU9V15+SuTd52Em/89nXDtavoBVQoVY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "sibat_user",
+    "first_name": "Sibat",
+    "last_name": "Officer",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-16T14:39:31.831Z",
+    "account_status": "APPROVED",
+    "email": "sibat@example.com",
+    "created_at": "2026-09-16T14:39:31.831Z",
+    "approved_at": null,
+    "role": 3,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$raePzLsFZmtJ02vHKvgl3d$5ZrfYTn/I+mSnulKhVhYXHutwge0BCdCdSF7QnBJ/g4=",
+    "last_login": null,
+    "is_superuser": true,
+    "username": "admin_user",
+    "first_name": "System",
+    "last_name": "Admin",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-09-16T14:39:32.803Z",
+    "account_status": "APPROVED",
+    "email": "admin@example.com",
+    "created_at": "2026-09-16T14:39:32.803Z",
+    "approved_at": null,
+    "role": 1,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$04IB7mpwsgdmO70IOcPUBz$p5dUGaz+Z4KD77Vf9RBpGRF7DEXqhGwtTiIyGvlZ9oM=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "mao_admin",
+    "first_name": "",
+    "last_name": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-20T12:10:53.049Z",
+    "account_status": "APPROVED",
+    "email": "mao@example.gov.ph",
+    "created_at": "2026-09-20T12:10:53.049Z",
+    "approved_at": null,
+    "role": 4,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$LvIUwsahIDg4nCOKUBAqiJ$ESmCVed0DyEhmhl+dKIz8PeOzuKSfAGdEmJWvzclBeQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "markangelo.bathan",
+    "first_name": "Mark Angelo",
+    "last_name": "Bathan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:17.098Z",
+    "account_status": "APPROVED",
+    "email": "markangelo.bathan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:17.098Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Aeof2bQvr7LUmw9wKYfKl6$nUAc4s8UkEIkbNWdVe5M5cMQZzbQPyY0dT16MCUN+iI=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "peter.comia",
+    "first_name": "Peter",
+    "last_name": "Comia",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:18.052Z",
+    "account_status": "APPROVED",
+    "email": "peter.comia@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:18.052Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$I46YiOoIp6S3ZZ3ZiZ79Pa$OTyqvniiRazCWacYi89s9g6Zidz0CfuWx40iCFFjaS0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "conrado.comia",
+    "first_name": "Conrado",
+    "last_name": "Comia",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:18.916Z",
+    "account_status": "APPROVED",
+    "email": "conrado.comia@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:18.917Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$NhSiAzsDv4fbJeqhRV2RSF$g56Kelsh205Rw0QWuyXCeAZP3WJ1ojB3h6cjPRJ7nXM=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "cesar.comia",
+    "first_name": "Cesar",
+    "last_name": "Comia",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:19.756Z",
+    "account_status": "APPROVED",
+    "email": "cesar.comia@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:19.756Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$UZdbzI1ZaLK6r0EhZWASW6$dQ7E7kMw5cnPQBfZsk0xILNMJLgDVa+e8xjpZp3Lq9s=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "imelda.suco",
+    "first_name": "Imelda",
+    "last_name": "Suco",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:20.607Z",
+    "account_status": "APPROVED",
+    "email": "imelda.suco@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:20.607Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$JyEIxoJT3GsifA1Q6mOkdp$h7uSog4t6utS6qXrKukXr0AM/f8AIHH2lSuBMnT2eBQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "tyron.lindog",
+    "first_name": "Tyron",
+    "last_name": "Lindog",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:21.478Z",
+    "account_status": "APPROVED",
+    "email": "tyron.lindog@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:21.479Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$IAs5uy0PA3fpVU5Tj8Om73$Wua2yBSe+9zm51hMzHK8dY5ObZg7YFLvl8GSVsnr2bc=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "leandro.linatoc",
+    "first_name": "Leandro",
+    "last_name": "Linatoc",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:22.317Z",
+    "account_status": "APPROVED",
+    "email": "leandro.linatoc@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:22.317Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$kil84NLDmZUvwNN4HlBOKq$ydPcTH1TloD16RLc1GMlRjzC7bYesowEY+seJPeWZLk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "godofredo.camacho",
+    "first_name": "Godofredo",
+    "last_name": "Camacho",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:23.174Z",
+    "account_status": "APPROVED",
+    "email": "godofredo.camacho@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:23.174Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Fm3BgHivwOOu1PplHn0E5I$9f12aikwsuVc+lBtyrNDqmUqozOf5dhaawti9g7Fdy8=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "alejandro.lanto",
+    "first_name": "Alejandro",
+    "last_name": "Lanto",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:24.056Z",
+    "account_status": "APPROVED",
+    "email": "alejandro.lanto@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:24.057Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$TVwQBr5oJySXSkFxTapVUw$p9G7+Ui8Xc006n9C3jHoC1hz1HXzqPNnbUmnXjvjdSI=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "avelino.tapalla",
+    "first_name": "Avelino",
+    "last_name": "Tapalla",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:24.911Z",
+    "account_status": "APPROVED",
+    "email": "avelino.tapalla@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:24.911Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$98L2CfTzwQghQbwIQ9qIJT$QZC59xp0rmCg4xHtrnrRmVq45rqf27kkt3XfWp+c5Sg=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "marino.silva",
+    "first_name": "Marino",
+    "last_name": "Silva",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:25.862Z",
+    "account_status": "APPROVED",
+    "email": "marino.silva@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:25.863Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$h68Pjq0Lh7oT17g9FHykNZ$70YinOeQdUhdOg1OtUKVGq6nl6RcMwIRfB+O4qjv+sk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "victor.manguait",
+    "first_name": "Victor",
+    "last_name": "Manguait",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:26.860Z",
+    "account_status": "APPROVED",
+    "email": "victor.manguait@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:26.860Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$pDWs0CmSZrUt6SfhUTA4uN$TZaG9L5jhQ5AHAQZJCetHt7KnZTss1hs0ly9tMIzHYk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "lucio.tapalla",
+    "first_name": "Lucio",
+    "last_name": "Tapalla",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:27.756Z",
+    "account_status": "APPROVED",
+    "email": "lucio.tapalla@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:27.756Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$yJoHHlhFXgSDgwRLvLS4VO$36tTKhaMGnuE9CaaXKbl3px+qa+OEAVCn0cGK52nyZw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "olga.escueta",
+    "first_name": "Olga",
+    "last_name": "Escueta",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:28.680Z",
+    "account_status": "APPROVED",
+    "email": "olga.escueta@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:28.680Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$XaqQreImDv5Ut8R9qijjye$x9aoQCL3jWp1QC7S5/EjfS2cavs94OpTOV8NWj30drY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "jobert.arellano",
+    "first_name": "Jobert",
+    "last_name": "Arellano",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:29.587Z",
+    "account_status": "APPROVED",
+    "email": "jobert.arellano@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:29.587Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Q0XPkjpiVsa7AaqRFNkO8J$1u0KblGg4PssZkxp2x9jlrzX7zvZncR9ehPggIsSo5Q=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "larry.vergara",
+    "first_name": "Larry",
+    "last_name": "Vergara",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:30.463Z",
+    "account_status": "APPROVED",
+    "email": "larry.vergara@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:30.463Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$oinm0LSZMa9uQZqRrJSKrE$qLejvdSfysvo8u11iISwfHC8oEOBHpbIZM67DIqunHI=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "edwin.vergara",
+    "first_name": "Edwin",
+    "last_name": "Vergara",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:31.351Z",
+    "account_status": "APPROVED",
+    "email": "edwin.vergara@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:31.351Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$haoR6wD5nOPGlEAtBzTFLd$aFI6P0JcvdPGr7PFEYI27fkmTAH2lWbKbhBh02Ore6M=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gregorio.vergara",
+    "first_name": "Gregorio",
+    "last_name": "Vergara",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:32.203Z",
+    "account_status": "APPROVED",
+    "email": "gregorio.vergara@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:32.204Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Bc5rKnqoqczrj11QYVlQr4$fYHk11dCJCo/b7nnz+k/bmfFUXhvJWAVMs0AEoraSJ0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "arvin.escueta",
+    "first_name": "Arvin",
+    "last_name": "Escueta",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:33.099Z",
+    "account_status": "APPROVED",
+    "email": "arvin.escueta@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:33.099Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$EFk0mgDJf0u3P4JbkS8mXw$OWWEA8zjQ3AZogg+cYnuQxZLMfK6X6y166koeicyqTk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "morris.escueta",
+    "first_name": "Morris",
+    "last_name": "Escueta",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:33.943Z",
+    "account_status": "APPROVED",
+    "email": "morris.escueta@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:33.943Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$JBoqjCrr84boqHw2trRdzm$BZR+78WtyEC9XYY1JBoKi0UK7Zd3Wz1IR6t2keLvG5E=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ever.vergara",
+    "first_name": "Ever",
+    "last_name": "Vergara",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:34.819Z",
+    "account_status": "APPROVED",
+    "email": "ever.vergara@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:34.819Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$16GQ25qlheV0wsXojk40aW$WtuJhrABwpwejCVgegrrnxvnEaoojxPSaN/eBh/5p+Y=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ponciano.escueta",
+    "first_name": "Ponciano",
+    "last_name": "Escueta",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:35.691Z",
+    "account_status": "APPROVED",
+    "email": "ponciano.escueta@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:35.691Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$eUKwmY40ocLENPowfXWWdc$52IMjdGgB7I37SCLXyw2ENWPPN65FKhXULkWFpeZq3E=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ricky.castillo",
+    "first_name": "Ricky",
+    "last_name": "Castillo",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:36.544Z",
+    "account_status": "APPROVED",
+    "email": "ricky.castillo@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:36.544Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$ExvHqyu4zB3pwkNCKrdQCO$ges7fKpcWNS7BCxI5JOnUvFr4eDCAZgeUhcbun9xOlE=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "nelson.andal",
+    "first_name": "Nelson",
+    "last_name": "Andal",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:37.754Z",
+    "account_status": "APPROVED",
+    "email": "nelson.andal@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:37.755Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$QUw48NTnC0lEtJRiXcjxl3$OAX8/YA3aNDpGeod5uqzrN25gOTGKLffcmeZUVS+Hzk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "celso.moster",
+    "first_name": "Celso",
+    "last_name": "Moster",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:38.660Z",
+    "account_status": "APPROVED",
+    "email": "celso.moster@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:38.660Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$x5uKMnAhKYRpk7Ix9lIE5Z$OniLYAkmTTBSa4CbeqNK0QlQqn/OQlWpJBjpgd9KvXI=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ehner.laylo",
+    "first_name": "Ehner",
+    "last_name": "Laylo",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:39.553Z",
+    "account_status": "APPROVED",
+    "email": "ehner.laylo@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:39.553Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$wcccIU6Pl9rhG5QEsYXbig$whQfULXtw3+fJmwNcJ13MUusviLt/0nPFSwbWQrsTYA=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "virgilio.moster",
+    "first_name": "Virgilio",
+    "last_name": "Moster",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:40.401Z",
+    "account_status": "APPROVED",
+    "email": "virgilio.moster@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:40.401Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$HynQHvYzI2GU69o225w0Zr$WetLbU9KzbytexOTMu7UbO5jWqtwqDBAye2nVqmx0Nw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "nestor.patungan",
+    "first_name": "Nestor",
+    "last_name": "Patungan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:41.284Z",
+    "account_status": "APPROVED",
+    "email": "nestor.patungan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:41.284Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$bMHkM5wClOPgOZ06szCRiD$m8B8rX41Q0nNLeiQD+ETGoulBkuIfB5Yfk1qUUbCfMc=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "julia.andal",
+    "first_name": "Julia",
+    "last_name": "Andal",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:42.152Z",
+    "account_status": "APPROVED",
+    "email": "julia.andal@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:42.153Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$kEDAn0gixm3CIikioxlrah$M4PdqP+NfXJF0n18aV3YPkd+n6a1FF6WXLLYlqRFjn0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "agusto.latayan",
+    "first_name": "Agusto",
+    "last_name": "Latayan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:42.994Z",
+    "account_status": "APPROVED",
+    "email": "agusto.latayan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:42.994Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$6COSu2MFAdQ94luNpbJiaY$1O1wVEFqb2T//AEyk6cvHEZcR8jZCz7l/04XdZfIEfE=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "eduardo.garcia",
+    "first_name": "Eduardo",
+    "last_name": "Garcia",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:43.843Z",
+    "account_status": "APPROVED",
+    "email": "eduardo.garcia@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:43.843Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$C8MjAqLpfgqyHjiCAcMPW0$1na/vPpErJuAJpx8DpyIbLu6oKJsYiB9QrZQnUjdQM4=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "nepomuceno.laylo",
+    "first_name": "Nepomuceno",
+    "last_name": "Laylo",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:44.694Z",
+    "account_status": "APPROVED",
+    "email": "nepomuceno.laylo@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:44.695Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$kqGSrLrfxe8MokdienrLuc$1cvkGtK7DBQQXadBEnz+OdFKq+kurlUxand2iZMIPKg=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "emma.buquir",
+    "first_name": "Emma",
+    "last_name": "Buquir",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:45.636Z",
+    "account_status": "APPROVED",
+    "email": "emma.buquir@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:45.636Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$3GS7FM110Fhng6F9tR61nK$xEbaqH8QUiVOSjQ09bXAjBOKAw2wW7GJz35ONiLwPhQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "andreo.villanueva",
+    "first_name": "Andreo",
+    "last_name": "Villanueva",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:46.482Z",
+    "account_status": "APPROVED",
+    "email": "andreo.villanueva@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:46.482Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$4jAAsgOYCUCyDTgCRz4f6N$tAJVpISBht0RioiF/Mx49xgbTrHW0Lj95mQGKuJqlAw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "fred.calingasan",
+    "first_name": "Fred",
+    "last_name": "Calingasan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:47.328Z",
+    "account_status": "APPROVED",
+    "email": "fred.calingasan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:47.328Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$mRcBwT14P61j1gD5YMMkbH$A0L2SnWdpM7FLbzFyeHoBysy8PW0LUTwPwcCLGs+K2g=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "elmer.manalon",
+    "first_name": "Elmer",
+    "last_name": "Manalon",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:48.177Z",
+    "account_status": "APPROVED",
+    "email": "elmer.manalon@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:48.177Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$c7pEsb3glCX0rqiZOVCTJ9$nzk1LHO1hyf+ArbcFY52gs1dgNfJ52YrJrBlYTCnz0s=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "briccio.dimaano",
+    "first_name": "Briccio",
+    "last_name": "Dimaano",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:49.025Z",
+    "account_status": "APPROVED",
+    "email": "briccio.dimaano@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:49.026Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$SIPn37RKPhIyhmUYYWV4J7$8T6ZPQu0YdW4nKzT01jF9Gnwlb8SbQBfjyWHjv8E4gA=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "emiliano.dimaano",
+    "first_name": "Emiliano",
+    "last_name": "Dimaano",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:49.884Z",
+    "account_status": "APPROVED",
+    "email": "emiliano.dimaano@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:49.884Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$aqGcso0dAGR2Ihx8vRudfW$XLBGAxY3415tJb3637TPoHmA4N9M+5tjH3kF07b/VAw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "christopher.kasilag",
+    "first_name": "Christopher",
+    "last_name": "Kasilag",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:50.756Z",
+    "account_status": "APPROVED",
+    "email": "christopher.kasilag@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:50.757Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$NFSS8RutDeFL8RRJhSsiZY$3k4rT9GmbGdPRlTjys9OWkDQRo6M0GQry7qNk3qs5t0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "norma.macatangay",
+    "first_name": "Norma",
+    "last_name": "Macatangay",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:51.693Z",
+    "account_status": "APPROVED",
+    "email": "norma.macatangay@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:51.693Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$LfDplUqCASUPRLxA3f0lwF$rg3ClRmJL0nBSxhTdfPfAOfKTop04DcPYZlbP5X5YFw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gloria.metrillo",
+    "first_name": "Gloria",
+    "last_name": "Metrillo",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:52.537Z",
+    "account_status": "APPROVED",
+    "email": "gloria.metrillo@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:52.537Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$R6fjBo1JeUl3E2G1P2MhBT$UMrFQkHONPpVOCw0WnpjFRyyPRMKFkqiSmx0dvpsWTw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "esmeraldo.caraan",
+    "first_name": "Esmeraldo",
+    "last_name": "Caraan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:53.388Z",
+    "account_status": "APPROVED",
+    "email": "esmeraldo.caraan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:53.388Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$FJT19XqNjUeKAXNHHLFcai$4/vB6KizjORGLXNABU9YIolvdctS0iEyc1RTS953HUo=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "zaldy.fajardo",
+    "first_name": "Zaldy",
+    "last_name": "Fajardo",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:54.241Z",
+    "account_status": "APPROVED",
+    "email": "zaldy.fajardo@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:54.242Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$fM1WFFvXrSQwm6KFtGkrQi$yssfjoLBfmqqmBPG6ZixhKAAKrYsyumqxpRznnszQwo=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "jayson.bathan",
+    "first_name": "Jayson",
+    "last_name": "Bathan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:55.105Z",
+    "account_status": "APPROVED",
+    "email": "jayson.bathan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:55.105Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$F70USLbg2zDvWMVIkf0BAc$q3T0XoAR+F9aNEawbSL5k/wlFhUYF0SnxYZAtB1dXvY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "nancydelos.reyes",
+    "first_name": "Nancy de los",
+    "last_name": "Reyes",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:55.961Z",
+    "account_status": "APPROVED",
+    "email": "nancydelos.reyes@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:55.961Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$LbthrlwqnRFtV8CSELcjsQ$fbNK9VA8QvNHgTZZbLJShOO+pbC+Q/B3g2nwvK39+3c=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "maila.manimtim",
+    "first_name": "Maila",
+    "last_name": "Manimtim",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:56.803Z",
+    "account_status": "APPROVED",
+    "email": "maila.manimtim@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:56.803Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$JwmUlQtAZiSDehSTlgILuE$SVZ1koSttEE91arIxrLhysLYLeMZiDAsrFJC5oAVIts=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "venistiano.hernandez",
+    "first_name": "Venistiano",
+    "last_name": "Hernandez",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:57.638Z",
+    "account_status": "APPROVED",
+    "email": "venistiano.hernandez@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:57.638Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$c1LuoHbIBvDDrAYQYerVvB$d7jld348L/xSv9PAqYuTchlwwjoSnmQ/xoqIBLr4pz8=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "teofila.hernandez",
+    "first_name": "Teofila",
+    "last_name": "Hernandez",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:58.479Z",
+    "account_status": "APPROVED",
+    "email": "teofila.hernandez@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:58.479Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$wott0boIuvzmCzMASpCsSY$NqdH+G/zINTkiB/cc/bDKRl4ZFlBgQEF8znHwuCeWR8=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ruel.hernandez",
+    "first_name": "Ruel",
+    "last_name": "Hernandez",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:32:59.326Z",
+    "account_status": "APPROVED",
+    "email": "ruel.hernandez@smartlivestock.ph",
+    "created_at": "2026-09-22T10:32:59.326Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$ZdPkqGqS2Byk2vm910ibri$/cOevLGy6txU6k6P3BIXEmmSG7uuGVijWE2m3aeCYXY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "amelita.tapay",
+    "first_name": "Amelita",
+    "last_name": "Tapay",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:00.217Z",
+    "account_status": "APPROVED",
+    "email": "amelita.tapay@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:00.217Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$1pdeqb749BW4WqvaO6er1K$abWLvR9UVCwfKnMoztaULRRinEw4cfc4rIDs8/dwvUo=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "saturnino.balhag",
+    "first_name": "Saturnino",
+    "last_name": "Balhag",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:01.512Z",
+    "account_status": "APPROVED",
+    "email": "saturnino.balhag@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:01.512Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$G3lxiXf2CVGTolM8bTIDEc$V2TAhzWMcSnSp4Df70h7eWNjp99/p0H/W/AoSYeGfgU=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "markjayson.katigbak",
+    "first_name": "Mark Jayson",
+    "last_name": "Katigbak",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:02.679Z",
+    "account_status": "APPROVED",
+    "email": "markjayson.katigbak@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:02.679Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$SBtviVRE3hnFvoylPix5EF$S79FcS2G0sjbTdyyxGuadee3M+PP+cl1LEJGOUCgKJ0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "marieta.aguila",
+    "first_name": "Marieta",
+    "last_name": "Aguila",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:03.664Z",
+    "account_status": "APPROVED",
+    "email": "marieta.aguila@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:03.664Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$4ssA41CyKAOWOn8EnB23tx$a7EmP79xZEcABfqc6E4wnaKlPmgfGJtYI+RXkx5Zr/c=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "rene.rea",
+    "first_name": "Rene",
+    "last_name": "Reña",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:04.505Z",
+    "account_status": "APPROVED",
+    "email": "rene.rea@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:04.505Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Cu6OFpGryGLo4AdlKEMQGA$TVcXJ0KOcrxFbDobp0H/uMKygtv47OZkZnsa0I5UnVk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "bernardode.castro",
+    "first_name": "Bernardo de",
+    "last_name": "Castro",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:05.353Z",
+    "account_status": "APPROVED",
+    "email": "bernardode.castro@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:05.353Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$BmYqaLJ9RVfAS4yxBfjoNf$8yUSzsQM/s065EBcDZ0KKJl5B6kZHWPeXvBDpUB4HYU=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "mariade.castro",
+    "first_name": "Maria de",
+    "last_name": "Castro",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:06.207Z",
+    "account_status": "APPROVED",
+    "email": "mariade.castro@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:06.208Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$MDO85OVboZrMczNDNHwxi3$v8C2RLgZ5KPV7xZxhmh61PjlJ4pFPSxoO429faRCVtg=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "feriano.ramires",
+    "first_name": "Feriano",
+    "last_name": "Ramires",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:07.091Z",
+    "account_status": "APPROVED",
+    "email": "feriano.ramires@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:07.091Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$wZa13y3dd080TIn2l5ZE7u$cSLvMev3csWgNvUu1lMrzWgvOW93tw8RHo/oNv7qd4c=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "victor.valencia",
+    "first_name": "Victor",
+    "last_name": "Valencia",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:08.100Z",
+    "account_status": "APPROVED",
+    "email": "victor.valencia@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:08.101Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$IIanxeL7t43YHLrBVXghsD$RafpE+bFK/vN9fGu7M+QpEG/XDWnKB0ePeesn8gafqs=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "reynante.bataan",
+    "first_name": "Reynante",
+    "last_name": "Bataan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:09.046Z",
+    "account_status": "APPROVED",
+    "email": "reynante.bataan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:09.046Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$AAjSoUhPU5mAexerHjs7Mw$4PDTwkOrKilrfSqS7KaNfaU+HoL8gL0CyZHugoYGAWs=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "apolinario.valdez",
+    "first_name": "Apolinario",
+    "last_name": "Valdez",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:09.902Z",
+    "account_status": "APPROVED",
+    "email": "apolinario.valdez@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:09.902Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$D7FAWaelb97ni20jh2GBkE$VrCZAt/km8deiV7DwnuoPE4B9Z7O2+qmKPrTI/JFy8A=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "luis.aguila",
+    "first_name": "Luis",
+    "last_name": "Aguila",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:10.873Z",
+    "account_status": "APPROVED",
+    "email": "luis.aguila@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:10.873Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$B5bMz5LyNit3qYv9DbWdas$vYAiwLAy7Dbx4lOLimp9RmgFiZq7bT6MQdAEIJpoU28=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ruelan.gonzales",
+    "first_name": "Ruelan",
+    "last_name": "Gonzales",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:12.431Z",
+    "account_status": "APPROVED",
+    "email": "ruelan.gonzales@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:12.432Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$R9ffty1EeLthGBA5m108na$FW4GMtWC96ppjT86qpB0Io1Tti9+R/iCdaDASKaEybk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "rene.maala",
+    "first_name": "Rene",
+    "last_name": "Maala",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:13.827Z",
+    "account_status": "APPROVED",
+    "email": "rene.maala@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:13.827Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$qgE9fhygkwuHLVumpyHt2d$L2fCBnECgqlJv77Qsffo9rw4t+xuL4f28JWbHUrv3dQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "rea.guce",
+    "first_name": "Rea",
+    "last_name": "Guce",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:15.317Z",
+    "account_status": "APPROVED",
+    "email": "rea.guce@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:15.317Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$3eeEdEP7aXDsBzrOw5LghS$/fIXtjP6u6y0619R5ZNyH7gg8N0evCmZCoU/H3kC/00=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "reymelchor.casanova",
+    "first_name": "Rey Melchor",
+    "last_name": "Casanova",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:16.393Z",
+    "account_status": "APPROVED",
+    "email": "reymelchor.casanova@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:16.393Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$P5s90eYu1fvucVm39Evidz$pDvr7ccEGas34SBG28J9rYKnEybZG2BESd1J/O5p9rs=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "renaldo.datinggaling",
+    "first_name": "Renaldo",
+    "last_name": "Datinggaling",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:17.245Z",
+    "account_status": "APPROVED",
+    "email": "renaldo.datinggaling@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:17.245Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$C0dceTQASAnoCSZDej6f9K$F8+MPWe+4Y/RO/ieKMWr19wkkikxoRFhyMawXiUXNow=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "felipe.carreal",
+    "first_name": "Felipe",
+    "last_name": "Carreal",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:18.219Z",
+    "account_status": "APPROVED",
+    "email": "felipe.carreal@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:18.219Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$WlJxiBJkwMpWmGv00dsfvZ$jP6SKDkY91CGofHJJzKNH+p9dTms3+Ge7/hq7u21/3U=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "heriel.bautista",
+    "first_name": "Heriel",
+    "last_name": "Bautista",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:19.108Z",
+    "account_status": "APPROVED",
+    "email": "heriel.bautista@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:19.108Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$MHPdbzVSLXwiQhMBjWrbjb$KKwo4GYkwTq8vhfDMB807405z+1wcSuOQ4/3mk/TpQ0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "alberto.gutierrez",
+    "first_name": "Alberto",
+    "last_name": "Gutierrez",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:20.007Z",
+    "account_status": "APPROVED",
+    "email": "alberto.gutierrez@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:20.007Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$n45K9c23ojET9OKEN9QGRK$8wy2LLq4ACAlYFknNfuqEtK7R5G1UXHpUEzvoGnvlis=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "rodolfo.jareno",
+    "first_name": "Rodolfo",
+    "last_name": "Jareno",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:20.879Z",
+    "account_status": "APPROVED",
+    "email": "rodolfo.jareno@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:20.879Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$tlJNJ2pjS5xMFUkpqATWtZ$p3FZ9CMiMu5kFfaTQh8RqaMq5uGFa7jjQuiRwaMGA+s=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "cardo.masalunga",
+    "first_name": "Cardo",
+    "last_name": "Masalunga",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:21.733Z",
+    "account_status": "APPROVED",
+    "email": "cardo.masalunga@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:21.733Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$CqTOzn6FU9Qhwo86iUdFBU$oc8qbEb2Iu2bcIumn9XXSBeUeq3g1/ArE1f5HBos0mc=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "donald.manigbas",
+    "first_name": "Donald",
+    "last_name": "Manigbas",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:22.669Z",
+    "account_status": "APPROVED",
+    "email": "donald.manigbas@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:22.670Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Up64pUfCRAKYOrUpDwlfOC$yXRDNbGopQ/0QOTnhwsaEpGH7g7Bl/3gzyDFc6fVRTM=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "emerlita.zara",
+    "first_name": "Emerlita",
+    "last_name": "Zara",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:23.520Z",
+    "account_status": "APPROVED",
+    "email": "emerlita.zara@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:23.520Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$rCNvhZuxSavBjiSPJ10wIA$bLjOeo9j0qQQt9a/W4SCBvCgQieekA9vmQU1oeWvspQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "rudy.ocampo",
+    "first_name": "Rudy",
+    "last_name": "Ocampo",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:24.373Z",
+    "account_status": "APPROVED",
+    "email": "rudy.ocampo@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:24.373Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$PBBnTDAxgxMetkJx9agIrL$cwKqPs5xMMsNYgMH+L2o/5bccMBHtrq1Zhup0nO55uk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "bernie.gustillo",
+    "first_name": "Bernie",
+    "last_name": "Gustillo",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:25.236Z",
+    "account_status": "APPROVED",
+    "email": "bernie.gustillo@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:25.236Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Bm5y1rGR8AL5SA6XKcQ9AA$0miLGCrxDTsPFjqA5oXPPDtnj5Ex90uf/ahiTbqF4tA=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "paulino.ariola",
+    "first_name": "Paulino",
+    "last_name": "Ariola",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:26.082Z",
+    "account_status": "APPROVED",
+    "email": "paulino.ariola@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:26.083Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$tbEYWRj1RwnPKZttXNXR9O$7Qeer12ozZRBVxRTv/ZyHhfpBbjV5swL/K6rkrtscSo=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "lito.leonin",
+    "first_name": "Lito",
+    "last_name": "Leonin",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:26.980Z",
+    "account_status": "APPROVED",
+    "email": "lito.leonin@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:26.980Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$fEgMeXBLrEl5dYQ795Jcuj$XwibNdUTYp+STaMnfs4Pww+InOFMhB5OVyl4yAxr3l8=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "maximo.valencia",
+    "first_name": "Maximo",
+    "last_name": "Valencia",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:27.822Z",
+    "account_status": "APPROVED",
+    "email": "maximo.valencia@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:27.822Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$9PHbU4IC65WgFp4IglLmfB$NCsqY1l7+Ws+VLdctRXx/IDR6RSba8wawpeauWb+9QM=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ronel.paco",
+    "first_name": "Ronel",
+    "last_name": "Paco",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:28.781Z",
+    "account_status": "APPROVED",
+    "email": "ronel.paco@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:28.781Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$RQeyQXTKkhdLfV9cKXcxt9$nLnmwzKvNfof1c8xdyZ0QZkDF56IE8l8/ijaVWhNNus=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "norma.mayor",
+    "first_name": "Norma",
+    "last_name": "Mayor",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:29.619Z",
+    "account_status": "APPROVED",
+    "email": "norma.mayor@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:29.619Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$K5MWmAZfWOhipkXbZI3Ezd$yD1ZUOjDbmoU3ItfYJEwFA5shIAq6ZiYROrdoGkGtSE=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "marco.mayor",
+    "first_name": "Marco",
+    "last_name": "Mayor",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:30.467Z",
+    "account_status": "APPROVED",
+    "email": "marco.mayor@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:30.468Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$ID4UUz88bxLAaKfbq7myo6$yVYSivByiwHyWuLPcynl5i+bbvnXTJyOQWg+qXvtpvg=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "mario.magmanlac",
+    "first_name": "Mario",
+    "last_name": "Magmanlac",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:31.405Z",
+    "account_status": "APPROVED",
+    "email": "mario.magmanlac@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:31.405Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$bCeV3Sz6gj7qX9ysqosvc9$4AUc7cSxzOQ9K0moF7mTQeUE20KqUt3uh47gD5a7NuI=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "cristeta.aranes",
+    "first_name": "Cristeta",
+    "last_name": "Aranes",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:32.290Z",
+    "account_status": "APPROVED",
+    "email": "cristeta.aranes@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:32.290Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$CcIQJMIvZXKG2jas9FpsHz$faTJQsIJIO++Y92nUU5uhDgw5NZFGeEd5gLDy4R0bcQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "cristina.morados",
+    "first_name": "Cristina",
+    "last_name": "Morados",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:33.129Z",
+    "account_status": "APPROVED",
+    "email": "cristina.morados@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:33.130Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$rPfRP0FO8xZn7lqr89CGrN$2s+KJpu+1tDaovIz8UzEejRgyaggoOueDaa3DbanIsE=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ruter.mendoza",
+    "first_name": "Ruter",
+    "last_name": "Mendoza",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:33.962Z",
+    "account_status": "APPROVED",
+    "email": "ruter.mendoza@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:33.962Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Zy1MkuDU5YBW5dQqlKqE8Z$/pbEUDy3llSUp0508yFcQV+3YYl4EFO61q3BYZXHqeE=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "juan.aranes",
+    "first_name": "Juan",
+    "last_name": "Aranes",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:34.803Z",
+    "account_status": "APPROVED",
+    "email": "juan.aranes@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:34.803Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$OVKS5wAwuUO0XIcZDN8zu6$4vHe+U/itjCvxyEjWwFj4II27y4RXY+snxV88xgiyAM=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "reynaldo.aranes",
+    "first_name": "Reynaldo",
+    "last_name": "Aranes",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:35.648Z",
+    "account_status": "APPROVED",
+    "email": "reynaldo.aranes@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:35.648Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$J6rQnGffCG2V5SutCnZskA$9dTY56m6+azCo8wAAJU5j1LGtvizUVB8o5mSNBbguzA=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "felagio.rizare",
+    "first_name": "Felagio",
+    "last_name": "Rizare",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:36.486Z",
+    "account_status": "APPROVED",
+    "email": "felagio.rizare@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:36.486Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$EFNldDyeG0taAge04TPagN$ig4QGJaovOnAnrI8WG19HVZhtMq5r63+IMg4Lp/9QSk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "felix.renoza",
+    "first_name": "Felix",
+    "last_name": "Renoza",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:37.315Z",
+    "account_status": "APPROVED",
+    "email": "felix.renoza@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:37.316Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$MtWHvfTBSHSzNvtsWXo38O$MEZ0ewptu6p6v+g3+OzbFm+Mi7lD9NjIFTOxQKlhNjw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gloria.lopez",
+    "first_name": "Gloria",
+    "last_name": "Lopez",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:38.145Z",
+    "account_status": "APPROVED",
+    "email": "gloria.lopez@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:38.146Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$MzzDpbirOyAMGs7GDR3emu$dXVTvgwEqprj7FjBm0QaZLABuVD2YG/RqZezANKIyCk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "marilyn.pasigsigan",
+    "first_name": "Marilyn",
+    "last_name": "Pasigsigan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:39.093Z",
+    "account_status": "APPROVED",
+    "email": "marilyn.pasigsigan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:39.093Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$5zwmz5CzaTlMgP1oTI28fK$0VzQmgu7eEu0KwqiyHrEQj6zTTRSpsG/j9kHw6rw0gQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "violy.olan",
+    "first_name": "Violy",
+    "last_name": "Olan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:39.924Z",
+    "account_status": "APPROVED",
+    "email": "violy.olan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:39.924Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$BEor55RXtzW6ABap4xKb4L$Keh/m4/uDdhS3WesnMKBSCSDTY8kqheGX1pKd6+a+Wg=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "jun.mangundayao",
+    "first_name": "Jun",
+    "last_name": "Mangundayao",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:40.830Z",
+    "account_status": "APPROVED",
+    "email": "jun.mangundayao@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:40.830Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$cylYAqGnOsHmKl95vTYO0j$55+i1sjqGBsDdiobiIb+xSZEoayvczlpdA81yU+TvN8=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "jose.marasigan",
+    "first_name": "Jose",
+    "last_name": "Marasigan",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:41.766Z",
+    "account_status": "APPROVED",
+    "email": "jose.marasigan@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:41.766Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$EqSZUCzBHMSPq7O4Kxcn00$eNT8qQx88PSexsXHPh33hiKt5NP9cA2MIYHfAmjI+/0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "jun.escalera",
+    "first_name": "Jun",
+    "last_name": "Escalera",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:42.601Z",
+    "account_status": "APPROVED",
+    "email": "jun.escalera@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:42.601Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$tEAO7eUSsP8vvywiFWtbeq$pkco2fJLlRZjjrpHj5Ps+8J2UijOgWg/oFE9A2Moyts=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ramon.ani",
+    "first_name": "Ramon",
+    "last_name": "Ani",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:43.473Z",
+    "account_status": "APPROVED",
+    "email": "ramon.ani@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:43.473Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Crooihg7LCVgnJO5AeKLWH$iXxRZT66UH85iDz0c/nzkjnzvnwrK/A/Lu8u2uYpqis=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "ogie.din",
+    "first_name": "Ogie",
+    "last_name": "Din",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:44.315Z",
+    "account_status": "APPROVED",
+    "email": "ogie.din@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:44.315Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$5ojfGC0hiH5Ir1wO3sDWUh$VxD3RnuP3qqFKEvT6gZt9q50giULzV4q0kPRMxA451w=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "cornelio.carpiojr",
+    "first_name": "Cornelio",
+    "last_name": "Carpio Jr.",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-09-22T10:33:45.154Z",
+    "account_status": "APPROVED",
+    "email": "cornelio.carpiojr@smartlivestock.ph",
+    "created_at": "2026-09-22T10:33:45.154Z",
+    "approved_at": null,
+    "role": 2,
+    "phone_number": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "users.role",
+  "pk": 1,
+  "fields": {
+    "role_name": "ADMIN"
+  }
+},
+{
+  "model": "users.role",
+  "pk": 2,
+  "fields": {
+    "role_name": "FARMER"
+  }
+},
+{
+  "model": "users.role",
+  "pk": 3,
+  "fields": {
+    "role_name": "SIBAT"
+  }
+},
+{
+  "model": "users.role",
+  "pk": 4,
+  "fields": {
+    "role_name": "MAO"
+  }
+},
+{
+  "model": "users.role",
+  "pk": 5,
+  "fields": {
+    "role_name": "AUCTION"
+  }
+},
+{
+  "model": "users.role",
+  "pk": 6,
+  "fields": {
+    "role_name": "SLAUGHTERHOUSESTAFF"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 1,
+  "fields": {
+    "barangay_name": "Banaba",
+    "latitude": "13.882300",
+    "longitude": "121.220600",
+    "description": "Barangay Banaba is a predominantly rural and agricultural barangay located in the municipality of Padre Garcia, Batangas, Philippines."
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 2,
+  "fields": {
+    "barangay_name": "Manggas",
+    "latitude": "13.882000",
+    "longitude": "121.221000",
+    "description": "Barangay Manggas, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 3,
+  "fields": {
+    "barangay_name": "Pansol",
+    "latitude": "13.869000",
+    "longitude": "121.205000",
+    "description": "Barangay Pansol, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 4,
+  "fields": {
+    "barangay_name": "Cawongan",
+    "latitude": "13.891000",
+    "longitude": "121.234000",
+    "description": "Barangay Cawongan, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 5,
+  "fields": {
+    "barangay_name": "Banay-Banay",
+    "latitude": "13.861000",
+    "longitude": "121.218000",
+    "description": "Barangay Banay-Banay, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 6,
+  "fields": {
+    "barangay_name": "Bawi",
+    "latitude": "13.874000",
+    "longitude": "121.241000",
+    "description": "Barangay Bawi, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 7,
+  "fields": {
+    "barangay_name": "San Miguel",
+    "latitude": "13.885000",
+    "longitude": "121.208000",
+    "description": "Barangay San Miguel, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 8,
+  "fields": {
+    "barangay_name": "Bukal",
+    "latitude": "13.897000",
+    "longitude": "121.215000",
+    "description": "Barangay Bukal, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 9,
+  "fields": {
+    "barangay_name": "San Felipe",
+    "latitude": "13.858000",
+    "longitude": "121.231000",
+    "description": "Barangay San Felipe, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 10,
+  "fields": {
+    "barangay_name": "Maugat West",
+    "latitude": "13.881000",
+    "longitude": "121.192000",
+    "description": "Barangay Maugat West, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 11,
+  "fields": {
+    "barangay_name": "Tamak",
+    "latitude": "13.904000",
+    "longitude": "121.226000",
+    "description": "Barangay Tamak, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 12,
+  "fields": {
+    "barangay_name": "Quilo Quilo North",
+    "latitude": "13.899000",
+    "longitude": "121.241000",
+    "description": "Barangay Quilo Quilo North, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 13,
+  "fields": {
+    "barangay_name": "Quilo Quilo South",
+    "latitude": "13.893000",
+    "longitude": "121.245000",
+    "description": "Barangay Quilo Quilo South, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 14,
+  "fields": {
+    "barangay_name": "Castillo",
+    "latitude": "13.871000",
+    "longitude": "121.228000",
+    "description": "Barangay Castillo, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 15,
+  "fields": {
+    "barangay_name": "Maugat East",
+    "latitude": "13.883000",
+    "longitude": "121.201000",
+    "description": "Barangay Maugat East, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 16,
+  "fields": {
+    "barangay_name": "Payapa",
+    "latitude": "13.852000",
+    "longitude": "121.207000",
+    "description": "Barangay Payapa, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.barangay",
+  "pk": 17,
+  "fields": {
+    "barangay_name": "Tangob",
+    "latitude": "13.864000",
+    "longitude": "121.249000",
+    "description": "Barangay Tangob, Padre Garcia, Batangas"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 199,
+  "fields": {
+    "user": [
+      "markangelo.bathan@smartlivestock.ph"
+    ],
+    "barangay": 2,
+    "farm_size": "1.50",
+    "address": "Manggas, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:18.021Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 200,
+  "fields": {
+    "user": [
+      "peter.comia@smartlivestock.ph"
+    ],
+    "barangay": 2,
+    "farm_size": "1.50",
+    "address": "Manggas, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:18.914Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 201,
+  "fields": {
+    "user": [
+      "conrado.comia@smartlivestock.ph"
+    ],
+    "barangay": 2,
+    "farm_size": "1.50",
+    "address": "Manggas, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:19.754Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 202,
+  "fields": {
+    "user": [
+      "cesar.comia@smartlivestock.ph"
+    ],
+    "barangay": 2,
+    "farm_size": "1.50",
+    "address": "Manggas, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:20.604Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 203,
+  "fields": {
+    "user": [
+      "imelda.suco@smartlivestock.ph"
+    ],
+    "barangay": 2,
+    "farm_size": "1.50",
+    "address": "Manggas, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:21.475Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 204,
+  "fields": {
+    "user": [
+      "tyron.lindog@smartlivestock.ph"
+    ],
+    "barangay": 2,
+    "farm_size": "1.50",
+    "address": "Manggas, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:22.313Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 205,
+  "fields": {
+    "user": [
+      "leandro.linatoc@smartlivestock.ph"
+    ],
+    "barangay": 3,
+    "farm_size": "1.50",
+    "address": "Pansol, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:23.171Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 206,
+  "fields": {
+    "user": [
+      "godofredo.camacho@smartlivestock.ph"
+    ],
+    "barangay": 3,
+    "farm_size": "1.50",
+    "address": "Pansol, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:24.054Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 207,
+  "fields": {
+    "user": [
+      "alejandro.lanto@smartlivestock.ph"
+    ],
+    "barangay": 3,
+    "farm_size": "1.50",
+    "address": "Pansol, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:24.908Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 208,
+  "fields": {
+    "user": [
+      "avelino.tapalla@smartlivestock.ph"
+    ],
+    "barangay": 3,
+    "farm_size": "1.50",
+    "address": "Pansol, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:25.860Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 209,
+  "fields": {
+    "user": [
+      "marino.silva@smartlivestock.ph"
+    ],
+    "barangay": 3,
+    "farm_size": "1.50",
+    "address": "Pansol, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:26.856Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 210,
+  "fields": {
+    "user": [
+      "victor.manguait@smartlivestock.ph"
+    ],
+    "barangay": 3,
+    "farm_size": "1.50",
+    "address": "Pansol, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:27.753Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 211,
+  "fields": {
+    "user": [
+      "lucio.tapalla@smartlivestock.ph"
+    ],
+    "barangay": 3,
+    "farm_size": "1.50",
+    "address": "Pansol, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:28.678Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 212,
+  "fields": {
+    "user": [
+      "olga.escueta@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:29.584Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 213,
+  "fields": {
+    "user": [
+      "jobert.arellano@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:30.458Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 214,
+  "fields": {
+    "user": [
+      "larry.vergara@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:31.348Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 215,
+  "fields": {
+    "user": [
+      "edwin.vergara@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:32.198Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 216,
+  "fields": {
+    "user": [
+      "gregorio.vergara@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:33.096Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 217,
+  "fields": {
+    "user": [
+      "arvin.escueta@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:33.940Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 218,
+  "fields": {
+    "user": [
+      "morris.escueta@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:34.816Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 219,
+  "fields": {
+    "user": [
+      "ever.vergara@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:35.687Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 220,
+  "fields": {
+    "user": [
+      "ponciano.escueta@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:36.541Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 221,
+  "fields": {
+    "user": [
+      "ricky.castillo@smartlivestock.ph"
+    ],
+    "barangay": 4,
+    "farm_size": "1.50",
+    "address": "Cawongan, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:37.751Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 222,
+  "fields": {
+    "user": [
+      "nelson.andal@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:38.656Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 223,
+  "fields": {
+    "user": [
+      "celso.moster@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:39.550Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 224,
+  "fields": {
+    "user": [
+      "ehner.laylo@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:40.398Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 225,
+  "fields": {
+    "user": [
+      "virgilio.moster@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:41.281Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 226,
+  "fields": {
+    "user": [
+      "nestor.patungan@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:42.150Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 227,
+  "fields": {
+    "user": [
+      "julia.andal@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:42.992Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 228,
+  "fields": {
+    "user": [
+      "agusto.latayan@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:43.839Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 229,
+  "fields": {
+    "user": [
+      "eduardo.garcia@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:44.691Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 230,
+  "fields": {
+    "user": [
+      "nepomuceno.laylo@smartlivestock.ph"
+    ],
+    "barangay": 5,
+    "farm_size": "1.50",
+    "address": "Banay-Banay, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:45.633Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 231,
+  "fields": {
+    "user": [
+      "emma.buquir@smartlivestock.ph"
+    ],
+    "barangay": 6,
+    "farm_size": "1.50",
+    "address": "Bawi, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:46.479Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 232,
+  "fields": {
+    "user": [
+      "andreo.villanueva@smartlivestock.ph"
+    ],
+    "barangay": 6,
+    "farm_size": "1.50",
+    "address": "Bawi, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:47.325Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 233,
+  "fields": {
+    "user": [
+      "fred.calingasan@smartlivestock.ph"
+    ],
+    "barangay": 7,
+    "farm_size": "1.50",
+    "address": "San Miguel, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:48.175Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 234,
+  "fields": {
+    "user": [
+      "elmer.manalon@smartlivestock.ph"
+    ],
+    "barangay": 7,
+    "farm_size": "1.50",
+    "address": "San Miguel, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:49.023Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 235,
+  "fields": {
+    "user": [
+      "briccio.dimaano@smartlivestock.ph"
+    ],
+    "barangay": 7,
+    "farm_size": "1.50",
+    "address": "San Miguel, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:49.881Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 236,
+  "fields": {
+    "user": [
+      "emiliano.dimaano@smartlivestock.ph"
+    ],
+    "barangay": 7,
+    "farm_size": "1.50",
+    "address": "San Miguel, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:50.754Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 237,
+  "fields": {
+    "user": [
+      "christopher.kasilag@smartlivestock.ph"
+    ],
+    "barangay": 7,
+    "farm_size": "1.50",
+    "address": "San Miguel, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:51.690Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 238,
+  "fields": {
+    "user": [
+      "norma.macatangay@smartlivestock.ph"
+    ],
+    "barangay": 7,
+    "farm_size": "1.50",
+    "address": "San Miguel, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:52.534Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 239,
+  "fields": {
+    "user": [
+      "gloria.metrillo@smartlivestock.ph"
+    ],
+    "barangay": 7,
+    "farm_size": "1.50",
+    "address": "San Miguel, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:53.385Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 240,
+  "fields": {
+    "user": [
+      "esmeraldo.caraan@smartlivestock.ph"
+    ],
+    "barangay": 8,
+    "farm_size": "1.50",
+    "address": "Bukal, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:54.238Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 241,
+  "fields": {
+    "user": [
+      "zaldy.fajardo@smartlivestock.ph"
+    ],
+    "barangay": 8,
+    "farm_size": "1.50",
+    "address": "Bukal, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:55.100Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 242,
+  "fields": {
+    "user": [
+      "jayson.bathan@smartlivestock.ph"
+    ],
+    "barangay": 8,
+    "farm_size": "1.50",
+    "address": "Bukal, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:55.959Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 243,
+  "fields": {
+    "user": [
+      "nancydelos.reyes@smartlivestock.ph"
+    ],
+    "barangay": 8,
+    "farm_size": "1.50",
+    "address": "Bukal, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:56.800Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 244,
+  "fields": {
+    "user": [
+      "maila.manimtim@smartlivestock.ph"
+    ],
+    "barangay": 9,
+    "farm_size": "1.50",
+    "address": "San Felipe, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:57.635Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 245,
+  "fields": {
+    "user": [
+      "venistiano.hernandez@smartlivestock.ph"
+    ],
+    "barangay": 9,
+    "farm_size": "1.50",
+    "address": "San Felipe, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:58.476Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 246,
+  "fields": {
+    "user": [
+      "teofila.hernandez@smartlivestock.ph"
+    ],
+    "barangay": 9,
+    "farm_size": "1.50",
+    "address": "San Felipe, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:32:59.323Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 247,
+  "fields": {
+    "user": [
+      "ruel.hernandez@smartlivestock.ph"
+    ],
+    "barangay": 9,
+    "farm_size": "1.50",
+    "address": "San Felipe, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:00.215Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 248,
+  "fields": {
+    "user": [
+      "amelita.tapay@smartlivestock.ph"
+    ],
+    "barangay": 9,
+    "farm_size": "1.50",
+    "address": "San Felipe, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:01.508Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 249,
+  "fields": {
+    "user": [
+      "saturnino.balhag@smartlivestock.ph"
+    ],
+    "barangay": 1,
+    "farm_size": "1.50",
+    "address": "Banaba, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:02.676Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 250,
+  "fields": {
+    "user": [
+      "markjayson.katigbak@smartlivestock.ph"
+    ],
+    "barangay": 1,
+    "farm_size": "1.50",
+    "address": "Banaba, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:03.661Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 251,
+  "fields": {
+    "user": [
+      "marieta.aguila@smartlivestock.ph"
+    ],
+    "barangay": 1,
+    "farm_size": "1.50",
+    "address": "Banaba, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:04.501Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 252,
+  "fields": {
+    "user": [
+      "rene.rea@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:05.350Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 253,
+  "fields": {
+    "user": [
+      "bernardode.castro@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:06.205Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 254,
+  "fields": {
+    "user": [
+      "mariade.castro@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:07.087Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 255,
+  "fields": {
+    "user": [
+      "feriano.ramires@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:08.097Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 256,
+  "fields": {
+    "user": [
+      "victor.valencia@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:09.043Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 257,
+  "fields": {
+    "user": [
+      "reynante.bataan@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:09.899Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 258,
+  "fields": {
+    "user": [
+      "apolinario.valdez@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:10.868Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 259,
+  "fields": {
+    "user": [
+      "luis.aguila@smartlivestock.ph"
+    ],
+    "barangay": 10,
+    "farm_size": "1.50",
+    "address": "Maugat West, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:12.426Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 260,
+  "fields": {
+    "user": [
+      "ruelan.gonzales@smartlivestock.ph"
+    ],
+    "barangay": 11,
+    "farm_size": "1.50",
+    "address": "Tamak, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:13.809Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 261,
+  "fields": {
+    "user": [
+      "rene.maala@smartlivestock.ph"
+    ],
+    "barangay": 11,
+    "farm_size": "1.50",
+    "address": "Tamak, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:15.313Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 262,
+  "fields": {
+    "user": [
+      "rea.guce@smartlivestock.ph"
+    ],
+    "barangay": 11,
+    "farm_size": "1.50",
+    "address": "Tamak, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:16.390Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 263,
+  "fields": {
+    "user": [
+      "reymelchor.casanova@smartlivestock.ph"
+    ],
+    "barangay": 12,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo North, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:17.241Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 264,
+  "fields": {
+    "user": [
+      "renaldo.datinggaling@smartlivestock.ph"
+    ],
+    "barangay": 12,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo North, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:18.217Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 265,
+  "fields": {
+    "user": [
+      "felipe.carreal@smartlivestock.ph"
+    ],
+    "barangay": 12,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo North, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:19.104Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 266,
+  "fields": {
+    "user": [
+      "heriel.bautista@smartlivestock.ph"
+    ],
+    "barangay": 12,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo North, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:20.003Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 267,
+  "fields": {
+    "user": [
+      "alberto.gutierrez@smartlivestock.ph"
+    ],
+    "barangay": 12,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo North, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:20.876Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 268,
+  "fields": {
+    "user": [
+      "rodolfo.jareno@smartlivestock.ph"
+    ],
+    "barangay": 13,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo South, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:21.728Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 269,
+  "fields": {
+    "user": [
+      "cardo.masalunga@smartlivestock.ph"
+    ],
+    "barangay": 13,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo South, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:22.666Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 270,
+  "fields": {
+    "user": [
+      "donald.manigbas@smartlivestock.ph"
+    ],
+    "barangay": 13,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo South, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:23.517Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 271,
+  "fields": {
+    "user": [
+      "emerlita.zara@smartlivestock.ph"
+    ],
+    "barangay": 13,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo South, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:24.370Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 272,
+  "fields": {
+    "user": [
+      "rudy.ocampo@smartlivestock.ph"
+    ],
+    "barangay": 13,
+    "farm_size": "1.50",
+    "address": "Quilo Quilo South, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:25.233Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 273,
+  "fields": {
+    "user": [
+      "bernie.gustillo@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:26.080Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 274,
+  "fields": {
+    "user": [
+      "paulino.ariola@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:26.977Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 275,
+  "fields": {
+    "user": [
+      "lito.leonin@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:27.820Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 276,
+  "fields": {
+    "user": [
+      "maximo.valencia@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:28.778Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 277,
+  "fields": {
+    "user": [
+      "ronel.paco@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:29.616Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 278,
+  "fields": {
+    "user": [
+      "norma.mayor@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:30.464Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 279,
+  "fields": {
+    "user": [
+      "marco.mayor@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:31.401Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 280,
+  "fields": {
+    "user": [
+      "mario.magmanlac@smartlivestock.ph"
+    ],
+    "barangay": 14,
+    "farm_size": "1.50",
+    "address": "Castillo, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:32.286Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 281,
+  "fields": {
+    "user": [
+      "cristeta.aranes@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:33.127Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 282,
+  "fields": {
+    "user": [
+      "cristina.morados@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:33.959Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 283,
+  "fields": {
+    "user": [
+      "ruter.mendoza@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:34.800Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 284,
+  "fields": {
+    "user": [
+      "juan.aranes@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:35.645Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 285,
+  "fields": {
+    "user": [
+      "reynaldo.aranes@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:36.483Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 286,
+  "fields": {
+    "user": [
+      "felagio.rizare@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:37.313Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 287,
+  "fields": {
+    "user": [
+      "felix.renoza@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:38.142Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 288,
+  "fields": {
+    "user": [
+      "gloria.lopez@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:39.089Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 289,
+  "fields": {
+    "user": [
+      "marilyn.pasigsigan@smartlivestock.ph"
+    ],
+    "barangay": 15,
+    "farm_size": "1.50",
+    "address": "Maugat East, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:39.921Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 290,
+  "fields": {
+    "user": [
+      "violy.olan@smartlivestock.ph"
+    ],
+    "barangay": 16,
+    "farm_size": "1.50",
+    "address": "Payapa, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:40.827Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 291,
+  "fields": {
+    "user": [
+      "jun.mangundayao@smartlivestock.ph"
+    ],
+    "barangay": 16,
+    "farm_size": "1.50",
+    "address": "Payapa, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:41.763Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 292,
+  "fields": {
+    "user": [
+      "jose.marasigan@smartlivestock.ph"
+    ],
+    "barangay": 16,
+    "farm_size": "1.50",
+    "address": "Payapa, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:42.599Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 293,
+  "fields": {
+    "user": [
+      "jun.escalera@smartlivestock.ph"
+    ],
+    "barangay": 16,
+    "farm_size": "1.50",
+    "address": "Payapa, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:43.469Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 294,
+  "fields": {
+    "user": [
+      "ramon.ani@smartlivestock.ph"
+    ],
+    "barangay": 16,
+    "farm_size": "1.50",
+    "address": "Payapa, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:44.312Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 295,
+  "fields": {
+    "user": [
+      "ogie.din@smartlivestock.ph"
+    ],
+    "barangay": 17,
+    "farm_size": "1.50",
+    "address": "Tangob, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:45.152Z"
+  }
+},
+{
+  "model": "livestock.farmer",
+  "pk": 296,
+  "fields": {
+    "user": [
+      "cornelio.carpiojr@smartlivestock.ph"
+    ],
+    "barangay": 17,
+    "farm_size": "1.50",
+    "address": "Tangob, Padre Garcia, Batangas",
+    "registered_at": "2026-09-22T10:33:46.015Z"
+  }
+},
+{
+  "model": "livestock.livestocktype",
+  "pk": 1,
+  "fields": {
+    "name": "Cattle",
+    "description": "Beef is so delicious!"
+  }
+},
+{
+  "model": "livestock.livestocktype",
+  "pk": 2,
+  "fields": {
+    "name": "Swine",
+    "description": "Swine!!!"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 207,
+  "fields": {
+    "farmer": 199,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "markangelo.bathan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:18.038Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 208,
+  "fields": {
+    "farmer": 200,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "peter.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:18.915Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 209,
+  "fields": {
+    "farmer": 201,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "conrado.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:19.755Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 210,
+  "fields": {
+    "farmer": 202,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "cesar.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:20.605Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 211,
+  "fields": {
+    "farmer": 203,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "imelda.suco@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:21.477Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 212,
+  "fields": {
+    "farmer": 204,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "tyron.lindog@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:22.315Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 213,
+  "fields": {
+    "farmer": 205,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "leandro.linatoc@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:23.172Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 214,
+  "fields": {
+    "farmer": 206,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "godofredo.camacho@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:24.055Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 215,
+  "fields": {
+    "farmer": 207,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "alejandro.lanto@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:24.909Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 216,
+  "fields": {
+    "farmer": 208,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "avelino.tapalla@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:25.861Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 217,
+  "fields": {
+    "farmer": 209,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "marino.silva@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:26.858Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 218,
+  "fields": {
+    "farmer": 210,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "victor.manguait@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:27.754Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 219,
+  "fields": {
+    "farmer": 211,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "lucio.tapalla@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:28.679Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 220,
+  "fields": {
+    "farmer": 212,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "olga.escueta@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:29.586Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 221,
+  "fields": {
+    "farmer": 213,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "jobert.arellano@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:30.460Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 222,
+  "fields": {
+    "farmer": 214,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "larry.vergara@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:31.349Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 223,
+  "fields": {
+    "farmer": 215,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "edwin.vergara@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:32.200Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 224,
+  "fields": {
+    "farmer": 216,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "gregorio.vergara@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:33.098Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 225,
+  "fields": {
+    "farmer": 217,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "arvin.escueta@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:33.941Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 226,
+  "fields": {
+    "farmer": 218,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "morris.escueta@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:34.818Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 227,
+  "fields": {
+    "farmer": 219,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ever.vergara@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:35.689Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 228,
+  "fields": {
+    "farmer": 220,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ponciano.escueta@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:36.542Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 229,
+  "fields": {
+    "farmer": 221,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ricky.castillo@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:37.753Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 230,
+  "fields": {
+    "farmer": 222,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "nelson.andal@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:38.658Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 231,
+  "fields": {
+    "farmer": 223,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "celso.moster@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:39.551Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 232,
+  "fields": {
+    "farmer": 224,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ehner.laylo@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:40.399Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 233,
+  "fields": {
+    "farmer": 225,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "virgilio.moster@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:41.282Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 234,
+  "fields": {
+    "farmer": 226,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "nestor.patungan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:42.151Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 235,
+  "fields": {
+    "farmer": 227,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "julia.andal@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:42.993Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 236,
+  "fields": {
+    "farmer": 228,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "agusto.latayan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:43.841Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 237,
+  "fields": {
+    "farmer": 229,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "eduardo.garcia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:44.692Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 238,
+  "fields": {
+    "farmer": 230,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "nepomuceno.laylo@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:45.634Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 239,
+  "fields": {
+    "farmer": 231,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "emma.buquir@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:46.481Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 240,
+  "fields": {
+    "farmer": 232,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "andreo.villanueva@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:47.326Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 241,
+  "fields": {
+    "farmer": 233,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "fred.calingasan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:48.176Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 242,
+  "fields": {
+    "farmer": 234,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "elmer.manalon@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:49.024Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 243,
+  "fields": {
+    "farmer": 235,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "briccio.dimaano@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:49.882Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 244,
+  "fields": {
+    "farmer": 236,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "emiliano.dimaano@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:50.755Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 245,
+  "fields": {
+    "farmer": 237,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "christopher.kasilag@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:51.691Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 246,
+  "fields": {
+    "farmer": 238,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "norma.macatangay@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:52.535Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 247,
+  "fields": {
+    "farmer": 239,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "gloria.metrillo@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:53.386Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 248,
+  "fields": {
+    "farmer": 240,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "esmeraldo.caraan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:54.240Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 249,
+  "fields": {
+    "farmer": 241,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "zaldy.fajardo@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:55.102Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 250,
+  "fields": {
+    "farmer": 242,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "jayson.bathan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:55.960Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 251,
+  "fields": {
+    "farmer": 243,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "nancydelos.reyes@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:56.801Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 252,
+  "fields": {
+    "farmer": 244,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "maila.manimtim@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:57.636Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 253,
+  "fields": {
+    "farmer": 245,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "venistiano.hernandez@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:58.478Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 254,
+  "fields": {
+    "farmer": 246,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "teofila.hernandez@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:32:59.325Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 255,
+  "fields": {
+    "farmer": 247,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ruel.hernandez@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:00.216Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 256,
+  "fields": {
+    "farmer": 248,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "amelita.tapay@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:01.510Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 257,
+  "fields": {
+    "farmer": 249,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "saturnino.balhag@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:02.677Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 258,
+  "fields": {
+    "farmer": 250,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "markjayson.katigbak@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:03.662Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 259,
+  "fields": {
+    "farmer": 251,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "marieta.aguila@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:04.502Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 260,
+  "fields": {
+    "farmer": 252,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "rene.rea@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:05.351Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 261,
+  "fields": {
+    "farmer": 253,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "bernardode.castro@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:06.206Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 262,
+  "fields": {
+    "farmer": 254,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "mariade.castro@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:07.089Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 263,
+  "fields": {
+    "farmer": 255,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "feriano.ramires@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:08.099Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 264,
+  "fields": {
+    "farmer": 256,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "victor.valencia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:09.044Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 265,
+  "fields": {
+    "farmer": 257,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "reynante.bataan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:09.900Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 266,
+  "fields": {
+    "farmer": 258,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 6,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "apolinario.valdez@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:10.870Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 267,
+  "fields": {
+    "farmer": 259,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "luis.aguila@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:12.428Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 268,
+  "fields": {
+    "farmer": 260,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ruelan.gonzales@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:13.824Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 269,
+  "fields": {
+    "farmer": 261,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "rene.maala@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:15.315Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 270,
+  "fields": {
+    "farmer": 262,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "rea.guce@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:16.391Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 271,
+  "fields": {
+    "farmer": 263,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "reymelchor.casanova@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:17.243Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 272,
+  "fields": {
+    "farmer": 264,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "renaldo.datinggaling@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:18.218Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 273,
+  "fields": {
+    "farmer": 265,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "felipe.carreal@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:19.106Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 274,
+  "fields": {
+    "farmer": 266,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "heriel.bautista@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:20.004Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 275,
+  "fields": {
+    "farmer": 267,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "alberto.gutierrez@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:20.877Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 276,
+  "fields": {
+    "farmer": 268,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "rodolfo.jareno@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:21.730Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 277,
+  "fields": {
+    "farmer": 269,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "cardo.masalunga@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:22.668Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 278,
+  "fields": {
+    "farmer": 270,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "donald.manigbas@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:23.519Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 279,
+  "fields": {
+    "farmer": 271,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "emerlita.zara@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:24.371Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 280,
+  "fields": {
+    "farmer": 272,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "rudy.ocampo@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:25.234Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 281,
+  "fields": {
+    "farmer": 273,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "bernie.gustillo@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:26.081Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 282,
+  "fields": {
+    "farmer": 274,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "paulino.ariola@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:26.978Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 283,
+  "fields": {
+    "farmer": 275,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "lito.leonin@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:27.821Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 284,
+  "fields": {
+    "farmer": 276,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "maximo.valencia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:28.779Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 285,
+  "fields": {
+    "farmer": 277,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ronel.paco@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:29.617Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 286,
+  "fields": {
+    "farmer": 278,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "norma.mayor@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:30.466Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 287,
+  "fields": {
+    "farmer": 279,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "marco.mayor@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:31.403Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 288,
+  "fields": {
+    "farmer": 280,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "mario.magmanlac@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:32.288Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 289,
+  "fields": {
+    "farmer": 281,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 6,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "cristeta.aranes@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:33.128Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 290,
+  "fields": {
+    "farmer": 282,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "cristina.morados@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:33.960Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 291,
+  "fields": {
+    "farmer": 283,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ruter.mendoza@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:34.802Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 292,
+  "fields": {
+    "farmer": 284,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "juan.aranes@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:35.646Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 293,
+  "fields": {
+    "farmer": 285,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "reynaldo.aranes@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:36.484Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 294,
+  "fields": {
+    "farmer": 286,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "felagio.rizare@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:37.314Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 295,
+  "fields": {
+    "farmer": 287,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "felix.renoza@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:38.144Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 296,
+  "fields": {
+    "farmer": 288,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 4,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "gloria.lopez@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:39.091Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 297,
+  "fields": {
+    "farmer": 289,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "marilyn.pasigsigan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:39.922Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 298,
+  "fields": {
+    "farmer": 290,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 10,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "violy.olan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:40.828Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 299,
+  "fields": {
+    "farmer": 291,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 2,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "jun.mangundayao@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:41.765Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 300,
+  "fields": {
+    "farmer": 292,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "jose.marasigan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:42.600Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 301,
+  "fields": {
+    "farmer": 293,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 5,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "jun.escalera@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:43.471Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 302,
+  "fields": {
+    "farmer": 294,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 3,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ramon.ani@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:44.313Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 303,
+  "fields": {
+    "farmer": 295,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ogie.din@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:45.153Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 304,
+  "fields": {
+    "farmer": 296,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 1,
+    "tag_number": "",
+    "breed": "Native / Crossbred",
+    "sex": "Mixed",
+    "weight": null,
+    "last_vaccination_date": null,
+    "status": "APPROVED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "cornelio.carpiojr@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:46.017Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 305,
+  "fields": {
+    "farmer": 295,
+    "livestock_type": 1,
+    "entry_type": "INDIVIDUAL",
+    "quantity": 1,
+    "tag_number": "SUSIE-1101",
+    "breed": "Holstein-Friesian",
+    "sex": "Female",
+    "weight": "280.00",
+    "last_vaccination_date": null,
+    "status": "VERIFIED",
+    "reviewed_by": [
+      "sibat@example.com"
+    ],
+    "reviewed_at": "2026-09-22T11:36:15.979Z",
+    "review_remarks": "okay po malinis.. magaling mag turok ang may ari...",
+    "created_by": [
+      "ogie.din@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T11:34:40.033Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 306,
+  "fields": {
+    "farmer": 295,
+    "livestock_type": 1,
+    "entry_type": "BATCH",
+    "quantity": 13,
+    "tag_number": "CAT-2026-556",
+    "breed": "Brahman",
+    "sex": "Female",
+    "weight": "369.00",
+    "last_vaccination_date": null,
+    "status": "PENDING",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": null,
+    "created_by": [
+      "ogie.din@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T11:39:22.167Z"
+  }
+},
+{
+  "model": "livestock.livestockinventory",
+  "pk": 307,
+  "fields": {
+    "farmer": 295,
+    "livestock_type": 1,
+    "entry_type": "INDIVIDUAL",
+    "quantity": 1,
+    "tag_number": "JOHNNY-02",
+    "breed": "Brahman",
+    "sex": "Female",
+    "weight": "389.00",
+    "last_vaccination_date": null,
+    "status": "VERIFIED",
+    "reviewed_by": [
+      "sibat@example.com"
+    ],
+    "reviewed_at": "2026-09-22T14:24:15.332Z",
+    "review_remarks": "goods!",
+    "created_by": [
+      "ogie.din@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T14:23:37.483Z"
+  }
+},
+{
+  "model": "diseases.diseasecase",
+  "pk": 9,
+  "fields": {
+    "livestock": 207,
+    "name": "Limping / Weak Legs",
+    "affected_count": 1,
+    "record_date": "2026-09-22",
+    "status": "PENDING",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": "",
+    "created_by": [
+      "markangelo.bathan@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:55.015Z"
+  }
+},
+{
+  "model": "diseases.diseasecase",
+  "pk": 10,
+  "fields": {
+    "livestock": 222,
+    "name": "Coughing / Runny Nose",
+    "affected_count": 2,
+    "record_date": "2026-09-22",
+    "status": "VERIFIED",
+    "reviewed_by": [
+      "sibat@example.com"
+    ],
+    "reviewed_at": "2026-09-22T10:33:55.018Z",
+    "review_remarks": "On-farm physical check completed. Mild pneumonic wheezing. Prescribed oral electrolytes and temporary stall isolation. [Severity: MODERATE] [Action: PEN_ISOLATION] [Temp: 39.8°C]",
+    "created_by": [
+      "larry.vergara@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:55.018Z"
+  }
+},
+{
+  "model": "diseases.diseasecase",
+  "pk": 11,
+  "fields": {
+    "livestock": 208,
+    "name": "Skin Sores / Blisters",
+    "affected_count": 1,
+    "record_date": "2026-09-22",
+    "status": "PENDING",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": "",
+    "created_by": [
+      "peter.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:55.019Z"
+  }
+},
+{
+  "model": "diseases.diseasecase",
+  "pk": 12,
+  "fields": {
+    "livestock": 209,
+    "name": "High Fever / Hot Ears",
+    "affected_count": 1,
+    "record_date": "2026-09-22",
+    "status": "VERIFIED",
+    "reviewed_by": [
+      "sibat@example.com"
+    ],
+    "reviewed_at": "2026-09-22T10:33:55.020Z",
+    "review_remarks": "Hot ears and elevated body temperature. Antipyretic administered. [Severity: MILD] [Action: TREATMENT_PRESCRIBED] [Temp: 40.1°C]",
+    "created_by": [
+      "conrado.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:55.021Z"
+  }
+},
+{
+  "model": "diseases.mortalityrecord",
+  "pk": 7,
+  "fields": {
+    "livestock": 208,
+    "death_count": 1,
+    "cause": "Sudden Death / Severe Bloat",
+    "source_disease_case": null,
+    "record_date": "2026-09-22",
+    "status": "APPROVED",
+    "reviewed_by": [
+      "sibat@example.com"
+    ],
+    "reviewed_at": "2026-09-22T10:33:55.021Z",
+    "review_remarks": "Carcass verified on site. Severe tympany/bloat with no signs of anthrax. Supervised 2m deep pit burial with lime. [Severity: CRITICAL] [Action: BIOSECURE_BURIAL]",
+    "created_by": [
+      "peter.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:55.022Z"
+  }
+},
+{
+  "model": "diseases.mortalityrecord",
+  "pk": 8,
+  "fields": {
+    "livestock": 209,
+    "death_count": 1,
+    "cause": "Calving / Birthing Complications",
+    "source_disease_case": null,
+    "record_date": "2026-09-22",
+    "status": "PENDING",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_remarks": "",
+    "created_by": [
+      "conrado.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:55.026Z"
+  }
+},
+{
+  "model": "diseases.mortalityrecord",
+  "pk": 9,
+  "fields": {
+    "livestock": 210,
+    "death_count": 1,
+    "cause": "Physical Injury / Severe Fracture",
+    "source_disease_case": null,
+    "record_date": "2026-09-22",
+    "status": "VERIFIED",
+    "reviewed_by": [
+      "sibat@example.com"
+    ],
+    "reviewed_at": "2026-09-22T10:33:55.027Z",
+    "review_remarks": "Severe unrecoverable pelvic injury following ravine fall. [Severity: SEVERE]",
+    "created_by": [
+      "cesar.comia@smartlivestock.ph"
+    ],
+    "created_at": "2026-09-22T10:33:55.027Z"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 1,
+  "fields": {
+    "action_time": "2026-07-12T11:04:20.186Z",
+    "user": [
+      "admin@gmail.com"
+    ],
+    "content_type": [
+      "livestock",
+      "barangay"
+    ],
+    "object_id": "1",
+    "object_repr": "Banaba",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 2,
+  "fields": {
+    "action_time": "2026-07-26T12:04:25.690Z",
+    "user": [
+      "admin@gmail.com"
+    ],
+    "content_type": [
+      "livestock",
+      "livestocktype"
+    ],
+    "object_id": "1",
+    "object_repr": "Cattle",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 3,
+  "fields": {
+    "action_time": "2026-07-26T12:20:33.685Z",
+    "user": [
+      "admin@gmail.com"
+    ],
+    "content_type": [
+      "livestock",
+      "livestocktype"
+    ],
+    "object_id": "2",
+    "object_repr": "Swine",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+}
+]

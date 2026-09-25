@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -34,7 +35,6 @@ def disease_case_list_create(request):
     user = request.user
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
-    from django.db.models import Q
     if role_name == "FARMER":
         records = DiseaseCase.objects.filter(
             Q(created_by=user) | Q(livestock__farmer__user=user)
@@ -60,7 +60,7 @@ def disease_case_list_create(request):
         "reviewed_by",
     ).order_by("-record_date", "-created_at")
 
-    serializer = DiseaseCaseSerializer(records, many=True)
+    serializer = DiseaseCaseSerializer(records, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -111,7 +111,7 @@ def disease_case_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # GET
-    serializer = DiseaseCaseSerializer(record)
+    serializer = DiseaseCaseSerializer(record, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -159,13 +159,15 @@ def review_disease_case(request, pk):
     else:
         raise PermissionDenied("You do not have permission to review disease cases.")
 
+    if "inspector_photo" in request.FILES:
+        record.inspector_photo = request.FILES["inspector_photo"]
     record.status = new_status
     record.reviewed_by = user
     record.review_remarks = remarks
     record.reviewed_at = timezone.now()
     record.save()
 
-    serializer = DiseaseCaseSerializer(record)
+    serializer = DiseaseCaseSerializer(record, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -223,7 +225,7 @@ def mortality_record_list_create(request):
         "reviewed_by",
     ).order_by("-record_date", "-created_at")
 
-    serializer = MortalityRecordSerializer(records, many=True)
+    serializer = MortalityRecordSerializer(records, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -274,7 +276,7 @@ def mortality_record_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # GET
-    serializer = MortalityRecordSerializer(record)
+    serializer = MortalityRecordSerializer(record, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -322,11 +324,13 @@ def review_mortality_record(request, pk):
     else:
         raise PermissionDenied("You do not have permission to review mortality records.")
 
+    if "inspector_photo" in request.FILES:
+        record.inspector_photo = request.FILES["inspector_photo"]
     record.status = new_status
     record.reviewed_by = user
     record.review_remarks = remarks
     record.reviewed_at = timezone.now()
     record.save()
 
-    serializer = MortalityRecordSerializer(record)
+    serializer = MortalityRecordSerializer(record, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)

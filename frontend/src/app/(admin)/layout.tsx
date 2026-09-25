@@ -14,12 +14,14 @@ export default function AdminLayout({
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
 
+  const role = user?.role?.toUpperCase();
+  const isAuthorized = role === "MAO" || role === "ADMIN";
+
   useEffect(() => {
-    const role = user?.role?.toUpperCase();
-    if (!isLoading && (!user || (role !== "MAO" && role !== "ADMIN"))) {
-      router.push("/login");
+    if (!isLoading && (!user || !isAuthorized)) {
+      router.replace("/login");
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, isAuthorized, router]);
 
   if (isLoading) {
     return (
@@ -27,6 +29,10 @@ export default function AdminLayout({
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
       </div>
     );
+  }
+
+  if (!user || !isAuthorized) {
+    return null;
   }
 
   return (

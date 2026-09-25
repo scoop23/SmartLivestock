@@ -16,7 +16,7 @@ export default function FarmerLayout({
 
   useEffect(() => {
     if (!isLoading && (!user || user.role?.toUpperCase() !== "FARMER")) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [user, isLoading, router]);
 
@@ -26,6 +26,10 @@ export default function FarmerLayout({
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
       </div>
     );
+  }
+
+  if (!user || user.role?.toUpperCase() !== "FARMER") {
+    return null;
   }
 
   return (
