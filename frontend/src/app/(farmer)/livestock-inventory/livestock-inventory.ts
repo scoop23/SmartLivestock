@@ -23,6 +23,11 @@ export interface LivestockInventoryItem {
   status: StatusType;
   reviewRemarks?: string | null;
   createdAt: string;
+  photoUrl?: string | null;
+  avatarKey?: string | null;
+  batchId?: number | null;
+  batchCode?: string | null;
+  batchName?: string | null;
 }
 
 export interface InventoryApiItem {
@@ -39,6 +44,55 @@ export interface InventoryApiItem {
   status: StatusType;
   review_remarks: string | null;
   created_at: string;
+  photo?: string | null;
+  photo_url?: string | null;
+  avatar_key?: string | null;
+  batch?: number | null;
+  batch_code?: string | null;
+  batch_name?: string | null;
+}
+
+export interface LivestockBatchItem {
+  id: number;
+  farmer: number;
+  farmerName: string;
+  barangayId: number;
+  barangayName: string;
+  livestockType: number;
+  livestockTypeName: string;
+  batchName: string;
+  batchCode: string;
+  housingPen: string;
+  feedType: string;
+  targetWeight: number | null;
+  targetHarvestDate: string | null;
+  status: "ACTIVE" | "HARVESTED" | "SOLD" | "ARCHIVED";
+  notes: string;
+  totalAnimals: number;
+  averageWeight: number | null;
+  animals?: LivestockInventoryItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBatchPayload {
+  livestock_type: number;
+  batch_name: string;
+  batch_code?: string;
+  housing_pen?: string;
+  feed_type?: string;
+  target_weight?: number | null;
+  target_harvest_date?: string | null;
+  status?: string;
+  notes?: string;
+  animals?: Array<{
+    tag_number: string;
+    breed: string;
+    sex: string;
+    weight?: number | null;
+    last_vaccination_date?: string | null;
+    avatar_key?: string | null;
+  }>;
 }
 
 export interface CreateInventoryPayload {
@@ -50,6 +104,9 @@ export interface CreateInventoryPayload {
   sex?: string;
   weight?: number | null;
   last_vaccination_date?: string | null;
+  photo?: string | null;
+  avatar_key?: string | null;
+  batch?: number | null;
 }
 
 export interface UpdateInventoryPayload {
@@ -61,6 +118,9 @@ export interface UpdateInventoryPayload {
   sex?: string;
   weight?: number | null;
   last_vaccination_date?: string | null;
+  photo?: string | null;
+  avatar_key?: string | null;
+  batch?: number | null;
 }
 
 // ── Common Species Presets & Guidelines ────────────────────────────────────
@@ -171,6 +231,164 @@ export function generateSuggestedTag(typeName?: string): string {
   return `${preset.tagPrefix}-${year}-${randomNum}`;
 }
 
+// ── Livestock Avatar Gallery Presets ───────────────────────────────────────
+
+export interface LivestockAvatarOption {
+  id: string;
+  name: string;
+  species: string;
+  emoji: string;
+  bgGradient: string;
+  badge: string;
+}
+
+export const LIVESTOCK_AVATAR_PRESETS: LivestockAvatarOption[] = [
+  // Cattle
+  {
+    id: "cow-brahman",
+    name: "Brahman Bull",
+    species: "Cattle",
+    emoji: "🐂",
+    bgGradient: "from-amber-100 via-amber-200 to-orange-100 text-amber-950 border-amber-300",
+    badge: "Beef Bull",
+  },
+  {
+    id: "cow-dairy",
+    name: "Holstein Dairy",
+    species: "Cattle",
+    emoji: "🐄",
+    bgGradient: "from-emerald-100 via-teal-100 to-emerald-200 text-emerald-950 border-emerald-300",
+    badge: "Dairy Cow",
+  },
+  {
+    id: "cow-calf",
+    name: "Young Calf",
+    species: "Cattle",
+    emoji: "🐮",
+    bgGradient: "from-lime-100 via-emerald-100 to-teal-100 text-emerald-900 border-emerald-300",
+    badge: "Calf / Weaner",
+  },
+  // Carabao
+  {
+    id: "carabao-native",
+    name: "Batangas Carabao",
+    species: "Carabao",
+    emoji: "🐃",
+    bgGradient: "from-slate-200 via-indigo-100 to-slate-300 text-indigo-950 border-indigo-300",
+    badge: "Draft & Work",
+  },
+  {
+    id: "carabao-murrah",
+    name: "Murrah Buffalo",
+    species: "Carabao",
+    emoji: "🐃",
+    bgGradient: "from-sky-100 via-indigo-100 to-blue-200 text-blue-950 border-blue-300",
+    badge: "Dairy Buffalo",
+  },
+  // Swine
+  {
+    id: "pig-large-white",
+    name: "Large White",
+    species: "Swine",
+    emoji: "🐷",
+    bgGradient: "from-rose-100 via-pink-100 to-rose-200 text-rose-950 border-rose-300",
+    badge: "Commercial Sow",
+  },
+  {
+    id: "pig-landrace",
+    name: "Landrace Boar",
+    species: "Swine",
+    emoji: "🐖",
+    bgGradient: "from-pink-100 via-rose-100 to-fuchsia-100 text-pink-950 border-pink-300",
+    badge: "Breeder Boar",
+  },
+  {
+    id: "pig-native",
+    name: "Native Pig",
+    species: "Swine",
+    emoji: "🐗",
+    bgGradient: "from-stone-200 via-amber-100 to-stone-300 text-stone-900 border-stone-300",
+    badge: "Native Lechon",
+  },
+  // Goat
+  {
+    id: "goat-boer",
+    name: "Boer Meat Goat",
+    species: "Goat",
+    emoji: "🐐",
+    bgGradient: "from-amber-100 via-yellow-100 to-amber-200 text-amber-950 border-amber-300",
+    badge: "Meat Buck",
+  },
+  {
+    id: "goat-nubian",
+    name: "Anglo-Nubian",
+    species: "Goat",
+    emoji: "🥛",
+    bgGradient: "from-emerald-100 via-teal-100 to-cyan-100 text-teal-950 border-teal-300",
+    badge: "Dairy Doe",
+  },
+  // Sheep
+  {
+    id: "sheep-dorper",
+    name: "Dorper Sheep",
+    species: "Sheep",
+    emoji: "🐑",
+    bgGradient: "from-sky-100 via-cyan-100 to-sky-200 text-sky-950 border-sky-300",
+    badge: "Hair Sheep",
+  },
+  // Poultry
+  {
+    id: "poultry-layer",
+    name: "Lohmann Layer",
+    species: "Poultry",
+    emoji: "🐔",
+    bgGradient: "from-amber-100 via-orange-100 to-yellow-200 text-amber-950 border-amber-300",
+    badge: "Egg Layer",
+  },
+  {
+    id: "poultry-rooster",
+    name: "Heritage Rooster",
+    species: "Poultry",
+    emoji: "🐓",
+    bgGradient: "from-red-100 via-orange-100 to-amber-200 text-red-950 border-red-300",
+    badge: "Rooster",
+  },
+  {
+    id: "poultry-broiler",
+    name: "White Broiler",
+    species: "Poultry",
+    emoji: "🐥",
+    bgGradient: "from-yellow-100 via-amber-100 to-lime-100 text-yellow-950 border-yellow-300",
+    badge: "Meat Broiler",
+  },
+  // Horse
+  {
+    id: "horse-batangas",
+    name: "Batangas Stallion",
+    species: "Horse",
+    emoji: "🐴",
+    bgGradient: "from-amber-100 via-stone-200 to-amber-200 text-amber-950 border-amber-300",
+    badge: "Equine",
+  },
+];
+
+export function getDefaultAvatarForSpecies(speciesName?: string): LivestockAvatarOption {
+  if (!speciesName) return LIVESTOCK_AVATAR_PRESETS[0];
+  const lower = speciesName.toLowerCase();
+  const match = LIVESTOCK_AVATAR_PRESETS.find((a) =>
+    lower.includes(a.species.toLowerCase())
+  );
+  return match || LIVESTOCK_AVATAR_PRESETS[0];
+}
+
+export function getAvatarById(avatarId?: string | null, speciesName?: string): LivestockAvatarOption {
+  if (avatarId) {
+    const found = LIVESTOCK_AVATAR_PRESETS.find((a) => a.id === avatarId);
+    if (found) return found;
+  }
+  return getDefaultAvatarForSpecies(speciesName);
+}
+
 export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
   id: String(item.id),
   farmerName: item.farmer_name,
@@ -185,6 +403,11 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   status: item.status,
   reviewRemarks: item.review_remarks,
   createdAt: item.created_at,
+  photoUrl: (item as any).photo || (item as any).photo_url || null,
+  avatarKey: (item as any).avatar_key || null,
+  batchId: item.batch || null,
+  batchCode: item.batch_code || null,
+  batchName: item.batch_name || null,
 });
 
 export async function fetchLivestockTypesList(): Promise<LivestockType[]> {
@@ -221,9 +444,43 @@ export async function deleteInventoryRecord(id: string) {
   return res.data;
 }
 
+// ── Livestock Batches API ──────────────────────────────────────────────────
+
+export async function fetchLivestockBatches(): Promise<LivestockBatchItem[]> {
+  const res = await api.get<any[]>("livestock/batches/");
+  return res.data.map((b) => ({
+    id: b.id,
+    farmer: b.farmer,
+    farmerName: b.farmer_name,
+    barangayId: b.barangay_id,
+    barangayName: b.barangay_name,
+    livestockType: b.livestock_type,
+    livestockTypeName: b.livestock_type_name,
+    batchName: b.batch_name,
+    batchCode: b.batch_code,
+    housingPen: b.housing_pen,
+    feedType: b.feed_type,
+    targetWeight: b.target_weight ? Number(b.target_weight) : null,
+    targetHarvestDate: b.target_harvest_date,
+    status: b.status,
+    notes: b.notes,
+    totalAnimals: b.total_animals,
+    averageWeight: b.average_weight ? Number(b.average_weight) : null,
+    animals: b.animals ? b.animals.map(mapInventory) : [],
+    createdAt: b.created_at,
+    updatedAt: b.updated_at,
+  }));
+}
+
+export async function createLivestockBatch(payload: CreateBatchPayload) {
+  const res = await api.post("livestock/batches/", payload);
+  return res.data;
+}
+
 export const INVENTORY_QUERY_KEYS = {
   types: ["livestock-types"] as const,
   inventory: ["inventory"] as const,
+  batches: ["livestock-batches"] as const,
 };
 
 export function useLivestockTypes() {
@@ -256,6 +513,24 @@ export function useDeleteInventory() {
   return useMutation({
     mutationFn: deleteInventoryRecord,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
+    },
+  });
+}
+
+export function useLivestockBatches() {
+  return useQuery<LivestockBatchItem[]>({
+    queryKey: INVENTORY_QUERY_KEYS.batches,
+    queryFn: fetchLivestockBatches,
+  });
+}
+
+export function useCreateLivestockBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createLivestockBatch,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
       queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
     },
   });

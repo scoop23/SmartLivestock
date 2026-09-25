@@ -29,6 +29,7 @@ import {
   Clock,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   Sparkles,
   Shield,
   type LucideIcon,
@@ -55,10 +56,18 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
-interface SidebarLink {
+export interface SidebarSubLink {
+  path: string;
+  label: string;
+  badge?: string;
+}
+
+export interface SidebarLink {
   path: string;
   label: string;
   icon: LucideIcon;
+  badge?: string;
+  subLinks?: SidebarSubLink[];
 }
 
 const adminLinks: SidebarLink[] = [
@@ -76,8 +85,25 @@ const adminLinks: SidebarLink[] = [
 
 const farmerLinks: SidebarLink[] = [
   { path: '/farmer', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/livestock-inventory', label: 'Livestock Inventory', icon: Sprout },
-  { path: '/production-dashboard', label: 'Production Logs', icon: ClipboardCheck },
+  {
+    path: '/livestock-inventory',
+    label: 'Livestock & Herd',
+    icon: Sprout,
+    subLinks: [
+      { path: '/livestock-inventory', label: 'Herd Overview' },
+      { path: '/livestock-inventory/batches', label: 'Batches & Flocks', badge: 'Batches' },
+      { path: '/livestock-inventory/all', label: 'All Registry List' },
+    ],
+  },
+  {
+    path: '/production-dashboard',
+    label: 'Production & Yield',
+    icon: ClipboardCheck,
+    subLinks: [
+      { path: '/production-dashboard', label: 'Production Summary' },
+      { path: '/production-dashboard/history', label: 'Historical Records' },
+    ],
+  },
   { path: '/report-observation', label: 'Report Illness/Mortality', icon: Stethoscope },
   { path: '/gis-user-map', label: 'GIS Farm Map', icon: Map },
   { path: '/farmer-announcement', label: 'Announcements', icon: Megaphone },
@@ -151,6 +177,30 @@ function SidebarNav({
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : (user?.email?.[0] || 'U').toUpperCase();
 
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    links.forEach((link) => {
+      if (
+        link.subLinks &&
+        (pathname.startsWith(link.path) || link.subLinks.some((s) => pathname === s.path || pathname.startsWith(s.path)))
+      ) {
+        initial[link.path] = true;
+      }
+    });
+    return initial;
+  });
+
+  const toggleDropdown = (path: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setOpenDropdowns((prev) => ({
+      ...prev,
+      [path]: !prev[path],
+    }));
+  };
+
   return (
     <div className="flex flex-col h-full select-none bg-[#1E4D2B] border-r border-[#163b21] text-white">
       {/* Top Header Logo */}
@@ -204,7 +254,87 @@ function SidebarNav({
 
         {links.map((link) => {
           const Icon = link.icon;
-          const isActive = pathname === link.path || (link.path !== '/admin' && link.path !== '/farmer' && link.path !== '/sibat' && link.path !== '/auction' && pathname.startsWith(link.path));
+          const hasSubLinks = Boolean(link.subLinks && link.subLinks.length > 0);
+          const isDropdownOpen = Boolean(openDropdowns[link.path]);
+
+          const isExactActive = pathname === link.path;
+          const isChildActive = Boolean(
+            hasSubLinks && link.subLinks?.some((s) => pathname === s.path || pathname.startsWith(s.path))
+          );
+          const isActive = isExactActive || isChildActive || (
+            !hasSubLinks &&
+            link.path !== '/admin' &&
+            link.path !== '/farmer' &&
+            link.path !== '/sibat' &&
+            link.path !== '/auction' &&
+            pathname.startsWith(link.path)
+          );
+
+          if (hasSubLinks && !collapsed) {
+            return (
+              <div key={link.path} className="space-y-1">
+                <div
+                  className={cn(
+                    "group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150",
+                    isActive
+                      ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs"
+                      : "text-emerald-100/75 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <Link
+                    href={link.path}
+                    onClick={() => onNavigate?.()}
+                    className="flex items-center gap-3 min-w-0 flex-1 truncate"
+                  >
+                    <Icon className={cn("size-5 shrink-0 transition-transform duration-150", isActive ? "text-emerald-300 scale-105" : "text-emerald-200/70 group-hover:text-white")} />
+                    <span className="truncate whitespace-nowrap">{link.label}</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    aria-label={`Toggle ${link.label} sub-items`}
+                    onClick={(e) => toggleDropdown(link.path, e)}
+                    className="p-1 rounded-lg hover:bg-white/10 text-emerald-200/70 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "size-4 transition-transform duration-200",
+                        isDropdownOpen ? "rotate-180 text-emerald-300" : "text-emerald-200/50"
+                      )}
+                    />
+                  </button>
+                </div>
+
+                {isDropdownOpen && (
+                  <div className="ml-5 pl-2.5 my-1 border-l border-emerald-400/25 space-y-1 transition-all">
+                    {link.subLinks?.map((sub) => {
+                      const isSubActive = pathname === sub.path;
+                      return (
+                        <Link
+                          key={sub.path}
+                          href={sub.path}
+                          onClick={() => onNavigate?.()}
+                          className={cn(
+                            "flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150",
+                            isSubActive
+                              ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30"
+                              : "text-emerald-100/70 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <span className="truncate">{sub.label}</span>
+                          {sub.badge && (
+                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300">
+                              {sub.badge}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
 
           return (
             <Link
@@ -238,13 +368,13 @@ function SidebarNav({
       </nav>
 
       {/* Bottom Footer Section: User Profile & Help Button */}
-      <div className="border-t border-white/10 p-2.5 space-y-1.5 bg-black/15">
+      <div className="border-t border-white/10 p-2.5 space-y-1.5 bg-black/15 flex flex-col">
         {/* Help & Support Button */}
         <button
           type="button"
           onClick={onOpenHelp}
           title={collapsed ? "Help & Support" : undefined}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-all cursor-pointer group"
+          className={`flex items-center  gap-3 w-full ${collapsed ? "pl-1.5" : "px-2 py-2"} rounded-xl text-sm font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-all cursor-pointer group`}
         >
           <div className="size-8 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/30 group-hover:scale-105 transition-all">
             <HelpCircle className="size-4.5" />
@@ -268,7 +398,7 @@ function SidebarNav({
           )}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="size-8 rounded-full bg-emerald-700/80 border border-emerald-400/30 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
+            <div className="size-7 rounded-full bg-emerald-700/80 border border-emerald-400/30 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
               {userInitials}
             </div>
 
@@ -360,8 +490,8 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             isPinned
               ? "w-[280px] z-30"
               : isHovered
-              ? "w-[280px] shadow-2xl z-50 transition-[width,box-shadow] duration-200 ease-out"
-              : "w-16 z-30 transition-[width] duration-200 ease-in-out"
+                ? "w-[280px] shadow-2xl z-50 transition-[width,box-shadow] duration-200 ease-out"
+                : "w-16 z-30 transition-[width] duration-200 ease-in-out"
           )}
         >
           <SidebarNav

@@ -7,26 +7,45 @@ from .models import (
     CalvingRecord,
     AnimalDisposition,
 )
-from livestock.models import LivestockInventory
+from livestock.models import LivestockInventory, LivestockBatch
 from rest_framework.exceptions import ValidationError
 
 
 class ProductionRecordSerializer(serializers.ModelSerializer):
-    livestock_type_name = serializers.CharField(
-        source="livestock.livestock_type.name", read_only=True
-    )
+    livestock_type_name = serializers.SerializerMethodField()
     farmer_name = serializers.SerializerMethodField()
-    barangay_name = serializers.CharField(
-        source="livestock.farmer.barangay.barangay_name", read_only=True
+    barangay_name = serializers.SerializerMethodField()
+    batch_code = serializers.CharField(
+        source="batch.batch_code", read_only=True
     )
-
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+
+    def get_livestock_type_name(self, obj):
+        if obj.livestock and obj.livestock.livestock_type:
+            return obj.livestock.livestock_type.name
+        if obj.batch and obj.batch.livestock_type:
+            return obj.batch.livestock_type.name
+        return "Livestock"
+
+    def get_barangay_name(self, obj):
+        if obj.livestock and obj.livestock.farmer and obj.livestock.farmer.barangay:
+            return obj.livestock.farmer.barangay.barangay_name
+        if obj.batch and obj.batch.farmer and obj.batch.farmer.barangay:
+            return obj.batch.farmer.barangay.barangay_name
+        return "Padre Garcia"
 
     def get_farmer_name(self, obj):
         try:
-            user = obj.livestock.farmer.user
-            full_name = user.get_full_name().strip()
-            return full_name if full_name else user.username
+            if obj.livestock and obj.livestock.farmer:
+                user = obj.livestock.farmer.user
+            elif obj.batch and obj.batch.farmer:
+                user = obj.batch.farmer.user
+            else:
+                user = None
+            if user:
+                full_name = user.get_full_name().strip()
+                return full_name if full_name else user.username
+            return "Unknown Farmer"
         except Exception:
             return "Unknown Farmer"
 
@@ -45,6 +64,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "id",
             "barangay_name",
             "livestock",
+            "batch",
+            "batch_code",
             "farmer_name",
             "livestock_type_name",
             "production_type",
@@ -64,6 +85,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         self,
         value,
     ):
+        if not value:
+            return value
         user = self.context["request"].user
         # If user has a farmer profile, enforce that they can only log for their own animals
         if hasattr(user, "farmer_profile"):
@@ -85,19 +108,29 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if self.instance is None:
             # for create
-            livestock = attrs["livestock"]
-            production_type = attrs["production_type"]
-            unit = attrs["unit"]
+            livestock = attrs.get("livestock")
+            batch = attrs.get("batch")
+            production_type = attrs.get("production_type")
+            unit = attrs.get("unit")
         else:
             # for patch
             livestock = attrs.get("livestock", self.instance.livestock)
+            batch = attrs.get("batch", getattr(self.instance, "batch", None))
             production_type = attrs.get(
                 "production_type",
                 self.instance.production_type,
             )
             unit = attrs.get("unit", self.instance.unit)
 
-        livestock_type_name = getattr(getattr(livestock, "livestock_type", None), "name", "").upper()
+        if not livestock and not batch:
+            raise ValidationError("Either livestock or batch must be provided.")
+
+        if livestock:
+            livestock_type_name = getattr(getattr(livestock, "livestock_type", None), "name", "").upper()
+        elif batch:
+            livestock_type_name = getattr(getattr(batch, "livestock_type", None), "name", "").upper()
+        else:
+            livestock_type_name = ""
         if "CATTLE" in livestock_type_name or "BAKA" in livestock_type_name:
             if production_type not in [
                 ProductionRecord.ProductionType.MILK,
@@ -120,6 +153,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         allowed = [
             "livestock",
+            "batch",
             "production_type",
             "quantity",
             "unit",

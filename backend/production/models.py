@@ -27,6 +27,16 @@ class ProductionRecord(models.Model):
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
         related_name="production_records",
+        null=True,
+        blank=True,
+    )
+    batch = models.ForeignKey(
+        "livestock.LivestockBatch",
+        on_delete=models.SET_NULL,
+        related_name="production_records",
+        null=True,
+        blank=True,
+        help_text="Optional link if production is recorded for an entire batch.",
     )
 
     production_type = models.CharField(
@@ -94,6 +104,14 @@ class SlaughterRecord(models.Model):
         related_name="slaughter_records",
         null=True,
         blank=True,
+    )
+    batch = models.ForeignKey(
+        "livestock.LivestockBatch",
+        on_delete=models.SET_NULL,
+        related_name="slaughter_records",
+        null=True,
+        blank=True,
+        help_text="Optional link if slaughter is recorded for a cohort batch.",
     )
 
     barangay = models.ForeignKey(
@@ -186,6 +204,16 @@ class LiveAnimalSale(models.Model):  # may be removed
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
         related_name="live_animal_sales",
+        null=True,
+        blank=True,
+    )
+    batch = models.ForeignKey(
+        "livestock.LivestockBatch",
+        on_delete=models.SET_NULL,
+        related_name="live_animal_sales",
+        null=True,
+        blank=True,
+        help_text="Optional link if animals are sold from a cohort batch.",
     )
 
     quantity = models.PositiveIntegerField()

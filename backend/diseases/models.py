@@ -17,6 +17,16 @@ class DiseaseCase(models.Model):
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
         related_name="disease_cases",
+        null=True,
+        blank=True,
+    )
+    batch = models.ForeignKey(
+        "livestock.LivestockBatch",
+        on_delete=models.SET_NULL,
+        related_name="disease_cases",
+        null=True,
+        blank=True,
+        help_text="Optional link if disease outbreak affects an entire cohort batch.",
     )
     name = models.CharField(max_length=150, blank=False)
     affected_count = models.IntegerField(default=0)
@@ -53,7 +63,8 @@ class DiseaseCase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Farmer {self.livestock.farmer.user.username} with {self.livestock.quantity} {self.livestock.livestock_type} have {self.name} disease with {self.affected_count} counts"
+        target = self.livestock.tag_number if self.livestock else (self.batch.batch_code if self.batch else "Unknown")
+        return f"{self.name} - {target} ({self.affected_count} affected)"
 
 
 # Records livestock deaths. Optionally linked to a DiseaseCase via source_disease_case
@@ -70,6 +81,16 @@ class MortalityRecord(models.Model):
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
         related_name="mortality_cases",
+        null=True,
+        blank=True,
+    )
+    batch = models.ForeignKey(
+        "livestock.LivestockBatch",
+        on_delete=models.SET_NULL,
+        related_name="mortality_records",
+        null=True,
+        blank=True,
+        help_text="Optional link if mortality is recorded for a cohort batch.",
     )
     death_count = models.PositiveIntegerField()
     cause = models.TextField()

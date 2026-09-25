@@ -79,16 +79,36 @@ Table livestock_types {
   description text
 }
 
+Table livestock_batches {
+  batch_id integer [pk]
+  farmer_id integer [not null, note: 'FK to farmers.farmer_id']
+  livestock_type_id integer [not null, note: 'FK to livestock_types.livestock_type_id']
+  batch_name varchar [not null]
+  batch_code varchar [unique, not null]
+  housing_pen varchar [note: 'Pen or barn designation']
+  feed_type varchar
+  target_weight decimal [note: 'Target harvest / sale weight in kg']
+  target_harvest_date date
+  status varchar [default: 'ACTIVE', note: 'ACTIVE, HARVESTED, SOLD, ARCHIVED']
+  notes text
+  created_by integer [not null, note: 'FK to users.user_id']
+  created_at timestamp
+  updated_at timestamp
+}
+
 Table livestock_inventory {
   livestock_id integer [pk]
+  batch_id integer [note: 'Optional FK to livestock_batches.batch_id (cohort/batch link)']
   farmer_id integer [not null]
   livestock_type_id integer [not null]
-  entry_type varchar [default: 'BATCH', note: 'INDIVIDUAL, BATCH']
-  quantity integer [default: 1]
+  entry_type varchar [default: 'INDIVIDUAL', note: 'INDIVIDUAL - all animals tracked as individual records']
+  quantity integer [default: 1, note: 'Always 1 for individual animal']
   tag_number varchar [note: 'Ear tag / identification code']
   breed varchar
   sex varchar [note: 'MALE, FEMALE, MIXED']
   weight decimal [note: 'Current body weight in kg']
+  photo varchar [note: 'Animal photograph / passport portrait URI']
+  avatar_key varchar [note: 'Preset avatar key (e.g. cattle-brahman, swine-native)']
   last_vaccination_date date
   status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer [note: 'FK to users.user_id']
@@ -104,7 +124,8 @@ Table livestock_inventory {
 
 Table production_records {
   production_id integer [pk]
-  livestock_id integer [not null]
+  livestock_id integer [note: 'Nullable if bulk yield recorded for entire batch - FK to livestock_inventory']
+  batch_id integer [note: 'Nullable - FK to livestock_batches for bulk yield (e.g. egg tray, milk tank)']
   production_type varchar [not null, note: 'MILK, MEAT, EGGS, WOOL']
   quantity decimal [not null]
   unit varchar [not null, note: 'LITERS, PIECES, KILOGRAMS']
@@ -156,7 +177,8 @@ Table animal_dispositions {
 
 Table slaughter_records {
   slaughter_id integer [pk]
-  livestock_id integer [note: 'Nullable for batch slaughter']
+  livestock_id integer [note: 'Nullable for batch slaughter - FK to livestock_inventory']
+  batch_id integer [note: 'Nullable - FK to livestock_batches for cohort slaughter']
   barangay_id integer [note: 'Origin barangay']
   livestock_type_id integer [not null]
   quantity integer [not null]
@@ -172,7 +194,8 @@ Table slaughter_records {
 
 Table live_animal_sales {
   sale_id integer [pk]
-  livestock_id integer [not null]
+  livestock_id integer [note: 'Nullable if sold from batch - FK to livestock_inventory']
+  batch_id integer [note: 'Nullable - FK to livestock_batches if sold as batch cohort']
   quantity integer [not null]
   sale_method varchar [default: 'MATA-MATA', note: 'MATA-MATA, WEIGHING, OTHER']
   total_live_weight decimal [note: 'Combined live weight in kg']
@@ -196,10 +219,13 @@ Table live_animal_sales {
 
 Table disease_cases {
   disease_case_id integer [pk]
-  livestock_id integer [not null]
+  livestock_id integer [note: 'Nullable if pen/batch-wide outbreak - FK to livestock_inventory']
+  batch_id integer [note: 'Nullable - FK to livestock_batches for pen-wide outbreak']
   name varchar [not null, note: 'e.g. Foot-and-Mouth Disease, Hemorrhagic Septicemia']
   affected_count integer [default: 0]
   record_date date
+  photo varchar [note: 'Farmer-submitted photo evidence']
+  inspector_photo varchar [note: 'SIBAT on-site inspection photo']
   status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer
   reviewed_at timestamp
@@ -210,11 +236,13 @@ Table disease_cases {
 
 Table mortality_records {
   mortality_id integer [pk]
-  livestock_id integer [not null]
+  livestock_id integer [not null, note: 'FK to livestock_inventory.livestock_id']
   death_count integer [not null]
   cause text [not null]
   source_disease_case_id integer [note: 'Nullable - linked disease case if applicable']
   record_date date
+  photo varchar [note: 'Farmer-submitted mortality evidence photo']
+  inspector_photo varchar [note: 'SIBAT on-site inspection photo']
   status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer
   reviewed_at timestamp
@@ -404,12 +432,18 @@ Ref: farmers.barangay_id > barangays.barangay_id
 Ref: cooperative_officers.user_id - users.user_id
 Ref: cooperative_officers.barangay_id > barangays.barangay_id
 
+Ref: livestock_batches.farmer_id > farmers.farmer_id
+Ref: livestock_batches.livestock_type_id > livestock_types.livestock_type_id
+Ref: livestock_batches.created_by > users.user_id
+
+Ref: livestock_inventory.batch_id > livestock_batches.batch_id
 Ref: livestock_inventory.farmer_id > farmers.farmer_id
 Ref: livestock_inventory.livestock_type_id > livestock_types.livestock_type_id
 Ref: livestock_inventory.created_by > users.user_id
 Ref: livestock_inventory.reviewed_by > users.user_id
 
 Ref: production_records.livestock_id > livestock_inventory.livestock_id
+Ref: production_records.batch_id > livestock_batches.batch_id
 Ref: production_records.created_by > users.user_id
 Ref: production_records.reviewed_by > users.user_id
 
@@ -423,16 +457,19 @@ Ref: animal_dispositions.livestock_id > livestock_inventory.livestock_id
 Ref: animal_dispositions.created_by > users.user_id
 
 Ref: slaughter_records.livestock_id > livestock_inventory.livestock_id
+Ref: slaughter_records.batch_id > livestock_batches.batch_id
 Ref: slaughter_records.barangay_id > barangays.barangay_id
 Ref: slaughter_records.livestock_type_id > livestock_types.livestock_type_id
 Ref: slaughter_records.created_by > users.user_id
 Ref: slaughter_records.reviewed_by > users.user_id
 
 Ref: live_animal_sales.livestock_id > livestock_inventory.livestock_id
+Ref: live_animal_sales.batch_id > livestock_batches.batch_id
 Ref: live_animal_sales.created_by > users.user_id
 Ref: live_animal_sales.reviewed_by > users.user_id
 
 Ref: disease_cases.livestock_id > livestock_inventory.livestock_id
+Ref: disease_cases.batch_id > livestock_batches.batch_id
 Ref: disease_cases.created_by > users.user_id
 Ref: disease_cases.reviewed_by > users.user_id
 

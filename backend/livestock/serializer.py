@@ -5,6 +5,7 @@ from livestock.services import CensusService  # type: ignore
 from .models import (
     Barangay,
     Farmer,
+    LivestockBatch,
     LivestockInventory,
     LivestockType,
     CensusSubmission,
@@ -31,6 +32,15 @@ class LivestockInventorySerializer(serializers.Serializer):
     barangay_id = serializers.IntegerField(
         source="farmer.barangay.id", read_only=True
     )
+    batch = serializers.PrimaryKeyRelatedField(
+        queryset=LivestockBatch.objects.all(), required=False, allow_null=True
+    )
+    batch_code = serializers.CharField(
+        source="batch.batch_code", read_only=True, allow_null=True
+    )
+    batch_name = serializers.CharField(
+        source="batch.batch_name", read_only=True, allow_null=True
+    )
     livestock_type = serializers.PrimaryKeyRelatedField(
         queryset=LivestockType.objects.all()
     )
@@ -38,13 +48,19 @@ class LivestockInventorySerializer(serializers.Serializer):
         source="livestock_type.name", read_only=True
     )
     entry_type = serializers.ChoiceField(choices=LivestockInventory.EntryType.choices)
-    quantity = serializers.IntegerField(min_value=1)
-    tag_number = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    breed = serializers.CharField(max_length=50)
-    sex = serializers.CharField(max_length=10)
+    quantity = serializers.IntegerField(min_value=1, default=1)
+    tag_number = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    breed = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    sex = serializers.CharField(max_length=10, required=False, allow_blank=True, default="")
     weight = serializers.DecimalField(
         max_digits=6, decimal_places=2, required=False, allow_null=True
     )
+    photo = serializers.ImageField(required=False, allow_null=True)
+    photo_url = serializers.SerializerMethodField(read_only=True)
+    avatar_key = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
+    last_vaccination_date = serializers.DateField(required=False, allow_null=True)
     status = serializers.CharField(max_length=25, read_only=True)
     review_remarks = serializers.CharField(read_only=True, allow_null=True)
     reviewed_at = serializers.DateTimeField(read_only=True, allow_null=True)
@@ -68,6 +84,17 @@ class LivestockInventorySerializer(serializers.Serializer):
             pass
         return None
 
+    def get_photo_url(self, obj):
+        if obj.photo:
+            try:
+                request = self.context.get("request")
+                if request:
+                    return request.build_absolute_uri(obj.photo.url)
+                return obj.photo.url
+            except Exception:
+                return None
+        return None
+
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
@@ -76,6 +103,7 @@ class LivestockInventorySerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         allowed = [
+            "batch",
             "livestock_type",
             "entry_type",
             "quantity",
@@ -83,6 +111,8 @@ class LivestockInventorySerializer(serializers.Serializer):
             "breed",
             "sex",
             "weight",
+            "photo",
+            "avatar_key",
             "last_vaccination_date",
         ]
         for field in allowed:
@@ -91,6 +121,62 @@ class LivestockInventorySerializer(serializers.Serializer):
         instance.save()
 
         return instance
+
+
+class LivestockBatchSerializer(serializers.ModelSerializer):
+    farmer = serializers.PrimaryKeyRelatedField(read_only=True)
+    farmer_name = serializers.SerializerMethodField(read_only=True)
+    barangay_name = serializers.CharField(
+        source="farmer.barangay.barangay_name", read_only=True
+    )
+    barangay_id = serializers.IntegerField(
+        source="farmer.barangay.id", read_only=True
+    )
+    livestock_type_name = serializers.CharField(
+        source="livestock_type.name", read_only=True
+    )
+    total_animals = serializers.IntegerField(read_only=True)
+    average_weight = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True
+    )
+    animals = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = LivestockBatch
+        fields = [
+            "id",
+            "farmer",
+            "farmer_name",
+            "barangay_id",
+            "barangay_name",
+            "livestock_type",
+            "livestock_type_name",
+            "batch_name",
+            "batch_code",
+            "housing_pen",
+            "feed_type",
+            "target_weight",
+            "target_harvest_date",
+            "status",
+            "notes",
+            "total_animals",
+            "average_weight",
+            "animals",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_farmer_name(self, obj):
+        try:
+            user = obj.farmer.user
+            full_name = user.get_full_name().strip()
+            return full_name if full_name else user.username
+        except Exception:
+            return "Unknown Farmer"
+
+    def get_animals(self, obj):
+        animals = obj.animals.all().order_by("id")
+        return LivestockInventorySerializer(animals, many=True, context=self.context).data
 
 
 class CensusSubmissionItemSerializer(serializers.ModelSerializer):

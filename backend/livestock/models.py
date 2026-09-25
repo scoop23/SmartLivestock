@@ -1,7 +1,8 @@
+from decimal import Decimal
+from typing import TYPE_CHECKING
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from decimal import Decimal
 from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
 
 
@@ -44,8 +45,75 @@ class LivestockType(models.Model):
         return f"{self.name}"
 
 
-# Each farmers entry Livestock Inventory with its own specific Livestock Type
-# which then get stored into LivestockInventory
+# Grouping / cohort for batch-managed livestock (e.g. swine, poultry, goats, feedlot cattle).
+# Individual animals (LivestockInventory) link to LivestockBatch via batch FK.
+class LivestockBatch(models.Model):
+    if TYPE_CHECKING:
+        animals: models.Manager["LivestockInventory"]
+
+    class StatusType(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        HARVESTED = "HARVESTED", "Harvested"
+        SOLD = "SOLD", "Sold"
+        ARCHIVED = "ARCHIVED", "Archived"
+
+    farmer = models.ForeignKey(
+        "Farmer", on_delete=models.PROTECT, related_name="batches"
+    )
+    livestock_type = models.ForeignKey(
+        LivestockType, on_delete=models.PROTECT, related_name="batches"
+    )
+    batch_name = models.CharField(max_length=100)
+    batch_code = models.CharField(max_length=50, unique=True)
+    housing_pen = models.CharField(max_length=100, blank=True, default="")
+    feed_type = models.CharField(max_length=100, blank=True, default="")
+    target_weight = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+        null=True,
+        blank=True,
+    )
+    target_harvest_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=25, choices=StatusType.choices, default=StatusType.ACTIVE
+    )
+    notes = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_batches",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Livestock Batch"
+        verbose_name_plural = "Livestock Batches"
+
+    def __str__(self):
+        return f"{self.batch_code} - {self.batch_name} ({self.livestock_type.name})"
+
+    @property
+    def total_animals(self):
+        return self.animals.count()
+
+    @property
+    def average_weight(self):
+        weights = [
+            a.weight
+            for a in self.animals.filter(weight__isnull=False)
+            if a.weight is not None
+        ]
+        if weights:
+            return round(sum(weights) / len(weights), 2)
+        return None
+
+
+# Each farmer's entry Livestock Inventory with its own specific Livestock Type
+# which then gets stored into LivestockInventory.
+# If part of a cohort/group, batch points to LivestockBatch.
 class LivestockInventory(models.Model):
     class EntryType(models.TextChoices):
         INDIVIDUAL = "INDIVIDUAL", "Individual"
@@ -57,7 +125,14 @@ class LivestockInventory(models.Model):
         APPROVED = "APPROVED", "Approved"
         SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
-
+    batch = models.ForeignKey(
+        LivestockBatch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="animals",
+        help_text="Optional cohort/batch this individual animal belongs to.",
+    )
     farmer = models.ForeignKey(
         "Farmer", on_delete=models.PROTECT, related_name="inventories"
     )
@@ -65,9 +140,9 @@ class LivestockInventory(models.Model):
         LivestockType, on_delete=models.PROTECT, related_name="inventories"
     )
     entry_type = models.CharField(
-        max_length=20, choices=EntryType.choices, default=EntryType.BATCH
+        max_length=20, choices=EntryType.choices, default=EntryType.INDIVIDUAL
     )
-    quantity = models.IntegerField(default=1)
+    quantity = models.IntegerField(default=1, help_text="Always 1 for individual animal records.")
     tag_number = models.CharField(max_length=50, blank=True, default="")
     breed = models.CharField(max_length=50, blank=True)
     sex = models.CharField(max_length=10, blank=True)
@@ -77,6 +152,18 @@ class LivestockInventory(models.Model):
         validators=[MinValueValidator(Decimal("0.00"))],
         null=True,
         blank=True,
+    )
+    photo = models.ImageField(
+        upload_to="livestock_photos/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Animal photograph or digital passport portrait.",
+    )
+    avatar_key = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="Selected preset avatar key (e.g., 'cattle-brahman', 'swine-native').",
     )
     # health_status = models.CharField(max_length=255, blank=True)
     last_vaccination_date = models.DateField(null=True, blank=True)
@@ -100,7 +187,8 @@ class LivestockInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.farmer}, with User {self.farmer.user.account_status} - {self.livestock_type} ({self.quantity})"
+        tag = f" [{self.tag_number}]" if self.tag_number else ""
+        return f"{self.farmer} - {self.livestock_type}{tag} ({self.quantity})"
 
 
 class CensusSubmission(models.Model):

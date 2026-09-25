@@ -11,6 +11,11 @@ from .census_views import (
     census_detail,
     review_census_submission,
 )
+from .batch_views import (
+    batch_list_create,
+    batch_detail,
+    batch_add_animals,
+)
 
 __all__ = [
     "inventory_list_create",
@@ -22,4 +27,7 @@ __all__ = [
     "census_list_create",
     "census_detail",
     "review_census_submission",
+    "batch_list_create",
+    "batch_detail",
+    "batch_add_animals",
 ]

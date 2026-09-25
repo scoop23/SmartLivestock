@@ -16,7 +16,10 @@ import {
   Weight,
   XCircle,
   RotateCcw,
+  ExternalLink,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -29,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import api from "@/lib/axios";
 import type { LivestockInventoryItem } from "./page";
+import { getAvatarById } from "./livestock-inventory";
 
 interface ProductionRecordItem {
   id: number;
@@ -109,6 +113,7 @@ export default function LivestockDetailsDialog({
   open,
   onOpenChange,
 }: LivestockDetailsDialogProps) {
+  const router = useRouter();
   const animalId = livestock?.id ? Number(livestock.id) : null;
 
   // Real production records
@@ -160,9 +165,12 @@ export default function LivestockDetailsDialog({
   const animalCalves = calvingRecords.filter((c) => c.dam === animalId);
 
   const titleText =
-    livestock?.entryType === "INDIVIDUAL"
-      ? livestock.tagNumber || `Tagged #${livestock.id}`
-      : `${livestock?.quantity}x ${livestock?.livestockTypeName} (Batch)`;
+    livestock?.tagNumber || (livestock?.id ? `TAG-${livestock.id}` : "Animal Details");
+
+  const localPhoto = livestock && typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${livestock.id}`) : null;
+  const localAvatar = livestock && typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${livestock.id}`) : null;
+  const photoUrl = livestock?.photoUrl || localPhoto;
+  const avatar = getAvatarById(livestock?.avatarKey || localAvatar, livestock?.livestockTypeName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -171,8 +179,21 @@ export default function LivestockDetailsDialog({
         <DialogHeader className="p-5 sm:p-6 pb-4 border-b border-slate-100 bg-white shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-emerald-100/80 text-emerald-800">
-                <Layers className="size-6" />
+              <div className="relative shrink-0">
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={titleText}
+                    className="size-14 rounded-2xl object-cover border-2 border-emerald-600 shadow-xs"
+                  />
+                ) : (
+                  <div
+                    className={`size-14 rounded-2xl flex items-center justify-center text-2xl bg-gradient-to-br border-2 shadow-xs ${avatar.bgGradient}`}
+                    title={`${avatar.name} (${avatar.badge})`}
+                  >
+                    {avatar.emoji}
+                  </div>
+                )}
               </div>
               <div>
                 <DialogTitle className="text-xl font-black text-slate-900 leading-tight">
@@ -187,7 +208,22 @@ export default function LivestockDetailsDialog({
                 </DialogDescription>
               </div>
             </div>
-            {getStatusBadge(livestock?.status)}
+            <div className="flex items-center gap-2">
+              {getStatusBadge(livestock?.status)}
+              {livestock && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    onOpenChange();
+                    router.push(`/livestock-inventory/${livestock.tagNumber || livestock.id}`);
+                  }}
+                  className="rounded-xl h-8 px-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1 cursor-pointer"
+                >
+                  <span>Full Passport</span>
+                  <ExternalLink className="size-3" />
+                </Button>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
@@ -218,15 +254,72 @@ export default function LivestockDetailsDialog({
               <TabsContent value="profile" className="m-0 h-full focus-visible:outline-none">
                 <ScrollArea className="h-full w-full">
                   <div className="p-5 sm:p-6 space-y-4">
+                    {/* Batch vs Individual Deep Dive Callout */}
+                    {livestock.batchCode ? (
+                      <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                          <div className="size-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
+                            <Layers className="size-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black text-slate-900">
+                              Part of Cohort: {livestock.batchCode}
+                            </h4>
+                            <p className="text-[11px] text-slate-600 mt-0.5">
+                              {livestock.batchName ? `${livestock.batchName} • ` : ""}Tracked as an individual animal inside this batch.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            onOpenChange();
+                            router.push("/livestock-inventory/batches");
+                          }}
+                          className="rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs gap-1.5 shrink-0"
+                        >
+                          <span>View Batch Roster</span>
+                          <ExternalLink className="size-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                          <div className="size-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0">
+                            <Tag className="size-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black text-slate-900">
+                              Individual Animal Digital Passport
+                            </h4>
+                            <p className="text-[11px] text-slate-600 mt-0.5">
+                              View full weight charts, production logs, pedigree, and printable QR ear tag.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            onOpenChange();
+                            router.push(`/livestock-inventory/${livestock.tagNumber || livestock.id}`);
+                          }}
+                          className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 shrink-0"
+                        >
+                          <span>Open Animal Passport</span>
+                          <ExternalLink className="size-3" />
+                        </Button>
+                      </div>
+                    )}
+
                     {/* Quick Specs Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Entry Mode</span>
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.entryType}</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ear Tag ID</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.tagNumber || `TAG-${livestock.id}`}</p>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Head Count</span>
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.quantity} head{livestock.quantity > 1 ? "s" : ""}</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assigned Cohort</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.batchCode || "Individual"}</p>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scale Weight</span>

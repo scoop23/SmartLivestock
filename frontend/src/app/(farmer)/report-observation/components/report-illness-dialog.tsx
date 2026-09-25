@@ -312,11 +312,11 @@ export default function ReportIllnessDialog({
             <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Icon iconNode={cowHead} className="size-3.5 text-[#2D5A27]" />
-                1. Affected Animal / Batch
+                1. Affected Animal
               </span>
               {selectedCattle && (
                 <span className="text-[10px] font-bold text-slate-400">
-                  Total in Batch: {selectedCattle.quantity}
+                  {selectedCattle.batchCode ? `Cohort: ${selectedCattle.batchCode}` : "Individual Animal"}
                 </span>
               )}
             </Label>
@@ -332,8 +332,9 @@ export default function ReportIllnessDialog({
                     value={String(inv.id)}
                     className="text-xs font-semibold py-2 cursor-pointer"
                   >
-                    #{inv.tagNumber || `ID-${inv.id}`} • {inv.livestockTypeName || "Livestock"} (
-                    {inv.breed || "Standard"}) — {inv.quantity} Head{inv.quantity > 1 ? "s" : ""}
+                    #{inv.tagNumber || `TAG-${inv.id}`} • {inv.livestockTypeName || "Livestock"} (
+                    {inv.breed || "Standard"}, {inv.sex || "Female"})
+                    {inv.batchCode ? ` • [Cohort: ${inv.batchCode}]` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
