@@ -160,7 +160,7 @@ function SibatPortalContent() {
   // Counts for Badges
   const pendingHealthCount = healthRecords.filter((r) => r.status === "PENDING").length;
   const pendingProdCount = submissions.filter((s) => s.sourceType === "PRODUCTION" && s.status === "PENDING").length;
-  const pendingInvCount = submissions.filter((s) => s.sourceType === "INVENTORY" && s.status === "PENDING").length;
+  const pendingInvCount = submissions.filter((s) => (s.sourceType === "INVENTORY" || s.sourceType === "BATCH") && s.status === "PENDING").length;
 
   return (
     <>

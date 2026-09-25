@@ -89,7 +89,7 @@ export default function AdminDataValidationPage() {
     Record<number, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
   >({});
   const [localInventoryOverrides, setLocalInventoryOverrides] = useState<
-    Record<number, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
+    Record<string | number, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
   >({});
   const [localIncidentOverrides, setLocalIncidentOverrides] = useState<
     Record<string, { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks: string }>
@@ -393,18 +393,25 @@ export default function AdminDataValidationPage() {
         setLocalInventoryOverrides((prev) => {
           const next = { ...prev };
           itemIds.forEach((id) => {
-            next[Number(id)] = { status: action, remarks };
+            next[id] = { status: action, remarks };
           });
           return next;
         });
         await Promise.allSettled(
-          itemIds.map((id) =>
-            api.post(`livestock/inventory/${id}/review/`, { status: action, remarks })
-          )
+          itemIds.map((id) => {
+            const strId = String(id);
+            if (strId.startsWith("batch-")) {
+              const cleanId = strId.replace("batch-", "");
+              return api.post(`livestock/batches/${cleanId}/review/`, { status: action, remarks });
+            }
+            return api.post(`livestock/inventory/${id}/review/`, { status: action, remarks });
+          })
         );
         queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
         queryClient.invalidateQueries({ queryKey: ["inventory"] });
+        queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-batches-records"] });
       } else {
         setLocalIncidentOverrides((prev) => {
           const next = { ...prev };

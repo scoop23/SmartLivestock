@@ -12,6 +12,7 @@ urlpatterns = [
     path("batches/", views.batch_list_create, name="batch_list_create"),
     path("batches/<int:pk>/", views.batch_detail, name="batch_detail"),
     path("batches/<int:pk>/animals/", views.batch_add_animals, name="batch_add_animals"),
+    path("batches/<int:pk>/review/", views.batch_review, name="batch_review"),
 
     # Quarterly Census
     path("census/", views.census_list_create, name="census_list_create"),

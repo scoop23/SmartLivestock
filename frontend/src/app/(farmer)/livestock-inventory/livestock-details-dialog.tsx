@@ -219,7 +219,7 @@ export default function LivestockDetailsDialog({
                   }}
                   className="rounded-xl h-8 px-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1 cursor-pointer"
                 >
-                  <span>Full Passport</span>
+                  <span>View Details</span>
                   <ExternalLink className="size-3" />
                 </Button>
               )}
@@ -290,10 +290,10 @@ export default function LivestockDetailsDialog({
                           </div>
                           <div>
                             <h4 className="text-xs font-black text-slate-900">
-                              Individual Animal Digital Passport
+                              Complete Animal Profile & Records
                             </h4>
                             <p className="text-[11px] text-slate-600 mt-0.5">
-                              View full weight charts, production logs, pedigree, and printable QR ear tag.
+                              View full weight charts, yield logs, pedigree, and printable QR ear tag.
                             </p>
                           </div>
                         </div>
@@ -305,7 +305,7 @@ export default function LivestockDetailsDialog({
                           }}
                           className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 shrink-0"
                         >
-                          <span>Open Animal Passport</span>
+                          <span>View Full Profile</span>
                           <ExternalLink className="size-3" />
                         </Button>
                       </div>

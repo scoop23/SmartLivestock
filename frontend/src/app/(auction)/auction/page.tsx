@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
   Layers,
   Search,
+  QrCode,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,10 +39,12 @@ import {
   InspectionRecord,
   INITIAL_INSPECTIONS,
 } from "../auction-inspections/auction-analytics";
+import { AuctionQrScannerDialog } from "../auction-inspections/auction-qr-scanner-dialog";
 
 export default function AuctionDashboard() {
   const router = useRouter();
   const [inspections] = useState<InspectionRecord[]>(INITIAL_INSPECTIONS);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const pendingCount = inspections.filter((i) => i.status === "PENDING").length;
   const verifiedCount = inspections.filter((i) => i.status === "VERIFIED").length;
@@ -132,14 +135,25 @@ export default function AuctionDashboard() {
             </div>
           </div>
 
-          <Button
-            size="sm"
-            onClick={() => router.push("/auction-inspections")}
-            className="bg-white hover:bg-purple-50 text-[#7C3AED] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New Inspection
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setIsScannerOpen(true)}
+              className="bg-purple-900/80 hover:bg-purple-900 text-white border border-purple-300/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              Scan Gate QR Pass
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() => router.push("/auction-inspections")}
+              className="bg-white hover:bg-purple-50 text-[#7C3AED] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Inspection
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -189,7 +203,27 @@ export default function AuctionDashboard() {
         </div>
 
         {/* ═══ Quick Actions Strip ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card
+            onClick={() => setIsScannerOpen(true)}
+            className="border-2 border-purple-200 bg-gradient-to-br from-purple-100/70 via-purple-50/40 to-white hover:border-purple-400 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
+          >
+            <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 rounded-xl bg-[#7C3AED] text-white group-hover:scale-105 transition-transform shrink-0 shadow-xs">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 group-hover:text-[#7C3AED] transition-colors">
+                    Scan Gate QR Pass
+                  </h3>
+                  <p className="text-xs font-medium text-slate-500">Fast gate ingress verify for lots &amp; trucks</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] group-hover:translate-x-0.5 transition-all shrink-0" />
+            </CardContent>
+          </Card>
+
           <Card
             onClick={() => router.push("/auction-inspections")}
             className="border-2 border-purple-100 bg-gradient-to-br from-purple-50/60 via-white to-white hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
@@ -241,7 +275,7 @@ export default function AuctionDashboard() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 group-hover:text-emerald-800 transition-colors">
-                    Auction Schedules & News
+                    Auction Schedules
                   </h3>
                   <p className="text-xs font-medium text-slate-500">Market day schedules and protocols</p>
                 </div>
@@ -383,6 +417,11 @@ export default function AuctionDashboard() {
           </Card>
         </div>
       </div>
+
+      <AuctionQrScannerDialog
+        isOpen={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+      />
     </>
   );
 }

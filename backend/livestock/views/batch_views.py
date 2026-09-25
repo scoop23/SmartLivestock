@@ -1,13 +1,17 @@
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from livestock.models import LivestockBatch, LivestockInventory, LivestockType
 from livestock.serializer import LivestockBatchSerializer, LivestockInventorySerializer
+from users.models import Notification
+from users.notification_views import create_notification
 
 
 @api_view(["GET", "POST"])
@@ -45,6 +49,12 @@ def batch_list_create(request):
 
         livestock_type = get_object_or_404(LivestockType, pk=livestock_type_id)
 
+        default_animal_status = (
+            LivestockInventory.StatusType.APPROVED
+            if role_name in ["MAO", "ADMIN"]
+            else LivestockInventory.StatusType.PENDING
+        )
+
         with transaction.atomic():
             batch = LivestockBatch.objects.create(
                 farmer=farmer_profile if farmer_profile else None,
@@ -75,7 +85,7 @@ def batch_list_create(request):
                         weight=animal.get("weight") or None,
                         avatar_key=animal.get("avatar_key", ""),
                         last_vaccination_date=animal.get("last_vaccination_date") or None,
-                        status=LivestockInventory.StatusType.APPROVED,
+                        status=default_animal_status,
                         created_by=user,
                     )
 
@@ -198,6 +208,12 @@ def batch_add_animals(request, pk):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    default_animal_status = (
+        LivestockInventory.StatusType.APPROVED
+        if role_name in ["MAO", "ADMIN"]
+        else LivestockInventory.StatusType.PENDING
+    )
+
     created_animals = []
     with transaction.atomic():
         for animal in animals_data:
@@ -213,7 +229,7 @@ def batch_add_animals(request, pk):
                 weight=animal.get("weight") or None,
                 avatar_key=animal.get("avatar_key", ""),
                 last_vaccination_date=animal.get("last_vaccination_date") or None,
-                status=LivestockInventory.StatusType.APPROVED,
+                status=default_animal_status,
                 created_by=user,
             )
             created_animals.append(created)
@@ -228,3 +244,116 @@ def batch_add_animals(request, pk):
         },
         status=status.HTTP_201_CREATED,
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def batch_review(request, pk):
+    """
+    POST /api/livestock/batches/<id>/review/
+    Review and verify an entire batch and its animal roster:
+    - SIBAT: Field inspection of the pen/herd (status = VERIFIED or SUBJECT_TO_REVISION)
+    - MAO: Official municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
+    """
+    batch = get_object_or_404(LivestockBatch, pk=pk)
+    new_status = request.data.get("status")
+    remarks = request.data.get("remarks", "")
+
+    if not new_status:
+        return Response(
+            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+
+    if role_name == "FARMER":
+        raise PermissionDenied("Farmers are not authorized to review livestock batches.")
+
+    if role_name == "SIBAT":
+        if new_status == LivestockInventory.StatusType.APPROVED:
+            raise PermissionDenied(
+                "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
+            )
+        if new_status not in [LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.SUBJECT_TO_REVISION]:
+            return Response(
+                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif role_name in ["MAO", "ADMIN"]:
+        if new_status not in LivestockInventory.StatusType.values:
+            return Response(
+                {"error": f"Invalid status '{new_status}'. Valid choices are: {list(LivestockInventory.StatusType.values)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    else:
+        raise PermissionDenied("You do not have permission to review livestock batches.")
+
+    with transaction.atomic():
+        batch.animals.all().update(
+            status=new_status,
+            reviewed_by=user,
+            reviewed_at=timezone.now(),
+            review_remarks=remarks,
+        )
+        if remarks:
+            timestamp_str = timezone.now().strftime("%Y-%m-%d %H:%M")
+            reviewer_title = (
+                f"SIBAT Verification ({user.get_full_name() or user.username})"
+                if role_name == "SIBAT"
+                else f"MAO Approval ({user.get_full_name() or user.username})"
+            )
+            audit_entry = f"\n[{timestamp_str}] {reviewer_title} - {new_status}: {remarks}"
+            batch.notes = (batch.notes + audit_entry).strip()
+            batch.save(update_fields=["notes", "updated_at"])
+
+    # Notify the farmer
+    target_user = None
+    if batch.farmer and getattr(batch.farmer, "user", None):
+        target_user = batch.farmer.user
+    elif batch.created_by:
+        target_user = batch.created_by
+
+    if target_user:
+        count = batch.animals.count()
+        species_name = batch.livestock_type.name if batch.livestock_type else "Livestock"
+        batch_info = f"{batch.batch_code} ({count} heads)"
+
+        if new_status == LivestockInventory.StatusType.VERIFIED:
+            create_notification(
+                user=target_user,
+                notification_type=Notification.NotificationType.SIBAT,
+                priority=Notification.Priority.MEDIUM,
+                title="Cohort Batch Verified by SIBAT",
+                message=f"Your {species_name} batch [{batch_info}] has been verified on-farm by SIBAT.{f' Remarks: {remarks}' if remarks else ''}",
+                link="/livestock-inventory/batches",
+            )
+        elif new_status == LivestockInventory.StatusType.APPROVED:
+            create_notification(
+                user=target_user,
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.MEDIUM,
+                title="Cohort Batch Approved by MAO",
+                message=f"Official certification approved for your {species_name} batch [{batch_info}].",
+                link="/livestock-inventory/batches",
+            )
+        elif new_status == LivestockInventory.StatusType.SUBJECT_TO_REVISION:
+            create_notification(
+                user=target_user,
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.HIGH,
+                title="Revision Required on Cohort Batch",
+                message=f"Your {species_name} batch [{batch_info}] requires revision.{f' Note: {remarks}' if remarks else ''}",
+                link="/livestock-inventory/batches",
+            )
+
+    serializer = LivestockBatchSerializer(batch, context={"request": request})
+    return Response(
+        {
+            "message": f"Batch {batch.batch_code} and all {batch.animals.count()} animals updated to {new_status}.",
+            "batch": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
+

@@ -13,6 +13,7 @@ import {
   Send,
   TableIcon,
   LayoutGrid,
+  QrCode,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import {
 import { NewInspectionDialog } from "./new-inspection-dialog";
 import { InspectionDetailsDialog } from "./inspection-details-dialog";
 import { InspectionsListView } from "./inspections-list-view";
+import { AuctionQrScannerDialog } from "./auction-qr-scanner-dialog";
 
 export default function AuctionInspections() {
   const [inspections, setInspections] = useState<InspectionRecord[]>(INITIAL_INSPECTIONS);
@@ -35,6 +37,7 @@ export default function AuctionInspections() {
 
   // Modal states
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
   const handleCreateSuccess = (newRecord: InspectionRecord) => {
@@ -136,6 +139,16 @@ export default function AuctionInspections() {
 
             <Button
               size="sm"
+              variant="outline"
+              onClick={() => setIsScannerOpen(true)}
+              className="border-purple-300 text-[#7C3AED] hover:bg-purple-50 text-xs font-black rounded-xl shadow-xs gap-1.5 cursor-pointer"
+            >
+              <QrCode className="size-3.5" />
+              Scan Gate Pass
+            </Button>
+
+            <Button
+              size="sm"
               onClick={() => setIsNewDialogOpen(true)}
               className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
@@ -207,6 +220,12 @@ export default function AuctionInspections() {
         inspection={selectedInspection}
         onClose={() => setSelectedInspection(null)}
         statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status) : null}
+      />
+
+      {/* Auction QR Gate Scanner Dialog */}
+      <AuctionQrScannerDialog
+        isOpen={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
       />
     </>
   );

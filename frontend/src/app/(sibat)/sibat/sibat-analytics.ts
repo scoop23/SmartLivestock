@@ -14,12 +14,12 @@ import { getAttachedPhoto } from "@/lib/photo-storage";
 
 export type UnifiedStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
-export type UnifiedSubmissionType = "ALL" | "PRODUCTION" | "INVENTORY";
+export type UnifiedSubmissionType = "ALL" | "PRODUCTION" | "INVENTORY" | "BATCH";
 
 export interface UnifiedSubmissionItem {
-  id: string; // composite key e.g. "prod-1" or "inv-2"
+  id: string; // composite key e.g. "prod-1", "inv-2", "batch-3"
   rawId: number;
-  sourceType: "PRODUCTION" | "INVENTORY";
+  sourceType: "PRODUCTION" | "INVENTORY" | "BATCH";
   submissionTypeLabel: string;
   farmerName: string;
   barangayName: string;
@@ -36,6 +36,13 @@ export interface UnifiedSubmissionItem {
   sex?: string;
   weight?: number | null;
   entryType?: "INDIVIDUAL" | "BATCH";
+  batchCode?: string;
+  batchName?: string;
+  housingPen?: string;
+  feedType?: string;
+  targetWeight?: number;
+  animals?: any[];
+  lastVaccinationDate?: string | null;
   reviewRemarks?: string | null;
   reviewedAt?: string | null;
   reviewedByName?: string | null;
@@ -46,6 +53,9 @@ export interface UnifiedSubmissionItem {
 
 export interface RawInventoryRecord {
   id: number;
+  batch?: number | null;
+  batch_code?: string | null;
+  batch_name?: string | null;
   farmer_name?: string;
   barangay_name?: string;
   barangay_id?: number;
@@ -176,6 +186,9 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     sex: inv.sex,
     weight: inv.weight,
     entryType: inv.entry_type,
+    batchCode: inv.batch_code || undefined,
+    batchName: inv.batch_name || undefined,
+    lastVaccinationDate: inv.last_vaccination_date,
     reviewRemarks: inv.review_remarks,
     reviewedAt: inv.reviewed_at,
     reviewedByName: inv.reviewed_by_name,
@@ -183,7 +196,39 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
   };
 };
 
+export const mapBatchToUnified = (b: any): UnifiedSubmissionItem => {
+  return {
+    id: `batch-${b.id}`,
+    rawId: b.id,
+    sourceType: "BATCH",
+    submissionTypeLabel: `Cohort Batch (${b.total_animals || 0} Heads)`,
+    farmerName: b.farmer_name || "Registered Farmer",
+    barangayName: b.barangay_name || "Padre Garcia",
+    livestockTypeName: b.livestock_type_name || "Livestock",
+    detailsTitle: `${b.batch_name || "Batch"} • ${b.batch_code}`,
+    quantityDisplay: `${b.total_animals || 0} Heads${b.average_weight ? ` (Avg ${b.average_weight} kg)` : ""}`,
+    quantity: b.total_animals || 1,
+    unit: "Heads",
+    recordDate: b.created_at ? b.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
+    status: (b.review_status || "PENDING") as UnifiedStatus,
+    breed: b.animals?.[0]?.breed || "Cohort Roster",
+    tagNumber: b.batch_code,
+    weight: b.average_weight ? Number(b.average_weight) : null,
+    entryType: "BATCH",
+    housingPen: b.housing_pen,
+    feedType: b.feed_type,
+    targetWeight: b.target_weight ? Number(b.target_weight) : undefined,
+    animals: b.animals || [],
+    notes: b.notes,
+    reviewRemarks: b.review_remarks,
+    reviewedAt: b.reviewed_at,
+    reviewedByName: b.reviewed_by_name,
+    createdAt: b.created_at,
+  };
+};
+
 export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationRecord => {
+
   const statusNorm = (dc.status || "PENDING").toUpperCase() as SibatStatus;
   const photo = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number, dc.livestock_type_name, dc.name);
   const resolvedPhotoUrl = dc.photo_url || dc.photo || photo.photoUrl;
@@ -365,6 +410,16 @@ export async function fetchCensusSubmissions(): Promise<CensusSubmissionRecord[]
   return (response.data as ApiCensusSubmission[]).map(mapCensusSubmission);
 }
 
+export async function fetchRawBatches(): Promise<any[]> {
+  try {
+    const response = await api.get("livestock/batches/");
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (err) {
+    console.warn("Failed to fetch batches for SIBAT:", err);
+    return [];
+  }
+}
+
 export async function fetchRawInventory(): Promise<RawInventoryRecord[]> {
   const response = await api.get("livestock/inventory/");
   return response.data as RawInventoryRecord[];
@@ -402,6 +457,14 @@ export function useInventoryFromFarmers() {
   return useQuery({
     queryKey: ["sibat-inventory-records"],
     queryFn: fetchRawInventory,
+    staleTime: 30_000,
+  });
+}
+
+export function useBatchesFromFarmers() {
+  return useQuery({
+    queryKey: ["sibat-batches-records"],
+    queryFn: fetchRawBatches,
     staleTime: 30_000,
   });
 }
@@ -451,20 +514,24 @@ export function useClinicalHealthRecords() {
 export function useSibatSubmissions() {
   const prodQuery = useProductionFromFarmers();
   const invQuery = useInventoryFromFarmers();
+  const batchQuery = useBatchesFromFarmers();
 
-  const isLoading = prodQuery.isLoading || invQuery.isLoading;
-  const isError = prodQuery.isError || invQuery.isError;
+  const isLoading = prodQuery.isLoading || invQuery.isLoading || batchQuery.isLoading;
+  const isError = prodQuery.isError || invQuery.isError || batchQuery.isError;
   const refetch = () => {
     prodQuery.refetch();
     invQuery.refetch();
+    batchQuery.refetch();
   };
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
   const inventoryUnified = (invQuery.data || []).map(mapInventoryToUnified);
+  const batchUnified = (batchQuery.data || []).map(mapBatchToUnified);
 
   const allSubmissions: UnifiedSubmissionItem[] = [
     ...productionUnified,
     ...inventoryUnified,
+    ...batchUnified,
   ].sort((a, b) => new Date(b.createdAt || b.recordDate).getTime() - new Date(a.createdAt || a.recordDate).getTime());
 
   return {
@@ -490,10 +557,12 @@ export function useReviewSubmission() {
       status: "VERIFIED" | "SUBJECT_TO_REVISION" | "REJECTED";
       remarks: string;
     }) => {
-      const endpoint =
-        item.sourceType === "PRODUCTION"
-          ? `production/records/${item.rawId}/review/`
-          : `livestock/inventory/${item.rawId}/review/`;
+      let endpoint = `livestock/inventory/${item.rawId}/review/`;
+      if (item.sourceType === "PRODUCTION") {
+        endpoint = `production/records/${item.rawId}/review/`;
+      } else if (item.sourceType === "BATCH" || item.id.startsWith("batch-")) {
+        endpoint = `livestock/batches/${item.rawId}/review/`;
+      }
 
       const response = await api.post(endpoint, {
         status,
@@ -504,12 +573,43 @@ export function useReviewSubmission() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
+      queryClient.invalidateQueries({ queryKey: ["sibat-batches-records"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-validation-production"] });
     },
   });
 }
+
+// ── Mutation: Edit / Update Animal or Batch Data ──
+
+export function useUpdateSubmissionData() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      isBatch,
+      data,
+    }: {
+      id: number;
+      isBatch: boolean;
+      data: Record<string, any>;
+    }) => {
+      const endpoint = isBatch ? `livestock/batches/${id}/` : `livestock/inventory/${id}/`;
+      const response = await api.patch(endpoint, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
+      queryClient.invalidateQueries({ queryKey: ["sibat-batches-records"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+    },
+  });
+}
+
 
 export function useReviewClinicalHealth() {
   const queryClient = useQueryClient();

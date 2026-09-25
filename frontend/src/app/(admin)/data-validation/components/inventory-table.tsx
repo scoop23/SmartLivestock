@@ -20,6 +20,7 @@ import {
   ChevronRight,
   CheckCircle2,
   Scale,
+  Layers,
 } from "lucide-react";
 import { ValidationInventoryItem, getStatusPill } from "../validation-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
@@ -62,7 +63,15 @@ export function InventoryTable({
     reviewedByName: inv.reviewedBy,
     reviewedAt: inv.reviewedAt,
     createdAt: inv.createdAt,
+    isBatch: inv.isBatch,
+    batchCode: inv.batchCode,
+    batchName: inv.batchName,
+    housingPen: inv.housingPen,
+    feedType: inv.feedType,
+    targetWeight: inv.targetWeight,
+    animals: inv.animals,
   });
+
 
   return (
     <>
@@ -140,19 +149,38 @@ export function InventoryTable({
 
                       <TableCell className="px-8 py-5">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-100 text-amber-800 shrink-0">
-                            <Tag size={20} />
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                              inv.isBatch
+                                ? "bg-teal-100 text-teal-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {inv.isBatch ? <Layers size={20} /> : <Tag size={20} />}
                           </div>
                           <div>
-                            <p className="font-bold text-gray-800 text-sm font-mono leading-snug">
-                              {inv.tagNumber || `TAG-${inv.id}`}
-                            </p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-gray-800 text-sm font-mono leading-snug">
+                                {inv.tagNumber || (inv.isBatch ? `BATCH-${inv.id}` : `TAG-${inv.id}`)}
+                              </p>
+                              {inv.isBatch && (
+                                <Badge className="bg-teal-100 text-teal-900 border-0 text-[8px] font-black uppercase px-1.5 py-0.5">
+                                  Cohort
+                                </Badge>
+                              )}
+                              {inv.batchCode && !inv.isBatch && (
+                                <span className="text-[9px] font-bold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                                  {inv.batchCode}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                              {inv.breed || "Standard Breed"}
+                              {inv.breed || (inv.isBatch ? "Cohort Roster" : "Standard Breed")}
                             </span>
                           </div>
                         </div>
                       </TableCell>
+
 
                       <TableCell className="px-8 py-5">
                         <p className="font-bold text-gray-700 text-sm">{inv.farmerName}</p>
