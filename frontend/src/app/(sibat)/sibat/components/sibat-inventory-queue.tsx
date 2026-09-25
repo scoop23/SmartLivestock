@@ -69,9 +69,9 @@ export default function SibatInventoryQueue({
   entryTypeFilter,
   onEntryTypeFilterChange,
 }: SibatInventoryQueueProps) {
-  // Filter exclusively for INVENTORY sourceType
+  // Filter for INVENTORY (individual animals) and BATCH (cohort herds)
   const invSubmissions = useMemo(() => {
-    return submissions.filter((s) => s.sourceType === "INVENTORY");
+    return submissions.filter((s) => s.sourceType === "INVENTORY" || s.sourceType === "BATCH");
   }, [submissions]);
 
   // Counts by status
@@ -306,6 +306,12 @@ export default function SibatInventoryQueue({
                             {item.submissionTypeLabel}
                           </Badge>
 
+                          {item.batchCode && isIndividual && (
+                            <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
+                              Cohort: {item.batchCode}
+                            </Badge>
+                          )}
+
                           <SibatStatusBadge status={item.status} />
 
                           <span className="text-[11px] font-bold text-slate-400">
@@ -318,7 +324,7 @@ export default function SibatInventoryQueue({
                             {isIndividual ? (
                               <>Ear Tag: #{item.tagNumber || "Unassigned"}</>
                             ) : (
-                              <>Batch: {item.quantity} Heads</>
+                              <>Cohort: {item.tagNumber || item.batchCode || `Batch #${item.rawId}`}</>
                             )}
                           </h4>
                           <span className="text-xs text-slate-500 font-bold">
@@ -343,14 +349,19 @@ export default function SibatInventoryQueue({
                           {item.weight && (
                             <span className="flex items-center gap-1 text-slate-700 font-semibold">
                               <Scale className="size-3 text-slate-400" />
-                              {item.weight} kg
+                              {item.weight} kg{isIndividual ? "" : " (Avg)"}
+                            </span>
+                          )}
+                          {item.housingPen && (
+                            <span className="text-slate-600 font-medium">
+                              Pen: <strong>{item.housingPen}</strong>
                             </span>
                           )}
                         </div>
 
                         {item.reviewRemarks && (
                           <div className="text-[11px] bg-amber-50 text-amber-950 p-2.5 rounded-2xl border border-amber-200/80 mt-1">
-                            <strong className="font-bold text-amber-900">✨ Your Tagging Note: </strong>
+                            <strong className="font-bold text-amber-900">✨ Your Inspection Note: </strong>
                             {item.reviewRemarks}
                           </div>
                         )}
@@ -370,7 +381,7 @@ export default function SibatInventoryQueue({
                         {isPending ? (
                           <>
                             <ClipboardCheck className="size-4 text-amber-300" />
-                            Verify Ear Tag & Animal
+                            {isIndividual ? "Verify Tag & Animal" : "Verify Cohort Batch"}
                           </>
                         ) : (
                           <>

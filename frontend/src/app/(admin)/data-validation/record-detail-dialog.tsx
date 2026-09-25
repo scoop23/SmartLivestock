@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/axios";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getIncidentTypeBadge } from "./validation-analytics";
 import { CensusItemEntry } from "@/app/(sibat)/sibat/sibat-analytics";
 import {
@@ -43,6 +46,8 @@ import {
   Check,
   Building2,
   FileCheck,
+  Pencil,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -83,7 +88,9 @@ export type DetailRecordData =
     }
   | {
       kind: "inventory";
-      id: number;
+      id: string | number;
+      rawId?: number;
+      isBatch?: boolean;
       farmerName: string;
       barangayName: string;
       livestockType: string;
@@ -99,9 +106,16 @@ export type DetailRecordData =
       reviewedByName?: string | null;
       reviewedAt?: string | null;
       createdAt: string;
+      batchCode?: string;
+      batchName?: string;
+      housingPen?: string;
+      feedType?: string;
+      targetWeight?: number;
+      animals?: any[];
     }
   | {
       kind: "incident";
+
       id: string | number;
       type: "disease" | "slaughter" | "mortality" | "birth" | "sale";
       farmerName: string;
@@ -150,9 +164,34 @@ export function RecordDetailDialog({
   onOpenReview,
   onConfirmAction,
 }: RecordDetailDialogProps) {
+  const queryClient = useQueryClient();
   const [censusSearch, setCensusSearch] = useState("");
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Edit state for inventory / batch
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTagNumber, setEditTagNumber] = useState("");
+  const [editBreed, setEditBreed] = useState("");
+  const [editSex, setEditSex] = useState("");
+  const [editWeight, setEditWeight] = useState("");
+  const [editHousingPen, setEditHousingPen] = useState("");
+  const [editFeedType, setEditFeedType] = useState("");
+  const [editTargetWeight, setEditTargetWeight] = useState("");
+  const [isSavingEdits, setIsSavingEdits] = useState(false);
+
+  useEffect(() => {
+    if (record && record.kind === "inventory") {
+      setEditTagNumber(record.tagNumber || "");
+      setEditBreed(record.breed || "");
+      setEditSex(record.sex || "Female");
+      setEditWeight(record.weight !== null && record.weight !== undefined ? String(record.weight) : "");
+      setEditHousingPen(record.housingPen || "");
+      setEditFeedType(record.feedType || "");
+      setEditTargetWeight(record.targetWeight ? String(record.targetWeight) : "");
+      setIsEditing(false);
+    }
+  }, [record]);
 
   if (!record) return null;
 
@@ -162,11 +201,45 @@ export function RecordDetailDialog({
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
 
+  const handleSaveEdits = async () => {
+    if (!record || record.kind !== "inventory") return;
+    setIsSavingEdits(true);
+    try {
+      const isBatch = record.isBatch || String(record.id).startsWith("batch-");
+      const cleanId = String(record.id).replace("batch-", "");
+      const payload: Record<string, any> = {};
+      if (isBatch) {
+        if (editHousingPen !== undefined) payload.housing_pen = editHousingPen;
+        if (editFeedType !== undefined) payload.feed_type = editFeedType;
+        if (editTargetWeight) payload.target_weight = parseFloat(editTargetWeight);
+      } else {
+        if (editTagNumber) payload.tag_number = editTagNumber;
+        if (editBreed) payload.breed = editBreed;
+        if (editSex) payload.sex = editSex;
+        if (editWeight) payload.weight = parseFloat(editWeight);
+      }
+      const endpoint = isBatch ? `livestock/batches/${cleanId}/` : `livestock/inventory/${cleanId}/`;
+      await api.patch(endpoint, payload);
+      toast.success("Record details updated successfully!");
+      setIsEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+    } catch (err: any) {
+      toast.error("Failed to update record", {
+        description: err?.response?.data?.error || "Please check your inputs.",
+      });
+    } finally {
+      setIsSavingEdits(false);
+    }
+  };
+
   const handleCopyId = () => {
     const idStr = String(record.id);
     navigator.clipboard.writeText(idStr);
     toast.success(`Record ID ${idStr} copied to clipboard`);
   };
+
 
   const handlePrint = () => {
     window.print();
@@ -552,45 +625,219 @@ export function RecordDetailDialog({
           {/* INVENTORY SPECIFICS */}
           {record.kind === "inventory" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    Species & Breed
+              {/* Header Ribbon with Edit Action */}
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    {record.isBatch ? "Cohort Batch Information" : "Animal Registry Specifications"}
                   </span>
-                  <p className="text-xs font-black text-slate-900 mt-1 truncate">{record.breed}</p>
-                  <p className="text-[10px] text-slate-500">{record.livestockType}</p>
+                  {record.isBatch ? (
+                    <Badge className="bg-teal-100 text-teal-900 border-0 text-[10px] font-bold">
+                      Cohort Batch ({record.quantity} heads)
+                    </Badge>
+                  ) : record.batchCode ? (
+                    <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
+                      Cohort: {record.batchCode}
+                    </Badge>
+                  ) : null}
                 </div>
 
-                <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    Sex & Head Count
-                  </span>
-                  <p className="text-xs font-black text-slate-900 mt-1">
-                    {record.sex} • {record.quantity} Head{record.quantity > 1 ? "s" : ""}
-                  </p>
-                  <p className="text-[10px] text-slate-500">Live Weight: {record.weight ? `${record.weight} kg` : "N/A"}</p>
-                </div>
-
-                <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    Ear Tag / RFID
-                  </span>
-                  <p className="text-xs font-mono font-black text-emerald-800 mt-1">
-                    {record.tagNumber || "No RFID Tag"}
-                  </p>
-                  <p className="text-[10px] text-slate-500">Entry: {record.entryType}</p>
-                </div>
-
-                <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    Last Vaccination
-                  </span>
-                  <p className="text-xs font-black text-slate-900 mt-1">
-                    {record.lastVaccinationDate || "Not Recorded"}
-                  </p>
-                  <p className="text-[10px] text-slate-500">Official Vet Record</p>
-                </div>
+                {(isPending || isVerified) && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="h-6 px-2 text-[11px] font-bold text-slate-700 hover:text-slate-900 rounded-lg gap-1 cursor-pointer"
+                  >
+                    <Pencil className="size-3 text-emerald-600" />
+                    <span>{isEditing ? "Cancel Edit" : "Edit Record"}</span>
+                  </Button>
+                )}
               </div>
+
+              {/* Editing Form */}
+              {isEditing ? (
+                <div className="bg-white p-4 rounded-2xl border-2 border-emerald-300 shadow-sm space-y-3">
+                  <p className="text-xs font-black uppercase text-emerald-800 tracking-wider">
+                    {record.isBatch ? "Modify Cohort Parameters" : "Correct Animal Identification & Biometrics"}
+                  </p>
+
+                  {record.isBatch ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs font-bold text-slate-600">Housing Pen</Label>
+                        <Input
+                          value={editHousingPen}
+                          onChange={(e) => setEditHousingPen(e.target.value)}
+                          placeholder="e.g. Pen 3 Fattening"
+                          className="h-8 text-xs rounded-xl mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-600">Feed Formulation</Label>
+                        <Input
+                          value={editFeedType}
+                          onChange={(e) => setEditFeedType(e.target.value)}
+                          placeholder="e.g. Finisher Pellets"
+                          className="h-8 text-xs rounded-xl mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-600">Target Weight (kg)</Label>
+                        <Input
+                          type="number"
+                          step="0.5"
+                          value={editTargetWeight}
+                          onChange={(e) => setEditTargetWeight(e.target.value)}
+                          placeholder="90"
+                          className="h-8 text-xs rounded-xl mt-1"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <Label className="text-xs font-bold text-slate-600">Ear Tag #</Label>
+                        <Input
+                          value={editTagNumber}
+                          onChange={(e) => setEditTagNumber(e.target.value)}
+                          placeholder="TAG-01-01"
+                          className="h-8 text-xs rounded-xl mt-1 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-600">Breed</Label>
+                        <Input
+                          value={editBreed}
+                          onChange={(e) => setEditBreed(e.target.value)}
+                          placeholder="Large White"
+                          className="h-8 text-xs rounded-xl mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-600">Sex</Label>
+                        <select
+                          value={editSex}
+                          onChange={(e) => setEditSex(e.target.value)}
+                          className="h-8 w-full text-xs rounded-xl border border-slate-200 bg-white px-2.5 mt-1 font-medium"
+                        >
+                          <option value="Female">Female</option>
+                          <option value="Male">Male</option>
+                          <option value="Castrated">Castrated</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-600">Weight (kg)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={editWeight}
+                          onChange={(e) => setEditWeight(e.target.value)}
+                          placeholder="68.5"
+                          className="h-8 text-xs rounded-xl mt-1"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsEditing(false)}
+                      className="text-xs rounded-xl h-8"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSaveEdits}
+                      disabled={isSavingEdits}
+                      className="text-xs rounded-xl h-8 bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-1"
+                    >
+                      <Save className="size-3.5" />
+                      {isSavingEdits ? "Saving..." : "Save Updates"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                /* Read-Only Cards */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                        Species & Breed
+                      </span>
+                      <p className="text-xs font-black text-slate-900 mt-1 truncate">{record.breed}</p>
+                      <p className="text-[10px] text-slate-500">{record.livestockType}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                        Sex & Head Count
+                      </span>
+                      <p className="text-xs font-black text-slate-900 mt-1">
+                        {record.sex} • {record.quantity} Head{record.quantity > 1 ? "s" : ""}
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        Live Weight: {record.weight ? `${record.weight} kg${record.isBatch ? " (Avg)" : ""}` : "N/A"}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                        {record.isBatch ? "Cohort Code" : "Ear Tag / RFID"}
+                      </span>
+                      <p className="text-xs font-mono font-black text-emerald-800 mt-1">
+                        {record.tagNumber || "No Tag Code"}
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {record.isBatch ? "Pen Cohort" : `Entry: ${record.entryType}`}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                        {record.isBatch ? "Housing Pen" : "Last Vaccination"}
+                      </span>
+                      <p className="text-xs font-black text-slate-900 mt-1">
+                        {record.isBatch
+                          ? record.housingPen || "Standard Pen"
+                          : record.lastVaccinationDate || "Not Recorded"}
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {record.isBatch
+                          ? `Feed: ${record.feedType || "Rations"}`
+                          : "Official Vet Record"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* If batch, show linked animal tags */}
+                  {record.isBatch && record.animals && record.animals.length > 0 && (
+                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                        Linked Individual Animals in this Cohort ({record.animals.length} heads):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
+                        {record.animals.map((a: any) => (
+                          <Badge
+                            key={a.id}
+                            variant="secondary"
+                            className="bg-white border border-slate-200 text-[10px] font-mono font-bold"
+                          >
+                            {a.tag_number || `#${a.id}`} • {a.weight ? `${a.weight}kg` : a.sex}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
 
               <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
                 <div>

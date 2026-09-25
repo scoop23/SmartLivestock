@@ -67,6 +67,8 @@ export interface LivestockBatchItem {
   targetWeight: number | null;
   targetHarvestDate: string | null;
   status: "ACTIVE" | "HARVESTED" | "SOLD" | "ARCHIVED";
+  reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
+  reviewRemarks?: string;
   notes: string;
   totalAnimals: number;
   averageWeight: number | null;
@@ -463,6 +465,8 @@ export async function fetchLivestockBatches(): Promise<LivestockBatchItem[]> {
     targetWeight: b.target_weight ? Number(b.target_weight) : null,
     targetHarvestDate: b.target_harvest_date,
     status: b.status,
+    reviewStatus: b.review_status,
+    reviewRemarks: b.review_remarks,
     notes: b.notes,
     totalAnimals: b.total_animals,
     averageWeight: b.average_weight ? Number(b.average_weight) : null,

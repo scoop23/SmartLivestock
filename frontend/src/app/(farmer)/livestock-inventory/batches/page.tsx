@@ -29,6 +29,7 @@ import {
   Tag,
   Clock,
   HelpCircle,
+  Printer,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,8 @@ export interface EnrichedBatch {
   acquiredDate: string;
   housingPen: string;
   status: string;
+  reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
+  reviewRemarks?: string;
   feedType: string;
   individuals: BatchIndividual[];
 }
@@ -116,11 +119,11 @@ function generateInitialIndividuals(
   for (let i = 1; i <= defaultCount; i++) {
     const pad = i.toString().padStart(2, "0");
     const tag = `${batchCode.replace("BATCH-", "")}-${pad}`;
-    
+
     // Slight natural variation in weight (+/- 8%)
     const variation = (Math.sin(i * 1.7) * 0.08) * baseWeight;
     const finalWeight = Math.round((baseWeight + variation) * 10) / 10;
-    
+
     const sex: "Male" | "Female" | "Castrated" = isSwine
       ? (i % 2 === 0 ? "Female" : i % 3 === 0 ? "Castrated" : "Male")
       : (i % 2 === 0 ? "Female" : "Male");
@@ -159,6 +162,7 @@ export default function BatchOverviewPage() {
   const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
   const [isBatchProductionOpen, setIsBatchProductionOpen] = useState(false);
+  const [isQrCardOpen, setIsQrCardOpen] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
   const [newWeightInput, setNewWeightInput] = useState<string>("");
 
@@ -213,35 +217,35 @@ export default function BatchOverviewPage() {
       const indList: BatchIndividual[] =
         b.animals && b.animals.length > 0
           ? b.animals.map((a, idx) => ({
-              id: String(a.id),
-              tagNumber: a.tagNumber || `${b.batchCode}-${(idx + 1).toString().padStart(2, "0")}`,
-              name: a.tagNumber ? `Animal ${a.tagNumber}` : `Animal #${idx + 1}`,
-              sex:
-                a.sex?.toUpperCase() === "MALE"
-                  ? ("Male" as const)
-                  : a.sex?.toUpperCase() === "CASTRATED"
+            id: String(a.id),
+            tagNumber: a.tagNumber || `${b.batchCode}-${(idx + 1).toString().padStart(2, "0")}`,
+            name: a.tagNumber ? `Animal ${a.tagNumber}` : `Animal #${idx + 1}`,
+            sex:
+              a.sex?.toUpperCase() === "MALE"
+                ? ("Male" as const)
+                : a.sex?.toUpperCase() === "CASTRATED"
                   ? ("Castrated" as const)
                   : ("Female" as const),
-              ageMonths: 4,
-              weightKg: a.weight ? Number(a.weight) : 65,
-              adgKgDay: 0.72,
-              healthStatus: a.lastVaccinationDate ? ("Vaccinated" as const) : ("Healthy" as const),
-              lastWeighedDate: a.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
-            }))
+            ageMonths: 4,
+            weightKg: a.weight ? Number(a.weight) : 65,
+            adgKgDay: 0.72,
+            healthStatus: a.lastVaccinationDate ? ("Vaccinated" as const) : ("Healthy" as const),
+            lastWeighedDate: a.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
+          }))
           : customIndividuals[String(b.id)] ||
-            generateInitialIndividuals(
-              String(b.id),
-              b.batchCode,
-              b.livestockTypeName,
-              b.totalAnimals || 1,
-              b.averageWeight || 65
-            );
+          generateInitialIndividuals(
+            String(b.id),
+            b.batchCode,
+            b.livestockTypeName,
+            b.totalAnimals || 1,
+            b.averageWeight || 65
+          );
 
       const computedAvgWeight =
         indList.length > 0
           ? Math.round(
-              (indList.reduce((acc, curr) => acc + curr.weightKg, 0) / indList.length) * 10
-            ) / 10
+            (indList.reduce((acc, curr) => acc + curr.weightKg, 0) / indList.length) * 10
+          ) / 10
           : b.averageWeight || 65;
 
       return {
@@ -256,7 +260,9 @@ export default function BatchOverviewPage() {
         averageWeightKg: computedAvgWeight,
         acquiredDate: b.createdAt ? b.createdAt.split("T")[0] : "2026-06-01",
         housingPen: b.housingPen || "Standard Pen",
-        status: b.status,
+        status: b.status || "ACTIVE",
+        reviewStatus: b.reviewStatus || "PENDING",
+        reviewRemarks: b.reviewRemarks,
         feedType: b.feedType || "Farm Rations",
         individuals: indList,
       };
@@ -283,8 +289,8 @@ export default function BatchOverviewPage() {
       const avgWeight =
         generated.length > 0
           ? Math.round(
-              (generated.reduce((acc, curr) => acc + curr.weightKg, 0) / generated.length) * 10
-            ) / 10
+            (generated.reduce((acc, curr) => acc + curr.weightKg, 0) / generated.length) * 10
+          ) / 10
           : baseWeight;
 
       return {
@@ -299,7 +305,9 @@ export default function BatchOverviewPage() {
         averageWeightKg: avgWeight,
         acquiredDate: item.createdAt ? item.createdAt.split("T")[0] : "2026-06-01",
         housingPen: `Enclosure Pen ${index + 1}`,
-        status: item.status,
+        status: "ACTIVE",
+        reviewStatus: (item.status as any) || "PENDING",
+        reviewRemarks: item.reviewRemarks || undefined,
         feedType: "Local LGU Agri-Blend Formula",
         individuals: generated,
       };
@@ -324,7 +332,8 @@ export default function BatchOverviewPage() {
         averageWeightKg: 68.4,
         acquiredDate: "2026-06-15",
         housingPen: "Pen 3 - Fattening Barn",
-        status: "APPROVED",
+        status: "ACTIVE",
+        reviewStatus: "APPROVED",
         feedType: "Commercial Finisher Pellets",
         individuals: customIndividuals["demo-batch-1"] || generateInitialIndividuals(
           "demo-batch-1",
@@ -346,7 +355,8 @@ export default function BatchOverviewPage() {
         averageWeightKg: 1.95,
         acquiredDate: "2026-07-01",
         housingPen: "Coop B - Free Range Enclosure",
-        status: "APPROVED",
+        status: "ACTIVE",
+        reviewStatus: "VERIFIED",
         feedType: "Layer Mash 18% Protein",
         individuals: customIndividuals["demo-batch-2"] || generateInitialIndividuals(
           "demo-batch-2",
@@ -368,7 +378,8 @@ export default function BatchOverviewPage() {
         averageWeightKg: 34.2,
         acquiredDate: "2026-05-10",
         housingPen: "Paddock 2 - Elevated Slatted Pen",
-        status: "APPROVED",
+        status: "ACTIVE",
+        reviewStatus: "PENDING",
         feedType: "Napier Grass & Goat Concentrate",
         individuals: customIndividuals["demo-batch-3"] || generateInitialIndividuals(
           "demo-batch-3",
@@ -408,7 +419,7 @@ export default function BatchOverviewPage() {
     const totalBiomass = Math.round(
       currentBatch.individuals.reduce((acc, curr) => acc + curr.weightKg, 0) * 10
     ) / 10;
-    
+
     // Standard dressing percentage by species
     let dressingPct = 75; // Swine ~75%
     if (currentBatch.species.toLowerCase().includes("poultry")) dressingPct = 70;
@@ -578,11 +589,10 @@ export default function BatchOverviewPage() {
               <Card
                 key={batch.id}
                 onClick={() => setSelectedBatchId(batch.id)}
-                className={`cursor-pointer transition-all duration-200 rounded-2xl border-2 overflow-hidden ${
-                  isSelected
+                className={`cursor-pointer transition-all duration-200 rounded-2xl border-2 overflow-hidden ${isSelected
                     ? "border-emerald-600 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20"
                     : "border-slate-200 hover:border-slate-300 hover:shadow-xs bg-white"
-                }`}
+                  }`}
               >
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between">
@@ -635,7 +645,7 @@ export default function BatchOverviewPage() {
             {/* Banner Header */}
             <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-6 rounded-3xl shadow-lg border border-emerald-800/40 relative overflow-hidden">
               <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-200 text-xs font-bold uppercase tracking-wider backdrop-blur-xs border border-white/10">
                     <Beef className="size-3.5" />
                     <span>Cohort ID: {currentBatch.batchCode}</span>
@@ -646,22 +656,48 @@ export default function BatchOverviewPage() {
                   <p className="text-xs text-emerald-100/80 font-medium">
                     Housing: <strong>{currentBatch.housingPen}</strong> • Registered: {currentBatch.acquiredDate} • Diet: {currentBatch.feedType}
                   </p>
+                  {currentBatch.reviewRemarks && (
+                    <div className="inline-block mt-1">
+                      <p className="text-[11px] text-emerald-200/90 italic bg-black/25 px-2.5 py-1 rounded-lg border border-white/10 max-w-xl">
+                        Official LGU Note: &ldquo;{currentBatch.reviewRemarks}&rdquo;
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Badge className="bg-emerald-400 text-emerald-950 font-black px-3 py-1 text-xs">
-                    {currentBatch.status}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Herd Lifecycle Status (Active in pen vs harvested/sold) */}
+                  <Badge className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-sm">
+                    <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Herd: {currentBatch.status || "ACTIVE"}
                   </Badge>
+
+                  {/* LGU Municipal Regulatory Review Status */}
+                  {currentBatch.reviewStatus === "APPROVED" ? (
+                    <Badge className="bg-emerald-400 text-emerald-950 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
+                      <ShieldCheck className="size-3.5" /> MAO APPROVED
+                    </Badge>
+                  ) : currentBatch.reviewStatus === "VERIFIED" ? (
+                    <Badge className="bg-blue-400 text-blue-950 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
+                      <CheckCircle2 className="size-3.5" /> SIBAT VERIFIED
+                    </Badge>
+                  ) : currentBatch.reviewStatus === "SUBJECT_TO_REVISION" ? (
+                    <Badge className="bg-amber-400 text-amber-950 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
+                      <AlertTriangle className="size-3.5" /> REVISION NEEDED
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-100/20 text-amber-200 border border-amber-300/40 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
+                      <Clock className="size-3.5" /> PENDING VERIFICATION
+                    </Badge>
+                  )}
+
+                  {/* Printable Biosecurity QR Pass Button */}
                   <Button
-                    onClick={() => {
-                      toast.info("Generating QR Biosecurity Code for Batch", {
-                        description: `Batch Code ${currentBatch.batchCode} is ready for Padre Garcia LGU scanner.`
-                      });
-                    }}
+                    onClick={() => setIsQrCardOpen(true)}
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 text-xs font-bold rounded-xl gap-1.5"
+                    className="border-white/30 text-white hover:bg-white/10 text-xs font-bold rounded-xl gap-1.5 cursor-pointer shadow-sm"
                   >
-                    <QrCode className="size-3.5" /> Batch QR Passport
+                    <QrCode className="size-3.5" /> Batch QR Card
                   </Button>
                 </div>
               </div>
@@ -745,7 +781,7 @@ export default function BatchOverviewPage() {
                   <div className="space-y-1 flex-1">
                     <h4 className="text-sm font-black text-emerald-950 flex items-center gap-2">
                       <span>How Batch vs. Individual Tracking Powers Production & Yield</span>
-                      <Badge className="bg-emerald-200 text-emerald-900 text-[9px] font-black">Capstone Standard</Badge>
+                      {/* <Badge className="bg-emerald-200 text-emerald-900 text-[9px] font-black">Capstone Standard</Badge> */}
                     </h4>
                     <p className="text-xs text-slate-700 leading-relaxed font-medium">
                       In livestock science, batches represent commercial cohorts (e.g. 10 fatteners or 30 layers), but each animal has distinct biological gain. By tracking individual weight and health below:
@@ -881,13 +917,12 @@ export default function BatchOverviewPage() {
                               <TableCell>
                                 <Badge
                                   variant="secondary"
-                                  className={`text-[10px] font-black uppercase ${
-                                    animal.sex === "Female"
+                                  className={`text-[10px] font-black uppercase ${animal.sex === "Female"
                                       ? "bg-rose-50 text-rose-700 border-rose-200"
                                       : animal.sex === "Male"
-                                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
+                                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                    }`}
                                 >
                                   {animal.sex}
                                 </Badge>
@@ -901,9 +936,8 @@ export default function BatchOverviewPage() {
                                 <div className="flex items-center gap-1.5">
                                   <span className="font-bold text-xs text-slate-900">{animal.weightKg} kg</span>
                                   <span
-                                    className={`text-[10px] font-bold ${
-                                      isAboveAvg ? "text-emerald-600" : "text-amber-600"
-                                    }`}
+                                    className={`text-[10px] font-bold ${isAboveAvg ? "text-emerald-600" : "text-amber-600"
+                                      }`}
                                   >
                                     ({isAboveAvg ? "+" : ""}{(animal.weightKg - currentBatch.averageWeightKg).toFixed(1)})
                                   </span>
@@ -916,13 +950,12 @@ export default function BatchOverviewPage() {
 
                               <TableCell>
                                 <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    animal.healthStatus === "Healthy"
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${animal.healthStatus === "Healthy"
                                       ? "bg-emerald-100 text-emerald-800"
                                       : animal.healthStatus === "Vaccinated"
-                                      ? "bg-sky-100 text-sky-800"
-                                      : "bg-amber-100 text-amber-800"
-                                  }`}
+                                        ? "bg-sky-100 text-sky-800"
+                                        : "bg-amber-100 text-amber-800"
+                                    }`}
                                 >
                                   <span className="size-1.5 rounded-full bg-current" />
                                   {animal.healthStatus}
@@ -947,7 +980,7 @@ export default function BatchOverviewPage() {
                                       variant="ghost"
                                       className="h-7 px-2 text-[11px] rounded-lg font-bold text-slate-700 hover:bg-slate-100"
                                     >
-                                      <Eye className="size-3 mr-1 text-slate-500" /> Passport
+                                      <Eye className="size-3 mr-1 text-slate-500" /> Details
                                     </Button>
                                   </Link>
                                 </div>
@@ -1221,6 +1254,147 @@ export default function BatchOverviewPage() {
               className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
             >
               Submit Batch Yield
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DIALOG: BATCH QR BIOSECURITY CARD ───────────────────────────── */}
+      <Dialog open={isQrCardOpen} onOpenChange={setIsQrCardOpen}>
+        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+          <DialogHeader className="text-center pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <div className="size-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                PG
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                  Municipality of Padre Garcia • Batangas
+                </p>
+                <p className="text-xs font-black text-slate-900">
+                  Office of the Municipal Agriculturist (MAO)
+                </p>
+              </div>
+            </div>
+            <DialogTitle className="text-base font-black text-emerald-950 pt-1">
+              Cohort Biosecurity &amp; Movement Clearance Pass
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Official QR clearance for auction pen entry, checkpoints, and bulk livestock transport.
+            </DialogDescription>
+          </DialogHeader>
+
+          {currentBatch && (
+            <div className="space-y-4 py-2">
+              {/* QR Code Card Graphic */}
+              <div className="flex flex-col items-center justify-center p-5 bg-gradient-to-b from-slate-50 to-emerald-50/40 rounded-2xl border-2 border-dashed border-emerald-300/80 text-center relative">
+                {/* SVG QR Code Simulation */}
+                <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200 mb-3">
+                  <svg className="size-40" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Corners */}
+                    <rect x="10" y="10" width="30" height="30" rx="4" fill="#064E3B" />
+                    <rect x="16" y="16" width="18" height="18" rx="2" fill="white" />
+                    <rect x="20" y="20" width="10" height="10" rx="1" fill="#064E3B" />
+
+                    <rect x="80" y="10" width="30" height="30" rx="4" fill="#064E3B" />
+                    <rect x="86" y="16" width="18" height="18" rx="2" fill="white" />
+                    <rect x="90" y="20" width="10" height="10" rx="1" fill="#064E3B" />
+
+                    <rect x="10" y="80" width="30" height="30" rx="4" fill="#064E3B" />
+                    <rect x="16" y="86" width="18" height="18" rx="2" fill="white" />
+                    <rect x="20" y="90" width="10" height="10" rx="1" fill="#064E3B" />
+
+                    {/* QR Matrix Bits */}
+                    <rect x="48" y="12" width="6" height="6" rx="1" fill="#064E3B" />
+                    <rect x="58" y="12" width="6" height="6" rx="1" fill="#064E3B" />
+                    <rect x="68" y="18" width="6" height="6" rx="1" fill="#064E3B" />
+                    <rect x="48" y="26" width="12" height="6" rx="1" fill="#064E3B" />
+
+                    <rect x="12" y="48" width="6" height="6" rx="1" fill="#064E3B" />
+                    <rect x="24" y="48" width="6" height="12" rx="1" fill="#064E3B" />
+                    <rect x="12" y="60" width="18" height="6" rx="1" fill="#064E3B" />
+
+                    {/* Center Core */}
+                    <rect x="44" y="44" width="32" height="32" rx="6" fill="#10B981" />
+                    <circle cx="60" cy="60" r="10" fill="white" />
+                    <circle cx="60" cy="60" r="5" fill="#064E3B" />
+
+                    <rect x="82" y="48" width="14" height="6" rx="1" fill="#064E3B" />
+                    <rect x="90" y="60" width="18" height="6" rx="1" fill="#064E3B" />
+                    <rect x="82" y="70" width="6" height="14" rx="1" fill="#064E3B" />
+
+                    <rect x="48" y="84" width="8" height="8" rx="1" fill="#064E3B" />
+                    <rect x="60" y="92" width="14" height="6" rx="1" fill="#064E3B" />
+                    <rect x="48" y="102" width="20" height="6" rx="1" fill="#064E3B" />
+                    <rect x="84" y="90" width="12" height="6" rx="1" fill="#064E3B" />
+                    <rect x="98" y="98" width="10" height="10" rx="1" fill="#064E3B" />
+                  </svg>
+                </div>
+
+                <p className="font-mono font-black text-sm text-slate-900 tracking-wider">
+                  {currentBatch.batchCode}
+                </p>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  Scan via Padre Garcia Livestock Checkpoint Mobile Terminal
+                </p>
+              </div>
+
+              {/* Clearance Details Table */}
+              <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-2 text-xs">
+                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Species &amp; Breed:</span>
+                  <span className="font-bold text-slate-900">{currentBatch.species} • {currentBatch.breed}</span>
+                </div>
+                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Registered Heads:</span>
+                  <span className="font-bold text-emerald-700">{currentBatch.individuals.length} Heads (100% Active)</span>
+                </div>
+                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Housing Enclosure:</span>
+                  <span className="font-bold text-slate-900">{currentBatch.housingPen}</span>
+                </div>
+                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Municipal Review:</span>
+                  <span className="font-bold">
+                    {currentBatch.reviewStatus === "APPROVED" ? (
+                      <span className="text-emerald-700">✓ MAO Final Approved</span>
+                    ) : currentBatch.reviewStatus === "VERIFIED" ? (
+                      <span className="text-blue-700">✓ SIBAT Verified</span>
+                    ) : (
+                      <span className="text-amber-700">⏳ Verification Pending</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Biosecurity Clearance:</span>
+                  <span className="text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    Ord. 2026-03 Compliant
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsQrCardOpen(false)}
+              className="rounded-xl font-bold text-xs flex-1"
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                toast.success("Biosecurity Pass ready for print / PDF export.", {
+                  description: `Movement Certificate for Batch ${currentBatch?.batchCode} generated.`
+                });
+                setIsQrCardOpen(false);
+              }}
+              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Printer className="size-3.5" /> Print Biosecurity Pass
             </Button>
           </DialogFooter>
         </DialogContent>

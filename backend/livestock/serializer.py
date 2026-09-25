@@ -140,6 +140,10 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         max_digits=6, decimal_places=2, read_only=True
     )
     animals = serializers.SerializerMethodField(read_only=True)
+    review_status = serializers.SerializerMethodField(read_only=True)
+    review_remarks = serializers.SerializerMethodField(read_only=True)
+    reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+    reviewed_at = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LivestockBatch
@@ -162,6 +166,10 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             "total_animals",
             "average_weight",
             "animals",
+            "review_status",
+            "review_remarks",
+            "reviewed_by_name",
+            "reviewed_at",
             "created_at",
             "updated_at",
         ]
@@ -177,6 +185,46 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     def get_animals(self, obj):
         animals = obj.animals.all().order_by("id")
         return LivestockInventorySerializer(animals, many=True, context=self.context).data
+
+    def get_review_status(self, obj):
+        statuses = list(obj.animals.values_list("status", flat=True))
+        if not statuses:
+            return "PENDING"
+        if all(s == "APPROVED" for s in statuses):
+            return "APPROVED"
+        if any(s == "SUBJECT_TO_REVISION" for s in statuses):
+            return "SUBJECT_TO_REVISION"
+        if any(s == "VERIFIED" for s in statuses):
+            return "VERIFIED"
+        return "PENDING"
+
+    def get_review_remarks(self, obj):
+        latest = (
+            obj.animals.filter(review_remarks__isnull=False)
+            .exclude(review_remarks="")
+            .order_by("-reviewed_at")
+            .first()
+        )
+        return latest.review_remarks if latest else None
+
+    def get_reviewed_by_name(self, obj):
+        latest = (
+            obj.animals.filter(reviewed_by__isnull=False)
+            .order_by("-reviewed_at")
+            .first()
+        )
+        if latest and latest.reviewed_by:
+            full_name = latest.reviewed_by.get_full_name().strip()
+            return full_name if full_name else latest.reviewed_by.username
+        return None
+
+    def get_reviewed_at(self, obj):
+        latest = (
+            obj.animals.filter(reviewed_at__isnull=False)
+            .order_by("-reviewed_at")
+            .first()
+        )
+        return latest.reviewed_at if latest else None
 
 
 class CensusSubmissionItemSerializer(serializers.ModelSerializer):

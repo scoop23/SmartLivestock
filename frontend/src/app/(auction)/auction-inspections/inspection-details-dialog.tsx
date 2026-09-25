@@ -1,6 +1,6 @@
 "use client";
 
-import { FileDown } from "lucide-react";
+import { FileDown, QrCode, ShieldCheck, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -101,6 +101,70 @@ export function InspectionDetailsDialog({
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Official Verification QR Block & Biosecurity Seal */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            {/* SVG QR Code */}
+            <div className="p-2 bg-white rounded-xl shadow-xs border border-slate-200 shrink-0">
+              <svg className="size-24" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Corners */}
+                <rect x="10" y="10" width="30" height="30" rx="4" fill="#6D28D9" />
+                <rect x="16" y="16" width="18" height="18" rx="2" fill="white" />
+                <rect x="20" y="20" width="10" height="10" rx="1" fill="#6D28D9" />
+
+                <rect x="80" y="10" width="30" height="30" rx="4" fill="#6D28D9" />
+                <rect x="86" y="16" width="18" height="18" rx="2" fill="white" />
+                <rect x="90" y="20" width="10" height="10" rx="1" fill="#6D28D9" />
+
+                <rect x="10" y="80" width="30" height="30" rx="4" fill="#6D28D9" />
+                <rect x="16" y="86" width="18" height="18" rx="2" fill="white" />
+                <rect x="20" y="90" width="10" height="10" rx="1" fill="#6D28D9" />
+
+                {/* QR Matrix Bits */}
+                <rect x="48" y="12" width="6" height="6" rx="1" fill="#6D28D9" />
+                <rect x="58" y="12" width="6" height="6" rx="1" fill="#6D28D9" />
+                <rect x="68" y="18" width="6" height="6" rx="1" fill="#6D28D9" />
+                <rect x="48" y="26" width="12" height="6" rx="1" fill="#6D28D9" />
+
+                <rect x="12" y="48" width="6" height="6" rx="1" fill="#6D28D9" />
+                <rect x="24" y="48" width="6" height="12" rx="1" fill="#6D28D9" />
+                <rect x="12" y="60" width="18" height="6" rx="1" fill="#6D28D9" />
+
+                {/* Center Core */}
+                <rect x="44" y="44" width="32" height="32" rx="6" fill="#7C3AED" />
+                <circle cx="60" cy="60" r="10" fill="white" />
+                <circle cx="60" cy="60" r="5" fill="#6D28D9" />
+
+                <rect x="82" y="48" width="14" height="6" rx="1" fill="#6D28D9" />
+                <rect x="90" y="60" width="18" height="6" rx="1" fill="#6D28D9" />
+                <rect x="82" y="70" width="6" height="14" rx="1" fill="#6D28D9" />
+
+                <rect x="48" y="84" width="8" height="8" rx="1" fill="#6D28D9" />
+                <rect x="60" y="92" width="14" height="6" rx="1" fill="#6D28D9" />
+                <rect x="48" y="102" width="20" height="6" rx="1" fill="#6D28D9" />
+                <rect x="84" y="90" width="12" height="6" rx="1" fill="#6D28D9" />
+                <rect x="98" y="98" width="10" height="10" rx="1" fill="#6D28D9" />
+              </svg>
+            </div>
+
+            <div className="space-y-1 text-center sm:text-left flex-1">
+              <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+                <ShieldCheck className="size-4 text-emerald-600" />
+                <span className="text-[11px] font-black uppercase text-slate-800 tracking-wider">
+                  Padre Garcia Municipal Agriculture Office
+                </span>
+              </div>
+              <p className="text-[11px] font-bold text-slate-600">
+                Official Veterinary Biosecurity &amp; Movement Certificate
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium">
+                Scan via checkpoint mobile terminal to verify permit authenticity and antemortem health status. Validated under Ord. No. 2026-03.
+              </p>
+              <p className="text-[10px] font-mono font-bold text-purple-700">
+                LGU Control Code: {inspection.control_number}
+              </p>
             </div>
           </div>
 

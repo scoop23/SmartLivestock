@@ -61,7 +61,9 @@ export const VALIDATION_DOMAINS: ValidationDomainConfig[] = [
 // ── Types: Livestock Inventory Item for Validation ──
 
 export interface ValidationInventoryItem {
-  id: number;
+  id: string | number;
+  rawId?: number;
+  isBatch?: boolean;
   farmerName: string;
   barangayName: string;
   livestockType: string;
@@ -77,7 +79,14 @@ export interface ValidationInventoryItem {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
+  batchCode?: string;
+  batchName?: string;
+  housingPen?: string;
+  feedType?: string;
+  targetWeight?: number;
+  animals?: any[];
 }
+
 
 // ── Types: Incident / Declaration Item ──
 
@@ -150,33 +159,78 @@ export async function fetchAdminProductionRecords(): Promise<ProductionRecordIte
 
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {
   try {
-    const response = await api.get("livestock/inventory/");
-    const data = response.data;
-    if (Array.isArray(data)) {
-      return data.map((item: any) => ({
-        id: item.id,
-        farmerName: item.farmer_name || (item.farmer ? `Farmer #${item.farmer}` : "Registered Farmer"),
-        barangayName: item.barangay_name || "Padre Garcia",
-        livestockType: item.livestock_type_name || "Livestock",
-        tagNumber: item.tag_number || `TAG-${item.id}`,
-        breed: item.breed || "Standard Breed",
-        sex: item.sex || "Unspecified",
-        weight: item.weight ? Number(item.weight) : null,
-        entryType: item.entry_type || "INDIVIDUAL",
-        quantity: Number(item.quantity) || 1,
-        lastVaccinationDate: item.last_vaccination_date || null,
-        status: (item.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "REJECTED",
-        reviewRemarks: item.review_remarks || null,
-        reviewedBy: item.reviewed_by_name || null,
-        reviewedAt: item.reviewed_at || null,
-        createdAt: item.created_at || new Date().toISOString(),
-      }));
+    const [invRes, batchRes] = await Promise.allSettled([
+      api.get("livestock/inventory/"),
+      api.get("livestock/batches/"),
+    ]);
+
+    const results: ValidationInventoryItem[] = [];
+
+    if (invRes.status === "fulfilled" && Array.isArray(invRes.value.data)) {
+      invRes.value.data.forEach((item: any) => {
+        results.push({
+          id: item.id,
+          rawId: item.id,
+          isBatch: false,
+          farmerName: item.farmer_name || (item.farmer ? `Farmer #${item.farmer}` : "Registered Farmer"),
+          barangayName: item.barangay_name || "Padre Garcia",
+          livestockType: item.livestock_type_name || "Livestock",
+          tagNumber: item.tag_number || `TAG-${item.id}`,
+          breed: item.breed || "Standard Breed",
+          sex: item.sex || "Unspecified",
+          weight: item.weight ? Number(item.weight) : null,
+          entryType: item.entry_type || "INDIVIDUAL",
+          quantity: Number(item.quantity) || 1,
+          lastVaccinationDate: item.last_vaccination_date || null,
+          status: (item.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
+          reviewRemarks: item.review_remarks || null,
+          reviewedBy: item.reviewed_by_name || null,
+          reviewedAt: item.reviewed_at || null,
+          createdAt: item.created_at || new Date().toISOString(),
+          batchCode: item.batch_code || undefined,
+          batchName: item.batch_name || undefined,
+        });
+      });
     }
+
+    if (batchRes.status === "fulfilled" && Array.isArray(batchRes.value.data)) {
+      batchRes.value.data.forEach((b: any) => {
+        results.push({
+          id: `batch-${b.id}`,
+          rawId: b.id,
+          isBatch: true,
+          farmerName: b.farmer_name || "Registered Farmer",
+          barangayName: b.barangay_name || "Padre Garcia",
+          livestockType: b.livestock_type_name || "Livestock",
+          tagNumber: b.batch_code,
+          breed: b.animals?.[0]?.breed || "Cohort Roster",
+          sex: "Mixed / Herd",
+          weight: b.average_weight ? Number(b.average_weight) : null,
+          entryType: "BATCH",
+          quantity: Number(b.total_animals) || 1,
+          lastVaccinationDate: null,
+          status: (b.review_status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
+          reviewRemarks: b.review_remarks || null,
+          reviewedBy: b.reviewed_by_name || null,
+          reviewedAt: b.reviewed_at || null,
+          createdAt: b.created_at || new Date().toISOString(),
+          batchCode: b.batch_code,
+          batchName: b.batch_name,
+          housingPen: b.housing_pen,
+          feedType: b.feed_type,
+          targetWeight: b.target_weight ? Number(b.target_weight) : undefined,
+          animals: b.animals || [],
+        });
+      });
+    }
+
+    return results;
   } catch (err) {
     console.warn("Failed to fetch inventory records for validation portal:", err);
   }
   return [];
 }
+
 
 export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentItem[]> {
   try {

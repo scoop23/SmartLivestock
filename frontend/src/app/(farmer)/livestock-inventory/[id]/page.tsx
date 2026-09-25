@@ -237,7 +237,7 @@ export default function LivestockDetailPage() {
     <>
       <PageHeader
         title={`Livestock Profile: ${animal.tagNumber}`}
-        subtitle={`Official Animal Digital Passport & Biometric Tracking • Padre Garcia LGU`}
+        subtitle={`Official Animal Profile, Biometrics & Growth Records • Padre Garcia LGU`}
         variant="farmer"
         maxWidthClass="w-full"
       />
@@ -246,7 +246,7 @@ export default function LivestockDetailPage() {
         {/* Navigation & Breadcrumb */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Link href="/livestock-inventory">
+            <Link href="/livestock-inventory/batches">
               <Button
                 variant="outline"
                 size="sm"
@@ -277,7 +277,7 @@ export default function LivestockDetailPage() {
               size="sm"
               className="rounded-xl border-slate-300 font-bold text-xs gap-1.5 text-slate-700 hover:bg-slate-50 cursor-pointer"
             >
-              <QrCode className="size-3.5 text-slate-600" /> Print Passport
+              <QrCode className="size-3.5 text-slate-600" /> Print ID Card
             </Button>
 
             <Button
@@ -824,41 +824,142 @@ export default function LivestockDetailPage() {
 
       {/* ── MODAL: PRINT LGU PASSPORT ─────────────────────────────────────── */}
       <Dialog open={isPassportDialogOpen} onOpenChange={setIsPassportDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
-          <DialogHeader className="text-center">
-            <div className="mx-auto shrink-0 mb-2">
-              {photoUrl ? (
-                <img
-                  src={photoUrl}
-                  alt={animal.tagNumber}
-                  className="size-14 rounded-2xl object-cover border-2 border-emerald-600 shadow-md mx-auto"
-                />
-              ) : (
-                <div
-                  className={`size-14 rounded-2xl flex items-center justify-center text-2xl bg-gradient-to-br border-2 border-emerald-300 shadow-md mx-auto ${avatar.bgGradient}`}
-                >
-                  {avatar.emoji}
-                </div>
-              )}
+        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader className="text-center pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <div className="size-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                PG
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                  Municipality of Padre Garcia • Batangas
+                </p>
+                <p className="text-xs font-black text-slate-900">
+                  Office of the Municipal Agriculturist (MAO)
+                </p>
+              </div>
             </div>
-            <DialogTitle className="text-lg font-black text-slate-900">
-              Padre Garcia Official Animal Passport
+            <DialogTitle className="text-base font-black text-slate-900 pt-1">
+              Official Animal ID &amp; Biosecurity Tag
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Municipal Biosecurity & Livestock Traceability Card
+              Municipal Identification, Veterinary Clearance &amp; Health Record
             </DialogDescription>
           </DialogHeader>
 
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2 text-center">
-            <p className="font-black text-base text-slate-900 tracking-wider">{animal.tagNumber}</p>
-            <p className="text-slate-600 font-medium">Species: {animal.species} • Breed: {animal.breed}</p>
-            <p className="text-slate-500 font-medium">Gender: {animal.sex} • Weight: {animal.currentWeight} kg</p>
-            <p className="text-emerald-700 font-bold text-[11px] pt-1 border-t border-slate-200">
-              Verified under Municipal Animal Health Ordinance No. 2026-03
-            </p>
+          <div className="space-y-4 py-2">
+            {/* Visual QR Code & Photo Card */}
+            <div className="flex flex-col items-center justify-center p-5 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-50 rounded-2xl border-2 border-dashed border-emerald-300/80 text-center relative">
+              {/* Photo or Avatar chip */}
+              <div className="mx-auto shrink-0 mb-3">
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={animal.tagNumber}
+                    className="size-16 rounded-2xl object-cover border-2 border-emerald-600 shadow-md mx-auto"
+                  />
+                ) : (
+                  <div
+                    className={`size-16 rounded-2xl flex items-center justify-center text-3xl bg-gradient-to-br border-2 border-emerald-300 shadow-md mx-auto ${avatar.bgGradient}`}
+                  >
+                    {avatar.emoji}
+                  </div>
+                )}
+              </div>
+
+              {/* Scannable SVG QR Code Simulation */}
+              <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200 mb-2">
+                <svg className="size-36" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Corners */}
+                  <rect x="10" y="10" width="30" height="30" rx="4" fill="#064E3B" />
+                  <rect x="16" y="16" width="18" height="18" rx="2" fill="white" />
+                  <rect x="20" y="20" width="10" height="10" rx="1" fill="#064E3B" />
+
+                  <rect x="80" y="10" width="30" height="30" rx="4" fill="#064E3B" />
+                  <rect x="86" y="16" width="18" height="18" rx="2" fill="white" />
+                  <rect x="90" y="20" width="10" height="10" rx="1" fill="#064E3B" />
+
+                  <rect x="10" y="80" width="30" height="30" rx="4" fill="#064E3B" />
+                  <rect x="16" y="86" width="18" height="18" rx="2" fill="white" />
+                  <rect x="20" y="90" width="10" height="10" rx="1" fill="#064E3B" />
+
+                  {/* QR Matrix Bits */}
+                  <rect x="48" y="12" width="6" height="6" rx="1" fill="#064E3B" />
+                  <rect x="58" y="12" width="6" height="6" rx="1" fill="#064E3B" />
+                  <rect x="68" y="18" width="6" height="6" rx="1" fill="#064E3B" />
+                  <rect x="48" y="26" width="12" height="6" rx="1" fill="#064E3B" />
+
+                  <rect x="12" y="48" width="6" height="6" rx="1" fill="#064E3B" />
+                  <rect x="24" y="48" width="6" height="12" rx="1" fill="#064E3B" />
+                  <rect x="12" y="60" width="18" height="6" rx="1" fill="#064E3B" />
+
+                  {/* Center Core Brand */}
+                  <rect x="44" y="44" width="32" height="32" rx="6" fill="#10B981" />
+                  <circle cx="60" cy="60" r="10" fill="white" />
+                  <circle cx="60" cy="60" r="5" fill="#064E3B" />
+
+                  <rect x="82" y="48" width="14" height="6" rx="1" fill="#064E3B" />
+                  <rect x="90" y="60" width="18" height="6" rx="1" fill="#064E3B" />
+                  <rect x="82" y="70" width="6" height="14" rx="1" fill="#064E3B" />
+
+                  <rect x="48" y="84" width="8" height="8" rx="1" fill="#064E3B" />
+                  <rect x="60" y="92" width="14" height="6" rx="1" fill="#064E3B" />
+                  <rect x="48" y="102" width="20" height="6" rx="1" fill="#064E3B" />
+                  <rect x="84" y="90" width="12" height="6" rx="1" fill="#064E3B" />
+                  <rect x="98" y="98" width="10" height="10" rx="1" fill="#064E3B" />
+                </svg>
+              </div>
+
+              <p className="font-mono font-black text-base text-slate-900 tracking-wider">
+                {animal.tagNumber}
+              </p>
+              <div className="flex items-center gap-1.5 justify-center mt-1">
+                {animal.status === "APPROVED" ? (
+                  <Badge className="bg-emerald-600 text-white font-black text-[10px]">
+                    ✓ MAO APPROVED
+                  </Badge>
+                ) : animal.status === "VERIFIED" ? (
+                  <Badge className="bg-blue-600 text-white font-black text-[10px]">
+                    ✓ SIBAT VERIFIED
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px]">
+                    PENDING REVIEW
+                  </Badge>
+                )}
+                {animal.batchParentCode && (
+                  <Badge variant="outline" className="text-[10px] font-mono font-bold text-slate-600">
+                    Cohort: {animal.batchParentCode}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Biometric & Veterinary Details */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2">
+              <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Species &amp; Breed:</span>
+                <span className="font-bold text-slate-900">{animal.species} • {animal.breed}</span>
+              </div>
+              <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Sex &amp; Weight:</span>
+                <span className="font-bold text-slate-900">{animal.sex} • {animal.currentWeight} kg</span>
+              </div>
+              <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Registered Location:</span>
+                <span className="font-bold text-slate-900">{animal.barangay}</span>
+              </div>
+              <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Last Vaccination:</span>
+                <span className="font-bold text-emerald-700">{animal.lastVaccination || "Up to Date"}</span>
+              </div>
+              <p className="text-emerald-800 font-bold text-[11px] pt-1 text-center">
+                Verified under Municipal Animal Health Ordinance No. 2026-03
+              </p>
+            </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-slate-100 flex items-center justify-between">
             <Button
               type="button"
               variant="outline"
@@ -870,12 +971,14 @@ export default function LivestockDetailPage() {
             <Button
               type="button"
               onClick={() => {
-                toast.success("Print command sent to local printer / PDF export.");
+                toast.success("Print command sent to local printer / PDF export.", {
+                  description: `ID Pass for ${animal.tagNumber} generated.`,
+                });
                 setIsPassportDialogOpen(false);
               }}
-              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1.5"
+              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1.5 cursor-pointer shadow-sm"
             >
-              <Printer className="size-3.5" /> Print Tag
+              <Printer className="size-3.5" /> Print Animal Tag
             </Button>
           </DialogFooter>
         </DialogContent>
