@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +86,7 @@ export function DiseaseMortalityReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[96vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 bg-white border border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-[98vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] p-4 sm:p-7 md:p-9 bg-white border border-slate-100 shadow-2xl max-h-[94vh] overflow-y-auto">
         {/* ══ POPUP HEADER ══ */}
         <DialogHeader className="mb-3 sm:mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -126,9 +127,9 @@ export function DiseaseMortalityReviewDialog({
                     ? "Municipal Mortality Review & Certification"
                     : "Municipal Disease & Health Outbreak Review"}
                 </DialogTitle>
-                <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
+                <DialogDescription className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
                   Municipal Agriculture Office (MAO) Final Audit & Verification Center
-                </p>
+                </DialogDescription>
               </div>
             </div>
 
@@ -160,7 +161,7 @@ export function DiseaseMortalityReviewDialog({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 text-xs">
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Tag Number</span>
                   <span className="font-black text-slate-900 text-sm sm:text-base">
@@ -315,7 +316,7 @@ export function DiseaseMortalityReviewDialog({
                 </div>
 
                 {/* Clinical Verification Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 text-xs">
                   <div className="p-3 bg-white rounded-xl border border-sky-200">
                     <span className="text-[10px] text-slate-400 font-bold block uppercase">Ear Tag Match</span>
                     <span className="font-black text-emerald-700 flex items-center gap-1 mt-0.5 text-xs sm:text-sm">
@@ -454,7 +455,7 @@ export function DiseaseMortalityReviewDialog({
                 <span>Certify & Issue MAO Approval</span>
               </Button>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button
                   type="button"
                   variant="outline"

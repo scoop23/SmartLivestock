@@ -285,7 +285,9 @@ export default function LivestockRecordList({
         item?.tagNumber?.toLowerCase().includes(query) ||
         item.breed?.toLowerCase().includes(query) ||
         item.livestockTypeName?.toLowerCase().includes(query) ||
-        item.farmerName?.toLowerCase().includes(query);
+        item.farmerName?.toLowerCase().includes(query) ||
+        item.batchCode?.toLowerCase().includes(query) ||
+        item.batchName?.toLowerCase().includes(query);
 
       const matchesStatus =
         statusFilter === "ALL" ||

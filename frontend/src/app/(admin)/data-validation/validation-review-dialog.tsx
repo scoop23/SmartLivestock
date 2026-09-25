@@ -95,10 +95,10 @@ export function ValidationReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[calc(100%-1.5rem)] sm:max-w-lg rounded-3xl p-0 overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-4.5 [&>button]:top-4.5 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[92vh] flex flex-col">
+      <DialogContent className="w-full max-w-[98vw] sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl rounded-2xl sm:rounded-3xl p-0 overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-3.5 sm:[&>button]:right-5 [&>button]:top-3.5 sm:[&>button]:top-5 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[94vh] flex flex-col">
         
         {/* ═══════════ HEADER ═══════════ */}
-        <div className="bg-gradient-to-r from-emerald-950 via-[#0B2E16] to-emerald-900 text-white p-5 sm:p-6 shrink-0">
+        <div className="bg-gradient-to-r from-emerald-950 via-[#0B2E16] to-emerald-900 text-white p-4 sm:p-6 shrink-0 pr-12 sm:pr-14">
           <div className="flex items-center gap-2 mb-2">
             <Badge className="bg-white/15 text-emerald-200 border-0 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 flex items-center gap-1.5 backdrop-blur-xs">
               <ShieldCheck className="size-3.5 text-emerald-300" />
@@ -155,7 +155,7 @@ export function ValidationReviewDialog({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
                 <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
                   <User className="size-3 text-slate-400" />

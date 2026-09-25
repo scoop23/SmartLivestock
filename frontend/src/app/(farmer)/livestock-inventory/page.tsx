@@ -121,7 +121,12 @@ export default function LivestockInventoryPage() {
     quantity: 1,
     tagNumber: "",
     batchId: "",
-    breed: "",
+    batchName: "",
+    housingPen: "",
+    feedType: "",
+    breed: "Brahman",
+    isOtherBreed: false,
+    customBreed: "",
     sex: "Female",
     weight: "",
     isVaccinated: false,
@@ -352,12 +357,16 @@ export default function LivestockInventoryPage() {
       }
 
       if (formData.entryType === "INDIVIDUAL") {
+        const finalBreed = formData.isOtherBreed
+          ? (formData.customBreed?.trim() || "Mixed / Crossbred")
+          : (formData.breed?.trim() || "Standard");
+
         const payload: any = {
           livestock_type: typeId,
           entry_type: "INDIVIDUAL",
           quantity: 1,
           tag_number: formData.tagNumber.trim(),
-          breed: formData.breed.trim(),
+          breed: finalBreed,
           sex: formData.sex,
           weight: formData.weight ? parseFloat(formData.weight) : null,
           last_vaccination_date: formData.lastVaccinationDate || null,
@@ -387,20 +396,23 @@ export default function LivestockInventoryPage() {
             (batchAnimals.reduce((acc, a) => acc + (parseFloat(a.weight) || 0), 0) / batchAnimals.length) * 10
           ) / 10
           : null;
-        const mainBreed = batchAnimals[0]?.breed?.trim() || "Mixed / Cohort Hybrid";
+        const mainBreed = formData.isOtherBreed
+          ? (formData.customBreed?.trim() || "Mixed / Cohort Hybrid")
+          : (formData.breed?.trim() || batchAnimals[0]?.breed?.trim() || "Standard Cohort");
         const batchTag = `BATCH-${formData.livestockType.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+        const batchName = formData.batchName?.trim() || `${formData.livestockType} Cohort (${batchAnimals.length} Heads)`;
 
         // Post to /livestock/batches/ to create both the LivestockBatch and individual child animals atomically
         const response = await api.post("/livestock/batches/", {
           livestock_type: typeId,
-          batch_name: `${formData.livestockType} Cohort (${batchAnimals.length} Heads)`,
+          batch_name: batchName,
           batch_code: batchTag,
-          housing_pen: "Standard Pen",
-          feed_type: "Standard Rations",
+          housing_pen: formData.housingPen?.trim() || "Standard Pen",
+          feed_type: formData.feedType?.trim() || "Standard Rations",
           target_weight: avgWeight ? Math.round(avgWeight * 1.3) : null,
           animals: batchAnimals.map((a) => ({
             tag_number: a.tagNumber.trim(),
-            breed: a.breed.trim(),
+            breed: (a.breed?.trim() && a.breed !== "Others") ? a.breed.trim() : mainBreed,
             sex: a.sex,
             weight: a.weight ? parseFloat(a.weight) : null,
             last_vaccination_date: a.lastVaccinationDate || null,
@@ -759,7 +771,7 @@ export default function LivestockInventoryPage() {
             }
           }}
         >
-          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl p-0 border-0 shadow-2xl">
+          <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl p-0 border-0 shadow-2xl">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white p-6">
               <div className="flex items-center gap-3">
@@ -831,19 +843,22 @@ export default function LivestockInventoryPage() {
                         onClick={() => {
                           const preset = getSpeciesPreset(name);
                           const defAvatar = getDefaultAvatarForSpecies(name);
-                          setFormData({
-                            ...formData,
+                          const defBreed = preset.commonBreeds?.[0] || "";
+                          setFormData((prev) => ({
+                            ...prev,
                             livestockType: name,
-                            breed: formData.entryType === "INDIVIDUAL" ? (preset.commonBreeds?.[0] || "") : "",
-                            avatarKey: formData.photoDataUrl ? formData.avatarKey : defAvatar.id,
+                            breed: defBreed,
+                            isOtherBreed: false,
+                            customBreed: "",
+                            avatarKey: prev.photoDataUrl ? prev.avatarKey : defAvatar.id,
                             tagNumber:
-                              formData.entryType === "INDIVIDUAL" && !formData.tagNumber
+                              prev.entryType === "INDIVIDUAL" && !prev.tagNumber
                                 ? generateSuggestedTag(name)
-                                : formData.tagNumber,
-                          });
+                                : prev.tagNumber,
+                            batchName: prev.batchName ? prev.batchName : `${name} Cohort #${Math.floor(100 + Math.random() * 900)}`,
+                          }));
                           if (formData.entryType === "BATCH") {
                             const prefix = preset.tagPrefix || name.slice(0, 3).toUpperCase();
-                            const defBreed = preset.commonBreeds?.[0] || "Standard";
                             const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
                             setBatchAnimals((prev) =>
                               prev.map((a, idx) => ({
@@ -1072,37 +1087,63 @@ export default function LivestockInventoryPage() {
                     </Select>
                   </div>
 
-                  {/* Individual Breed & Common Breed Chips */}
+                  {/* Individual Breed Selection (Dropdown + Others) */}
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="breed"
-                      className="text-xs font-black uppercase tracking-wider text-slate-500"
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="breedSelect"
+                        className="text-xs font-black uppercase tracking-wider text-slate-500"
+                      >
+                        Breed / Pedigree
+                      </Label>
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        {formData.isOtherBreed ? "Custom Breed Mode" : "Standard Species Breed"}
+                      </span>
+                    </div>
+
+                    <Select
+                      value={formData.isOtherBreed ? "OTHER" : (formData.breed || (currentPreset?.commonBreeds?.[0] ?? ""))}
+                      onValueChange={(val) => {
+                        if (val === "OTHER") {
+                          setFormData({ ...formData, isOtherBreed: true });
+                        } else {
+                          setFormData({ ...formData, breed: val, isOtherBreed: false, customBreed: "" });
+                        }
+                      }}
                     >
-                      Breed / Pedigree
-                    </Label>
-                    <Input
-                      id="breed"
-                      placeholder="e.g. Brahman, Murrah, Boer, Native"
-                      value={formData.breed}
-                      onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
-                      className="h-11 rounded-xl"
-                      required
-                    />
-                    {currentPreset?.commonBreeds && (
-                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">
-                          Common Breeds:
-                        </span>
-                        {currentPreset.commonBreeds.slice(0, 5).map((b) => (
-                          <button
-                            key={b}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, breed: b })}
-                            className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 transition-colors"
-                          >
+                      <SelectTrigger id="breedSelect" className="h-11 rounded-xl bg-white font-medium">
+                        <SelectValue placeholder="Select breed..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl max-h-60">
+                        {currentPreset?.commonBreeds?.map((b) => (
+                          <SelectItem key={b} value={b}>
                             {b}
-                          </button>
+                          </SelectItem>
                         ))}
+                        <SelectItem value="OTHER" className="font-bold text-emerald-800">
+                          ➕ Others (Specify custom breed)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* If Others is selected, show custom breed input */}
+                    {formData.isOtherBreed && (
+                      <div className="space-y-1 pt-1 animate-in fade-in-50 duration-200">
+                        <Label
+                          htmlFor="customBreed"
+                          className="text-[11px] font-bold text-emerald-800 flex items-center gap-1"
+                        >
+                          <span>Specify Custom Breed / Crossbreed Name:</span>
+                        </Label>
+                        <Input
+                          id="customBreed"
+                          placeholder="e.g. Belgian Blue Cross, Native Batangas Hybrid"
+                          value={formData.customBreed}
+                          onChange={(e) => setFormData({ ...formData, customBreed: e.target.value })}
+                          className="h-10 rounded-xl border-emerald-300 focus-visible:ring-emerald-500/20 bg-emerald-50/30 font-medium"
+                          required
+                          autoFocus
+                        />
                       </div>
                     )}
                   </div>
@@ -1204,8 +1245,148 @@ export default function LivestockInventoryPage() {
                   </div>
                 </div>
               ) : (
-                /* ── BATCH REGISTRATION: INDIVIDUAL BREED/SEX/WEIGHT/VAX REMOVED ── */
+                /* ── BATCH / HERD REGISTRATION ── */
                 <div className="space-y-4">
+                  {/* 1. Batch Identity & Facilities */}
+                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/80 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center">
+                          <Layers className="size-4" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-black uppercase tracking-wider text-slate-800">
+                            Batch Cohort Profile
+                          </Label>
+                          <p className="text-[11px] text-slate-500">
+                            Assign an identifiable cohort name and housing details
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
+                        Group Enrollment
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Batch Name */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="batchName" className="text-xs font-black uppercase tracking-wider text-slate-600">
+                            Batch Name / Cohort Title <span className="text-rose-500">*</span>
+                          </Label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                batchName: `${prev.livestockType} Cohort #${Math.floor(100 + Math.random() * 900)}`,
+                              }))
+                            }
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+                          >
+                            <Sparkles className="size-3" /> Auto-suggest Name
+                          </button>
+                        </div>
+                        <Input
+                          id="batchName"
+                          placeholder={`e.g. Pen 3 Fattening Swine, Spring ${formData.livestockType} Herd`}
+                          value={formData.batchName}
+                          onChange={(e) => setFormData({ ...formData, batchName: e.target.value })}
+                          className="h-10 rounded-xl bg-white font-medium"
+                          required
+                        />
+                      </div>
+
+                      {/* Housing Pen */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="housingPen" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                          Housing Pen / Facility
+                        </Label>
+                        <Input
+                          id="housingPen"
+                          placeholder="e.g. Pen 3 Fattening / East Barn"
+                          value={formData.housingPen}
+                          onChange={(e) => setFormData({ ...formData, housingPen: e.target.value })}
+                          className="h-9.5 rounded-xl bg-white text-xs"
+                        />
+                      </div>
+
+                      {/* Feed Formulation */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="feedType" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                          Feed Formulation / Rations
+                        </Label>
+                        <Input
+                          id="feedType"
+                          placeholder="e.g. Finisher Pellets, Napier Grass"
+                          value={formData.feedType}
+                          onChange={(e) => setFormData({ ...formData, feedType: e.target.value })}
+                          className="h-9.5 rounded-xl bg-white text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Batch Primary Breed Dropdown with Others */}
+                    <div className="pt-2 border-t border-slate-200/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="batchPrimaryBreed" className="text-xs font-black uppercase tracking-wider text-slate-600">
+                          Primary Cohort Breed
+                        </Label>
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          Applies to all animals in this cohort
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex-1">
+                          <Select
+                            value={formData.isOtherBreed ? "OTHER" : (formData.breed || (currentPreset?.commonBreeds?.[0] ?? ""))}
+                            onValueChange={(val) => {
+                              if (val === "OTHER") {
+                                setFormData((prev) => ({ ...prev, isOtherBreed: true }));
+                              } else {
+                                setFormData((prev) => ({ ...prev, breed: val, isOtherBreed: false, customBreed: "" }));
+                                setBatchAnimals((prev) => prev.map((a) => ({ ...a, breed: val })));
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="batchPrimaryBreed" className="h-10 rounded-xl bg-white text-xs font-medium">
+                              <SelectValue placeholder="Select common cohort breed..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl max-h-60">
+                              {currentPreset?.commonBreeds?.map((b) => (
+                                <SelectItem key={b} value={b} className="text-xs">
+                                  {b}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
+                                ➕ Others (Specify custom breed)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {formData.isOtherBreed && (
+                          <div className="flex-1 animate-in fade-in-50 duration-200">
+                            <Input
+                              placeholder="Specify custom breed name..."
+                              value={formData.customBreed}
+                              onChange={(e) => {
+                                const custom = e.target.value;
+                                setFormData((prev) => ({ ...prev, customBreed: custom }));
+                                setBatchAnimals((prev) => prev.map((a) => ({ ...a, breed: custom || "Others" })));
+                              }}
+                              className="h-10 rounded-xl bg-white border-emerald-300 text-xs font-medium"
+                              required
+                              autoFocus
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Batch Head Count Stepper & Quick Chips */}
                   <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
                     <div className="flex items-center justify-between">
@@ -1358,13 +1539,43 @@ export default function LivestockInventoryPage() {
                               <Label className="text-[10px] font-black uppercase text-slate-400">
                                 Breed / Strain
                               </Label>
-                              <Input
-                                value={animal.breed}
-                                onChange={(e) => updateBatchAnimalField(idx, "breed", e.target.value)}
-                                placeholder="e.g. Large White"
-                                className="h-8 text-xs rounded-lg"
-                                required
-                              />
+                              <Select
+                                value={
+                                  currentPreset?.commonBreeds?.includes(animal.breed)
+                                    ? animal.breed
+                                    : "OTHER"
+                                }
+                                onValueChange={(val) => {
+                                  if (val === "OTHER") {
+                                    updateBatchAnimalField(idx, "breed", "Others");
+                                  } else {
+                                    updateBatchAnimalField(idx, "breed", val);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-xs rounded-lg bg-white">
+                                  <SelectValue placeholder="Breed" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl max-h-56">
+                                  {currentPreset?.commonBreeds?.map((b) => (
+                                    <SelectItem key={b} value={b} className="text-xs">
+                                      {b}
+                                    </SelectItem>
+                                  ))}
+                                  <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
+                                    Others (Custom)
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {(!currentPreset?.commonBreeds?.includes(animal.breed) || animal.breed === "Others") && (
+                                <Input
+                                  value={animal.breed === "Others" ? "" : animal.breed}
+                                  onChange={(e) => updateBatchAnimalField(idx, "breed", e.target.value || "Others")}
+                                  placeholder="Type custom breed"
+                                  className="h-7 text-[11px] rounded-lg mt-1 bg-white border-emerald-300 font-medium"
+                                  required
+                                />
+                              )}
                             </div>
 
                             <div className="space-y-1">

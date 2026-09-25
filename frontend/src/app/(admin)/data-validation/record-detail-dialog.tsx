@@ -309,10 +309,10 @@ export function RecordDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl p-0 rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-5 [&>button]:top-5 [&>button]:p-2.5 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[92vh] flex flex-col">
+      <DialogContent className="w-full max-w-[98vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] p-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-3.5 sm:[&>button]:right-5 [&>button]:top-3.5 sm:[&>button]:top-5 [&>button]:p-2 sm:[&>button]:p-2.5 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[94vh] flex flex-col">
         
         {/* ═══════════ MAO OFFICIAL BANNER HEADER ═══════════ */}
-        <div className="bg-gradient-to-r from-emerald-950 via-[#0C3318] to-emerald-900 text-white p-5 sm:p-6.5 shrink-0 relative">
+        <div className="bg-gradient-to-r from-emerald-950 via-[#0C3318] to-emerald-900 text-white p-4 sm:p-6 shrink-0 relative pr-12 sm:pr-14">
           <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2.5">
             <div className="flex items-center gap-2">
               <Badge className="bg-white/15 text-emerald-200 border-0 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 flex items-center gap-1.5 backdrop-blur-xs">
@@ -526,8 +526,8 @@ export function RecordDetailDialog({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-100 overflow-hidden">
-                  <Table className="text-xs">
+                <div className="rounded-xl border border-slate-100 overflow-x-auto w-full no-scrollbar">
+                  <Table className="text-xs min-w-[540px]">
                     <TableHeader>
                       <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 text-[10px] font-black uppercase tracking-wider text-slate-500">
                         <TableHead className="w-12 text-center">#</TableHead>
@@ -696,7 +696,7 @@ export function RecordDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       <div>
                         <Label className="text-xs font-bold text-slate-600">Ear Tag #</Label>
                         <Input
@@ -766,7 +766,7 @@ export function RecordDetailDialog({
               ) : (
                 /* Read-Only Cards */
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
                         Species & Breed
@@ -818,10 +818,18 @@ export function RecordDetailDialog({
 
                   {/* If batch, show linked animal tags */}
                   {record.isBatch && record.animals && record.animals.length > 0 && (
-                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
-                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                        Linked Individual Animals in this Cohort ({record.animals.length} heads):
-                      </span>
+                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                          Linked Individual Animals in this Cohort ({record.animals.length} heads):
+                        </span>
+                        <a
+                          href="/data-validation/batches"
+                          className="text-[10px] font-black text-emerald-700 hover:text-emerald-800 hover:underline"
+                        >
+                          Open In Cohort Drilldown Center →
+                        </a>
+                      </div>
                       <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
                         {record.animals.map((a: any) => (
                           <Badge
@@ -1044,14 +1052,14 @@ export function RecordDetailDialog({
         </div>
 
         {/* ═══════════ MODAL FOOTER ═══════════ */}
-        <div className="p-3.5 sm:p-4.5 bg-slate-50 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
-          <div className="flex items-center gap-2">
+        <div className="p-3.5 sm:p-4.5 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleCopyId}
-              className="text-xs font-bold rounded-xl h-8.5 gap-1.5 cursor-pointer bg-white"
+              className="text-xs font-bold rounded-xl h-8.5 gap-1.5 cursor-pointer bg-white flex-1 sm:flex-initial"
             >
               <Copy className="size-3.5 text-slate-500" />
               <span>Copy Identifier</span>
@@ -1061,7 +1069,7 @@ export function RecordDetailDialog({
               variant="outline"
               size="sm"
               onClick={handlePrint}
-              className="text-xs font-bold rounded-xl h-8.5 gap-1.5 cursor-pointer bg-white"
+              className="text-xs font-bold rounded-xl h-8.5 gap-1.5 cursor-pointer bg-white flex-1 sm:flex-initial"
             >
               <Printer className="size-3.5 text-slate-500" />
               <span>Print Ledger</span>
@@ -1071,7 +1079,7 @@ export function RecordDetailDialog({
           <Button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="px-5 py-2 h-8.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
+            className="px-5 py-2 h-8.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer w-full sm:w-auto"
           >
             Close Inspector
           </Button>
