@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowDownAZ,
@@ -61,6 +62,7 @@ import {
 import { cn } from "@/components/ui/utils";
 import { toast } from "sonner";
 import type { LivestockInventoryItem, StatusType, EntryType } from "./page";
+import { getAvatarById } from "./livestock-inventory";
 
 /* ── Species Color Palette & Styling ── */
 interface SpeciesTheme {
@@ -724,6 +726,10 @@ export default function LivestockRecordList({
           {paginatedItems.map((item) => {
             const hasVax = Boolean(item.lastVaccinationDate);
             const isApproved = item.status === "APPROVED";
+            const localPhoto = typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${item.id}`) : null;
+            const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${item.id}`) : null;
+            const photoUrl = item.photoUrl || localPhoto;
+            const avatar = getAvatarById(item.avatarKey || localAvatar, item.livestockTypeName);
 
             return (
               <Card
@@ -737,20 +743,44 @@ export default function LivestockRecordList({
                 <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-2.5">
                   {/* Tag Header: High-visibility pill badge alongside clean status indicator */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 group min-w-0">
-                      {item.entryType === "INDIVIDUAL" ? (
-                        <div className="flex items-center gap-1.5 bg-[#1E4D2B] text-white font-mono px-2.5 py-0.5 rounded-full text-xs font-black tracking-wide shadow-2xs shrink-0">
+                    <div className="flex items-center gap-2 group min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="relative shrink-0">
+                          {photoUrl ? (
+                            <img
+                              src={photoUrl}
+                              alt={item.tagNumber}
+                              className="size-8 rounded-lg object-cover border border-slate-200 shadow-2xs"
+                            />
+                          ) : (
+                            <div
+                              className={`size-8 rounded-lg flex items-center justify-center text-sm bg-gradient-to-br border shadow-2xs ${avatar.bgGradient}`}
+                              title={`${avatar.name} (${avatar.badge})`}
+                            >
+                              {avatar.emoji}
+                            </div>
+                          )}
+                        </div>
+                        <Link
+                          href={`/livestock-inventory/${item.tagNumber || item.id}`}
+                          className="flex items-center gap-1.5 bg-[#1E4D2B] hover:bg-[#163b21] text-white font-mono px-2.5 py-0.5 rounded-full text-xs font-black tracking-wide shadow-2xs shrink-0 transition-colors"
+                        >
                           <Tag className="w-3 h-3 text-emerald-300" />
-                          <span className="truncate max-w-[140px]">
-                            {item.tagNumber || "TAG-UNASSIGNED"}
+                          <span className="truncate max-w-[120px]">
+                            {item.tagNumber || `TAG-${item.id}`}
                           </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 bg-teal-900 text-white px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide shadow-2xs shrink-0">
-                          <Layers className="w-3 h-3 text-teal-300" />
-                          <span>Batch ({item.quantity} Heads)</span>
-                        </div>
-                      )}
+                        </Link>
+                        {item.batchCode && (
+                          <Link
+                            href="/livestock-inventory/batches"
+                            className="flex items-center gap-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide shadow-2xs shrink-0 transition-colors"
+                            title={`Belongs to Batch: ${item.batchCode}`}
+                          >
+                            <Layers className="w-2.5 h-2.5 text-teal-600" />
+                            <span>{item.batchCode}</span>
+                          </Link>
+                        )}
+                      </div>
 
                       {item.tagNumber && (
                         <button
@@ -827,17 +857,17 @@ export default function LivestockRecordList({
                       </div>
                     </div>
 
-                    {/* Sex & Quantity */}
+                    {/* Sex & Cohort */}
                     <div className="p-2 rounded-lg bg-slate-50/90 border border-slate-200/70 flex items-center gap-2">
                       <div className="p-1 rounded-md bg-white text-teal-700 shadow-2xs shrink-0">
                         <Tag className="w-3.5 h-3.5 text-teal-700" />
                       </div>
                       <div className="min-w-0">
                         <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                          Sex / Heads
+                          Sex {item.batchCode ? "• Cohort" : ""}
                         </span>
                         <span className="font-extrabold text-slate-900 truncate block leading-tight">
-                          {item.sex} • {item.quantity} {item.quantity === 1 ? "head" : "heads"}
+                          {item.sex}{item.batchCode ? ` • ${item.batchCode}` : ""}
                         </span>
                       </div>
                     </div>
@@ -980,6 +1010,10 @@ export default function LivestockRecordList({
               {paginatedItems.map((item) => {
                 const hasVax = Boolean(item.lastVaccinationDate);
                 const isApproved = item.status === "APPROVED";
+                const localPhoto = typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${item.id}`) : null;
+                const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${item.id}`) : null;
+                const photoUrl = item.photoUrl || localPhoto;
+                const avatar = getAvatarById(item.avatarKey || localAvatar, item.livestockTypeName);
 
                 return (
                   <TableRow
@@ -988,15 +1022,39 @@ export default function LivestockRecordList({
                   >
                     {/* Ear Tag */}
                     <TableCell className="font-mono text-xs font-black py-2.5">
-                      {item.entryType === "INDIVIDUAL" ? (
-                        <span className="bg-[#1E4D2B] text-white px-2 py-0.5 rounded-full text-[11px] shadow-2xs">
-                          {item.tagNumber || "TAG-UNASSIGNED"}
-                        </span>
-                      ) : (
-                        <span className="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                          Batch ({item.quantity})
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {photoUrl ? (
+                          <img
+                            src={photoUrl}
+                            alt={item.tagNumber}
+                            className="size-6 rounded-md object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className={`size-6 rounded-md flex items-center justify-center text-xs bg-gradient-to-br border shrink-0 ${avatar.bgGradient}`}
+                            title={avatar.name}
+                          >
+                            {avatar.emoji}
+                          </div>
+                        )}
+                        <Link
+                          href={`/livestock-inventory/${item.tagNumber || item.id}`}
+                          className="bg-[#1E4D2B] hover:bg-[#163b21] text-white px-2.5 py-0.5 rounded-full text-[11px] shadow-2xs inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <Tag className="w-3 h-3 text-emerald-300" />
+                          <span>{item.tagNumber || `TAG-${item.id}`}</span>
+                        </Link>
+                        {item.batchCode && (
+                          <Link
+                            href="/livestock-inventory/batches"
+                            className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
+                            title={`Assigned to Batch ${item.batchCode}`}
+                          >
+                            <Layers className="w-2.5 h-2.5 text-teal-600" />
+                            <span>{item.batchCode}</span>
+                          </Link>
+                        )}
+                      </div>
                     </TableCell>
 
                     {/* Species & Breed */}

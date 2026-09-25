@@ -3,7 +3,7 @@ import re
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from users.models import User, Role
-from livestock.models import Barangay, Farmer, LivestockType, LivestockInventory
+from livestock.models import Barangay, Farmer, LivestockType, LivestockInventory, LivestockBatch
 
 # ---------------------------------------------------------------------------
 # RAW DATA PROVIDED FROM PADRE GARCIA SURVEY
@@ -273,7 +273,7 @@ class Command(BaseCommand):
         # -------------------------------------------------------------------
         # SEED MODE
         # -------------------------------------------------------------------
-        self.stdout.write(self.style.NOTICE("🚀 Starting database seeding for Padre Garcia farmers..."))
+        self.stdout.write(self.style.NOTICE("[+] Starting database seeding for Padre Garcia farmers..."))
 
         # 1. Ensure FARMER role exists
         farmer_role, _ = Role.objects.get_or_create(
@@ -354,29 +354,47 @@ class Command(BaseCommand):
             if f_created:
                 created_farmers += 1
 
-            # 7. Create Baseline Livestock Inventory Record
-            inventory, inv_created = LivestockInventory.objects.get_or_create(
+            # 7. Create Baseline Livestock Batch & Individual Animal Records
+            batch_code = f"BATCH-PG-{farmer.pk:03d}"
+            batch, b_created = LivestockBatch.objects.get_or_create(
                 farmer=farmer,
-                livestock_type=cattle_type,
+                batch_code=batch_code,
                 defaults={
-                    "entry_type": LivestockInventory.EntryType.BATCH,
-                    "quantity": heads,
-                    "breed": "Native / Crossbred",
-                    "sex": "Mixed",
-                    "status": LivestockInventory.StatusType.APPROVED,
+                    "livestock_type": cattle_type,
+                    "batch_name": f"{farmer.user.first_name}'s Cattle Herd",
+                    "housing_pen": "Pen 1",
+                    "feed_type": "Grass & Forage",
+                    "status": LivestockBatch.StatusType.ACTIVE,
                     "created_by": user,
                 },
             )
-            if inv_created:
-                created_inventories += 1
+            for h in range(1, heads + 1):
+                tag = f"PG-{barangay.barangay_name[:3].upper()}-{farmer.pk:03d}-{h:02d}"
+                inv, inv_created = LivestockInventory.objects.get_or_create(
+                    farmer=farmer,
+                    tag_number=tag,
+                    defaults={
+                        "batch": batch,
+                        "livestock_type": cattle_type,
+                        "entry_type": LivestockInventory.EntryType.INDIVIDUAL,
+                        "quantity": 1,
+                        "breed": "Native / Brahman Cross",
+                        "sex": "Female" if h % 2 == 0 else "Male",
+                        "weight": Decimal(str(320 + (h * 15))),
+                        "status": LivestockInventory.StatusType.APPROVED,
+                        "created_by": user,
+                    },
+                )
+                if inv_created:
+                    created_inventories += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\n✅ Seeding Complete!\n"
-                f"   • Barangays created/verified: {created_barangays} new\n"
-                f"   • Farmer accounts & Users: {created_farmers} created\n"
-                f"   • Livestock Inventory records: {created_inventories} batches created\n"
-                f"   • Default password for all created accounts: Password123!\n\n"
-                f"ℹ️  To revert this data anytime, run: python manage.py seed_farmers --clean\n"
+                f"\n[OK] Seeding Complete!\n"
+                f"   * Barangays created/verified: {created_barangays} new\n"
+                f"   * Farmer accounts & Users: {created_farmers} created\n"
+                f"   * Livestock Inventory records: {created_inventories} individual animals created\n"
+                f"   * Default password for all created accounts: Password123!\n\n"
+                f"   To revert this data anytime, run: python manage.py seed_farmers --clean\n"
             )
         )

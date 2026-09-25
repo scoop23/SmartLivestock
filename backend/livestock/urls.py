@@ -8,6 +8,11 @@ urlpatterns = [
     path("inventory/<int:pk>/review/", views.review_inventory, name="review_inventory"),
     path("livestock_types/", views.list_livestock_types, name="list_livestock_types"),
 
+    # Livestock Batches & Cohorts
+    path("batches/", views.batch_list_create, name="batch_list_create"),
+    path("batches/<int:pk>/", views.batch_detail, name="batch_detail"),
+    path("batches/<int:pk>/animals/", views.batch_add_animals, name="batch_add_animals"),
+
     # Quarterly Census
     path("census/", views.census_list_create, name="census_list_create"),
     path("census/<int:pk>/", views.census_detail, name="census_detail"),

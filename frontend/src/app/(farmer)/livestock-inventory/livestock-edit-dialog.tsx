@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Layers, Minus, Pencil, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Layers, Pencil, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { EntryType, LivestockInventoryItem } from "./page";
+import { useLivestockBatches } from "./livestock-inventory";
 
 export interface UpdateInventoryPayload {
   livestock_type: number;
@@ -33,6 +34,7 @@ export interface UpdateInventoryPayload {
   sex: string;
   weight: number | null;
   last_vaccination_date: string | null;
+  batch?: number | null;
 }
 
 const statusClasses: Record<string, string> = {
@@ -44,9 +46,8 @@ const statusClasses: Record<string, string> = {
 };
 
 interface FormState {
-  entryType: EntryType;
+  batchId: string;
   livestockType: string;
-  quantity: number;
   tagNumber: string;
   breed: string;
   sex: string;
@@ -56,21 +57,19 @@ interface FormState {
 }
 
 const toFormState = (item: LivestockInventoryItem): FormState => ({
-  entryType: item.entryType,
+  batchId: item.batchId ? String(item.batchId) : "",
   livestockType: item.livestockTypeName,
-  quantity: item.quantity,
-  tagNumber: item.tagNumber,
-  breed: item.breed,
-  sex: item.sex,
+  tagNumber: item.tagNumber || "",
+  breed: item.breed || "",
+  sex: item.sex || "Female",
   weight: item.weight != null ? String(item.weight) : "",
   isVaccinated: !!item.lastVaccinationDate,
   lastVaccinationDate: item.lastVaccinationDate ?? "",
 });
 
 const EMPTY_FORM: FormState = {
-  entryType: "BATCH",
+  batchId: "",
   livestockType: "",
-  quantity: 1,
   tagNumber: "",
   breed: "",
   sex: "Female",
@@ -96,10 +95,18 @@ export default function LivestockEditDialog({
   isSubmitting,
   onSubmit,
 }: LivestockEditDialogProps) {
+  const { data: batches = [] } = useLivestockBatches();
   const [form, setForm] = useState<FormState>(() =>
     item ? toFormState(item) : EMPTY_FORM
   );
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (item) {
+      setForm(toFormState(item));
+      setFormError("");
+    }
+  }, [item]);
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -108,12 +115,8 @@ export default function LivestockEditDialog({
     setFormError("");
     if (!item) return;
 
-    if (form.entryType === "INDIVIDUAL" && !form.tagNumber.trim()) {
-      setFormError("Tag number is required for individual entries.");
-      return;
-    }
-    if (form.entryType === "BATCH" && (!form.quantity || form.quantity < 1)) {
-      setFormError("Quantity must be at least 1 for batch entries.");
+    if (!form.tagNumber.trim()) {
+      setFormError("Ear tag / ID number is required.");
       return;
     }
     if (!form.breed.trim()) {
@@ -125,12 +128,19 @@ export default function LivestockEditDialog({
       return;
     }
 
+    const typeId = livestockTypes[form.livestockType];
+    if (!typeId) {
+      setFormError("Please select a valid livestock species type.");
+      return;
+    }
+
     onSubmit({
-      livestock_type: livestockTypes[form.livestockType],
-      entry_type: form.entryType,
-      quantity: form.entryType === "INDIVIDUAL" ? 1 : Number(form.quantity),
-      tag_number: form.tagNumber || "",
-      breed: form.breed,
+      livestock_type: typeId,
+      entry_type: "INDIVIDUAL",
+      quantity: 1,
+      tag_number: form.tagNumber.trim(),
+      batch: form.batchId ? Number(form.batchId) : null,
+      breed: form.breed.trim(),
       sex: form.sex,
       weight: form.weight ? parseFloat(form.weight) : null,
       last_vaccination_date: form.lastVaccinationDate || null,
@@ -138,17 +148,15 @@ export default function LivestockEditDialog({
   };
 
   const headerTitle = item
-    ? item.entryType === "INDIVIDUAL"
-      ? item.tagNumber || "Un-tagged"
-      : `${item.quantity}x ${item.livestockTypeName} (Batch)`
-    : "";
+    ? item.tagNumber || `Tagged #${item.id}`
+    : "Edit Livestock";
 
   return (
     <Dialog open={open && !!item} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl border-0 shadow-2xl max-h-[90vh] overflow-y-auto [&>button]:text-white/70 [&>button]:hover:text-white">
         <DialogHeader className="hidden">
           <DialogTitle>Edit Livestock Entry</DialogTitle>
-          <DialogDescription>Update the details of this livestock entry</DialogDescription>
+          <DialogDescription>Update the details of this individual animal</DialogDescription>
         </DialogHeader>
 
         {item ? (
@@ -157,7 +165,7 @@ export default function LivestockEditDialog({
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="shrink-0 p-3 rounded-2xl bg-white/15 backdrop-blur-sm">
-                    <Layers className="w-6 h-6 text-white" />
+                    <Tag className="w-6 h-6 text-white" />
                   </div>
                   <div className="min-w-0">
                     <DialogTitle className="text-xl font-bold text-white leading-tight">
@@ -167,6 +175,7 @@ export default function LivestockEditDialog({
                       {[item.livestockTypeName, item.breed, item.sex]
                         .filter(Boolean)
                         .join(" • ")}
+                      {item.batchCode ? ` • Cohort: ${item.batchCode}` : ""}
                     </DialogDescription>
                   </div>
                 </div>
@@ -191,23 +200,18 @@ export default function LivestockEditDialog({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="editEntryType">Entry Type</Label>
-                  <Select
-                    value={form.entryType}
-                    onValueChange={(val: EntryType) => set({ entryType: val })}
-                  >
-                    <SelectTrigger id="editEntryType">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="BATCH">Batch Entry</SelectItem>
-                      <SelectItem value="INDIVIDUAL">Individual Tag</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>
+                  <Input
+                    id="editTagNumber"
+                    placeholder="e.g. TAG-2026-88"
+                    value={form.tagNumber}
+                    onChange={(e) => set({ tagNumber: e.target.value })}
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="editLivestockType">Livestock Type</Label>
+                  <Label htmlFor="editLivestockType">Livestock Species</Label>
                   <Select
                     value={form.livestockType}
                     onValueChange={(val) => set({ livestockType: val })}
@@ -226,48 +230,27 @@ export default function LivestockEditDialog({
                 </div>
               </div>
 
-              {form.entryType === "INDIVIDUAL" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>
-                  <Input
-                    id="editTagNumber"
-                    placeholder="e.g. TAG-2026-88"
-                    value={form.tagNumber}
-                    onChange={(e) => set({ tagNumber: e.target.value })}
-                    required
-                  />
-                </div>
-              ) : (
-                <div className="space-y-3 p-4 rounded-[10px] border border-slate-200">
-                  <Label htmlFor="editQuantity">Number of Heads</Label>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => set({ quantity: Math.max(1, form.quantity - 1) })}
-                      className="size-12 flex items-center justify-center rounded-xl border-2 border-[#2D5A27] bg-white text-[#2D5A27] hover:bg-[#2D5A27] hover:text-white transition-colors active:scale-95"
-                    >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                    <div className="flex-1 text-center">
-                      <span className="text-4xl font-black text-slate-900 tabular-nums">
-                        {form.quantity}
-                      </span>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        head{form.quantity !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => set({ quantity: form.quantity + 1 })}
-                      className="size-12 flex items-center justify-center rounded-xl border-2 border-[#2D5A27] bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 transition-colors active:scale-95"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editBatch">Assigned Cohort / Batch</Label>
+                  <Select
+                    value={form.batchId || "none"}
+                    onValueChange={(val) => set({ batchId: val === "none" ? "" : val })}
+                  >
+                    <SelectTrigger id="editBatch">
+                      <SelectValue placeholder="Select cohort (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Standalone (No Batch)</SelectItem>
+                      {batches.map((b) => (
+                        <SelectItem key={b.id} value={String(b.id)}>
+                          {b.batchCode} ({b.batchName || b.livestockTypeName})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="editBreed">Breed</Label>
                   <Input
@@ -275,8 +258,12 @@ export default function LivestockEditDialog({
                     placeholder="e.g. Brahman, Holstein"
                     value={form.breed}
                     onChange={(e) => set({ breed: e.target.value })}
+                    required
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editSex">Sex / Gender</Label>
                   <Select value={form.sex} onValueChange={(val) => set({ sex: val })}>
@@ -286,61 +273,59 @@ export default function LivestockEditDialog({
                     <SelectContent>
                       <SelectItem value="Female">Female</SelectItem>
                       <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Mixed">Mixed (Batch)</SelectItem>
+                      <SelectItem value="Castrated">Castrated</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="editWeight">Scale Weight (kg)</Label>
+                  <Input
+                    id="editWeight"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={form.weight}
+                    onChange={(e) => set({ weight: e.target.value })}
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {form.entryType === "INDIVIDUAL" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="editWeight">Weight (kg)</Label>
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="editIsVaccinated"
+                    checked={form.isVaccinated}
+                    onCheckedChange={(checked) =>
+                      set({
+                        isVaccinated: !!checked,
+                        lastVaccinationDate: checked ? form.lastVaccinationDate : "",
+                      })
+                    }
+                  />
+                  <Label
+                    htmlFor="editIsVaccinated"
+                    className="text-sm font-semibold cursor-pointer"
+                  >
+                    Immunization / Vaccination Recorded
+                  </Label>
+                </div>
+                {form.isVaccinated && (
+                  <div className="space-y-2 pl-6">
+                    <Label htmlFor="editVaxDate" className="text-xs font-bold text-slate-600">
+                      Last Vaccination Date
+                    </Label>
                     <Input
-                      id="editWeight"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={form.weight}
-                      onChange={(e) => set({ weight: e.target.value })}
+                      id="editVaxDate"
+                      type="date"
+                      max={new Date().toISOString().split("T")[0]}
+                      className="flex w-full bg-white"
+                      value={form.lastVaccinationDate}
+                      onChange={(e) => set({ lastVaccinationDate: e.target.value })}
+                      required
                     />
                   </div>
                 )}
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="editIsVaccinated"
-                      checked={form.isVaccinated}
-                      onCheckedChange={(checked) =>
-                        set({
-                          isVaccinated: !!checked,
-                          lastVaccinationDate: checked ? form.lastVaccinationDate : "",
-                        })
-                      }
-                    />
-                    <Label
-                      htmlFor="editIsVaccinated"
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      Vaccinated
-                    </Label>
-                  </div>
-                  {form.isVaccinated && (
-                    <div className="space-y-2">
-                      <Label htmlFor="editVaxDate">Last Vaccination Date</Label>
-                      <Input
-                        id="editVaxDate"
-                        type="date"
-                        max={new Date().toISOString().split("T")[0]}
-                        className="flex w-full"
-                        value={form.lastVaccinationDate}
-                        onChange={(e) => set({ lastVaccinationDate: e.target.value })}
-                        required
-                      />
-                    </div>
-                  )}
-                </div>
               </div>
 
               <DialogFooter className="pt-2">
@@ -349,7 +334,7 @@ export default function LivestockEditDialog({
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2"
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-bold"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
