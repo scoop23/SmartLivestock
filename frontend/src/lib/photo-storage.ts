@@ -12,67 +12,17 @@ export interface AttachedPhotoData {
 }
 
 /**
- * Curated authentic on-farm livestock photos based on animal species and condition.
+ * Curated authentic on-farm livestock photos utility.
+ * Dummy stock photos have been removed so the UI strictly shows real farmer-submitted or inspector photos.
  */
 export function getDefaultLivestockPhoto(
-  livestockType?: string,
-  conditionName?: string,
+  _livestockType?: string,
+  _conditionName?: string,
   _seedId?: string
 ): { photoUrl: string; photoName: string } {
-  const type = (livestockType || "").toLowerCase();
-  const cond = (conditionName || "").toLowerCase();
-
-  // Carabao / Water Buffalo
-  if (type.includes("carabao") || type.includes("buffalo")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1589923188900-85dae523342b?q=80&w=1000&auto=format&fit=crop",
-      photoName: "carabao_pasture_observation.jpg",
-    };
-  }
-
-  // Swine / Pigs
-  if (type.includes("swine") || type.includes("pig") || type.includes("hog")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1516467508483-a7212febe31a?q=80&w=1000&auto=format&fit=crop",
-      photoName: "swine_pen_evidence_photo.jpg",
-    };
-  }
-
-  // Goats & Sheep
-  if (type.includes("goat") || type.includes("caprine") || type.includes("sheep")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1527159347948-59af1feee74c?q=80&w=1000&auto=format&fit=crop",
-      photoName: "goat_herd_symptom_photo.jpg",
-    };
-  }
-
-  // Poultry / Chicken / Duck
-  if (type.includes("poultry") || type.includes("chicken") || type.includes("avian") || type.includes("bird") || type.includes("duck")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?q=80&w=1000&auto=format&fit=crop",
-      photoName: "poultry_coop_inspection.jpg",
-    };
-  }
-
-  // Cattle (specific condition categories)
-  if (cond.includes("fever") || cond.includes("cough") || cond.includes("respiratory") || cond.includes("lethargic") || cond.includes("not eating")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?q=80&w=1000&auto=format&fit=crop",
-      photoName: "bovine_respiratory_symptom_evidence.jpg",
-    };
-  }
-
-  if (cond.includes("hoof") || cond.includes("limp") || cond.includes("foot") || cond.includes("wound") || cond.includes("mouth")) {
-    return {
-      photoUrl: "https://images.unsplash.com/photo-1546445317-29f4545e9d53?q=80&w=1000&auto=format&fit=crop",
-      photoName: "cattle_hoof_mobility_examination.jpg",
-    };
-  }
-
-  // General healthy/observation cattle
   return {
-    photoUrl: "https://images.unsplash.com/photo-1500595046743-cd271d694d30?q=80&w=1000&auto=format&fit=crop",
-    photoName: "cattle_onfarm_alert_evidence.jpg",
+    photoUrl: "",
+    photoName: "",
   };
 }
 
@@ -89,13 +39,15 @@ export function saveAttachedPhoto(key: string, data: AttachedPhotoData): void {
 }
 
 /**
- * Retrieves the photo attached to a record, either farmer-uploaded or authentic fallback.
+ * Retrieves the photo attached to a record.
+ * Only returns a photo if the farmer or SIBAT actually uploaded one.
+ * Never returns fake/dummy fallback images.
  */
 export function getAttachedPhoto(
   recordId?: string,
   livestockTag?: string,
-  livestockType?: string,
-  conditionName?: string
+  _livestockType?: string,
+  _conditionName?: string
 ): { photoUrl: string; photoName: string; isFarmerUpload: boolean } {
   if (typeof window !== "undefined") {
     try {
@@ -108,7 +60,7 @@ export function getAttachedPhoto(
         const stored = localStorage.getItem(k);
         if (stored) {
           const parsed = JSON.parse(stored) as AttachedPhotoData;
-          if (parsed?.photoUrl) {
+          if (parsed?.photoUrl && parsed.photoUrl.trim() !== "") {
             return {
               photoUrl: parsed.photoUrl,
               photoName: parsed.photoName || "farmer_attached_evidence.jpg",
@@ -122,10 +74,10 @@ export function getAttachedPhoto(
     }
   }
 
-  // Return realistic fallback photo for this animal species & clinical condition
-  const fallback = getDefaultLivestockPhoto(livestockType, conditionName, recordId);
+  // No dummy fallback photos: return blank so UI renders real state
   return {
-    ...fallback,
+    photoUrl: "",
+    photoName: "",
     isFarmerUpload: false,
   };
 }

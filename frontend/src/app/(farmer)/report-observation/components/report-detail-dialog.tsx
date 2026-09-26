@@ -24,6 +24,8 @@ import {
   UserCheck,
   Printer,
   ChevronRight,
+  Camera,
+  ZoomIn,
 } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
@@ -296,6 +298,34 @@ export default function ReportDetailDialog({
               <p className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-700 leading-relaxed">
                 {report.description}
               </p>
+            </div>
+          )}
+
+          {/* 6. Farmer Attached Photo Evidence */}
+          {report.photoUrl && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Camera className="size-3.5 text-emerald-700" />
+                Attached Photo Evidence
+              </h4>
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 aspect-video max-h-72 shadow-2xs group">
+                <img
+                  src={report.photoUrl}
+                  alt={report.photoName || "Farmer Photo Evidence"}
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-2.5 flex items-center justify-between text-white text-[11px]">
+                  <span className="font-mono truncate">{report.photoName || "farmer_attached_evidence.jpg"}</span>
+                  <a
+                    href={report.photoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-300 font-bold hover:underline"
+                  >
+                    View Fullscreen
+                  </a>
+                </div>
+              </div>
             </div>
           )}
 

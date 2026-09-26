@@ -123,6 +123,7 @@ export interface ValidationIncidentItem {
   livestockType?: string;
   conditionName?: string;
   symptoms?: string[];
+  photoUrl?: string;
   photoName?: string;
   sibatInspection?: SibatInspectionData;
   reviewedBy?: string | null;
@@ -261,6 +262,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
     const incidents: ValidationIncidentItem[] = [];
 
     diseaseCases.forEach((dc) => {
+      const pUrl = (dc as any).photo_url || (dc as any).photo || undefined;
       incidents.push({
         id: `dis-${dc.id}`,
         type: "disease",
@@ -278,12 +280,15 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         livestockBreed: dc.breed || undefined,
         livestockType: dc.livestock_type_name || "Livestock",
         conditionName: dc.name || "Disease Case",
+        photoUrl: pUrl,
+        photoName: pUrl ? "Attached Field Photo" : undefined,
         reviewedBy: dc.reviewed_by_name || null,
         reviewedAt: dc.reviewed_at || null,
       });
     });
 
     mortalities.forEach((m) => {
+      const pUrl = (m as any).photo_url || (m as any).photo || undefined;
       incidents.push({
         id: `mor-${m.id}`,
         type: "mortality",
@@ -299,6 +304,8 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         livestockBreed: m.breed || undefined,
         livestockType: m.livestock_type_name || "Livestock",
         conditionName: m.cause || "Mortality Record",
+        photoUrl: pUrl,
+        photoName: pUrl ? "Mortality Photo Evidence" : undefined,
         reviewedBy: m.reviewed_by_name || null,
         reviewedAt: m.reviewed_at || null,
       });

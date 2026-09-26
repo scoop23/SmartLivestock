@@ -231,8 +231,8 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
 
   const statusNorm = (dc.status || "PENDING").toUpperCase() as SibatStatus;
   const photo = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number, dc.livestock_type_name, dc.name);
-  const resolvedPhotoUrl = dc.photo_url || dc.photo || photo.photoUrl;
-  const resolvedPhotoName = dc.photo_url ? "farmer_attached_evidence.jpg" : photo.photoName;
+  const resolvedPhotoUrl = dc.photo_url || dc.photo || (photo.isFarmerUpload ? photo.photoUrl : undefined);
+  const resolvedPhotoName = dc.photo_url ? "farmer_attached_evidence.jpg" : (photo.isFarmerUpload ? photo.photoName : undefined);
 
   return {
     id: `DIS-${dc.id}`,
@@ -270,8 +270,8 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
 export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidationRecord => {
   const statusNorm = (m.status || "PENDING").toUpperCase() as SibatStatus;
   const photo = getAttachedPhoto(`MOR-${m.id}`, m.tag_number, m.livestock_type_name, m.cause);
-  const resolvedPhotoUrl = m.photo_url || m.photo || photo.photoUrl;
-  const resolvedPhotoName = m.photo_url ? "mortality_evidence_photo.jpg" : photo.photoName;
+  const resolvedPhotoUrl = m.photo_url || m.photo || (photo.isFarmerUpload ? photo.photoUrl : undefined);
+  const resolvedPhotoName = m.photo_url ? "mortality_evidence_photo.jpg" : (photo.isFarmerUpload ? photo.photoName : undefined);
 
   return {
     id: `MOR-${m.id}`,
@@ -667,6 +667,7 @@ export function useReviewClinicalHealth() {
       queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
       queryClient.invalidateQueries({ queryKey: ["disease-cases"] });
       queryClient.invalidateQueries({ queryKey: ["mortality-records"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }
