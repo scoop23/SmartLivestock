@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from users.models import User, Notification
+from users.notification_views import create_notification
 from .models import (
     ProductionRecord,
     LiveAnimalSale,
@@ -164,6 +166,37 @@ def review_production_record(request, pk):
     record.review_remarks = remarks
     record.reviewed_at = timezone.now()
     record.save()
+
+    target_farmer = getattr(record.farmer, "user", None)
+    if target_farmer:
+        prod_info = f"{record.quantity} {record.unit} of {record.get_production_type_display()}"
+        if new_status == ProductionRecord.ProductionStatus.VERIFIED:
+            create_notification(
+                user=target_farmer,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.MEDIUM,
+                title="Production Record Verified by SIBAT",
+                message=f"Your production declaration for {prod_info} was verified on-farm by SIBAT.{f' Remarks: {remarks}' if remarks else ''}",
+                link="/production-dashboard",
+            )
+        elif new_status == ProductionRecord.ProductionStatus.APPROVED:
+            create_notification(
+                user=target_farmer,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.MEDIUM,
+                title="Production Record Approved by MAO",
+                message=f"Official certification approved for your {prod_info}.{f' Directives: {remarks}' if remarks else ''}",
+                link="/production-dashboard",
+            )
+        elif new_status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION:
+            create_notification(
+                user=target_farmer,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.HIGH,
+                title="Revision Required on Production Record",
+                message=f"Your production declaration for {prod_info} requires revision.{f' Remarks: {remarks}' if remarks else ''}",
+                link="/production-dashboard",
+            )
 
     serializer = ProductionRecordSerializer(record)
     return Response(serializer.data, status=200)

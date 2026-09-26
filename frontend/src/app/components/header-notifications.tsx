@@ -98,8 +98,9 @@ export function HeaderNotifications({
         return null;
       }
     },
-    refetchInterval: 30000,
-    staleTime: 10000,
+    refetchInterval: 15000,
+    refetchOnMount: "always",
+    staleTime: 5000,
   });
 
   // Mark single as read mutation

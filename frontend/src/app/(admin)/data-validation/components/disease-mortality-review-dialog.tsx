@@ -228,8 +228,10 @@ export function DiseaseMortalityReviewDialog({
                   record.livestockType,
                   record.conditionName
                 );
-                const activePhotoUrl = attached.photoUrl;
-                const activePhotoName = record.photoName || attached.photoName;
+                const activePhotoUrl = record.photoUrl || (attached.isFarmerUpload ? attached.photoUrl : "");
+                const activePhotoName = record.photoName || (attached.isFarmerUpload ? attached.photoName : "");
+
+                if (!activePhotoUrl) return null;
 
                 return (
                   <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-2.5 shadow-2xs">

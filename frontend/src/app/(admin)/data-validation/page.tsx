@@ -440,6 +440,7 @@ export default function AdminDataValidationPage() {
           })
         );
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
       }
 
       setSelectedIds([]);
@@ -480,6 +481,7 @@ export default function AdminDataValidationPage() {
         await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
       }
       queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       const actionVerb = action === "APPROVED" ? "certified & approved" : "returned for revision";
       toast.success(`Health declaration ${recordId} ${actionVerb}.`, {
         description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",

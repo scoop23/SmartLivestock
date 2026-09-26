@@ -42,6 +42,7 @@ import {
 } from "./report-observation-types";
 import ReportIllnessDialog from "./components/report-illness-dialog";
 import ReportDetailDialog from "./components/report-detail-dialog";
+import { getAttachedPhoto } from "@/lib/photo-storage";
 
 export default function ReportObservationPage() {
   const queryClient = useQueryClient();
@@ -97,6 +98,9 @@ export default function ReportObservationPage() {
     const list: FarmerReport[] = [];
 
     diseaseCases.forEach((dc: any) => {
+      const attached = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number);
+      const photoUrl = dc.photo_url || dc.photo || (attached.isFarmerUpload ? attached.photoUrl : undefined);
+      const photoName = (dc.photo_url || dc.photo) ? "Attached Field Photo" : (attached.isFarmerUpload ? attached.photoName : undefined);
       list.push({
         id: `DIS-${dc.id}`,
         reportType: "DISEASE",
@@ -110,6 +114,8 @@ export default function ReportObservationPage() {
         status: (dc.status || "PENDING").toUpperCase() as BackendStatus,
         symptoms: [dc.name],
         description: dc.name,
+        photoUrl,
+        photoName,
         createdAt: dc.created_at || new Date().toISOString(),
         reviewedBy: dc.reviewed_by,
         reviewedByName: dc.reviewed_by_name,
@@ -120,6 +126,9 @@ export default function ReportObservationPage() {
     });
 
     mortalityRecords.forEach((m: any) => {
+      const attached = getAttachedPhoto(`MOR-${m.id}`, m.tag_number);
+      const photoUrl = m.photo_url || m.photo || (attached.isFarmerUpload ? attached.photoUrl : undefined);
+      const photoName = (m.photo_url || m.photo) ? "Mortality Photo Evidence" : (attached.isFarmerUpload ? attached.photoName : undefined);
       list.push({
         id: `MOR-${m.id}`,
         reportType: "MORTALITY",
@@ -133,6 +142,8 @@ export default function ReportObservationPage() {
         status: (m.status || "PENDING").toUpperCase() as BackendStatus,
         symptoms: [m.cause],
         description: m.cause,
+        photoUrl,
+        photoName,
         createdAt: m.created_at || new Date().toISOString(),
         reviewedBy: m.reviewed_by,
         reviewedByName: m.reviewed_by_name,

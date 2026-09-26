@@ -278,9 +278,9 @@ export function SibatInspectionDialog({
       )
     : null;
   const lightboxPhotoUrl =
-    inspectorPhotoUrl || record?.photoUrl || attachedForLightbox?.photoUrl || "";
+    inspectorPhotoUrl || record?.photoUrl || (attachedForLightbox?.isFarmerUpload ? attachedForLightbox.photoUrl : "");
   const lightboxPhotoName =
-    inspectorPhotoName || record?.photoName || attachedForLightbox?.photoName || "";
+    inspectorPhotoName || record?.photoName || (attachedForLightbox?.isFarmerUpload ? attachedForLightbox.photoName : "");
 
   return (
     <>
@@ -454,9 +454,80 @@ export function SibatInspectionDialog({
                   record.livestockType,
                   record.name
                 );
-                const activePhotoUrl = inspectorPhotoUrl || record.photoUrl || attached.photoUrl;
-                const activePhotoName = inspectorPhotoName || record.photoName || attached.photoName;
+                const activePhotoUrl = inspectorPhotoUrl || record.photoUrl || (attached.isFarmerUpload ? attached.photoUrl : "");
+                const activePhotoName = inspectorPhotoName || record.photoName || (attached.isFarmerUpload ? attached.photoName : "");
                 const isFarmerUpload = Boolean(inspectorPhotoUrl) ? false : Boolean(record.photoUrl || attached.isFarmerUpload);
+
+                if (!activePhotoUrl) {
+                  return (
+                    <div className="p-4 bg-white rounded-2xl border border-dashed border-slate-200 space-y-2.5 text-center">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-xl bg-slate-100 text-slate-500">
+                            <Camera className="size-4.5" />
+                          </div>
+                          <div className="text-left">
+                            <span className="text-xs sm:text-sm font-black text-slate-800 block leading-tight">
+                              Photo Evidence
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              No photograph attached by farmer
+                            </span>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-slate-500 border-slate-200 text-[10px] font-bold">
+                          No Photo
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-500 py-1">
+                        The raiser did not upload a photograph with this incident report.
+                      </p>
+
+                      {/* Photo upload button & preview matching other dialogs */}
+                      <div className="space-y-2 pt-1 text-left">
+                        <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 hover:border-sky-600 rounded-xl bg-slate-50 cursor-pointer transition-colors text-xs font-bold text-slate-600 hover:text-sky-700">
+                          <Camera className="w-4 h-4 text-sky-600" />
+                          <span>{inspectorPhotoName ? `Photo: ${inspectorPhotoName}` : "Add SIBAT Field Inspection Photo (Optional)"}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleInspectorPhotoUpload}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {inspectorPhotoUrl && (
+                          <div className="relative rounded-2xl overflow-hidden border border-sky-300 bg-sky-50/60 p-2 flex items-center gap-3">
+                            <img
+                              src={inspectorPhotoUrl}
+                              alt="Attached preview"
+                              className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0 text-xs">
+                              <p className="font-bold text-slate-900 truncate">{inspectorPhotoName}</p>
+                              <p className="text-[11px] text-sky-700 font-semibold">
+                                Inspection photo attached & ready for MAO validation
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setInspectorPhotoName("");
+                                setInspectorPhotoUrl("");
+                                setInspectorPhotoFile(null);
+                              }}
+                              className="text-slate-400 hover:text-rose-600 rounded-xl"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3 shadow-2xs">
@@ -467,10 +538,10 @@ export function SibatInspectionDialog({
                         </div>
                         <div>
                           <span className="text-xs sm:text-sm font-black text-slate-900 block leading-tight">
-                            Farmer Attached Photo Evidence
+                            {isFarmerUpload ? "Farmer Attached Photo Evidence" : "SIBAT Inspection Photo"}
                           </span>
                           <span className="text-[10px] text-slate-400 font-medium">
-                            Visual documentation submitted with the alert
+                            {isFarmerUpload ? "Visual documentation submitted with the alert" : "Captured during on-farm verification visit"}
                           </span>
                         </div>
                       </div>
@@ -481,8 +552,8 @@ export function SibatInspectionDialog({
                             Farmer Upload
                           </Badge>
                         ) : (
-                          <Badge className="bg-sky-50 text-sky-800 border-sky-200 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
-                            On-Farm Record Photo
+                          <Badge className="bg-sky-100 text-sky-800 border-sky-200 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-2xs">
+                            SIBAT Field Photo
                           </Badge>
                         )}
                       </div>
@@ -684,6 +755,52 @@ export function SibatInspectionDialog({
                     <option value="LAB_SAMPLE_SENT">Blood/Tissue Sample Sent to Lab</option>
                   </select>
                 </div>
+              </div>
+
+              {/* SIBAT Inspection Photo upload matching other dialogs */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-black text-slate-800 block">
+                  SIBAT Field Inspection Photo (Optional):
+                </label>
+                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-sky-200 hover:border-sky-600 rounded-xl bg-white cursor-pointer transition-colors text-xs font-bold text-sky-800">
+                  <Camera className="w-4 h-4 text-sky-600" />
+                  <span>{inspectorPhotoName ? `Photo: ${inspectorPhotoName}` : "Attach SIBAT Field Inspection Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleInspectorPhotoUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {inspectorPhotoUrl && (
+                  <div className="relative rounded-2xl overflow-hidden border border-sky-300 bg-white p-2 flex items-center gap-3 shadow-2xs">
+                    <img
+                      src={inspectorPhotoUrl}
+                      alt="Inspection preview"
+                      className="w-16 h-16 rounded-xl object-cover border border-sky-200 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0 text-xs">
+                      <p className="font-bold text-slate-900 truncate">{inspectorPhotoName}</p>
+                      <p className="text-[11px] text-sky-700 font-semibold">
+                        Field photo attached & ready for MAO certification
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setInspectorPhotoName("");
+                        setInspectorPhotoUrl("");
+                        setInspectorPhotoFile(null);
+                      }}
+                      className="text-slate-400 hover:text-rose-600 rounded-xl"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Inspector Remarks & Presets */}

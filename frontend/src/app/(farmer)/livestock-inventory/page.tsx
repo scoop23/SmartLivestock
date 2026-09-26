@@ -41,6 +41,7 @@ import {
   Upload,
   Image as ImageIcon,
   Check,
+  X,
 } from "lucide-react";
 
 // shadcn/ui primitives
@@ -135,6 +136,7 @@ export default function LivestockInventoryPage() {
     avatarKey: "cow-brahman",
   };
   const [formData, setFormData] = useState(initialFormData);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showAllAvatars, setShowAllAvatars] = useState(false);
 
@@ -145,6 +147,7 @@ export default function LivestockInventoryPage() {
       toast.error("Photo exceeds 5MB. Please choose a smaller image.");
       return;
     }
+    setPhotoFile(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -155,12 +158,14 @@ export default function LivestockInventoryPage() {
   };
 
   const handleRemovePhoto = () => {
+    setPhotoFile(null);
     setFormData((prev) => ({ ...prev, photoDataUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
     toast.info("Photo removed. Preset avatar will be used.");
   };
 
   const handleSelectAvatar = (avatarId: string) => {
+    setPhotoFile(null);
     setFormData((prev) => ({
       ...prev,
       avatarKey: avatarId,
@@ -361,20 +366,40 @@ export default function LivestockInventoryPage() {
           ? (formData.customBreed?.trim() || "Mixed / Crossbred")
           : (formData.breed?.trim() || "Standard");
 
-        const payload: any = {
-          livestock_type: typeId,
-          entry_type: "INDIVIDUAL",
-          quantity: 1,
-          tag_number: formData.tagNumber.trim(),
-          breed: finalBreed,
-          sex: formData.sex,
-          weight: formData.weight ? parseFloat(formData.weight) : null,
-          last_vaccination_date: formData.lastVaccinationDate || null,
-        };
-        if (formData.batchId) payload.batch = Number(formData.batchId);
-        if (formData.avatarKey) payload.avatar_key = formData.avatarKey;
+        let response;
+        if (photoFile) {
+          const body = new FormData();
+          body.append("livestock_type", String(typeId));
+          body.append("entry_type", "INDIVIDUAL");
+          body.append("quantity", "1");
+          body.append("tag_number", formData.tagNumber.trim());
+          body.append("breed", finalBreed);
+          body.append("sex", formData.sex);
+          if (formData.weight) body.append("weight", formData.weight);
+          if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
+          if (formData.batchId) body.append("batch", String(formData.batchId));
+          if (formData.avatarKey) body.append("avatar_key", formData.avatarKey);
+          body.append("photo", photoFile);
 
-        const response = await api.post("/livestock/inventory/", payload);
+          response = await api.post("/livestock/inventory/", body, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        } else {
+          const payload: any = {
+            livestock_type: typeId,
+            entry_type: "INDIVIDUAL",
+            quantity: 1,
+            tag_number: formData.tagNumber.trim(),
+            breed: finalBreed,
+            sex: formData.sex,
+            weight: formData.weight ? parseFloat(formData.weight) : null,
+            last_vaccination_date: formData.lastVaccinationDate || null,
+          };
+          if (formData.batchId) payload.batch = Number(formData.batchId);
+          if (formData.avatarKey) payload.avatar_key = formData.avatarKey;
+
+          response = await api.post("/livestock/inventory/", payload);
+        }
 
         if (response.data?.id) {
           try {
@@ -771,9 +796,9 @@ export default function LivestockInventoryPage() {
             }
           }}
         >
-          <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl p-0 border-0 shadow-2xl">
+          <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl h-[90vh] sm:h-[86vh] max-h-[850px] flex flex-col rounded-3xl p-0 border-0 shadow-2xl overflow-hidden bg-white">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white p-6">
+            <div className="shrink-0 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white p-5 sm:p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md">
                   <Tag className="w-6 h-6 text-emerald-300" />
@@ -789,7 +814,8 @@ export default function LivestockInventoryPage() {
               </div>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="p-6 space-y-5 bg-white">
+            <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
+              <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5">
               {formError && (
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-bold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -1482,7 +1508,7 @@ export default function LivestockInventoryPage() {
                     </div>
 
                     {/* Scrollable Animal Roster Cards */}
-                    <div className="max-h-80 overflow-y-auto pr-1 space-y-2.5 border border-slate-200/90 rounded-2xl p-2.5 bg-slate-50/50">
+                    <div className="h-72 sm:h-80 overflow-y-auto pr-1.5 space-y-2.5 border border-slate-200/90 rounded-2xl p-2.5 bg-slate-50/50">
                       {batchAnimals.map((animal, idx) => (
                         <div
                           key={animal.id || idx}
@@ -1690,8 +1716,9 @@ export default function LivestockInventoryPage() {
                   </>
                 )}
               </div>
+              </div>
 
-              <DialogFooter className="pt-2">
+              <div className="shrink-0 p-4 sm:p-5 bg-slate-50/90 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <Button
                   type="button"
                   variant="outline"
@@ -1711,7 +1738,7 @@ export default function LivestockInventoryPage() {
                 >
                   {addMutation.isPending ? "Submitting..." : "Submit to Registry"}
                 </Button>
-              </DialogFooter>
+              </div>
             </form>
           </DialogContent>
         </Dialog>

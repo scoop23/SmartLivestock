@@ -20,6 +20,7 @@ export interface FarmerReport {
   status: BackendStatus;
   symptoms: string[];
   description: string;
+  photoUrl?: string;
   photoName?: string;
   createdAt: string;
   reviewedBy?: string | null;
