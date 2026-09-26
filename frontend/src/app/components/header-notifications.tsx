@@ -84,7 +84,7 @@ export function HeaderNotifications({
   useEffect(() => {
     try {
       localStorage.removeItem("smartlivestock_notifications_v1");
-    } catch {}
+    } catch { }
   }, []);
 
   // Fetch real notifications from Django Backend
@@ -120,11 +120,11 @@ export function HeaderNotifications({
 
       if (previousData) {
         const numericId = parseInt(id, 10);
-        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"] , {
+        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"], {
           ...previousData,
           unread_count: Math.max(0, previousData.unread_count - 1),
-          notifications: previousData.notifications.map((n) => 
-            n.id === numericId ? { ...n, is_read: true} : n
+          notifications: previousData.notifications.map((n) =>
+            n.id === numericId ? { ...n, is_read: true } : n
           )
         });
       }
