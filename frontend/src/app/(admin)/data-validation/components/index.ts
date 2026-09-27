@@ -5,4 +5,6 @@ export { ProductionTable } from "./production-table";
 export { InventoryTable } from "./inventory-table";
 export { IncidentsTable } from "./incidents-table";
 export { DiseaseMortalityReviewDialog } from "./disease-mortality-review-dialog";
+export { ValidationLoadingScreen } from "./validation-loading-screen";
+export { ValidationPagination } from "./validation-pagination";
 

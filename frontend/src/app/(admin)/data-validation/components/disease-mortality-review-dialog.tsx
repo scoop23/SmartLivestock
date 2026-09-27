@@ -231,7 +231,21 @@ export function DiseaseMortalityReviewDialog({
                 const activePhotoUrl = record.photoUrl || (attached.isFarmerUpload ? attached.photoUrl : "");
                 const activePhotoName = record.photoName || (attached.isFarmerUpload ? attached.photoName : "");
 
-                if (!activePhotoUrl) return null;
+                if (!activePhotoUrl) {
+                  return (
+                    <div className="p-3 bg-white rounded-xl border border-dashed border-slate-200 text-xs flex items-center justify-between text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <Camera className="size-4 text-slate-300" />
+                        <span className="text-[11px] font-medium text-slate-500">
+                          No photographic evidence attached by raiser during initial submission
+                        </span>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] text-slate-400 border-slate-200 font-mono">
+                        No Photo
+                      </Badge>
+                    </div>
+                  );
+                }
 
                 return (
                   <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-2.5 shadow-2xs">
@@ -377,6 +391,63 @@ export function DiseaseMortalityReviewDialog({
                     "{record.sibatInspection.remarks}"
                   </p>
                 </div>
+
+                {/* SIBAT Inspector Photo Evidence */}
+                {record.inspectorPhotoUrl ? (
+                  <div className="p-3.5 bg-white rounded-2xl border border-sky-200 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-sky-100 text-sky-800">
+                          <Camera className="size-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-black text-slate-900 block leading-tight">
+                            SIBAT Field Inspection Photo
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            Captured on-site during technician clinical assessment
+                          </span>
+                        </div>
+                      </div>
+                      <Badge className="bg-sky-100 text-sky-800 border-sky-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                        On-Site Photo Verified
+                      </Badge>
+                    </div>
+
+                    <div className="relative group overflow-hidden rounded-xl border border-sky-200 bg-slate-950 aspect-16/10 shadow-2xs">
+                      <img
+                        src={record.inspectorPhotoUrl}
+                        alt={`SIBAT inspection photo for #${record.tagNumber || record.id}`}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2.5 text-white">
+                        <span className="text-[10px] font-mono text-slate-200 truncate max-w-xs">
+                          {record.inspectorPhotoName || "SIBAT Technician Field Photo"}
+                        </span>
+                        <a
+                          href={record.inspectorPhotoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold text-sky-300 hover:underline flex items-center gap-1"
+                        >
+                          <ZoomIn className="size-3" /> Full size
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-white/70 rounded-xl border border-dashed border-sky-200 text-xs flex items-center justify-between text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <Camera className="size-4 text-sky-300" />
+                      <span className="text-[11px] font-medium text-sky-900/70">
+                        No technician field photo attached for this inspection
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] text-sky-600 border-sky-200 font-mono">
+                      No Photo
+                    </Badge>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-3.5">

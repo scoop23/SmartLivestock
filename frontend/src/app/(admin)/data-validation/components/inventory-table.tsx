@@ -70,6 +70,8 @@ export function InventoryTable({
     feedType: inv.feedType,
     targetWeight: inv.targetWeight,
     animals: inv.animals,
+    photoUrl: inv.photoUrl,
+    photoName: inv.photoName,
   });
 
 
@@ -253,6 +255,8 @@ export function InventoryTable({
                                 barangay: inv.barangayName,
                                 keyMetric: `${inv.quantity} head(s)`,
                                 currentRemarks: inv.reviewRemarks,
+                                photoUrl: inv.photoUrl,
+                                photoName: inv.photoName,
                               })
                             }
                             title={
@@ -432,6 +436,8 @@ export function InventoryTable({
                         barangay: inv.barangayName,
                         keyMetric: `${inv.quantity} head(s)`,
                         currentRemarks: inv.reviewRemarks,
+                        photoUrl: inv.photoUrl,
+                        photoName: inv.photoName,
                       })
                     }
                     className={`flex-1 py-2.5 h-auto rounded-xl text-xs font-bold gap-1.5 shadow-xs ${

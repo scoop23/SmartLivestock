@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,15 +23,23 @@ import {
   AlertTriangle,
   Printer,
   Copy,
-  FileSpreadsheet,
-  Layers,
-  Milk,
-  TrendingUp,
-  Scale,
+  Boxes,
   ExternalLink,
+  QrCode,
+  Scale,
+  Milk,
+  FileSpreadsheet,
+  Activity,
+  Check,
+  Building2,
+  Clock,
+  Info,
 } from "lucide-react";
+import { Icon } from "lucide-react";
+import { cowHead } from "@lucide/lab";
 import { toast } from "sonner";
 import { DataTab } from "./data-overview-types";
+import { QrCodePass } from "@/components/qr-code-pass";
 
 interface DataOverviewDetailModalProps {
   open: boolean;
@@ -44,275 +54,534 @@ export function DataOverviewDetailModal({
   record,
   domain,
 }: DataOverviewDetailModalProps) {
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "origin" | "qr" | "roster">("overview");
+  const [copied, setCopied] = useState(false);
+
   if (!record) return null;
 
+  const isBatch = domain === "batches" || Boolean(record.batchCode) || record.totalAnimals !== undefined;
+  const targetBatchId =
+    record.rawId ||
+    (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, "")) ||
+    record.batchCode ||
+    record.id;
+
+  const identifierCode = record.batchCode || record.cattleId || record.tagNumber || record.id;
+
   const handleCopyTag = () => {
-    const textToCopy = record.cattleId || record.id || "";
-    navigator.clipboard.writeText(textToCopy);
-    toast.success(`Copied "${textToCopy}" to clipboard`);
+    navigator.clipboard.writeText(identifierCode);
+    setCopied(true);
+    toast.success(`Copied "${identifierCode}" to clipboard`);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handlePrint = () => {
     window.print();
   };
 
+  // Status badge styling helper
+  const renderStatusBadge = (statusStr: string | undefined) => {
+    const s = String(statusStr || "PENDING").toUpperCase();
+    if (s.includes("APPROV") || s.includes("VERIF") || s.includes("CERTIF") || s.includes("COMPLET")) {
+      return (
+        <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
+          <CheckCircle2 className="size-3 mr-1 inline" />
+          {statusStr}
+        </Badge>
+      );
+    }
+    if (s.includes("REVI") || s.includes("PEND") || s.includes("AUDIT")) {
+      return (
+        <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
+          <Clock className="size-3 mr-1 inline" />
+          {statusStr}
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
+        <AlertTriangle className="size-3 mr-1 inline" />
+        {statusStr}
+      </Badge>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl sm:max-w-3xl rounded-2xl p-0 overflow-hidden border border-slate-200/80 shadow-2xl bg-white">
-        {/* Modal Header */}
-        <div className="bg-gradient-to-r from-emerald-900 to-[#1E3D1A] text-white p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <Badge className="bg-white/20 text-white border-0 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
-              {domain.toUpperCase()} MASTER RECORD
-            </Badge>
-            <span className="text-xs font-mono font-bold text-emerald-200">
-              {record.id}
-            </span>
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-3xl md:max-w-4xl rounded-2xl sm:rounded-3xl p-0 overflow-hidden border border-slate-200 shadow-2xl bg-white flex flex-col max-h-[92vh]">
+        {/* ── Remastered Executive Hero Header ── */}
+        <div className="bg-gradient-to-r from-emerald-950 via-[#1E3D1A] to-slate-950 text-white p-4 sm:p-5 relative overflow-hidden shrink-0 border-b border-emerald-900/60">
+          <div className="absolute top-0 right-0 w-80 h-full bg-gradient-to-l from-emerald-600/10 to-transparent pointer-events-none" />
+
+          {/* Top Domain & Verification Meta */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full bg-white/10 text-emerald-200 border border-white/20 text-[9px] font-black uppercase tracking-widest">
+                {domain.toUpperCase()} MASTER RECORD
+              </span>
+              <span className="text-[10px] text-emerald-300/80 font-mono hidden xs:inline">
+                Padre Garcia MAO Traceability Core
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {renderStatusBadge(record.status || "APPROVED")}
+            </div>
           </div>
 
-          <DialogHeader className="mt-2.5 text-left">
-            <DialogTitle className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-              {record.cattleId ? (
-                <>
-                  <Tag className="w-4 h-4 text-emerald-300" />
-                  <span>{record.cattleId}</span>
-                </>
-              ) : (
-                <span>{record.product || record.disease || record.quarter || record.id}</span>
-              )}
-            </DialogTitle>
-            <DialogDescription className="text-[11px] text-emerald-100/80 mt-0.5">
-              Padre Garcia Municipal Agriculture Office — Official Certified Ledger Entry
+          {/* Title & Primary Code */}
+          <DialogHeader className="text-left space-y-1">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="text-lg sm:text-2xl font-black tracking-tight text-white flex items-center gap-2 truncate">
+                {isBatch ? (
+                  <>
+                    <Boxes className="w-6 h-6 text-emerald-400 shrink-0" />
+                    <span className="truncate">{record.batchName || record.batchCode}</span>
+                  </>
+                ) : record.cattleId ? (
+                  <>
+                    <Icon iconNode={cowHead} className="size-5 text-emerald-400 shrink-0" />
+                    <span className="truncate">{record.cattleId}</span>
+                  </>
+                ) : (
+                  <span>{record.product || record.disease || record.quarter || record.id}</span>
+                )}
+              </DialogTitle>
+            </div>
+
+            <DialogDescription className="text-xs text-emerald-200/90 flex items-center gap-2 flex-wrap">
+              <span className="font-mono font-bold bg-black/30 px-2 py-0.5 rounded text-emerald-300">
+                {identifierCode}
+              </span>
+              <span>•</span>
+              <span>Barangay <strong>{record.barangay}</strong></span>
+              <span>•</span>
+              <span>Owner: <strong>{record.farmerName || record.enumerator || record.buyer || "Registered Farmer"}</strong></span>
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-4 sm:p-5 space-y-3.5 max-h-[75vh] overflow-y-auto">
-          {/* Farmer & Location Section */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Farmer / Registered Raiser
-              </span>
-              <p className="text-sm font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-[#2D5A27]" />
-                {record.farmerName || record.enumerator || record.buyer || "MAO Registry"}
-              </p>
-              {record.farmerContact && (
-                <p className="text-[11px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-slate-400" />
-                  {record.farmerContact}
-                </p>
+        {/* ── Sub-Tab Navigation Bar ── */}
+        <div className="px-4 sm:px-6 pt-3 pb-1 border-b border-slate-100 bg-slate-50/70 shrink-0">
+          <Tabs
+            value={activeSubTab}
+            onValueChange={(val) => setActiveSubTab(val as any)}
+            className="w-full"
+          >
+            <TabsList className="bg-slate-200/60 p-1 rounded-xl h-9 w-full sm:w-auto grid grid-cols-3 sm:flex">
+              <TabsTrigger
+                value="overview"
+                className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs"
+              >
+                Specification
+              </TabsTrigger>
+              <TabsTrigger
+                value="origin"
+                className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs"
+              >
+                Raiser & Origin
+              </TabsTrigger>
+              <TabsTrigger
+                value="qr"
+                className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs flex items-center gap-1"
+              >
+                <QrCode className="size-3 text-emerald-700" />
+                Digital QR Pass
+              </TabsTrigger>
+              {isBatch && record.animals && record.animals.length > 0 && (
+                <TabsTrigger
+                  value="roster"
+                  className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs"
+                >
+                  Roster ({record.animals.length})
+                </TabsTrigger>
               )}
-            </div>
+            </TabsList>
+          </Tabs>
+        </div>
 
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Sector Location
-              </span>
-              <p className="text-sm font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-[#2D5A27]" />
-                Brgy. {record.barangay}
-                {record.purok ? ` (${record.purok})` : ""}
-              </p>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                Padre Garcia, Batangas
-              </p>
-            </div>
-          </div>
+        {/* ── Modal Content Body ── */}
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+          {/* TAB 1: OVERVIEW & SPECIFICATIONS */}
+          {activeSubTab === "overview" && (
+            <div className="space-y-4 animate-in fade-in-50 duration-200">
+              {/* Specification Grid */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">
+                  Technical Specifications & Metrics
+                </h4>
 
-          {/* Technical Specifications Grid */}
-          <div className="space-y-2">
-            <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-              Record Specification & Metrics
-            </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {record.batchCode && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Batch Code</span>
+                      <p className="text-xs font-mono font-black text-emerald-800 mt-0.5">
+                        {record.batchCode}
+                      </p>
+                    </div>
+                  )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {record.specie && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Specie</span>
-                  <p className="text-xs font-black text-slate-900 mt-0.5">{record.specie}</p>
+                  {record.housingPen && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Housing Pen</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.housingPen}</p>
+                    </div>
+                  )}
+
+                  {record.feedType && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Feed Program</span>
+                      <p className="text-xs font-bold text-slate-800 mt-0.5">{record.feedType}</p>
+                    </div>
+                  )}
+
+                  {record.specie && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Specie</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.specie}</p>
+                    </div>
+                  )}
+
+                  {record.breed && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Breed</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.breed}</p>
+                    </div>
+                  )}
+
+                  {record.totalAnimals !== undefined && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Total Animals</span>
+                      <p className="text-xs font-black text-purple-700 mt-0.5">
+                        {record.totalAnimals} Heads
+                      </p>
+                    </div>
+                  )}
+
+                  {record.averageWeight !== undefined && record.averageWeight !== null && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Average Weight</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">
+                        {record.averageWeight} kg
+                      </p>
+                    </div>
+                  )}
+
+                  {record.targetWeight !== undefined && record.targetWeight !== null && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Target Weight</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">
+                        {record.targetWeight} kg
+                      </p>
+                    </div>
+                  )}
+
+                  {record.targetHarvestDate && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Target Harvest Date</span>
+                      <p className="text-xs font-bold text-slate-800 mt-0.5">
+                        {record.targetHarvestDate}
+                      </p>
+                    </div>
+                  )}
+
+                  {record.sex && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Sex / Gender</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.sex}</p>
+                    </div>
+                  )}
+
+                  {record.ageMonths !== undefined && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Age</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.ageMonths} Months</p>
+                    </div>
+                  )}
+
+                  {record.lastVaccinationDate && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Last Vaccination</span>
+                      <p className="text-xs font-bold text-emerald-800 mt-0.5">{record.lastVaccinationDate}</p>
+                    </div>
+                  )}
+
+                  {record.weightKg && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Live Weight</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.weightKg} kg</p>
+                    </div>
+                  )}
+
+                  {record.quantity && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Quantity / Volume</span>
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">{record.quantity}</p>
+                    </div>
+                  )}
+
+                  {record.estValuePhp !== undefined && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Est. Market Value</span>
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">
+                        ₱{record.estValuePhp.toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+
+                  {record.amount && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Trading Amount</span>
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">{record.amount}</p>
+                    </div>
+                  )}
+
+                  {record.transportPermitNumber && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Transport Permit</span>
+                      <p className="text-xs font-mono font-black text-slate-800 mt-0.5">
+                        {record.transportPermitNumber}
+                      </p>
+                    </div>
+                  )}
+
+                  {record.disease && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Condition Name</span>
+                      <p className="text-xs font-black text-rose-700 mt-0.5">{record.disease}</p>
+                    </div>
+                  )}
+
+                  {record.veterinarian && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Attending Vet</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.veterinarian}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Remarks / Symptoms Card */}
+              {(record.notes || record.reviewRemarks || (record.symptoms && record.symptoms.length > 0)) && (
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-amber-900 font-bold">
+                    <Info className="size-3.5 text-amber-600" />
+                    <span>Official Inspection Remarks &amp; Clinical Symptoms:</span>
+                  </div>
+
+                  {record.symptoms && record.symptoms.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {record.symptoms.map((sym: string) => (
+                        <Badge key={sym} className="bg-amber-200/80 text-amber-950 border-0 text-[10px] font-bold">
+                          {sym}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {record.reviewRemarks && (
+                    <p className="text-amber-950 font-semibold italic">&ldquo;{record.reviewRemarks}&rdquo;</p>
+                  )}
+                  {record.notes && <p className="text-amber-900">{record.notes}</p>}
                 </div>
               )}
-
-              {record.breed && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Breed</span>
-                  <p className="text-xs font-black text-slate-900 mt-0.5">{record.breed}</p>
-                </div>
-              )}
-
-              {record.sex && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Sex / Gender</span>
-                  <p className="text-xs font-black text-slate-900 mt-0.5">{record.sex}</p>
-                </div>
-              )}
-
-              {record.ageMonths !== undefined && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Age</span>
-                  <p className="text-xs font-black text-slate-900 mt-0.5">{record.ageMonths} Months</p>
-                </div>
-              )}
-
-              {record.entryType && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Entry Type</span>
-                  <p className="text-xs font-black text-slate-900 mt-0.5">{record.entryType}</p>
-                </div>
-              )}
-
-              {record.lastVaccinationDate && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Last Vaccination</span>
-                  <p className="text-xs font-bold text-slate-900 mt-0.5">{record.lastVaccinationDate}</p>
-                </div>
-              )}
-
-              {record.weightKg && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Live Weight</span>
-                  <p className="text-xs font-black text-slate-900 mt-0.5">{record.weightKg} kg</p>
-                </div>
-              )}
-
-              {record.rfidTag && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">RFID Tag No.</span>
-                  <p className="text-xs font-mono font-black text-blue-700 mt-0.5">{record.rfidTag}</p>
-                </div>
-              )}
-
-              {record.quantity && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Quantity / Heads</span>
-                  <p className="text-xs font-black text-[#2D5A27] mt-0.5">{record.quantity}</p>
-                </div>
-              )}
-
-              {record.estValuePhp !== undefined && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Est. Market Value</span>
-                  <p className="text-xs font-black text-emerald-800 mt-0.5">
-                    ₱{record.estValuePhp.toLocaleString()}
-                  </p>
-                </div>
-              )}
-
-              {record.amount && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Hammer / Sale Price</span>
-                  <p className="text-xs font-black text-emerald-800 mt-0.5">{record.amount}</p>
-                </div>
-              )}
-
-              {record.transportPermitNumber && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Transport Permit</span>
-                  <p className="text-xs font-mono font-black text-slate-800 mt-0.5">
-                    {record.transportPermitNumber}
-                  </p>
-                </div>
-              )}
-
-              {record.disease && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Reported Condition</span>
-                  <p className="text-xs font-black text-rose-700 mt-0.5">{record.disease}</p>
-                </div>
-              )}
-
-              {record.veterinarian && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Attending Vet</span>
-                  <p className="text-xs font-bold text-slate-900 mt-0.5">{record.veterinarian}</p>
-                </div>
-              )}
-
-              {record.inspectionCertNo && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Meat Cert #</span>
-                  <p className="text-xs font-mono font-black text-amber-800 mt-0.5">
-                    {record.inspectionCertNo}
-                  </p>
-                </div>
-              )}
-
-              {record.totalHeads && (
-                <div className="p-3 rounded-lg bg-white border border-slate-200/80">
-                  <span className="text-[10px] font-bold text-slate-400">Total Surveyed</span>
-                  <p className="text-xs font-black text-emerald-800 mt-0.5">
-                    {record.totalHeads.toLocaleString()} heads
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Notes or Symptoms */}
-          {(record.notes || (record.symptoms && record.symptoms.length > 0)) && (
-            <div className="p-3 rounded-lg bg-amber-50/70 border border-amber-200/60 text-xs">
-              <strong className="text-amber-900 font-bold block mb-1">
-                Clinical Observations / Special Notes:
-              </strong>
-              {record.symptoms && record.symptoms.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-1.5">
-                  {record.symptoms.map((sym: string) => (
-                    <Badge key={sym} className="bg-amber-100 text-amber-900 border-0 text-[9px] px-1.5 py-0.2">
-                      {sym}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              {record.notes && <p className="text-amber-900/90">{record.notes}</p>}
             </div>
           )}
 
-          {/* Verification Stamps */}
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/60 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>
-                Verified MAO Entry &bull; Date:{" "}
-                <strong>
-                  {record.date || record.registrationDate || record.submissionDate || "2026-04-20"}
-                </strong>
-              </span>
+          {/* TAB 2: RAISER PROFILE & GEOGRAPHIC ORIGIN */}
+          {activeSubTab === "origin" && (
+            <div className="space-y-4 animate-in fade-in-50 duration-200">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Primary Raiser / Declarant
+                  </span>
+                  <div className="flex items-start gap-3">
+                    <div className="size-11 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-sm shrink-0">
+                      <User className="size-5 text-[#2D5A27]" />
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-slate-900">
+                        {record.farmerName || record.enumerator || record.buyer || "Registered Farmer"}
+                      </p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Verified MAO Raiser Registry
+                      </p>
+                      {record.farmerContact && (
+                        <p className="text-xs text-slate-700 font-bold mt-1 flex items-center gap-1.5">
+                          <Phone className="size-3 text-slate-400" />
+                          {record.farmerContact}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Territorial Origin
+                  </span>
+                  <div className="flex items-start gap-3">
+                    <div className="size-11 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center font-black text-sm shrink-0">
+                      <MapPin className="size-5 text-sky-700" />
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-slate-900">
+                        Brgy. {record.barangay}
+                      </p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Municipality of Padre Garcia • Batangas
+                      </p>
+                      <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Active Biosecurity Sector
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Verification Audit Stamp */}
+              <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-slate-700">
+                  <ShieldCheck className="size-5 text-emerald-700 shrink-0" />
+                  <div>
+                    <p className="font-bold text-slate-900">
+                      Official Certified Municipal Ledger Record
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      Certified on{" "}
+                      <strong>
+                        {record.date || record.createdAt || record.registrationDate || record.submissionDate || "2026-04-20"}
+                      </strong>
+                      {record.reviewedByName && (
+                        <> by Officer <strong>{record.reviewedByName}</strong></>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <Badge className="bg-emerald-700 text-white font-black text-[9px] uppercase px-2.5 py-1 self-start sm:self-auto shadow-2xs">
+                  CERTIFIED AUTHENTIC
+                </Badge>
+              </div>
             </div>
-            <Badge className="bg-emerald-100 text-emerald-900 border-0 text-[9px] font-black px-1.5 py-0.2">
-              OFFICIALLY CERTIFIED
-            </Badge>
-          </div>
+          )}
+
+          {/* TAB 3: DIGITAL QR CODE PASSPORT */}
+          {activeSubTab === "qr" && (
+            <div className="space-y-4 animate-in fade-in-50 duration-200 flex flex-col items-center">
+              <QrCodePass
+                code={identifierCode}
+                title={isBatch ? `Batch ${record.batchName || record.batchCode}` : `${record.specie || "Livestock"} Passport`}
+                subtitle="Official Municipal Biosecurity & Traceability Digital Clearance"
+                ownerName={record.farmerName || record.enumerator || "Registered Farmer"}
+                barangay={record.barangay}
+                specie={record.specie}
+                headCount={record.totalAnimals || record.quantity}
+                status={record.status || "APPROVED"}
+                verifiedAt={record.reviewedAt || record.createdAt || record.date}
+              />
+            </div>
+          )}
+
+          {/* TAB 4: COHORT ROSTER (BATCHES ONLY) */}
+          {activeSubTab === "roster" && isBatch && (
+            <div className="space-y-3 animate-in fade-in-50 duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900">
+                    Cohort Individual Animals Roster
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    All tagged animals officially registered within this housing pen
+                  </p>
+                </div>
+
+                <Link
+                  href={`/data-validation/batches?batchId=${encodeURIComponent(targetBatchId)}`}
+                  className="text-xs font-bold text-[#2D5A27] hover:underline flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200"
+                >
+                  Manage Roster in Validation Center <ExternalLink className="size-3" />
+                </Link>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 overflow-hidden text-xs shadow-2xs">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-100/90 font-bold text-slate-700 border-b border-slate-200">
+                    <tr>
+                      <th className="p-2.5">Tag Number</th>
+                      <th className="p-2.5">Breed</th>
+                      <th className="p-2.5">Sex</th>
+                      <th className="p-2.5">Live Weight</th>
+                      <th className="p-2.5 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {record.animals?.map((animal: any) => (
+                      <tr key={animal.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-2.5 font-mono font-bold text-emerald-950 flex items-center gap-1.5">
+                          <Tag className="size-3 text-emerald-600" />
+                          {animal.tag_number || animal.tagNumber || `ID-${animal.id}`}
+                        </td>
+                        <td className="p-2.5 text-slate-700">{animal.breed || "Standard"}</td>
+                        <td className="p-2.5 text-slate-700">{animal.sex || "—"}</td>
+                        <td className="p-2.5 font-semibold text-slate-900">
+                          {animal.weight ? `${animal.weight} kg` : "—"}
+                        </td>
+                        <td className="p-2.5 text-right">
+                          <Badge className="text-[9px] font-black px-2 py-0.5 bg-emerald-100 text-emerald-900 border-0">
+                            {animal.status || "APPROVED"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Modal Footer Actions */}
-        <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+        {/* ── Remastered Footer Action Bar ── */}
+        <div className="p-3.5 sm:p-4 bg-slate-50/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleCopyTag}
-              className="rounded-lg text-xs font-bold border-slate-300 gap-1.5 h-8"
+              className="rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-100 gap-1.5 h-8.5"
             >
-              <Copy className="w-3 h-3" />
-              <span>Copy Identifier</span>
+              {copied ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
+              <span>{copied ? "Copied" : "Copy ID"}</span>
             </Button>
+
             <Button
               variant="outline"
               size="sm"
               onClick={handlePrint}
-              className="rounded-lg text-xs font-bold border-slate-300 gap-1.5 h-8"
+              className="rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-100 gap-1.5 h-8.5"
             >
-              <Printer className="w-3 h-3" />
+              <Printer className="size-3" />
               <span>Print Record</span>
             </Button>
+
+            {isBatch && (
+              <Link href={`/data-validation/batches?batchId=${encodeURIComponent(targetBatchId)}`}>
+                <Button
+                  size="sm"
+                  className="rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5 h-8.5 shadow-2xs"
+                >
+                  <ExternalLink className="size-3" />
+                  <span>Drilldown Batch Center</span>
+                </Button>
+              </Link>
+            )}
           </div>
 
           <Button
             onClick={() => onOpenChange(false)}
-            className="bg-[#2D5A27] hover:bg-[#23461f] text-white rounded-lg text-xs font-bold px-4 h-8"
+            variant="outline"
+            className="rounded-xl text-xs font-bold px-4 h-8.5 border-slate-300 hover:bg-slate-100"
           >
             Close Inspector
           </Button>

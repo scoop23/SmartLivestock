@@ -53,10 +53,17 @@ def inventory_list_create(request):
         inventories = LivestockInventory.objects.all()
 
     inventories = inventories.select_related(
-        "livestock_type", "farmer__user", "farmer__barangay"
+        "livestock_type",
+        "farmer__user",
+        "farmer__barangay",
+        "batch",
+        "reviewed_by",
+        "created_by",
     ).order_by("-created_at")
 
-    serializer = LivestockInventorySerializer(inventories, many=True)
+    serializer = LivestockInventorySerializer(
+        inventories, many=True, context={"request": request}
+    )
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -72,16 +79,25 @@ def inventory_detail(request, pk):
     user = request.user
     role_name = getattr(getattr(user, "role", None), "role_name", "")
 
+    base_qs = LivestockInventory.objects.select_related(
+        "livestock_type",
+        "farmer__user",
+        "farmer__barangay",
+        "batch",
+        "reviewed_by",
+        "created_by",
+    )
+
     if role_name == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             inventory = get_object_or_404(
-                LivestockInventory, Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
+                base_qs, Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
             )
         else:
-            inventory = get_object_or_404(LivestockInventory, created_by=user, pk=pk)
+            inventory = get_object_or_404(base_qs, created_by=user, pk=pk)
     else:
-        inventory = get_object_or_404(LivestockInventory, pk=pk)
+        inventory = get_object_or_404(base_qs, pk=pk)
 
     if request.method == "DELETE":
         try:
@@ -107,7 +123,7 @@ def inventory_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # GET
-    serializer = LivestockInventorySerializer(inventory)
+    serializer = LivestockInventorySerializer(inventory, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -200,7 +216,7 @@ def review_inventory(request, pk):
                 link="/livestock-inventory",
             )
 
-    serializer = LivestockInventorySerializer(inventory)
+    serializer = LivestockInventorySerializer(inventory, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 

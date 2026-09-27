@@ -12,6 +12,18 @@ from rest_framework.exceptions import ValidationError
 
 
 class ProductionRecordSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Periodic agricultural yield entry (milk, meat, eggs, or wool):
+        - Source: livestock (individual animal ID) or batch (cohort ID), batch_code
+        - Farmer & Location: farmer_name, barangay_name, livestock_type_name
+        - Yield Metrics: production_type (e.g. MILK, MEAT, EGGS), quantity, unit (LITERS, KILOGRAMS),
+          record_date, notes
+        - Validation & Review: status (PENDING/APPROVED/SUBJECT_TO_REVISION),
+          review_remarks, reviewed_at, reviewed_by_name, created_at
+    Used in:
+        Farmer production logging dashboard (/production-dashboard) and MAO municipal yield ledger.
+    """
     livestock_type_name = serializers.SerializerMethodField()
     farmer_name = serializers.SerializerMethodField()
     barangay_name = serializers.SerializerMethodField()
@@ -169,6 +181,17 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
 
 
 class LiveAnimalSaleSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Commercial livestock sale transaction record:
+        - Animal: livestock (ID), tag_number, livestock_type_name, farmer_name
+        - Economics: quantity, sale_method (AUCTION, DIRECT_FARM_GATE, BROKER),
+          total_live_weight, price_per_head, price_per_kg, total_price
+        - Route & Destination: destination (e.g. abattoir, provincial buyer), sale_date, purpose
+        - Review & Audit: status, review_remarks, created_at
+    Used in:
+        Padre Garcia cattle market tracking, farmer sale histories, and auction floor analytics.
+    """
     farmer_name = serializers.SerializerMethodField()
     tag_number = serializers.CharField(source="livestock.tag_number", read_only=True)
     livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
@@ -211,6 +234,16 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
 
 
 class WeightRecordSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Animal growth and weighing log entry:
+        - Target Animal: livestock (ID), tag_number, livestock_type_name, breed
+        - Growth Metrics: weight (recorded kg), weighing_date, notes, created_at
+    Side-Effect:
+        Automatically synchronizes and updates the target animal's `LivestockInventory.weight` on save.
+    Used in:
+        Herd weight progression curves, Average Daily Gain (ADG) calculations, and feeding evaluations.
+    """
     tag_number = serializers.CharField(source="livestock.tag_number", read_only=True)
     livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
     breed = serializers.CharField(source="livestock.breed", read_only=True)
@@ -241,6 +274,16 @@ class WeightRecordSerializer(serializers.ModelSerializer):
 
 
 class CalvingRecordSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Reproductive breeding and parturition event record:
+        - Maternal Line: dam (ID), dam_tag, dam_breed
+        - Newborn: calf_tag, calf_sex (MALE/FEMALE), birth_weight, breed
+        - Paternal Reference: sire_tag
+        - Birth Context: calving_date, calving_ease (NORMAL, ASSISTED, CAESAREAN), notes, created_at
+    Used in:
+        Genealogy / pedigree tracking, reproductive health monitoring, and calf passport registration.
+    """
     dam_tag = serializers.CharField(source="dam.tag_number", read_only=True)
     dam_breed = serializers.CharField(source="dam.breed", read_only=True)
 
@@ -270,6 +313,15 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
 
 
 class AnimalDispositionSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Scheduled or executed herd exit / disposition declaration:
+        - Target Animal: livestock (ID), tag_number, livestock_type_name
+        - Action Plan: intent (SLAUGHTER, SALE, TRANSFER, CULL), target_date, target_destination,
+          notes, created_at
+    Used in:
+        Farmer exit declarations, slaughterhouse origin permits, and herd movement audits.
+    """
     tag_number = serializers.CharField(source="livestock.tag_number", read_only=True)
     livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
 

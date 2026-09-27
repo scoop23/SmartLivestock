@@ -749,5 +749,10 @@ export function useAdminDashboardAnalytics() {
     isFetching,
     isError,
     refetchAll,
+    inventoryQuery,
+    censusQuery,
+    productionQuery,
+    typesQuery,
+    barangaysQuery,
   };
 }

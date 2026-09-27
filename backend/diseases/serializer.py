@@ -6,9 +6,17 @@ from livestock.models import LivestockInventory, LivestockBatch
 
 class DiseaseCaseSerializer(serializers.ModelSerializer):
     """
-    Serializer for reporting and viewing Disease Cases.
-    Supports Farmer submission, SIBAT field validation, and MAO official approval.
-    Supports individual animal illness (livestock FK) and pen-wide outbreaks (batch FK).
+    Returns:
+        Epidemiological illness / outbreak report:
+        - Target Animal/Pen: livestock (individual animal ID), batch (cohort pen ID),
+          tag_number, breed, batch_code, livestock_type_name
+        - Demographics: farmer_name, barangay_name
+        - Clinical Details: name (illness name/symptoms), affected_count (head count), record_date
+        - Photographic Evidence: photo, photo_url (farmer photo), inspector_photo, inspector_photo_url (SIBAT/MAO photo)
+        - Multi-tier Review: status (PENDING/VERIFIED/APPROVED/SUBJECT_TO_REVISION),
+          reviewed_by, reviewed_by_name, reviewed_at, review_remarks, created_by, created_at
+    Used in:
+        Farmer outbreak reporting, SIBAT on-farm biosecurity inspections, and MAO disease surveillance.
     """
     livestock_type_name = serializers.SerializerMethodField()
     farmer_name = serializers.SerializerMethodField()
@@ -187,8 +195,19 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
 
 class MortalityRecordSerializer(serializers.ModelSerializer):
     """
-    Serializer for logging and reviewing Livestock Mortality Records.
-    Optionally linked to a DiseaseCase via source_disease_case.
+    Returns:
+        Livestock casualty and death declaration:
+        - Target Animal/Pen: livestock (ID), batch (ID), tag_number, breed, batch_code,
+          livestock_type_name
+        - Demographics: farmer_name, barangay_name
+        - Mortality Data: death_count (head count), cause, record_date
+        - Disease Linkage: source_disease_case (ID), source_disease_name (linked illness name)
+        - Photographic Evidence: photo, photo_url (farmer photo), inspector_photo,
+          inspector_photo_url (SIBAT/MAO inspection photo)
+        - Multi-tier Review: status (PENDING/VERIFIED/APPROVED/SUBJECT_TO_REVISION),
+          reviewed_by, reviewed_by_name, reviewed_at, review_remarks, created_by, created_at
+    Used in:
+        Mortality notifications, carcass disposal verification, and municipal indemnification reviews.
     """
     livestock_type_name = serializers.SerializerMethodField()
     farmer_name = serializers.SerializerMethodField()

@@ -9,10 +9,17 @@ from django.utils import timezone
 from typing import cast
 
 
-# Custom JWT serializer that:
-# 1. Adds role and email to the JWT payload (so frontend can decode for routing)
-# 2. Validates that the user's account_status is APPROVED before allowing login
 class MyTokenSerializer(TokenObtainPairSerializer):
+    """
+    Returns:
+        JWT authentication token response with enriched claims and user payload:
+        - access, refresh: Standard JWT tokens with embedded role and email claims
+        - user: Dict containing { id, email, role } for immediate client hydration
+    Enforces:
+        Rejects login if the user's account_status is not APPROVED.
+    Used in:
+        POST /api/users/login/
+    """
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
@@ -44,6 +51,17 @@ class MyTokenSerializer(TokenObtainPairSerializer):
 
 
 class UserDocumentSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Farmer identity or RSBSA accreditation verification document:
+        - id: Document primary key
+        - document_type: GOVERNMENT_ID or RSBSA
+        - document_file: Media upload URL / path
+        - verification_status: PENDING, VERIFIED, or REJECTED
+        - uploaded_at: Timestamp of submission
+    Used in:
+        Nested `documents` array inside UserManagementSerializer for MAO review.
+    """
     class Meta:
         model = UserDocument
         fields = (
@@ -55,11 +73,17 @@ class UserDocumentSerializer(serializers.ModelSerializer):
         )
 
 
-# Handles farmer registration.
-# Accepts fields from both User (email, password, name, phone) and Farmer (barangay, farm_size, address)
-# and optional document uploads (government_id, rsbsa_document).
-# Creates User + Farmer + UserDocument records atomically inside a transaction.
 class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Accepts & Returns:
+        Farmer registration payload that atomically creates User + Farmer + Documents:
+        - Accepts: email, password, first_name, last_name, phone_number,
+          barangay (ID), farm_size, address, and optional government_id / rsbsa_document files.
+        - Returns: Newly created User instance with auto-generated username (e.g. FMR-000042)
+          and account_status set to PENDING.
+    Used in:
+        POST /api/users/register/
+    """
     class Meta:
         model = User
         fields = (
@@ -147,6 +171,15 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Minimal profile identity for the currently logged-in user:
+        - id: User primary key
+        - first_name, last_name, email
+        - role: Resolved role name string (e.g. 'FARMER', 'MAO', 'SIBAT')
+    Used in:
+        GET /api/users/me/ for frontend authentication status and route authorization.
+    """
     role = serializers.SerializerMethodField()
 
     class Meta:
@@ -163,8 +196,15 @@ class CurrentUserSerializer(serializers.ModelSerializer):
 
 class UserManagementSerializer(serializers.ModelSerializer):
     """
-    Serializer for MAO user management & pending approvals.
-    Exposes essential profile & farmer details without sensitive auth data.
+    Returns:
+        Comprehensive user & farmer account profile for administrative verification:
+        - User Credentials & Status: id, username, email, first_name, last_name, full_name,
+          phone_number, role, account_status (PENDING/APPROVED/REJECTED), created_at, approved_at
+        - Farmer Demographics: barangay, barangay_id, farm_size (hectares), address
+        - Agricultural Scale: cattle_count (sum of all registered animal head count)
+        - Verification Evidence: documents (list of UserDocumentSerializer with gov ID & RSBSA files)
+    Used in:
+        MAO User Management command center (/admin/users).
     """
     role = serializers.CharField(source="role.role_name", read_only=True)
     full_name = serializers.SerializerMethodField()
@@ -236,12 +276,30 @@ class UserManagementSerializer(serializers.ModelSerializer):
 
 class UserStatusUpdateSerializer(serializers.Serializer):
     """
-    Validates status updates submitted by MAO.
+    Validates & Accepts:
+        Administrative approval or rejection action:
+        - status: Target status choice (User.AccountStatus: APPROVED, REJECTED, or PENDING)
+    Used in:
+        PATCH /api/users/management/<id>/status/ by MAO officers.
     """
     status = serializers.ChoiceField(choices=User.AccountStatus.choices)
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        User notification item with relative timestamp and deep-linking:
+        - id: Notification ID
+        - type: Category code (e.g. SIBAT, GENERAL, MORTALITY, DISEASE)
+        - type_display: Human-readable category label
+        - priority, priority_display: Urgency level (LOW, MEDIUM, HIGH)
+        - title, message: Alert title and message text
+        - is_read: Read status flag
+        - link: Relative URL route for click-through navigation
+        - created_at, time_ago: Relative time string (e.g. 'Just now', '15m ago')
+    Used in:
+        Header notification bell, dropdown list, and notification polling.
+    """
     type = serializers.CharField(source="notification_type")
     time_ago = serializers.SerializerMethodField()
     type_display = serializers.CharField(source="get_notification_type_display", read_only=True)

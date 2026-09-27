@@ -4,6 +4,7 @@
 export type DataTab =
   | 'overall'
   | 'livestock'
+  | 'batches'
   | 'production'
   | 'sales'
   | 'disease'
@@ -18,6 +19,7 @@ export interface BarangaySummary {
   carabaoCount: number;
   swineCount: number;
   goatCount: number;
+  batchCount?: number;
   monthlyMilkLiters: number;
   monthlyMeatKg: number;
   activeIncidents: number;
@@ -56,6 +58,29 @@ export interface LivestockRecord {
   registrationDate: string;
   rfidTag?: string;
   notes?: string;
+}
+
+export interface BatchRecord {
+  id: string;
+  rawId: number;
+  batchCode: string;
+  batchName: string;
+  farmerName: string;
+  barangay: string;
+  specie: string;
+  housingPen?: string;
+  feedType?: string;
+  targetWeight?: number | string | null;
+  targetHarvestDate?: string | null;
+  totalAnimals: number;
+  averageWeight?: number | string | null;
+  status: 'APPROVED' | 'PENDING' | 'VERIFIED' | 'SUBJECT_TO_REVISION' | string;
+  reviewRemarks?: string;
+  reviewedByName?: string;
+  reviewedAt?: string;
+  notes?: string;
+  createdAt: string;
+  animals?: any[];
 }
 
 export interface ProductionRecord {
@@ -324,6 +349,70 @@ export const SEED_LIVESTOCK: LivestockRecord[] = [
     registrationDate: '2026-04-02',
     rfidTag: 'RFID-982-004-305',
     notes: 'Goat milk raiser under MAO livelihood grant.',
+  },
+];
+
+export const SEED_BATCHES: BatchRecord[] = [
+  {
+    id: "BAT-2026-001",
+    rawId: 101,
+    batchCode: "BATCH-2026-001",
+    batchName: "Swine Finisher Batch Alpha",
+    farmerName: "Juan Dela Cruz",
+    barangay: "Banaba",
+    specie: "Swine",
+    housingPen: "Pen A-1 (North Wing)",
+    feedType: "Commercial Pelleted Grower",
+    targetWeight: 95.0,
+    targetHarvestDate: "2026-06-15",
+    totalAnimals: 18,
+    averageWeight: 72.4,
+    status: "APPROVED",
+    reviewRemarks: "Fully vaccinated, passed SIBAT on-farm biosecurity check.",
+    reviewedByName: "Dr. Hector Garcia (MAO)",
+    reviewedAt: "2026-04-12",
+    createdAt: "2026-03-01",
+    animals: [],
+  },
+  {
+    id: "BAT-2026-002",
+    rawId: 102,
+    batchCode: "BATCH-2026-002",
+    batchName: "Brahman Beef Feedlot Cohort",
+    farmerName: "Eduardo Santos",
+    barangay: "Poblacion",
+    specie: "Cattle",
+    housingPen: "Feedlot Bay 3",
+    feedType: "Silage + High Protein Concentrate",
+    targetWeight: 450.0,
+    targetHarvestDate: "2026-08-30",
+    totalAnimals: 12,
+    averageWeight: 385.0,
+    status: "VERIFIED",
+    reviewRemarks: "Ear tags confirmed by SIBAT field inspector.",
+    reviewedByName: "SIBAT Field Officer",
+    reviewedAt: "2026-04-18",
+    createdAt: "2026-02-15",
+    animals: [],
+  },
+  {
+    id: "BAT-2026-003",
+    rawId: 103,
+    batchCode: "BATCH-2026-003",
+    batchName: "Anglo-Nubian Dairy Herd",
+    farmerName: "Elena Dimaculangan",
+    barangay: "Cawongan",
+    specie: "Goat",
+    housingPen: "Elevated Slatted Shed 2",
+    feedType: "Fresh Napier Grass + Legumes",
+    targetWeight: 45.0,
+    targetHarvestDate: "2026-07-20",
+    totalAnimals: 15,
+    averageWeight: 38.2,
+    status: "PENDING",
+    reviewRemarks: "Awaiting vaccination protocol review.",
+    createdAt: "2026-04-05",
+    animals: [],
   },
 ];
 

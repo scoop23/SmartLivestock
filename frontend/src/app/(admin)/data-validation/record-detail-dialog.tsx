@@ -48,6 +48,8 @@ import {
   FileCheck,
   Pencil,
   Save,
+  Camera,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -112,6 +114,8 @@ export type DetailRecordData =
       feedType?: string;
       targetWeight?: number;
       animals?: any[];
+      photoUrl?: string;
+      photoName?: string;
     }
   | {
       kind: "incident";
@@ -129,6 +133,10 @@ export type DetailRecordData =
       headCount?: number;
       weight?: string;
       tagNumber?: string;
+      photoUrl?: string;
+      photoName?: string;
+      inspectorPhotoUrl?: string;
+      inspectorPhotoName?: string;
     };
 
 interface RecordDetailDialogProps {
@@ -824,7 +832,11 @@ export function RecordDetailDialog({
                           Linked Individual Animals in this Cohort ({record.animals.length} heads):
                         </span>
                         <a
-                          href="/data-validation/batches"
+                          href={`/data-validation/batches?batchId=${encodeURIComponent(
+                            record.rawId ||
+                              (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, "")) ||
+                              record.id
+                          )}`}
                           className="text-[10px] font-black text-emerald-700 hover:text-emerald-800 hover:underline"
                         >
                           Open In Cohort Drilldown Center →
@@ -846,6 +858,40 @@ export function RecordDetailDialog({
                 </div>
               )}
 
+              {/* Animal Passport Photo in Inventory Details */}
+              {record.photoUrl && (
+                <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Camera className="size-3.5 text-emerald-700" />
+                      Animal Photograph / Digital Passport Portrait
+                    </span>
+                    <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                      Animal Photo
+                    </Badge>
+                  </div>
+                  <div className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-950 aspect-16/10 max-h-64 shadow-2xs">
+                    <img
+                      src={record.photoUrl}
+                      alt={record.photoName || `Livestock #${record.tagNumber}`}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2.5 text-white">
+                      <span className="text-[10px] font-mono text-slate-200 truncate max-w-xs">
+                        {record.photoName || `Tag ${record.tagNumber}`}
+                      </span>
+                      <a
+                        href={record.photoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-bold text-emerald-300 hover:underline flex items-center gap-1"
+                      >
+                        <ZoomIn className="size-3" /> Full size
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
                 <div>
@@ -905,6 +951,75 @@ export function RecordDetailDialog({
                   {record.details}
                 </p>
               </div>
+
+              {/* Photo Evidence in Incident Details */}
+              {(record.photoUrl || record.inspectorPhotoUrl) && (
+                <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Camera className="size-3.5 text-emerald-700" />
+                      Incident Photographic Documentation
+                    </span>
+                    <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                      Photo Evidence
+                    </Badge>
+                  </div>
+
+                  <div
+                    className={`grid ${
+                      record.photoUrl && record.inspectorPhotoUrl
+                        ? "grid-cols-1 sm:grid-cols-2"
+                        : "grid-cols-1"
+                    } gap-3`}
+                  >
+                    {record.photoUrl && (
+                      <div className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-950 aspect-16/10 shadow-2xs">
+                        <img
+                          src={record.photoUrl}
+                          alt={record.photoName || "Incident Evidence Photo"}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2.5 text-white">
+                          <span className="text-[10px] font-mono text-slate-200 truncate max-w-xs">
+                            {record.photoName || "Farmer Report Evidence"}
+                          </span>
+                          <a
+                            href={record.photoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-emerald-300 hover:underline flex items-center gap-1"
+                          >
+                            <ZoomIn className="size-3" /> Full size
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {record.inspectorPhotoUrl && (
+                      <div className="relative group overflow-hidden rounded-xl border border-sky-200 bg-slate-950 aspect-16/10 shadow-2xs">
+                        <img
+                          src={record.inspectorPhotoUrl}
+                          alt={record.inspectorPhotoName || "SIBAT Inspection Photo"}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2.5 text-white">
+                          <span className="text-[10px] font-mono text-slate-200 truncate max-w-xs">
+                            {record.inspectorPhotoName || "SIBAT Field Inspection Photo"}
+                          </span>
+                          <a
+                            href={record.inspectorPhotoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-sky-300 hover:underline flex items-center gap-1"
+                          >
+                            <ZoomIn className="size-3" /> Full size
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { PageHeader } from "@/app/components/page-header";
+import { QrCodePass } from "@/components/qr-code-pass";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -119,8 +121,11 @@ export interface BatchItem {
   updated_at?: string;
 }
 
-export default function AdminBatchesDrilldownPage() {
+function AdminBatchesDrilldownContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const batchIdParam = searchParams.get("batchId") || searchParams.get("id");
 
   // ── States ───────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -172,12 +177,33 @@ export default function AdminBatchesDrilldownPage() {
   });
 
   // Keep selectedBatch updated when data refetches
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedBatch) {
       const updated = batches.find((b) => b.id === selectedBatch.id);
       if (updated) setSelectedBatch(updated);
     }
   }, [batches, selectedBatch]);
+
+  // Automatically select and open batch drilldown dialog if `batchId` is present in URL
+  useEffect(() => {
+    if (!batchIdParam || !batches || batches.length === 0) return;
+
+    const rawParam = String(batchIdParam).trim();
+    const numericId = Number(rawParam.replace(/\D/g, ""));
+
+    const found = batches.find((b) => {
+      if (numericId && b.id === numericId) return true;
+      if (String(b.id) === rawParam) return true;
+      if (b.batch_code && b.batch_code.toLowerCase() === rawParam.toLowerCase()) return true;
+      if (b.batch_name && b.batch_name.toLowerCase() === rawParam.toLowerCase()) return true;
+      return false;
+    });
+
+    if (found) {
+      setSelectedBatch(found);
+      setIsDrilldownOpen(true);
+    }
+  }, [batchIdParam, batches]);
 
   // ── KPI Metrics ──────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -805,6 +831,19 @@ export default function AdminBatchesDrilldownPage() {
                         Drill Down ({headCount})
                       </Button>
 
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedBatch(batch);
+                          setIsBatchCertificateOpen(true);
+                        }}
+                        className="h-8 rounded-xl border-slate-200 text-slate-700 hover:text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 text-xs font-bold px-2.5"
+                        title="View Batch QR Clearance Pass"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                      </Button>
+
                       {batch.review_status !== "APPROVED" && (
                         <Button
                           size="sm"
@@ -914,17 +953,31 @@ export default function AdminBatchesDrilldownPage() {
                         </TableCell>
                         <TableCell>{getStatusBadge(batch.review_status)}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedBatch(batch);
-                              setIsDrilldownOpen(true);
-                            }}
-                            className="h-8 rounded-xl bg-slate-900 hover:bg-emerald-800 text-white font-bold text-xs gap-1 shadow-2xs"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Drill Down
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedBatch(batch);
+                                setIsBatchCertificateOpen(true);
+                              }}
+                              className="h-8 rounded-xl border-slate-200 text-slate-700 hover:text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 text-xs font-bold px-2.5"
+                              title="View Batch QR Clearance Pass"
+                            >
+                              <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedBatch(batch);
+                                setIsDrilldownOpen(true);
+                              }}
+                              className="h-8 rounded-xl bg-slate-900 hover:bg-emerald-800 text-white font-bold text-xs gap-1 shadow-2xs"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Drill Down
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -939,7 +992,15 @@ export default function AdminBatchesDrilldownPage() {
       {/* ──────────────────────────────────────────────────────────────────────────
           DEEP DRILLDOWN INSPECTION DIALOG (COHORT & INDIVIDUAL LIVESTOCK ROSTER)
       ────────────────────────────────────────────────────────────────────────── */}
-      <Dialog open={isDrilldownOpen} onOpenChange={setIsDrilldownOpen}>
+      <Dialog
+        open={isDrilldownOpen}
+        onOpenChange={(open) => {
+          setIsDrilldownOpen(open);
+          if (!open && batchIdParam) {
+            router.replace("/data-validation/batches", { scroll: false });
+          }
+        }}
+      >
         <DialogContent className="w-full max-w-[98vw] sm:max-w-5xl md:max-w-6xl lg:max-w-7xl xl:max-w-[1440px] rounded-2xl sm:rounded-3xl bg-white p-0 overflow-hidden shadow-2xl border-slate-200 max-h-[94vh] flex flex-col">
           {selectedBatch && (
             <div className="flex flex-col max-h-[94vh]">
@@ -972,10 +1033,10 @@ export default function AdminBatchesDrilldownPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setIsBatchCertificateOpen(true)}
-                    className="h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold gap-1"
+                    className="h-8.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border-emerald-400/40 text-xs font-bold gap-1.5 shadow-xs"
                   >
-                    <Printer className="w-3.5 h-3.5" />
-                    Biosecurity Pass
+                    <QrCode className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Batch QR Clearance Pass</span>
                   </Button>
                 </div>
               </div>
@@ -1575,77 +1636,32 @@ export default function AdminBatchesDrilldownPage() {
       </Dialog>
 
       {/* ──────────────────────────────────────────────────────────────────────────
-          BATCH BIOSECURITY CERTIFICATE MODAL
+          BATCH BIOSECURITY CERTIFICATE & QR PASS MODAL
       ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={isBatchCertificateOpen} onOpenChange={setIsBatchCertificateOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200 max-h-[92vh] overflow-y-auto">
           {selectedBatch && (
-            <>
-              <DialogHeader className="text-center pb-2 border-b border-slate-100">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <div className="size-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-lg font-black">
-                    🏛️
-                  </div>
-                  <div className="size-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center text-lg font-black">
-                    🌾
-                  </div>
-                </div>
-                <DialogTitle className="text-base font-black text-slate-900">
-                  Municipal Cohort Biosecurity Clearance
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  Office of the Municipal Agriculturist • Padre Garcia, Batangas
-                </DialogDescription>
-              </DialogHeader>
+            <div className="space-y-4">
+              <QrCodePass
+                code={selectedBatch.batch_code}
+                title={`Batch ${selectedBatch.batch_name}`}
+                subtitle="Official Municipal Biosecurity & Movement Clearance Pass"
+                ownerName={selectedBatch.farmer_name}
+                barangay={selectedBatch.barangay_name}
+                specie={selectedBatch.livestock_type_name}
+                headCount={selectedBatch.animals?.length || selectedBatch.total_animals}
+                status={selectedBatch.review_status || "APPROVED"}
+                verifiedAt={selectedBatch.reviewed_at ? selectedBatch.reviewed_at.slice(0, 10) : undefined}
+              />
 
-              <div className="space-y-3 py-3 text-xs">
-                <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">
-                      Certified Batch Code
-                    </span>
-                    <span className="font-mono text-base font-black text-emerald-950">
-                      {selectedBatch.batch_code}
-                    </span>
-                  </div>
-                  {getStatusBadge(selectedBatch.review_status)}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-slate-700">
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block">
-                      Livestock Raiser
-                    </span>
-                    <strong className="text-slate-900">{selectedBatch.farmer_name}</strong>
-                  </div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block">
-                      Barangay
-                    </span>
-                    <strong className="text-slate-900">{selectedBatch.barangay_name}</strong>
-                  </div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block">
-                      Total Cohort Heads
-                    </span>
-                    <strong className="text-slate-900">
-                      {selectedBatch.animals?.length || selectedBatch.total_animals} Heads
-                    </strong>
-                  </div>
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block">
-                      Housing Facility
-                    </span>
-                    <strong className="text-slate-900">{selectedBatch.housing_pen || "General"}</strong>
-                  </div>
-                </div>
-
+              {/* Enrolled Animals in this Cohort */}
+              {selectedBatch.animals && selectedBatch.animals.length > 0 && (
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                    Enrolled Ear Tag Codes in this Cohort:
+                    Enrolled Ear Tag Codes in this Cohort ({selectedBatch.animals.length} heads):
                   </span>
                   <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                    {selectedBatch.animals?.map((a) => (
+                    {selectedBatch.animals.map((a) => (
                       <span
                         key={a.id}
                         className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-[10px] font-bold text-slate-800"
@@ -1655,11 +1671,7 @@ export default function AdminBatchesDrilldownPage() {
                     ))}
                   </div>
                 </div>
-
-                <p className="text-[11px] text-slate-500 text-center italic pt-1">
-                  This document serves as municipal biosecurity verification under Municipal Ordinance 2026-03.
-                </p>
-              </div>
+              )}
 
               <DialogFooter className="gap-2 sm:gap-0 pt-2 flex items-center justify-between">
                 <Button
@@ -1673,19 +1685,27 @@ export default function AdminBatchesDrilldownPage() {
                 <Button
                   size="sm"
                   onClick={() => {
-                    toast.success("Print certificate dispatched.");
-                    setIsBatchCertificateOpen(false);
+                    toast.success("Print clearance pass dispatched.");
+                    window.print();
                   }}
                   className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  Print Official Clearance
+                  Print Official Clearance Pass
                 </Button>
               </DialogFooter>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function AdminBatchesDrilldownPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Cohort Batches & Animals...</div>}>
+      <AdminBatchesDrilldownContent />
+    </Suspense>
   );
 }

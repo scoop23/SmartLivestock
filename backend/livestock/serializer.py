@@ -14,6 +14,14 @@ from .models import (
 
 
 class BarangaySerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Basic barangay geographic metadata:
+        - id: Unique barangay database identifier
+        - barangay_name: Official name of the barangay in Padre Garcia
+    Used in:
+        Barangay dropdown selectors for registration, census reporting, and admin filters.
+    """
     class Meta:
         model = Barangay
         fields = [
@@ -23,6 +31,19 @@ class BarangaySerializer(serializers.ModelSerializer):
 
 
 class LivestockInventorySerializer(serializers.Serializer):
+    """
+    Returns:
+        Complete individual animal passport or cohort entry with resolved relationships:
+        - Identity: id, tag_number, breed, sex, weight, photo, photo_url (absolute URI), avatar_key
+        - Farmer & Barangay: farmer (ID), farmer_name (full name/username), barangay_name, barangay_id
+        - Batch / Cohort: batch (ID), batch_code, batch_name (null if independent animal)
+        - Classification: livestock_type (ID), livestock_type_name, entry_type (INDIVIDUAL/BATCH), quantity
+        - Lifecycle: last_vaccination_date, created_at
+        - Review & Audit: status (PENDING/VERIFIED/APPROVED/SUBJECT_TO_REVISION),
+          review_remarks, reviewed_at, reviewed_by_name (full name of MAO/SIBAT officer)
+    Used in:
+        Farmer livestock inventory list & detail, MAO/SIBAT validation ledger, and animal registration.
+    """
     id = serializers.IntegerField(read_only=True)
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)
@@ -124,6 +145,16 @@ class LivestockInventorySerializer(serializers.Serializer):
 
 
 class BatchChildAnimalSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Lightweight child animal roster entry nested inside a parent batch:
+        - Identification: id, tag_number, breed, sex, weight, avatar_key
+        - Media: photo, photo_url (resolved full media URI)
+        - Medical & Status: last_vaccination_date, status (PENDING/VERIFIED/APPROVED/SUBJECT_TO_REVISION)
+        - Audit trail: review_remarks, reviewed_by_name (resolved reviewer string), reviewed_at, created_at
+    Used in:
+        Nested `animals` array of LivestockBatchSerializer for batch rosters and individual inspection.
+    """
     photo_url = serializers.SerializerMethodField(read_only=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
 
@@ -168,6 +199,20 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
 
 
 class LivestockBatchSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Full cohort/batch dossier with aggregated statistics and child animal roster:
+        - Batch Identifiers: id, batch_name, batch_code, housing_pen, feed_type
+        - Production Targets: target_weight, target_harvest_date, status, notes
+        - Farmer & Barangay: farmer (ID), farmer_name, barangay_id, barangay_name
+        - Computed Aggregates: total_animals (head count), average_weight (mean kg of herd)
+        - Nested Roster: animals (list of BatchChildAnimalSerializer)
+        - In-Memory Rollup Status: review_status (APPROVED if all animals approved,
+          SUBJECT_TO_REVISION if any need revision, VERIFIED if any verified, else PENDING),
+          review_remarks, reviewed_by_name, and reviewed_at
+    Used in:
+        Admin batch drilldown (/data-validation/batches), farmer cohort management, and MAO approvals.
+    """
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)
     barangay_name = serializers.SerializerMethodField(read_only=True)
@@ -281,6 +326,16 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
 
 class CensusSubmissionItemSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Individual survey line item within a quarterly census report:
+        - id: Survey item ID
+        - census_submission: Parent census submission ID
+        - Farmer Info: farmer (ID), farmer_name, farmer_address
+        - Livestock: livestock_type (ID), livestock_type_name, number_of_heads, remarks
+    Used in:
+        Nested `items` array inside CensusSubmissionSerializer.
+    """
     livestock_type_name = serializers.CharField(
         source="livestock_type.name", read_only=True
     )
@@ -311,6 +366,16 @@ class CensusSubmissionItemSerializer(serializers.ModelSerializer):
 
 
 class CensusSubmissionSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Quarterly barangay census submission package:
+        - Report Header: id, barangay (ID), barangay_name, report_year, report_quarter
+        - Submission & Review: status (PENDING/APPROVED/SUBJECT_TO_REVISION),
+          submission_date, submitted_by_name, remarks, review_remarks
+        - Census Data: items (array of CensusSubmissionItemSerializer with per-farmer livestock counts)
+    Used in:
+        SIBAT census reporting workflow and MAO municipal census validation.
+    """
     items = CensusSubmissionItemSerializer(many=True)
     # When CensusSubmission receives an "items" field,
     # use CensusSubmissionItemSerializer to validate each item.
@@ -353,6 +418,16 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
 
 
 class FarmerOptionsSerializer(serializers.ModelSerializer):
+    """
+    Returns:
+        Farmer profile summary for dropdown select inputs and lookup modals:
+        - id: Farmer profile ID
+        - Location: barangay (ID), barangay_name, address
+        - Identity: farmer_name (resolved full name or username)
+        - Profile: farm_size, registered_at
+    Used in:
+        Census farmer pickers, livestock registration farmer selectors, and SIBAT assignment tools.
+    """
     farmer_name = serializers.SerializerMethodField()
     barangay_name = serializers.CharField(
         source="barangay.barangay_name",

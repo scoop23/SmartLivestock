@@ -71,6 +71,10 @@ export function IncidentsTable({
     headCount: inc.headCount,
     weight: inc.weight,
     tagNumber: inc.tagNumber,
+    photoUrl: inc.photoUrl,
+    photoName: inc.photoName,
+    inspectorPhotoUrl: inc.inspectorPhotoUrl,
+    inspectorPhotoName: inc.inspectorPhotoName,
   });
 
   const getIncidentIcon = (type: string) => {
@@ -266,7 +270,7 @@ export function IncidentsTable({
                               className="h-8 px-3 rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-[11px] font-black uppercase tracking-wider gap-1.5 shadow-xs cursor-pointer"
                             >
                               <ShieldCheck size={14} />
-                              <span>Review SIBAT</span>
+                              <span>Review</span>
                             </Button>
                           ) : (
                             <Button
@@ -281,6 +285,10 @@ export function IncidentsTable({
                                   barangay: inc.barangayName,
                                   keyMetric: inc.type.toUpperCase(),
                                   currentRemarks: inc.reviewRemarks,
+                                  photoUrl: inc.photoUrl,
+                                  photoName: inc.photoName,
+                                  inspectorPhotoUrl: inc.inspectorPhotoUrl,
+                                  inspectorPhotoName: inc.inspectorPhotoName,
                                 })
                               }
                               title="Validate Record"
@@ -430,7 +438,7 @@ export function IncidentsTable({
                       className="w-full py-3 h-auto rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-black uppercase tracking-wider gap-2 shadow-xs cursor-pointer"
                     >
                       <ShieldCheck size={16} />
-                      <span>Review SIBAT Health Report</span>
+                      <span>Review</span>
                     </Button>
                   ) : (
                     <>
@@ -457,6 +465,10 @@ export function IncidentsTable({
                             barangay: inc.barangayName,
                             keyMetric: inc.type.toUpperCase(),
                             currentRemarks: inc.reviewRemarks,
+                            photoUrl: inc.photoUrl,
+                            photoName: inc.photoName,
+                            inspectorPhotoUrl: inc.inspectorPhotoUrl,
+                            inspectorPhotoName: inc.inspectorPhotoName,
                           })
                         }
                         className="flex-1 py-2.5 h-auto rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold gap-1.5 shadow-xs"

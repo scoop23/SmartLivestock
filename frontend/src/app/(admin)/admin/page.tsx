@@ -13,10 +13,69 @@ import { cowHead } from '@lucide/lab';
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import { AdminChartsView } from './admin-charts-view';
 import { useAdminDashboardAnalytics } from './admin-charts';
+import { ValidationLoadingScreen } from '@/components/validation-loading-screen';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { data } = useAdminDashboardAnalytics();
+  const {
+    data,
+    isLoading,
+    inventoryQuery,
+    censusQuery,
+    productionQuery,
+    barangaysQuery,
+  } = useAdminDashboardAnalytics();
+
+  if (isLoading) {
+    return (
+      <>
+        <PageHeader
+          title="LGU/MAO Municipal Executive Dashboard"
+          subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
+          variant="admin"
+          maxWidthClass="w-full"
+        />
+        <div className="p-3 sm:p-4 md:p-5 w-full">
+          <ValidationLoadingScreen
+            title="Synchronizing Executive Analytics Dashboard"
+            subtitle="Aggregating municipal livestock registries, 17-barangay census surveys, dairy production records, and biosecurity surveillance telemetry..."
+            badgeLabel="Executive Stream Sync"
+            authorityText="Municipal Agriculture Office • Padre Garcia, Batangas"
+            items={[
+              {
+                id: "inventory",
+                label: "Livestock Inventory",
+                sublabel: "Individual tags & cohort registrations",
+                icon: <Icon iconNode={cowHead} className="size-4 shrink-0 text-emerald-700" />,
+                loaded: !inventoryQuery.isLoading && inventoryQuery.data !== undefined,
+              },
+              {
+                id: "census",
+                label: "Barangay Census Records",
+                sublabel: "17-Barangay household surveys",
+                icon: <FileSpreadsheet className="size-4 shrink-0 text-sky-700" />,
+                loaded: !censusQuery.isLoading && censusQuery.data !== undefined,
+              },
+              {
+                id: "production",
+                label: "Dairy & Production Yields",
+                sublabel: "Milk output & cold chain data",
+                icon: <Milk className="size-4 shrink-0 text-blue-700" />,
+                loaded: !productionQuery.isLoading && productionQuery.data !== undefined,
+              },
+              {
+                id: "barangays",
+                label: "Geographic Master Directory",
+                sublabel: "17 Municipal territorial sectors",
+                icon: <Map className="size-4 shrink-0 text-purple-700" />,
+                loaded: !barangaysQuery.isLoading && barangaysQuery.data !== undefined,
+              },
+            ]}
+          />
+        </div>
+      </>
+    );
+  }
 
   // --- Handlers ---
   const handleExportExcel = (reportType: string) => {

@@ -5,6 +5,7 @@ import {
   BarangaySummary,
   ActivityFeedItem,
   DataTab,
+  BatchRecord,
 } from "./data-overview-types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   ChevronDown,
   Calendar,
+  Boxes,
 } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
@@ -40,6 +42,8 @@ import { cowHead } from "@lucide/lab";
 interface DataOverviewOverallViewProps {
   barangaySummaries: BarangaySummary[];
   activityFeed: ActivityFeedItem[];
+  batchList?: BatchRecord[];
+  totalBatches?: number;
   isLoading?: boolean;
   onSelectBarangay: (barangay: string) => void;
   onNavigateTab: (tab: DataTab) => void;
@@ -48,6 +52,8 @@ interface DataOverviewOverallViewProps {
 export function DataOverviewOverallView({
   barangaySummaries,
   activityFeed,
+  batchList = [],
+  totalBatches,
   isLoading = false,
   onSelectBarangay,
   onNavigateTab,
@@ -87,12 +93,15 @@ export function DataOverviewOverallView({
   const totalIncidents = barangaySummaries.reduce((sum, b) => sum + b.activeIncidents, 0);
   const totalFarmers = barangaySummaries.reduce((sum, b) => sum + b.registeredFarmers, 0);
 
+  const totalBatchesCount = totalBatches ?? batchList.length ?? barangaySummaries.reduce((sum, b) => sum + (b.batchCount || 0), 0);
+  const totalBatchAnimals = batchList.reduce((sum, b) => sum + (b.totalAnimals || 0), 0);
+
   return (
     <div className="space-y-3.5">
-      {/* ── Specie & Health Breakdown Grid ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-        {/* Cattle Breakdown */}
-        <Card className="rounded-xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
+      {/* ── Specie & Cohort Breakdown Grid (5-column layout) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+        {/* 1. Cattle Breakdown */}
+        <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
           <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between gap-2">
               <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
@@ -113,8 +122,8 @@ export function DataOverviewOverallView({
           </CardContent>
         </Card>
 
-        {/* Carabao Breakdown */}
-        <Card className="rounded-xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
+        {/* 2. Carabao Breakdown */}
+        <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
           <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between gap-2">
               <div className="p-1.5 rounded-lg bg-sky-100 text-sky-800">
@@ -135,8 +144,8 @@ export function DataOverviewOverallView({
           </CardContent>
         </Card>
 
-        {/* Swine Breakdown */}
-        <Card className="rounded-xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
+        {/* 3. Swine Breakdown */}
+        <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
           <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between gap-2">
               <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800">
@@ -157,8 +166,8 @@ export function DataOverviewOverallView({
           </CardContent>
         </Card>
 
-        {/* Goats & Small Ruminants */}
-        <Card className="rounded-xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
+        {/* 4. Goats & Small Ruminants */}
+        <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-shadow">
           <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between gap-2">
               <div className="p-1.5 rounded-lg bg-purple-100 text-purple-800">
@@ -178,13 +187,39 @@ export function DataOverviewOverallView({
             </div>
           </CardContent>
         </Card>
+
+        {/* 5. Cohorts & Batches */}
+        <Card
+          onClick={() => onNavigateTab("batches")}
+          className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-all cursor-pointer hover:border-purple-300 group"
+        >
+          <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between gap-2">
+              <div className="p-1.5 rounded-lg bg-purple-100 text-purple-800 group-hover:bg-purple-200 transition-colors">
+                <Boxes className="size-3.5" />
+              </div>
+              <Badge className="bg-purple-50 text-purple-800 border-purple-200 text-[10px] font-extrabold px-1.5 py-0.2 group-hover:bg-purple-100 transition-colors">
+                {totalBatchAnimals > 0 ? `${totalBatchAnimals} heads` : "Active"}
+              </Badge>
+            </div>
+            <div className="mt-2">
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight group-hover:text-purple-700 transition-colors">
+                {totalBatchesCount.toLocaleString()}
+              </p>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center justify-between">
+                <span>Cohorts & Batches</span>
+                <ChevronRight className="size-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Main Layout: Barangay Master Matrix (Left/Main) + Live Feed & Biosecurity (Right) ── */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-start">
         {/* Left 8 Cols: Barangay Master Matrix Table */}
         <div className="xl:col-span-8 space-y-3">
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
             {/* Header */}
             <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-slate-50/80 to-white">
               <div>
@@ -193,7 +228,7 @@ export function DataOverviewOverallView({
                   Padre Garcia 18-Barangay Master Data Matrix
                 </h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Consolidated livestock headcount, dairy yields, and active surveillance across all sectors.
+                  Consolidated livestock headcount, cohort batches, dairy yields, and active surveillance across all sectors.
                 </p>
               </div>
 
@@ -226,6 +261,12 @@ export function DataOverviewOverallView({
                       onClick={() => handleSort("cattleCount")}
                     >
                       Cattle
+                    </TableHead>
+                    <TableHead
+                      className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
+                      onClick={() => handleSort("batchCount")}
+                    >
+                      Batches
                     </TableHead>
                     <TableHead
                       className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
@@ -274,6 +315,26 @@ export function DataOverviewOverallView({
 
                       <TableCell className="px-3 py-2 text-right font-semibold text-xs text-emerald-800">
                         {b.cattleCount.toLocaleString()}
+                      </TableCell>
+
+                      {/* Batches in Sector */}
+                      <TableCell className="px-3 py-2 text-right">
+                        {(b.batchCount || 0) > 0 ? (
+                          <Badge
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectBarangay(b.barangay);
+                              onNavigateTab("batches");
+                            }}
+                            className="bg-purple-50 text-purple-800 border-purple-200 text-[10px] font-bold px-1.5 py-0.2 hover:bg-purple-100 cursor-pointer transition-colors"
+                            title="View cohort batches in this sector"
+                          >
+                            {b.batchCount} {b.batchCount === 1 ? "batch" : "batches"}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-semibold">0</span>
+                        )}
                       </TableCell>
 
                       <TableCell className="px-3 py-2 text-right font-semibold text-xs text-sky-800">
@@ -325,6 +386,8 @@ export function DataOverviewOverallView({
                 <span>•</span>
                 <span className="text-emerald-700">Cattle: {totalCattle.toLocaleString()}</span>
                 <span>•</span>
+                <span className="text-purple-700">Batches: {totalBatchesCount}</span>
+                <span>•</span>
                 <span className="text-sky-700">Milk: {totalMilk.toLocaleString()} L</span>
                 <span>•</span>
                 <span className="text-rose-700">Incidents: {totalIncidents}</span>
@@ -335,10 +398,71 @@ export function DataOverviewOverallView({
           </div>
         </div>
 
-        {/* Right 4 Cols: Live Activity Feed & Biosecurity Scorecard */}
+        {/* Right 4 Cols: Active Batches, Biosecurity Scorecard & Activity Feed */}
         <div className="xl:col-span-4 space-y-3.5">
+          {/* Active Cohorts & Group Pens Snapshot */}
+          {batchList && batchList.length > 0 && (
+            <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+              <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-purple-50/80 to-white">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-purple-100 text-purple-800">
+                    <Boxes className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                      Active Cohorts & Group Pens
+                    </h4>
+                    <p className="text-[10px] text-slate-500 font-medium">
+                      {batchList.length} monitored feeding cohorts in municipality
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onNavigateTab("batches")}
+                  className="h-7 px-2 text-xs font-bold text-purple-700 hover:bg-purple-100 rounded-lg gap-0.5"
+                >
+                  <span>All Batches</span>
+                  <ChevronRight className="size-3" />
+                </Button>
+              </div>
+
+              <div className="p-3 space-y-2">
+                {batchList.slice(0, 4).map((batch) => (
+                  <div
+                    key={batch.id}
+                    onClick={() => onNavigateTab("batches")}
+                    className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-purple-200 hover:bg-purple-50/40 transition-all cursor-pointer group flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 truncate group-hover:text-purple-800 transition-colors">
+                        {batch.batchName || batch.batchCode}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                        <span className="font-semibold text-slate-700">Brgy. {batch.barangay}</span>
+                        <span>•</span>
+                        <span className="text-slate-400">{batch.housingPen || "General Pen"}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end shrink-0 gap-1">
+                      <Badge className="bg-purple-100 text-purple-800 border-0 text-[10px] font-black px-1.5 py-0.2">
+                        {batch.totalAnimals || 0} Heads
+                      </Badge>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {batch.specie}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           {/* Biosecurity & Sector Health Scorecard */}
-          <Card className="rounded-xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+          <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
             <div className="p-3.5 sm:p-4 bg-gradient-to-br from-emerald-900 to-[#1E3D1A] text-white">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black tracking-widest uppercase text-emerald-200">
@@ -390,7 +514,7 @@ export function DataOverviewOverallView({
           </Card>
 
           {/* Cross-Domain Real-Time Activity Feed */}
-          <Card className="rounded-xl border border-slate-200/80 bg-white shadow-xs overflow-hidden flex flex-col">
+          <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden flex flex-col">
             <div className="p-3.5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5 text-[#2D5A27]" />
@@ -440,6 +564,7 @@ export function DataOverviewOverallView({
                   >
                     <div className="p-1.5 rounded-lg bg-slate-100 text-slate-700 shrink-0 mt-0.5 group-hover:bg-slate-200 transition-colors">
                       {act.domain === "production" && <Milk className="w-3.5 h-3.5 text-sky-600" />}
+                      {act.domain === "batches" && <Boxes className="w-3.5 h-3.5 text-purple-600" />}
                       {act.domain === "sales" && <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />}
                       {act.domain === "disease" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
                       {act.domain === "mortality" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}

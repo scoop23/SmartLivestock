@@ -5,15 +5,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import {
   ShieldCheck,
+  Layers,
+  ChevronRight,
   FileSpreadsheet,
   Milk,
   Tag,
   Activity,
-  Layers,
-  ChevronRight,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -44,7 +45,9 @@ import {
   InventoryTable,
   IncidentsTable,
   DiseaseMortalityReviewDialog,
+  ValidationPagination,
 } from "./components";
+import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
 
 // Dialog Modals
 import {
@@ -55,6 +58,41 @@ import {
   RecordDetailDialog,
   DetailRecordData,
 } from "./record-detail-dialog";
+
+const DOMAIN_CARD_CONFIG: Record<
+  ValidationDomain,
+  {
+    title: string;
+    subtitle: string;
+    activeIconBg: string;
+    activeBorder: string;
+  }
+> = {
+  census: {
+    title: "Quarterly Census",
+    subtitle: "Barangay Livestock Roster",
+    activeIconBg: "bg-emerald-700 text-white shadow-emerald-700/20",
+    activeBorder: "data-[state=active]:border-emerald-300 data-[state=active]:ring-1 data-[state=active]:ring-emerald-300/40",
+  },
+  production: {
+    title: "Production Yields",
+    subtitle: "Milk, Eggs, Wool & Honey Logs",
+    activeIconBg: "bg-amber-600 text-white shadow-amber-600/20",
+    activeBorder: "data-[state=active]:border-amber-300 data-[state=active]:ring-1 data-[state=active]:ring-amber-300/40",
+  },
+  inventory: {
+    title: "Livestock Inventory",
+    subtitle: "Individual Tags & Cohort Pens",
+    activeIconBg: "bg-sky-700 text-white shadow-sky-700/20",
+    activeBorder: "data-[state=active]:border-sky-300 data-[state=active]:ring-1 data-[state=active]:ring-sky-300/40",
+  },
+  incidents: {
+    title: "Field Declarations",
+    subtitle: "Disease Outbreaks & Mortalities",
+    activeIconBg: "bg-rose-700 text-white shadow-rose-700/20",
+    activeBorder: "data-[state=active]:border-rose-300 data-[state=active]:ring-1 data-[state=active]:ring-rose-300/40",
+  },
+};
 
 export default function AdminDataValidationPage() {
   const queryClient = useQueryClient();
@@ -78,11 +116,16 @@ export default function AdminDataValidationPage() {
     data: DetailRecordData | null;
   }>({ open: false, data: null });
 
-  // Data fetching
   const { data: rawCensusData } = useAdminCensusSubmissions();
   const { data: rawProductionData } = useAdminProductionRecords();
   const { data: rawInventoryData } = useAdminInventoryRecords();
   const { data: rawIncidentData } = useAdminIncidentRecords();
+
+  const isInitialLoading =
+    rawCensusData === undefined ||
+    rawProductionData === undefined ||
+    rawInventoryData === undefined ||
+    rawIncidentData === undefined;
 
   // Local state overlays for optimistic updates
   const [localCensusOverrides, setLocalCensusOverrides] = useState<
@@ -202,6 +245,13 @@ export default function AdminDataValidationPage() {
     incidents: incidents.filter((inc) => (inc.status || "").toUpperCase() === "VERIFIED").length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
+  const domainTotalCounts = useMemo(() => ({
+    census: censusSubmissions.length,
+    production: productionRecords.length,
+    inventory: inventoryRecords.length,
+    incidents: incidents.length,
+  }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
+
   // ── Filtered Domain Data ──
 
   const filteredCensus = useMemo(() => {
@@ -264,22 +314,77 @@ export default function AdminDataValidationPage() {
     });
   }, [incidents, searchQuery, statusFilter, barangayFilter]);
 
-  // Current tab active item IDs for select-all
-  const currentActiveRecordIds = useMemo(() => {
+  // ── Pagination State ──
+  const [domainPages, setDomainPages] = useState<Record<ValidationDomain, number>>({
+    census: 1,
+    production: 1,
+    inventory: 1,
+    incidents: 1,
+  });
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  // Active domain's full filtered list & pagination metrics
+  const activeFilteredList = useMemo(() => {
     switch (activeDomain) {
       case "census":
-        return filteredCensus.map((c) => c.id);
+        return filteredCensus;
       case "production":
-        return filteredProduction.map((p) => p.id);
+        return filteredProduction;
       case "inventory":
-        return filteredInventory.map((i) => i.id);
+        return filteredInventory;
       case "incidents":
-        return filteredIncidents.map((inc) => inc.id);
+        return filteredIncidents;
     }
   }, [activeDomain, filteredCensus, filteredProduction, filteredInventory, filteredIncidents]);
 
+  const rawCurrentPage = domainPages[activeDomain] || 1;
+  const totalItems = activeFilteredList.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const currentPage = Math.min(rawCurrentPage, totalPages);
+
+  // Paginated slices for each domain
+  const paginatedCensus = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCensus.slice(start, start + pageSize);
+  }, [filteredCensus, currentPage, pageSize]);
+
+  const paginatedProduction = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredProduction.slice(start, start + pageSize);
+  }, [filteredProduction, currentPage, pageSize]);
+
+  const paginatedInventory = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredInventory.slice(start, start + pageSize);
+  }, [filteredInventory, currentPage, pageSize]);
+
+  const paginatedIncidents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredIncidents.slice(start, start + pageSize);
+  }, [filteredIncidents, currentPage, pageSize]);
+
+  // Current page item IDs for select-all on the active page
+  const currentPageRecordIds = useMemo(() => {
+    switch (activeDomain) {
+      case "census":
+        return paginatedCensus.map((c) => c.id);
+      case "production":
+        return paginatedProduction.map((p) => p.id);
+      case "inventory":
+        return paginatedInventory.map((i) => i.id);
+      case "incidents":
+        return paginatedIncidents.map((inc) => inc.id);
+    }
+  }, [activeDomain, paginatedCensus, paginatedProduction, paginatedInventory, paginatedIncidents]);
+
   const handleSelectAll = (checked: boolean) => {
-    setSelectedIds(checked ? currentActiveRecordIds : []);
+    setSelectedIds((prev) => {
+      if (checked) {
+        return Array.from(new Set([...prev, ...currentPageRecordIds]));
+      } else {
+        return prev.filter((id) => !currentPageRecordIds.includes(id));
+      }
+    });
   };
 
   const handleToggleSelect = (id: string | number) => {
@@ -334,6 +439,8 @@ export default function AdminDataValidationPage() {
           barangay: i.barangayName,
           keyMetric: `${i.quantity} head(s)`,
           currentRemarks: i.reviewRemarks,
+          photoUrl: i.photoUrl,
+          photoName: i.photoName,
         }));
     } else {
       targets = incidents
@@ -346,6 +453,10 @@ export default function AdminDataValidationPage() {
           barangay: inc.barangayName,
           keyMetric: inc.type.toUpperCase(),
           currentRemarks: inc.reviewRemarks,
+          photoUrl: inc.photoUrl,
+          photoName: inc.photoName,
+          inspectorPhotoUrl: inc.inspectorPhotoUrl,
+          inspectorPhotoName: inc.inspectorPhotoName,
         }));
     }
 
@@ -492,6 +603,26 @@ export default function AdminDataValidationPage() {
     }
   };
 
+  if (isInitialLoading) {
+    return (
+      <>
+        <PageHeader
+          title="Municipal Data Validation Center"
+          subtitle="Official Municipal Agriculture Office (MAO) verification, review, and certification command center"
+          variant="admin"
+          maxWidthClass="w-full"
+          icon={<ShieldCheck className="w-6 h-6 text-slate-900" />}
+        />
+        <ValidationLoadingScreen
+          censusLoaded={rawCensusData !== undefined}
+          productionLoaded={rawProductionData !== undefined}
+          inventoryLoaded={rawInventoryData !== undefined}
+          incidentLoaded={rawIncidentData !== undefined}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -541,101 +672,130 @@ export default function AdminDataValidationPage() {
           </Link>
         </div>
 
-        {/* Domain Switcher Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 ">
-          <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
-            <Tabs
-              value={activeDomain}
-              onValueChange={(val) => {
-                setActiveDomain(val as ValidationDomain);
-                setSelectedIds([]);
-              }}
-              className="w-full sm:w-auto"
-            >
-              <div className="w-full overflow-x-auto rounded-2xl no-scrollbar">
-                  <TabsList
-                    className="
-                      bg-gray-100
-                      p-1
-                      rounded-2xl
-                      h-auto
-                      flex
-                      flex-nowrap
-                      w-max
-                      min-w-full
-                      gap-1
-                    "
+        {/* ── Remastered Executive Domain Switcher Tabs ── */}
+        <div className="w-full space-y-2.5">
+          <Tabs
+            value={activeDomain}
+            onValueChange={(val) => {
+              setActiveDomain(val as ValidationDomain);
+              setSelectedIds([]);
+            }}
+            className="w-full space-y-2.5"
+          >
+            <TabsList className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 p-2 bg-slate-100/90 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs h-auto">
+              {VALIDATION_DOMAINS.map((domain) => {
+                const config = DOMAIN_CARD_CONFIG[domain.id];
+                const pendingCount = domainPendingCounts[domain.id];
+                const verifiedCount = domainVerifiedCounts[domain.id];
+                const totalCount = domainTotalCounts[domain.id];
+                const isActive = activeDomain === domain.id;
+
+                return (
+                  <TabsTrigger
+                    key={domain.id}
+                    value={domain.id}
+                    className={`group relative flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl transition-all duration-200 text-left border border-slate-200/70 bg-white/70 hover:bg-white hover:border-slate-300 data-[state=active]:bg-white data-[state=active]:shadow-sm cursor-pointer h-auto ${config.activeBorder}`}
                   >
-                    {VALIDATION_DOMAINS.map((domain) => {
-                      const pendingCount = domainPendingCounts[domain.id];
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`size-10 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs ${
+                          isActive
+                            ? `${config.activeIconBg} shadow-xs`
+                            : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/80 group-hover:text-slate-800"
+                        }`}
+                      >
+                        {domain.id === "census" && <FileSpreadsheet className="size-4.5" />}
+                        {domain.id === "production" && <Milk className="size-4.5" />}
+                        {domain.id === "inventory" && <Tag className="size-4.5" />}
+                        {domain.id === "incidents" && <Activity className="size-4.5" />}
+                      </div>
 
-                      return (
-                        <TabsTrigger
-                          key={domain.id}
-                          value={domain.id}
-                          className="
-                            px-3 sm:px-5
-                            py-2 sm:py-2.5
-                            rounded-xl
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-wider sm:tracking-widest
-                            transition-all
-                            data-[state=active]:bg-white
-                            data-[state=active]:text-gray-900
-                            data-[state=active]:shadow-sm
-                            text-gray-400
-                            flex items-center
-                            gap-1.5
-                            whitespace-nowrap
-                          "
-                        >
-                          {domain.id === "census" && (
-                            <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                          )}
+                      <div className="text-left min-w-0">
+                        <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 truncate">
+                          {config.title}
+                        </p>
+                        <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 truncate mt-0.5">
+                          {config.subtitle}
+                        </p>
+                      </div>
+                    </div>
 
-                          {domain.id === "production" && (
-                            <Milk className="w-3.5 h-3.5 shrink-0" />
-                          )}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {pendingCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300/80 font-mono shadow-2xs">
+                          <span className="size-1.5 rounded-full bg-amber-600 animate-pulse" />
+                          {pendingCount} Pending
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 font-mono">
+                          {totalCount} Total
+                        </span>
+                      )}
 
-                          {domain.id === "inventory" && (
-                            <Tag className="w-3.5 h-3.5 shrink-0" />
-                          )}
+                      {verifiedCount > 0 && (
+                        <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded-md font-mono hidden sm:inline-block">
+                          {verifiedCount} Verified
+                        </span>
+                      )}
+                    </div>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
 
-                          {domain.id === "incidents" && (
-                            <Activity className="w-3.5 h-3.5 shrink-0" />
-                          )}
-
-                          <span className="sm:hidden">{domain.shortLabel}</span>
-                          <span className="hidden sm:inline">{domain.label}</span>
-
-                          {pendingCount > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-white font-mono">
-                              {pendingCount}
-                            </span>
-                          )}
-                        </TabsTrigger>
-                      );
-                    })}
-                  </TabsList>
-                </div>            
-              </Tabs>
+          {/* Contextual Active Queue Telemetry Strip */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="font-black text-slate-900 truncate">
+                {DOMAIN_CARD_CONFIG[activeDomain].title} Validation Queue
+              </span>
+              <span className="text-slate-300 hidden sm:inline">&bull;</span>
+              <span className="text-slate-500 font-medium truncate hidden sm:inline">
+                {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
+              </span>
             </div>
+
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Queue Telemetry:
+              </span>
+              <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[10px] font-mono font-bold">
+                {domainTotalCounts[activeDomain]} Total Records
+              </Badge>
+              {domainPendingCounts[activeDomain] > 0 && (
+                <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-[10px] font-mono font-bold">
+                  {domainPendingCounts[activeDomain]} Awaiting SIBAT
+                </Badge>
+              )}
+              {domainVerifiedCounts[activeDomain] > 0 && (
+                <Badge className="bg-sky-100 text-sky-900 border-sky-200 text-[10px] font-mono font-bold">
+                  {domainVerifiedCounts[activeDomain]} Ready for MAO
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:block p-2">
-              {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
-          </p>
 
         {/* Search, Filter & Bulk Actions Toolbar */}
         <ValidationToolbar
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={(q) => {
+            setSearchQuery(q);
+            setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
+          }}
           barangayFilter={barangayFilter}
-          onBarangayChange={setBarangayFilter}
+          onBarangayChange={(b) => {
+            setBarangayFilter(b);
+            setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
+          }}
           uniqueBarangays={uniqueBarangays}
           statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
+          onStatusChange={(s) => {
+            setStatusFilter(s);
+            setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
+          }}
           selectedCount={selectedIds.length}
           onBulkAction={openReviewBatch}
           onClearSelection={() => setSelectedIds([])}
@@ -644,7 +804,7 @@ export default function AdminDataValidationPage() {
         {/* Domain Data Tables */}
         {activeDomain === "census" && (
           <CensusTable
-            records={filteredCensus}
+            records={paginatedCensus}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
             onSelectAll={handleSelectAll}
@@ -655,7 +815,7 @@ export default function AdminDataValidationPage() {
 
         {activeDomain === "production" && (
           <ProductionTable
-            records={filteredProduction}
+            records={paginatedProduction}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
             onSelectAll={handleSelectAll}
@@ -666,7 +826,7 @@ export default function AdminDataValidationPage() {
 
         {activeDomain === "inventory" && (
           <InventoryTable
-            records={filteredInventory}
+            records={paginatedInventory}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
             onSelectAll={handleSelectAll}
@@ -677,7 +837,7 @@ export default function AdminDataValidationPage() {
 
         {activeDomain === "incidents" && (
           <IncidentsTable
-            records={filteredIncidents}
+            records={paginatedIncidents}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
             onSelectAll={handleSelectAll}
@@ -686,6 +846,22 @@ export default function AdminDataValidationPage() {
             onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
           />
         )}
+
+        {/* Responsive Pagination Bar */}
+        <ValidationPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={(newPage) => {
+            setDomainPages((prev) => ({ ...prev, [activeDomain]: newPage }));
+            window.scrollTo({ top: 380, behavior: "smooth" });
+          }}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
+          }}
+        />
       </div>
 
       {/* ── FLOATING MOBILE BULK ACTION DOCK ── */}
@@ -787,6 +963,10 @@ export default function AdminDataValidationPage() {
             barangay: bgry,
             keyMetric: metric,
             currentRemarks: rec.reviewRemarks,
+            photoUrl: (rec as any).photoUrl || null,
+            photoName: (rec as any).photoName || null,
+            inspectorPhotoUrl: (rec as any).inspectorPhotoUrl || null,
+            inspectorPhotoName: (rec as any).inspectorPhotoName || null,
           });
         }}
       />

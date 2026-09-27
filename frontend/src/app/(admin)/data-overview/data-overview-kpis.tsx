@@ -9,12 +9,12 @@ import {
   TrendingUp,
   AlertTriangle,
   Users,
-  Layers,
-  Scale,
+  Boxes,
 } from "lucide-react";
 
 interface DataOverviewKpisProps {
   totalLivestock: number;
+  totalBatches?: number;
   totalMilkVolume: number;
   totalAuctionValue: number;
   activeIncidents: number;
@@ -25,6 +25,7 @@ interface DataOverviewKpisProps {
 
 export function DataOverviewKpis({
   totalLivestock,
+  totalBatches = 0,
   totalMilkVolume,
   totalAuctionValue,
   activeIncidents,
@@ -33,7 +34,7 @@ export function DataOverviewKpis({
   isLoading = false,
 }: DataOverviewKpisProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
       {/* 1. Total Registered Livestock */}
       <KpiCard
         title="Total Livestock Heads"
@@ -45,7 +46,18 @@ export function DataOverviewKpis({
         isLoading={isLoading}
       />
 
-      {/* 2. Monthly Milk Yield */}
+      {/* 2. Active Cohorts & Batches */}
+      <KpiCard
+        title="Cohorts & Batches"
+        value={totalBatches.toLocaleString()}
+        icon={<Boxes className="size-5" />}
+        description="Housing pens & lots"
+        badge="Cohort Master"
+        variant="default"
+        isLoading={isLoading}
+      />
+
+      {/* 3. Monthly Milk Yield */}
       <KpiCard
         title="Monthly Dairy Yield"
         value={`${totalMilkVolume.toLocaleString()} L`}
@@ -56,7 +68,7 @@ export function DataOverviewKpis({
         isLoading={isLoading}
       />
 
-      {/* 3. Auction & Market Value */}
+      {/* 4. Auction & Market Value */}
       <KpiCard
         title="Auction & Sales Value"
         value={`₱${(totalAuctionValue / 1000).toFixed(1)}k`}
@@ -67,7 +79,7 @@ export function DataOverviewKpis({
         isLoading={isLoading}
       />
 
-      {/* 4. Active Biosecurity Alerts */}
+      {/* 5. Active Biosecurity Alerts */}
       <KpiCard
         title="Biosecurity Alerts"
         value={activeIncidents}
@@ -82,7 +94,7 @@ export function DataOverviewKpis({
         isLoading={isLoading}
       />
 
-      {/* 5. Registered Raisers */}
+      {/* 6. Registered Raisers */}
       <KpiCard
         title="Registered Raisers"
         value={totalFarmers.toLocaleString()}

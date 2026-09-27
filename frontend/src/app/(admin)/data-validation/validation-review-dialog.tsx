@@ -22,6 +22,8 @@ import {
   AlertCircle,
   FileCheck,
   Check,
+  Camera,
+  ZoomIn,
 } from "lucide-react";
 
 export interface ReviewTargetItem {
@@ -33,6 +35,10 @@ export interface ReviewTargetItem {
   barangay: string;
   keyMetric: string;
   currentRemarks?: string | null;
+  photoUrl?: string | null;
+  photoName?: string | null;
+  inspectorPhotoUrl?: string | null;
+  inspectorPhotoName?: string | null;
 }
 
 interface ValidationReviewDialogProps {
@@ -176,6 +182,85 @@ export function ValidationReviewDialog({
                   {singleItem.keyMetric}
                 </p>
                 <p className="text-[10px] text-slate-500 uppercase">{singleItem.domain} entry</p>
+              </div>
+            </div>
+          )}
+
+          {/* Photographic Evidence Card (Single Record) */}
+          {!isBatch && (singleItem.photoUrl || singleItem.inspectorPhotoUrl) && (
+            <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-50 text-[#1E4D2B]">
+                    <Camera className="size-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-slate-900 block leading-tight">
+                      Attached Photographic Evidence
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      Official image documentation submitted for validation
+                    </span>
+                  </div>
+                </div>
+
+                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  Photo Attached
+                </Badge>
+              </div>
+
+              <div
+                className={`grid ${
+                  singleItem.photoUrl && singleItem.inspectorPhotoUrl
+                    ? "grid-cols-1 sm:grid-cols-2"
+                    : "grid-cols-1"
+                } gap-2.5`}
+              >
+                {singleItem.photoUrl && (
+                  <div className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-950 aspect-16/10 shadow-2xs">
+                    <img
+                      src={singleItem.photoUrl}
+                      alt={singleItem.photoName || singleItem.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2.5 text-white">
+                      <span className="text-[10px] font-mono text-slate-200 truncate max-w-xs">
+                        {singleItem.photoName || "Submitted Photo Evidence"}
+                      </span>
+                      <a
+                        href={singleItem.photoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-bold text-emerald-300 hover:underline flex items-center gap-1"
+                      >
+                        <ZoomIn className="size-3" /> Full size
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {singleItem.inspectorPhotoUrl && (
+                  <div className="relative group overflow-hidden rounded-xl border border-sky-200 bg-slate-950 aspect-16/10 shadow-2xs">
+                    <img
+                      src={singleItem.inspectorPhotoUrl}
+                      alt={singleItem.inspectorPhotoName || "SIBAT Inspection Photo"}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2.5 text-white">
+                      <span className="text-[10px] font-mono text-slate-200 truncate max-w-xs">
+                        {singleItem.inspectorPhotoName || "SIBAT Field Inspection"}
+                      </span>
+                      <a
+                        href={singleItem.inspectorPhotoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-bold text-sky-300 hover:underline flex items-center gap-1"
+                      >
+                        <ZoomIn className="size-3" /> Full size
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

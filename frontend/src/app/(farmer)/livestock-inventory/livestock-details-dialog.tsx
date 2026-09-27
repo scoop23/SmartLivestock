@@ -430,9 +430,8 @@ export default function LivestockDetailsDialog({
                                 </span>
                                 {gainKg !== null && (
                                   <span
-                                    className={`text-[10px] font-bold ${
-                                      gainKg >= 0 ? "text-emerald-700" : "text-rose-600"
-                                    }`}
+                                    className={`text-[10px] font-bold ${gainKg >= 0 ? "text-emerald-700" : "text-rose-600"
+                                      }`}
                                   >
                                     {gainKg >= 0 ? `+${gainKg}` : gainKg} kg gain
                                   </span>
