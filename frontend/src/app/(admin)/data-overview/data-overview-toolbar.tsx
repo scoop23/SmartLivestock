@@ -224,59 +224,62 @@ export function DataOverviewToolbar({
   };
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xs border border-slate-200/90 transition-all overflow-hidden">
+    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xs border border-slate-200/90 transition-all overflow-hidden w-full max-w-full min-w-0">
       {/* ── Top Row: 4 Domain Pillars Navigation & Quick Actions ── */}
-      <div className="p-3 sm:p-3.5 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-gradient-to-r from-slate-50/60 via-white to-slate-50/40">
-        {/* Domain Pillars (Primary Hierarchy) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          {DOMAIN_PILLARS.map((pillar) => {
-            const isPillarActive = currentPillar.id === pillar.id;
-            const IconComponent = pillar.icon;
+      <div className="p-3 sm:p-3.5 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-gradient-to-r from-slate-50/60 via-white to-slate-50/40 w-full max-w-full min-w-0">
+        {/* Domain Pillars (Primary Hierarchy) - Vertical full-width on Mobile, Horizontal on Desktop */}
+        <div className="w-full xl:w-auto">
+          <div className="grid grid-cols-1 sm:flex sm:flex-wrap lg:flex-nowrap sm:items-center gap-2 w-full">
+            {DOMAIN_PILLARS.map((pillar) => {
+              const isPillarActive = currentPillar.id === pillar.id;
 
-            // Sum counts for pillar tabs
-            const pillarCount = pillar.tabs.reduce(
-              (acc, t) => acc + (t.id === "overall" ? 0 : counts[t.id] || 0),
-              0
-            );
+              // Sum counts for pillar tabs
+              const pillarCount = pillar.tabs.reduce(
+                (acc, t) => acc + (t.id === "overall" ? 0 : counts[t.id] || 0),
+                0
+              );
 
-            return (
-              <button
-                key={pillar.id}
-                type="button"
-                onClick={() => handlePillarClick(pillar)}
-                className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 border ${
-                  isPillarActive
-                    ? pillar.activeColorClass
-                    : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
-                }`}
-              >
-                <span className="text-sm shrink-0">{pillar.emoji}</span>
-                <span>{pillar.label}</span>
-                {pillarCount > 0 && (
-                  <span
-                    className={`text-[11px] font-black px-1.5 py-0.2 rounded-full font-mono transition-colors ${
-                      isPillarActive
-                        ? "bg-white/25 text-white"
-                        : "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {pillarCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={pillar.id}
+                  type="button"
+                  onClick={() => handlePillarClick(pillar)}
+                  className={`flex items-center justify-between sm:justify-start gap-2.5 px-3.5 sm:px-4 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer w-full sm:w-auto border select-none ${
+                    isPillarActive
+                      ? pillar.activeColorClass
+                      : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm shrink-0">{pillar.emoji}</span>
+                    <span>{pillar.label}</span>
+                  </div>
+                  {pillarCount > 0 && (
+                    <span
+                      className={`text-[11px] font-black px-2 py-0.5 rounded-full font-mono transition-colors ${
+                        isPillarActive
+                          ? "bg-white/25 text-white"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {pillarCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Action Controls: View Switcher & Export */}
-        <div className="flex items-center gap-2 shrink-0 self-end xl:self-auto">
+        <div className="flex items-center justify-between xl:justify-end gap-2 shrink-0 w-full xl:w-auto pt-1 xl:pt-0 border-t xl:border-t-0 border-slate-100">
           {/* Table / Card View Toggle */}
           {activeTab !== "overall" && (
             <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200/80 shadow-2xs">
               <button
                 type="button"
                 onClick={() => onViewModeChange("table")}
-                className={`p-1.5 rounded-md text-xs font-bold transition-all ${
+                className={`p-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
                   viewMode === "table"
                     ? "bg-white text-slate-900 shadow-2xs ring-1 ring-slate-200/60"
                     : "text-slate-500 hover:text-slate-800"
@@ -288,7 +291,7 @@ export function DataOverviewToolbar({
               <button
                 type="button"
                 onClick={() => onViewModeChange("cards")}
-                className={`p-1.5 rounded-md text-xs font-bold transition-all ${
+                className={`p-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
                   viewMode === "cards"
                     ? "bg-white text-slate-900 shadow-2xs ring-1 ring-slate-200/60"
                     : "text-slate-500 hover:text-slate-800"
@@ -303,7 +306,7 @@ export function DataOverviewToolbar({
           {/* Export CSV Button */}
           <Button
             onClick={onExportCsv}
-            className="bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold px-3.5 py-1.5 h-8.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer text-xs shrink-0 active:scale-98"
+            className="bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold px-3.5 py-1.5 h-8.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer text-xs shrink-0 active:scale-98 ml-auto xl:ml-0"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
@@ -313,43 +316,47 @@ export function DataOverviewToolbar({
 
       {/* ── Sub-Navigation Pill Strip (Secondary Hierarchy) ── */}
       {currentPillar.tabs.length > 1 && (
-        <div className="px-3 sm:px-4 py-2 bg-slate-50/70 border-b border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 shrink-0 flex items-center gap-1">
-            <span>{currentPillar.shortLabel} Views:</span>
-            <ChevronRight className="size-3 text-slate-600" />
-          </span>
+        <div className="w-full px-3 sm:px-4 py-2.5 sm:py-2 bg-slate-50/70 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 shrink-0 flex items-center gap-1">
+              <span>{currentPillar.shortLabel} Views:</span>
+              <ChevronRight className="size-3 text-slate-400" />
+            </span>
 
-          <div className="flex items-center gap-1.5">
-            {currentPillar.tabs.map((tab) => {
-              const isTabActive = activeTab === tab.id;
-              const count = counts[tab.id] || 0;
+            <div className="grid grid-cols-1 sm:flex sm:items-center gap-1.5 w-full sm:w-auto">
+              {currentPillar.tabs.map((tab) => {
+                const isTabActive = activeTab === tab.id;
+                const count = counts[tab.id] || 0;
 
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => onTabChange(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer border ${
-                    isTabActive
-                      ? `${tab.activeColorClass} border-transparent font-black shadow-xs`
-                      : "bg-white text-slate-600 border-slate-200/70 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="text-xs sm:text-sm">{tab.emoji}</span>
-                  <span>{tab.label}</span>
-                  <Badge
-                    variant="secondary"
-                    className={`text-[10px] font-mono px-1.5 py-0.1 ml-0.5 border-0 ${
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => onTabChange(tab.id)}
+                    className={`flex items-center justify-between sm:justify-start gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer border select-none w-full sm:w-auto ${
                       isTabActive
-                        ? "bg-white/25 text-white font-black"
-                        : "bg-slate-200/70 text-slate-700"
+                        ? `${tab.activeColorClass} border-transparent font-black shadow-xs`
+                        : "bg-white text-slate-600 border-slate-200/70 hover:text-slate-900 hover:bg-slate-50"
                     }`}
                   >
-                    {count}
-                  </Badge>
-                </button>
-              );
-            })}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs sm:text-sm">{tab.emoji}</span>
+                      <span>{tab.label}</span>
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className={`text-[10px] font-mono px-1.5 py-0.1 ml-0.5 border-0 ${
+                        isTabActive
+                          ? "bg-white/25 text-white font-black"
+                          : "bg-slate-200/70 text-slate-700"
+                      }`}
+                    >
+                      {count}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -431,15 +438,15 @@ export function DataOverviewToolbar({
 
         {/* ── Collapsible Multi-Filter Panel ── */}
         {filtersOpen && (
-          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2 animate-in fade-in-50 duration-200">
+          <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 animate-in fade-in-50 duration-200">
             {/* Barangay Filter */}
-            <div className="relative min-w-[155px] flex-1 sm:flex-initial">
+            <div className="relative w-full sm:w-auto sm:min-w-[160px] sm:flex-initial">
               <MapPin
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                 size={13}
               />
               <select
-                className="w-full pl-7 pr-7 py-1.5 h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer appearance-none shadow-2xs"
+                className="w-full pl-7 pr-7 py-2 sm:py-1.5 h-9 sm:h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer appearance-none shadow-2xs"
                 value={filterBarangay}
                 onChange={(e) => onBarangayChange(e.target.value)}
               >
@@ -459,9 +466,9 @@ export function DataOverviewToolbar({
             {activeTab !== "overall" &&
               activeTab !== "census" &&
               activeTab !== "production" && (
-                <div className="relative min-w-[125px] flex-1 sm:flex-initial">
+                <div className="relative w-full sm:w-auto sm:min-w-[130px] sm:flex-initial">
                   <select
-                    className="w-full px-2.5 py-1.5 h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs appearance-none pr-7"
+                    className="w-full px-2.5 py-2 sm:py-1.5 h-9 sm:h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs appearance-none pr-7"
                     value={filterSpecie}
                     onChange={(e) => onSpecieChange(e.target.value)}
                   >
@@ -481,9 +488,9 @@ export function DataOverviewToolbar({
 
             {/* Status Filter */}
             {activeTab !== "overall" && (
-              <div className="relative min-w-[145px] flex-1 sm:flex-initial">
+              <div className="relative w-full sm:w-auto sm:min-w-[150px] sm:flex-initial">
                 <select
-                  className="w-full px-2.5 py-1.5 h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs appearance-none pr-7"
+                  className="w-full px-2.5 py-2 sm:py-1.5 h-9 sm:h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs appearance-none pr-7"
                   value={filterStatus}
                   onChange={(e) => onStatusChange(e.target.value)}
                 >
@@ -505,40 +512,44 @@ export function DataOverviewToolbar({
             )}
 
             {/* Active Filter Badges */}
-            {filterBarangay !== "all" && (
-              <Badge
-                variant="outline"
-                className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-semibold px-2 py-1 flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
-                onClick={() => onBarangayChange("all")}
-                title="Click to remove barangay filter"
-              >
-                <span>Brgy: {filterBarangay}</span>
-                <X className="size-3" />
-              </Badge>
-            )}
+            {(filterBarangay !== "all" || filterSpecie !== "all" || filterStatus !== "all") && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 sm:pt-0 w-full sm:w-auto">
+                {filterBarangay !== "all" && (
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-semibold px-2 py-1 flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
+                    onClick={() => onBarangayChange("all")}
+                    title="Click to remove barangay filter"
+                  >
+                    <span>Brgy: {filterBarangay}</span>
+                    <X className="size-3" />
+                  </Badge>
+                )}
 
-            {filterSpecie !== "all" && (
-              <Badge
-                variant="outline"
-                className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-semibold px-2 py-1 flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
-                onClick={() => onSpecieChange("all")}
-                title="Click to remove specie filter"
-              >
-                <span>Specie: {filterSpecie}</span>
-                <X className="size-3" />
-              </Badge>
-            )}
+                {filterSpecie !== "all" && (
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-semibold px-2 py-1 flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
+                    onClick={() => onSpecieChange("all")}
+                    title="Click to remove specie filter"
+                  >
+                    <span>Specie: {filterSpecie}</span>
+                    <X className="size-3" />
+                  </Badge>
+                )}
 
-            {filterStatus !== "all" && (
-              <Badge
-                variant="outline"
-                className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-semibold px-2 py-1 flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
-                onClick={() => onStatusChange("all")}
-                title="Click to remove status filter"
-              >
-                <span>Status: {filterStatus}</span>
-                <X className="size-3" />
-              </Badge>
+                {filterStatus !== "all" && (
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-semibold px-2 py-1 flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
+                    onClick={() => onStatusChange("all")}
+                    title="Click to remove status filter"
+                  >
+                    <span>Status: {filterStatus}</span>
+                    <X className="size-3" />
+                  </Badge>
+                )}
+              </div>
             )}
           </div>
         )}

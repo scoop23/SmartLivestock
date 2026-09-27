@@ -32,10 +32,13 @@ import {
   ChevronDown,
   Sparkles,
   Shield,
+  User as UserIcon,
+  Key,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/components/ui/utils';
 import { cowHead } from '@lucide/lab';
@@ -185,6 +188,7 @@ function SidebarNav({
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : (user?.email?.[0] || 'U').toUpperCase();
 
+  const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     links.forEach((link) => {
@@ -398,54 +402,169 @@ function SidebarNav({
           </div>
         </button>
 
-        {/* User Card */}
-        <div
-          className={cn(
-            "flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10 transition-all",
-            collapsed ? "justify-center p-1.5" : "gap-2"
-          )}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="size-7 rounded-full bg-emerald-700/80 border border-emerald-400/30 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
-              {userInitials}
-            </div>
-
-            <div
-              className={cn(
-                "flex flex-col min-w-0 whitespace-nowrap transition-all duration-200",
-                collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[130px]"
-              )}
-            >
-              <span className="text-xs font-bold text-white truncate leading-tight">
-                {userDisplayName}
-              </span>
-              <span className="text-[10px] text-emerald-200/60 truncate">
-                {user?.email || 'Padre Garcia'}
-              </span>
-            </div>
-          </div>
-
-          {!collapsed && (
+        {/* User Card with Interactive Popover */}
+        <Popover open={profilePopoverOpen} onOpenChange={setProfilePopoverOpen}>
+          <PopoverTrigger asChild>
             <button
-              onClick={onLogout}
-              title="Logout"
-              className="p-1.5 rounded-lg text-rose-300/80 hover:text-rose-200 hover:bg-rose-500/20 transition-colors cursor-pointer shrink-0"
+              type="button"
+              className={cn(
+                "group w-full flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/40",
+                collapsed ? "justify-center p-1.5" : "gap-2"
+              )}
+              title={collapsed ? `${userDisplayName} (Profile & Options)` : undefined}
             >
-              <LogOut className="size-4" />
-            </button>
-          )}
-        </div>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="size-7 rounded-full bg-emerald-600 border border-emerald-300/40 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                  {userInitials}
+                </div>
 
-        {/* Collapsed logout icon */}
-        {collapsed && (
-          <button
-            onClick={onLogout}
-            title="Logout"
-            className="flex items-center justify-center w-full p-2 rounded-xl text-rose-300/80 hover:text-rose-200 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                <div
+                  className={cn(
+                    "flex flex-col min-w-0 whitespace-nowrap transition-all duration-200",
+                    collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[130px]"
+                  )}
+                >
+                  <span className="text-xs font-bold text-white truncate leading-tight group-hover:text-emerald-200 transition-colors">
+                    {userDisplayName}
+                  </span>
+                  <span className="text-[10px] text-emerald-200/60 truncate">
+                    {user?.email || 'Padre Garcia'}
+                  </span>
+                </div>
+              </div>
+
+              {!collapsed && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="p-1 rounded-md text-emerald-200/60 group-hover:text-white transition-colors">
+                    <ChevronDown className={cn("size-3.5 transition-transform duration-200", profilePopoverOpen ? "rotate-180 text-emerald-300" : "")} />
+                  </span>
+                </div>
+              )}
+            </button>
+          </PopoverTrigger>
+
+          <PopoverContent
+            side={collapsed ? "right" : "top"}
+            align={collapsed ? "end" : "center"}
+            sideOffset={8}
+            className="w-72 p-0 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-50 animate-in fade-in-50 zoom-in-95"
           >
-            <LogOut className="size-4.5" />
-          </button>
-        )}
+            {/* Popover Header with Avatar & Department */}
+            <div className="p-3.5 bg-gradient-to-br from-emerald-800 via-[#2D5A27] to-[#1c3c18] text-white">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-white/20 border border-white/30 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
+                  {userInitials}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-white truncate">
+                    {userDisplayName}
+                  </span>
+                  <span className="text-[11px] text-emerald-200/80 truncate">
+                    {user?.email || 'padregarcia@gov.ph'}
+                  </span>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className={cn("text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md", roleBadge.bg, roleBadge.text)}>
+                      {roleBadge.label}
+                    </span>
+                    <span className="text-[10px] text-emerald-200/70 font-medium">Padre Garcia</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Menu Items */}
+            <div className="p-1.5 space-y-0.5">
+              <Link
+                href="/profile"
+                onClick={() => {
+                  setProfilePopoverOpen(false);
+                  onNavigate?.();
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
+              >
+                <div className="size-7 rounded-lg bg-emerald-100/70 text-[#2D5A27] flex items-center justify-center shrink-0 group-hover:bg-[#2D5A27] group-hover:text-white transition-colors">
+                  <UserIcon className="size-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span>My Profile & Account</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Contact info & barangay</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/profile?tab=security"
+                onClick={() => {
+                  setProfilePopoverOpen(false);
+                  onNavigate?.();
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
+              >
+                <div className="size-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 group-hover:bg-slate-800 group-hover:text-white transition-colors">
+                  <Key className="size-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span>Security & Password</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Change password & 2FA</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/profile?tab=alerts"
+                onClick={() => {
+                  setProfilePopoverOpen(false);
+                  onNavigate?.();
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
+              >
+                <div className="size-7 rounded-lg bg-amber-100/70 text-amber-800 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                  <Bell className="size-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span>Alert Preferences</span>
+                  <span className="text-[10px] text-slate-400 font-normal">SMS biosecurity & emails</span>
+                </div>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProfilePopoverOpen(false);
+                  onOpenHelp();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer text-left"
+              >
+                <div className="size-7 rounded-lg bg-sky-100/70 text-sky-800 flex items-center justify-center shrink-0 group-hover:bg-sky-600 group-hover:text-white transition-colors">
+                  <HelpCircle className="size-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span>Help & Hotlines</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Emergency contacts & guide</span>
+                </div>
+              </button>
+            </div>
+
+            <div className="h-px bg-slate-100 my-1" />
+
+            <div className="p-1.5 pt-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setProfilePopoverOpen(false);
+                  onLogout();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors group cursor-pointer text-left"
+              >
+                <div className="size-7 rounded-lg bg-rose-100/70 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                  <LogOut className="size-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span>Sign Out</span>
+                  <span className="text-[10px] text-rose-400 font-normal">End active session</span>
+                </div>
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
