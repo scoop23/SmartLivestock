@@ -14,6 +14,7 @@ import {
   Scale,
   FileSpreadsheet,
   Boxes,
+  Search,
 } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
@@ -47,6 +48,20 @@ export function DataOverviewCards({
     const start = (safeCurrentPage - 1) * pageSize;
     return items.slice(start, start + pageSize);
   }, [items, safeCurrentPage, pageSize]);
+
+  if (items.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-2xs">
+        <div className="bg-slate-50 inline-block p-4 rounded-full mb-3 border border-slate-100">
+          <Search className="w-8 h-8 text-slate-300" />
+        </div>
+        <h4 className="text-base font-bold text-slate-800">No records found</h4>
+        <p className="text-slate-500 font-medium text-xs mt-1 max-w-sm mx-auto">
+          No records in <span className="font-bold text-slate-700">{activeTab}</span> currently recorded in the system.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

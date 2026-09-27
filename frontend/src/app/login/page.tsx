@@ -18,6 +18,9 @@ import {
   HelpCircle,
   Loader2,
   Sprout,
+  Radio,
+  TrendingUp,
+  Wifi,
 } from 'lucide-react';
 import { Icon } from 'lucide-react';
 import { cowHead } from '@lucide/lab';
@@ -247,13 +250,188 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 selection:bg-emerald-600 selection:text-white">
       {/* ═════════════════════════════════════════════════════════════════════
-          LEFT PANEL: LOGIN FORM (Mobile Optimized & Responsive)
+          LEFT PANEL: ULTRA-MODERN HERO, LIVE TELEMETRY & BRANDING
          ═════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex flex-col justify-between p-4 xs:p-6 sm:p-10 md:p-14 lg:p-16 xl:p-20 bg-white min-h-screen overflow-y-auto">
+      <div className="hidden lg:flex lg:w-1/2 xl:w-7/12 relative overflow-hidden bg-[#071907] flex-col justify-between p-10 xl:p-14 2xl:p-16 text-white min-h-screen">
+        {/* Background Layer 1: Pastoral Image with Cinematic Slow Zoom */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <Image
+            src="/images/pasture-hero.jpg"
+            alt="Padre Garcia Pasture and Livestock Landscape"
+            fill
+            priority
+            className="object-cover object-center animate-hero-zoom filter brightness-[0.78] contrast-[1.05]"
+          />
+
+          {/* Deep Emerald Multi-Gradient Overlays */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-emerald-950/98 via-[#0b220a]/88 to-emerald-900/65 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#071907] via-emerald-950/40 to-transparent" />
+
+          {/* Background Layer 2: High-Tech Geometric Coordinate Grid */}
+          <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none [mask-image:radial-gradient(ellipse_80%_70%_at_50%_50%,#000_50%,transparent_100%)] opacity-70" />
+
+          {/* Background Layer 3: Organic Luminous Aurora Mesh Orbs */}
+          <div className="absolute -top-28 -left-28 size-[34rem] rounded-full bg-gradient-to-br from-emerald-400/25 via-teal-400/18 to-transparent blur-3xl animate-aurora-1 pointer-events-none" />
+          <div className="absolute top-1/2 -right-36 size-[32rem] rounded-full bg-gradient-to-tl from-emerald-500/25 via-lime-300/15 to-transparent blur-3xl animate-aurora-2 pointer-events-none" />
+          <div className="absolute -bottom-24 left-1/3 size-[26rem] rounded-full bg-emerald-400/12 blur-3xl animate-glow-pulse pointer-events-none" />
+        </div>
+
+        {/* Top Floating Badge Bar with Live Ping */}
+        <div className="relative z-10 flex items-center justify-between animate-in fade-in slide-in-from-top-4 duration-700">
+          <div className="group/badge inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/[0.08] backdrop-blur-xl border border-white/20 text-xs font-extrabold tracking-wider uppercase shadow-xl shadow-black/20 hover:bg-white/[0.14] transition-all">
+            <span className="relative flex size-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full size-2 bg-amber-400"></span>
+            </span>
+            <Sparkles className="size-3.5 text-amber-300 animate-pulse" />
+            <span className="text-white/95 tracking-wide">Cattle Capital of the Philippines</span>
+          </div>
+
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/[0.08] backdrop-blur-xl border border-white/15 text-xs font-mono text-emerald-200/90 font-bold shadow-sm">
+            <span className="relative flex size-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full size-2 bg-emerald-400"></span>
+            </span>
+            <MapPin className="size-3 text-emerald-300 shrink-0" />
+            <span>Padre Garcia, Batangas</span>
+          </div>
+        </div>
+
+        {/* Center Section: Animated Title & Dynamic Telemetry HUD */}
+        <div className="relative z-10 max-w-xl space-y-6 my-auto py-4">
+          <div className="space-y-4 animate-in fade-in slide-in-from-left-6 duration-700">
+            {/* LGU Telemetry Pill Tag */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-400/35 text-emerald-300 text-[11px] font-bold tracking-wide uppercase shadow-lg shadow-emerald-950/40">
+              <Radio className="size-3.5 text-emerald-400 animate-pulse" />
+              <span>Official Municipal Agriculture Office Platform</span>
+            </div>
+
+            {/* Glowing Gradient Title */}
+            <h1 className="text-3xl sm:text-4xl xl:text-5xl 2xl:text-[3.15rem] font-black text-white tracking-tight leading-[1.12] drop-shadow-md">
+              SmartLivestock{' '}
+              <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-emerald-100 bg-clip-text text-transparent">
+                Information &amp; Surveillance
+              </span>{' '}
+              System
+            </h1>
+
+            {/* Comprehensive Platform Description */}
+            <p className="text-emerald-100/90 text-sm sm:text-base xl:text-lg leading-relaxed font-normal">
+              A comprehensive digital livestock management platform for the Municipality of Padre Garcia.
+              Track animal health, log dairy and meat production, and streamline multi-tier SIBAT &amp; MAO certifications.
+            </p>
+          </div>
+
+          {/* Real-time Telemetry HUD Glassmorphic Widget */}
+          <div className="p-4 rounded-2xl bg-white/[0.07] backdrop-blur-2xl border border-white/20 shadow-2xl shadow-black/25 hover:border-emerald-400/40 hover:bg-white/[0.10] transition-all duration-300 space-y-3">
+            <div className="flex items-center justify-between text-xs border-b border-white/10 pb-2.5">
+              <div className="flex items-center gap-2 text-emerald-300 font-extrabold tracking-wider uppercase text-[11px]">
+                <Activity className="size-3.5 text-emerald-400 animate-pulse" />
+                <span>Live Bio-Surveillance Telemetry</span>
+              </div>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-200/90 bg-emerald-950/80 px-2.5 py-0.5 rounded-md border border-emerald-500/30 font-semibold shadow-xs">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+                100% OPERATIONAL
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-emerald-200/70">Tagged Heads</span>
+                  <TrendingUp className="size-3 text-emerald-400" />
+                </div>
+                <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">14,820</div>
+                <div className="text-[9px] text-emerald-300 font-semibold">+142 this week</div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-emerald-200/70">Barangays</span>
+                  <Wifi className="size-3 text-sky-400" />
+                </div>
+                <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">17 / 17</div>
+                <div className="text-[9px] text-sky-300 font-semibold">GIS Census Active</div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-emerald-200/70">Biosecurity</span>
+                  <ShieldCheck className="size-3 text-emerald-400" />
+                </div>
+                <div className="text-base sm:text-lg font-black text-emerald-300 font-mono tracking-tight">Tier 1</div>
+                <div className="text-[9px] text-emerald-300 font-semibold">Zero Active Outbreaks</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3 Staggered Organic Floating Feature Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
+            {/* Card 1: Float Rhythm 1 */}
+            <div className="animate-float-1 group p-4 rounded-2xl bg-white/[0.08] backdrop-blur-xl border border-white/15 space-y-2 hover:bg-white/[0.15] hover:border-emerald-300/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 shadow-xl shadow-black/15">
+              <div className="size-9 rounded-xl bg-emerald-400/20 text-emerald-300 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-400/30 group-hover:shadow-[0_0_15px_rgba(52,211,153,0.4)] transition-all">
+                <ShieldCheck className="size-5" />
+              </div>
+              <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-200 transition-colors">
+                Biosecurity Alert
+              </h3>
+              <p className="text-[11px] text-emerald-100/75 leading-tight font-medium">
+                Rapid containment &amp; quarantine tagging
+              </p>
+            </div>
+
+            {/* Card 2: Float Rhythm 2 (Asynchronous Rhythm) */}
+            <div className="animate-float-2 group p-4 rounded-2xl bg-white/[0.08] backdrop-blur-xl border border-white/15 space-y-2 hover:bg-white/[0.15] hover:border-amber-300/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 shadow-xl shadow-black/15">
+              <div className="size-9 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-400/30 group-hover:shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all">
+                <Activity className="size-5" />
+              </div>
+              <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-200 transition-colors">
+                Yield Tracking
+              </h3>
+              <p className="text-[11px] text-emerald-100/75 leading-tight font-medium">
+                Daily milk &amp; meat production analytics
+              </p>
+            </div>
+
+            {/* Card 3: Float Rhythm 3 (Asynchronous Rhythm) */}
+            <div className="animate-float-3 group p-4 rounded-2xl bg-white/[0.08] backdrop-blur-xl border border-white/15 space-y-2 hover:bg-white/[0.15] hover:border-sky-300/50 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300 shadow-xl shadow-black/15">
+              <div className="size-9 rounded-xl bg-sky-400/20 text-sky-300 flex items-center justify-center group-hover:scale-110 group-hover:bg-sky-400/30 group-hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all">
+                <MapPin className="size-5" />
+              </div>
+              <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-sky-200 transition-colors">
+                GIS Survey
+              </h3>
+              <p className="text-[11px] text-emerald-100/75 leading-tight font-medium">
+                17 Barangay livestock head census
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Status Ticker with Live Sonar Pulse */}
+        <div className="relative z-10 pt-5 border-t border-white/15 flex items-center justify-between text-xs text-emerald-200/90 font-semibold animate-in fade-in slide-in-from-bottom-3 duration-700">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex size-3">
+              <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50"></span>
+              <span className="relative inline-flex rounded-full size-3 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+            </span>
+            <span className="tracking-wide font-medium">MAO Surveillance Network Active • Live Stream</span>
+          </div>
+          <span className="font-mono text-[11px] text-emerald-300/80 bg-white/[0.06] px-2.5 py-1 rounded-lg border border-white/10">
+            Padre Garcia Livestock Hub
+          </span>
+        </div>
+      </div>
+
+      {/* ═════════════════════════════════════════════════════════════════════
+          RIGHT PANEL: LOGIN FORM (Swapped to Right)
+         ═════════════════════════════════════════════════════════════════════ */}
+      <div className="flex-1 flex flex-col justify-between p-5 xs:p-7 sm:p-10 md:p-12 lg:p-12 xl:p-16 2xl:p-20 bg-white min-h-screen overflow-y-auto animate-in fade-in slide-in-from-right-8 duration-700 ease-out">
         {/* Top Header Logo */}
         <div className="flex items-center justify-between mb-5 sm:mb-8">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="size-10 sm:size-11 rounded-2xl bg-[#2D5A27] text-white flex items-center justify-center shadow-md shadow-green-950/15 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 group">
+            <div className="size-10 sm:size-11 rounded-2xl bg-[#2D5A27] text-white flex items-center justify-center shadow-md shadow-green-950/15 shrink-0 group-hover:scale-105 transition-transform">
               <Icon iconNode={cowHead} className="size-5 sm:size-6 text-white" />
             </div>
             <div>
@@ -273,24 +451,30 @@ export default function LoginPage() {
         </div>
 
         {/* Mobile-only LGU Identity Banner */}
-        <div className="lg:hidden p-3 rounded-2xl bg-gradient-to-r from-emerald-900 via-[#1E3D1A] to-emerald-950 text-white mb-5 shadow-xs flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className="size-3.5 text-amber-300 shrink-0 animate-pulse" />
-            <span className="text-[11px] font-extrabold tracking-wide uppercase truncate">
-              Cattle Capital of the Philippines
+        <div className="lg:hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-950 via-[#1E3D1A] to-emerald-900 text-white mb-6 shadow-md space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[10px] font-extrabold tracking-wide uppercase text-amber-300">
+              <Sparkles className="size-3 animate-pulse" />
+              <span>Cattle Capital of the Philippines</span>
+            </div>
+            <span className="text-[10px] font-mono text-emerald-200/90 font-bold shrink-0">
+              MAO Portal
             </span>
           </div>
-          <span className="text-[10px] font-mono text-emerald-200/90 font-bold shrink-0">
-            MAO Portal
-          </span>
+          <h2 className="text-sm font-black text-white leading-tight">
+            SmartLivestock Information &amp; Surveillance System
+          </h2>
+          <p className="text-[11px] text-emerald-100/80 font-medium leading-relaxed">
+            Livestock health tracking, production logs, and multi-tier certifications for Padre Garcia.
+          </p>
         </div>
 
         {/* Center Main Form Card with Shake Animation */}
-        <div className={`w-full max-w-md mx-auto my-auto space-y-5 sm:space-y-6 transition-transform ${isShaking ? 'animate-shake' : ''}`}>
+        <div className={`w-full max-w-md mx-auto my-auto space-y-5 sm:space-y-6 transition-all duration-300 ${isShaking ? 'animate-shake' : ''}`}>
           <div className="space-y-1.5">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
               Welcome back
-            </h1>
+            </h2>
             <p className="text-xs sm:text-sm font-medium text-slate-500">
               Sign in with your email and password to access your portal.
             </p>
@@ -362,7 +546,7 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
-            {/* Email Field - text-base on mobile prevents iOS Safari auto-zoom */}
+            {/* Email Field */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label
@@ -380,10 +564,10 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <div className="relative">
+              <div className="relative group">
                 <div
                   className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none transition-colors ${
-                    authError?.type === 'CREDENTIALS' ? 'text-rose-500' : 'text-slate-400'
+                    authError?.type === 'CREDENTIALS' ? 'text-rose-500' : 'text-slate-400 group-focus-within:text-[#2D5A27]'
                   }`}
                 >
                   <Mail className="size-4.5" />
@@ -402,16 +586,16 @@ export default function LoginPage() {
                   placeholder="name@padregarcia.gov.ph"
                   required
                   autoComplete="email"
-                  className={`w-full pl-10 pr-4 h-11.5 sm:h-12 rounded-xl sm:rounded-2xl text-base sm:text-sm font-medium transition-all focus:outline-none focus:ring-2 ${
+                  className={`w-full pl-10 pr-4 h-11.5 sm:h-12 rounded-xl sm:rounded-2xl text-base sm:text-sm font-medium transition-all focus:outline-none focus:ring-4 ${
                     authError?.type === 'CREDENTIALS'
                       ? 'bg-rose-50/30 border-2 border-rose-300 text-rose-950 placeholder:text-rose-300 focus:ring-rose-500/20 focus:border-rose-500 focus:bg-white'
-                      : 'bg-slate-50/80 hover:bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#2D5A27] focus:ring-[#2D5A27]/20 focus:bg-white'
+                      : 'bg-slate-50/80 hover:bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#2D5A27] focus:ring-[#2D5A27]/15 focus:bg-white'
                   }`}
                 />
               </div>
             </div>
 
-            {/* Password Field - text-base on mobile prevents iOS Safari auto-zoom */}
+            {/* Password Field */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label
@@ -431,10 +615,10 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <div className="relative">
+              <div className="relative group">
                 <div
                   className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none transition-colors ${
-                    authError?.type === 'CREDENTIALS' ? 'text-rose-500' : 'text-slate-400'
+                    authError?.type === 'CREDENTIALS' ? 'text-rose-500' : 'text-slate-400 group-focus-within:text-[#2D5A27]'
                   }`}
                 >
                   <Lock className="size-4.5" />
@@ -452,10 +636,10 @@ export default function LoginPage() {
                   placeholder="••••••••••••"
                   required
                   autoComplete="current-password"
-                  className={`w-full pl-10 pr-12 h-11.5 sm:h-12 rounded-xl sm:rounded-2xl text-base sm:text-sm font-medium transition-all focus:outline-none focus:ring-2 ${
+                  className={`w-full pl-10 pr-12 h-11.5 sm:h-12 rounded-xl sm:rounded-2xl text-base sm:text-sm font-medium transition-all focus:outline-none focus:ring-4 ${
                     authError?.type === 'CREDENTIALS'
                       ? 'bg-rose-50/30 border-2 border-rose-300 text-rose-950 placeholder:text-rose-300 focus:ring-rose-500/20 focus:border-rose-500 focus:bg-white'
-                      : 'bg-slate-50/80 hover:bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#2D5A27] focus:ring-[#2D5A27]/20 focus:bg-white'
+                      : 'bg-slate-50/80 hover:bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#2D5A27] focus:ring-[#2D5A27]/15 focus:bg-white'
                   }`}
                 />
                 <button
@@ -498,7 +682,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 sm:h-13 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl sm:rounded-2xl shadow-lg shadow-green-900/20 hover:shadow-xl hover:shadow-green-900/30 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="group w-full h-12 sm:h-13 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl sm:rounded-2xl shadow-lg shadow-green-900/20 hover:shadow-xl hover:shadow-green-900/30 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -508,7 +692,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   <span>Sign In to Portal</span>
-                  <ArrowRight className="size-4.5" />
+                  <ArrowRight className="size-4.5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </Button>
@@ -531,9 +715,9 @@ export default function LoginPage() {
             type="button"
             variant="outline"
             onClick={() => router.push('/farmer-registration')}
-            className="w-full h-12 sm:h-13 border-2 border-emerald-900/20 text-[#2D5A27] hover:bg-emerald-50/80 font-black text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="group w-full h-12 sm:h-13 border-2 border-emerald-900/20 text-[#2D5A27] hover:bg-emerald-50/80 font-black text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <Sprout className="size-4" />
+            <Sprout className="size-4 group-hover:rotate-12 transition-transform" />
             <span>Register as Livestock Raiser</span>
           </Button>
         </div>
@@ -541,92 +725,6 @@ export default function LoginPage() {
         {/* Footer info */}
         <div className="pt-6 sm:pt-8 text-center text-[11px] sm:text-xs text-slate-400 font-medium">
           <p>© {new Date().getFullYear()} Municipal Agriculture Office (MAO) • Padre Garcia, Batangas</p>
-        </div>
-      </div>
-
-      {/* ═════════════════════════════════════════════════════════════════════
-          RIGHT PANEL: HERO IMAGE WITH LUSH OVERLAY & PLATFORM BRANDING (Desktop)
-         ═════════════════════════════════════════════════════════════════════ */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-emerald-950 flex-col justify-between p-12 xl:p-16 text-white min-h-screen">
-        {/* Background Hero Image */}
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="/images/pasture-hero.jpg"
-            alt="Padre Garcia Pasture and Livestock Landscape"
-            fill
-            priority
-            className="object-cover object-center scale-105 transform hover:scale-100 transition-transform duration-1000"
-          />
-          {/* Rich Double Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-emerald-950/95 via-[#1b3d18]/85 to-emerald-900/60 mix-blend-multiply" />
-          <div className="absolute inset-0 bg-gradient-to-t from-emerald-950 via-emerald-950/40 to-transparent" />
-        </div>
-
-        {/* Top Floating Badge */}
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs font-extrabold tracking-wider uppercase">
-            <Sparkles className="size-4 text-amber-300 animate-pulse" />
-            <span>Cattle Capital of the Philippines</span>
-          </div>
-
-          <span className="text-xs font-mono text-emerald-200/80 font-bold">
-            Padre Garcia, Batangas
-          </span>
-        </div>
-
-        {/* Center Headline & Features Glassmorphism Card */}
-        <div className="relative z-10 max-w-lg space-y-6 my-auto">
-          <div className="space-y-3">
-            <h2 className="text-3xl xl:text-4xl font-black text-white tracking-tight leading-tight">
-              SmartLivestock Information & Surveillance System
-            </h2>
-            <p className="text-emerald-100/90 text-sm xl:text-base leading-relaxed font-medium">
-              A comprehensive digital livestock management platform for the Municipality of Padre Garcia.
-              Track animal health, log dairy and meat production, and streamline multi-tier SIBAT & MAO certifications.
-            </p>
-          </div>
-
-          {/* Value Highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-1.5 hover:bg-white/15 transition-colors">
-              <div className="size-8 rounded-xl bg-emerald-400/20 text-emerald-300 flex items-center justify-center">
-                <ShieldCheck className="size-4.5" />
-              </div>
-              <h3 className="text-xs font-black text-white">Biosecurity Alert</h3>
-              <p className="text-[11px] text-emerald-100/75 leading-tight font-medium">
-                Rapid disease containment & field tagging
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-1.5 hover:bg-white/15 transition-colors">
-              <div className="size-8 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center">
-                <Activity className="size-4.5" />
-              </div>
-              <h3 className="text-xs font-black text-white">Yield Tracking</h3>
-              <p className="text-[11px] text-emerald-100/75 leading-tight font-medium">
-                Daily milk & production analytics
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-1.5 hover:bg-white/15 transition-colors">
-              <div className="size-8 rounded-xl bg-sky-400/20 text-sky-300 flex items-center justify-center">
-                <MapPin className="size-4.5" />
-              </div>
-              <h3 className="text-xs font-black text-white">GIS Survey</h3>
-              <p className="text-[11px] text-emerald-100/75 leading-tight font-medium">
-                17 Barangay livestock head census
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Status Ticker */}
-        <div className="relative z-10 pt-6 border-t border-white/15 flex items-center justify-between text-xs text-emerald-200/80 font-semibold">
-          <div className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>MAO Surveillance Network Active</span>
-          </div>
-          <span className="font-mono text-[11px]">Padre Garcia Livestock Hub</span>
         </div>
       </div>
 

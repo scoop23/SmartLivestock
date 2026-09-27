@@ -935,59 +935,69 @@ export function DataOverviewOverallView({
               </div>
 
               <CardContent className="p-4 space-y-2.5 max-h-[600px] overflow-y-auto pr-2">
-                {activityFeed.map((act) => (
-                  <div
-                    key={act.id}
-                    onClick={() => handleActivityClick(act)}
-                    className="p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition-all cursor-pointer flex items-start gap-3 group shadow-2xs hover:shadow-xs"
-                    title={`Inspect ${act.title} details`}
-                  >
-                    <div className="p-2 rounded-lg bg-slate-100 text-slate-700 shrink-0 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors">
-                      {act.domain === "production" && <Milk className="size-4 text-sky-600" />}
-                      {act.domain === "batches" && <Boxes className="size-4 text-[#2D5A27]" />}
-                      {act.domain === "sales" && <ArrowUpRight className="size-4 text-emerald-600" />}
-                      {act.domain === "disease" && <AlertTriangle className="size-4 text-rose-600" />}
-                      {act.domain === "mortality" && <AlertTriangle className="size-4 text-rose-600" />}
-                      {act.domain === "livestock" && <Icon iconNode={cowHead} className="size-4 text-emerald-700" />}
-                      {act.domain === "slaughter" && <Scale className="size-4 text-amber-600" />}
-                      {act.domain === "census" && <Layers className="size-4 text-indigo-600" />}
-                    </div>
+                {activityFeed.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs">
+                    <Activity className="size-8 mx-auto text-slate-300 mb-2" />
+                    <p className="font-semibold text-slate-600">No operational activities recorded yet</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm mx-auto">
+                      Events will automatically appear here as farmers, inspectors, and auctions register data.
+                    </p>
+                  </div>
+                ) : (
+                  activityFeed.map((act) => (
+                    <div
+                      key={act.id}
+                      onClick={() => handleActivityClick(act)}
+                      className="p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition-all cursor-pointer flex items-start gap-3 group shadow-2xs hover:shadow-xs"
+                      title={`Inspect ${act.title} details`}
+                    >
+                      <div className="p-2 rounded-lg bg-slate-100 text-slate-700 shrink-0 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors">
+                        {act.domain === "production" && <Milk className="size-4 text-sky-600" />}
+                        {act.domain === "batches" && <Boxes className="size-4 text-[#2D5A27]" />}
+                        {act.domain === "sales" && <ArrowUpRight className="size-4 text-emerald-600" />}
+                        {act.domain === "disease" && <AlertTriangle className="size-4 text-rose-600" />}
+                        {act.domain === "mortality" && <AlertTriangle className="size-4 text-rose-600" />}
+                        {act.domain === "livestock" && <Icon iconNode={cowHead} className="size-4 text-emerald-700" />}
+                        {act.domain === "slaughter" && <Scale className="size-4 text-amber-600" />}
+                        {act.domain === "census" && <Layers className="size-4 text-indigo-600" />}
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#2D5A27] transition-colors truncate">
-                          {act.title}
-                        </h4>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[11px] font-mono text-slate-400">
-                            {act.timestamp}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#2D5A27] transition-colors truncate">
+                            {act.title}
+                          </h4>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[11px] font-mono text-slate-400">
+                              {act.timestamp}
+                            </span>
+                            <Eye className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">{act.description}</p>
+                        <div className="flex items-center gap-2 mt-1.5 text-xs">
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            Brgy. {act.barangay}
                           </span>
-                          <Eye className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <span className="text-slate-300">•</span>
+                          <Badge
+                            className={`text-[10px] font-bold px-2 py-0.2 border-0 ${
+                              act.badgeVariant === "emerald"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : act.badgeVariant === "sky"
+                                ? "bg-sky-100 text-sky-800"
+                                : act.badgeVariant === "rose"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {act.badge}
+                          </Badge>
                         </div>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">{act.description}</p>
-                      <div className="flex items-center gap-2 mt-1.5 text-xs">
-                        <span className="text-[11px] font-semibold text-slate-500">
-                          Brgy. {act.barangay}
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <Badge
-                          className={`text-[10px] font-bold px-2 py-0.2 border-0 ${
-                            act.badgeVariant === "emerald"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : act.badgeVariant === "sky"
-                              ? "bg-sky-100 text-sky-800"
-                              : act.badgeVariant === "rose"
-                              ? "bg-rose-100 text-rose-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {act.badge}
-                        </Badge>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>

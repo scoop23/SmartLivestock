@@ -50,7 +50,6 @@ import {
   useAdminIncidentRecords,
 } from "../data-validation/validation-analytics";
 import { useGetBarangays } from "@/app/(sibat)/sibat/sibat-analytics";
-import { INITIAL_INSPECTIONS } from "@/app/(auction)/auction-inspections/auction-analytics";
 
 export default function DataOverviewPage() {
   // Navigation & View States
@@ -94,7 +93,7 @@ export default function DataOverviewPage() {
 
   // Combine backend records with seed datasets
   const livestockList: LivestockRecord[] = useMemo(() => {
-    if (!rawInventory || rawInventory.length === 0) return SEED_LIVESTOCK;
+    if (!rawInventory || rawInventory.length === 0) return [];
     return rawInventory.map((item) => {
       // Find matching cohort batch from rawBatches or item fields
       const matchingBatch = rawBatches?.find(
@@ -161,7 +160,7 @@ export default function DataOverviewPage() {
   }, [rawInventory, rawBatches]);
 
   const batchList: BatchRecord[] = useMemo(() => {
-    if (!rawBatches || rawBatches.length === 0) return SEED_BATCHES;
+    if (!rawBatches || rawBatches.length === 0) return [];
     return rawBatches.map((item) => ({
       id: `BAT-${item.id}`,
       rawId: item.id,
@@ -187,7 +186,7 @@ export default function DataOverviewPage() {
   }, [rawBatches]);
 
   const productionList: ProductionRecord[] = useMemo(() => {
-    if (!rawProduction || rawProduction.length === 0) return SEED_PRODUCTION;
+    if (!rawProduction || rawProduction.length === 0) return [];
     return rawProduction.map((item) => ({
       id: `PRD-${item.id}`,
       farmerName: item.farmerName || "Registered Farmer",
@@ -210,7 +209,7 @@ export default function DataOverviewPage() {
   }, [rawProduction]);
 
   const censusList: CensusRecord[] = useMemo(() => {
-    if (!rawCensus || rawCensus.length === 0) return SEED_CENSUS;
+    if (!rawCensus || rawCensus.length === 0) return [];
     return rawCensus.map((item) => {
       const cattleCount =
         item.items
@@ -299,7 +298,7 @@ export default function DataOverviewPage() {
 
   const diseaseList: DiseaseRecord[] = useMemo(() => {
     const liveCases = rawIncidents?.filter((i) => i.type === "disease");
-    if (!liveCases || liveCases.length === 0) return SEED_DISEASE;
+    if (!liveCases || liveCases.length === 0) return [];
     return liveCases.map((item) => ({
       id: item.id,
       farmerName: item.farmerName || "Registered Farmer",
@@ -320,7 +319,7 @@ export default function DataOverviewPage() {
 
   const mortalityList: MortalityRecord[] = useMemo(() => {
     const liveMortalities = rawIncidents?.filter((i) => i.type === "mortality");
-    if (!liveMortalities || liveMortalities.length === 0) return SEED_MORTALITY;
+    if (!liveMortalities || liveMortalities.length === 0) return [];
     return liveMortalities.map((item) => ({
       id: item.id,
       farmerName: item.farmerName || "Registered Farmer",
@@ -340,7 +339,7 @@ export default function DataOverviewPage() {
 
   const salesList: SalesRecord[] = useMemo(() => {
     const liveSales = rawIncidents?.filter((i) => i.type === "sale");
-    if (!liveSales || liveSales.length === 0) return SEED_SALES;
+    if (!liveSales || liveSales.length === 0) return [];
     return liveSales.map((item) => ({
       id: item.id,
       farmerName: item.farmerName || "Registered Farmer",
@@ -359,7 +358,26 @@ export default function DataOverviewPage() {
     }));
   }, [rawIncidents]);
 
-  const slaughterList = SEED_SLAUGHTER;
+  const slaughterList: SlaughterRecord[] = useMemo(() => {
+    const liveSlaughter = rawIncidents?.filter((i) => i.type === "slaughter");
+    if (!liveSlaughter || liveSlaughter.length === 0) return [];
+    return liveSlaughter.map((item) => ({
+      id: item.id,
+      inspectionCertNo: `SLG-${item.id}`,
+      farmerName: item.farmerName || "Registered Farmer",
+      meatInspector: item.reviewedBy || "Municipal Meat Inspector",
+      barangay: item.barangayName || "Padre Garcia",
+      cattleId: item.tagNumber || `TAG-${item.id}`,
+      specie: item.livestockType || "Cattle",
+      carcassWeightKg: item.headCount ? item.headCount * 250 : 250,
+      purpose: "Commercial Wholesale",
+      anteMortemStatus: "Passed",
+      postMortemStatus: "Fit for Human Consumption",
+      destinationMarket: "Padre Garcia Slaughterhouse",
+      date: item.date || new Date().toISOString().slice(0, 10),
+      status: item.status === "APPROVED" ? "Certified" : "Inspection Passed",
+    }));
+  }, [rawIncidents]);
 
   // ── Connected Recent Municipal Activity Stream (Real-Time Multi-Domain) ──
   const recentActivityFeed: ActivityFeedItem[] = useMemo(() => {
@@ -720,61 +738,28 @@ export default function DataOverviewPage() {
       });
     }
 
-    // 6. Slaughterhouse & Movement Clearances
-    INITIAL_INSPECTIONS.forEach((insp) => {
-      const rawDate = insp.inspection_date ? new Date(insp.inspection_date).getTime() : 0;
-      const brgy = insp.shipper_address?.includes("Manggas")
-        ? "Manggas"
-        : insp.shipper_address?.includes("Pansol")
-        ? "Pansol"
-        : "Padre Garcia";
-
-      const matchingRecord = slaughterList.find(
-        (s) => s.id === `SLA-${insp.id}` || s.inspectionCertNo === insp.control_number
-      );
-
-      liveActivities.push({
-        id: `act-insp-${insp.id}`,
-        domain: "slaughter",
-        title: `Slaughter Clearance: ${insp.control_number}`,
-        description: `${insp.items?.map((i) => `${i.quantity} ${i.livestock_type}`).join(", ") || "Inspection"} cleared for ${insp.destination}.`,
-        actor: insp.shipper_name || "Meat Inspector",
-        barangay: brgy,
-        timestamp: formatRelativeTime(insp.inspection_date),
-        rawTimestamp: rawDate,
-        badge:
-          insp.status === "APPROVED"
-            ? "Passed"
-            : insp.status === "SUBJECT_TO_REVISION"
-            ? "Subject to Revision"
-            : "Inspected",
-        badgeVariant:
-          insp.status === "APPROVED"
-            ? "emerald"
-            : insp.status === "SUBJECT_TO_REVISION"
-            ? "amber"
-            : "sky",
-        record: matchingRecord || {
-          id: `SLG-${insp.id}`,
-          inspectionCertNo: insp.control_number,
-          farmerName: insp.shipper_name || "Meat Inspector",
-          meatInspector: "Insp. Rolando Bautista (NAMI)",
-          barangay: brgy,
-          cattleId: insp.control_number,
-          specie: insp.items?.[0]?.livestock_type || "Cattle",
-          carcassWeightKg: 280,
-          purpose: "Commercial Wholesale",
-          anteMortemStatus: "Passed",
-          postMortemStatus: "Fit for Human Consumption",
-          destinationMarket: insp.destination || "Commercial Market",
-          date: insp.inspection_date || "2026-04-18",
-          status: insp.status === "APPROVED" ? "Certified" : "Inspection Passed",
-        },
+    // 6. Slaughterhouse & Movement Clearances (Real records)
+    if (slaughterList.length > 0) {
+      slaughterList.forEach((slg) => {
+        const rawDate = slg.date ? new Date(slg.date).getTime() : 0;
+        liveActivities.push({
+          id: `act-slg-${slg.id}`,
+          domain: "slaughter",
+          title: `Slaughter Record: ${slg.inspectionCertNo || slg.id}`,
+          description: `${slg.specie} (${slg.carcassWeightKg} kg) cleared for ${slg.destinationMarket} by ${slg.farmerName}.`,
+          actor: slg.farmerName || "Farmer",
+          barangay: slg.barangay || "Padre Garcia",
+          timestamp: formatRelativeTime(slg.date),
+          rawTimestamp: rawDate,
+          badge: slg.status || "Certified",
+          badgeVariant: "emerald",
+          record: slg,
+        });
       });
-    });
+    }
 
     if (liveActivities.length === 0) {
-      return SEED_ACTIVITY_FEED;
+      return [];
     }
 
     // Sort chronologically descending (newest first)
@@ -964,15 +949,15 @@ export default function DataOverviewPage() {
 
   // Overall KPI aggregates
   const totalLivestockPopulation = useMemo(
-    () => barangayMasterSummaries.reduce((sum, b) => sum + b.totalLivestock, 0) || 314,
+    () => barangayMasterSummaries.reduce((sum, b) => sum + b.totalLivestock, 0),
     [barangayMasterSummaries]
   );
   const totalMilkVolume = useMemo(
-    () => barangayMasterSummaries.reduce((sum, b) => sum + b.monthlyMilkLiters, 0) || 186400,
+    () => barangayMasterSummaries.reduce((sum, b) => sum + b.monthlyMilkLiters, 0),
     [barangayMasterSummaries]
   );
   const totalAuctionValue = useMemo(
-    () => salesList.reduce((sum, s) => sum + s.amountNumber, 0) + 1485000,
+    () => salesList.reduce((sum, s) => sum + s.amountNumber, 0),
     [salesList]
   );
   const activeIncidentsCount = useMemo(
@@ -983,10 +968,7 @@ export default function DataOverviewPage() {
     [diseaseList]
   );
   const totalFarmersCount = useMemo(
-    () => {
-      const distinct = new Set(livestockList.map((i) => i.farmerName)).size;
-      return distinct > 0 ? distinct : 100;
-    },
+    () => new Set(livestockList.map((i) => i.farmerName).filter(Boolean)).size,
     [livestockList]
   );
 
@@ -1019,7 +1001,7 @@ export default function DataOverviewPage() {
         raw = censusList;
         break;
       default:
-        return BARANGAY_MASTER_SUMMARIES;
+        return barangayMasterSummaries;
     }
 
     return raw.filter((item) => {
@@ -1293,6 +1275,7 @@ export default function DataOverviewPage() {
           totalAuctionValue={totalAuctionValue}
           activeIncidents={activeIncidentsCount}
           totalFarmers={totalFarmersCount}
+          totalSlaughterKg={slaughterList.reduce((sum, s) => sum + (s.carcassWeightKg || 0), 0)}
           isLoading={isDataLoading}
         />
 
