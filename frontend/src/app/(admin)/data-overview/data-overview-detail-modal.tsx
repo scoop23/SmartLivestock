@@ -473,6 +473,139 @@ export function DataOverviewDetailModal({
                       <p className="text-xs font-bold text-slate-900 mt-0.5">{record.veterinarian}</p>
                     </div>
                   )}
+
+                  {record.severity && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Severity Level</span>
+                      <p className="text-xs font-black text-amber-700 mt-0.5">{record.severity}</p>
+                    </div>
+                  )}
+
+                  {record.affectedHeads !== undefined && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Affected Heads</span>
+                      <p className="text-xs font-black text-rose-700 mt-0.5">{record.affectedHeads} Heads</p>
+                    </div>
+                  )}
+
+                  {record.inspectionCertNo && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Inspection Cert No</span>
+                      <p className="text-xs font-mono font-black text-emerald-800 mt-0.5">{record.inspectionCertNo}</p>
+                    </div>
+                  )}
+
+                  {record.carcassWeightKg !== undefined && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Carcass Weight</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.carcassWeightKg} kg</p>
+                    </div>
+                  )}
+
+                  {record.anteMortemStatus && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Ante-Mortem Status</span>
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">{record.anteMortemStatus}</p>
+                    </div>
+                  )}
+
+                  {record.postMortemStatus && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Post-Mortem Status</span>
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">{record.postMortemStatus}</p>
+                    </div>
+                  )}
+
+                  {record.meatInspector && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Meat Inspector</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.meatInspector}</p>
+                    </div>
+                  )}
+
+                  {record.destinationMarket && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Destination Market</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5 truncate">{record.destinationMarket}</p>
+                    </div>
+                  )}
+
+                  {record.purpose && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Intended Purpose</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.purpose}</p>
+                    </div>
+                  )}
+
+                  {record.cause && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Mortality Cause</span>
+                      <p className="text-xs font-black text-rose-700 mt-0.5">{record.cause}</p>
+                    </div>
+                  )}
+
+                  {record.disposalMethod && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Disposal Method</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.disposalMethod}</p>
+                    </div>
+                  )}
+
+                  {record.insuranceClaimStatus && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Insurance Claim</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.insuranceClaimStatus}</p>
+                    </div>
+                  )}
+
+                  {record.buyer && !record.buyerContact && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Purchaser / Buyer</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.buyer}</p>
+                    </div>
+                  )}
+
+                  {record.paymentMethod && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Payment Method</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.paymentMethod}</p>
+                    </div>
+                  )}
+
+                  {record.qualityGrade && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Quality Grade</span>
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">{record.qualityGrade}</p>
+                    </div>
+                  )}
+
+                  {record.fatContentPercentage !== undefined && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Butterfat Content</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.fatContentPercentage}%</p>
+                    </div>
+                  )}
+
+                  {record.collectionCenter && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Collection Center</span>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">{record.collectionCenter}</p>
+                    </div>
+                  )}
+
+                  {record.quarter && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Census Period</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.quarter} {record.year}</p>
+                    </div>
+                  )}
+
+                  {record.totalHeads !== undefined && (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block">Total Enumerated Heads</span>
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">{record.totalHeads} Heads</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

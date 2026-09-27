@@ -141,11 +141,8 @@ export function IncidentsTable({
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
                   Status
                 </TableHead>
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
-                  Quick Actions
-                </TableHead>
                 <TableHead className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Details
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -153,7 +150,7 @@ export function IncidentsTable({
             <TableBody className="divide-y divide-gray-50">
               {records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-16 text-gray-400">
+                  <TableCell colSpan={8} className="text-center py-16 text-gray-400">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <CheckCircle2 className="w-10 h-10 text-green-500" />
                       <p className="text-sm font-bold text-gray-800">No field declarations found</p>
@@ -261,8 +258,8 @@ export function IncidentsTable({
                         )}
                       </TableCell>
 
-                      <TableCell className="px-8 py-5 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <TableCell className="px-8 py-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           {isHealthOrMortality ? (
                             <Button
                               size="sm"
@@ -292,23 +289,22 @@ export function IncidentsTable({
                                 })
                               }
                               title="Validate Record"
-                              className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-green-700 transition-all cursor-pointer"
+                              className="h-9 w-9 rounded-xl text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 transition-all cursor-pointer"
                             >
-                              <ShieldCheck size={16} />
+                              <ShieldCheck size={17} />
                             </Button>
                           )}
-                        </div>
-                      </TableCell>
 
-                      <TableCell className="px-8 py-5 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => isHealthOrMortality && onReviewHealth ? onReviewHealth(inc) : onViewDetail(detailPayload)}
-                          className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all cursor-pointer"
-                        >
-                          <ChevronRight size={18} />
-                        </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onViewDetail(detailPayload)}
+                            title="View Incident Details & Audit Ledger"
+                            className="h-9 w-9 bg-gray-100 hover:bg-[#2D5A27] hover:text-white rounded-xl text-gray-500 transition-all cursor-pointer"
+                          >
+                            <ChevronRight size={18} />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

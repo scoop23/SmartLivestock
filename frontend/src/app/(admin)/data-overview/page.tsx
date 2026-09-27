@@ -386,6 +386,10 @@ export default function DataOverviewPage() {
             ? "sky"
             : "amber";
 
+        const matchingRecord = livestockList.find(
+          (l) => l.id === `LIV-${inv.id}` || l.cattleId === inv.tagNumber
+        );
+
         liveActivities.push({
           id: `act-inv-${inv.id}`,
           domain: "livestock",
@@ -397,6 +401,23 @@ export default function DataOverviewPage() {
           rawTimestamp: rawDate,
           badge: statusBadge,
           badgeVariant,
+          record: matchingRecord || {
+            id: `LIV-${inv.id}`,
+            cattleId: inv.tagNumber || `TAG-${inv.id}`,
+            farmerName: inv.farmerName || "Farmer",
+            barangay: inv.barangayName || "Padre Garcia",
+            specie: inv.livestockType || "Livestock",
+            breed: inv.breed || "Standard",
+            sex: inv.sex || "Female",
+            weightKg: inv.weight || null,
+            status: inv.status || "PENDING",
+            registrationDate: inv.createdAt?.slice(0, 10) || "2026-04-20",
+            lastVaccinationDate: inv.lastVaccinationDate || null,
+            batchCode: inv.batchCode || (inv as any).batch_code,
+            batchName: inv.batchName || (inv as any).batch_name,
+            housingPen: (inv as any).housingPen || (inv as any).housing_pen,
+            feedType: (inv as any).feedType || (inv as any).feed_type,
+          },
         });
       });
     }
@@ -416,6 +437,10 @@ export default function DataOverviewPage() {
             ? "amber"
             : "sky";
 
+        const matchingRecord = productionList.find(
+          (p) => p.id === `PRD-${prod.id}`
+        );
+
         liveActivities.push({
           id: `act-prod-${prod.id}`,
           domain: "production",
@@ -427,6 +452,21 @@ export default function DataOverviewPage() {
           rawTimestamp: rawDate,
           badge: `${prod.quantity} ${prod.unit || "L"}`,
           badgeVariant,
+          record: matchingRecord || {
+            id: `PRD-${prod.id}`,
+            farmerName: prod.farmerName || "Farmer",
+            barangay: prod.barangayName || "Padre Garcia",
+            cattleId: `TAG-LIV-${prod.livestockId || prod.id}`,
+            type: typeLabel,
+            quantity: `${prod.quantity} ${prod.unit || "L"}`,
+            quantityNumber: Number(prod.quantity) || 0,
+            unit: prod.unit || "LITERS",
+            qualityGrade: "Grade A",
+            collectionCenter: `${prod.barangayName || "Padre Garcia"} Dairy Hub`,
+            estValuePhp: Math.round((Number(prod.quantity) || 0) * 60),
+            date: prod.recordDate || prod.createdAt?.slice(0, 10) || "2026-04-20",
+            status: prod.status === "APPROVED" ? "Certified" : "Pending Review",
+          },
         });
       });
     }
@@ -435,6 +475,10 @@ export default function DataOverviewPage() {
     if (rawCensus && rawCensus.length > 0) {
       rawCensus.forEach((cen) => {
         const rawDate = cen.submissionDate ? new Date(cen.submissionDate).getTime() : 0;
+        const matchingRecord = censusList.find(
+          (c) => c.id === `CEN-${cen.id}`
+        );
+
         liveActivities.push({
           id: `act-cen-${cen.id}`,
           domain: "census",
@@ -456,6 +500,20 @@ export default function DataOverviewPage() {
               : cen.status === "SUBJECT_TO_REVISION"
               ? "amber"
               : "sky",
+          record: matchingRecord || {
+            id: `CEN-${cen.id}`,
+            barangay: cen.barangay || "Padre Garcia",
+            quarter: `Q${cen.reportQuarter || 1}`,
+            year: cen.reportYear || 2026,
+            totalHeads: cen.totalHeads || 0,
+            cattleCount: 0,
+            carabaoCount: 0,
+            swineCount: 0,
+            goatCount: 0,
+            enumerator: cen.submittedBy || "SIBAT Officer",
+            submissionDate: cen.submissionDate?.slice(0, 10) || "2026-04-05",
+            status: (cen.status === "APPROVED" ? "MAO Verified" : "Pending Audit") as any,
+          },
         });
       });
     }
@@ -467,6 +525,9 @@ export default function DataOverviewPage() {
         const rawDate = dateStr ? new Date(dateStr).getTime() : 0;
 
         if (inc.type === "disease") {
+          const matchingRecord = diseaseList.find(
+            (d) => d.id === `DIS-${inc.id}` || d.id === String(inc.id)
+          );
           liveActivities.push({
             id: `act-${inc.id}`,
             domain: "disease",
@@ -488,8 +549,27 @@ export default function DataOverviewPage() {
                 : inc.status === "SUBJECT_TO_REVISION"
                 ? "amber"
                 : "rose",
+            record: matchingRecord || {
+              id: `DIS-${inc.id}`,
+              farmerName: inc.farmerName || "Farmer",
+              barangay: inc.barangayName || "Padre Garcia",
+              cattleId: inc.tagNumber || `INC-${inc.id}`,
+              specie: inc.livestockType || "Livestock",
+              disease: inc.conditionName || "Disease Case",
+              symptoms: [inc.conditionName || "Suspected Symptoms"],
+              affectedHeads: inc.headCount || 1,
+              severity: "Moderate",
+              status: inc.status === "APPROVED" ? "Quarantined" : "Under Treatment",
+              veterinarian: inc.reviewedBy || "Municipal Veterinarian",
+              quarantineZone: true,
+              dateReported: dateStr?.slice(0, 10) || "2026-04-20",
+              notes: inc.details,
+            },
           });
         } else if (inc.type === "mortality") {
+          const matchingRecord = mortalityList.find(
+            (m) => m.id === `MOR-${inc.id}` || m.id === String(inc.id)
+          );
           liveActivities.push({
             id: `act-${inc.id}`,
             domain: "mortality",
@@ -506,8 +586,25 @@ export default function DataOverviewPage() {
                 ? "Subject to Revision"
                 : "Pending Review",
             badgeVariant: "rose",
+            record: matchingRecord || {
+              id: `MOR-${inc.id}`,
+              farmerName: inc.farmerName || "Farmer",
+              barangay: inc.barangayName || "Padre Garcia",
+              cattleId: inc.tagNumber || `INC-${inc.id}`,
+              specie: inc.livestockType || "Livestock",
+              causeOfDeath: inc.conditionName || "Mortality Record",
+              deathCount: inc.headCount || 1,
+              dateOfDeath: dateStr?.slice(0, 10) || "2026-04-20",
+              disposalMethod: "Burial",
+              investigatedBy: inc.reviewedBy || "Field Officer",
+              status: inc.status === "APPROVED" ? "Verified" : "Pending Inspection",
+              notes: inc.details,
+            },
           });
         } else if (inc.type === "sale") {
+          const matchingRecord = salesList.find(
+            (s) => s.id === `SAL-${inc.id}` || s.id === String(inc.id)
+          );
           liveActivities.push({
             id: `act-${inc.id}`,
             domain: "sales",
@@ -524,8 +621,28 @@ export default function DataOverviewPage() {
                 ? "Subject to Revision"
                 : "Pending",
             badgeVariant: inc.status === "APPROVED" ? "emerald" : "sky",
+            record: matchingRecord || {
+              id: `SAL-${inc.id}`,
+              farmerName: inc.farmerName || "Trader",
+              buyer: "Padre Garcia Trading Center",
+              barangay: inc.barangayName || "Padre Garcia",
+              product: "Livestock Trade",
+              specie: inc.livestockType || "Livestock",
+              cattleId: inc.tagNumber || `SAL-${inc.id}`,
+              quantity: `${inc.headCount || 1} Heads`,
+              amount: "Trade Completed",
+              amountNumber: 0,
+              paymentMethod: "Cash",
+              transportPermitNumber: `TPN-${inc.id}`,
+              date: dateStr?.slice(0, 10) || "2026-04-20",
+              status: inc.status === "APPROVED" ? "Completed" : "Pending Clearance",
+              notes: inc.details,
+            },
           });
         } else if (inc.type === "birth") {
+          const matchingRecord = livestockList.find(
+            (l) => l.cattleId === inc.tagNumber || l.id === `LIV-${inc.id}`
+          );
           liveActivities.push({
             id: `act-${inc.id}`,
             domain: "livestock",
@@ -537,6 +654,20 @@ export default function DataOverviewPage() {
             rawTimestamp: rawDate,
             badge: "Born Active",
             badgeVariant: "emerald",
+            record: matchingRecord || {
+              id: `LIV-${inc.id}`,
+              cattleId: inc.tagNumber || `CALF-${inc.id}`,
+              farmerName: inc.farmerName || "Farmer",
+              barangay: inc.barangayName || "Padre Garcia",
+              specie: inc.livestockType || "Cattle",
+              breed: inc.livestockBreed || "Crossbred",
+              sex: "Female",
+              ageMonths: 1,
+              weightKg: 28,
+              status: "APPROVED",
+              registrationDate: dateStr?.slice(0, 10) || "2026-04-20",
+              notes: inc.details,
+            },
           });
         }
       });
@@ -546,6 +677,9 @@ export default function DataOverviewPage() {
     if (rawBatches && rawBatches.length > 0) {
       rawBatches.forEach((batch) => {
         const rawDate = batch.created_at ? new Date(batch.created_at).getTime() : 0;
+        const matchingRecord = batchList.find(
+          (b) => b.id === `BAT-${batch.id}` || b.rawId === batch.id || b.batchCode === batch.batch_code
+        );
         liveActivities.push({
           id: `act-bat-${batch.id}`,
           domain: "batches",
@@ -567,6 +701,21 @@ export default function DataOverviewPage() {
               : batch.review_status === "SUBJECT_TO_REVISION"
               ? "amber"
               : "sky",
+          record: matchingRecord || {
+            id: `BAT-${batch.id}`,
+            rawId: batch.id,
+            batchCode: batch.batch_code || `BAT-${batch.id}`,
+            batchName: batch.batch_name || `Batch #${batch.id}`,
+            farmerName: batch.farmer_name || "Farmer",
+            barangay: batch.barangay_name || "Padre Garcia",
+            specie: batch.livestock_type_name || "Livestock",
+            housingPen: batch.housing_pen || "General Pen",
+            feedType: batch.feed_type || "Commercial Concentrates",
+            totalAnimals: batch.total_animals || 0,
+            status: batch.review_status || batch.status || "PENDING",
+            createdAt: batch.created_at?.slice(0, 10) || "2026-04-20",
+            animals: batch.animals || [],
+          },
         });
       });
     }
@@ -579,6 +728,10 @@ export default function DataOverviewPage() {
         : insp.shipper_address?.includes("Pansol")
         ? "Pansol"
         : "Padre Garcia";
+
+      const matchingRecord = slaughterList.find(
+        (s) => s.id === `SLA-${insp.id}` || s.inspectionCertNo === insp.control_number
+      );
 
       liveActivities.push({
         id: `act-insp-${insp.id}`,
@@ -601,6 +754,22 @@ export default function DataOverviewPage() {
             : insp.status === "SUBJECT_TO_REVISION"
             ? "amber"
             : "sky",
+        record: matchingRecord || {
+          id: `SLG-${insp.id}`,
+          inspectionCertNo: insp.control_number,
+          farmerName: insp.shipper_name || "Meat Inspector",
+          meatInspector: "Insp. Rolando Bautista (NAMI)",
+          barangay: brgy,
+          cattleId: insp.control_number,
+          specie: insp.items?.[0]?.livestock_type || "Cattle",
+          carcassWeightKg: 280,
+          purpose: "Commercial Wholesale",
+          anteMortemStatus: "Passed",
+          postMortemStatus: "Fit for Human Consumption",
+          destinationMarket: insp.destination || "Commercial Market",
+          date: insp.inspection_date || "2026-04-18",
+          status: insp.status === "APPROVED" ? "Certified" : "Inspection Passed",
+        },
       });
     });
 
@@ -620,7 +789,22 @@ export default function DataOverviewPage() {
     }
 
     return liveActivities.slice(0, 30);
-  }, [rawInventory, rawBatches, rawProduction, rawCensus, rawIncidents, filterBarangay]);
+  }, [
+    rawInventory,
+    rawBatches,
+    rawProduction,
+    rawCensus,
+    rawIncidents,
+    livestockList,
+    batchList,
+    productionList,
+    censusList,
+    diseaseList,
+    mortalityList,
+    salesList,
+    slaughterList,
+    filterBarangay,
+  ]);
 
   // ── Compute Real Master Data Matrix per Barangay across all 17 Official Barangays ──
   const barangayMasterSummaries: BarangaySummary[] = useMemo(() => {
@@ -889,6 +1073,9 @@ export default function DataOverviewPage() {
 
   // Handle Record Inspection
   const handleSelectRecord = (record: any, domain: DataTab) => {
+    if (domain && domain !== "overall") {
+      setActiveTab(domain);
+    }
     setSelectedRecord(record);
     setSelectedRecordDomain(domain);
     setDetailModalOpen(true);
@@ -1148,6 +1335,7 @@ export default function DataOverviewPage() {
             onNavigateTab={(tab) => {
               setActiveTab(tab);
             }}
+            onSelectRecord={handleSelectRecord}
           />
         ) : viewMode === "table" ? (
           <DataOverviewTable

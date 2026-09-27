@@ -52,6 +52,7 @@ interface DataOverviewOverallViewProps {
   isLoading?: boolean;
   onSelectBarangay: (barangay: string) => void;
   onNavigateTab: (tab: DataTab) => void;
+  onSelectRecord?: (record: any, domain: DataTab) => void;
 }
 
 type FocusMode = "combined" | "matrix" | "batches" | "activity";
@@ -64,10 +65,30 @@ export function DataOverviewOverallView({
   isLoading = false,
   onSelectBarangay,
   onNavigateTab,
+  onSelectRecord,
 }: DataOverviewOverallViewProps) {
   const [focusMode, setFocusMode] = useState<FocusMode>("combined");
   const [sortField, setSortField] = useState<keyof BarangaySummary>("totalLivestock");
   const [sortAsc, setSortAsc] = useState(false);
+
+  const handleActivityClick = (act: ActivityFeedItem) => {
+    if (act.domain && act.domain !== "overall") {
+      onNavigateTab(act.domain);
+    }
+    if (onSelectRecord) {
+      const record = act.record || {
+        id: act.id,
+        cattleId: act.id,
+        farmerName: act.actor,
+        barangay: act.barangay,
+        date: act.timestamp,
+        title: act.title,
+        notes: act.description,
+        status: act.badge,
+      };
+      onSelectRecord(record, act.domain);
+    }
+  };
 
   const handleSort = (field: keyof BarangaySummary) => {
     if (sortField === field) {
@@ -574,8 +595,12 @@ export function DataOverviewOverallView({
                     {batchList.slice(0, 4).map((batch) => (
                       <div
                         key={batch.id}
-                        onClick={() => onNavigateTab("batches")}
+                        onClick={() => {
+                          onNavigateTab("batches");
+                          if (onSelectRecord) onSelectRecord(batch, "batches");
+                        }}
                         className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition-all cursor-pointer group flex items-center justify-between gap-2"
+                        title="Click to view cohort details"
                       >
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-800 transition-colors">
@@ -677,10 +702,11 @@ export function DataOverviewOverallView({
                   {activityFeed.slice(0, 10).map((act) => (
                     <div
                       key={act.id}
-                      onClick={() => onNavigateTab(act.domain)}
-                      className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50/80 transition-colors border border-transparent hover:border-slate-100 cursor-pointer group"
+                      onClick={() => handleActivityClick(act)}
+                      className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-emerald-50/50 hover:border-emerald-200/80 transition-all border border-transparent cursor-pointer group shadow-2xs hover:shadow-xs"
+                      title={`Inspect ${act.title} details`}
                     >
-                      <div className="p-1.5 rounded-lg bg-slate-100 text-slate-700 shrink-0 mt-0.5 group-hover:bg-slate-200 transition-colors">
+                      <div className="p-1.5 rounded-lg bg-slate-100 text-slate-700 shrink-0 mt-0.5 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors">
                         {act.domain === "production" && <Milk className="w-3.5 h-3.5 text-sky-600" />}
                         {act.domain === "batches" && <Boxes className="w-3.5 h-3.5 text-[#2D5A27]" />}
                         {act.domain === "sales" && <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />}
@@ -693,12 +719,15 @@ export function DataOverviewOverallView({
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700 transition-colors">
+                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-800 transition-colors">
                             {act.title}
                           </p>
-                          <span className="text-[10px] font-semibold text-slate-400 shrink-0">
-                            {act.timestamp}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[10px] font-semibold text-slate-400">
+                              {act.timestamp}
+                            </span>
+                            <Eye className="size-3 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
                         </div>
                         <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
                           {act.description}
@@ -762,7 +791,10 @@ export function DataOverviewOverallView({
             {batchList.map((batch) => (
               <Card
                 key={batch.id}
-                onClick={() => onNavigateTab("batches")}
+                onClick={() => {
+                  onNavigateTab("batches");
+                  if (onSelectRecord) onSelectRecord(batch, "batches");
+                }}
                 className="rounded-2xl border border-slate-200/90 bg-white hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer group overflow-hidden"
               >
                 <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/50 to-white">
@@ -906,8 +938,9 @@ export function DataOverviewOverallView({
                 {activityFeed.map((act) => (
                   <div
                     key={act.id}
-                    onClick={() => onNavigateTab(act.domain)}
-                    className="p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all cursor-pointer flex items-start gap-3 group"
+                    onClick={() => handleActivityClick(act)}
+                    className="p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition-all cursor-pointer flex items-start gap-3 group shadow-2xs hover:shadow-xs"
+                    title={`Inspect ${act.title} details`}
                   >
                     <div className="p-2 rounded-lg bg-slate-100 text-slate-700 shrink-0 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors">
                       {act.domain === "production" && <Milk className="size-4 text-sky-600" />}
@@ -925,9 +958,12 @@ export function DataOverviewOverallView({
                         <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#2D5A27] transition-colors truncate">
                           {act.title}
                         </h4>
-                        <span className="text-[11px] font-mono text-slate-400 shrink-0">
-                          {act.timestamp}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {act.timestamp}
+                          </span>
+                          <Eye className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">{act.description}</p>
                       <div className="flex items-center gap-2 mt-1.5 text-xs">

@@ -55,89 +55,89 @@ import { toast } from "sonner";
 
 export type DetailRecordData =
   | {
-      kind: "census";
-      id: string | number;
-      barangay: string;
-      reportYear: number;
-      reportQuarter: number;
-      submissionDate: string;
-      submittedBy: string;
-      totalHeads: number;
-      totalFarmers: number;
-      status: string;
-      remarks?: string;
-      reviewRemarks?: string | null;
-      reviewedByName?: string | null;
-      reviewedAt?: string | null;
-      items?: CensusItemEntry[];
-    }
+    kind: "census";
+    id: string | number;
+    barangay: string;
+    reportYear: number;
+    reportQuarter: number;
+    submissionDate: string;
+    submittedBy: string;
+    totalHeads: number;
+    totalFarmers: number;
+    status: string;
+    remarks?: string;
+    reviewRemarks?: string | null;
+    reviewedByName?: string | null;
+    reviewedAt?: string | null;
+    items?: CensusItemEntry[];
+  }
   | {
-      kind: "production";
-      id: number;
-      farmerName: string;
-      barangayName: string;
-      livestockTypeName: string;
-      productionType: string;
-      quantity: number;
-      unit: string;
-      recordDate: string;
-      notes: string;
-      status: string;
-      reviewRemarks?: string | null;
-      reviewedByName?: string | null;
-      reviewedAt?: string | null;
-      createdAt: string;
-    }
+    kind: "production";
+    id: number;
+    farmerName: string;
+    barangayName: string;
+    livestockTypeName: string;
+    productionType: string;
+    quantity: number;
+    unit: string;
+    recordDate: string;
+    notes: string;
+    status: string;
+    reviewRemarks?: string | null;
+    reviewedByName?: string | null;
+    reviewedAt?: string | null;
+    createdAt: string;
+  }
   | {
-      kind: "inventory";
-      id: string | number;
-      rawId?: number;
-      isBatch?: boolean;
-      farmerName: string;
-      barangayName: string;
-      livestockType: string;
-      tagNumber: string;
-      breed: string;
-      sex: string;
-      weight: number | null;
-      entryType: string;
-      quantity: number;
-      lastVaccinationDate: string | null;
-      status: string;
-      reviewRemarks?: string | null;
-      reviewedByName?: string | null;
-      reviewedAt?: string | null;
-      createdAt: string;
-      batchCode?: string;
-      batchName?: string;
-      housingPen?: string;
-      feedType?: string;
-      targetWeight?: number;
-      animals?: any[];
-      photoUrl?: string;
-      photoName?: string;
-    }
+    kind: "inventory";
+    id: string | number;
+    rawId?: number;
+    isBatch?: boolean;
+    farmerName: string;
+    barangayName: string;
+    livestockType: string;
+    tagNumber: string;
+    breed: string;
+    sex: string;
+    weight: number | null;
+    entryType: string;
+    quantity: number;
+    lastVaccinationDate: string | null;
+    status: string;
+    reviewRemarks?: string | null;
+    reviewedByName?: string | null;
+    reviewedAt?: string | null;
+    createdAt: string;
+    batchCode?: string;
+    batchName?: string;
+    housingPen?: string;
+    feedType?: string;
+    targetWeight?: number;
+    animals?: any[];
+    photoUrl?: string;
+    photoName?: string;
+  }
   | {
-      kind: "incident";
+    kind: "incident";
 
-      id: string | number;
-      type: "disease" | "slaughter" | "mortality" | "birth" | "sale";
-      farmerName: string;
-      barangayName: string;
-      details: string;
-      date: string;
-      status: string;
-      reviewRemarks?: string | null;
-      reviewedByName?: string | null;
-      reviewedAt?: string | null;
-      headCount?: number;
-      weight?: string;
-      tagNumber?: string;
-      photoUrl?: string;
-      photoName?: string;
-      inspectorPhotoUrl?: string;
-      inspectorPhotoName?: string;
-    };
+    id: string | number;
+    type: "disease" | "slaughter" | "mortality" | "birth" | "sale";
+    farmerName: string;
+    barangayName: string;
+    details: string;
+    date: string;
+    status: string;
+    reviewRemarks?: string | null;
+    reviewedByName?: string | null;
+    reviewedAt?: string | null;
+    headCount?: number;
+    weight?: string;
+    tagNumber?: string;
+    photoUrl?: string;
+    photoName?: string;
+    inspectorPhotoUrl?: string;
+    inspectorPhotoName?: string;
+  };
 
 interface RecordDetailDialogProps {
   record: DetailRecordData | null;
@@ -317,8 +317,8 @@ export function RecordDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[98vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] p-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-3.5 sm:[&>button]:right-5 [&>button]:top-3.5 sm:[&>button]:top-5 [&>button]:p-2 sm:[&>button]:p-2.5 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[94vh] flex flex-col">
-        
+      <DialogContent className="w-full max-w-[98vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1000px] p-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-3.5 sm:[&>button]:right-5 [&>button]:top-3.5 sm:[&>button]:top-5 [&>button]:p-2 sm:[&>button]:p-2.5 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[94vh] flex flex-col">
+
         {/* ═══════════ MAO OFFICIAL BANNER HEADER ═══════════ */}
         <div className="bg-gradient-to-r from-emerald-950 via-[#0C3318] to-emerald-900 text-white p-4 sm:p-6 shrink-0 relative pr-12 sm:pr-14">
           <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2.5">
@@ -340,15 +340,14 @@ export function RecordDetailDialog({
 
             {/* Status Pill */}
             <Badge
-              className={`font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-full shadow-2xs border ${
-                isApproved
-                  ? "bg-emerald-500 text-white border-emerald-400"
-                  : isVerified
+              className={`font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-full shadow-2xs border ${isApproved
+                ? "bg-emerald-500 text-white border-emerald-400"
+                : isVerified
                   ? "bg-sky-500 text-white border-sky-400"
                   : isRejected
-                  ? "bg-amber-500 text-white border-amber-400"
-                  : "bg-amber-400/20 text-amber-200 border-amber-300/40"
-              }`}
+                    ? "bg-amber-500 text-white border-amber-400"
+                    : "bg-amber-400/20 text-amber-200 border-amber-300/40"
+                }`}
             >
               {isApproved && <CheckCircle2 className="size-3 mr-1" />}
               {isVerified && <ShieldCheck className="size-3 mr-1" />}
@@ -358,10 +357,10 @@ export function RecordDetailDialog({
                 {isApproved
                   ? "MAO Approved & Certified"
                   : isVerified
-                  ? "SIBAT Field-Verified"
-                  : isRejected
-                  ? "Subject to Revision"
-                  : "Pending MAO Review"}
+                    ? "SIBAT Field-Verified"
+                    : isRejected
+                      ? "Subject to Revision"
+                      : "Pending MAO Review"}
               </span>
             </Badge>
           </div>
@@ -405,22 +404,20 @@ export function RecordDetailDialog({
 
               {/* Step 2 */}
               <div
-                className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${
-                  isVerified || isApproved
-                    ? "bg-sky-50/80 border-sky-200 text-sky-950"
-                    : isRejected
+                className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${isVerified || isApproved
+                  ? "bg-sky-50/80 border-sky-200 text-sky-950"
+                  : isRejected
                     ? "bg-amber-50/60 border-amber-200 text-amber-950"
                     : "bg-slate-50 border-slate-100 text-slate-400"
-                }`}
+                  }`}
               >
                 <div
-                  className={`size-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    isVerified || isApproved
-                      ? "bg-sky-600 text-white"
-                      : isRejected
+                  className={`size-7 rounded-lg flex items-center justify-center shrink-0 ${isVerified || isApproved
+                    ? "bg-sky-600 text-white"
+                    : isRejected
                       ? "bg-amber-500 text-white"
                       : "bg-slate-200 text-slate-500"
-                  }`}
+                    }`}
                 >
                   {isVerified || isApproved ? <ShieldCheck className="size-4" /> : <Clock className="size-4" />}
                 </div>
@@ -434,22 +431,20 @@ export function RecordDetailDialog({
 
               {/* Step 3 */}
               <div
-                className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${
-                  isApproved
-                    ? "bg-emerald-50/80 border-emerald-200 text-emerald-950"
-                    : isRejected
+                className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${isApproved
+                  ? "bg-emerald-50/80 border-emerald-200 text-emerald-950"
+                  : isRejected
                     ? "bg-amber-50/60 border-amber-200 text-amber-950"
                     : "bg-slate-50 border-slate-100 text-slate-400"
-                }`}
+                  }`}
               >
                 <div
-                  className={`size-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    isApproved
-                      ? "bg-[#2D5A27] text-white"
-                      : isRejected
+                  className={`size-7 rounded-lg flex items-center justify-center shrink-0 ${isApproved
+                    ? "bg-[#2D5A27] text-white"
+                    : isRejected
                       ? "bg-amber-500 text-white"
                       : "bg-slate-200 text-slate-500"
-                  }`}
+                    }`}
                 >
                   {isApproved ? <CheckCircle2 className="size-4" /> : isRejected ? <RotateCcw className="size-4" /> : <Clock className="size-4" />}
                 </div>
@@ -834,8 +829,8 @@ export function RecordDetailDialog({
                         <a
                           href={`/data-validation/batches?batchId=${encodeURIComponent(
                             record.rawId ||
-                              (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, "")) ||
-                              record.id
+                            (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, "")) ||
+                            record.id
                           )}`}
                           className="text-[10px] font-black text-emerald-700 hover:text-emerald-800 hover:underline"
                         >
@@ -966,11 +961,10 @@ export function RecordDetailDialog({
                   </div>
 
                   <div
-                    className={`grid ${
-                      record.photoUrl && record.inspectorPhotoUrl
-                        ? "grid-cols-1 sm:grid-cols-2"
-                        : "grid-cols-1"
-                    } gap-3`}
+                    className={`grid ${record.photoUrl && record.inspectorPhotoUrl
+                      ? "grid-cols-1 sm:grid-cols-2"
+                      : "grid-cols-1"
+                      } gap-3`}
                   >
                     {record.photoUrl && (
                       <div className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-950 aspect-16/10 shadow-2xs">
@@ -1149,9 +1143,8 @@ export function RecordDetailDialog({
                   Certified Municipal Determination
                 </span>
                 <Badge
-                  className={`text-[9px] font-black uppercase ${
-                    isApproved ? "bg-emerald-100 text-emerald-900 border-0" : "bg-amber-100 text-amber-900 border-0"
-                  }`}
+                  className={`text-[9px] font-black uppercase ${isApproved ? "bg-emerald-100 text-emerald-900 border-0" : "bg-amber-100 text-amber-900 border-0"
+                    }`}
                 >
                   {isApproved ? "OFFICIALLY CERTIFIED" : "RETURNED FOR REVISION"}
                 </Badge>

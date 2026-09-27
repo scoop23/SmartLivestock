@@ -97,11 +97,8 @@ export function ProductionTable({
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
                   Status
                 </TableHead>
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
-                  Quick Actions
-                </TableHead>
                 <TableHead className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Details
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -109,7 +106,7 @@ export function ProductionTable({
             <TableBody className="divide-y divide-gray-50">
               {records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-16 text-gray-400">
+                  <TableCell colSpan={8} className="text-center py-16 text-gray-400">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <CheckCircle2 className="w-10 h-10 text-green-500" />
                       <p className="text-sm font-bold text-gray-800">No production logs found</p>
@@ -205,18 +202,8 @@ export function ProductionTable({
                         )}
                       </TableCell>
 
-                      <TableCell className="px-8 py-5">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onViewDetail(detailPayload)}
-                            title="View Record Details"
-                            className="h-8 w-8 hover:bg-white hover:shadow-md rounded-lg text-gray-400 hover:text-blue-600 transition-all"
-                          >
-                            <Eye size={16} />
-                          </Button>
-
+                      <TableCell className="px-8 py-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -233,34 +220,32 @@ export function ProductionTable({
                             }
                             title={
                               prod.status === "VERIFIED"
-                                ? "Quick Action: MAO Approve SIBAT-Verified Record"
+                                ? "MAO Approve SIBAT-Verified Record"
                                 : prod.status === "PENDING"
-                                ? "Quick Action: Validate & Certify"
-                                : "Quick Action: Re-evaluate Determination"
+                                ? "Validate & Certify"
+                                : "Re-evaluate Determination"
                             }
-                            className={`h-8 w-8 hover:bg-white hover:shadow-md rounded-lg transition-all cursor-pointer ${
+                            className={`h-9 w-9 rounded-xl transition-all cursor-pointer ${
                               prod.status === "VERIFIED"
-                                ? "text-sky-700 hover:text-sky-900 bg-sky-50/70"
+                                ? "text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100"
                                 : prod.status === "PENDING"
-                                ? "text-amber-600 hover:text-green-700"
-                                : "text-gray-400 hover:text-gray-900"
+                                ? "text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100"
+                                : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"
                             }`}
                           >
-                            <ShieldCheck size={16} />
+                            <ShieldCheck size={17} />
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onViewDetail(detailPayload)}
+                            title="View Record Details & Audit Ledger"
+                            className="h-9 w-9 bg-gray-100 hover:bg-[#2D5A27] hover:text-white rounded-xl text-gray-500 transition-all cursor-pointer"
+                          >
+                            <ChevronRight size={18} />
                           </Button>
                         </div>
-                      </TableCell>
-
-                      <TableCell className="px-8 py-5 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onViewDetail(detailPayload)}
-                          title="Open Full Record Audit & Ledger Inspector"
-                          className="h-9 w-9 bg-gray-100 rounded-xl text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-all cursor-pointer"
-                        >
-                          <ChevronRight size={18} />
-                        </Button>
                       </TableCell>
                     </TableRow>
                   );

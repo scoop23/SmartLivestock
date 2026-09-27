@@ -37,6 +37,7 @@ export interface ActivityFeedItem {
   barangay: string;
   badge: string;
   badgeVariant: 'emerald' | 'sky' | 'amber' | 'rose' | 'orange' | 'default';
+  record?: any;
 }
 
 export interface LivestockRecord {
@@ -764,6 +765,7 @@ export const SEED_ACTIVITY_FEED: ActivityFeedItem[] = [
     barangay: 'Banaba',
     badge: '4.70 L',
     badgeVariant: 'emerald',
+    record: SEED_PRODUCTION[0],
   },
   {
     id: 'ACT-102',
@@ -775,6 +777,7 @@ export const SEED_ACTIVITY_FEED: ActivityFeedItem[] = [
     barangay: 'Manggas',
     badge: '₱58,800',
     badgeVariant: 'sky',
+    record: SEED_SALES[0],
   },
   {
     id: 'ACT-103',
@@ -786,6 +789,7 @@ export const SEED_ACTIVITY_FEED: ActivityFeedItem[] = [
     barangay: 'Banaba',
     badge: 'Quarantine Active',
     badgeVariant: 'rose',
+    record: SEED_DISEASE[0],
   },
   {
     id: 'ACT-104',
@@ -797,6 +801,7 @@ export const SEED_ACTIVITY_FEED: ActivityFeedItem[] = [
     barangay: 'Banaba',
     badge: 'Registered',
     badgeVariant: 'emerald',
+    record: SEED_LIVESTOCK[0],
   },
   {
     id: 'ACT-105',
@@ -808,5 +813,6 @@ export const SEED_ACTIVITY_FEED: ActivityFeedItem[] = [
     barangay: 'Castillo',
     badge: 'Cleared 285 kg',
     badgeVariant: 'amber',
+    record: SEED_SLAUGHTER[0],
   },
 ];
