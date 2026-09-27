@@ -162,38 +162,41 @@ export function DataOverviewDetailModal({
         </div>
 
         {/* ── Sub-Tab Navigation Bar ── */}
-        <div className="px-4 sm:px-6 pt-3 pb-1 border-b border-slate-100 bg-slate-50/70 shrink-0">
+        <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-100 bg-slate-50/80 shrink-0">
           <Tabs
             value={activeSubTab}
             onValueChange={(val) => setActiveSubTab(val as any)}
             className="w-full"
           >
-            <TabsList className="bg-slate-200/60 p-1 rounded-xl h-9 w-full sm:w-auto grid grid-cols-3 sm:flex">
+            <TabsList className="bg-slate-200/70 p-1.5 rounded-xl h-auto w-full sm:w-auto flex flex-wrap sm:flex-nowrap gap-1.5 border border-slate-300/60 shadow-2xs">
               <TabsTrigger
                 value="overview"
-                className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs"
+                className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
               >
-                Specification
+                <span className="text-sm">📋</span>
+                <span>Specification</span>
               </TabsTrigger>
               <TabsTrigger
                 value="origin"
-                className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs"
+                className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-[#1E4D6B] data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
               >
-                Raiser & Origin
+                <span className="text-sm">🧑‍🌾</span>
+                <span>Raiser & Origin</span>
               </TabsTrigger>
               <TabsTrigger
                 value="qr"
-                className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs flex items-center gap-1"
+                className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-emerald-700 data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
               >
-                <QrCode className="size-3 text-emerald-700" />
-                Digital QR Pass
+                <span className="text-sm">🛡️</span>
+                <span>Digital QR Pass</span>
               </TabsTrigger>
               {isBatch && record.animals && record.animals.length > 0 && (
                 <TabsTrigger
                   value="roster"
-                  className="rounded-lg text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-emerald-950 data-[state=active]:shadow-xs"
+                  className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-purple-700 data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 >
-                  Roster ({record.animals.length})
+                  <span className="text-sm">🐄</span>
+                  <span>Cohort Roster ({record.animals.length})</span>
                 </TabsTrigger>
               )}
             </TabsList>

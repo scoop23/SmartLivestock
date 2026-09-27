@@ -53,12 +53,16 @@ interface DomainPillar {
   id: DomainPillarId;
   label: string;
   shortLabel: string;
+  emoji: string;
   icon: React.ComponentType<{ className?: string }>;
   defaultTab: DataTab;
+  activeColorClass: string;
   tabs: {
     id: DataTab;
     label: string;
+    emoji: string;
     icon: React.ComponentType<{ className?: string }>;
+    activeColorClass: string;
   }[];
 }
 
@@ -67,45 +71,107 @@ const DOMAIN_PILLARS: DomainPillar[] = [
     id: "overview",
     label: "Executive Overview",
     shortLabel: "Overview",
+    emoji: "📊",
     icon: Sparkles,
     defaultTab: "overall",
+    activeColorClass: "bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm ring-2 ring-[#2D5A27]/25",
     tabs: [
-      { id: "overall", label: "Consolidated Master Matrix", icon: Sparkles },
+      {
+        id: "overall",
+        label: "Master Matrix",
+        emoji: "📊",
+        icon: Sparkles,
+        activeColorClass: "bg-[#2D5A27] text-white shadow-xs",
+      },
     ],
   },
   {
     id: "registry",
     label: "Herd Registry",
     shortLabel: "Herd Registry",
+    emoji: "🐄",
     icon: Layers,
     defaultTab: "livestock",
+    activeColorClass: "bg-[#205225] text-white border-[#205225] shadow-sm ring-2 ring-[#205225]/25",
     tabs: [
-      { id: "livestock", label: "Individual Animals", icon: Layers },
-      { id: "batches", label: "Cohorts & Batches", icon: Boxes },
+      {
+        id: "livestock",
+        label: "Individual Animals",
+        emoji: "🏷️",
+        icon: Layers,
+        activeColorClass: "bg-emerald-700 text-white shadow-xs",
+      },
+      {
+        id: "batches",
+        label: "Cohorts & Batches",
+        emoji: "📦",
+        icon: Boxes,
+        activeColorClass: "bg-purple-700 text-white shadow-xs",
+      },
     ],
   },
   {
     id: "commerce",
     label: "Production & Trade",
     shortLabel: "Production",
+    emoji: "📈",
     icon: TrendingUp,
     defaultTab: "production",
+    activeColorClass: "bg-[#184860] text-white border-[#184860] shadow-sm ring-2 ring-[#184860]/25",
     tabs: [
-      { id: "production", label: "Dairy & Milk Yields", icon: Milk },
-      { id: "sales", label: "Auction & Trade", icon: TrendingUp },
-      { id: "slaughter", label: "Slaughterhouse", icon: Scale },
+      {
+        id: "production",
+        label: "Dairy & Milk Yields",
+        emoji: "🥛",
+        icon: Milk,
+        activeColorClass: "bg-sky-700 text-white shadow-xs",
+      },
+      {
+        id: "sales",
+        label: "Auction & Trade",
+        emoji: "💰",
+        icon: TrendingUp,
+        activeColorClass: "bg-amber-700 text-white shadow-xs",
+      },
+      {
+        id: "slaughter",
+        label: "Slaughterhouse",
+        emoji: "⚖️",
+        icon: Scale,
+        activeColorClass: "bg-indigo-700 text-white shadow-xs",
+      },
     ],
   },
   {
     id: "biosecurity",
     label: "Surveillance & Census",
     shortLabel: "Biosecurity",
+    emoji: "🛡️",
     icon: AlertTriangle,
     defaultTab: "disease",
+    activeColorClass: "bg-[#802626] text-white border-[#802626] shadow-sm ring-2 ring-[#802626]/25",
     tabs: [
-      { id: "disease", label: "Disease Surveillance", icon: AlertTriangle },
-      { id: "mortality", label: "Mortality Audits", icon: Skull },
-      { id: "census", label: "Barangay Census", icon: FileSpreadsheet },
+      {
+        id: "disease",
+        label: "Disease Surveillance",
+        emoji: "⚠️",
+        icon: AlertTriangle,
+        activeColorClass: "bg-rose-700 text-white shadow-xs",
+      },
+      {
+        id: "mortality",
+        label: "Mortality Audits",
+        emoji: "☠️",
+        icon: Skull,
+        activeColorClass: "bg-rose-800 text-white shadow-xs",
+      },
+      {
+        id: "census",
+        label: "Barangay Census",
+        emoji: "📋",
+        icon: FileSpreadsheet,
+        activeColorClass: "bg-teal-700 text-white shadow-xs",
+      },
     ],
   },
 ];
@@ -178,23 +244,19 @@ export function DataOverviewToolbar({
                 key={pillar.id}
                 type="button"
                 onClick={() => handlePillarClick(pillar)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 border ${
+                className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 border ${
                   isPillarActive
-                    ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs ring-2 ring-[#2D5A27]/20"
-                    : "bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+                    ? pillar.activeColorClass
+                    : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
                 }`}
               >
-                <IconComponent
-                  className={`size-3.5 shrink-0 ${
-                    isPillarActive ? "text-emerald-200" : "text-slate-400"
-                  }`}
-                />
+                <span className="text-sm shrink-0">{pillar.emoji}</span>
                 <span>{pillar.label}</span>
                 {pillarCount > 0 && (
                   <span
-                    className={`text-[10px] font-black px-1.5 py-0.2 rounded-full font-mono transition-colors ${
+                    className={`text-[11px] font-black px-1.5 py-0.2 rounded-full font-mono transition-colors ${
                       isPillarActive
-                        ? "bg-white/20 text-white"
+                        ? "bg-white/25 text-white"
                         : "bg-slate-100 text-slate-700"
                     }`}
                   >
@@ -241,7 +303,7 @@ export function DataOverviewToolbar({
           {/* Export CSV Button */}
           <Button
             onClick={onExportCsv}
-            className="bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold px-3 py-1.5 h-8 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer text-xs shrink-0 active:scale-98"
+            className="bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold px-3.5 py-1.5 h-8.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer text-xs shrink-0 active:scale-98"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
@@ -260,7 +322,6 @@ export function DataOverviewToolbar({
           <div className="flex items-center gap-1.5">
             {currentPillar.tabs.map((tab) => {
               const isTabActive = activeTab === tab.id;
-              const TabIcon = tab.icon;
               const count = counts[tab.id] || 0;
 
               return (
@@ -268,23 +329,19 @@ export function DataOverviewToolbar({
                   key={tab.id}
                   type="button"
                   onClick={() => onTabChange(tab.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer border ${
                     isTabActive
-                      ? "bg-white text-slate-900 shadow-xs ring-1 ring-slate-200 border border-slate-200/80 font-black"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-white/80"
+                      ? `${tab.activeColorClass} border-transparent font-black shadow-xs`
+                      : "bg-white text-slate-600 border-slate-200/70 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
-                  <TabIcon
-                    className={`size-3 shrink-0 ${
-                      isTabActive ? "text-[#2D5A27]" : "text-slate-400"
-                    }`}
-                  />
+                  <span className="text-xs sm:text-sm">{tab.emoji}</span>
                   <span>{tab.label}</span>
                   <Badge
                     variant="secondary"
                     className={`text-[10px] font-mono px-1.5 py-0.1 ml-0.5 border-0 ${
                       isTabActive
-                        ? "bg-[#2D5A27] text-white font-black"
+                        ? "bg-white/25 text-white font-black"
                         : "bg-slate-200/70 text-slate-700"
                     }`}
                   >
