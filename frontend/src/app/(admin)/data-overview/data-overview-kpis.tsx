@@ -90,17 +90,17 @@ export function DataOverviewKpis({
           </div>
 
           {/* 2. Batches */}
-          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-purple-50/80 border border-purple-200/70 hover:bg-purple-50 transition-colors shadow-2xs">
-            <div className="p-1.5 rounded-lg bg-purple-700 text-white shrink-0 shadow-2xs">
+          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/70 hover:bg-emerald-50 transition-colors shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-[#2D5A27] text-white shrink-0 shadow-2xs">
               <Boxes className="size-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] uppercase font-extrabold text-purple-800/80 block leading-tight truncate">
+              <span className="text-[9px] uppercase font-extrabold text-emerald-800/80 block leading-tight truncate">
                 Batches
               </span>
-              <p className="text-xs sm:text-sm font-black text-purple-950 leading-tight tabular-nums truncate">
+              <p className="text-xs sm:text-sm font-black text-emerald-950 leading-tight tabular-nums truncate">
                 {totalBatches}{" "}
-                <span className="text-[10px] font-bold text-purple-700 hidden sm:inline">
+                <span className="text-[10px] font-bold text-[#2D5A27] hidden sm:inline">
                   Cohorts
                 </span>
               </p>

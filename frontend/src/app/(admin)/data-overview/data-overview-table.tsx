@@ -333,15 +333,25 @@ export function DataOverviewTable({
                       </TableCell>
 
                       <TableCell className="px-3.5 py-2.5">
-                        <Badge
-                          className={`text-[9px] font-black uppercase px-2 py-0.2 border-0 ${
-                            item.entryType === "BATCH"
-                              ? "bg-purple-100 text-purple-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {item.entryType || "INDIVIDUAL"} ({item.quantity || 1})
-                        </Badge>
+                        <div className="flex flex-col gap-0.5">
+                          <Badge
+                            className={`text-[9px] font-black uppercase px-2 py-0.2 border-0 w-max ${
+                              item.entryType === "BATCH" || item.batchCode
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            {item.batchCode ? "COHORT" : item.entryType || "INDIVIDUAL"} ({item.quantity || 1})
+                          </Badge>
+                          {item.batchCode && (
+                            <span
+                              className="text-[10px] font-mono font-bold text-[#2D5A27] truncate max-w-[120px]"
+                              title={item.batchName || item.batchCode}
+                            >
+                              {item.batchName || item.batchCode}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
 
                       <TableCell className="px-3.5 py-2.5 font-black text-xs text-slate-800">
@@ -385,7 +395,7 @@ export function DataOverviewTable({
 
                       <TableCell className="px-3.5 py-2.5">
                         <div className="flex items-center gap-1.5">
-                          <Badge className="bg-purple-100 text-purple-800 border-0 text-[10px] font-black px-2 py-0.5">
+                          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] font-black px-2 py-0.5">
                             {item.totalAnimals || 0} Heads
                           </Badge>
                           <span className="text-xs font-semibold text-slate-700">

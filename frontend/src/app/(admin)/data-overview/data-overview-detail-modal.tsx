@@ -59,14 +59,19 @@ export function DataOverviewDetailModal({
 
   if (!record) return null;
 
-  const isBatch = domain === "batches" || Boolean(record.batchCode) || record.totalAnimals !== undefined;
+  const isBatch =
+    domain === "batches" ||
+    (domain !== "livestock" && (Boolean(record.totalAnimals !== undefined)));
+
   const targetBatchId =
     record.rawId ||
     (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, "")) ||
     record.batchCode ||
     record.id;
 
-  const identifierCode = record.batchCode || record.cattleId || record.tagNumber || record.id;
+  const identifierCode = isBatch
+    ? (record.batchCode || record.id)
+    : (record.cattleId || record.tagNumber || record.id);
 
   const handleCopyTag = () => {
     navigator.clipboard.writeText(identifierCode);
@@ -157,6 +162,15 @@ export function DataOverviewDetailModal({
               <span>Barangay <strong>{record.barangay}</strong></span>
               <span>•</span>
               <span>Owner: <strong>{record.farmerName || record.enumerator || record.buyer || "Registered Farmer"}</strong></span>
+              {!isBatch && (record.batchCode || record.batchName) && (
+                <>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 font-bold text-[10px]">
+                    <Boxes className="size-3 text-emerald-300" />
+                    Cohort: {record.batchName || record.batchCode}
+                  </span>
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -193,7 +207,7 @@ export function DataOverviewDetailModal({
               {isBatch && record.animals && record.animals.length > 0 && (
                 <TabsTrigger
                   value="roster"
-                  className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-purple-700 data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                  className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 >
                   <span className="text-sm">🐄</span>
                   <span>Cohort Roster ({record.animals.length})</span>
@@ -208,6 +222,95 @@ export function DataOverviewDetailModal({
           {/* TAB 1: OVERVIEW & SPECIFICATIONS */}
           {activeSubTab === "overview" && (
             <div className="space-y-4 animate-in fade-in-50 duration-200">
+              {/* Batch & Cohort Membership Highlight for Individual Livestock */}
+              {!isBatch && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-slate-50/80 to-emerald-50/40 border border-emerald-200/80 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2.5">
+                      <div className="size-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 border border-emerald-200">
+                        <Boxes className="size-4.5 text-[#2D5A27]" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                          <span>Batch &amp; Herd Cohort Membership</span>
+                        </h4>
+                        <p className="text-[11px] text-emerald-800/80 font-medium">
+                          Official municipal grouping, housing pen, and collective feeding allocation
+                        </p>
+                      </div>
+                    </div>
+
+                    {record.batchCode || record.batchName ? (
+                      <Badge className="bg-[#2D5A27] text-white border-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 shadow-2xs">
+                        Assigned to Cohort
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-slate-300 text-slate-600 bg-white text-[10px] font-bold">
+                        Independent Individual Head
+                      </Badge>
+                    )}
+                  </div>
+
+                  {record.batchCode || record.batchName ? (
+                    <div className="space-y-2.5 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div className="p-3 rounded-xl bg-white border border-emerald-100/90 shadow-2xs">
+                          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
+                            Cohort Code
+                          </span>
+                          <p className="text-xs font-mono font-black text-emerald-900 mt-0.5 truncate">
+                            {record.batchCode || "N/A"}
+                          </p>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-white border border-emerald-100/90 shadow-2xs sm:col-span-2">
+                          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
+                            Cohort / Group Name
+                          </span>
+                          <p className="text-xs font-black text-slate-900 mt-0.5 truncate">
+                            {record.batchName || `Batch ${record.batchCode}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {(record.housingPen || record.feedType) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {record.housingPen && (
+                            <div className="p-2.5 rounded-xl bg-white/90 border border-emerald-100 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
+                                Assigned Housing Pen
+                              </span>
+                              <p className="text-xs font-bold text-slate-900 mt-0.5">
+                                {record.housingPen}
+                              </p>
+                            </div>
+                          )}
+                          {record.feedType && (
+                            <div className="p-2.5 rounded-xl bg-white/90 border border-emerald-100 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
+                                Feeding Regimen
+                              </span>
+                              <p className="text-xs font-bold text-slate-900 mt-0.5 truncate">
+                                {record.feedType}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-white/80 border border-slate-200/80 text-xs text-slate-600">
+                      <p className="font-semibold text-slate-800">
+                        Individual Animal Registration
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        This animal was registered as an independent head and is not part of an aggregated cohort or batch.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Specification Grid */}
               <div>
                 <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">
@@ -215,11 +318,20 @@ export function DataOverviewDetailModal({
                 </h4>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {record.batchCode && (
+                  {isBatch && record.batchCode && (
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 block">Batch Code</span>
                       <p className="text-xs font-mono font-black text-emerald-800 mt-0.5">
                         {record.batchCode}
+                      </p>
+                    </div>
+                  )}
+
+                  {!isBatch && record.batchCode && (
+                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70">
+                      <span className="text-[10px] font-bold text-emerald-800 block uppercase">Assigned Cohort</span>
+                      <p className="text-xs font-mono font-black text-emerald-950 mt-0.5 truncate">
+                        {record.batchName || record.batchCode}
                       </p>
                     </div>
                   )}
@@ -255,7 +367,7 @@ export function DataOverviewDetailModal({
                   {record.totalAnimals !== undefined && (
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 block">Total Animals</span>
-                      <p className="text-xs font-black text-purple-700 mt-0.5">
+                      <p className="text-xs font-black text-emerald-800 mt-0.5">
                         {record.totalAnimals} Heads
                       </p>
                     </div>

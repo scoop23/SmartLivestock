@@ -106,7 +106,7 @@ const DOMAIN_PILLARS: DomainPillar[] = [
         label: "Cohorts & Batches",
         emoji: "📦",
         icon: Boxes,
-        activeColorClass: "bg-purple-700 text-white shadow-xs",
+        activeColorClass: "bg-[#2D5A27] text-white shadow-xs",
       },
     ],
   },

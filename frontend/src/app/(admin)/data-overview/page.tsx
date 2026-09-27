@@ -95,24 +95,70 @@ export default function DataOverviewPage() {
   // Combine backend records with seed datasets
   const livestockList: LivestockRecord[] = useMemo(() => {
     if (!rawInventory || rawInventory.length === 0) return SEED_LIVESTOCK;
-    return rawInventory.map((item) => ({
-      id: `LIV-${item.id}`,
-      farmerName: item.farmerName || "Registered Farmer",
-      barangay: item.barangayName || "Banaba",
-      cattleId: item.tagNumber || `TAG-${item.id}`,
-      specie: item.livestockType || "Cattle",
-      breed: item.breed || "Standard",
-      sex: item.sex || "Female",
-      ageMonths: 24,
-      weightKg: item.weight || null,
-      entryType: item.entryType || "INDIVIDUAL",
-      quantity: Number(item.quantity) || 1,
-      lastVaccinationDate: item.lastVaccinationDate || null,
-      status: item.status || "PENDING",
-      registrationDate: item.createdAt?.slice(0, 10) || "2026-04-20",
-      notes: item.reviewRemarks || undefined,
-    }));
-  }, [rawInventory]);
+    return rawInventory.map((item) => {
+      // Find matching cohort batch from rawBatches or item fields
+      const matchingBatch = rawBatches?.find(
+        (b: any) =>
+          (item.batchId && (b.id === item.batchId || b.rawId === item.batchId)) ||
+          ((item as any).batch && (b.id === (item as any).batch || b.rawId === (item as any).batch)) ||
+          (item.batchCode && b.batch_code === item.batchCode) ||
+          (b.animals && b.animals.some((a: any) => a.id === item.id || a.tag_number === item.tagNumber))
+      );
+
+      const batchCode =
+        item.batchCode ||
+        (item as any).batch_code ||
+        matchingBatch?.batch_code ||
+        undefined;
+
+      const batchName =
+        item.batchName ||
+        (item as any).batch_name ||
+        matchingBatch?.batch_name ||
+        (matchingBatch ? `Batch #${matchingBatch.id}` : undefined);
+
+      const batchId =
+        item.batchId ||
+        (item as any).batch ||
+        matchingBatch?.id ||
+        null;
+
+      const housingPen =
+        (item as any).housingPen ||
+        (item as any).housing_pen ||
+        matchingBatch?.housing_pen ||
+        undefined;
+
+      const feedType =
+        (item as any).feedType ||
+        (item as any).feed_type ||
+        matchingBatch?.feed_type ||
+        undefined;
+
+      return {
+        id: `LIV-${item.id}`,
+        farmerName: item.farmerName || "Registered Farmer",
+        barangay: item.barangayName || "Banaba",
+        cattleId: item.tagNumber || `TAG-${item.id}`,
+        specie: item.livestockType || "Cattle",
+        breed: item.breed || "Standard",
+        sex: item.sex || "Female",
+        ageMonths: 24,
+        weightKg: item.weight || null,
+        entryType: item.entryType || (batchCode ? "BATCH" : "INDIVIDUAL"),
+        quantity: Number(item.quantity) || 1,
+        lastVaccinationDate: item.lastVaccinationDate || null,
+        status: item.status || "PENDING",
+        registrationDate: item.createdAt?.slice(0, 10) || "2026-04-20",
+        notes: item.reviewRemarks || undefined,
+        batchId,
+        batchCode,
+        batchName,
+        housingPen,
+        feedType,
+      };
+    });
+  }, [rawInventory, rawBatches]);
 
   const batchList: BatchRecord[] = useMemo(() => {
     if (!rawBatches || rawBatches.length === 0) return SEED_BATCHES;
@@ -1011,7 +1057,7 @@ export default function DataOverviewPage() {
                 id: "batches",
                 label: "Cohorts & Batches",
                 sublabel: "Housing pens & feeding programs",
-                icon: <Boxes className="size-4 shrink-0 text-purple-700" />,
+                icon: <Boxes className="size-4 shrink-0 text-[#2D5A27]" />,
                 loaded: rawBatches !== undefined,
               },
               {

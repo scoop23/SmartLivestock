@@ -58,6 +58,11 @@ export interface LivestockRecord {
   registrationDate: string;
   rfidTag?: string;
   notes?: string;
+  batchId?: number | null;
+  batchCode?: string | null;
+  batchName?: string | null;
+  housingPen?: string | null;
+  feedType?: string | null;
 }
 
 export interface BatchRecord {
@@ -249,6 +254,11 @@ export const SEED_LIVESTOCK: LivestockRecord[] = [
     registrationDate: '2026-01-14',
     rfidTag: 'RFID-982-004-112',
     notes: 'High dairy yield lineage. Vaccinated for FMD and hemorrhagic septicemia.',
+    batchId: 101,
+    batchCode: 'BATCH-2026-001',
+    batchName: 'Banaba Prime Brahman Herd',
+    housingPen: 'Pen A-1 (North Wing)',
+    feedType: 'Commercial Pelleted Grower',
   },
   {
     id: 'LIV-2026-002',
@@ -269,6 +279,11 @@ export const SEED_LIVESTOCK: LivestockRecord[] = [
     registrationDate: '2026-02-03',
     rfidTag: 'RFID-982-004-113',
     notes: 'Imported dairy line with certified pedigree documents.',
+    batchId: 102,
+    batchCode: 'BATCH-2026-002',
+    batchName: 'Brahman Beef Feedlot Cohort',
+    housingPen: 'Feedlot Bay 3',
+    feedType: 'Silage + High Protein Concentrate',
   },
   {
     id: 'LIV-2026-003',
@@ -289,6 +304,11 @@ export const SEED_LIVESTOCK: LivestockRecord[] = [
     registrationDate: '2026-02-18',
     rfidTag: 'RFID-982-004-114',
     notes: 'Premium commercial feeder steer.',
+    batchId: 102,
+    batchCode: 'BATCH-2026-002',
+    batchName: 'Brahman Beef Feedlot Cohort',
+    housingPen: 'Feedlot Bay 3',
+    feedType: 'Silage + High Protein Concentrate',
   },
   {
     id: 'LIV-2026-004',
@@ -309,6 +329,11 @@ export const SEED_LIVESTOCK: LivestockRecord[] = [
     registrationDate: '2026-03-12',
     rfidTag: 'RFID-982-004-116',
     notes: 'Routine health check completed on March 2026.',
+    batchId: null,
+    batchCode: null,
+    batchName: null,
+    housingPen: 'Individual Quarantine Stall',
+    feedType: 'Pasture Grazing',
   },
   {
     id: 'LIV-2026-005',
@@ -329,6 +354,11 @@ export const SEED_LIVESTOCK: LivestockRecord[] = [
     registrationDate: '2026-03-18',
     rfidTag: 'RFID-982-004-201',
     notes: 'Carabao milk cooperative program member.',
+    batchId: 103,
+    batchCode: 'BATCH-2026-003',
+    batchName: 'Anglo-Nubian & Carabao Herd',
+    housingPen: 'Elevated Slatted Shed 2',
+    feedType: 'Fresh Napier Grass + Legumes',
   },
   {
     id: 'LIV-2026-006',

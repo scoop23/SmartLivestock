@@ -79,6 +79,8 @@ export interface ValidationInventoryItem {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
+  batchId?: number | null;
+  batch?: number | null;
   batchCode?: string;
   batchName?: string;
   housingPen?: string;
@@ -192,6 +194,8 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           reviewedBy: item.reviewed_by_name || null,
           reviewedAt: item.reviewed_at || null,
           createdAt: item.created_at || new Date().toISOString(),
+          batchId: item.batch || item.batch_id || null,
+          batch: item.batch || item.batch_id || null,
           batchCode: item.batch_code || undefined,
           batchName: item.batch_name || undefined,
           photoUrl: item.photo_url || item.photo || undefined,

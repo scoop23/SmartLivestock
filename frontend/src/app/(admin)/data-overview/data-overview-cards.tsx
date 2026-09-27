@@ -69,7 +69,7 @@ export function DataOverviewCards({
                     {activeTab === "disease" && <AlertTriangle className="size-4 text-rose-700" />}
                     {activeTab === "mortality" && <Skull className="size-4 text-slate-700" />}
                     {activeTab === "slaughter" && <Scale className="size-4 text-amber-700" />}
-                    {activeTab === "census" && <FileSpreadsheet className="size-4 text-purple-700" />}
+                    {activeTab === "census" && <FileSpreadsheet className="size-4 text-indigo-700" />}
                   </div>
                   <div>
                     <p className="text-[10px] font-mono font-bold text-slate-400">
@@ -130,6 +130,14 @@ export function DataOverviewCards({
                         {item.weightKg ? `${item.weightKg} kg` : "—"} &bull; {item.entryType || "INDIVIDUAL"}
                       </strong>
                     </div>
+                    {item.batchCode && (
+                      <div className="flex justify-between text-slate-600">
+                        <span>Cohort:</span>
+                        <strong className="text-[#2D5A27] font-mono text-[11px] truncate max-w-[130px]" title={item.batchName || item.batchCode}>
+                          {item.batchName || item.batchCode}
+                        </strong>
+                      </div>
+                    )}
                     <div className="flex justify-between text-slate-600">
                       <span>Last Vaccination:</span>
                       <strong className="text-slate-900">{item.lastVaccinationDate || "None"}</strong>

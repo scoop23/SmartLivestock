@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { PageHeader } from '@/app/components/page-header';
-import api from '@/lib/axios';
+import { useState } from "react";
+import { PageHeader } from "@/app/components/page-header";
+import {
+  ApiUser,
+  UserAccountStatus,
+  useUsersDirectory,
+  useUpdateUserStatus,
+} from "./user-management";
 
 import {
   Table,
@@ -30,10 +35,8 @@ import {
   UserMinus,
   UserCheck,
   Check,
-  X,
   ChevronRight,
   Search,
-  CheckCircle2,
   Loader2,
   Clock,
   RefreshCw,
@@ -41,122 +44,92 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-export interface ApiUser {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  phone_number: string;
-  role: string;
-  account_status: "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED" | "SUSPENDED";
-  created_at: string;
-  approved_at: string | null;
-  barangay: string;
-  barangay_id: number | null;
-  farm_size: number | null;
-  address: string;
-  cattle_count: number;
-}
+export type { ApiUser, UserAccountStatus };
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState<ApiUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const { data: users = [], isLoading, isFetching, refetch } = useUsersDirectory();
+  const updateStatusMutation = useUpdateUserStatus();
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'farmer' | 'sibat'>('all');
+  const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "farmer" | "sibat">("all");
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/api/users/directory/');
-      setUsers(response.data);
-    } catch (err: any) {
-      console.error("Failed to fetch users:", err);
-      toast.error("Failed to load user directory. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-  const handleStatusUpdate = async (id: number, newStatus: "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED" | "SUSPENDED" | "PENDING") => {
-    setActionLoadingId(id);
-    try {
-      const response = await api.patch(`/api/users/${id}/status/`, { status: newStatus });
-      setUsers(prev => prev.map(u => u.id === id ? response.data : u));
-      const verb = newStatus === 'APPROVED' ? 'approved' : (newStatus === 'REJECTED' || newStatus === 'SUBJECT_TO_REVISION') ? 'returned for revision' : newStatus === 'SUSPENDED' ? 'suspended' : 'updated';
-      toast.success(`User account ${verb} successfully.`);
-    } catch (err: any) {
-      console.error("Status update error:", err);
-      const errMsg = err.response?.data?.error || err.response?.data?.detail || "Failed to update user status.";
-      toast.error(errMsg);
-    } finally {
-      setActionLoadingId(null);
-    }
+  const handleStatusUpdate = (id: number, newStatus: UserAccountStatus) => {
+    updateStatusMutation.mutate({ userId: id, status: newStatus });
   };
 
   const handlePasswordReset = (name: string) => {
     toast.info(`Password reset instruction triggered for ${name}`);
   };
 
-  const pendingCount = users.filter(u => u.account_status === 'PENDING').length;
+  const pendingCount = users.filter((u) => u.account_status === "PENDING").length;
 
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = users.filter((user) => {
     const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = !q ||
+    const matchesSearch =
+      !q ||
       user.full_name.toLowerCase().includes(q) ||
       user.email.toLowerCase().includes(q) ||
       user.username.toLowerCase().includes(q) ||
       user.barangay.toLowerCase().includes(q);
 
     let matchesFilter = true;
-    if (activeFilter === 'pending') {
-      matchesFilter = user.account_status === 'PENDING';
-    } else if (activeFilter === 'farmer') {
-      matchesFilter = user.role?.toUpperCase() === 'FARMER';
-    } else if (activeFilter === 'sibat') {
-      matchesFilter = user.role?.toUpperCase() === 'SIBAT';
+    if (activeFilter === "pending") {
+      matchesFilter = user.account_status === "PENDING";
+    } else if (activeFilter === "farmer") {
+      matchesFilter = user.role?.toUpperCase() === "FARMER";
+    } else if (activeFilter === "sibat") {
+      matchesFilter = user.role?.toUpperCase() === "SIBAT";
     }
 
     return matchesSearch && matchesFilter;
   });
 
-  const getStatusBadge = (status: ApiUser['account_status']) => {
+  const getStatusBadge = (status: ApiUser["account_status"]) => {
     switch (status) {
-      case 'APPROVED':
+      case "APPROVED":
         return (
-          <Badge variant="outline" className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+          <Badge
+            variant="outline"
+            className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800"
+          >
             Approved
           </Badge>
         );
-      case 'PENDING':
+      case "PENDING":
         return (
-          <Badge variant="outline" className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 flex items-center gap-1 animate-pulse">
+          <Badge
+            variant="outline"
+            className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 flex items-center gap-1 animate-pulse"
+          >
             <Clock size={10} /> Pending
           </Badge>
         );
-      case 'SUSPENDED':
+      case "SUSPENDED":
         return (
-          <Badge variant="outline" className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800">
+          <Badge
+            variant="outline"
+            className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800"
+          >
             Suspended
           </Badge>
         );
-      case 'SUBJECT_TO_REVISION':
-      case 'REJECTED':
+      case "SUBJECT_TO_REVISION":
+      case "REJECTED":
         return (
-          <Badge variant="outline" className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">
+          <Badge
+            variant="outline"
+            className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900"
+          >
             For Revision
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="border-none text-[9px] font-black uppercase px-2 py-0.2 rounded-full bg-slate-100 text-slate-800">
+          <Badge
+            variant="outline"
+            className="border-none text-[9px] font-black uppercase px-2 py-0.2 rounded-full bg-slate-100 text-slate-800"
+          >
             {status}
           </Badge>
         );
@@ -186,7 +159,11 @@ export default function UserManagementPage() {
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">
-            <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as any)} className="w-full md:w-auto">
+            <Tabs
+              value={activeFilter}
+              onValueChange={(v) => setActiveFilter(v as any)}
+              className="w-full md:w-auto"
+            >
               <TabsList className="bg-slate-100/80 p-0.5 rounded-lg h-auto border border-slate-200/60 flex flex-wrap">
                 <TabsTrigger
                   value="all"
@@ -223,12 +200,12 @@ export default function UserManagementPage() {
             <Button
               variant="outline"
               size="icon"
-              onClick={fetchUsers}
-              disabled={loading}
+              onClick={() => refetch()}
+              disabled={isFetching}
               title="Refresh Directory"
               className="h-10 w-10 rounded-xl border-slate-200 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 shrink-0 cursor-pointer active:scale-95 transition-all shadow-xs"
             >
-              <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={17} className={isFetching ? "animate-spin" : ""} />
             </Button>
           </div>
         </div>
@@ -257,7 +234,7 @@ export default function UserManagementPage() {
             </TableHeader>
 
             <TableBody className="divide-y divide-slate-100">
-              {loading ? (
+              {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
@@ -271,17 +248,23 @@ export default function UserManagementPage() {
                   <TableCell colSpan={5} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <Users size={28} className="text-slate-300 mb-1" />
-                      <p className="text-xs font-bold text-slate-600">No users found matching your filters</p>
-                      <p className="text-[11px] text-slate-400">Try adjusting your search query or tab filter.</p>
+                      <p className="text-xs font-bold text-slate-600">
+                        No users found matching your filters
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Try adjusting your search query or tab filter.
+                      </p>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => {
-                  const isPending = user.account_status === 'PENDING';
-                  const isApproved = user.account_status === 'APPROVED';
-                  const isSuspended = user.account_status === 'SUSPENDED';
-                  const isActionLoading = actionLoadingId === user.id;
+                  const isPending = user.account_status === "PENDING";
+                  const isApproved = user.account_status === "APPROVED";
+                  const isSuspended = user.account_status === "SUSPENDED";
+                  const isActionLoading =
+                    updateStatusMutation.isPending &&
+                    updateStatusMutation.variables?.userId === user.id;
 
                   return (
                     <TableRow
@@ -291,7 +274,7 @@ export default function UserManagementPage() {
                       <TableCell className="px-3.5 py-2">
                         <div className="flex items-center gap-2.5">
                           <div
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                            className={`size-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${
                               user.role?.toUpperCase() === "SIBAT"
                                 ? "bg-blue-600 text-white"
                                 : user.role?.toUpperCase() === "MAO"
@@ -299,7 +282,13 @@ export default function UserManagementPage() {
                                 : "bg-emerald-100 text-[#2D5A27]"
                             }`}
                           >
-                            {user.role?.toUpperCase() === "SIBAT" ? (
+                            {user.profile_image ? (
+                              <img
+                                src={user.profile_image}
+                                alt={user.full_name}
+                                className="size-full object-cover"
+                              />
+                            ) : user.role?.toUpperCase() === "SIBAT" ? (
                               <ShieldCheck size={14} />
                             ) : (
                               <Users size={14} />
@@ -309,7 +298,7 @@ export default function UserManagementPage() {
                             <p className="font-bold text-xs text-slate-800">{user.full_name}</p>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] font-black text-slate-400 uppercase">
-                                {user.role || 'User'}
+                                {user.role || "User"}
                               </span>
                               <span className="text-[9px] text-slate-400">• {user.email}</span>
                             </div>
@@ -434,14 +423,28 @@ export default function UserManagementPage() {
         {selectedUser && (
           <DialogContent className="sm:max-w-md rounded-[3rem] p-10 bg-white border-none shadow-2xl [&>button]:right-8 [&>button]:top-8 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-gray-100">
             <DialogHeader className="text-center mb-4">
-              <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-4 ${
-                selectedUser.role?.toUpperCase() === 'SIBAT'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-green-100 text-[#2D5A27]'
-              }`}>
-                {selectedUser.role?.toUpperCase() === 'SIBAT' ? <ShieldCheck size={40} /> : <Users size={40} />}
+              <div
+                className={`size-20 mx-auto rounded-3xl flex items-center justify-center mb-4 overflow-hidden ${
+                  selectedUser.role?.toUpperCase() === "SIBAT"
+                    ? "bg-blue-600 text-white"
+                    : "bg-green-100 text-[#2D5A27]"
+                }`}
+              >
+                {selectedUser.profile_image ? (
+                  <img
+                    src={selectedUser.profile_image}
+                    alt={selectedUser.full_name}
+                    className="size-full object-cover"
+                  />
+                ) : selectedUser.role?.toUpperCase() === "SIBAT" ? (
+                  <ShieldCheck size={40} />
+                ) : (
+                  <Users size={40} />
+                )}
               </div>
-              <DialogTitle className="text-2xl font-black text-gray-900 text-center">{selectedUser.full_name}</DialogTitle>
+              <DialogTitle className="text-2xl font-black text-gray-900 text-center">
+                {selectedUser.full_name}
+              </DialogTitle>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center mt-1">
                 {selectedUser.username} • {selectedUser.role}
               </p>
@@ -453,51 +456,67 @@ export default function UserManagementPage() {
                 <span className="text-sm font-bold">{selectedUser.email}</span>
               </div>
               <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
-                <span className="text-[10px] font-black text-gray-400 uppercase">Contact Phone</span>
-                <span className="text-sm font-bold">{selectedUser.phone_number || "Not provided"}</span>
+                <span className="text-[10px] font-black text-gray-400 uppercase">
+                  Contact Phone
+                </span>
+                <span className="text-sm font-bold">
+                  {selectedUser.phone_number || "Not provided"}
+                </span>
               </div>
               <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
                 <span className="text-[10px] font-black text-gray-400 uppercase">Barangay</span>
-                <span className="text-sm font-bold">{selectedUser.barangay || "Padre Garcia"}</span>
+                <span className="text-sm font-bold">
+                  {selectedUser.barangay || "Padre Garcia"}
+                </span>
               </div>
-              {selectedUser.role?.toUpperCase() === 'FARMER' && (
+              {selectedUser.role?.toUpperCase() === "FARMER" && (
                 <>
                   <div className="p-4 bg-green-50 rounded-2xl flex justify-between">
-                    <span className="text-[10px] font-black text-green-600 uppercase">Cattle Registered</span>
-                    <span className="text-sm font-black text-green-700">{selectedUser.cattle_count} Heads</span>
+                    <span className="text-[10px] font-black text-green-600 uppercase">
+                      Cattle Registered
+                    </span>
+                    <span className="text-sm font-black text-green-700">
+                      {selectedUser.cattle_count} Heads
+                    </span>
                   </div>
                   {selectedUser.farm_size !== null && (
                     <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
-                      <span className="text-[10px] font-black text-gray-400 uppercase">Farm Size</span>
+                      <span className="text-[10px] font-black text-gray-400 uppercase">
+                        Farm Size
+                      </span>
                       <span className="text-sm font-bold">{selectedUser.farm_size} ha</span>
                     </div>
                   )}
                 </>
               )}
               <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
-                <span className="text-[10px] font-black text-gray-400 uppercase">Account Status</span>
+                <span className="text-[10px] font-black text-gray-400 uppercase">
+                  Account Status
+                </span>
                 <div>{getStatusBadge(selectedUser.account_status)}</div>
               </div>
             </div>
 
-            {selectedUser.account_status === 'PENDING' ? (
+            {selectedUser.account_status === "PENDING" ? (
               <div className="flex gap-2 mt-6">
                 <Button
+                  disabled={updateStatusMutation.isPending}
                   onClick={() => {
                     handleStatusUpdate(selectedUser.id, "APPROVED");
                     setSelectedUser(null);
                   }}
-                  className="flex-1 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-md"
+                  className="flex-1 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-md cursor-pointer disabled:opacity-50"
                 >
                   Approve Account
                 </Button>
                 <Button
                   variant="outline"
+                  disabled={updateStatusMutation.isPending}
                   onClick={() => {
                     handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION");
                     setSelectedUser(null);
                   }}
-                  className="flex-1 py-6 border-amber-300 text-amber-900 hover:bg-amber-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2"
+                  className="flex-1 py-6 border-amber-300 text-amber-900 hover:bg-amber-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <RotateCcw className="size-4 text-amber-700" />
                   Return for Revision
@@ -506,7 +525,7 @@ export default function UserManagementPage() {
             ) : (
               <Button
                 onClick={() => setSelectedUser(null)}
-                className="w-full mt-6 py-6 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-gray-800 hover:shadow-xl transition-all"
+                className="w-full mt-6 py-6 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-gray-800 hover:shadow-xl transition-all cursor-pointer"
               >
                 Close
               </Button>
