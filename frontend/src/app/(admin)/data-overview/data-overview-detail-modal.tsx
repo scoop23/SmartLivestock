@@ -165,10 +165,7 @@ export function DataOverviewDetailModal({
               {!isBatch && (record.batchCode || record.batchName) && (
                 <>
                   <span>•</span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 font-bold text-[10px]">
-                    <Boxes className="size-3 text-emerald-300" />
-                    Cohort: {record.batchName || record.batchCode}
-                  </span>
+                  <span>Cohort: <strong>{record.batchName || record.batchCode}</strong></span>
                 </>
               )}
             </DialogDescription>
@@ -241,9 +238,23 @@ export function DataOverviewDetailModal({
                     </div>
 
                     {record.batchCode || record.batchName ? (
-                      <Badge className="bg-[#2D5A27] text-white border-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 shadow-2xs">
-                        Assigned to Cohort
-                      </Badge>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className="bg-[#2D5A27] text-white border-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 shadow-2xs">
+                          Assigned to Cohort
+                        </Badge>
+                        <Link
+                          href={`/data-validation/batches?batchId=${encodeURIComponent(
+                            record.batchId || record.batchCode || record.batchName
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 px-2.5 py-0.5 rounded-lg transition-all shadow-2xs cursor-pointer"
+                          title="Open Cohort Roster in Validation Center (New Tab)"
+                        >
+                          <span>Open Batch File</span>
+                          <ExternalLink className="size-3" />
+                        </Link>
+                      </div>
                     ) : (
                       <Badge variant="outline" className="border-slate-300 text-slate-600 bg-white text-[10px] font-bold">
                         Independent Individual Head
@@ -254,7 +265,7 @@ export function DataOverviewDetailModal({
                   {record.batchCode || record.batchName ? (
                     <div className="space-y-2.5 pt-1">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <div className="p-3 rounded-xl bg-white border border-emerald-100/90 shadow-2xs">
+                        <div className="p-3 rounded-xl bg-white border border-emerald-100 shadow-2xs">
                           <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
                             Cohort Code
                           </span>
@@ -263,7 +274,7 @@ export function DataOverviewDetailModal({
                           </p>
                         </div>
 
-                        <div className="p-2.5 rounded-xl bg-white border border-emerald-100/90 shadow-2xs sm:col-span-2">
+                        <div className="p-2.5 rounded-xl bg-white border border-emerald-100 shadow-2xs sm:col-span-2">
                           <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
                             Cohort / Group Name
                           </span>
@@ -328,9 +339,9 @@ export function DataOverviewDetailModal({
                   )}
 
                   {!isBatch && record.batchCode && (
-                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70">
-                      <span className="text-[10px] font-bold text-emerald-800 block uppercase">Assigned Cohort</span>
-                      <p className="text-xs font-mono font-black text-emerald-950 mt-0.5 truncate">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Assigned Cohort</span>
+                      <p className="text-xs font-mono font-black text-slate-900 mt-0.5 truncate">
                         {record.batchName || record.batchCode}
                       </p>
                     </div>

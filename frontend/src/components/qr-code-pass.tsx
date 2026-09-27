@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import QRCode from "qrcode";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Download, Printer, QrCode, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Check, Copy, Download, Printer, QrCode, ShieldCheck, CheckCircle2, Info } from "lucide-react";
 import { toast } from "sonner";
 
 export interface QrCodePassProps {
@@ -111,6 +111,31 @@ export function QrCodePass({
         </Badge>
       </div>
 
+      {/* ── Guidance Note: How This Digital QR Pass Works ── */}
+      <div className="w-full text-left p-3 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-slate-50 border border-emerald-200/90 shadow-2xs space-y-1">
+        <div className="flex items-center gap-1.5 font-bold text-emerald-950 text-xs">
+          <Info className="size-3.5 text-emerald-700 shrink-0" />
+          <span>How this Digital QR Pass works:</span>
+        </div>
+        <p className="text-[11px] text-slate-600 leading-relaxed">
+          Scan with any smartphone camera or handheld scanner at municipal biosecurity checkpoints, livestock trading centers, or abattoirs to verify real-time registration, raiser identity, and official MAO clearance.
+        </p>
+        <div className="flex items-center gap-3 pt-0.5 text-[10px] text-emerald-800 font-semibold flex-wrap">
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
+            Biosecurity Checkpoint Ready
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
+            Livestock Movement Clearance
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
+            Official MAO Ledger
+          </span>
+        </div>
+      </div>
+
       {/* ISO-Standard Scannable QR Code Frame */}
       <div className="p-3 bg-gradient-to-b from-slate-50 to-emerald-50/30 rounded-2xl border-2 border-dashed border-emerald-300/80 relative shadow-inner">
         <div className="p-2.5 bg-white rounded-xl shadow-md border border-slate-200 relative inline-block">
@@ -186,7 +211,7 @@ export function QrCodePass({
       <div className="w-full flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100">
         <span className="flex items-center gap-1 text-emerald-700 font-bold">
           <ShieldCheck className="size-3.5" />
-          Camera-Scannable at Checkpoints &amp; PGLAM
+          Camera-Scannable at Municipal Checkpoints
         </span>
         <span className="font-mono text-slate-400">
           {verifiedAt || "Certified 2026"}

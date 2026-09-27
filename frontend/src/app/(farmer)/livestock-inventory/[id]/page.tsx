@@ -1678,6 +1678,27 @@ export default function LivestockDetailPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* ── Guidance Note: How This QR Code Works ── */}
+            <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-slate-50 border border-emerald-200/90 shadow-2xs space-y-1 text-left">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-950 text-xs">
+                <Info className="size-3.5 text-emerald-700 shrink-0" />
+                <span>How this QR Code works:</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Scan with any smartphone camera or checkpoint scanner to instantly verify official MAO livestock registration, ownership, and health clearance.
+              </p>
+              <div className="flex items-center gap-3 pt-0.5 text-[10px] text-emerald-800 font-semibold flex-wrap">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
+                  Biosecurity Checkpoint Ready
+                </span>
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
+                  Municipal Movement Clearance
+                </span>
+              </div>
+            </div>
+
             {/* Visual QR Code & Photo Card */}
             <div className="flex flex-col items-center justify-center p-5 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-50 rounded-2xl border-2 border-dashed border-emerald-300/80 text-center relative">
               <div className="mx-auto shrink-0 mb-3">

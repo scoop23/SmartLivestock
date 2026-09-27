@@ -123,7 +123,7 @@ export function UserProfileView() {
         : user?.role === "SIBAT"
         ? "SIBAT Field Biosecurity Inspector"
         : user?.role === "AUCTION"
-        ? "PGLAM Auction Operations Officer"
+        ? "Municipal Livestock Operations Officer"
         : "Municipal Agriculture Officer",
   });
 
@@ -175,7 +175,7 @@ export function UserProfileView() {
     {
       id: "sess_3",
       device: "Android Tablet • Chrome Mobile",
-      location: "Padre Garcia, Batangas (PGLAM Livestock Market Wi-Fi)",
+      location: "Padre Garcia, Batangas (Municipal Agriculture Office Wi-Fi)",
       ip: "120.29.74.89",
       lastActive: "Sep 24, 2026, 10:15 AM",
       current: false,
@@ -246,7 +246,7 @@ export function UserProfileView() {
       : user?.role === "SIBAT"
       ? "SIBAT Meat & Movement Inspector"
       : user?.role === "AUCTION"
-      ? "PGLAM Auction Officer"
+      ? "Municipal Livestock Officer"
       : "Municipal Agriculture Officer";
 
   const roleColorBadge =
@@ -758,7 +758,7 @@ export function UserProfileView() {
                 <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
                   <CheckCircle className="size-4 text-emerald-600 shrink-0" />
                   <div>
-                    <p className="font-bold text-slate-800">PGLAM Auction Clearance</p>
+                    <p className="font-bold text-slate-800">Municipal Trading Clearance</p>
                     <p className="text-[10px] text-slate-500">Traceability certificate generation authorized</p>
                   </div>
                 </div>
@@ -1472,7 +1472,7 @@ export function UserProfileView() {
           4. INTERACTIVE DIGITAL MUNICIPAL PASS / ID CARD MODAL
          ═════════════════════════════════════════════════════════════════════ */}
       <Dialog open={showIdPassModal} onOpenChange={setShowIdPassModal}>
-        <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white border-0 shadow-2xl">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl p-6 rounded-3xl bg-white border-0 shadow-2xl max-h-[94vh] overflow-y-auto">
           <DialogHeader className="space-y-1 text-center">
             <DialogTitle className="text-xl font-black text-slate-900">
               Official Digital Municipal Pass
