@@ -16,9 +16,11 @@ import {
   Tag,
   Activity,
   X,
+  QrCode,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
+import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 // Domain & Analytics
 import {
@@ -96,6 +98,7 @@ const DOMAIN_CARD_CONFIG: Record<
 
 export default function AdminDataValidationPage() {
   const queryClient = useQueryClient();
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Domain tab & filter states
   const [activeDomain, setActiveDomain] = useState<ValidationDomain>("census");
@@ -631,6 +634,16 @@ export default function AdminDataValidationPage() {
         variant="admin"
         maxWidthClass="w-full"
         icon={<ShieldCheck className="w-6 h-6 text-slate-900" />}
+        action={
+          <Button
+            size="sm"
+            onClick={() => setIsScannerOpen(true)}
+            className="bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-xs rounded-xl shadow-xs gap-1.5 h-9 cursor-pointer"
+          >
+            <QrCode className="size-4" />
+            Scan Ear Tag / Pass
+          </Button>
+        }
       />
 
       <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
@@ -969,6 +982,13 @@ export default function AdminDataValidationPage() {
             inspectorPhotoName: (rec as any).inspectorPhotoName || null,
           });
         }}
+      />
+
+      {/* ═══ Universal QR Scanner Dialog for MAO Verification ═══ */}
+      <UniversalQrScannerDialog
+        isOpen={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+        role="admin"
       />
     </>
   );

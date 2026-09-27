@@ -16,12 +16,14 @@ import {
   Sparkles,
   MapPin,
   CheckCircle2,
+  QrCode,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 import SibatKpiSection from "./components/sibat-kpi-section";
 import SibatHealthQueue from "./components/sibat-health-queue";
@@ -103,6 +105,7 @@ function SibatPortalContent() {
   const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
   const [isCensusDialogOpen, setIsCensusDialogOpen] = useState(false);
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Health Inspection Dialog triggers
   const handleOpenInspection = (record: SibatValidationRecord) => {
@@ -194,6 +197,15 @@ function SibatPortalContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setIsScannerOpen(true)}
+              className="bg-white hover:bg-slate-50 text-[#1A365D] border border-amber-400/50 text-xs font-bold rounded-2xl shadow-xs gap-1.5 h-9 px-4 cursor-pointer"
+            >
+              <QrCode className="size-3.5 text-[#1A365D]" />
+              Scan Field Pass
+            </Button>
+
             <Button
               size="sm"
               onClick={() => setIsCensusDialogOpen(true)}
@@ -380,6 +392,13 @@ function SibatPortalContent() {
         onOpenChange={(open) => {
           if (!open) setSelectedCensusForDetail(null);
         }}
+      />
+
+      {/* ═══ SIBAT Field QR Scanner Dialog ═══ */}
+      <UniversalQrScannerDialog
+        isOpen={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+        role="sibat"
       />
     </>
   );

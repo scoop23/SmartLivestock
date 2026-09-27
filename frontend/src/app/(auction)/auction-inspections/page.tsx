@@ -27,7 +27,7 @@ import {
 import { NewInspectionDialog } from "./new-inspection-dialog";
 import { InspectionDetailsDialog } from "./inspection-details-dialog";
 import { InspectionsListView } from "./inspections-list-view";
-import { AuctionQrScannerDialog } from "./auction-qr-scanner-dialog";
+import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 export default function AuctionInspections() {
   const [inspections, setInspections] = useState<InspectionRecord[]>(INITIAL_INSPECTIONS);
@@ -223,9 +223,10 @@ export default function AuctionInspections() {
       />
 
       {/* Auction QR Gate Scanner Dialog */}
-      <AuctionQrScannerDialog
+      <UniversalQrScannerDialog
         isOpen={isScannerOpen}
         onOpenChange={setIsScannerOpen}
+        role="auction"
       />
     </>
   );

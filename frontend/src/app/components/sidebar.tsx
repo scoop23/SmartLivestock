@@ -34,6 +34,7 @@ import {
   Shield,
   User as UserIcon,
   Key,
+  QrCode,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -43,6 +44,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/components/ui/utils';
 import { cowHead } from '@lucide/lab';
 import { Icon } from 'lucide-react';
+import { UniversalQrScannerDialog } from '@/components/universal-qr-scanner-dialog';
 import { MOBILE_NAV_EVENT } from './mobile-nav-open';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -165,6 +167,7 @@ function SidebarNav({
   onNavigate,
   onLogout,
   onOpenHelp,
+  onOpenScanner,
   role,
 }: {
   collapsed: boolean;
@@ -175,6 +178,7 @@ function SidebarNav({
   onNavigate?: () => void;
   onLogout: () => void;
   onOpenHelp: () => void;
+  onOpenScanner?: () => void;
   role: SidebarProps['role'];
 }) {
   const { user } = useAuth();
@@ -381,6 +385,34 @@ function SidebarNav({
 
       {/* Bottom Footer Section: User Profile & Help Button */}
       <div className="border-t border-white/10 p-2.5 space-y-1.5 bg-black/15 flex flex-col">
+        {/* Universal QR Scanner Button for Staff Roles (Admin, SIBAT, Auction) */}
+        {role !== 'farmer' && onOpenScanner && (
+          <button
+            type="button"
+            onClick={onOpenScanner}
+            title={collapsed ? "Scan QR Pass / Tag" : undefined}
+            className={`flex items-center gap-3 w-full ${collapsed ? "pl-1.5" : "px-2 py-2"} rounded-xl text-sm font-semibold bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 hover:text-white border border-emerald-400/25 transition-all cursor-pointer group shadow-xs`}
+          >
+            <div className="size-8 rounded-lg bg-emerald-400/25 text-emerald-300 flex items-center justify-center shrink-0 group-hover:bg-emerald-400 group-hover:text-[#1E4D2B] group-hover:scale-105 transition-all">
+              <QrCode className="size-4.5" />
+            </div>
+            <div
+              className={cn(
+                "flex flex-col text-left truncate whitespace-nowrap transition-all duration-200",
+                collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[180px]"
+              )}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black leading-tight text-white">Scan QR Pass</span>
+                <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-sm bg-emerald-400/30 text-emerald-200">
+                  Staff
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-200/70 leading-tight">Batches, Tags &amp; Passes</span>
+            </div>
+          </button>
+        )}
+
         {/* Help & Support Button */}
         <button
           type="button"
@@ -584,6 +616,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [isPinned, setIsPinned] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState<boolean>(false);
+  const [scannerOpen, setScannerOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_pinned");
@@ -637,6 +670,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             pathname={pathname}
             onLogout={onLogout}
             onOpenHelp={() => setHelpDialogOpen(true)}
+            onOpenScanner={() => setScannerOpen(true)}
             role={role}
           />
         </aside>
@@ -655,6 +689,10 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             onOpenHelp={() => {
               setMobileOpen(false);
               setHelpDialogOpen(true);
+            }}
+            onOpenScanner={() => {
+              setMobileOpen(false);
+              setScannerOpen(true);
             }}
             role={role}
           />
@@ -777,6 +815,17 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ═════════════════════════════════════════════════════════════════════
+          UNIVERSAL QR PASS SCANNER DIALOG (FOR STAFF ROLES)
+         ═════════════════════════════════════════════════════════════════════ */}
+      {role !== 'farmer' && (
+        <UniversalQrScannerDialog
+          isOpen={scannerOpen}
+          onOpenChange={setScannerOpen}
+          role={role === 'lgu' ? 'admin' : role}
+        />
+      )}
     </>
   );
 }

@@ -39,7 +39,7 @@ import {
   InspectionRecord,
   INITIAL_INSPECTIONS,
 } from "../auction-inspections/auction-analytics";
-import { AuctionQrScannerDialog } from "../auction-inspections/auction-qr-scanner-dialog";
+import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 export default function AuctionDashboard() {
   const router = useRouter();
@@ -418,9 +418,10 @@ export default function AuctionDashboard() {
         </div>
       </div>
 
-      <AuctionQrScannerDialog
+      <UniversalQrScannerDialog
         isOpen={isScannerOpen}
         onOpenChange={setIsScannerOpen}
+        role="auction"
       />
     </>
   );
