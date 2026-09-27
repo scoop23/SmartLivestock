@@ -12,7 +12,6 @@ import {
   Boxes,
   Minimize2,
   Maximize2,
-  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,123 +41,151 @@ export function DataOverviewKpis({
 
   if (isCompact) {
     return (
-      <div className="bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-2xl px-3.5 py-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3 transition-all animate-in fade-in-50 duration-200">
-        {/* Compact Horizontal Executive Ticker */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 md:gap-6 text-xs divide-x divide-slate-100">
+      <div className="bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 shadow-xs space-y-2.5 transition-all animate-in fade-in-50 duration-200">
+        {/* Header row: Status Title & Expand Button */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2D5A27]"></span>
+            </span>
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-800">
+              Municipal Data Ledger
+            </span>
+            <Badge
+              variant="outline"
+              className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 border-emerald-200 py-0 px-1.5 hidden xs:inline-flex"
+            >
+              Live Pulse
+            </Badge>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCompact(false)}
+            className="h-7 px-2.5 text-xs font-bold text-[#2D5A27] hover:text-[#1E3D1A] hover:bg-emerald-50 rounded-lg gap-1.5 cursor-pointer border border-emerald-200/80 shadow-2xs"
+            title="Expand to Full KPI Cards"
+          >
+            <Maximize2 className="size-3 text-[#2D5A27]" />
+            <span>Expand Cards</span>
+          </Button>
+        </div>
+
+        {/* Responsive Grid of Mobile-Friendly Stat Capsules */}
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {/* 1. Livestock */}
-          <div className="flex items-center gap-1.5 pl-1 first:pl-0">
-            <div className="p-1 rounded-md bg-emerald-100 text-emerald-800">
+          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/70 hover:bg-emerald-50 transition-colors shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-emerald-700 text-white shrink-0 shadow-2xs">
               <Icon iconNode={cowHead} className="size-3.5" />
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block leading-none">
+            <div className="min-w-0">
+              <span className="text-[9px] uppercase font-extrabold text-emerald-800/80 block leading-tight truncate">
                 Livestock
               </span>
-              <span className="font-black text-slate-900 leading-none">
+              <p className="text-xs sm:text-sm font-black text-emerald-950 leading-tight tabular-nums truncate">
                 {totalLivestock.toLocaleString()}
-              </span>
+              </p>
             </div>
           </div>
 
           {/* 2. Batches */}
-          <div className="flex items-center gap-1.5 pl-3 sm:pl-4">
-            <div className="p-1 rounded-md bg-purple-100 text-purple-800">
+          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-purple-50/80 border border-purple-200/70 hover:bg-purple-50 transition-colors shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-purple-700 text-white shrink-0 shadow-2xs">
               <Boxes className="size-3.5" />
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block leading-none">
+            <div className="min-w-0">
+              <span className="text-[9px] uppercase font-extrabold text-purple-800/80 block leading-tight truncate">
                 Batches
               </span>
-              <span className="font-black text-purple-700 leading-none">
-                {totalBatches} Cohorts
-              </span>
+              <p className="text-xs sm:text-sm font-black text-purple-950 leading-tight tabular-nums truncate">
+                {totalBatches}{" "}
+                <span className="text-[10px] font-bold text-purple-700 hidden sm:inline">
+                  Cohorts
+                </span>
+              </p>
             </div>
           </div>
 
           {/* 3. Dairy */}
-          <div className="flex items-center gap-1.5 pl-3 sm:pl-4">
-            <div className="p-1 rounded-md bg-sky-100 text-sky-800">
+          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-sky-50/80 border border-sky-200/70 hover:bg-sky-50 transition-colors shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-sky-700 text-white shrink-0 shadow-2xs">
               <Milk className="size-3.5" />
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block leading-none">
+            <div className="min-w-0">
+              <span className="text-[9px] uppercase font-extrabold text-sky-800/80 block leading-tight truncate">
                 Dairy
               </span>
-              <span className="font-black text-sky-700 leading-none">
-                {totalMilkVolume.toLocaleString()} L
-              </span>
+              <p className="text-xs sm:text-sm font-black text-sky-950 leading-tight tabular-nums truncate">
+                {totalMilkVolume.toLocaleString()}{" "}
+                <span className="text-[10px] font-bold text-sky-700">L</span>
+              </p>
             </div>
           </div>
 
           {/* 4. Trade */}
-          <div className="flex items-center gap-1.5 pl-3 sm:pl-4">
-            <div className="p-1 rounded-md bg-amber-100 text-amber-800">
+          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/70 hover:bg-amber-50 transition-colors shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-amber-700 text-white shrink-0 shadow-2xs">
               <TrendingUp className="size-3.5" />
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block leading-none">
+            <div className="min-w-0">
+              <span className="text-[9px] uppercase font-extrabold text-amber-800/80 block leading-tight truncate">
                 Auction
               </span>
-              <span className="font-black text-amber-700 leading-none">
+              <p className="text-xs sm:text-sm font-black text-amber-950 leading-tight tabular-nums truncate">
                 ₱{(totalAuctionValue / 1000).toFixed(1)}k
-              </span>
+              </p>
             </div>
           </div>
 
           {/* 5. Biosecurity */}
-          <div className="flex items-center gap-1.5 pl-3 sm:pl-4">
+          <div
+            className={`flex items-center gap-2 p-2 sm:p-2.5 rounded-xl border transition-colors shadow-2xs ${
+              activeIncidents > 0
+                ? "bg-rose-50/80 border-rose-300 text-rose-900"
+                : "bg-emerald-50/80 border-emerald-200/70 text-emerald-950"
+            }`}
+          >
             <div
-              className={`p-1 rounded-md ${
-                activeIncidents > 0
-                  ? "bg-rose-100 text-rose-800"
-                  : "bg-emerald-100 text-emerald-800"
+              className={`p-1.5 rounded-lg text-white shrink-0 shadow-2xs ${
+                activeIncidents > 0 ? "bg-rose-600" : "bg-[#2D5A27]"
               }`}
             >
               <AlertTriangle className="size-3.5" />
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block leading-none">
-                Biosecurity
-              </span>
+            <div className="min-w-0">
               <span
-                className={`font-black leading-none ${
-                  activeIncidents > 0 ? "text-rose-700" : "text-emerald-700"
+                className={`text-[9px] uppercase font-extrabold block leading-tight truncate ${
+                  activeIncidents > 0 ? "text-rose-700" : "text-emerald-800/80"
                 }`}
               >
-                {activeIncidents > 0
-                  ? `${activeIncidents} Active Alerts`
-                  : "All Clear"}
+                Health
               </span>
+              <p
+                className={`text-xs sm:text-sm font-black leading-tight truncate ${
+                  activeIncidents > 0 ? "text-rose-900" : "text-emerald-950"
+                }`}
+              >
+                {activeIncidents > 0 ? `${activeIncidents} Alerts` : "All Clear"}
+              </p>
             </div>
           </div>
 
           {/* 6. Raisers */}
-          <div className="flex items-center gap-1.5 pl-3 sm:pl-4">
-            <div className="p-1 rounded-md bg-slate-100 text-slate-700">
+          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/90 hover:bg-slate-100/70 transition-colors shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-slate-700 text-white shrink-0 shadow-2xs">
               <Users className="size-3.5" />
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block leading-none">
+            <div className="min-w-0">
+              <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-tight truncate">
                 Raisers
               </span>
-              <span className="font-black text-slate-900 leading-none">
+              <p className="text-xs sm:text-sm font-black text-slate-900 leading-tight tabular-nums truncate">
                 {totalFarmers.toLocaleString()}
-              </span>
+              </p>
             </div>
           </div>
         </div>
-
-        {/* Expand Toggle */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCompact(false)}
-          className="h-7 px-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg gap-1.5 ml-auto"
-          title="Expand KPI Cards"
-        >
-          <Maximize2 className="size-3 text-slate-500" />
-          <span className="hidden sm:inline">Expand KPIs</span>
-        </Button>
       </div>
     );
   }
@@ -177,15 +204,16 @@ export function DataOverviewKpis({
         </span>
 
         {/* Compact Toggle Button */}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setIsCompact(true)}
-          className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-          title="Switch to compact metric ticker"
+          className="h-7 px-2.5 text-xs font-bold text-[#2D5A27] hover:text-[#1E3D1A] hover:bg-emerald-50 rounded-lg gap-1.5 cursor-pointer border border-emerald-200/80 shadow-2xs"
+          title="Switch to compact metric capsules"
         >
-          <Minimize2 className="size-3 text-slate-600" />
+          <Minimize2 className="size-3 text-[#2D5A27]" />
           <span>Compact View</span>
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
