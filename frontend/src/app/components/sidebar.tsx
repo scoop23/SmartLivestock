@@ -414,8 +414,12 @@ function SidebarNav({
               title={collapsed ? `${userDisplayName} (Profile & Options)` : undefined}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="size-7 rounded-full bg-emerald-600 border border-emerald-300/40 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
-                  {userInitials}
+                <div className="size-7 rounded-full bg-emerald-600 border border-emerald-300/40 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
+                  {user?.profileImage ? (
+                    <img src={user.profileImage} alt={userDisplayName} className="size-full object-cover" />
+                  ) : (
+                    userInitials
+                  )}
                 </div>
 
                 <div
@@ -452,8 +456,12 @@ function SidebarNav({
             {/* Popover Header with Avatar & Department */}
             <div className="p-3.5 bg-gradient-to-br from-emerald-800 via-[#2D5A27] to-[#1c3c18] text-white">
               <div className="flex items-center gap-3">
-                <div className="size-10 rounded-full bg-white/20 border border-white/30 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
-                  {userInitials}
+                <div className="size-10 rounded-full bg-white/20 border border-white/30 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                  {user?.profileImage ? (
+                    <img src={user.profileImage} alt={userDisplayName} className="size-full object-cover" />
+                  ) : (
+                    userInitials
+                  )}
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs font-bold text-white truncate">

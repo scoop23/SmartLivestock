@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -47,11 +47,30 @@ class RegisterView(CreateAPIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
 
-# Get current logged-in user basic profile
-@api_view(["GET"])
+# Get current logged-in user basic profile or update photo/profile details
+@api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 def get_user_information(request):
-    serializer = CurrentUserSerializer(request.user)
+    user = request.user
+    if request.method == "PATCH":
+        if "profile_image" in request.FILES:
+            user.profile_image = request.FILES["profile_image"]
+        elif "profile_image" in request.data and request.data["profile_image"] in ["", "null", None]:
+            user.profile_image = None
+
+        if "first_name" in request.data:
+            user.first_name = request.data["first_name"]
+        if "last_name" in request.data:
+            user.last_name = request.data["last_name"]
+        if "phone_number" in request.data:
+            user.phone_number = request.data["phone_number"]
+
+        user.save()
+        serializer = CurrentUserSerializer(user, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    serializer = CurrentUserSerializer(user, context={"request": request})
     return Response(serializer.data)
 
 

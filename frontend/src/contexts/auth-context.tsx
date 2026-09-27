@@ -16,6 +16,8 @@ export interface User {
   lastName: string | null;
   email: string | null;
   role: string | null;
+  profileImage?: string | null;
+  phoneNumber?: string | null;
 }
 
 interface DecodedToken {
@@ -34,6 +36,7 @@ interface AuthContextType {
   isLoading: boolean;
   fetchUser: () => Promise<void>;
   logout: () => void;
+  updateUser: (updatedFields: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -108,6 +111,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         lastName: data.last_name || null,
         email: data.email,
         role: data.role,
+        profileImage: data.profile_image || null,
+        phoneNumber: data.phone_number || null,
       });
       setAccessToken(latestToken);
     } catch (error: any) {
@@ -132,6 +137,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 lastName: prev?.lastName || null,
                 email: decoded.email || prev?.email || null,
                 role: decoded.role || prev?.role || null,
+                profileImage: prev?.profileImage || null,
+                phoneNumber: prev?.phoneNumber || null,
               }));
               setAccessToken(currentToken);
             }
@@ -143,6 +150,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const updateUser = useCallback((updatedFields: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedFields } : null));
   }, []);
 
   const logout = useCallback(() => {
@@ -161,7 +172,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   return (
     <AuthContext.Provider
-      value={{ user, accessToken, isLoading, fetchUser, logout }}
+      value={{ user, accessToken, isLoading, fetchUser, logout, updateUser }}
     >
       {children}
     </AuthContext.Provider>

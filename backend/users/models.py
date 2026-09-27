@@ -27,6 +27,9 @@ class User(AbstractUser):
     approved_at = models.DateTimeField(null=True, blank=True)
     role = models.ForeignKey("Role", on_delete=models.PROTECT)
     phone_number = PhoneNumberField(blank=True, null=True)
+    profile_image = models.ImageField(
+        upload_to="profile_photos/", blank=True, null=True
+    )
 
     def __str__(self):
         user_pk = self.pk if self.pk else "New"

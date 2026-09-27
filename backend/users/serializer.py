@@ -175,16 +175,19 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     Returns:
         Minimal profile identity for the currently logged-in user:
         - id: User primary key
-        - first_name, last_name, email
+        - first_name, last_name, email, phone_number
         - role: Resolved role name string (e.g. 'FARMER', 'MAO', 'SIBAT')
+        - profile_image: Full URL of uploaded profile photo
     Used in:
-        GET /api/users/me/ for frontend authentication status and route authorization.
+        GET/PATCH /api/users/me/ for frontend authentication status and route authorization.
     """
     role = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "first_name", "last_name", "email", "role")
+        fields = ("id", "first_name", "last_name", "email", "role", "profile_image", "phone_number")
+        read_only_fields = ("id", "role")
 
     def get_role(self, obj):
         if hasattr(obj, "role") and obj.role:
@@ -192,6 +195,14 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         if obj.is_superuser or obj.is_staff:
             return "MAO"
         return "FARMER"
+
+    def get_profile_image(self, obj):
+        if obj.profile_image:
+            request = self.context.get("request")
+            if request is not None:
+                return request.build_absolute_uri(obj.profile_image.url)
+            return obj.profile_image.url
+        return None
 
 
 class UserManagementSerializer(serializers.ModelSerializer):
@@ -208,6 +219,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
     """
     role = serializers.CharField(source="role.role_name", read_only=True)
     full_name = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
     phone_number = serializers.SerializerMethodField()
     barangay = serializers.SerializerMethodField()
     barangay_id = serializers.SerializerMethodField()
@@ -225,6 +237,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "full_name",
+            "profile_image",
             "phone_number",
             "role",
             "account_status",
@@ -238,6 +251,14 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "documents",
         )
         read_only_fields = fields
+
+    def get_profile_image(self, obj):
+        if obj.profile_image:
+            request = self.context.get("request")
+            if request is not None:
+                return request.build_absolute_uri(obj.profile_image.url)
+            return obj.profile_image.url
+        return None
 
     def get_full_name(self, obj):
         name = f"{obj.first_name} {obj.last_name}".strip()
