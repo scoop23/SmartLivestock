@@ -115,13 +115,14 @@ export default function UserManagementPage() {
           </Badge>
         );
       case "SUBJECT_TO_REVISION":
+      case "SUBJECT_FOR_REVISION":
       case "REJECTED":
         return (
           <Badge
             variant="outline"
-            className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900"
+            className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200"
           >
-            For Revision
+            Subject for Revision
           </Badge>
         );
       default:
@@ -141,10 +142,12 @@ export default function UserManagementPage() {
       <PageHeader
         title="Personnel & Farmer Directory"
         subtitle="Manage registered Farmers, SIBAT Audit Officers, and approve pending accounts"
+        variant="admin"
         maxWidthClass="w-full"
+        icon={<Users className="size-5 text-slate-800" />}
       />
 
-      <div className="w-full space-y-3.5 p-3 sm:p-4 md:p-5">
+      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
         {/* Controls Area */}
         <div className="flex flex-col md:flex-row gap-2.5 items-center justify-between bg-white p-3 rounded-xl shadow-2xs border border-slate-200/80">
           <div className="relative w-full md:w-80">
@@ -345,7 +348,7 @@ export default function UserManagementPage() {
                                   handleStatusUpdate(user.id, "SUBJECT_TO_REVISION");
                                 }}
                                 title="Return for Revision"
-                                className="h-7 px-2 text-[10px] font-black text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md gap-1 cursor-pointer"
+                                className="h-7 px-2 text-[10px] font-black text-rose-800 bg-rose-50 hover:bg-rose-100 rounded-md gap-1 cursor-pointer"
                               >
                                 <RotateCcw size={12} />
                                 <span>Revision</span>
@@ -516,9 +519,9 @@ export default function UserManagementPage() {
                     handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION");
                     setSelectedUser(null);
                   }}
-                  className="flex-1 py-6 border-amber-300 text-amber-900 hover:bg-amber-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-6 border-rose-300 text-rose-900 hover:bg-rose-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <RotateCcw className="size-4 text-amber-700" />
+                  <RotateCcw className="size-4 text-rose-700" />
                   Return for Revision
                 </Button>
               </div>

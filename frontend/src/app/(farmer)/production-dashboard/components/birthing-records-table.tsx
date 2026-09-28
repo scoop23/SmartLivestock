@@ -68,80 +68,107 @@ export default function BirthingRecordsTable({
                 <th className="py-3 px-4">Birth Date</th>
                 <th className="py-3 px-4">{terms.sireName}</th>
                 <th className="py-3 px-4">Delivery Ease</th>
+                <th className="py-3 px-4">Field Status</th>
                 <th className="py-3 px-4">Notes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {records.map((record) => (
-                <tr key={record.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className="size-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                        <Tag className="size-3.5" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900">
-                          {record.calf_tag || `ID #${record.id}`}
+              {records.map((record) => {
+                const status = record.status || "PENDING";
+                return (
+                  <tr key={record.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="size-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                          <Tag className="size-3.5" />
                         </div>
-                        <div className="text-[10px] text-slate-400">
-                          {record.breed || "Standard"}
+                        <div>
+                          <div className="font-bold text-slate-900">
+                            {record.calf_tag || `ID #${record.id}`}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {record.breed || "Standard"}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                      <HeartPulse className="size-3.5 text-rose-500 shrink-0" />
-                      <span>{record.dam_tag ? `Tag #${record.dam_tag}` : `Dam #${record.dam}`}</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    {record.calf_sex === "FEMALE" ? (
-                      <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold">
-                        {terms.femaleOffspring}
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-bold">
-                        {terms.maleOffspring}
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    {record.birth_weight ? (
-                      <div className="flex items-center gap-1 font-semibold text-slate-800">
-                        <Scale className="size-3.5 text-slate-400" />
-                        <span>{record.birth_weight} kg</span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                        <HeartPulse className="size-3.5 text-rose-500 shrink-0" />
+                        <span>{record.dam_tag ? `Tag #${record.dam_tag}` : `Dam #${record.dam}`}</span>
                       </div>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1 text-slate-600">
-                      <Calendar className="size-3.5 text-slate-400" />
-                      <span>{record.calving_date}</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    {record.sire_tag ? (
-                      <div className="flex items-center gap-1 text-purple-700 font-medium text-[11px]">
-                        <Dna className="size-3.5 text-purple-500" />
-                        <span>{record.sire_tag}</span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {record.calf_sex === "FEMALE" ? (
+                        <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold">
+                          {terms.femaleOffspring}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-bold">
+                          {terms.maleOffspring}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {record.birth_weight ? (
+                        <div className="flex items-center gap-1 font-semibold text-slate-800">
+                          <Scale className="size-3.5 text-slate-400" />
+                          <span>{record.birth_weight} kg</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1 text-slate-600">
+                        <Calendar className="size-3.5 text-slate-400" />
+                        <span>{record.calving_date}</span>
                       </div>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                      {record.calving_ease || "Normal"}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 max-w-[180px] truncate text-slate-500 text-[11px]">
-                    {record.notes || "—"}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {record.sire_tag ? (
+                        <div className="flex items-center gap-1 text-purple-700 font-medium text-[11px]">
+                          <Dna className="size-3.5 text-purple-500" />
+                          <span>{record.sire_tag}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                        {record.calving_ease || "Normal"}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {status === "APPROVED" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="size-1.5 rounded-full bg-emerald-500" />
+                          Certified (MAO)
+                        </span>
+                      ) : status === "VERIFIED" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-50 text-sky-800 border border-sky-200">
+                          <span className="size-1.5 rounded-full bg-sky-500" />
+                          SIBAT Verified
+                        </span>
+                      ) : status === "SUBJECT_TO_REVISION" || status === "SUBJECT_FOR_REVISION" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="size-1.5 rounded-full bg-rose-500" />
+                          For Revision
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Awaiting SIBAT
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 max-w-[180px] truncate text-slate-500 text-[11px]">
+                      {record.notes || "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

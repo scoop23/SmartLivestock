@@ -39,7 +39,7 @@ import {
 import { getAttachedPhoto, saveAttachedPhoto } from "@/lib/photo-storage";
 
 export type SibatReportType = "DISEASE" | "MORTALITY" | "SLAUGHTER" | "PRODUCTION" | "SALE";
-export type SibatStatus = "PENDING" | "VERIFIED" | "APPROVED" | "FLAGGED" | "FALSE_ALARM" | "SUBJECT_TO_REVISION" | "REJECTED";
+export type SibatStatus = "PENDING" | "VERIFIED" | "APPROVED" | "FLAGGED" | "FALSE_ALARM" | "SUBJECT_TO_REVISION" | "SUBJECT_FOR_REVISION" | "REJECTED";
 export type SeverityLevel = "MILD" | "MODERATE" | "SEVERE" | "CRITICAL";
 export type BiosecurityAction =
   | "NONE"
@@ -305,8 +305,8 @@ export function SibatInspectionDialog({
                       ? "bg-sky-100 text-sky-800 border-sky-300"
                       : record.status === "APPROVED"
                         ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                        : record.status === "FLAGGED"
-                          ? "bg-amber-100 text-amber-800 border-amber-300"
+                        : record.status === "FLAGGED" || record.status === "SUBJECT_TO_REVISION" || record.status === "SUBJECT_FOR_REVISION"
+                          ? "bg-rose-100 text-rose-800 border-rose-300"
                           : "bg-amber-50 text-amber-700 border-amber-300 animate-pulse"
                       }`}
                   >
@@ -314,8 +314,8 @@ export function SibatInspectionDialog({
                       ? "Verified (Field)"
                       : record.status === "APPROVED"
                         ? "MAO Approved"
-                        : record.status === "FLAGGED"
-                          ? "Subject to Revision"
+                        : record.status === "FLAGGED" || record.status === "SUBJECT_TO_REVISION" || record.status === "SUBJECT_FOR_REVISION"
+                          ? "Subject for Revision"
                           : "Pending On-Farm Visit"}
                   </Badge>
                   <span className="text-xs font-bold text-slate-400">
@@ -868,7 +868,7 @@ export function SibatInspectionDialog({
                   type="button"
                   variant="outline"
                   onClick={() => handleAction("FLAGGED")}
-                  className="py-4 bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 rounded-xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
+                  className="py-4 bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 rounded-xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
                 >
                   <AlertTriangle className="size-4" />
                   <span>Refer for Vet Lab Sample</span>

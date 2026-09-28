@@ -225,7 +225,7 @@ export default function AdminDataValidationPage() {
     const approved = allRecords.filter((r) => (r.status || "").toUpperCase() === "APPROVED").length;
     const flagged = allRecords.filter((r) => {
       const s = (r.status || "").toUpperCase();
-      return s === "SUBJECT_TO_REVISION" || s === "REJECTED" || s === "FLAGGED";
+      return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION" || s === "REJECTED" || s === "FLAGGED";
     }).length;
 
     const activeBarangays = new Set(allRecords.map((r) => r.barangay).filter(Boolean)).size;
@@ -614,7 +614,7 @@ export default function AdminDataValidationPage() {
           subtitle="Official Municipal Agriculture Office (MAO) verification, review, and certification command center"
           variant="admin"
           maxWidthClass="w-full"
-          icon={<ShieldCheck className="w-6 h-6 text-slate-900" />}
+          icon={<ShieldCheck className="size-5 text-slate-800" />}
         />
         <ValidationLoadingScreen
           censusLoaded={rawCensusData !== undefined}
@@ -633,7 +633,7 @@ export default function AdminDataValidationPage() {
         subtitle="Official Municipal Agriculture Office (MAO) verification, review, and certification command center"
         variant="admin"
         maxWidthClass="w-full"
-        icon={<ShieldCheck className="w-6 h-6 text-slate-900" />}
+        icon={<ShieldCheck className="size-5 text-slate-800" />}
         action={
           <Button
             size="sm"

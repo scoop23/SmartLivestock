@@ -443,13 +443,14 @@ export function getStatusPill(status: string) {
         dot: "bg-emerald-500",
       };
     case "SUBJECT_TO_REVISION":
+    case "SUBJECT_FOR_REVISION":
     case "REJECTED":
     case "FLAGGED":
       return {
-        label: "Subject to Revision",
+        label: "Subject for Revision",
         shortLabel: "For Revision",
-        bg: "bg-amber-50 text-amber-900 border-amber-300",
-        dot: "bg-amber-500",
+        bg: "bg-rose-50 text-rose-700 border-rose-200",
+        dot: "bg-rose-500",
       };
     case "VERIFIED":
       return {

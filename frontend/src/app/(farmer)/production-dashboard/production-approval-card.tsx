@@ -34,8 +34,8 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
-  SUBJECT_TO_REVISION: "bg-amber-100 text-amber-900 border-amber-300",
-  REJECTED: "bg-amber-100 text-amber-900 border-amber-300",
+  SUBJECT_TO_REVISION: "bg-rose-100 text-rose-800 border-rose-300",
+  REJECTED: "bg-rose-100 text-rose-800 border-rose-300",
 };
 
 const typeMeta = {
@@ -123,7 +123,7 @@ export default function ProductionApprovalCard({
   const isApproved = record.status === "APPROVED";
   const isVerified = record.status === "VERIFIED";
   const isPending = record.status === "PENDING";
-  const isRejected = record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED";
+  const isRejected = record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED";
 
   const meta = typeMeta[record.productionType] ?? typeMeta.milk;
   const TypeIcon = meta.icon;
@@ -139,7 +139,7 @@ export default function ProductionApprovalCard({
             ? "bg-gradient-to-r from-sky-600 via-sky-600 to-sky-700"
             : isPending
             ? "bg-gradient-to-r from-amber-600 via-amber-600 to-amber-700"
-            : "bg-gradient-to-r from-amber-700 via-amber-700 to-amber-800"
+            : "bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
@@ -162,10 +162,10 @@ export default function ProductionApprovalCard({
                 ? "bg-white text-[#2D5A27] hover:bg-white"
                 : isPending
                 ? "bg-white text-amber-800 hover:bg-white"
-                : "bg-white text-amber-900 hover:bg-white"
+                : "bg-white text-rose-800 hover:bg-white"
             }`}
           >
-            {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") ? "Subject to Revision" : record.status}
+            {(record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED") ? "Subject for Revision" : record.status}
           </Badge>
         </div>
       </div>

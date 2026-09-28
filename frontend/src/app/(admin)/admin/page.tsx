@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/app/components/page-header';
 import { AskAIBar } from '@/app/components/ask-ai-bar';
 import {
+  LayoutDashboard,
   Users, CheckSquare, Map, TrendingUp, AlertTriangle,
   Sprout, FileText, Download, FileSpreadsheet,
   FileBarChart, Database, Milk, Scale, ChevronRight
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
           subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
           variant="admin"
           maxWidthClass="w-full"
+          icon={<LayoutDashboard className="size-5 text-slate-800" />}
         />
         <div className="p-3 sm:p-4 md:p-5 w-full">
           <ValidationLoadingScreen
@@ -144,6 +146,7 @@ export default function AdminDashboard() {
         subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
         variant="admin"
         maxWidthClass="w-full"
+        icon={<LayoutDashboard className="size-5 text-slate-800" />}
       />
 
       {/* AI Search Bar */}

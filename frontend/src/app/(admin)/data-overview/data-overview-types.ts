@@ -80,7 +80,7 @@ export interface BatchRecord {
   targetHarvestDate?: string | null;
   totalAnimals: number;
   averageWeight?: number | string | null;
-  status: 'APPROVED' | 'PENDING' | 'VERIFIED' | 'SUBJECT_TO_REVISION' | string;
+  status: 'APPROVED' | 'PENDING' | 'VERIFIED' | 'SUBJECT_TO_REVISION' | 'SUBJECT_FOR_REVISION' | string;
   reviewRemarks?: string;
   reviewedByName?: string;
   reviewedAt?: string;
@@ -104,7 +104,7 @@ export interface ProductionRecord {
   collectionCenter: string;
   estValuePhp: number;
   date: string;
-  status: 'Certified' | 'Pending Review' | 'Flagged';
+  status: 'Certified' | 'Pending Review' | 'Subject for Revision' | 'Flagged';
 }
 
 export interface SalesRecord {

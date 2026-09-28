@@ -28,8 +28,8 @@ export default function SibatKpiSection({
   // Health counts
   const pendingHealthCount = healthRecords.filter((r) => r.status === "PENDING").length;
 
-  // Production counts
-  const prodSubmissions = submissions.filter((s) => s.sourceType === "PRODUCTION");
+  // Production & Calving counts
+  const prodSubmissions = submissions.filter((s) => s.sourceType === "PRODUCTION" || s.sourceType === "CALVING");
   const pendingProdCount = prodSubmissions.filter((s) => s.status === "PENDING").length;
 
   // Inventory counts
@@ -88,7 +88,7 @@ export default function SibatKpiSection({
         </CardContent>
       </Card>
 
-      {/* 2. Milk & Harvest Yields */}
+      {/* 2. Harvest & Calving Yields */}
       <Card
         onClick={() => onSelectTab?.("production")}
         className="group relative cursor-pointer border-slate-200/80 bg-white hover:border-sky-300 hover:shadow-md transition-all duration-200 rounded-3xl overflow-hidden shadow-2xs"
@@ -97,7 +97,7 @@ export default function SibatKpiSection({
         <CardContent className="p-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Milk & Harvest Logs
+              Harvest & Calving Logs
             </span>
             <div className="size-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-black group-hover:scale-110 transition-transform">
               <Milk className="size-5" />

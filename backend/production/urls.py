@@ -17,6 +17,7 @@ urlpatterns = [
 
     # Calving & Birth Registry
     path("calving/", views.calving_records_list_create, name="calving_list_create"),
+    path("calving/<int:pk>/review/", views.review_calving_record, name="review_calving"),
 
     # Animal Disposition Intent (Sale, Slaughter, Movement)
     path("dispositions/", views.animal_disposition_list_create, name="dispositions_list_create"),

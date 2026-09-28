@@ -120,13 +120,13 @@ export function ValidationKpis({
           </div>
         </div>
 
-        {/* Subject to Revision */}
-        <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-50/50 to-white border border-amber-200/70 shadow-2xs flex flex-col justify-between">
+        {/* Subject for Revision */}
+        <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-500/10 via-rose-50/50 to-white border border-rose-200/70 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-900 shrink-0">
-              <RotateCcw className="w-3.5 h-3.5" />
+            <div className="p-1.5 rounded-lg bg-rose-100 text-rose-900 shrink-0">
+              <RotateCcw className="w-3.5 h-3.5 text-rose-700" />
             </div>
-            <span className="text-[9px] font-black uppercase text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded-full">
+            <span className="text-[9px] font-black uppercase text-rose-800 bg-rose-100/80 px-1.5 py-0.5 rounded-full">
               For Revision
             </span>
           </div>
@@ -135,7 +135,7 @@ export function ValidationKpis({
               {kpis.flagged}
             </div>
             <p className="text-[10px] font-black text-stone-500 uppercase tracking-wider mt-1 truncate">
-              For Revision
+              Subject for Revision
             </p>
           </div>
         </div>
@@ -203,11 +203,11 @@ export function ValidationKpis({
         />
 
         <KpiCard
-          title="Subject to Revision"
+          title="Subject for Revision"
           value={kpis.flagged}
-          variant="amber"
+          variant="rose"
           layout="vertical"
-          icon={<RotateCcw className="w-5 h-5 text-amber-700" />}
+          icon={<RotateCcw className="w-5 h-5 text-rose-700" />}
           badge="For Revision"
           description="Returned for correction or re-inspection"
         />

@@ -105,17 +105,19 @@ export function DataOverviewCards({
                     item.status === "APPROVED" ||
                     item.status === "MAO Verified"
                       ? "bg-emerald-100 text-emerald-800"
-                      : item.status === "SUBJECT_TO_REVISION"
-                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION"
+                      ? "bg-rose-100 text-rose-800 border border-rose-200"
                       : item.status === "Quarantined" || item.severity === "Critical"
                       ? "bg-rose-600 text-white"
                       : item.status === "VERIFIED"
                       ? "bg-sky-100 text-sky-800"
+                      : item.status === "PENDING" || item.status === "Pending Review"
+                      ? "bg-amber-100 text-amber-800 border border-amber-200"
                       : "bg-slate-100 text-slate-700"
                   }`}
                 >
-                  {item.status === "SUBJECT_TO_REVISION"
-                    ? "Revision"
+                  {item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION"
+                    ? "Subject for Revision"
                     : item.healthStatus || item.status || item.qualityGrade || "Active"}
                 </Badge>
               </div>

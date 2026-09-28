@@ -218,9 +218,10 @@ function AdminBatchesDrilldownContent() {
     const verifiedBatches = batches.filter(
       (b) => (b.review_status || "").toUpperCase() === "VERIFIED"
     ).length;
-    const revisionBatches = batches.filter(
-      (b) => (b.review_status || "").toUpperCase() === "SUBJECT_TO_REVISION"
-    ).length;
+    const revisionBatches = batches.filter((b) => {
+      const s = (b.review_status || "").toUpperCase();
+      return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION";
+    }).length;
     const avgHeads = totalBatches > 0 ? (totalAnimals / totalBatches).toFixed(1) : "0";
 
     return {
@@ -262,7 +263,9 @@ function AdminBatchesDrilldownContent() {
 
       const matchStatus =
         statusFilter === "ALL" ||
-        (b.review_status || "PENDING").trim().toUpperCase() === statusFilter.trim().toUpperCase();
+        (statusFilter === "SUBJECT_TO_REVISION"
+          ? (b.review_status || "").trim().toUpperCase() === "SUBJECT_TO_REVISION" || (b.review_status || "").trim().toUpperCase() === "SUBJECT_FOR_REVISION"
+          : (b.review_status || "PENDING").trim().toUpperCase() === statusFilter.trim().toUpperCase());
 
       const matchBarangay =
         barangayFilter === "ALL" ||
@@ -284,7 +287,9 @@ function AdminBatchesDrilldownContent() {
 
       const matchStatus =
         animalStatusFilter === "ALL" ||
-        (a.status || "PENDING").toUpperCase() === animalStatusFilter;
+        (animalStatusFilter === "SUBJECT_TO_REVISION"
+          ? (a.status || "").toUpperCase() === "SUBJECT_TO_REVISION" || (a.status || "").toUpperCase() === "SUBJECT_FOR_REVISION"
+          : (a.status || "PENDING").toUpperCase() === animalStatusFilter);
 
       return matchSearch && matchStatus;
     });
@@ -388,11 +393,11 @@ function AdminBatchesDrilldownContent() {
         </span>
       );
     }
-    if (s === "SUBJECT_TO_REVISION") {
+    if (s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION") {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
           <AlertTriangle className="w-3 h-3 text-rose-600" />
-          Revision Needed
+          Subject for Revision
         </span>
       );
     }
@@ -421,10 +426,10 @@ function AdminBatchesDrilldownContent() {
         subtitle="Official MAO inspection center: review complete livestock cohorts and drill down into individual ear tags"
         variant="admin"
         maxWidthClass="w-full"
-        icon={<Layers className="w-6 h-6 text-slate-900" />}
+        icon={<Layers className="size-5 text-slate-800" />}
       />
 
-      <div className="p-3 sm:p-5 md:p-6 w-full space-y-4 pb-20">
+      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
         {/* Navigation Breadcrumb / Top Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <div className="flex items-center gap-2">
@@ -618,7 +623,7 @@ function AdminBatchesDrilldownContent() {
                   <SelectItem value="APPROVED">MAO Approved ({kpis.approvedBatches})</SelectItem>
                   <SelectItem value="PENDING">Pending Review ({kpis.pendingBatches})</SelectItem>
                   <SelectItem value="VERIFIED">SIBAT Verified ({kpis.verifiedBatches})</SelectItem>
-                  <SelectItem value="SUBJECT_TO_REVISION">Subject to Revision ({kpis.revisionBatches})</SelectItem>
+                  <SelectItem value="SUBJECT_TO_REVISION">Subject for Revision ({kpis.revisionBatches})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1512,6 +1517,12 @@ function AdminBatchesDrilldownContent() {
       ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={isPassportOpen} onOpenChange={setIsPassportOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-md md:max-w-lg rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200 max-h-[92vh] overflow-y-auto">
+          {(!passportAnimal || !selectedBatch) && (
+            <DialogHeader className="sr-only">
+              <DialogTitle>Municipal Livestock Passport</DialogTitle>
+              <DialogDescription>Republic of the Philippines • Municipality of Padre Garcia, Batangas</DialogDescription>
+            </DialogHeader>
+          )}
           {passportAnimal && selectedBatch && (
             <>
               <DialogHeader className="text-center">
@@ -1640,6 +1651,17 @@ function AdminBatchesDrilldownContent() {
       ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={isBatchCertificateOpen} onOpenChange={setIsBatchCertificateOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200 max-h-[92vh] overflow-y-auto">
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              {selectedBatch
+                ? `Batch ${selectedBatch.batch_name} Biosecurity Certificate & Movement Clearance Pass`
+                : "Batch Biosecurity Certificate & Movement Clearance Pass"}
+            </DialogTitle>
+            <DialogDescription>
+              Official Municipal Biosecurity &amp; Movement Clearance Pass
+            </DialogDescription>
+          </DialogHeader>
+
           {selectedBatch && (
             <div className="space-y-4">
               <QrCodePass

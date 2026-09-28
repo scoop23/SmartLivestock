@@ -50,10 +50,11 @@ export default function CensusDetailsDialog({
           </Badge>
         );
       case "SUBJECT_TO_REVISION":
+      case "SUBJECT_FOR_REVISION":
       case "REJECTED":
         return (
-          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-xs">
-            <RotateCcw className="w-3.5 h-3.5 mr-1" /> Subject to Revision
+          <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-xs">
+            <RotateCcw className="w-3.5 h-3.5 mr-1" /> Subject for Revision
           </Badge>
         );
       default:

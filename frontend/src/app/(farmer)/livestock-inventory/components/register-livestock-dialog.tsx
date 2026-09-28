@@ -230,6 +230,18 @@ export function RegisterLivestockDialog({
     toast.success(`Applied breed "${firstBreed}" to all ${batchAnimals.length} animals.`);
   };
 
+  const syncVaccinationDateToAllAnimals = () => {
+    const firstVaccinationDate = batchAnimals[0]?.lastVaccinationDate;
+    if (!firstVaccinationDate) {
+      toast.info("Please enter a vaccination date for Animal #1 first.");
+      return;
+    }
+    setBatchAnimals((prev) =>
+      prev.map((animal) => ({ ...animal, lastVaccinationDate: firstVaccinationDate }))
+    );
+    toast.success(`Applied Animal #1's vaccination date to all ${batchAnimals.length} animals.`);
+  };
+
   const reTagAllBatchAnimals = () => {
     const preset = getSpeciesPreset(formData.livestockType);
     const prefix = preset.tagPrefix || formData.livestockType.slice(0, 3).toUpperCase();
@@ -1151,6 +1163,14 @@ export function RegisterLivestockDialog({
                         title="Applies breed from Animal #1 to all other animals"
                       >
                         Sync Breed #1
+                      </button>
+                      <button
+                        type="button"
+                        onClick={syncVaccinationDateToAllAnimals}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 transition-colors shadow-xs"
+                        title="Applies the vaccination date from Animal #1 to every animal in this batch"
+                      >
+                        Sync Vaccination Date #1
                       </button>
                       <button
                         type="button"

@@ -207,7 +207,7 @@ export function RecordDetailDialog({
   const isPending = statusNorm === "PENDING";
   const isVerified = statusNorm === "VERIFIED";
   const isApproved = statusNorm === "APPROVED";
-  const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
+  const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
 
   const handleSaveEdits = async () => {
     if (!record || record.kind !== "inventory") return;
@@ -345,7 +345,7 @@ export function RecordDetailDialog({
                 : isVerified
                   ? "bg-sky-500 text-white border-sky-400"
                   : isRejected
-                    ? "bg-amber-500 text-white border-amber-400"
+                    ? "bg-rose-600 text-white border-rose-500"
                     : "bg-amber-400/20 text-amber-200 border-amber-300/40"
                 }`}
             >
@@ -359,7 +359,7 @@ export function RecordDetailDialog({
                   : isVerified
                     ? "SIBAT Field-Verified"
                     : isRejected
-                      ? "Subject to Revision"
+                      ? "Subject for Revision"
                       : "Pending MAO Review"}
               </span>
             </Badge>
@@ -407,7 +407,7 @@ export function RecordDetailDialog({
                 className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${isVerified || isApproved
                   ? "bg-sky-50/80 border-sky-200 text-sky-950"
                   : isRejected
-                    ? "bg-amber-50/60 border-amber-200 text-amber-950"
+                    ? "bg-rose-50/70 border-rose-200 text-rose-950"
                     : "bg-slate-50 border-slate-100 text-slate-400"
                   }`}
               >
@@ -415,7 +415,7 @@ export function RecordDetailDialog({
                   className={`size-7 rounded-lg flex items-center justify-center shrink-0 ${isVerified || isApproved
                     ? "bg-sky-600 text-white"
                     : isRejected
-                      ? "bg-amber-500 text-white"
+                      ? "bg-rose-600 text-white"
                       : "bg-slate-200 text-slate-500"
                     }`}
                 >
@@ -434,7 +434,7 @@ export function RecordDetailDialog({
                 className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${isApproved
                   ? "bg-emerald-50/80 border-emerald-200 text-emerald-950"
                   : isRejected
-                    ? "bg-amber-50/60 border-amber-200 text-amber-950"
+                    ? "bg-rose-50/70 border-rose-200 text-rose-950"
                     : "bg-slate-50 border-slate-100 text-slate-400"
                   }`}
               >
@@ -442,7 +442,7 @@ export function RecordDetailDialog({
                   className={`size-7 rounded-lg flex items-center justify-center shrink-0 ${isApproved
                     ? "bg-[#2D5A27] text-white"
                     : isRejected
-                      ? "bg-amber-500 text-white"
+                      ? "bg-rose-600 text-white"
                       : "bg-slate-200 text-slate-500"
                     }`}
                 >
@@ -451,7 +451,7 @@ export function RecordDetailDialog({
                 <div className="min-w-0">
                   <p className="text-[11px] font-black leading-tight">3. MAO Certification</p>
                   <p className="text-[10px] truncate">
-                    {isApproved ? "Certified Ledger Entry" : isRejected ? "Subject to Revision" : "Awaiting Final Certification"}
+                    {isApproved ? "Certified Ledger Entry" : isRejected ? "Subject for Revision" : "Awaiting Final Certification"}
                   </p>
                 </div>
               </div>
@@ -1048,7 +1048,7 @@ export function RecordDetailDialog({
                   <span className="text-[9px] font-black text-sky-800 uppercase block mb-1">
                     Officer Observation Notes
                   </span>
-                  <p className="italic leading-relaxed">"{record.reviewRemarks}"</p>
+                  <p className="italic leading-relaxed">&ldquo;{record.reviewRemarks}&rdquo;</p>
                 </div>
               )}
             </div>
@@ -1117,9 +1117,9 @@ export function RecordDetailDialog({
                   variant="outline"
                   disabled={isSubmitting}
                   onClick={() => handleAction("SUBJECT_TO_REVISION")}
-                  className="flex-1 py-4 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-xl text-xs font-black uppercase tracking-wider gap-2 cursor-pointer"
+                  className="flex-1 py-4 bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-300 rounded-xl text-xs font-black uppercase tracking-wider gap-2 cursor-pointer"
                 >
-                  <RotateCcw className="size-4 text-amber-700" />
+                  <RotateCcw className="size-4 text-rose-700" />
                   <span>Return for Revision</span>
                 </Button>
 
@@ -1143,7 +1143,7 @@ export function RecordDetailDialog({
                   Certified Municipal Determination
                 </span>
                 <Badge
-                  className={`text-[9px] font-black uppercase ${isApproved ? "bg-emerald-100 text-emerald-900 border-0" : "bg-amber-100 text-amber-900 border-0"
+                  className={`text-[9px] font-black uppercase ${isApproved ? "bg-emerald-100 text-emerald-900 border-0" : "bg-rose-100 text-rose-900 border-0"
                     }`}
                 >
                   {isApproved ? "OFFICIALLY CERTIFIED" : "RETURNED FOR REVISION"}

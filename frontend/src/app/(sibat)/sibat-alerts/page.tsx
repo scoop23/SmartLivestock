@@ -98,7 +98,7 @@ export default function SibatAlertsPage() {
     return records.filter((r) =>
       activeTab === "pending"
         ? r.status === "PENDING"
-        : r.status === "VERIFIED" || r.status === "APPROVED" || r.status === "SUBJECT_TO_REVISION" || r.status === "REJECTED"
+        : r.status === "VERIFIED" || r.status === "APPROVED" || r.status === "SUBJECT_TO_REVISION" || r.status === "SUBJECT_FOR_REVISION" || r.status === "REJECTED"
     );
   }, [records, activeTab]);
 
@@ -310,7 +310,7 @@ export default function SibatAlertsPage() {
                                 ? "bg-sky-100 text-sky-800 border-sky-300"
                                 : alert.status === "APPROVED"
                                 ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                : "bg-amber-100 text-amber-900 border-amber-300"
+                                : "bg-rose-100 text-rose-800 border-rose-300"
                             }`}
                           >
                             {alert.status === "VERIFIED" && (
@@ -325,10 +325,10 @@ export default function SibatAlertsPage() {
                                 MAO Certified
                               </>
                             )}
-                            {(alert.status === "SUBJECT_TO_REVISION" || alert.status === "REJECTED") && (
+                            {(alert.status === "SUBJECT_TO_REVISION" || alert.status === "SUBJECT_FOR_REVISION" || alert.status === "REJECTED" || alert.status === "FLAGGED") && (
                               <>
                                 <RotateCcw className="w-3 h-3 mr-1" />
-                                Subject to Revision
+                                Subject for Revision
                               </>
                             )}
                           </Badge>

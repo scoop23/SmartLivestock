@@ -374,10 +374,101 @@ def calving_records_list_create(request):
 
     records = records.select_related(
         "dam__livestock_type",
+        "dam__farmer__user",
+        "dam__farmer__barangay",
+        "dam__barangay",
+        "reviewed_by",
         "created_by",
     ).order_by("-calving_date", "-created_at")
 
     serializer = CalvingRecordSerializer(records, many=True)
+    return Response(serializer.data, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def review_calving_record(request, pk):
+    """
+    POST /production/calving/<pk>/review/
+    Review and verify calving & birth registry records:
+    - SIBAT: Field verification of calf on farm (status = VERIFIED)
+    - MAO / Admin: Official municipal registration approval (status = APPROVED or SUBJECT_TO_REVISION)
+    """
+    calving = get_object_or_404(CalvingRecord, pk=pk)
+    new_status = request.data.get("status")
+    remarks = request.data.get("remarks", "")
+
+    if not new_status:
+        return Response(
+            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
+            status=400,
+        )
+
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+
+    if role_name == "FARMER":
+        return Response(
+            {"error": "Farmers are not authorized to review calving records."},
+            status=403,
+        )
+
+    if role_name == "SIBAT":
+        if new_status == CalvingRecord.StatusType.APPROVED:
+            return Response(
+                {"error": "SIBAT officers can only verify (VERIFIED). Final approval is reserved for MAO."},
+                status=403,
+            )
+        if new_status not in [CalvingRecord.StatusType.VERIFIED, CalvingRecord.StatusType.SUBJECT_TO_REVISION]:
+            return Response(
+                {"error": "Invalid status for SIBAT. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
+                status=400,
+            )
+    elif role_name == "MAO":
+        if new_status not in CalvingRecord.StatusType.values:
+            return Response(
+                {"error": f"Invalid status '{new_status}'. Valid choices: {list(CalvingRecord.StatusType.values)}"},
+                status=400,
+            )
+
+    calving.status = new_status
+    calving.reviewed_by = request.user
+    calving.review_remarks = remarks
+    calving.reviewed_at = timezone.now()
+    calving.save()
+
+    target_farmer = getattr(getattr(calving.dam, "farmer", None), "user", None) or calving.created_by
+    if target_farmer:
+        calf_info = f"Calf Tag #{calving.calf_tag or 'Newborn'} (Dam: {getattr(calving.dam, 'tag_number', 'N/A')})"
+        if new_status == CalvingRecord.StatusType.VERIFIED:
+            create_notification(
+                user=target_farmer,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.MEDIUM,
+                title="Calving Record Verified by SIBAT",
+                message=f"Your birth declaration for {calf_info} was verified on-farm by SIBAT.{f' Remarks: {remarks}' if remarks else ''}",
+                link="/production-dashboard",
+            )
+        elif new_status == CalvingRecord.StatusType.APPROVED:
+            create_notification(
+                user=target_farmer,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.MEDIUM,
+                title="Calving Record Approved by MAO",
+                message=f"Official registration approved for {calf_info}.{f' Directives: {remarks}' if remarks else ''}",
+                link="/production-dashboard",
+            )
+        elif new_status == CalvingRecord.StatusType.SUBJECT_TO_REVISION:
+            create_notification(
+                user=target_farmer,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.HIGH,
+                title="Revision Required on Calving Record",
+                message=f"Your birth declaration for {calf_info} requires revision.{f' Remarks: {remarks}' if remarks else ''}",
+                link="/production-dashboard",
+            )
+
+    serializer = CalvingRecordSerializer(calving)
     return Response(serializer.data, status=200)
 
 

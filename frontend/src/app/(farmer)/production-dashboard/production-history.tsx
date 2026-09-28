@@ -55,8 +55,8 @@ const statusClasses: Record<ProductionStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
-  SUBJECT_TO_REVISION: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
-  REJECTED: "bg-amber-100 text-amber-900 hover:bg-amber-100 border-amber-300",
+  SUBJECT_TO_REVISION: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
+  REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
 };
 
 const DEFAULT_STATUS_CLASS =
@@ -373,7 +373,7 @@ export default function ProductionHistory() {
                                 statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
                               }`}
                             >
-                              {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") ? "Subject to Revision" : record.status}
+                              {(record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED") ? "Subject for Revision" : record.status}
                             </Badge>
                             {isSelected && (
                               <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full">

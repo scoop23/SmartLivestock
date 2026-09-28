@@ -27,8 +27,10 @@ import {
   User,
   X,
   FileText,
-  Inbox
+  Inbox,
+  Newspaper,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Announcement {
   id: string;
@@ -63,39 +65,39 @@ export default function NewsAnnouncementsPage() {
     <>
       <PageHeader
         title="News & Announcements"
-        subtitle="Manage public bulletins and community alerts — Municipal Agriculture Office"
-        icon={<Megaphone className="h-6 w-6" />}
+        subtitle="Manage public bulletins and community alerts — Padre Garcia MAO"
+        icon={<Newspaper className="size-5 text-slate-800" />}
         variant="admin"
         maxWidthClass="w-full"
-        mobileMenuOffset={false}
         action={
-          <button
+          <Button
+            size="sm"
             onClick={() => setIsCreating(!isCreating)}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[#2D5A27] px-3.5 h-8.5 font-bold text-white text-xs shadow-xs transition-all hover:bg-[#23461f] active:scale-95 cursor-pointer"
+            className="bg-[#1E4D2B] hover:bg-[#163b21] text-white text-xs font-bold rounded-xl shadow-xs gap-1.5 h-9 cursor-pointer"
           >
-            {isCreating ? <><X className="h-3.5 w-3.5" /> Cancel</> : <><Plus className="h-3.5 w-3.5" /> New Announcement</>}
-          </button>
+            {isCreating ? <><X className="h-3.5 w-3.5" /> Cancel</> : <><Plus className="h-3.5 w-3.5" /> New Bulletin</>}
+          </Button>
         }
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
+      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
 
           {/* Create Section */}
           {isCreating && (
-            <section className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in zoom-in duration-200">
-              <div className="bg-gray-50 px-3.5 py-2.5 border-b border-gray-100">
-                <h3 className="font-bold text-gray-800 text-xs flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-[#2D5A27]" />
-                  Drafting New Content
+            <section className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-100">
+                <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-[#1E4D2B]" />
+                  Drafting New Municipal Bulletin
                 </h3>
               </div>
 
-              <div className="p-3.5 sm:p-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
+              <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-4 gap-4">
                 {/* Left: Metadata & Thumbnail */}
                 <div className="lg:col-span-1 space-y-3">
                   <div>
-                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Thumbnail Image</label>
-                    <div className="relative group aspect-video bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden hover:border-[#2D5A27] transition-colors cursor-pointer">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Thumbnail Image</label>
+                    <div className="relative group aspect-video bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden hover:border-[#1E4D2B] transition-colors cursor-pointer">
                       {previewImage ? (
                         <>
                           <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
@@ -103,8 +105,8 @@ export default function NewsAnnouncementsPage() {
                         </>
                       ) : (
                         <>
-                          <ImageIcon className="w-6 h-6 text-gray-400 group-hover:text-[#2D5A27] mb-1" />
-                          <span className="text-[10px] font-bold text-gray-500">Upload Photo</span>
+                          <ImageIcon className="w-6 h-6 text-slate-400 group-hover:text-[#1E4D2B] mb-1" />
+                          <span className="text-[10px] font-bold text-slate-500">Upload Photo</span>
                           <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setPreviewImage(URL.createObjectURL(e.target.files![0]))} />
                         </>
                       )}
@@ -112,18 +114,18 @@ export default function NewsAnnouncementsPage() {
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Author Name</label>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Author Name</label>
                     <div className="relative">
-                      <User className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                      <input type="text" placeholder="Admin Name" className="w-full pl-8 pr-3 h-8.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#2D5A27] outline-none" />
+                      <User className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                      <input type="text" placeholder="Admin Name" className="w-full pl-8 pr-3 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Publish Date</label>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Publish Date</label>
                     <div className="relative">
-                      <Calendar className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                      <input type="date" className="w-full pl-8 pr-3 h-8.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#2D5A27] outline-none" />
+                      <Calendar className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                      <input type="date" className="w-full pl-8 pr-3 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none" />
                     </div>
                   </div>
                 </div>
@@ -132,12 +134,12 @@ export default function NewsAnnouncementsPage() {
                 <div className="lg:col-span-3 space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="md:col-span-2">
-                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Announcement Title</label>
-                      <input type="text" placeholder="Enter a catchy headline..." className="w-full h-8.5 px-3 bg-gray-50 border border-gray-200 rounded-lg font-bold text-xs text-gray-800 focus:ring-2 focus:ring-[#2D5A27] outline-none" />
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Announcement Title</label>
+                      <input type="text" placeholder="Enter headline..." className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-800 focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none" />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Category</label>
-                      <select className="w-full h-8.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-[#2D5A27]">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Category</label>
+                      <select className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#1E4D2B]/30 cursor-pointer">
                         <option>Health Alert</option>
                         <option>Event</option>
                         <option>System Update</option>
@@ -145,8 +147,8 @@ export default function NewsAnnouncementsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Visibility</label>
-                      <select className="w-full h-8.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-[#2D5A27]">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Visibility</label>
+                      <select className="w-full h-9 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#1E4D2B]/30 cursor-pointer">
                         <option>All Farmers</option>
                         <option>Public</option>
                         <option>Staff Only</option>
@@ -155,13 +157,13 @@ export default function NewsAnnouncementsPage() {
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Bulletin Message</label>
-                    <textarea rows={4} placeholder="Write the full details here..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#2D5A27] outline-none resize-none"></textarea>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Bulletin Message</label>
+                    <textarea rows={4} placeholder="Write the full details here..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none resize-none"></textarea>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-                    <button className="px-4 h-8.5 rounded-lg font-bold text-xs text-gray-500 hover:bg-gray-100 transition-all cursor-pointer">Save as Draft</button>
-                    <button className="px-5 h-8.5 bg-[#2D5A27] text-white rounded-lg text-xs font-bold hover:shadow-xs hover:bg-[#1e3d1a] transition-all cursor-pointer">Publish Post</button>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button className="px-4 h-9 rounded-xl font-bold text-xs text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">Save as Draft</button>
+                    <button className="px-5 h-9 bg-[#1E4D2B] hover:bg-[#163b21] text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer">Publish Bulletin</button>
                   </div>
                 </div>
               </div>
@@ -170,10 +172,10 @@ export default function NewsAnnouncementsPage() {
 
           {/* Tab Selection Section */}
           <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
-            <div className="flex bg-white p-0.5 rounded-lg border border-gray-200 shadow-2xs">
+            <div className="flex bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
               <button
                 onClick={() => setActiveTab('all')}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'all' ? 'bg-[#2D5A27] text-white shadow-2xs' : 'text-gray-500 hover:bg-gray-50'
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'all' ? 'bg-[#1E4D2B] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -181,7 +183,7 @@ export default function NewsAnnouncementsPage() {
               </button>
               <button
                 onClick={() => setActiveTab('drafts')}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'drafts' ? 'bg-[#2D5A27] text-white shadow-2xs' : 'text-gray-500 hover:bg-gray-50'
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'drafts' ? 'bg-[#1E4D2B] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
               >
                 <Inbox className="w-3.5 h-3.5" />
@@ -190,13 +192,13 @@ export default function NewsAnnouncementsPage() {
             </div>
 
             <div className="relative md:w-72 w-full">
-              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" />
-              <input type="text" placeholder="Search title or author..." className="w-full pl-8 pr-3 h-8.5 bg-white border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#2D5A27] outline-none shadow-2xs" />
+              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+              <input type="text" placeholder="Search title or author..." className="w-full pl-8 pr-3 h-9 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none shadow-2xs" />
             </div>
           </div>
 
           {/* List Section */}
-          <section className="bg-white rounded-xl shadow-2xs border border-gray-200 overflow-hidden">
+          <section className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-gray-100 bg-gray-50/50 hover:bg-gray-50/50">

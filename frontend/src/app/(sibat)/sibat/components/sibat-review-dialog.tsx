@@ -93,7 +93,7 @@ export default function SibatReviewDialog({
   const isPending = submission.status === "PENDING";
   const isVerified = submission.status === "VERIFIED";
   const isApproved = submission.status === "APPROVED";
-  const isRejected = submission.status === "SUBJECT_TO_REVISION" || submission.status === "REJECTED";
+  const isRejected = submission.status === "SUBJECT_TO_REVISION" || (submission.status as any) === "SUBJECT_FOR_REVISION" || submission.status === "REJECTED";
   const isBatch = submission.sourceType === "BATCH" || submission.entryType === "BATCH";
 
   const handleSaveEdits = async () => {
@@ -137,8 +137,12 @@ export default function SibatReviewDialog({
         onSuccess: () => {
           if (newStatus === "VERIFIED") {
             toast.success(
-              isBatch
+              submission.sourceType === "CALVING"
+                ? "Calving event verified and forwarded to MAO for municipal registration!"
+                : isBatch
                 ? "Cohort Batch verified and forwarded to MAO queue!"
+                : submission.sourceType === "PRODUCTION"
+                ? "Harvest yield verified and forwarded to MAO queue!"
                 : "Animal verified and forwarded to MAO queue!"
             );
           } else {
@@ -166,10 +170,18 @@ export default function SibatReviewDialog({
               </div>
               <div>
                 <DialogTitle className="text-lg font-black text-slate-900">
-                  {isBatch ? "Review Cohort Batch" : "Review Animal Submission"}
+                  {submission.sourceType === "CALVING"
+                    ? "Verify Calving & Birthing Event"
+                    : isBatch
+                    ? "Review Cohort Batch"
+                    : submission.sourceType === "PRODUCTION"
+                    ? "Review Harvest & Yield Log"
+                    : "Review Animal Submission"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 font-medium">
-                  {submission.sourceType === "PRODUCTION"
+                  {submission.sourceType === "CALVING"
+                    ? `Dam Tag #${submission.damTag || "N/A"} • Calf Tag #${submission.calfTag || "Unassigned"}`
+                    : submission.sourceType === "PRODUCTION"
                     ? "Production Yield Log"
                     : isBatch
                     ? `Cohort Batch #${submission.rawId}`
@@ -197,9 +209,9 @@ export default function SibatReviewDialog({
             <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-100">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                 <Layers className="size-3.5 text-[#1A365D]" />
-                <span>{isBatch ? "Cohort Batch Information" : "Animal Identification"}</span>
+                <span>{submission.sourceType === "CALVING" ? "Birthing & Pedigree Information" : isBatch ? "Cohort Batch Information" : "Animal Identification"}</span>
               </div>
-              {isPending && (
+              {isPending && submission.sourceType !== "CALVING" && (
                 <Button
                   type="button"
                   size="sm"
@@ -349,6 +361,62 @@ export default function SibatReviewDialog({
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Specific Metadata for Calving & Birthing Events */}
+              {submission.sourceType === "CALVING" && (
+                <div className="pt-2 border-t border-slate-200/50 space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 block">Mother Cow / Dam Tag</span>
+                      <span className="font-bold text-slate-800 flex items-center gap-1 pt-0.5">
+                        <Tag className="size-3 text-sky-600" />
+                        {submission.damTag || "Registered Dam"}
+                      </span>
+                    </div>
+                    {submission.damBreed && (
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-400 block">Dam Breed</span>
+                        <span className="font-bold text-slate-800 block pt-0.5">
+                          {submission.damBreed}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 block">Calf Ear Tag</span>
+                      <span className="font-bold text-emerald-800 flex items-center gap-1 pt-0.5">
+                        <Baby className="size-3 text-emerald-600" />
+                        {submission.calfTag || "Pending Tag"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 block">Calf Sex</span>
+                      <span className="font-bold text-slate-800 block pt-0.5">
+                        {submission.calfSex || "Female"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 block">Birth Weight</span>
+                      <span className="font-bold text-slate-800 block pt-0.5">
+                        {submission.birthWeight ? `${submission.birthWeight} kg` : "Not recorded"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 block">Calving Ease</span>
+                      <span className="font-bold text-slate-800 block pt-0.5">
+                        {submission.calvingEase || "Normal / Unassisted"}
+                      </span>
+                    </div>
+                    {submission.sireTag && (
+                      <div className="col-span-2">
+                        <span className="text-[11px] font-semibold text-slate-400 block">Sire / Father Reference</span>
+                        <span className="font-bold text-slate-800 block pt-0.5">
+                          {submission.sireTag}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -601,21 +669,21 @@ export default function SibatReviewDialog({
               isApproved
                 ? "bg-emerald-100 border-emerald-300 text-emerald-950 font-bold"
                 : isRejected
-                ? "bg-amber-50 border-amber-300 text-amber-950 font-bold"
+                ? "bg-rose-50 border-rose-300 text-rose-950 font-bold"
                 : "bg-slate-50 border-slate-200 text-slate-400"
             }`}>
               <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
                 {isApproved ? (
                   <CheckCircle2 className="size-3.5 text-emerald-700" />
                 ) : isRejected ? (
-                  <AlertCircle className="size-3.5 text-amber-700" />
+                  <AlertCircle className="size-3.5 text-rose-700" />
                 ) : (
                   <div className="size-3 rounded-full border border-slate-300" />
                 )}
                 <span>4. MAO Decision</span>
               </div>
               <span className="text-[10px] opacity-80 block mt-0.5">
-                {isApproved ? "Approved" : isRejected ? "Subject to Revision" : "Awaiting MAO"}
+                {isApproved ? "Approved" : isRejected ? "Subject for Revision" : "Awaiting MAO"}
               </span>
             </div>
           </div>
@@ -640,9 +708,9 @@ export default function SibatReviewDialog({
                 variant="outline"
                 onClick={() => handleReviewAction("SUBJECT_TO_REVISION")}
                 disabled={reviewMutation.isPending}
-                className="border-amber-300 text-amber-900 hover:bg-amber-50 font-bold text-xs rounded-xl gap-1.5 flex-1 sm:flex-initial"
+                className="border-rose-300 text-rose-900 hover:bg-rose-50 font-bold text-xs rounded-xl gap-1.5 flex-1 sm:flex-initial"
               >
-                <RotateCcw className="size-3.5 text-amber-700" />
+                <RotateCcw className="size-3.5 text-rose-700" />
                 Return for Revision
               </Button>
 
@@ -653,7 +721,11 @@ export default function SibatReviewDialog({
                 className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl gap-1.5 shadow-sm shadow-emerald-950/20 flex-1 sm:flex-initial"
               >
                 <CheckCircle2 className="size-3.5" />
-                {reviewMutation.isPending ? "Forwarding..." : "Verify & Forward to MAO"}
+                {reviewMutation.isPending
+                  ? "Forwarding..."
+                  : submission.sourceType === "CALVING"
+                  ? "Verify Calving & Forward to MAO"
+                  : "Verify & Forward to MAO"}
               </Button>
             </div>
           ) : (

@@ -38,7 +38,7 @@ import { DataOverviewTable } from "./data-overview-table";
 import { DataOverviewCards } from "./data-overview-cards";
 import { DataOverviewDetailModal } from "./data-overview-detail-modal";
 import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
-import { Layers, Boxes, Milk, FileSpreadsheet, Activity } from "lucide-react";
+import { Layers, Boxes, Milk, FileSpreadsheet, Activity, Database } from "lucide-react";
 
 // Backend TanStack hooks & API client for live database connectivity
 import { useQuery } from "@tanstack/react-query";
@@ -387,19 +387,21 @@ export default function DataOverviewPage() {
     if (rawInventory && rawInventory.length > 0) {
       rawInventory.forEach((inv) => {
         const rawDate = inv.createdAt ? new Date(inv.createdAt).getTime() : 0;
+        const invStatus = (inv.status || "") as string;
+        const isInvRevision = invStatus === "SUBJECT_TO_REVISION" || invStatus === "SUBJECT_FOR_REVISION";
         const statusBadge =
           inv.status === "APPROVED"
             ? "MAO Certified"
-            : inv.status === "SUBJECT_TO_REVISION"
-            ? "Subject to Revision"
+            : isInvRevision
+            ? "Subject for Revision"
             : inv.status === "VERIFIED"
             ? "SIBAT Verified"
             : "Pending Review";
         const badgeVariant =
           inv.status === "APPROVED"
             ? "emerald"
-            : inv.status === "SUBJECT_TO_REVISION"
-            ? "amber"
+            : isInvRevision
+            ? "rose"
             : inv.status === "VERIFIED"
             ? "sky"
             : "amber";
@@ -448,11 +450,13 @@ export default function DataOverviewPage() {
         const typeLabel = prod.productionType
           ? prod.productionType.charAt(0).toUpperCase() + prod.productionType.slice(1).toLowerCase()
           : "Dairy";
+        const prodStatus = (prod.status || "") as string;
+        const isProdRevision = prodStatus === "SUBJECT_TO_REVISION" || prodStatus === "SUBJECT_FOR_REVISION";
         const badgeVariant =
           prod.status === "APPROVED"
             ? "emerald"
-            : prod.status === "SUBJECT_TO_REVISION"
-            ? "amber"
+            : isProdRevision
+            ? "rose"
             : "sky";
 
         const matchingRecord = productionList.find(
@@ -509,14 +513,14 @@ export default function DataOverviewPage() {
           badge:
             cen.status === "APPROVED"
               ? "MAO Verified"
-              : cen.status === "SUBJECT_TO_REVISION"
-              ? "Subject to Revision"
+              : cen.status === "SUBJECT_TO_REVISION" || cen.status === "SUBJECT_FOR_REVISION"
+              ? "Subject for Revision"
               : "Pending Audit",
           badgeVariant:
             cen.status === "APPROVED"
               ? "emerald"
-              : cen.status === "SUBJECT_TO_REVISION"
-              ? "amber"
+              : cen.status === "SUBJECT_TO_REVISION" || cen.status === "SUBJECT_FOR_REVISION"
+              ? "rose"
               : "sky",
           record: matchingRecord || {
             id: `CEN-${cen.id}`,
@@ -558,14 +562,14 @@ export default function DataOverviewPage() {
             badge:
               inc.status === "APPROVED"
                 ? "Quarantine Enforced"
-                : inc.status === "SUBJECT_TO_REVISION"
-                ? "Subject to Revision"
+                : (inc.status as string) === "SUBJECT_TO_REVISION" || (inc.status as string) === "SUBJECT_FOR_REVISION"
+                ? "Subject for Revision"
                 : "Observation Active",
             badgeVariant:
               inc.status === "APPROVED"
                 ? "rose"
-                : inc.status === "SUBJECT_TO_REVISION"
-                ? "amber"
+                : (inc.status as string) === "SUBJECT_TO_REVISION" || (inc.status as string) === "SUBJECT_FOR_REVISION"
+                ? "rose"
                 : "rose",
             record: matchingRecord || {
               id: `DIS-${inc.id}`,
@@ -710,14 +714,14 @@ export default function DataOverviewPage() {
           badge:
             batch.review_status === "APPROVED"
               ? "MAO Certified"
-              : batch.review_status === "SUBJECT_TO_REVISION"
-              ? "Subject to Revision"
+              : batch.review_status === "SUBJECT_TO_REVISION" || batch.review_status === "SUBJECT_FOR_REVISION"
+              ? "Subject for Revision"
               : "Pending Review",
           badgeVariant:
             batch.review_status === "APPROVED"
               ? "emerald"
-              : batch.review_status === "SUBJECT_TO_REVISION"
-              ? "amber"
+              : batch.review_status === "SUBJECT_TO_REVISION" || batch.review_status === "SUBJECT_FOR_REVISION"
+              ? "rose"
               : "sky",
           record: matchingRecord || {
             id: `BAT-${batch.id}`,
@@ -1207,6 +1211,7 @@ export default function DataOverviewPage() {
           subtitle="Consolidated livestock master registry, dairy yields, market trades & biosecurity intelligence — Padre Garcia MAO"
           variant="admin"
           maxWidthClass="w-full"
+          icon={<Database className="size-5 text-slate-800" />}
         />
         <div className="p-3 sm:p-4 md:p-5 w-full">
           <ValidationLoadingScreen
@@ -1264,6 +1269,7 @@ export default function DataOverviewPage() {
         subtitle="Consolidated livestock master registry, dairy yields, market trades & biosecurity intelligence — Padre Garcia MAO"
         variant="admin"
         maxWidthClass="w-full"
+        icon={<Database className="size-5 text-slate-800" />}
       />
 
       <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">

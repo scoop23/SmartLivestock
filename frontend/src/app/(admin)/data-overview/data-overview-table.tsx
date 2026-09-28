@@ -430,14 +430,14 @@ export function DataOverviewTable({
                           className={`text-[9px] font-black uppercase px-2 py-0.5 border-0 ${
                             item.status === "APPROVED"
                               ? "bg-emerald-100 text-emerald-800"
-                              : item.status === "SUBJECT_TO_REVISION"
-                              ? "bg-amber-100 text-amber-900 border border-amber-300"
+                              : item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION"
+                              ? "bg-rose-100 text-rose-800 border border-rose-200"
                               : item.status === "VERIFIED"
                               ? "bg-sky-100 text-sky-800"
-                              : "bg-slate-100 text-slate-700"
+                              : "bg-amber-100 text-amber-800 border border-amber-200"
                           }`}
                         >
-                          {item.status === "SUBJECT_TO_REVISION" ? "Subject to Revision" : (item.status || "PENDING")}
+                          {item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION" ? "Subject for Revision" : (item.status || "PENDING")}
                         </Badge>
                       </TableCell>
                     </>

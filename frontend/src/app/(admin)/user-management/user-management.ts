@@ -8,6 +8,7 @@ export type UserAccountStatus =
   | "PENDING"
   | "APPROVED"
   | "SUBJECT_TO_REVISION"
+  | "SUBJECT_FOR_REVISION"
   | "REJECTED"
   | "SUSPENDED";
 

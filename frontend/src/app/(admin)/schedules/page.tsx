@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import {
   Calendar,
+  CalendarDays,
   Plus,
   Trash2,
   Building2,
@@ -143,67 +144,68 @@ export default function AdminAvailabilityPage() {
   return (
     <>
       <PageHeader
-        title="MAO Admin Console"
-        subtitle="Global Program Availability & Farmer Scheduling — Municipal Agriculture Office"
-        icon={<Building2 className="h-6 w-6" />}
+        title="Farmer Scheduling & Field Windows"
+        subtitle="Broadcast service windows & organize on-farm appointments — Padre Garcia MAO"
+        icon={<CalendarDays className="size-5 text-slate-800" />}
         variant="admin"
         maxWidthClass="w-full"
-        mobileMenuOffset={false}
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4">
+      <div className="p-3 sm:p-4 md:p-5 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 pb-16 sm:pb-6">
 
           {/* Left: Schedule Window Creation */}
           <div className="lg:col-span-5 space-y-3.5">
-            <section className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
               <h3 className="font-black text-slate-900 text-xs tracking-tight flex items-center gap-2 mb-3.5">
-                <Send className="w-4 h-4 text-[#2D5A27]" />
-                Broadcast Availability
+                <Send className="w-4 h-4 text-[#1E4D2B]" />
+                Broadcast Service Availability
               </h3>
 
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 <div>
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Target Date</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Target Date</label>
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-[#2D5A27] outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 h-9 text-xs focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Select Programs to Open</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Select Programs to Open</label>
                   <div className="grid grid-cols-1 gap-1.5">
                     {availableActivityTypes.map((type) => (
                       <button
                         key={type.id}
+                        type="button"
                         onClick={() => toggleProgramSelection(type.name)}
-                        className={`flex items-center justify-between p-2 rounded-lg border transition-all ${selectedPrograms.includes(type.name)
-                            ? 'border-[#2D5A27] bg-green-50'
-                            : 'border-gray-100 bg-white hover:border-gray-300'
+                        className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${selectedPrograms.includes(type.name)
+                            ? 'border-[#1E4D2B] bg-emerald-50/70 shadow-2xs'
+                            : 'border-slate-100 bg-white hover:border-slate-300'
                           }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <div className={`p-1.5 rounded-md ${type.color}`}>
+                          <div className={`p-1.5 rounded-lg ${type.color}`}>
                             <type.icon className="w-3.5 h-3.5" />
                           </div>
-                          <span className={`text-xs font-bold ${selectedPrograms.includes(type.name) ? 'text-[#2D5A27]' : 'text-gray-600'}`}>
+                          <span className={`text-xs font-bold ${selectedPrograms.includes(type.name) ? 'text-[#1E4D2B]' : 'text-slate-700'}`}>
                             {type.name}
                           </span>
                         </div>
-                        {selectedPrograms.includes(type.name) && <CheckCircle2 className="w-4 h-4 text-[#2D5A27]" />}
+                        {selectedPrograms.includes(type.name) && <CheckCircle2 className="w-4 h-4 text-[#1E4D2B]" />}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <button
+                  type="button"
                   onClick={handleAddSchedule}
                   disabled={!selectedDate || selectedPrograms.length === 0}
-                  className="w-full h-8.5 bg-[#2D5A27] text-white font-bold rounded-lg shadow-xs hover:bg-[#1e3d1a] disabled:bg-gray-200 transition-all text-xs cursor-pointer mt-2"
+                  className="w-full h-9 bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold rounded-xl shadow-xs disabled:bg-slate-200 disabled:text-slate-400 transition-all text-xs cursor-pointer mt-2"
                 >
-                  Notify Farmers & Set Available
+                  Broadcast Service Window &amp; Notify Farmers
                 </button>
               </div>
             </section>

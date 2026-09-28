@@ -498,7 +498,7 @@ export function DataOverviewToolbar({
                   <option value="APPROVED">Approved / Certified</option>
                   <option value="VERIFIED">Verified</option>
                   <option value="PENDING">Pending Review</option>
-                  <option value="SUBJECT_TO_REVISION">Subject to Revision</option>
+                  <option value="SUBJECT_TO_REVISION">Subject for Revision</option>
                   <option value="Healthy">Healthy / Passed</option>
                   <option value="Under Treatment">Under Treatment</option>
                   <option value="Quarantined">Quarantined</option>

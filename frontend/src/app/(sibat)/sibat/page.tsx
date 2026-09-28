@@ -157,12 +157,14 @@ function SibatPortalContent() {
 
   const handleReviewSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
+    queryClient.invalidateQueries({ queryKey: ["sibat-calving-records"] });
+    queryClient.invalidateQueries({ queryKey: ["calving_records"] });
     queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
   };
 
   // Counts for Badges
   const pendingHealthCount = healthRecords.filter((r) => r.status === "PENDING").length;
-  const pendingProdCount = submissions.filter((s) => s.sourceType === "PRODUCTION" && s.status === "PENDING").length;
+  const pendingProdCount = submissions.filter((s) => (s.sourceType === "PRODUCTION" || s.sourceType === "CALVING") && s.status === "PENDING").length;
   const pendingInvCount = submissions.filter((s) => (s.sourceType === "INVENTORY" || s.sourceType === "BATCH") && s.status === "PENDING").length;
 
   return (
@@ -261,8 +263,8 @@ function SibatPortalContent() {
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <span className="text-sm">🥛</span>
-            <span>Milk & Harvest Logs</span>
+            <span className="text-sm">🌾</span>
+            <span>Harvest & Calving Logs</span>
             {pendingProdCount > 0 && (
               <span className="bg-amber-400 text-slate-900 text-[10px] px-2 py-0.5 rounded-full font-black">
                 {pendingProdCount}

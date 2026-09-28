@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { PageHeader } from '@/app/components/page-header';
 import { AskAIBar } from '@/app/components/ask-ai-bar';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, AlertCircle, CheckCircle, Lightbulb } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, CheckCircle, Lightbulb, BarChart3 } from 'lucide-react';
 import PredictiveCharts from '@/app/components/analytics/predictiveCharts';
 import AdminForecastingConsole from '@/app/components/analytics/adminforecasting';
 
@@ -123,6 +123,7 @@ export default function AnalyticsPage() {
         subtitle="AI-powered insights and predictions — Municipal Agriculture Office"
         variant="admin"
         maxWidthClass="w-full"
+        icon={<BarChart3 className="size-5 text-slate-800" />}
       />
 
       {/* AI Search Bar */}
@@ -132,7 +133,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
+      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
           {/* Analytics Type Selector */}
           <div className="bg-white p-2 rounded-xl shadow-2xs border border-slate-200">
             <div className="flex flex-wrap gap-1.5">

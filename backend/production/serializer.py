@@ -281,11 +281,48 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
         - Newborn: calf_tag, calf_sex (MALE/FEMALE), birth_weight, breed
         - Paternal Reference: sire_tag
         - Birth Context: calving_date, calving_ease (NORMAL, ASSISTED, CAESAREAN), notes, created_at
+        - Review & Verification: status (PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION), review_remarks, reviewed_by_name, reviewed_at
     Used in:
         Genealogy / pedigree tracking, reproductive health monitoring, and calf passport registration.
     """
     dam_tag = serializers.CharField(source="dam.tag_number", read_only=True)
     dam_breed = serializers.CharField(source="dam.breed", read_only=True)
+    livestock_type_name = serializers.SerializerMethodField(read_only=True)
+    barangay_name = serializers.SerializerMethodField(read_only=True)
+    farmer_name = serializers.SerializerMethodField(read_only=True)
+    reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+
+    def get_livestock_type_name(self, obj):
+        if obj.dam and obj.dam.livestock_type:
+            return obj.dam.livestock_type.name
+        return "Livestock"
+
+    def get_barangay_name(self, obj):
+        if obj.dam and obj.dam.farmer and obj.dam.farmer.barangay:
+            return obj.dam.farmer.barangay.barangay_name
+        return "Padre Garcia"
+
+    def get_farmer_name(self, obj):
+        try:
+            if obj.dam and obj.dam.farmer and obj.dam.farmer.user:
+                u = obj.dam.farmer.user
+                name = u.get_full_name().strip()
+                return name if name else u.username
+            if obj.created_by:
+                name = obj.created_by.get_full_name().strip()
+                return name if name else obj.created_by.username
+        except Exception:
+            pass
+        return "Registered Farmer"
+
+    def get_reviewed_by_name(self, obj):
+        try:
+            if obj.reviewed_by:
+                name = obj.reviewed_by.get_full_name().strip()
+                return name if name else obj.reviewed_by.username
+        except Exception:
+            pass
+        return None
 
     class Meta:
         model = CalvingRecord
@@ -294,6 +331,9 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             "dam",
             "dam_tag",
             "dam_breed",
+            "livestock_type_name",
+            "farmer_name",
+            "barangay_name",
             "calf_tag",
             "calf_sex",
             "birth_weight",
@@ -302,9 +342,14 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             "breed",
             "calving_ease",
             "notes",
+            "status",
+            "reviewed_by",
+            "reviewed_by_name",
+            "reviewed_at",
+            "review_remarks",
             "created_at",
         )
-        read_only_fields = ("created_at",)
+        read_only_fields = ("status", "reviewed_by", "reviewed_by_name", "reviewed_at", "review_remarks", "created_at")
 
     def create(self, validated_data):
         user = self.context["request"].user

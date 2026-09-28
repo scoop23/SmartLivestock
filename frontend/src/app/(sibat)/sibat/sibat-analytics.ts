@@ -12,14 +12,14 @@ import { getAttachedPhoto } from "@/lib/photo-storage";
 
 // ── Types: Submission Statuses ──
 
-export type UnifiedStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+export type UnifiedStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "SUBJECT_FOR_REVISION" | "REJECTED";
 
-export type UnifiedSubmissionType = "ALL" | "PRODUCTION" | "INVENTORY" | "BATCH";
+export type UnifiedSubmissionType = "ALL" | "PRODUCTION" | "INVENTORY" | "BATCH" | "CALVING";
 
 export interface UnifiedSubmissionItem {
-  id: string; // composite key e.g. "prod-1", "inv-2", "batch-3"
+  id: string; // composite key e.g. "prod-1", "inv-2", "batch-3", "calving-4"
   rawId: number;
-  sourceType: "PRODUCTION" | "INVENTORY" | "BATCH";
+  sourceType: "PRODUCTION" | "INVENTORY" | "BATCH" | "CALVING";
   submissionTypeLabel: string;
   farmerName: string;
   barangayName: string;
@@ -43,6 +43,14 @@ export interface UnifiedSubmissionItem {
   targetWeight?: number;
   animals?: any[];
   lastVaccinationDate?: string | null;
+  damTag?: string;
+  damBreed?: string;
+  sireTag?: string;
+  calfTag?: string;
+  calfSex?: string;
+  birthWeight?: number | null;
+  calvingEase?: string;
+  calvingDate?: string;
   reviewRemarks?: string | null;
   reviewedAt?: string | null;
   reviewedByName?: string | null;
@@ -71,6 +79,32 @@ export interface RawInventoryRecord {
   review_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
+  created_at: string;
+}
+
+// ── Raw Calving & Birth Registry Interface ──
+
+export interface RawCalvingRecord {
+  id: number;
+  dam: number;
+  dam_tag?: string;
+  dam_breed?: string;
+  livestock_type_name?: string;
+  farmer_name?: string;
+  barangay_name?: string;
+  calf_tag?: string;
+  calf_sex: string;
+  birth_weight?: number | null;
+  sire_tag?: string;
+  calving_date: string;
+  breed?: string;
+  calving_ease?: string;
+  notes?: string;
+  status: UnifiedStatus;
+  reviewed_by?: number | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
+  review_remarks?: string | null;
   created_at: string;
 }
 
@@ -227,6 +261,46 @@ export const mapBatchToUnified = (b: any): UnifiedSubmissionItem => {
   };
 };
 
+export const mapCalvingToUnified = (c: RawCalvingRecord): UnifiedSubmissionItem => {
+  const calfLabel = c.calf_tag ? `Tag #${c.calf_tag}` : "Newborn Offspring";
+  const damLabel = c.dam_tag ? `Dam #${c.dam_tag}` : "Dam";
+  const weightStr = c.birth_weight ? `${c.birth_weight} kg` : "Unweighed";
+
+  return {
+    id: `calving-${c.id}`,
+    rawId: c.id,
+    sourceType: "CALVING",
+    submissionTypeLabel: `Calving & Offspring (${c.calf_sex || "Offspring"})`,
+    farmerName: c.farmer_name || "Registered Farmer",
+    barangayName: c.barangay_name || "Padre Garcia",
+    livestockTypeName: c.livestock_type_name || "Cattle",
+    detailsTitle: `${calfLabel} • Dam: ${damLabel}`,
+    quantityDisplay: `1 Head (${weightStr})`,
+    quantity: 1,
+    unit: "Head",
+    recordDate: c.calving_date || (c.created_at ? c.created_at.split("T")[0] : new Date().toISOString().split("T")[0]),
+    status: (c.status || "PENDING") as UnifiedStatus,
+    notes: c.notes,
+    breed: c.breed || c.dam_breed,
+    tagNumber: c.calf_tag || undefined,
+    sex: c.calf_sex,
+    weight: c.birth_weight ? Number(c.birth_weight) : null,
+    entryType: "INDIVIDUAL",
+    damTag: c.dam_tag,
+    damBreed: c.dam_breed,
+    sireTag: c.sire_tag,
+    calfTag: c.calf_tag,
+    calfSex: c.calf_sex,
+    birthWeight: c.birth_weight ? Number(c.birth_weight) : null,
+    calvingEase: c.calving_ease,
+    calvingDate: c.calving_date,
+    reviewRemarks: c.review_remarks,
+    reviewedAt: c.reviewed_at,
+    reviewedByName: c.reviewed_by_name,
+    createdAt: c.created_at,
+  };
+};
+
 export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationRecord => {
 
   const statusNorm = (dc.status || "PENDING").toUpperCase() as SibatStatus;
@@ -308,7 +382,7 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
 
 // ── Types: Census Submissions ──
 
-export type CensusStatus = "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+export type CensusStatus = "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "SUBJECT_FOR_REVISION" | "REJECTED";
 
 export interface CensusItemEntry {
   id: string;
@@ -469,6 +543,19 @@ export function useBatchesFromFarmers() {
   });
 }
 
+export async function fetchCalvingRecords(): Promise<RawCalvingRecord[]> {
+  const response = await api.get("production/calving/");
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export function useCalvingFromFarmers() {
+  return useQuery({
+    queryKey: ["sibat-calving-records"],
+    queryFn: fetchCalvingRecords,
+    staleTime: 30_000,
+  });
+}
+
 export function useDiseaseCases() {
   return useQuery({
     queryKey: ["sibat-validation-cases"],
@@ -515,21 +602,25 @@ export function useSibatSubmissions() {
   const prodQuery = useProductionFromFarmers();
   const invQuery = useInventoryFromFarmers();
   const batchQuery = useBatchesFromFarmers();
+  const calvingQuery = useCalvingFromFarmers();
 
-  const isLoading = prodQuery.isLoading || invQuery.isLoading || batchQuery.isLoading;
-  const isError = prodQuery.isError || invQuery.isError || batchQuery.isError;
+  const isLoading = prodQuery.isLoading || invQuery.isLoading || batchQuery.isLoading || calvingQuery.isLoading;
+  const isError = prodQuery.isError || invQuery.isError || batchQuery.isError || calvingQuery.isError;
   const refetch = () => {
     prodQuery.refetch();
     invQuery.refetch();
     batchQuery.refetch();
+    calvingQuery.refetch();
   };
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
   const inventoryUnified = (invQuery.data || []).map(mapInventoryToUnified);
   const batchUnified = (batchQuery.data || []).map(mapBatchToUnified);
+  const calvingUnified = (calvingQuery.data || []).map(mapCalvingToUnified);
 
   const allSubmissions: UnifiedSubmissionItem[] = [
     ...productionUnified,
+    ...calvingUnified,
     ...inventoryUnified,
     ...batchUnified,
   ].sort((a, b) => new Date(b.createdAt || b.recordDate).getTime() - new Date(a.createdAt || a.recordDate).getTime());
@@ -560,6 +651,8 @@ export function useReviewSubmission() {
       let endpoint = `livestock/inventory/${item.rawId}/review/`;
       if (item.sourceType === "PRODUCTION") {
         endpoint = `production/records/${item.rawId}/review/`;
+      } else if (item.sourceType === "CALVING") {
+        endpoint = `production/calving/${item.rawId}/review/`;
       } else if (item.sourceType === "BATCH" || item.id.startsWith("batch-")) {
         endpoint = `livestock/batches/${item.rawId}/review/`;
       }
@@ -572,6 +665,8 @@ export function useReviewSubmission() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
+      queryClient.invalidateQueries({ queryKey: ["sibat-calving-records"] });
+      queryClient.invalidateQueries({ queryKey: ["calving_records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-batches-records"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });

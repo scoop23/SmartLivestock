@@ -49,8 +49,10 @@ const STATUS_TABS: Array<{
   { value: "decided", label: "MAO Certified", emoji: "✅" },
 ];
 
-const getCommodityEmoji = (title: string = "") => {
+const getCommodityEmoji = (title: string = "", sourceType: string = "") => {
+  if (sourceType === "CALVING") return "👶";
   const t = title.toLowerCase();
+  if (t.includes("calv") || t.includes("birth") || t.includes("calf") || t.includes("dam")) return "👶";
   if (t.includes("milk") || t.includes("gatas")) return "🥛";
   if (t.includes("egg") || t.includes("itlog")) return "🥚";
   if (t.includes("meat") || t.includes("karne") || t.includes("carcass")) return "🥩";
@@ -69,9 +71,9 @@ export default function SibatProductionQueue({
   prodTypeFilter,
   onProdTypeFilterChange,
 }: SibatProductionQueueProps) {
-  // Filter exclusively for PRODUCTION sourceType
+  // Filter for PRODUCTION & CALVING sourceType
   const prodSubmissions = useMemo(() => {
-    return submissions.filter((s) => s.sourceType === "PRODUCTION");
+    return submissions.filter((s) => s.sourceType === "PRODUCTION" || s.sourceType === "CALVING");
   }, [submissions]);
 
   // Counts by status
@@ -80,7 +82,7 @@ export default function SibatProductionQueue({
       all: prodSubmissions.length,
       pending: prodSubmissions.filter((s) => s.status === "PENDING").length,
       verified: prodSubmissions.filter((s) => s.status === "VERIFIED").length,
-      decided: prodSubmissions.filter((s) => s.status === "APPROVED" || s.status === "SUBJECT_TO_REVISION" || s.status === "REJECTED").length,
+      decided: prodSubmissions.filter((s) => s.status === "APPROVED" || s.status === "SUBJECT_TO_REVISION" || s.status === "SUBJECT_FOR_REVISION" || s.status === "REJECTED").length,
     };
   }, [prodSubmissions]);
 
@@ -93,12 +95,14 @@ export default function SibatProductionQueue({
         statusFilter === "all" ||
         (statusFilter === "pending" && item.status === "PENDING") ||
         (statusFilter === "verified" && item.status === "VERIFIED") ||
-        (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "SUBJECT_TO_REVISION" || item.status === "REJECTED"));
+        (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION" || item.status === "REJECTED"));
 
       const matchesProdType =
         prodTypeFilter === "ALL" ||
-        item.detailsTitle.toLowerCase().includes(prodTypeFilter.toLowerCase()) ||
-        item.submissionTypeLabel.toLowerCase().includes(prodTypeFilter.toLowerCase());
+        (prodTypeFilter === "Calving"
+          ? item.sourceType === "CALVING" || item.submissionTypeLabel.toLowerCase().includes("calving")
+          : item.detailsTitle.toLowerCase().includes(prodTypeFilter.toLowerCase()) ||
+            item.submissionTypeLabel.toLowerCase().includes(prodTypeFilter.toLowerCase()));
 
       const matchesSearch =
         !q ||
@@ -106,6 +110,8 @@ export default function SibatProductionQueue({
         item.barangayName.toLowerCase().includes(q) ||
         item.livestockTypeName.toLowerCase().includes(q) ||
         item.detailsTitle.toLowerCase().includes(q) ||
+        (item.damTag && item.damTag.toLowerCase().includes(q)) ||
+        (item.calfTag && item.calfTag.toLowerCase().includes(q)) ||
         (item.notes && item.notes.toLowerCase().includes(q));
 
       return matchesStatus && matchesProdType && matchesSearch;
@@ -125,10 +131,10 @@ export default function SibatProductionQueue({
           </div>
           <div>
             <h2 className="text-base font-black text-slate-900 flex items-center gap-1.5">
-              Production & Harvest Yield Logs
+              Production, Harvest & Calving Logs
             </h2>
             <p className="text-xs text-slate-600 font-medium">
-              Review and calibrate daily milk liters, egg collections, and meat harvest quantities submitted by farmers.
+              Review and calibrate daily milk liters, egg collections, meat harvest quantities, and newborn calf birth records.
             </p>
           </div>
         </div>
@@ -170,6 +176,7 @@ export default function SibatProductionQueue({
                 { label: "Milk", value: "Milk", emoji: "🥛" },
                 { label: "Eggs", value: "Egg", emoji: "🥚" },
                 { label: "Meat", value: "Meat", emoji: "🥩" },
+                { label: "Calving & Births", value: "Calving", emoji: "👶" },
               ].map((pill) => (
                 <button
                   key={pill.value}
@@ -272,7 +279,7 @@ export default function SibatProductionQueue({
         <div className="space-y-3">
           {filteredSubmissions.map((item) => {
             const isPending = item.status === "PENDING";
-            const emoji = getCommodityEmoji(item.detailsTitle || item.submissionTypeLabel);
+            const emoji = getCommodityEmoji(item.detailsTitle || item.submissionTypeLabel, item.sourceType);
 
             return (
               <Card
@@ -320,6 +327,25 @@ export default function SibatProductionQueue({
                           </span>
                         </div>
 
+                        {/* Specific Calving Metadata Badges */}
+                        {item.sourceType === "CALVING" && (
+                          <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                            <span className="text-[11px] font-bold text-sky-800 bg-sky-50 px-2.5 py-0.5 rounded-lg border border-sky-200/80">
+                              🐮 Dam: Tag #{item.damTag || "Registered"}
+                            </span>
+                            {item.calfTag && (
+                              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/80">
+                                🏷️ Calf Tag #{item.calfTag}
+                              </span>
+                            )}
+                            {item.calvingEase && (
+                              <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
+                                {item.calvingEase}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {item.notes && (
                           <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 mt-1">
                             <strong className="text-slate-900 font-bold">Farmer&apos;s note: </strong>
@@ -349,7 +375,7 @@ export default function SibatProductionQueue({
                         {isPending ? (
                           <>
                             <ClipboardCheck className="size-4 text-amber-300" />
-                            Calibrate & Verify Yield
+                            {item.sourceType === "CALVING" ? "Verify Calving Record" : "Calibrate & Verify Yield"}
                           </>
                         ) : (
                           <>

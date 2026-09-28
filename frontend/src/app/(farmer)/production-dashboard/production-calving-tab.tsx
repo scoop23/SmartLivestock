@@ -24,6 +24,10 @@ export interface CalvingRecordItem {
   breed: string;
   calving_ease: string;
   notes: string;
+  status?: string;
+  review_remarks?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
   created_at: string;
 }
 

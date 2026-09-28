@@ -330,6 +330,12 @@ class CalvingRecord(models.Model):
         MALE = "MALE", "Male"
         FEMALE = "FEMALE", "Female"
 
+    class StatusType(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        VERIFIED = "VERIFIED", "Verified"
+        APPROVED = "APPROVED", "Approved"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
+
     dam = models.ForeignKey(
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
@@ -354,6 +360,20 @@ class CalvingRecord(models.Model):
     breed = models.CharField(max_length=50, blank=True)
     calving_ease = models.CharField(max_length=50, blank=True, default="Normal / Unassisted")
     notes = models.TextField(max_length=500, blank=True)
+    status = models.CharField(
+        max_length=25,
+        choices=StatusType.choices,
+        default=StatusType.PENDING,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reviewed_calving_records",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_remarks = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
