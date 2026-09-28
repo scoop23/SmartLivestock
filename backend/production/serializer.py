@@ -117,6 +117,13 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_batch(self, value):
+        if not value:
+            return value
+        user = self.context["request"].user
+        if value.farmer.user_id != user.id and value.created_by_id != user.id:
+            raise ValidationError("You can only log production against your own batch.")
+        return value
     def validate(self, attrs):
         if self.instance is None:
             # for create

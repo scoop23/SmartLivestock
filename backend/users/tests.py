@@ -139,3 +139,21 @@ class UserApprovalAndManagementAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+from rest_framework_simplejwt.tokens import RefreshToken
+
+
+class SuspendedTokenTests(APITestCase):
+    def test_existing_token_stops_working_when_account_is_suspended(self):
+        role = Role.objects.create(role_name=Role.UserRoles.FARMER)
+        user = User.objects.create_user(
+            username="suspended-token-test", email="suspended-token@example.com",
+            password=None, role=role, account_status=User.AccountStatus.APPROVED,
+        )
+        token = RefreshToken.for_user(user).access_token
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        self.assertEqual(self.client.get("/api/users/me/").status_code, status.HTTP_200_OK)
+
+        user.account_status = User.AccountStatus.SUSPENDED
+        user.save(update_fields=["account_status"])
+        self.assertEqual(self.client.get("/api/users/me/").status_code, status.HTTP_401_UNAUTHORIZED)

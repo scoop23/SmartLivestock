@@ -188,3 +188,25 @@ class LivestockBatchAPITests(APITestCase):
         assert animal is not None
         self.assertEqual(animal.tag_number, "SW-EXTRA-1")
 
+    def test_farmer_scope_parameters_do_not_expose_other_batches(self):
+        other_user = User.objects.create_user(
+            username="other-batch-farmer", email="other-batch@example.com",
+            password=None, role=self.farmer_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        other_farmer = Farmer.objects.create(
+            user=other_user, barangay=self.barangay, address="Purok 2",
+        )
+        own_batch = LivestockBatch.objects.create(
+            farmer=self.farmer, livestock_type=self.swine_type,
+            batch_name="My Batch", batch_code="OWN-BATCH", created_by=self.farmer_user,
+        )
+        LivestockBatch.objects.create(
+            farmer=other_farmer, livestock_type=self.swine_type,
+            batch_name="Other Batch", batch_code="OTHER-BATCH", created_by=other_user,
+        )
+        self.client.force_authenticate(user=self.farmer_user)
+        for suffix in ("?all=true", "?scope=all"):
+            response = self.client.get(f"/livestock/batches/{suffix}")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual([item["id"] for item in response.json()], [own_batch.pk])

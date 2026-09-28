@@ -152,6 +152,9 @@ pipenv install
 # Activate virtual environment
 pipenv shell
 
+# Copy .env.example to .env and set a unique local SECRET_KEY.
+# DATABASE_URL is required; the example uses an ignored local SQLite database.
+
 # Apply database migrations
 python manage.py migrate
 

@@ -86,7 +86,7 @@ def production_record_detail(request, pk):
         record = get_object_or_404(ProductionRecord, pk=pk)
 
     if request.method == "DELETE":
-        if record.status != ProductionRecord.StatusType.PENDING:
+        if record.status != ProductionRecord.ProductionStatus.PENDING:
             return Response(
                 {"error": "Only PENDING production records can be deleted."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -95,7 +95,7 @@ def production_record_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method in ["PUT", "PATCH"]:
-        if record.status != ProductionRecord.StatusType.PENDING:
+        if record.status != ProductionRecord.ProductionStatus.PENDING:
             return Response(
                 {"error": "Only PENDING production records can be edited."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -137,10 +137,10 @@ def review_production_record(request, pk):
     user = request.user
     role_name = getattr(getattr(user, "role", None), "role_name", "")
 
-    if role_name == "FARMER":
+    if role_name not in ["SIBAT", "MAO"]:
         return Response(
-            {"error": "Farmers are not authorized to review production records."},
-            status=403,
+            {"error": "Only SIBAT and MAO may review production records."},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     if role_name == "SIBAT":
@@ -167,7 +167,8 @@ def review_production_record(request, pk):
     record.reviewed_at = timezone.now()
     record.save()
 
-    target_farmer = getattr(record.farmer, "user", None)
+    owner = record.livestock.farmer if record.livestock else (record.batch.farmer if record.batch else None)
+    target_farmer = owner.user if owner else None
     if target_farmer:
         prod_info = f"{record.quantity} {record.unit} of {record.get_production_type_display()}"
         if new_status == ProductionRecord.ProductionStatus.VERIFIED:

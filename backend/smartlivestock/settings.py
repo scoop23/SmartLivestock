@@ -64,7 +64,7 @@ INSTALLED_APPS = [
 # DRF config: JWT is the only authentication method used
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "users.authentication.ApprovedJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES" : (
         "rest_framework.permissions.IsAuthenticated",
@@ -168,17 +168,19 @@ WSGI_APPLICATION = "smartlivestock.wsgi.application"
 #     }
 # }
 
-# --- [2. RENDER DATABASE] ---
-# (To use Render: uncomment the lines below, and comment out [1. LOCAL DATABASE] above)
+# Set DATABASE_URL in the environment for the intended database.
+# A missing value must not silently connect local development to production.
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL must be set before starting Django.")
+
 DATABASES = {
     "default": dj_database_url.parse(
-        os.environ.get("DATABASE_URL")
-        or 'postgresql://REDACTED',
+        DATABASE_URL,
         conn_max_age=600,
         conn_health_checks=True,
     )
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

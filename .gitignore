@@ -18,3 +18,5 @@ user_documents/
 backend/user_documents/
 media/
 backend/media/
+backend/local.sqlite3
+backend/.env
