@@ -76,7 +76,17 @@ export function DiseaseMortalityReviewDialog({
 
   const isMortality = record.type === "mortality";
   const isDisease = record.type === "disease";
-  const isSibatVerified = (record.status || "PENDING").toUpperCase() === "VERIFIED";
+  const recordStatus = (record.status || "PENDING").toUpperCase();
+  const isSibatVerified = recordStatus === "VERIFIED";
+  const canMaoReview = isSibatVerified;
+  const reviewBlockedMessage =
+    recordStatus === "SUBJECT_TO_REVISION"
+      ? "SIBAT requested a farmer revision. MAO review will unlock after the farmer resubmits and SIBAT verifies the updated declaration."
+      : recordStatus === "PENDING"
+        ? "This declaration is awaiting SIBAT field verification. MAO review will unlock after it is verified."
+        : recordStatus === "APPROVED"
+          ? "This declaration has already received MAO approval."
+          : "MAO review is available only after SIBAT verifies the declaration.";
   const statusPill = getStatusPill(record.status);
 
   const handleAction = (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
@@ -481,40 +491,51 @@ export function DiseaseMortalityReviewDialog({
                 Review the SIBAT on-farm clinical findings on the left, attach official veterinarian remarks, and issue the final municipal certification or quarantine directives.
               </p>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-800 block">
-                  Official MAO Certification Remarks:
-                </label>
-                <Textarea
-                  placeholder="Enter official MAO certification remarks, veterinary directives, quarantine compliance, or registry adjustments..."
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  className="bg-white border-emerald-200 rounded-2xl text-xs sm:text-sm font-medium resize-none h-28 sm:h-32 p-3.5 focus-visible:ring-2 focus-visible:ring-[#2D5A27]"
-                />
-              </div>
+              {!canMaoReview ? (
+                <div
+                  role="status"
+                  className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-950"
+                >
+                  {reviewBlockedMessage}
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-800 block">
+                      Official MAO Certification Remarks:
+                    </label>
+                    <Textarea
+                      placeholder="Enter official MAO certification remarks, veterinary directives, quarantine compliance, or registry adjustments..."
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      className="bg-white border-emerald-200 rounded-2xl text-xs sm:text-sm font-medium resize-none h-28 sm:h-32 p-3.5 focus-visible:ring-2 focus-visible:ring-[#2D5A27]"
+                    />
+                  </div>
 
-              {/* Quick Presets */}
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center gap-1 text-[10px] font-black text-emerald-800 uppercase tracking-wider">
-                  <Sparkles className="size-3.5 text-amber-500" />
-                  <span>MAO Preset Suggestions</span>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {(isMortality
-                    ? MAO_MORTALITY_APPROVAL_PRESETS
-                    : MAO_DISEASE_APPROVAL_PRESETS
-                  ).map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setRemarks(preset)}
-                      className="text-left text-xs px-3 py-2 rounded-xl bg-white hover:bg-emerald-100 text-emerald-950 font-bold border border-emerald-200 transition-all leading-snug cursor-pointer shadow-2xs"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {/* Quick Presets */}
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center gap-1 text-[10px] font-black text-emerald-800 uppercase tracking-wider">
+                      <Sparkles className="size-3.5 text-amber-500" />
+                      <span>MAO Preset Suggestions</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {(isMortality
+                        ? MAO_MORTALITY_APPROVAL_PRESETS
+                        : MAO_DISEASE_APPROVAL_PRESETS
+                      ).map((preset, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setRemarks(preset)}
+                          className="text-left text-xs px-3 py-2 rounded-xl bg-white hover:bg-emerald-100 text-emerald-950 font-bold border border-emerald-200 transition-all leading-snug cursor-pointer shadow-2xs"
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Decision Action Buttons */}
@@ -522,6 +543,7 @@ export function DiseaseMortalityReviewDialog({
               <Button
                 type="button"
                 onClick={() => handleAction("APPROVED")}
+                disabled={!canMaoReview}
                 className="w-full py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider shadow-lg hover:shadow-xl transition-all gap-2 cursor-pointer"
               >
                 <ShieldCheck className="size-5 text-emerald-200" />
@@ -533,6 +555,7 @@ export function DiseaseMortalityReviewDialog({
                   type="button"
                   variant="outline"
                   onClick={() => handleAction("SUBJECT_TO_REVISION")}
+                  disabled={!canMaoReview}
                   className="py-5 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-2xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
                 >
                   <RotateCcw className="size-4 text-amber-700" />

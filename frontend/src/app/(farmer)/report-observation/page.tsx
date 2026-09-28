@@ -52,6 +52,8 @@ export default function ReportObservationPage() {
   const [reportIllnessDefaultType, setReportIllnessDefaultType] = useState<ReportType>("DISEASE");
   const [selectedReport, setSelectedReport] = useState<FarmerReport | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
+  const [editingReport, setEditingReport] = useState<FarmerReport | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
 
   const handleOpenReportIllness = (type: ReportType = "DISEASE") => {
     setReportIllnessDefaultType(type);
@@ -91,6 +93,13 @@ export default function ReportObservationPage() {
     refetchDiseases();
     refetchMortality();
     toast.success("Health surveillance records updated.");
+  };
+
+  const handleEditReport = (report: FarmerReport) => {
+    setSelectedReport(report);
+    setEditingReport(report);
+    setIsDetailOpen(false);
+    setIsEditDialogOpen(true);
   };
 
   // ── Consolidated Reports from Database ──
@@ -175,9 +184,10 @@ export default function ReportObservationPage() {
       if (filterType === "ALL") return true;
       if (filterType === "DISEASE") return rep.reportType === "DISEASE";
       if (filterType === "MORTALITY") return rep.reportType === "MORTALITY";
-      if (filterType === "PENDING") return rep.status === "PENDING";
-      if (filterType === "REVISION") return rep.status === "SUBJECT_TO_REVISION";
-      if (filterType === "APPROVED") return rep.status === "APPROVED" || rep.status === "VERIFIED";
+      if (filterType === "REVISION") {
+        const s = (rep.status || "") as string;
+        return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION";
+      }
 
       return true;
     });
@@ -325,7 +335,7 @@ export default function ReportObservationPage() {
                   { id: "DISEASE", label: `Sick Animals (${totalDiseaseCases})` },
                   { id: "MORTALITY", label: `Deceased (${totalMortality})` },
                   { id: "PENDING", label: `Pending Visit (${pendingVerification})` },
-                  { id: "REVISION", label: "Subject to Revision" },
+                  { id: "REVISION", label: "Needs Revision" },
                   { id: "APPROVED", label: `Approved (${approvedCases})` },
                 ].map((tab) => (
                   <button
@@ -400,14 +410,19 @@ export default function ReportObservationPage() {
                       label: "SIBAT Verified",
                     },
                     SUBJECT_TO_REVISION: {
-                      badgeClass: "bg-amber-100 text-amber-900 border-0",
-                      icon: <RotateCcw className="size-3 text-amber-700" />,
+                      badgeClass: "bg-rose-100 text-rose-800 border-0",
+                      icon: <RotateCcw className="size-3 text-rose-600" />,
+                      label: "Needs Revision",
+                    },
+                    SUBJECT_FOR_REVISION: {
+                      badgeClass: "bg-rose-100 text-rose-800 border-0",
+                      icon: <RotateCcw className="size-3 text-rose-600" />,
                       label: "Needs Revision",
                     },
                     REJECTED: {
-                      badgeClass: "bg-amber-100 text-amber-900 border-0",
-                      icon: <RotateCcw className="size-3 text-amber-700" />,
-                      label: "Needs Revision",
+                      badgeClass: "bg-rose-100 text-rose-800 border-0",
+                      icon: <RotateCcw className="size-3 text-rose-600" />,
+                      label: "Subject for Revision",
                     },
                     PENDING: {
                       badgeClass: "bg-amber-50 text-amber-800 border border-amber-200",
@@ -508,10 +523,23 @@ export default function ReportObservationPage() {
         onSuccess={handleRefresh}
       />
 
+      <ReportIllnessDialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) setEditingReport(null);
+        }}
+        defaultType={editingReport?.reportType ?? "DISEASE"}
+        existingReport={editingReport}
+        mode={editingReport ? "edit" : "create"}
+        onSuccess={handleRefresh}
+      />
+
       <ReportDetailDialog
         report={selectedReport}
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
+        onEditReport={handleEditReport}
       />
     </>
   );

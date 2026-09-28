@@ -35,12 +35,14 @@ interface ReportDetailDialogProps {
   report: FarmerReport | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEditReport?: (report: FarmerReport) => void;
 }
 
 export default function ReportDetailDialog({
   report,
   open,
   onOpenChange,
+  onEditReport,
 }: ReportDetailDialogProps) {
   if (!report) return null;
 
@@ -63,11 +65,12 @@ export default function ReportDetailDialog({
           stage: 2,
         };
       case "SUBJECT_TO_REVISION":
+      case "SUBJECT_FOR_REVISION":
       case "REJECTED":
         return {
-          bg: "bg-amber-100 text-amber-950 border-amber-300",
-          icon: <RotateCcw className="size-3.5 text-amber-700" />,
-          title: "Subject to Revision",
+          bg: "bg-rose-100 text-rose-950 border-rose-300",
+          icon: <RotateCcw className="size-3.5 text-rose-700" />,
+          title: "Needs Revision",
           stage: 2,
         };
       default:
@@ -119,7 +122,7 @@ export default function ReportDetailDialog({
 
             <Badge className={`px-2.5 py-1 font-extrabold text-[11px] gap-1.5 ${statusConfig.bg}`}>
               {statusConfig.icon}
-              <span>{report.status === "SUBJECT_TO_REVISION" ? "Revision Required" : report.status}</span>
+              <span>{report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION" ? "Needs Revision" : report.status}</span>
             </Badge>
           </div>
         </div>
@@ -149,20 +152,20 @@ export default function ReportDetailDialog({
                   <div
                     className={`size-5 rounded-full flex items-center justify-center text-[10px] font-black ${
                       statusConfig.stage >= 2
-                        ? report.status === "SUBJECT_TO_REVISION"
-                          ? "bg-amber-500 text-white"
+                        ? report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION"
+                          ? "bg-rose-500 text-white"
                           : "bg-emerald-600 text-white"
                         : "bg-slate-200 text-slate-500"
                     }`}
                   >
-                    {statusConfig.stage >= 2 ? (report.status === "SUBJECT_TO_REVISION" ? "!" : "✓") : "2"}
+                    {statusConfig.stage >= 2 ? (report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION" ? "!" : "✓") : "2"}
                   </div>
                   <span className="text-xs font-bold text-slate-800">2. SIBAT Check</span>
                 </div>
                 <p className="text-[10px] text-slate-500 line-clamp-1">
                   {statusConfig.stage >= 2
-                    ? report.status === "SUBJECT_TO_REVISION"
-                      ? "Revision Flagged"
+                    ? report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION"
+                      ? "Subject for Revision"
                       : "Inspection Complete"
                     : "Scheduled Visit"}
                 </p>
@@ -188,20 +191,20 @@ export default function ReportDetailDialog({
           </div>
 
           {/* 2. Official Inspector / Review Remarks Alert */}
-          {report.status === "SUBJECT_TO_REVISION" && (
-            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300 text-amber-950 space-y-2">
+          {(report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION") && (
+            <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-300 text-rose-950 space-y-2">
               <div className="flex items-center gap-2">
-                <RotateCcw className="size-4 text-amber-700 shrink-0" />
-                <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
-                  Revision Requested by Validator
+                <RotateCcw className="size-4 text-rose-700 shrink-0" />
+                <h4 className="text-xs font-black uppercase tracking-wider text-rose-900">
+                  Needs Revision
                 </h4>
               </div>
-              <p className="text-xs font-medium text-amber-900">
+              <p className="text-xs font-medium text-rose-900">
                 {report.reviewRemarks ||
                   "Please clarify the affected animal tag or clinical progression with your SIBAT field validator."}
               </p>
               {report.reviewedByName && (
-                <p className="text-[10px] text-amber-700 font-bold pt-1">
+                <p className="text-[10px] text-rose-700 font-bold pt-1">
                   Reviewed by: {report.reviewedByName} • {report.reviewedAt ? new Date(report.reviewedAt).toLocaleDateString() : "Recent"}
                 </p>
               )}
@@ -330,25 +333,39 @@ export default function ReportDetailDialog({
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => window.print()}
-              className="rounded-xl text-xs font-bold gap-1.5 h-9"
-            >
-              <Printer className="size-3.5 text-slate-500" />
-              <span>Print Dossier</span>
-            </Button>
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+            {report.status === "SUBJECT_TO_REVISION" && onEditReport && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onEditReport(report)}
+                className="rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-black h-9 px-4 cursor-pointer"
+              >
+                <RotateCcw className="size-3.5" />
+                <span>Edit & Resubmit</span>
+              </Button>
+            )}
 
-            <Button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="rounded-xl bg-[#2D5A27] hover:bg-[#22441d] text-white text-xs font-black h-9 px-5 cursor-pointer"
-            >
-              Close
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="rounded-xl text-xs font-bold gap-1.5 h-9"
+              >
+                <Printer className="size-3.5 text-slate-500" />
+                <span>Print Dossier</span>
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="rounded-xl bg-[#2D5A27] hover:bg-[#22441d] text-white text-xs font-black h-9 px-5 cursor-pointer"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

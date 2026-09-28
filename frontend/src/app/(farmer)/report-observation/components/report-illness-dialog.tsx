@@ -44,6 +44,8 @@ interface ReportIllnessDialogProps {
   onOpenChange: (open: boolean) => void;
   defaultType?: ReportType;
   defaultInventoryId?: string;
+  existingReport?: any | null;
+  mode?: "create" | "edit";
   onSuccess?: () => void;
 }
 
@@ -72,6 +74,8 @@ export default function ReportIllnessDialog({
   onOpenChange,
   defaultType = "DISEASE",
   defaultInventoryId,
+  existingReport,
+  mode = "create",
   onSuccess,
 }: ReportIllnessDialogProps) {
   const queryClient = useQueryClient();
@@ -90,18 +94,44 @@ export default function ReportIllnessDialog({
   const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const isEditMode = mode === "edit" && !!existingReport;
 
   React.useEffect(() => {
     if (defaultType) setReportType(defaultType);
   }, [defaultType]);
 
   React.useEffect(() => {
+    if (isEditMode && existingReport) {
+      setReportType(existingReport.reportType || defaultType);
+      setSelectedInventoryId(
+        String(existingReport.inventoryId || existingReport.rawItem?.livestock || defaultInventoryId || "")
+      );
+      setConditionName(existingReport.name || "");
+      setAffectedCount(existingReport.affectedCount || 1);
+      setRecordDate(existingReport.recordDate || new Date().toISOString().split("T")[0]);
+      setSelectedSymptoms(Array.isArray(existingReport.symptoms) ? existingReport.symptoms : []);
+      setDescription(
+        existingReport.description && existingReport.description !== existingReport.name
+          ? existingReport.description
+          : ""
+      );
+      if (existingReport.photoUrl) {
+        setPhotoDataUrl(existingReport.photoUrl);
+        setPhotoName(existingReport.photoName || "existing_report_photo");
+      } else {
+        setPhotoDataUrl("");
+        setPhotoName("");
+      }
+      setPhotoFile(null);
+      return;
+    }
+
     if (defaultInventoryId) {
       setSelectedInventoryId(defaultInventoryId);
     } else if (inventories.length > 0 && !selectedInventoryId) {
       setSelectedInventoryId(String(inventories[0].id));
     }
-  }, [defaultInventoryId, inventories, selectedInventoryId]);
+  }, [defaultInventoryId, defaultType, existingReport, inventories, isEditMode, selectedInventoryId]);
 
   const selectedCattle = useMemo(() => {
     return inventories.find((inv) => String(inv.id) === String(selectedInventoryId));
@@ -150,87 +180,83 @@ export default function ReportIllnessDialog({
     setIsSubmitting(true);
 
     try {
+      const formData = new FormData();
+      formData.append("livestock", selectedInventoryId);
       if (reportType === "DISEASE") {
-        const formData = new FormData();
-        formData.append("livestock", selectedInventoryId);
         formData.append("name", mainName);
         formData.append("affected_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
-        formData.append("record_date", recordDate);
-        if (photoFile) {
-          formData.append("photo", photoFile);
-        }
+      } else {
+        formData.append("cause", mainName);
+        formData.append("death_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
+      }
+      formData.append("record_date", recordDate);
+      if (description.trim()) {
+        formData.append("description", description.trim());
+      }
+      if (photoFile) {
+        formData.append("photo", photoFile);
+      }
 
-        const res = await api.post("diseases/cases/", formData, {
+      let res;
+      if (isEditMode && existingReport) {
+        const endpointId = existingReport.rawItem?.id ?? existingReport.id.replace(/^DIS-|^MOR-/, "");
+        const endpoint =
+          reportType === "DISEASE"
+            ? `diseases/cases/${endpointId}/`
+            : `diseases/mortality/${endpointId}/`;
+        res = await api.patch(endpoint, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
+      } else {
+        const endpoint = reportType === "DISEASE" ? "diseases/cases/" : "diseases/mortality/";
+        res = await api.post(endpoint, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
 
-        // Persist attached photo for SIBAT and Admin inspection
-        const activeUrl = res.data?.photo_url || res.data?.photo || photoDataUrl;
-        if (activeUrl && res.data?.id) {
+      const activeUrl = res.data?.photo_url || res.data?.photo || photoDataUrl;
+      if (activeUrl && res.data?.id) {
+        if (reportType === "DISEASE") {
           saveAttachedPhoto(`DIS-${res.data.id}`, {
             photoUrl: activeUrl,
             photoName: photoName || "farmer_attached_evidence.jpg",
             timestamp: new Date().toISOString(),
             uploaderRole: "FARMER",
           });
-          if (selectedCattle?.tagNumber) {
-            saveAttachedPhoto(`tag_${selectedCattle.tagNumber}`, {
-              photoUrl: activeUrl,
-              photoName: photoName || "farmer_attached_evidence.jpg",
-              timestamp: new Date().toISOString(),
-              uploaderRole: "FARMER",
-            });
-          }
-        }
-
-        queryClient.invalidateQueries({ queryKey: ["farmer-disease-cases"] });
-        queryClient.invalidateQueries({ queryKey: ["sibat-disease-cases"] });
-        queryClient.invalidateQueries({ queryKey: ["sibat-validation-cases"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
-        queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
-        toast.success("Disease report submitted! SIBAT field officers and MAO have been notified.");
-      } else {
-        const formData = new FormData();
-        formData.append("livestock", selectedInventoryId);
-        formData.append("cause", mainName);
-        formData.append("death_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
-        formData.append("record_date", recordDate);
-        if (photoFile) {
-          formData.append("photo", photoFile);
-        }
-
-        const res = await api.post("diseases/mortality/", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        // Persist attached photo for SIBAT and Admin inspection
-        const activeUrl = res.data?.photo_url || res.data?.photo || photoDataUrl;
-        if (activeUrl && res.data?.id) {
+        } else {
           saveAttachedPhoto(`MOR-${res.data.id}`, {
             photoUrl: activeUrl,
             photoName: photoName || "mortality_evidence_photo.jpg",
             timestamp: new Date().toISOString(),
             uploaderRole: "FARMER",
           });
-          if (selectedCattle?.tagNumber) {
-            saveAttachedPhoto(`tag_${selectedCattle.tagNumber}`, {
-              photoUrl: activeUrl,
-              photoName: photoName || "mortality_evidence_photo.jpg",
-              timestamp: new Date().toISOString(),
-              uploaderRole: "FARMER",
-            });
-          }
         }
+      }
 
+      if (reportType === "DISEASE") {
+        queryClient.invalidateQueries({ queryKey: ["farmer-disease-cases"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-disease-cases"] });
+        queryClient.invalidateQueries({ queryKey: ["sibat-validation-cases"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+        queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
+        toast.success(
+          isEditMode
+            ? "Report resubmitted successfully. Your report has been returned to the validation queue."
+            : "Disease report submitted! SIBAT field officers and MAO have been notified."
+        );
+      } else {
         queryClient.invalidateQueries({ queryKey: ["farmer-mortality-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-mortality-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-validation-mortality"] });
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
-        toast.success("Mortality record logged! SIBAT & MAO will review this incident.");
+        toast.success(
+          isEditMode
+            ? "Mortality report resubmitted successfully. Your report has been returned to the validation queue."
+            : "Mortality record logged! SIBAT & MAO will review this incident."
+        );
       }
 
-      // Reset
       setConditionName("");
       setAffectedCount(1);
       setDescription("");
@@ -273,10 +299,16 @@ export default function ReportIllnessDialog({
               </div>
               <div>
                 <DialogTitle className="text-lg font-black text-white tracking-tight">
-                  {isDisease ? "Report Sick or Injured Animal" : "Report Deceased Animal"}
+                  {isEditMode
+                    ? `Edit ${isDisease ? "Disease Report" : "Mortality Report"}`
+                    : isDisease
+                      ? "Report Sick or Injured Animal"
+                      : "Report Deceased Animal"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-white/80 font-medium mt-0.5">
-                  Notify SIBAT validators and MAO municipal vets for rapid field assistance
+                  {isEditMode
+                    ? "Update the existing declaration and return it to the review queue."
+                    : "Notify SIBAT validators and MAO municipal vets for rapid field assistance"}
                 </DialogDescription>
               </div>
             </div>
@@ -304,6 +336,15 @@ export default function ReportIllnessDialog({
             </div>
           </div>
         </div>
+
+        {isEditMode && existingReport?.reviewRemarks && (
+          <div className="px-5 pt-5 sm:px-6 sm:pt-6">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">MAO Revision Request</p>
+              <p className="mt-1 text-xs font-medium">“{existingReport.reviewRemarks}”</p>
+            </div>
+          </div>
+        )}
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
@@ -520,7 +561,13 @@ export default function ReportIllnessDialog({
               ) : (
                 <>
                   <Send className="size-3.5" />
-                  <span>{isDisease ? "Submit Illness Report" : "Log Mortality Record"}</span>
+                  <span>
+                    {isEditMode
+                      ? "Save & Resubmit"
+                      : isDisease
+                        ? "Submit Illness Report"
+                        : "Log Mortality Record"}
+                  </span>
                 </>
               )}
             </Button>

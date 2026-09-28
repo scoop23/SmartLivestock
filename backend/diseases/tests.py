@@ -171,6 +171,197 @@ class DiseaseAndMortalityAPITests(APITestCase):
         self.assertEqual(case.status, DiseaseCase.DiseaseStatus.APPROVED)
         self.assertEqual(case.reviewed_by, self.mao_user)
 
+    def test_mao_requests_revision_keeps_the_existing_record_and_remarks(self):
+        case = DiseaseCase.objects.create(
+            livestock=self.farmer1_livestock,
+            name="High Fever",
+            affected_count=1,
+            record_date="2026-09-19",
+            created_by=self.farmer1_user,
+            status=DiseaseCase.DiseaseStatus.PENDING,
+        )
+
+        self.client.force_authenticate(user=self.sibat_user)
+        self.client.post(
+            f"/diseases/cases/{case.pk}/review/",
+            {"status": "VERIFIED", "remarks": "On-farm inspection verified."},
+        )
+
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.post(
+            f"/diseases/cases/{case.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Please correct the affected count from 5 to 3."},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        case.refresh_from_db()
+        self.assertEqual(case.status, DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION)
+        self.assertEqual(case.reviewed_by, self.mao_user)
+        self.assertEqual(case.review_remarks, "Please correct the affected count from 5 to 3.")
+        self.assertEqual(DiseaseCase.objects.filter(pk=case.pk).count(), 1)
+        self.assertEqual(case.pk, case.pk)
+
+    def test_mao_cannot_approve_disease_case_returned_for_revision_by_sibat(self):
+        case = DiseaseCase.objects.create(
+            livestock=self.farmer1_livestock,
+            name="High Fever",
+            affected_count=1,
+            record_date="2026-09-19",
+            created_by=self.farmer1_user,
+            status=DiseaseCase.DiseaseStatus.PENDING,
+        )
+
+        self.client.force_authenticate(user=self.sibat_user)
+        revision_response = self.client.post(
+            f"/diseases/cases/{case.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Farmer must correct the report."},
+        )
+        self.assertEqual(revision_response.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.mao_user)
+        approval_response = self.client.post(
+            f"/diseases/cases/{case.pk}/review/",
+            {"status": "APPROVED", "remarks": "Attempted premature approval."},
+        )
+
+        self.assertEqual(approval_response.status_code, status.HTTP_409_CONFLICT)
+        case.refresh_from_db()
+        self.assertEqual(case.status, DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION)
+        self.assertEqual(case.reviewed_by, self.sibat_user)
+        self.assertEqual(case.review_remarks, "Farmer must correct the report.")
+
+    def test_farmer_can_update_own_revision_and_keep_same_record_id(self):
+        case = DiseaseCase.objects.create(
+            livestock=self.farmer1_livestock,
+            name="Foot and Mouth",
+            affected_count=5,
+            record_date="2026-09-19",
+            created_by=self.farmer1_user,
+            status=DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION,
+            review_remarks="Please correct the affected count from 5 to 3.",
+            reviewed_by=self.mao_user,
+        )
+
+        self.client.force_authenticate(user=self.farmer1_user)
+        response = self.client.patch(
+            f"/diseases/cases/{case.pk}/",
+            {"affected_count": 3, "name": "Foot and Mouth - revised"},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        case.refresh_from_db()
+        self.assertEqual(case.pk, response.data["id"])
+        self.assertEqual(case.affected_count, 3)
+        self.assertEqual(case.name, "Foot and Mouth - revised")
+        self.assertEqual(case.status, DiseaseCase.DiseaseStatus.PENDING)
+        self.assertEqual(case.previous_remarks, "Please correct the affected count from 5 to 3.")
+        self.assertIsNone(case.review_remarks)
+
+    def test_farmer_cannot_edit_another_farmers_disease_record(self):
+        case = DiseaseCase.objects.create(
+            livestock=self.farmer2_livestock,
+            name="Limping",
+            affected_count=1,
+            record_date="2026-09-19",
+            created_by=self.farmer2_user,
+            status=DiseaseCase.DiseaseStatus.PENDING,
+        )
+
+        self.client.force_authenticate(user=self.farmer1_user)
+        response = self.client.patch(
+            f"/diseases/cases/{case.pk}/",
+            {"name": "Unauthorized change"},
+            format="multipart",
+        )
+
+        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+    def test_farmer_cannot_manipulate_disease_status_via_patch(self):
+        case = DiseaseCase.objects.create(
+            livestock=self.farmer1_livestock,
+            name="Blistering",
+            affected_count=1,
+            record_date="2026-09-19",
+            created_by=self.farmer1_user,
+            status=DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION,
+            review_remarks="Please correct the affected count.",
+        )
+
+        self.client.force_authenticate(user=self.farmer1_user)
+        response = self.client.patch(
+            f"/diseases/cases/{case.pk}/",
+            {"status": "APPROVED"},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        case.refresh_from_db()
+        self.assertNotEqual(case.status, DiseaseCase.DiseaseStatus.APPROVED)
+
+    def test_resubmission_returns_to_review_queue_without_duplicate_record(self):
+        case = DiseaseCase.objects.create(
+            livestock=self.farmer1_livestock,
+            name="Lethargy",
+            affected_count=2,
+            record_date="2026-09-19",
+            created_by=self.farmer1_user,
+            status=DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION,
+            review_remarks="Please correct the affected count from 5 to 3.",
+            reviewed_by=self.mao_user,
+        )
+        before_count = DiseaseCase.objects.count()
+
+        self.client.force_authenticate(user=self.farmer1_user)
+        response = self.client.patch(
+            f"/diseases/cases/{case.pk}/",
+            {"affected_count": 3},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        case.refresh_from_db()
+        self.assertEqual(DiseaseCase.objects.count(), before_count)
+        self.assertEqual(case.pk, response.data["id"])
+        self.assertEqual(case.status, DiseaseCase.DiseaseStatus.PENDING)
+        self.assertEqual(case.previous_remarks, "Please correct the affected count from 5 to 3.")
+
+    def test_mao_can_review_after_farmer_resubmission(self):
+        case = DiseaseCase.objects.create(
+            livestock=self.farmer1_livestock,
+            name="Diarrhea",
+            affected_count=2,
+            record_date="2026-09-19",
+            created_by=self.farmer1_user,
+            status=DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION,
+            review_remarks="Please correct the affected count.",
+            reviewed_by=self.mao_user,
+        )
+
+        self.client.force_authenticate(user=self.farmer1_user)
+        self.client.patch(
+            f"/diseases/cases/{case.pk}/",
+            {"affected_count": 1},
+            format="multipart",
+        )
+
+        self.client.force_authenticate(user=self.sibat_user)
+        sibat_response = self.client.post(
+            f"/diseases/cases/{case.pk}/review/",
+            {"status": "VERIFIED", "remarks": "Resubmitted report verified."},
+        )
+        self.assertEqual(sibat_response.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.mao_user)
+        maor = self.client.post(
+            f"/diseases/cases/{case.pk}/review/",
+            {"status": "APPROVED", "remarks": "Approved after revision."},
+        )
+
+        self.assertEqual(maor.status_code, status.HTTP_200_OK)
+        case.refresh_from_db()
+        self.assertEqual(case.status, DiseaseCase.DiseaseStatus.APPROVED)
+
     def test_mortality_record_creation_and_review(self):
         self.client.force_authenticate(user=self.farmer1_user)
         payload = {
@@ -200,4 +391,33 @@ class DiseaseAndMortalityAPITests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         record = MortalityRecord.objects.get(pk=mortality_id)
         self.assertEqual(record.status, MortalityRecord.MortalityRecordStatus.APPROVED)
+
+    def test_mao_cannot_approve_mortality_returned_for_revision_by_sibat(self):
+        record = MortalityRecord.objects.create(
+            livestock=self.farmer1_livestock,
+            death_count=1,
+            cause="Severe Bloat",
+            record_date="2026-09-19",
+            created_by=self.farmer1_user,
+            status=MortalityRecord.MortalityRecordStatus.PENDING,
+        )
+
+        self.client.force_authenticate(user=self.sibat_user)
+        revision_response = self.client.post(
+            f"/diseases/mortality/{record.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Farmer must update the declaration."},
+        )
+        self.assertEqual(revision_response.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.mao_user)
+        approval_response = self.client.post(
+            f"/diseases/mortality/{record.pk}/review/",
+            {"status": "APPROVED", "remarks": "Attempted premature approval."},
+        )
+
+        self.assertEqual(approval_response.status_code, status.HTTP_409_CONFLICT)
+        record.refresh_from_db()
+        self.assertEqual(record.status, MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION)
+        self.assertEqual(record.reviewed_by, self.sibat_user)
+        self.assertEqual(record.review_remarks, "Farmer must update the declaration.")
 

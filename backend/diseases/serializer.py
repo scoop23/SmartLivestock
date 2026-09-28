@@ -58,6 +58,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "reviewed_by_name",
             "reviewed_at",
             "review_remarks",
+            "previous_remarks",
             "created_by",
             "created_at",
         )
@@ -69,6 +70,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "reviewed_by_name",
             "reviewed_at",
             "review_remarks",
+            "previous_remarks",
             "created_by",
             "created_at",
         )
@@ -177,6 +179,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
         return DiseaseCase.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
+        was_revision = (instance.status == DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION)
         allowed = [
             "livestock",
             "batch",
@@ -184,11 +187,34 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "affected_count",
             "record_date",
             "photo",
-            "inspector_photo",
         ]
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        role_name = getattr(getattr(user, "role", None), "role_name", "")
+        if role_name != "FARMER":
+            allowed.append("inspector_photo")
+
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+
+        # Automatic status transition on resubmission:
+        # If the declaration was SUBJECT_TO_REVISION, return it to review queue as PENDING
+        # while preserving the original MAO revision note as history.
+        if was_revision:
+            instance.status = DiseaseCase.DiseaseStatus.PENDING
+            if instance.review_remarks:
+                previous = (instance.previous_remarks or "").strip()
+                current = instance.review_remarks.strip()
+                if current:
+                    if previous:
+                        instance.previous_remarks = f"{previous}\n\n{current}"
+                    else:
+                        instance.previous_remarks = current
+            instance.review_remarks = None
+            instance.reviewed_by = None
+            instance.reviewed_at = None
+
         instance.save()
         return instance
 
@@ -254,6 +280,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "reviewed_by_name",
             "reviewed_at",
             "review_remarks",
+            "previous_remarks",
             "created_by",
             "created_at",
         )
@@ -265,6 +292,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "reviewed_by_name",
             "reviewed_at",
             "review_remarks",
+            "previous_remarks",
             "created_by",
             "created_at",
         )
@@ -382,6 +410,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         return MortalityRecord.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
+        was_revision = (instance.status == MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION)
         allowed = [
             "livestock",
             "batch",
@@ -390,10 +419,33 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "source_disease_case",
             "record_date",
             "photo",
-            "inspector_photo",
         ]
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        role_name = getattr(getattr(user, "role", None), "role_name", "")
+        if role_name != "FARMER":
+            allowed.append("inspector_photo")
+
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+
+        # Automatic status transition on resubmission:
+        # If the declaration was SUBJECT_TO_REVISION, return it to review queue as PENDING
+        # while preserving the original MAO revision note as history.
+        if was_revision:
+            instance.status = MortalityRecord.MortalityRecordStatus.PENDING
+            if instance.review_remarks:
+                previous = (instance.previous_remarks or "").strip()
+                current = instance.review_remarks.strip()
+                if current:
+                    if previous:
+                        instance.previous_remarks = f"{previous}\n\n{current}"
+                    else:
+                        instance.previous_remarks = current
+            instance.review_remarks = None
+            instance.reviewed_by = None
+            instance.reviewed_at = None
+
         instance.save()
         return instance

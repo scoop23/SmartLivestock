@@ -55,6 +55,11 @@ class DiseaseCase(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_remarks = models.TextField(null=True, blank=True)
+    previous_remarks = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Preserved review remarks from the previous revision cycle.",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -129,6 +134,11 @@ class MortalityRecord(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_remarks = models.TextField(null=True, blank=True)
+    previous_remarks = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Preserved review remarks from the previous revision cycle.",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

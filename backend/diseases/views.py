@@ -116,6 +116,24 @@ def _notify_disease_case_created(instance, user):
         print(f"Error creating disease reported notification: {e}")
 
 
+def _notify_disease_case_resubmitted(instance, user):
+    try:
+        reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
+        for staff in User.objects.filter(role__role_name__in=["SIBAT", "MAO"]):
+            role_val = getattr(getattr(staff, "role", None), "role_name", "")
+            create_notification(
+                user=staff,
+                notification_type=Notification.NotificationType.DISEASE,
+                priority=Notification.Priority.HIGH,
+                title=f"Revised Disease Report: DIS-{instance.id}",
+                message=f"Farmer {reporter_name} resubmitted revised report for {animal_tag}. Ready for re-evaluation.",
+                link="/sibat-alerts" if role_val == "SIBAT" else "/data-validation",
+            )
+    except Exception as e:
+        print(f"Error creating disease resubmitted notification: {e}")
+
+
 def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, role_name):
     try:
         target_farmers = set()
@@ -217,6 +235,24 @@ def _notify_mortality_record_created(instance, user):
         print(f"Error creating mortality reported notification: {e}")
 
 
+def _notify_mortality_record_resubmitted(instance, user):
+    try:
+        reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
+        for staff in User.objects.filter(role__role_name__in=["SIBAT", "MAO"]):
+            role_val = getattr(getattr(staff, "role", None), "role_name", "")
+            create_notification(
+                user=staff,
+                notification_type=Notification.NotificationType.DISEASE,
+                priority=Notification.Priority.HIGH,
+                title=f"Revised Mortality Report: MOR-{instance.id}",
+                message=f"Farmer {reporter_name} resubmitted revised mortality declaration for {animal_tag}. Ready for re-evaluation.",
+                link="/sibat-alerts" if role_val == "SIBAT" else "/data-validation",
+            )
+    except Exception as e:
+        print(f"Error creating mortality resubmitted notification: {e}")
+
+
 # ==============================================================================
 # DISEASE CASE ENDPOINTS
 # ==============================================================================
@@ -284,7 +320,11 @@ def disease_case_detail(request, pk):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        record = get_object_or_404(DiseaseCase, pk=pk, created_by=user)
+        record = get_object_or_404(
+            DiseaseCase,
+            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
+            pk=pk,
+        )
     else:
         record = get_object_or_404(DiseaseCase, pk=pk)
 
@@ -307,6 +347,8 @@ def disease_case_detail(request, pk):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        was_revision = (record.status == DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION)
+
         serializer = DiseaseCaseSerializer(
             record,
             data=request.data,
@@ -314,7 +356,11 @@ def disease_case_detail(request, pk):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        updated_record = serializer.save()
+
+        if was_revision:
+            _notify_disease_case_resubmitted(updated_record, user)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # GET
@@ -358,9 +404,17 @@ def review_disease_case(request, pk):
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif role_name == "MAO":
-        if new_status not in DiseaseCase.DiseaseStatus.values:
+        if record.status != DiseaseCase.DiseaseStatus.VERIFIED:
             return Response(
-                {"error": f"Invalid status '{new_status}'. Valid choices are: {list(DiseaseCase.DiseaseStatus.values)}"},
+                {"error": "MAO can review a disease case only after SIBAT verifies it."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if new_status not in [
+            DiseaseCase.DiseaseStatus.APPROVED,
+            DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION,
+        ]:
+            return Response(
+                {"error": "Invalid MAO decision. Valid choices are APPROVED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     else:
@@ -452,7 +506,11 @@ def mortality_record_detail(request, pk):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        record = get_object_or_404(MortalityRecord, pk=pk, created_by=user)
+        record = get_object_or_404(
+            MortalityRecord,
+            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
+            pk=pk,
+        )
     else:
         record = get_object_or_404(MortalityRecord, pk=pk)
 
@@ -475,6 +533,8 @@ def mortality_record_detail(request, pk):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        was_revision = (record.status == MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION)
+
         serializer = MortalityRecordSerializer(
             record,
             data=request.data,
@@ -482,7 +542,11 @@ def mortality_record_detail(request, pk):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        updated_record = serializer.save()
+
+        if was_revision:
+            _notify_mortality_record_resubmitted(updated_record, user)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # GET
@@ -526,9 +590,17 @@ def review_mortality_record(request, pk):
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif role_name == "MAO":
-        if new_status not in MortalityRecord.MortalityRecordStatus.values:
+        if record.status != MortalityRecord.MortalityRecordStatus.VERIFIED:
             return Response(
-                {"error": f"Invalid status '{new_status}'. Valid choices are: {list(MortalityRecord.MortalityRecordStatus.values)}"},
+                {"error": "MAO can review a mortality record only after SIBAT verifies it."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if new_status not in [
+            MortalityRecord.MortalityRecordStatus.APPROVED,
+            MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION,
+        ]:
+            return Response(
+                {"error": "Invalid MAO decision. Valid choices are APPROVED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     else:
