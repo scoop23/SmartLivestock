@@ -17,7 +17,7 @@ const STATUS_FILTERS = [
   { id: "PENDING", label: "Awaiting SIBAT", shortLabel: "Awaiting SIBAT", activeClass: "bg-amber-50 text-amber-900 ring-amber-200", dotClass: "bg-amber-500" },
   { id: "VERIFIED", label: "SIBAT Verified", shortLabel: "SIBAT Verified", activeClass: "bg-sky-50 text-sky-900 ring-sky-200", dotClass: "bg-sky-500" },
   { id: "APPROVED", label: "MAO Approved", shortLabel: "MAO Approved", activeClass: "bg-emerald-50 text-emerald-900 ring-emerald-200", dotClass: "bg-emerald-500" },
-  { id: "REJECTED", label: "Revision Required", shortLabel: "Revision", activeClass: "bg-rose-50 text-rose-900 ring-rose-200", dotClass: "bg-rose-500" },
+  { id: "SUBJECT_TO_REVISION", label: "Revision Required", shortLabel: "Revision", activeClass: "bg-rose-50 text-rose-900 ring-rose-200", dotClass: "bg-rose-500" },
 ] as const;
 
 interface ValidationToolbarProps {

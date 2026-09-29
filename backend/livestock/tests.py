@@ -88,6 +88,14 @@ class LivestockInventoryReviewTests(APITestCase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.status, LivestockInventory.StatusType.VERIFIED)
         self.assertEqual(self.inventory.reviewed_by, self.sibat_user)
+        notification = Notification.objects.get(
+            user=self.farmer_user,
+            title="Verified by SIBAT Inspector",
+        )
+        self.assertEqual(
+            notification.link,
+            f"/livestock-inventory/{self.inventory.pk}",
+        )
 
     def test_mao_can_grant_final_inventory_approval(self):
         self.inventory.status = LivestockInventory.StatusType.VERIFIED
@@ -101,6 +109,14 @@ class LivestockInventoryReviewTests(APITestCase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.status, LivestockInventory.StatusType.APPROVED)
         self.assertEqual(self.inventory.reviewed_by, self.mao_user)
+        notification = Notification.objects.get(
+            user=self.farmer_user,
+            title="Livestock Record Approved",
+        )
+        self.assertEqual(
+            notification.link,
+            f"/livestock-inventory/{self.inventory.pk}",
+        )
 
     def test_mao_cannot_skip_sibat_verification(self):
         self.client.force_authenticate(user=self.mao_user)

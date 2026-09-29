@@ -44,7 +44,7 @@ export function CensusTable({
   onReview,
 }: CensusTableProps) {
   const reviewableRecords = records.filter(
-    (record) => (record.status || "PENDING").toUpperCase() === "PENDING",
+    (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED",
   );
   const allSelected =
     reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
@@ -118,7 +118,7 @@ export function CensusTable({
                 records.map((census) => {
                   const isSelected = selectedIds.includes(census.id);
                   const statusNorm = (census.status || "PENDING").toUpperCase();
-                  const canReview = statusNorm === "PENDING";
+                  const canReview = statusNorm === "VERIFIED";
                   const detailPayload = buildDetailPayload(census);
 
                   return (
@@ -200,12 +200,12 @@ export function CensusTable({
                               })
                             }
                             title={
-                              census.status === "PENDING"
+                              canReview
                                 ? "Validate & Certify"
                                 : "Re-evaluate Determination"
                             }
                             className={`h-9 w-9 rounded-xl transition-all cursor-pointer ${
-                              census.status === "PENDING"
+                              canReview
                                 ? "text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100"
                                 : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"
                             }`}
@@ -266,7 +266,7 @@ export function CensusTable({
           records.map((census) => {
             const isSelected = selectedIds.includes(census.id);
             const statusNorm = (census.status || "PENDING").toUpperCase();
-            const canReview = statusNorm === "PENDING";
+            const canReview = statusNorm === "VERIFIED";
             const detailPayload = buildDetailPayload(census);
 
             return (
@@ -365,13 +365,13 @@ export function CensusTable({
                       })
                     }
                     className={`flex-1 py-2.5 h-auto rounded-xl text-xs font-bold gap-1.5 shadow-xs ${
-                      census.status === "PENDING"
+                      canReview
                         ? "bg-[#2D5A27] hover:bg-[#23471f] text-white"
                         : "bg-gray-900 hover:bg-gray-800 text-white"
                     }`}
                   >
                     <ShieldCheck size={15} />
-                    <span>{census.status === "PENDING" ? "Validate" : "Re-evaluate"}</span>
+                    <span>{canReview ? "Validate" : "Re-evaluate"}</span>
                   </Button>
                 </div>
               </div>

@@ -298,7 +298,8 @@ export default function SibatReviewDialog({
                           >
                             <option value="Female">Female</option>
                             <option value="Male">Male</option>
-                            <option value="Castrated">Castrated</option>
+
+
                           </select>
                         </div>
                         <div>

@@ -71,10 +71,11 @@ def census_detail(request, pk):
             raise PermissionDenied("SIBAT users may only revise census submissions they created.")
         if census.status not in {
             CensusSubmission.StatusType.PENDING,
+            CensusSubmission.StatusType.VERIFIED,
             CensusSubmission.StatusType.SUBJECT_TO_REVISION,
         }:
             return Response(
-                {"error": "Only PENDING or SUBJECT_TO_REVISION census submissions can be changed."},
+                {"error": "Only VERIFIED or SUBJECT_TO_REVISION census submissions can be changed."},
                 status=status.HTTP_409_CONFLICT,
             )
 

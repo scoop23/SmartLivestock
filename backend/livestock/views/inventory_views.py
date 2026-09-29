@@ -196,6 +196,20 @@ def review_inventory(request, pk):
     - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
     inventory = get_object_or_404(LivestockInventory, pk=pk)
+
+    if inventory.batch_id:
+        batch = inventory.batch
+        return Response(
+            {
+                "error": (
+                    f"This animal belongs to cohort {batch.batch_code}. Review the entire "
+                    f"batch via livestock/batches/{inventory.batch_id}/review/ so all cohort "
+                    "animals move through FARMER -> SIBAT -> MAO validation together."
+                )
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -231,6 +245,7 @@ def review_inventory(request, pk):
     if target_user:
         species_name = inventory.livestock_type.name if inventory.livestock_type else "Livestock"
         tag_info = inventory.tag_number or f"Batch ({inventory.quantity} heads)"
+        inventory_detail_link = f"/livestock-inventory/{inventory.pk}"
 
         if new_status == LivestockInventory.StatusType.VERIFIED:
             create_notification(
@@ -239,7 +254,7 @@ def review_inventory(request, pk):
                 priority=Notification.Priority.MEDIUM,
                 title="Verified by SIBAT Inspector",
                 message=f"Your {species_name} [{tag_info}] has been verified on-farm by SIBAT.{f' Officer Remarks: {remarks}' if remarks else ''}",
-                link="/livestock-inventory",
+                link=inventory_detail_link,
             )
         elif new_status == LivestockInventory.StatusType.APPROVED:
             create_notification(
@@ -248,7 +263,7 @@ def review_inventory(request, pk):
                 priority=Notification.Priority.MEDIUM,
                 title="Livestock Record Approved",
                 message=f"Official certification approved for your {species_name} [{tag_info}].",
-                link="/livestock-inventory",
+                link=inventory_detail_link,
             )
         elif new_status == LivestockInventory.StatusType.SUBJECT_TO_REVISION:
             create_notification(
@@ -257,7 +272,7 @@ def review_inventory(request, pk):
                 priority=Notification.Priority.HIGH,
                 title="Revision Required on Livestock Record",
                 message=f"Your {species_name} [{tag_info}] requires revision.{f' Note: {remarks}' if remarks else ''}",
-                link="/livestock-inventory",
+                link=inventory_detail_link,
             )
 
     serializer = LivestockInventorySerializer(inventory, context={"request": request})

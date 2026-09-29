@@ -71,6 +71,25 @@ interface BackendNotificationsResponse {
   notifications: BackendNotification[];
 }
 
+const resolveNotificationLink = (notification: BackendNotification) => {
+  if (notification.link !== "/livestock-inventory") {
+    return notification.link || undefined;
+  }
+
+  const isLivestockReviewNotification = [
+    "Verified by SIBAT Inspector",
+    "Livestock Record Approved",
+    "Revision Required on Livestock Record",
+  ].includes(notification.title);
+  const tagMatch = notification.message.match(/\[([^\]]+)\]/);
+
+  if (isLivestockReviewNotification && tagMatch?.[1] && !tagMatch[1].startsWith("Batch (")) {
+    return `/livestock-inventory/${encodeURIComponent(tagMatch[1])}`;
+  }
+
+  return notification.link;
+};
+
 export function HeaderNotifications({
   variant = "admin",
   className = "",
@@ -178,7 +197,7 @@ export function HeaderNotifications({
     date: n.created_at ? n.created_at.split("T")[0] : "",
     timeAgo: n.time_ago || "Just now",
     read: n.is_read,
-    link: n.link || undefined,
+    link: resolveNotificationLink(n),
   }));
 
   const unreadCount = backendData?.unread_count ?? notifications.filter((n) => !n.read).length;

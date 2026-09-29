@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Tag,
   Search,
@@ -14,7 +15,7 @@ import {
   ShieldCheck,
   ClipboardCheck,
   Scale,
-  Sparkles,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +113,27 @@ export default function SibatInventoryQueue({
     });
   }, [invSubmissions, statusFilter, entryTypeFilter, searchQuery]);
 
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(filteredSubmissions.length / PAGE_SIZE));
+  const pagedSubmissions = useMemo(
+    () =>
+      filteredSubmissions.slice(
+        (page - 1) * PAGE_SIZE,
+        (page - 1) * PAGE_SIZE + PAGE_SIZE,
+      ),
+    [filteredSubmissions, page],
+  );
+
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, entryTypeFilter, searchQuery]);
+
   const hasActiveFilters =
     searchQuery.trim() !== "" || statusFilter !== "all" || entryTypeFilter !== "ALL";
 
@@ -138,6 +160,16 @@ export default function SibatInventoryQueue({
             {counts.pending} {counts.pending === 1 ? "animal to tag" : "animals to tag"}
           </Badge>
         )}
+
+        <Link href="/sibat/batches">
+          <Button
+            size="sm"
+            className="h-9 px-3 rounded-2xl bg-[#1A365D] hover:bg-[#132742] text-white text-xs font-black gap-1.5 shadow-2xs cursor-pointer"
+          >
+            <Layers className="size-3.5 text-amber-300" />
+            Batch Verification Center
+          </Button>
+        </Link>
       </div>
 
       {/* Filter Toolbar */}
@@ -282,10 +314,12 @@ export default function SibatInventoryQueue({
           </p>
         </div>
       ) : (
+        <>
         <div className="space-y-3">
-          {filteredSubmissions.map((item) => {
+          {pagedSubmissions.map((item) => {
             const isPending = item.status === "PENDING";
             const isIndividual = item.entryType === "INDIVIDUAL";
+            const isCohortMember = isIndividual && !!item.batchCode;
             const emoji = getAnimalEmoji(item.livestockTypeName || item.detailsTitle);
 
             return (
@@ -377,17 +411,27 @@ export default function SibatInventoryQueue({
                     <div className="flex items-center gap-2 shrink-0 lg:self-center">
                       <Button
                         onClick={() => onReview(item)}
+                        disabled={isPending && isCohortMember}
+                        title={
+                          isPending && isCohortMember
+                            ? "Cohort animals share one review status. Verify the whole batch from the Batch Verification Center."
+                            : undefined
+                        }
                         className={`h-10 px-4 rounded-2xl text-xs font-black gap-1.5 transition-all shadow-2xs cursor-pointer ${
                           isPending
-                            ? "bg-[#1A365D] hover:bg-[#132742] text-white"
+                            ? "bg-[#1A365D] hover:bg-[#132742] text-white disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
                             : "bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200"
                         }`}
                       >
                         {isPending ? (
-                          <>
-                            <ClipboardCheck className="size-4 text-amber-300" />
-                            {isIndividual ? "Verify Tag & Animal" : "Verify Cohort Batch"}
-                          </>
+                          isCohortMember ? (
+                            <>Batch review only</>
+                          ) : (
+                            <>
+                              <ClipboardCheck className="size-4 text-amber-300" />
+                              {isIndividual ? "Verify Tag & Animal" : "Verify Cohort Batch"}
+                            </>
+                          )
                         ) : (
                           <>
                             <Eye className="size-4 text-slate-600" />
@@ -402,6 +446,39 @@ export default function SibatInventoryQueue({
             );
           })}
         </div>
+
+        {filteredSubmissions.length > PAGE_SIZE && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-3xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">
+            <span className="text-[11px] text-slate-500 font-medium">
+              Showing {(page - 1) * PAGE_SIZE + 1}–
+              {Math.min(page * PAGE_SIZE, filteredSubmissions.length)} of {filteredSubmissions.length} records
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+                className="h-7 rounded-xl text-[10px] font-bold"
+              >
+                ‹ Prev
+              </Button>
+              <span className="px-2.5 py-1 rounded-xl bg-[#1A365D] text-white font-black text-[10px]">
+                Page {page} / {pageCount}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={page >= pageCount}
+                onClick={() => setPage((p) => p + 1)}
+                className="h-7 rounded-xl text-[10px] font-bold"
+              >
+                Next ›
+              </Button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

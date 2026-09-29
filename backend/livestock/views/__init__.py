@@ -16,6 +16,7 @@ from .batch_views import (
     batch_detail,
     batch_add_animals,
     batch_review,
+    batch_add_notes,
 )
 
 __all__ = [
@@ -32,5 +33,6 @@ __all__ = [
     "batch_detail",
     "batch_add_animals",
     "batch_review",
+    "batch_add_notes",
 ]
 

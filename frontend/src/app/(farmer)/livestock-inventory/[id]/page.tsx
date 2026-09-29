@@ -196,6 +196,8 @@ export default function LivestockDetailPage() {
         operationalStatus: directInventory.operational_status || "ACTIVE",
         operationalStatusChangedAt: directInventory.operational_status_changed_at || null,
         reviewRemarks: directInventory.review_remarks || null,
+        reviewedByName: directInventory.reviewed_by_name || null,
+        reviewedAt: directInventory.reviewed_at || null,
         createdAt: directInventory.created_at || new Date().toISOString(),
         photoUrl: directInventory.photo_url || null,
         avatarKey: directInventory.avatar_key || null,
@@ -591,9 +593,9 @@ export default function LivestockDetailPage() {
   const avgBirthWeight =
     animalCalvingRecords.filter((c) => c.birth_weight).length > 0
       ? (
-          animalCalvingRecords.reduce((acc, c) => acc + (Number(c.birth_weight) || 0), 0) /
-          animalCalvingRecords.filter((c) => c.birth_weight).length
-        ).toFixed(1)
+        animalCalvingRecords.reduce((acc, c) => acc + (Number(c.birth_weight) || 0), 0) /
+        animalCalvingRecords.filter((c) => c.birth_weight).length
+      ).toFixed(1)
       : "—";
 
   // Loading state
@@ -744,7 +746,19 @@ export default function LivestockDetailPage() {
                     <span className="text-xl sm:text-2xl font-black text-white tracking-tight">
                       {activeItem.tagNumber}
                     </span>
-                    <Badge className="bg-emerald-400 text-emerald-950 font-black text-xs px-2.5 py-0.5">
+                    <Badge
+                      className={`font-black text-xs px-2.5 py-0.5 ${
+                        activeItem.status === "APPROVED"
+                          ? "bg-emerald-400 text-emerald-950 border-emerald-300"
+                          : activeItem.status === "VERIFIED"
+                            ? "bg-sky-300 text-sky-950 border-sky-200"
+                            : activeItem.status === "PENDING"
+                              ? "bg-amber-300 text-amber-950 border-amber-200"
+                              : activeItem.status === "SUBJECT_TO_REVISION"
+                                ? "bg-orange-300 text-orange-950 border-orange-200"
+                                : "bg-rose-300 text-rose-950 border-rose-200"
+                      }`}
+                    >
                       {activeItem.status}
                     </Badge>
                     <OperationalStatusBadge status={activeItem.operationalStatus} />
@@ -811,6 +825,41 @@ export default function LivestockDetailPage() {
             </div>
           </div>
         </Card>
+
+        {activeItem.status === "APPROVED" && activeItem.reviewRemarks && (
+          <Card className="rounded-2xl border-emerald-200 bg-emerald-50/70 shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 flex items-start gap-3">
+              <div className="size-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <ShieldCheck className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-emerald-900">
+                      MAO Review Message
+                    </p>
+                    <p className="text-[11px] text-emerald-800">
+                      Official approval remarks from the Municipal Agriculture Office
+                    </p>
+                  </div>
+                  {activeItem.reviewedAt && (
+                    <span className="text-[10px] font-bold text-emerald-700 whitespace-nowrap">
+                      {new Date(activeItem.reviewedAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <blockquote className="text-sm font-medium leading-relaxed text-slate-800 border-l-2 border-emerald-500 pl-3">
+                  &ldquo;{activeItem.reviewRemarks}&rdquo;
+                </blockquote>
+                {activeItem.reviewedByName && (
+                  <p className="text-[11px] font-bold text-emerald-900">
+                    Reviewed by {activeItem.reviewedByName}
+                  </p>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* ── TABS: GROWTH, PRODUCTION YIELD, CALVING / BIRTHING, HEALTH, LINEAGE ───────── */}
         <Tabs defaultValue="growth" className="w-full space-y-6">
@@ -1080,13 +1129,12 @@ export default function LivestockDetailPage() {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={`text-[10px] font-black ${
-                                log.status === "APPROVED"
-                                  ? "bg-emerald-100 text-emerald-900 border-emerald-200"
-                                  : log.status === "VERIFIED"
-                                    ? "bg-sky-100 text-sky-900 border-sky-200"
-                                    : "bg-amber-100 text-amber-900 border-amber-200"
-                              }`}
+                              className={`text-[10px] font-black ${log.status === "APPROVED"
+                                ? "bg-emerald-100 text-emerald-900 border-emerald-200"
+                                : log.status === "VERIFIED"
+                                  ? "bg-sky-100 text-sky-900 border-sky-200"
+                                  : "bg-amber-100 text-amber-900 border-amber-200"
+                                }`}
                             >
                               {log.status}
                             </Badge>
@@ -1199,11 +1247,10 @@ export default function LivestockDetailPage() {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={`text-[10px] font-black ${
-                                calving.calf_sex === "FEMALE"
-                                  ? "bg-pink-100 text-pink-900 border-pink-200"
-                                  : "bg-blue-100 text-blue-900 border-blue-200"
-                              }`}
+                              className={`text-[10px] font-black ${calving.calf_sex === "FEMALE"
+                                ? "bg-pink-100 text-pink-900 border-pink-200"
+                                : "bg-blue-100 text-blue-900 border-blue-200"
+                                }`}
                             >
                               {calving.calf_sex}
                             </Badge>

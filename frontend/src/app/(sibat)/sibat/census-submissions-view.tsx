@@ -12,6 +12,8 @@ import {
   TableIcon,
   LayoutGrid,
   ChevronRight,
+  ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,37 @@ interface CensusSubmissionsViewProps {
   censusSubmissions: CensusSubmissionRecord[];
   onOpenSubmitDialog: () => void;
   onSelectCensusForDetail: (census: CensusSubmissionRecord) => void;
+}
+
+function getCensusStatusBadge(status: string) {
+  switch ((status || "").toUpperCase()) {
+    case "APPROVED":
+      return {
+        label: "Approved",
+        chip: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        Icon: CheckCircle2,
+      };
+    case "VERIFIED":
+      return {
+        label: "Pending MAO",
+        chip: "bg-sky-100 text-sky-800 border-sky-200",
+        Icon: ShieldCheck,
+      };
+    case "SUBJECT_TO_REVISION":
+    case "SUBJECT_FOR_REVISION":
+    case "REJECTED":
+      return {
+        label: "Revision Required",
+        chip: "bg-rose-100 text-rose-800 border-rose-200",
+        Icon: RotateCcw,
+      };
+    default:
+      return {
+        label: "Pending MAO",
+        chip: "bg-amber-100 text-amber-800 border-amber-200",
+        Icon: Clock,
+      };
+  }
 }
 
 export default function CensusSubmissionsView({
@@ -176,7 +209,8 @@ export default function CensusSubmissionsView({
                   </TableRow>
                 ) : (
                   filteredCensus.map((census) => {
-                    const isApproved = census.status === "APPROVED";
+                    const statusBadge = getCensusStatusBadge(census.status);
+                    const StatusIcon = statusBadge.Icon;
                     return (
                       <TableRow
                         key={census.id}
@@ -251,21 +285,9 @@ export default function CensusSubmissionsView({
 
                         {/* Status */}
                         <TableCell className="text-center py-3.5">
-                          <Badge
-                            className={`font-bold text-[10px] uppercase tracking-wider ${isApproved
-                                ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                                : "bg-amber-100 text-amber-800 border-amber-200"
-                              }`}
-                          >
-                            {isApproved ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Approved
-                              </>
-                            ) : (
-                              <>
-                                <Clock className="w-3 h-3 mr-1 inline" /> Pending MAO
-                              </>
-                            )}
+                          <Badge className={`font-bold text-[10px] uppercase tracking-wider ${statusBadge.chip}`}>
+                            <StatusIcon className="w-3 h-3 mr-1 inline" />
+                            {statusBadge.label}
                           </Badge>
                         </TableCell>
 
@@ -309,7 +331,8 @@ export default function CensusSubmissionsView({
             </Card>
           ) : (
             filteredCensus.map((census) => {
-              const isApproved = census.status === "APPROVED";
+              const statusBadge = getCensusStatusBadge(census.status);
+              const StatusIcon = statusBadge.Icon;
               return (
                 <Card
                   key={census.id}
@@ -333,20 +356,10 @@ export default function CensusSubmissionsView({
                       </div>
 
                       <Badge
-                        className={`font-bold text-[10px] uppercase tracking-wider ${isApproved
-                            ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                            : "bg-amber-100 text-amber-800 border-amber-200"
-                          }`}
+                        className={`font-bold text-[10px] uppercase tracking-wider ${statusBadge.chip}`}
                       >
-                        {isApproved ? (
-                          <>
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-3 h-3 mr-1" /> Pending MAO
-                          </>
-                        )}
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {statusBadge.label}
                       </Badge>
                     </div>
 

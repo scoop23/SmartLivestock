@@ -124,7 +124,15 @@ const farmerLinks: SidebarLink[] = [
 ];
 
 const sibatLinks: SidebarLink[] = [
-  { path: '/sibat', label: 'Field Inspection Center', icon: ClipboardCheck },
+  {
+    path: '/sibat',
+    label: 'Field Inspection Center',
+    icon: ClipboardCheck,
+    subLinks: [
+      { path: '/sibat', label: 'Overview & Field Queues' },
+      { path: '/sibat/batches', label: 'Batches & Cohort Verification', badge: 'Batches' },
+    ],
+  },
   { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Activity },
   { path: '/sibat-alerts', label: 'Outbreak Alerts & Flags', icon: Bell },
   { path: '/sibat-announcement', label: 'Field Announcements', icon: Megaphone },
@@ -198,7 +206,9 @@ function SidebarNav({
     links.forEach((link) => {
       if (
         link.subLinks &&
-        (pathname.startsWith(link.path) || link.subLinks.some((s) => pathname === s.path || pathname.startsWith(s.path)))
+        (pathname === link.path ||
+          pathname.startsWith(link.path + "/") ||
+          link.subLinks.some((s) => pathname === s.path || pathname.startsWith(s.path + "/")))
       ) {
         initial[link.path] = true;
       }
@@ -274,16 +284,16 @@ function SidebarNav({
           const isDropdownOpen = Boolean(openDropdowns[link.path]);
 
           const isExactActive = pathname === link.path;
-          const isChildActive = Boolean(
-            hasSubLinks && link.subLinks?.some((s) => pathname === s.path || pathname.startsWith(s.path))
-          );
+const isChildActive = Boolean(
+    hasSubLinks && link.subLinks?.some((s) => pathname === s.path || pathname.startsWith(s.path + "/"))
+  );
           const isActive = isExactActive || isChildActive || (
             !hasSubLinks &&
             link.path !== '/admin' &&
             link.path !== '/farmer' &&
             link.path !== '/sibat' &&
             link.path !== '/auction' &&
-            pathname.startsWith(link.path)
+            (pathname === link.path || pathname.startsWith(link.path + "/"))
           );
 
           if (hasSubLinks && !collapsed) {

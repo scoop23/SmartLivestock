@@ -44,7 +44,7 @@ class CensusService:
             report_year=report_year,
             report_quarter=report_quarter,
             remarks=remarks,
-            status=CensusSubmission.StatusType.PENDING,
+            status=CensusSubmission.StatusType.VERIFIED,
         )
 
         if items:
@@ -118,7 +118,7 @@ class CensusService:
             )
 
         if submission.status == CensusSubmission.StatusType.SUBJECT_TO_REVISION:
-            submission.status = CensusSubmission.StatusType.PENDING
+            submission.status = CensusSubmission.StatusType.VERIFIED
             submission.reviewed_by = None
             submission.reviewed_at = None
 

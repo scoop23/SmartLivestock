@@ -97,6 +97,23 @@ const DOMAIN_CARD_CONFIG: Record<
   },
 };
 
+function matchesStatusFilter(
+  rawStatus: string | null | undefined,
+  statusFilter: ValidationStatus
+): boolean {
+  if (statusFilter === "ALL") return true;
+  const s = (rawStatus || "PENDING").toUpperCase();
+  if (statusFilter === "SUBJECT_TO_REVISION") {
+    return (
+      s === "SUBJECT_TO_REVISION" ||
+      s === "SUBJECT_FOR_REVISION" ||
+      s === "REJECTED" ||
+      s === "FLAGGED"
+    );
+  }
+  return s === statusFilter;
+}
+
 export default function AdminDataValidationPage() {
   const queryClient = useQueryClient();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -265,8 +282,7 @@ export default function AdminDataValidationPage() {
         c.barangay.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.submittedBy.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.remarks?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus =
-        statusFilter === "ALL" || (c.status || "PENDING").toUpperCase() === statusFilter;
+      const matchStatus = matchesStatusFilter(c.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || c.barangay === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
     });
@@ -280,8 +296,7 @@ export default function AdminDataValidationPage() {
         (p.barangayName && p.barangayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (p.livestockTypeName && p.livestockTypeName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         p.notes.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus =
-        statusFilter === "ALL" || (p.status || "PENDING").toUpperCase() === statusFilter;
+      const matchStatus = matchesStatusFilter(p.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || p.barangayName === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
     });
@@ -296,8 +311,7 @@ export default function AdminDataValidationPage() {
         inv.tagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inv.breed.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inv.livestockType.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus =
-        statusFilter === "ALL" || (inv.status || "PENDING").toUpperCase() === statusFilter;
+      const matchStatus = matchesStatusFilter(inv.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || inv.barangayName === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
     });
@@ -311,8 +325,7 @@ export default function AdminDataValidationPage() {
         inc.barangayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inc.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inc.type.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus =
-        statusFilter === "ALL" || (inc.status || "PENDING").toUpperCase() === statusFilter;
+      const matchStatus = matchesStatusFilter(inc.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || inc.barangayName === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
     });
@@ -418,7 +431,7 @@ export default function AdminDataValidationPage() {
     let targets: ReviewTargetItem[] = [];
     if (activeDomain === "census") {
       targets = censusSubmissions
-        .filter((c) => selectedIds.includes(c.id) && (c.status || "PENDING").toUpperCase() === "PENDING")
+        .filter((c) => selectedIds.includes(c.id) && (c.status || "PENDING").toUpperCase() === "VERIFIED")
         .map((c) => ({
           id: c.id,
           domain: "census",

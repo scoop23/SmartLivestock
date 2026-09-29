@@ -25,6 +25,8 @@ export interface LivestockInventoryItem {
   operationalStatus: OperationalStatus;
   operationalStatusChangedAt?: string | null;
   reviewRemarks?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
   createdAt: string;
   photoUrl?: string | null;
   avatarKey?: string | null;
@@ -48,6 +50,8 @@ export interface InventoryApiItem {
   operational_status: OperationalStatus;
   operational_status_changed_at: string | null;
   review_remarks: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
   created_at: string;
   photo?: string | null;
   photo_url?: string | null;
@@ -411,6 +415,8 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   operationalStatus: item.operational_status || "ACTIVE",
   operationalStatusChangedAt: item.operational_status_changed_at,
   reviewRemarks: item.review_remarks,
+  reviewedByName: item.reviewed_by_name,
+  reviewedAt: item.reviewed_at,
   createdAt: item.created_at,
   photoUrl: (item as any).photo || (item as any).photo_url || null,
   avatarKey: (item as any).avatar_key || null,
@@ -487,6 +493,11 @@ export async function fetchLivestockBatches(): Promise<LivestockBatchItem[]> {
 
 export async function createLivestockBatch(payload: CreateBatchPayload) {
   const res = await api.post("livestock/batches/", payload);
+  return res.data;
+}
+
+export async function addBatchNote(batchId: number, text: string) {
+  const res = await api.post(`livestock/batches/${batchId}/notes/`, { text });
   return res.data;
 }
 

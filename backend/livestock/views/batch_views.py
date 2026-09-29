@@ -337,7 +337,7 @@ def batch_review(request, pk):
             review_remarks=remarks,
         )
         if remarks:
-            timestamp_str = timezone.now().strftime("%Y-%m-%d %H:%M")
+            timestamp_str = timezone.localtime().strftime("%Y-%m-%d %H:%M")
             reviewer_title = (
                 f"SIBAT Verification ({user.get_full_name() or user.username})"
                 if user_role == "SIBAT"
@@ -391,6 +391,48 @@ def batch_review(request, pk):
     return Response(
         {
             "message": f"Batch {batch.batch_code} and all {batch.animals.count()} animals updated to {new_status}.",
+            "batch": serializer.data,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def batch_add_notes(request, pk):
+    """
+    POST /api/livestock/batches/<id>/notes/
+    Append a timestamped reviewer note to the batch audit trail.
+    Allowed for SIBAT / MAO / ADMIN reviewers only.
+    """
+    user = request.user
+    user_role = role_name(user)
+    if user_role != "ADMIN":
+        require_action(user, "batches", "review")
+
+    batch = get_object_or_404(LivestockBatch, pk=pk)
+
+    text = request.data.get("text", "").strip()
+    if not text:
+        return Response(
+            {"error": "Note text is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    timestamp_str = timezone.localtime().strftime("%Y-%m-%d %H:%M")
+    reviewer_title = (
+        f"SIBAT Verification ({user.get_full_name() or user.username})"
+        if user_role == "SIBAT"
+        else f"MAO Approval ({user.get_full_name() or user.username})"
+    )
+    audit_entry = f"\n[{timestamp_str}] {reviewer_title} - Note: {text}"
+    batch.notes = (batch.notes + audit_entry).strip()
+    batch.save(update_fields=["notes", "updated_at"])
+
+    serializer = LivestockBatchSerializer(batch, context={"request": request})
+    return Response(
+        {
+            "message": "Note added to batch audit trail.",
             "batch": serializer.data,
         },
         status=status.HTTP_200_OK,

@@ -304,11 +304,17 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         return "PENDING"
 
     def get_review_remarks(self, obj):
-        # In-memory computation
-        reviewed = [a for a in obj.animals.all() if a.review_remarks and a.reviewed_at]
-        if reviewed:
-            latest = max(reviewed, key=lambda a: a.reviewed_at)
-            return latest.review_remarks
+        # In-memory computation: only a remark shared by every reviewed animal is a
+        # genuine batch-level remark (a whole-batch review stamps all animals with
+        # the same text). Individually reviewed animals keep their own remarks and
+        # must not surface as the cohort's official note.
+        reviewed = [
+            a.review_remarks.strip()
+            for a in obj.animals.all()
+            if a.review_remarks and a.reviewed_at and a.review_remarks.strip()
+        ]
+        if reviewed and len(set(reviewed)) == 1:
+            return reviewed[0]
         return None
 
     def get_reviewed_by_name(self, obj):

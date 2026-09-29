@@ -273,7 +273,8 @@ export default function LivestockEditDialog({
                     <SelectContent>
                       <SelectItem value="Female">Female</SelectItem>
                       <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Castrated">Castrated</SelectItem>
+
+
                     </SelectContent>
                   </Select>
                 </div>

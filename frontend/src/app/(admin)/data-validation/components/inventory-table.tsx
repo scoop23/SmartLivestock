@@ -44,8 +44,12 @@ export function InventoryTable({
   onViewDetail,
   onReview,
 }: InventoryTableProps) {
+  const isCohortMember = (record: ValidationInventoryItem) =>
+    !record.isBatch && (record.batchId != null || !!record.batchCode);
+
   const reviewableRecords = records.filter(
-    (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED",
+    (record) =>
+      (record.status || "PENDING").toUpperCase() === "VERIFIED" && !isCohortMember(record),
   );
   const allSelected =
     reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
@@ -136,7 +140,8 @@ export function InventoryTable({
                 records.map((inv) => {
                   const isSelected = selectedIds.includes(inv.id);
                   const statusNorm = (inv.status || "PENDING").toUpperCase();
-                  const canReview = statusNorm === "VERIFIED";
+                  const isCohortMemberRow = isCohortMember(inv);
+                  const canReview = statusNorm === "VERIFIED" && !isCohortMemberRow;
                   const detailPayload = buildDetailPayload(inv);
 
                   return (
@@ -241,7 +246,13 @@ export function InventoryTable({
                       </TableCell>
 
                       <TableCell className="px-8 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex flex-col items-end gap-2">
+                          {isCohortMemberRow && statusNorm === "VERIFIED" && (
+                            <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded px-1.5 py-0.5">
+                              Approve via batch card
+                            </span>
+                          )}
+                          <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -286,6 +297,7 @@ export function InventoryTable({
                           >
                             <ChevronRight size={18} />
                           </Button>
+                          </div>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -330,7 +342,8 @@ export function InventoryTable({
           records.map((inv) => {
             const isSelected = selectedIds.includes(inv.id);
             const statusNorm = (inv.status || "PENDING").toUpperCase();
-            const canReview = statusNorm === "VERIFIED";
+            const isCohortMemberRow = isCohortMember(inv);
+            const canReview = statusNorm === "VERIFIED" && !isCohortMemberRow;
             const detailPayload = buildDetailPayload(inv);
 
             return (
@@ -437,7 +450,9 @@ export function InventoryTable({
                     title={
                       canReview
                         ? "Approve this SIBAT-verified animal"
-                        : "SIBAT verification is required before MAO approval"
+                        : isCohortMemberRow
+                          ? "Cohort member — approve the whole batch instead"
+                          : "SIBAT verification is required before MAO approval"
                     }
                     onClick={() =>
                       onReview({
@@ -462,7 +477,11 @@ export function InventoryTable({
                   >
                     <ShieldCheck size={15} />
                     <span>
-                      {canReview ? "MAO Approve" : "Awaiting SIBAT"}
+                      {canReview
+                        ? "MAO Approve"
+                        : isCohortMemberRow
+                          ? "Batch review only"
+                          : "Awaiting SIBAT"}
                     </span>
                   </Button>
                 </div>

@@ -212,6 +212,7 @@ class LivestockInventory(models.Model):
 class CensusSubmission(models.Model):
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
+        VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
         SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
@@ -234,7 +235,7 @@ class CensusSubmission(models.Model):
     submission_date = models.DateField(auto_now_add=True)
 
     status = models.CharField(
-        max_length=25, choices=StatusType.choices, default=StatusType.PENDING
+        max_length=25, choices=StatusType.choices, default=StatusType.VERIFIED
     )
 
     reviewed_by = models.ForeignKey(

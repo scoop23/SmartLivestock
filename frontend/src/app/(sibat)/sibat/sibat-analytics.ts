@@ -385,7 +385,13 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
 
 // ── Types: Census Submissions ──
 
-export type CensusStatus = "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "SUBJECT_FOR_REVISION" | "REJECTED";
+export type CensusStatus =
+  | "PENDING"
+  | "VERIFIED"
+  | "APPROVED"
+  | "SUBJECT_TO_REVISION"
+  | "SUBJECT_FOR_REVISION"
+  | "REJECTED";
 
 export interface CensusItemEntry {
   id: string;

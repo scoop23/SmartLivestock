@@ -82,6 +82,7 @@ export interface BatchIndividual {
   adgKgDay: number;
   healthStatus: "Healthy" | "Monitored" | "Vaccinated" | "Quarantined";
   lastWeighedDate: string;
+  reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
   notes?: string;
 }
 
@@ -101,6 +102,7 @@ export interface EnrichedBatch {
   status: string;
   reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
   reviewRemarks?: string;
+  notes?: string;
   feedType: string;
   individuals: BatchIndividual[];
 }
@@ -128,9 +130,7 @@ function generateInitialIndividuals(
     const variation = (Math.sin(i * 1.7) * 0.08) * baseWeight;
     const finalWeight = Math.round((baseWeight + variation) * 10) / 10;
 
-    const sex: "Male" | "Female" | "Castrated" = isSwine
-      ? (i % 2 === 0 ? "Female" : i % 3 === 0 ? "Castrated" : "Male")
-      : (i % 2 === 0 ? "Female" : "Male");
+    const sex: "Male" | "Female" = i % 2 === 0 ? "Female" : "Male";
 
     const age = isPoultry ? 1.8 : isSwine ? 4.5 : isCattle ? 14 : 6;
     const adg = isPoultry ? 0.04 : isSwine ? 0.72 : isCattle ? 0.85 : 0.25;
@@ -217,7 +217,7 @@ export default function BatchOverviewPage() {
   const [newAnimalData, setNewAnimalData] = useState({
     tagNumber: "",
     name: "",
-    sex: "Female" as "Male" | "Female" | "Castrated",
+    sex: "Female" as "Male" | "Female",
     ageMonths: "4",
     weightKg: "65",
     healthStatus: "Healthy" as "Healthy" | "Monitored" | "Vaccinated",
@@ -294,17 +294,17 @@ export default function BatchOverviewPage() {
             id: String(a.id),
             tagNumber: a.tagNumber || `${b.batchCode}-${(idx + 1).toString().padStart(2, "0")}`,
             name: a.tagNumber ? `Animal ${a.tagNumber}` : `Animal #${idx + 1}`,
-            sex:
-              a.sex?.toUpperCase() === "MALE"
+            sex: a.sex?.toLowerCase() === "castrated"
+              ? ("Castrated" as const)
+              : a.sex?.toUpperCase() === "MALE"
                 ? ("Male" as const)
-                : a.sex?.toUpperCase() === "CASTRATED"
-                  ? ("Castrated" as const)
-                  : ("Female" as const),
+                : ("Female" as const),
             ageMonths: 4,
             weightKg: a.weight ? Number(a.weight) : 65,
             adgKgDay: 0.72,
             healthStatus: a.lastVaccinationDate ? ("Vaccinated" as const) : ("Healthy" as const),
             lastWeighedDate: a.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
+            reviewStatus: (a.status as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION") || "PENDING",
           }))
           : customIndividuals[String(b.id)] ||
           generateInitialIndividuals(
@@ -338,6 +338,7 @@ export default function BatchOverviewPage() {
         status: b.status || "ACTIVE",
         reviewStatus: b.reviewStatus || "PENDING",
         reviewRemarks: b.reviewRemarks,
+        notes: b.notes,
         feedType: b.feedType || "Farm Rations",
         individuals: indList,
       };
@@ -878,6 +879,23 @@ export default function BatchOverviewPage() {
               </div>
             </div>
 
+            {/* Batch Notes (audit trail from farmer + SIBAT/MAO reviewers) */}
+            <Card className="rounded-2xl border-slate-200 shadow-xs bg-white overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <ClipboardList className="size-3.5 text-emerald-600" /> Batch Notes
+                </CardTitle>
+                <CardDescription className="text-[11px] text-slate-400">
+                  Registration details and official audit trail from SIBAT / MAO.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 pt-2">
+                <pre className="text-xs text-slate-600 font-sans whitespace-pre-wrap leading-relaxed">
+                  {currentBatch.notes || "No notes recorded for this batch yet."}
+                </pre>
+              </CardContent>
+            </Card>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="rounded-2xl border-slate-200 shadow-xs bg-white">
@@ -1030,7 +1048,7 @@ export default function BatchOverviewPage() {
                       <SelectItem value="ALL">All Genders</SelectItem>
                       <SelectItem value="MALE">Male</SelectItem>
                       <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="CASTRATED">Castrated</SelectItem>
+
                     </SelectContent>
                   </Select>
 
@@ -1060,13 +1078,14 @@ export default function BatchOverviewPage() {
                         <TableHead className="font-bold text-xs text-slate-600">Weight (kg)</TableHead>
                         <TableHead className="font-bold text-xs text-slate-600">Daily Gain (ADG)</TableHead>
                         <TableHead className="font-bold text-xs text-slate-600">Health Status</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-600">Review Status</TableHead>
                         <TableHead className="font-bold text-xs text-slate-600 text-right pr-6">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredIndividuals.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-10 text-xs text-slate-400 font-medium">
+                          <TableCell colSpan={9} className="text-center py-10 text-xs text-slate-400 font-medium">
                             No individual livestock matched the current filter.
                           </TableCell>
                         </TableRow>
@@ -1074,7 +1093,10 @@ export default function BatchOverviewPage() {
                         filteredIndividuals.map((animal) => {
                           const isAboveAvg = animal.weightKg >= currentBatch.averageWeightKg;
                           return (
-                            <TableRow key={animal.id} className="hover:bg-slate-50/60 transition-colors">
+                            <TableRow
+                              key={animal.id}
+                              className="transition-colors hover:bg-slate-50/60"
+                            >
                               <TableCell className="font-black text-xs text-slate-900">
                                 <Link
                                   href={`/livestock-inventory/${animal.tagNumber}`}
@@ -1134,6 +1156,29 @@ export default function BatchOverviewPage() {
                                 >
                                   <span className="size-1.5 rounded-full bg-current" />
                                   {animal.healthStatus}
+                                </span>
+                              </TableCell>
+
+                              <TableCell>
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    animal.reviewStatus === "APPROVED"
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : animal.reviewStatus === "VERIFIED"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-slate-100 text-slate-600"
+                                  }`}
+                                >
+                                  <span className="size-1.5 rounded-full bg-current" />
+                                  {animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                    ? "For Revision"
+                                    : animal.reviewStatus === "VERIFIED"
+                                      ? "Verified"
+                                      : animal.reviewStatus === "APPROVED"
+                                        ? "Approved"
+                                        : "Pending"}
                                 </span>
                               </TableCell>
 
@@ -1273,7 +1318,8 @@ export default function BatchOverviewPage() {
                   <SelectContent>
                     <SelectItem value="Female">Female (Sow / Dam / Hen)</SelectItem>
                     <SelectItem value="Male">Male (Boar / Bull / Rooster)</SelectItem>
-                    <SelectItem value="Castrated">Castrated / Barrow / Steer</SelectItem>
+
+
                   </SelectContent>
                 </Select>
               </div>

@@ -207,7 +207,7 @@ export function RecordDetailDialog({
   const statusNorm = (record.status || "PENDING").toUpperCase();
   const isPending = statusNorm === "PENDING";
   const isVerified = statusNorm === "VERIFIED";
-  const canMaoReview = record.kind === "census" ? isPending : isVerified;
+  const canMaoReview = isVerified;
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
 
@@ -735,7 +735,8 @@ export function RecordDetailDialog({
                         >
                           <option value="Female">Female</option>
                           <option value="Male">Male</option>
-                          <option value="Castrated">Castrated</option>
+
+
                         </select>
                       </div>
                       <div>
