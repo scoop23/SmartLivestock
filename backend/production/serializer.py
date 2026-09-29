@@ -329,6 +329,9 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
                 )
         return attrs
 
+    def update(self, instance, validated_data):
+        pass
+
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
@@ -471,6 +474,24 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         validated_data["created_by"] = user
         return CalvingRecord.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        allowed = [
+            "calf_tag",
+            "calving_date",
+            "calf_sex",
+            "breed",
+            "birth_weight",
+            "sire_tag",
+            "calving_ease",
+            "notes",
+        ]
+        for field in allowed:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+        instance.save()
+
+        return instance
 
 
 class AnimalDispositionSerializer(serializers.ModelSerializer):

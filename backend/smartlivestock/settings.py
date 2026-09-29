@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "users",
     "livestock",
     "diseases",
+    "analytics",
 ]
 
 # DRF config: JWT is the only authentication method used

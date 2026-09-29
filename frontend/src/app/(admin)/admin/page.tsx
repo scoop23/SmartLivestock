@@ -7,7 +7,8 @@ import {
   LayoutDashboard,
   Users, CheckSquare, Map, TrendingUp, AlertTriangle,
   Sprout, FileText, Download, FileSpreadsheet,
-  FileBarChart, Database, Milk, Scale, ChevronRight
+  FileBarChart, Database, Milk, Scale, ChevronRight,
+  ClipboardList
 } from 'lucide-react';
 import { Icon } from 'lucide-react';
 import { cowHead } from '@lucide/lab';
@@ -99,31 +100,25 @@ export default function AdminDashboard() {
   }[] = [
       {
         label: 'Total Livestock',
-        value: (data.totalLivestock || 314).toLocaleString(),
-        change: '+4.8% MoM',
+        value: (data.totalLivestock || 0).toLocaleString(),
+        change: 'Live Registry',
         icon: <Icon iconNode={cowHead} className="size-5" />,
         variant: 'emerald',
         description: 'Across 17 Barangays'
       },
       {
         label: 'Monthly Dairy Yield',
-        value: `${((data.monthlyDairyYieldL || 186400) / 1000).toFixed(1)}k L`,
-        change: '+4.2% MoM',
+        value: data.monthlyDairyYieldL >= 1000
+          ? `${(data.monthlyDairyYieldL / 1000).toFixed(1)}k L`
+          : `${Math.round(data.monthlyDairyYieldL)} L`,
+        change: 'This Month',
         icon: <Milk className="w-5 h-5" />,
         variant: 'sky',
-        description: 'Avg. 18.5 L/head/day'
-      },
-      {
-        label: 'Auction Turnover',
-        value: `₱${(data.auctionTurnoverM || 1.52).toFixed(2)}M`,
-        change: 'Active Market',
-        icon: <TrendingUp className="w-5 h-5" />,
-        variant: 'amber',
-        description: 'Padre Garcia Trading'
+        description: 'Certified milk intake'
       },
       {
         label: 'Biosecurity Alerts',
-        value: String(data.biosecurityAlerts || 2),
+        value: String(data.biosecurityAlerts || 0),
         change: 'Monitored',
         icon: <AlertTriangle className="w-5 h-5" />,
         variant: 'rose',
@@ -131,7 +126,7 @@ export default function AdminDashboard() {
       },
       {
         label: 'Registered Raisers',
-        value: String(data.registeredFarmers || 156),
+        value: String(data.registeredFarmers || 0),
         change: '+8 New',
         icon: <Users className="w-5 h-5" />,
         variant: 'default',
@@ -159,7 +154,7 @@ export default function AdminDashboard() {
       {/* Main Content Area */}
       <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
         {/* Executive Stats Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
           {statsCards.map((stat) => (
             <KpiCard
               key={stat.label}
@@ -227,9 +222,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Navigation Footer */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {[
             { path: '/data-overview', icon: Database, label: 'Data Overview' },
+            { path: '/admin/census-analytics', icon: ClipboardList, label: 'Census Analytics' },
             { path: '/user-management', icon: Users, label: 'User Accounts' },
             { path: '/data-validation', icon: CheckSquare, label: 'Record Validation' },
             { path: '/gis-map', icon: Map, label: 'GIS Mapping' },

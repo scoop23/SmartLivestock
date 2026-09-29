@@ -4,11 +4,11 @@ import { useState } from 'react';
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  AreaChart, Area, ComposedChart, Line
+  AreaChart, Area
 } from 'recharts';
 import {
-  TrendingUp, ShieldCheck, Activity, Milk, Scale,
-  RotateCw, CheckCircle2, AlertCircle, BarChart3, PieChart as PieIcon
+  ShieldCheck, Activity, Milk,
+  RotateCw, CheckCircle2, BarChart3, PieChart as PieIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,9 +23,12 @@ export function AdminChartsView() {
     specieComposition,
     monthlyProduction,
     surveillanceTrends,
-    auctionTrends,
     sectorCompliance,
+    vaccinationTotals,
   } = data;
+
+  const slicedProduction =
+    productionTimeframe === '6M' ? monthlyProduction.slice(-6) : monthlyProduction;
 
   return (
     <div className="space-y-3.5">
@@ -160,9 +163,9 @@ export function AdminChartsView() {
             <div>
               <h3 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                 <Milk className="w-3.5 h-3.5 text-sky-600" />
-                Monthly Milk Output vs. DA Quota Target
+                Monthly Certified Milk Output
               </h3>
-              <p className="text-[11px] text-slate-500 font-medium">Dairy yield performance against Department of Agriculture target volume</p>
+              <p className="text-[11px] text-slate-500 font-medium">Certified (APPROVED/VERIFIED) milking logs in liters</p>
             </div>
             <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 self-start sm:self-auto">
               {(['6M', '1Y'] as const).map((t) => (
@@ -180,23 +183,17 @@ export function AdminChartsView() {
 
           <div className="h-[230px] w-full">
             <ResponsiveContainer width="100%" height="100%" debounce={150}>
-              <ComposedChart data={monthlyProduction} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+              <BarChart data={slicedProduction} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600 }} axisLine={{ stroke: '#E2E8F0' }} tickLine={false} />
-                <YAxis
-                  tick={{ fontSize: 10, fill: '#64748B' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600 }} axisLine={{ stroke: '#E2E8F0' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px' }}
-                  formatter={(value: any, name: any) => [`${Number(value).toLocaleString()} Liters`, name]}
+                  formatter={(value: any, name: any) => [`${Number(value).toLocaleString()} L`, name]}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '6px' }} />
-                <Bar dataKey="milk" name="Actual Milk (L)" fill="#0284C7" radius={[4, 4, 0, 0]} barSize={22} />
-                <Line type="monotone" dataKey="quota" name="DA Provincial Quota (L)" stroke="#EF4444" strokeWidth={2.5} strokeDasharray="4 4" dot={{ r: 3 }} />
-              </ComposedChart>
+                <Bar dataKey="milk" name="Certified Milk (L)" fill="#0284C7" radius={[4, 4, 0, 0]} barSize={22} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -207,13 +204,10 @@ export function AdminChartsView() {
             <div>
               <h3 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                Biosecurity & Herd Surveillance
+                Disease Incidence vs Mortality
               </h3>
-              <p className="text-[11px] text-slate-500 font-medium">Disease incidence, recoveries & quarantine control</p>
+              <p className="text-[11px] text-slate-500 font-medium">Certified cases reported vs. recorded livestock deaths</p>
             </div>
-            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 border-emerald-200">
-              Low Outbreak Risk
-            </Badge>
           </div>
 
           <div className="h-[230px] w-full">
@@ -224,79 +218,43 @@ export function AdminChartsView() {
                     <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.4} />
                     <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="colorRecovered" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  <linearGradient id="colorDeaths" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#E11D48" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#E11D48" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600 }} axisLine={{ stroke: '#E2E8F0' }} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600 }} axisLine={{ stroke: '#E2E8F0' }} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '6px' }} />
-                <Area type="monotone" dataKey="reported" name="Reported Symptoms" stroke="#F59E0B" strokeWidth={2} fillOpacity={1} fill="url(#colorReported)" />
-                <Area type="monotone" dataKey="recovered" name="Veterinary Recoveries" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorRecovered)" />
+                <Area type="monotone" dataKey="reported" name="Case Incidence (Heads)" stroke="#F59E0B" strokeWidth={2} fillOpacity={1} fill="url(#colorReported)" />
+                <Area type="monotone" dataKey="deaths" name="Mortalities" stroke="#E11D48" strokeWidth={2} fillOpacity={1} fill="url(#colorDeaths)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* ── ROW 3: Auction Market & Sector Compliance ── */}
+      {/* ── ROW 3: Vaccination Coverage (full width) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Auction Trading Trends */}
-        <div className="lg:col-span-7 bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                <Scale className="w-3.5 h-3.5 text-amber-600" />
-                Padre Garcia Auction Volume & Gross Turnover
-              </h3>
-              <p className="text-[11px] text-slate-500 font-medium">Headcount transacted vs. gross municipal trade value (₱M)</p>
-            </div>
-            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider text-amber-800 bg-amber-50 border-amber-200">
-              National Cattle Capital
-            </Badge>
-          </div>
-
-          <div className="h-[210px] w-full">
-            <ResponsiveContainer width="100%" height="100%" debounce={150}>
-              <BarChart data={auctionTrends} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600 }} axisLine={{ stroke: '#E2E8F0' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px' }}
-                  formatter={(value: any, name: any) => [
-                    name.includes('Turnover') ? `₱${(Number(value) / 1000).toFixed(2)}M` : `${value} Heads`,
-                    name
-                  ]}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '6px' }} />
-                <Bar dataKey="headsTraded" name="Heads Transacted" fill="#2D5A27" radius={[4, 4, 0, 0]} barSize={20} />
-                <Bar dataKey="grossTurnoverK" name="Turnover (₱k)" fill="#F59E0B" radius={[4, 4, 0, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Sector Biosecurity & Vaccination Compliance */}
-        <div className="lg:col-span-5 bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200 flex flex-col justify-between">
+        {/* Sector Vaccination Coverage */}
+        <div className="lg:col-span-12 bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5 text-[#2D5A27]" />
-                Sector Vaccination Compliance
+                Sector Vaccination Coverage
               </h3>
-              <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 border-emerald-200">
-                94.6% Municipal Avg
+              <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 border-slate-200">
+                Via Inventory Records
               </Badge>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium mb-3">Target compliance rate for FMD, Hemosep & Anthrax protection</p>
+            <p className="text-[11px] text-slate-500 font-medium mb-3">Share of certified inventories with a recorded vaccination date</p>
 
-            <div className="space-y-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
               {sectorCompliance.map((sector) => (
                 <div key={sector.sector} className="space-y-1">
                   <div className="flex justify-between items-center text-[11px]">
@@ -319,8 +277,10 @@ export function AdminChartsView() {
           </div>
 
           <div className="pt-2.5 border-t border-slate-100 mt-2 flex items-center justify-between text-[10px] text-slate-500 font-medium">
-            <span>Mandatory biosecurity threshold: 85%</span>
-            <span className="text-emerald-700 font-bold">All Sectors Passed</span>
+            <span>Registered stock with vaccination date</span>
+            <span className="text-emerald-700 font-bold">
+              {vaccinationTotals.vaccinated.toLocaleString()} / {vaccinationTotals.total.toLocaleString()} vaccinated
+            </span>
           </div>
         </div>
       </div>

@@ -18,6 +18,7 @@ export interface User {
   role: string | null;
   profileImage?: string | null;
   phoneNumber?: string | null;
+  barangay?: string | null;
 }
 
 interface DecodedToken {
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         role: data.role,
         profileImage: data.profile_image || null,
         phoneNumber: data.phone_number || null,
+        barangay: data.barangay || null,
       });
       setAccessToken(latestToken);
     } catch (error: any) {

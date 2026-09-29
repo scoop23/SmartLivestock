@@ -323,6 +323,67 @@ class CensusPermissionWorkflowTests(APITestCase):
         self.assertEqual(self.submission.status, CensusSubmission.StatusType.APPROVED)
         self.assertEqual(self.submission.reviewed_by, self.mao_user)
         self.assertIsNotNone(self.submission.reviewed_at)
+        notification = Notification.objects.get(
+            user=self.sibat_user,
+            title="Census Submission Approved by MAO",
+        )
+        self.assertEqual(notification.link, "/sibat?tab=census")
+
+    def test_new_census_submission_notifies_mao(self):
+        self.client.force_authenticate(user=self.sibat_user)
+        response = self.client.post(
+            "/livestock/census/",
+            {
+                "barangay": self.barangay.pk,
+                "report_year": 2026,
+                "report_quarter": 4,
+                "remarks": "Fourth-quarter field census.",
+                "items": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        notification = Notification.objects.get(
+            user=self.mao_user,
+            title="Census Submission Awaiting MAO Approval",
+        )
+        self.assertEqual(notification.link, "/data-validation?domain=census")
+
+    def test_mao_revision_request_notifies_submitting_sibat(self):
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.post(
+            f"/livestock/census/{self.submission.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Correct the cattle total."},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        notification = Notification.objects.get(
+            user=self.sibat_user,
+            title="Revision Required on Census Submission",
+        )
+        self.assertEqual(notification.priority, Notification.Priority.HIGH)
+        self.assertIn("Correct the cattle total.", notification.message)
+        self.assertEqual(notification.link, "/sibat?tab=census")
+
+    def test_corrected_census_resubmission_notifies_mao(self):
+        self.submission.status = CensusSubmission.StatusType.SUBJECT_TO_REVISION
+        self.submission.review_remarks = "Correct the cattle total."
+        self.submission.save(update_fields=["status", "review_remarks"])
+
+        self.client.force_authenticate(user=self.sibat_user)
+        response = self.client.patch(
+            f"/livestock/census/{self.submission.pk}/",
+            {"remarks": "Cattle total corrected."},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, CensusSubmission.StatusType.VERIFIED)
+        notification = Notification.objects.get(
+            user=self.mao_user,
+            title="Census Submission Resubmitted",
+        )
+        self.assertEqual(notification.link, "/data-validation?domain=census")
 
     def test_mao_cannot_review_an_already_approved_census(self):
         self.submission.status = CensusSubmission.StatusType.APPROVED

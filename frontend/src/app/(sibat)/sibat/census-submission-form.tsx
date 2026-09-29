@@ -1,14 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,8 +25,6 @@ import {
   Users,
   Layers,
   Sparkles,
-  AlertCircle,
-  HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
@@ -42,35 +32,42 @@ import {
   CensusSubmissionRecord,
   CensusItemEntry,
   CreateCensusPayload,
-  CreateCensusItemPayload,
-  PADRE_GARCIA_BARANGAYS,
   LIVESTOCK_TYPES,
   SAMPLE_CENSUS_ENTRIES as SAMPLE_ENTRIES,
-  mapCensusSubmission,
   useGetBarangays,
   useFarmersByBarangay,
-  FarmerOptionItem,
-  APIFarmerBarangayRecord,
   LivestockTypeOption,
 } from "./sibat-analytics";
-import { LivestockType } from "@/app/(farmer)/livestock-inventory/page";
 
 export type { CensusItemEntry };
 
 import { useMutation } from "@tanstack/react-query";
 import { useLivestockTypes } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 
-interface CensusSubmissionDialogProps {
+interface CensusSubmissionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmissionSuccess?: () => void;
+  submissionToRevise?: CensusSubmissionRecord | null;
 }
 
-export default function CensusSubmissionDialog({
+const createEmptyCensusItem = (): CensusItemEntry => ({
+  id: "item-" + Date.now() + "-" + Math.random(),
+  farmerId: null,
+  livestockTypeId: null,
+  farmerName: "",
+  purok: "Purok 1",
+  livestockType: "Cattle (Baka)",
+  numberOfHeads: 1,
+  remarks: "",
+});
+
+export default function CensusSubmissionForm({
   open,
   onOpenChange,
   onSubmissionSuccess,
-}: CensusSubmissionDialogProps) {
+  submissionToRevise = null,
+}: CensusSubmissionFormProps) {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const initialQuarter = Math.ceil(currentMonth / 3);
@@ -82,17 +79,62 @@ export default function CensusSubmissionDialog({
   const [isCertified, setIsCertified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [items, setItems] = useState<CensusItemEntry[]>([
-    {
-      id: "item-1",
-      farmerId: null,
-      farmerName: "",
-      purok: "Purok 1",
-      livestockType: "Cattle (Baka)",
-      numberOfHeads: 1,
-      remarks: "",
-    },
-  ]);
+  const [items, setItems] = useState<CensusItemEntry[]>([createEmptyCensusItem()]);
+  const isRevision = submissionToRevise?.status === "SUBJECT_TO_REVISION";
+  const draftLoaded = useRef(false);
+  const draftKey = "smartlivestock:census-draft:" + (submissionToRevise?.id ?? "new");
+
+  useEffect(() => {
+    if (!open) return;
+    draftLoaded.current = false;
+    const savedDraft = window.localStorage.getItem(draftKey);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        setBarangay(draft.barangay ?? null);
+        setReportYear(draft.reportYear ?? currentYear);
+        setReportQuarter(draft.reportQuarter ?? initialQuarter);
+        setRemarks(draft.remarks ?? "");
+        setItems(Array.isArray(draft.items) && draft.items.length ? draft.items : [createEmptyCensusItem()]);
+        setIsCertified(false);
+        draftLoaded.current = true;
+        return;
+      } catch {
+        window.localStorage.removeItem(draftKey);
+      }
+    }
+    if (submissionToRevise) {
+      setBarangay(submissionToRevise.barangayId);
+      setReportYear(submissionToRevise.reportYear);
+      setReportQuarter(submissionToRevise.reportQuarter);
+      setRemarks(submissionToRevise.remarks || "");
+      setItems(submissionToRevise.items.map((item) => ({
+        ...item,
+        id: String(item.id),
+        farmerId: item.farmerId ?? null,
+        livestockTypeId: item.livestockTypeId ?? null,
+      })));
+    } else {
+      setBarangay(null);
+      setReportYear(currentYear);
+      setReportQuarter(initialQuarter);
+      setRemarks("");
+      setItems([createEmptyCensusItem()]);
+    }
+    setIsCertified(false);
+    draftLoaded.current = true;
+  }, [open, submissionToRevise, currentYear, initialQuarter, draftKey]);
+
+  useEffect(() => {
+    if (!open || !draftLoaded.current) return;
+    const timeout = window.setTimeout(() => {
+      window.localStorage.setItem(
+        draftKey,
+        JSON.stringify({ barangay, reportYear, reportQuarter, remarks, items })
+      );
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [open, draftKey, barangay, reportYear, reportQuarter, remarks, items]);
 
   // Derived summaries
   const totalHeads = items.reduce((sum, item) => sum + (Number(item.numberOfHeads) || 0), 0);
@@ -111,15 +153,7 @@ export default function CensusSubmissionDialog({
   const handleAddItem = () => {
     setItems((prev) => [
       ...prev,
-      {
-        id: `item-${Date.now()}-${Math.random()}`,
-        farmerId: null,
-        farmerName: "",
-        purok: "Purok 1",
-        livestockType: "Cattle (Baka)",
-        numberOfHeads: 1,
-        remarks: "",
-      },
+      createEmptyCensusItem(),
     ]);
   };
 
@@ -145,44 +179,38 @@ export default function CensusSubmissionDialog({
 
   const submitMutation = useMutation({
     mutationFn: async (payload: CreateCensusPayload) => {
-      const response = await api.post("livestock/census/", payload)
+      if (isRevision && submissionToRevise) {
+        const response = await api.patch(
+          "livestock/census/" + submissionToRevise.id + "/",
+          payload
+        );
+        return response.data;
+      }
+      const response = await api.post("livestock/census/", payload);
       return response.data;
     },
     onSuccess: () => {
       toast.success(
-        `Quarterly Census Q${reportQuarter} ${reportYear} for Brgy. ${barangay} submitted to MAO!`
+        isRevision
+          ? "Corrected Census Q" + reportQuarter + " " + reportYear + " resubmitted to MAO."
+          : "Quarterly Census Q" + reportQuarter + " " + reportYear + " submitted to MAO."
       );
+      window.localStorage.removeItem(draftKey);
       onSubmissionSuccess?.();
       onOpenChange(false);
-
-      setItems([
-        {
-          id: `item-${Date.now()}`,
-          farmerId: null,
-          farmerName: "",
-          purok: "Purok 1",
-          livestockType: "Cattle (Baka)",
-          numberOfHeads: 1,
-          remarks: "",
-        },
-      ]);
-
+      setItems([createEmptyCensusItem()]);
       setRemarks("");
       setIsCertified(false);
     },
-    onError: (err) => {
-      // Graceful fallback for offline / frontend development mode
-      console.log("Backend offline or in development mode, saved to local state:", err);
-      toast.success(
-        `Quarterly Census Q${reportQuarter} ${reportYear} for Brgy. ${barangay} recorded successfully!`
-      );
+    onError: (err: any) => {
+      const apiError = err?.response?.data?.error || err?.response?.data?.detail ||
+        "The census could not be saved. Please review the entries and try again.";
+      toast.error(isRevision ? "Census resubmission failed" : "Census submission failed", {
+        description: apiError,
+      });
     },
-    onSettled: () => {
-      // Always stop the loading state
-      setIsSubmitting(false);
-    },
+    onSettled: () => setIsSubmitting(false),
   });
-
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -195,11 +223,14 @@ export default function CensusSubmissionDialog({
     }
 
     const invalidItem = items.find(
-      (item) => !item.farmerId || Number(item.numberOfHeads) <= 0
+      (item) =>
+        !item.farmerId ||
+        !(item.livestockTypeId ?? livestockById[item.livestockType]) ||
+        Number(item.numberOfHeads) <= 0
     );
 
     if (invalidItem) {
-      toast.error("Please select a farmer and enter a positive number of heads for all rows.");
+      toast.error("Please select a farmer, livestock type, and positive head count for every row.");
       return;
     }
 
@@ -218,13 +249,11 @@ export default function CensusSubmissionDialog({
       remarks: remarks.trim() || undefined,
       items: items.map((item) => ({
         farmer: item.farmerId!,
-        livestock_type: livestockById[item.livestockType] ?? 1,
+        livestock_type: item.livestockTypeId ?? livestockById[item.livestockType],
         number_of_heads: Number(item.numberOfHeads),
         remarks: item.remarks,
       })),
     };
-    console.log(items);
-
     submitMutation.mutate(submissionPayload);
   };
 
@@ -232,7 +261,6 @@ export default function CensusSubmissionDialog({
   const { data: livestockRecords } = useLivestockTypes();
   const { data: farmersByBarangay } = useFarmersByBarangay(barangay);
 
-  console.log(farmersByBarangay)
 
   const livestockById = useMemo(() => {
     const array = Object.fromEntries(Object.entries(livestockRecords ?? {}).map(([key, id]) => {
@@ -243,43 +271,28 @@ export default function CensusSubmissionDialog({
   }, [livestockRecords]);
 
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 border-slate-200 text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl">
-        {/* Header banner */}
-        <div className="bg-gradient-to-r from-[#1A365D] via-[#1E4E8C] to-[#2D5A27] text-white p-6 pb-5 shrink-0">
-          <DialogHeader className="space-y-1.5 text-left">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20">
-                  <FileSpreadsheet className="w-5 h-5 text-amber-300" />
-                </div>
-                <div>
-                  <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                    Quarterly Livestock Census Entry
-                  </DialogTitle>
-                  <DialogDescription className="text-xs sm:text-sm text-sky-100/90 font-medium">
-                    Cooperative & Barangay Survey Entry — Municipal Agriculture Office (MAO)
-                  </DialogDescription>
-                </div>
-              </div>
-              <Badge className="bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 border-0 shadow-sm">
-                Q{reportQuarter} • {reportYear}
-              </Badge>
-            </div>
-          </DialogHeader>
-        </div>
+  if (!open) return null;
 
-        {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+  return (
+    <div className="w-full text-slate-900">
+      <form onSubmit={handleSubmit} className="space-y-6">
+          {isRevision && submissionToRevise?.reviewRemarks && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-rose-700">MAO correction request</p>
+              <p className="mt-1 text-sm font-semibold text-rose-950">{submissionToRevise.reviewRemarks}</p>
+            </div>
+          )}
           {/* Section 1: Period and Jurisdiction */}
-          <Card className="border border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
-            <CardContent className="p-4 sm:p-5 space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <MapPin className="w-4 h-4 text-[#1A365D]" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  Survey Period & Jurisdiction
-                </h3>
+          <Card className="border-0 bg-white shadow-sm ring-1 ring-slate-200/80 rounded-2xl overflow-hidden">
+            <CardContent className="p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-sky-50 text-sky-800">
+                  <MapPin className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Survey Period & Jurisdiction</h3>
+                  <p className="text-xs text-slate-500">Choose the barangay and quarter covered by this census.</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -361,15 +374,16 @@ export default function CensusSubmissionDialog({
 
           {/* Section 2: Farmer & Livestock Entries */}
           <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#1A365D]" />
-                  Farmer Head Count Line Items ({items.length})
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Users className="size-4 text-sky-800" />
+                  Farmer Head Count
+                  <Badge className="border-0 bg-slate-200 text-slate-700">{items.length} rows</Badge>
                 </h3>
-                <p className="text-[11px] font-medium text-slate-500">
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Add one row for each surveyed farmer and livestock type.
                 </p>
-                Record each farmer&apos;s validated livestock quantity in this barangay.
               </div>
 
               <div className="flex items-center gap-2 self-stretch sm:self-auto">
@@ -378,7 +392,7 @@ export default function CensusSubmissionDialog({
                   variant="outline"
                   size="sm"
                   onClick={handleLoadSample}
-                  className="rounded-xl border-dashed border-slate-300 text-xs font-bold gap-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  className="rounded-xl border-slate-200 bg-white text-xs font-bold gap-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                   Load Sample Batch
@@ -387,7 +401,7 @@ export default function CensusSubmissionDialog({
                   type="button"
                   size="sm"
                   onClick={handleAddItem}
-                  className="bg-[#1A365D] hover:bg-[#152944] text-white rounded-xl text-xs font-bold gap-1 shadow-xs"
+                  className="bg-sky-800 hover:bg-sky-900 text-white rounded-xl text-xs font-bold gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add Farmer Row
@@ -400,12 +414,12 @@ export default function CensusSubmissionDialog({
               {items.map((item, index) => (
                 <Card
                   key={item.id}
-                  className="border border-slate-200 bg-white rounded-2xl shadow-xs overflow-hidden transition-all hover:border-slate-300"
+                  className="border-0 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden transition-all hover:ring-sky-300"
                 >
                   <CardContent className="p-3.5 sm:p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                        Entry #{index + 1}
+                    <div className="flex items-center justify-between gap-2 pb-1">
+                      <span className="text-xs font-black text-slate-500">
+                        Farmer row <span className="text-slate-900">{String(index + 1).padStart(2, "0")}</span>
                       </span>
                       {items.length > 1 && (
                         <button
@@ -486,7 +500,10 @@ export default function CensusSubmissionDialog({
                         </Label>
                         <Select
                           value={item.livestockType || undefined}
-                          onValueChange={(val) => handleUpdateItem(item.id, "livestockType", val)}
+                          onValueChange={(val) => {
+                            handleUpdateItem(item.id, "livestockType", val);
+                            handleUpdateItem(item.id, "livestockTypeId", livestockById[val] ?? null);
+                          }}
                         >
                           <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
                             <SelectValue placeholder="Select Animal Type" />
@@ -535,39 +552,37 @@ export default function CensusSubmissionDialog({
               type="button"
               variant="outline"
               onClick={handleAddItem}
-              className="w-full h-11 border-dashed border-slate-300 rounded-2xl text-xs font-extrabold text-[#1A365D] hover:bg-blue-50/50 hover:border-blue-300"
+              className="w-full h-11 border-slate-300 rounded-xl text-xs font-extrabold text-sky-900 hover:bg-sky-50 hover:border-sky-300"
             >
               <Plus className="w-4 h-4 mr-1.5" /> Add Another Farmer Entry
             </Button>
           </div>
 
           {/* Section 3: Live Summary Cards */}
-          <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 space-y-3">
+          <div className="rounded-2xl bg-[#173b5e] p-5 text-white shadow-sm sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-sm font-black tracking-tight flex items-center gap-2">
+                <Layers className="size-4 text-emerald-300" />
                 Live Census Summary
               </span>
-              <span className="text-[11px] font-semibold text-slate-400">
-                Padre Garcia LGU Validation System
-              </span>
+              <span className="text-[11px] font-semibold text-sky-100/70">Updates as you edit</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                <p className="text-[10px] uppercase font-bold text-slate-300">Total Animals</p>
-                <p className="text-2xl font-black text-amber-300 tabular-nums">{totalHeads}</p>
-                <p className="text-[10px] text-slate-400">head count total</p>
+              <div className="bg-white/10 rounded-xl p-3.5 ring-1 ring-white/10">
+                <p className="text-[10px] uppercase font-bold text-sky-100/70">Total Animals</p>
+                <p className="text-2xl font-black text-white tabular-nums">{totalHeads}</p>
+                <p className="text-[10px] text-sky-100/60">head count total</p>
               </div>
 
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10">
-                <p className="text-[10px] uppercase font-bold text-slate-300">Total Farmers</p>
-                <p className="text-2xl font-black text-sky-300 tabular-nums">{uniqueFarmers}</p>
-                <p className="text-[10px] text-slate-400">surveyed households</p>
+              <div className="bg-white/10 rounded-xl p-3.5 ring-1 ring-white/10">
+                <p className="text-[10px] uppercase font-bold text-sky-100/70">Total Farmers</p>
+                <p className="text-2xl font-black text-white tabular-nums">{uniqueFarmers}</p>
+                <p className="text-[10px] text-sky-100/60">surveyed households</p>
               </div>
 
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10 col-span-2">
-                <p className="text-[10px] uppercase font-bold text-slate-300 mb-1.5">
+              <div className="bg-white/10 rounded-xl p-3.5 ring-1 ring-white/10 col-span-2">
+                <p className="text-[10px] uppercase font-bold text-sky-100/70 mb-1.5">
                   Species Breakdown
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -603,27 +618,27 @@ export default function CensusSubmissionDialog({
               />
             </div>
 
-            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-sky-50 ring-1 ring-sky-100">
               <Checkbox
                 id="certify"
                 checked={isCertified}
                 onCheckedChange={(checked) => setIsCertified(checked === true)}
-                className="mt-0.5 border-amber-600 data-[state=checked]:bg-[#1A365D] data-[state=checked]:border-[#1A365D]"
+                className="mt-0.5 border-sky-700 data-[state=checked]:bg-sky-800 data-[state=checked]:border-sky-800"
               />
               <label
                 htmlFor="certify"
                 className="text-xs font-semibold text-slate-800 leading-snug cursor-pointer select-none"
               >
-                I certify under oath that this quarterly census represents actual, field-verified
-                livestock counts conducted in <span className="font-extrabold">Brgy. {barangay}</span>,
-                ready for review by the Municipal Agriculture Office (MAO).
+                {isRevision
+                  ? "I certify that the requested corrections have been applied and this census is ready for MAO review again."
+                  : "I certify under oath that this quarterly census represents actual, field-verified livestock counts and is ready for MAO review."}
               </label>
             </div>
           </div>
         </form>
 
         {/* Footer actions */}
-        <DialogFooter className="p-4 sm:p-6 bg-slate-100/80 border-t border-slate-200 shrink-0 flex items-center justify-between gap-3">
+        <div className="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-slate-200/80 pt-5 sm:flex-row sm:items-center">
           <Button
             type="button"
             variant="outline"
@@ -638,19 +653,19 @@ export default function CensusSubmissionDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !isCertified}
-            className="rounded-xl font-extrabold text-xs px-6 bg-[#1A365D] hover:bg-[#152944] text-white shadow-md shadow-blue-900/20 gap-2"
+            className="rounded-xl font-extrabold text-xs px-6 bg-sky-800 hover:bg-sky-900 text-white gap-2"
           >
             {isSubmitting ? (
-              <>Submitting Census...</>
+              <>{isRevision ? "Resubmitting Census..." : "Submitting Census..."}</>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Submit Census to MAO
+                {isRevision ? "Resubmit Corrections to MAO" : "Submit Census to MAO"}
               </>
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+    </div>
   );
 }
+

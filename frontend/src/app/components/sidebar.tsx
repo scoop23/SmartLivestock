@@ -76,7 +76,15 @@ export interface SidebarLink {
 }
 
 const adminLinks: SidebarLink[] = [
-  { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  {
+    path: '/admin',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    subLinks: [
+      { path: '/admin', label: 'Executive Dashboard' },
+      { path: '/admin/census-analytics', label: 'Census Analytics' },
+    ],
+  },
   { path: '/data-overview', label: 'System Data', icon: Database },
   { path: '/user-management', label: 'User Management', icon: Users },
   {
@@ -92,7 +100,7 @@ const adminLinks: SidebarLink[] = [
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/data-uploads', label: 'Data Upload', icon: Upload },
-  { path: '/news-announcements', label: 'News & Updates', icon: Newspaper },
+  { path: '/news-announcements', label: 'Activities', icon: Newspaper },
   { path: '/schedules', label: 'Farmer Schedules', icon: CalendarDays },
 ];
 
@@ -119,7 +127,7 @@ const farmerLinks: SidebarLink[] = [
   },
   { path: '/report-observation', label: 'Report Illness/Mortality', icon: Stethoscope },
   { path: '/gis-user-map', label: 'GIS Farm Map', icon: Map },
-  { path: '/farmer-announcement', label: 'Announcements', icon: Megaphone },
+  { path: '/farmer-announcement', label: 'Activities', icon: Megaphone },
   { path: '/farmer-scheduling', label: 'Field Scheduling', icon: CalendarDays },
 ];
 
@@ -135,7 +143,8 @@ const sibatLinks: SidebarLink[] = [
   },
   { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Activity },
   { path: '/sibat-alerts', label: 'Outbreak Alerts & Flags', icon: Bell },
-  { path: '/sibat-announcement', label: 'Field Announcements', icon: Megaphone },
+  { path: '/sibat-announcement', label: 'Activities', icon: Megaphone },
+  { path: '/sibat-scheduling', label: 'Field Scheduling', icon: CalendarDays },
 ];
 
 const auctionLinks: SidebarLink[] = [

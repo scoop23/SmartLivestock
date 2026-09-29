@@ -398,6 +398,7 @@ export type CensusStatus =
 export interface CensusItemEntry {
   id: string;
   farmerId?: number | null;
+  livestockTypeId?: number | null;
   farmerName: string;
   purok: string;
   livestockType: string;
@@ -407,6 +408,7 @@ export interface CensusItemEntry {
 
 export interface CensusSubmissionRecord {
   id: string | number;
+  barangayId: number;
   barangay: string;
   reportYear: number;
   reportQuarter: number;
@@ -467,6 +469,7 @@ export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmission
 
   return {
     id: item.id,
+    barangayId: item.barangay,
     barangay: item.barangay_name || `Barangay ${item.barangay}`,
     reportYear: item.report_year,
     reportQuarter: item.report_quarter,
@@ -479,6 +482,8 @@ export const mapCensusSubmission = (item: ApiCensusSubmission): CensusSubmission
     totalFarmers: uniqueFarmers || items.length,
     items: items.map((subItem) => ({
       id: String(subItem.id),
+      farmerId: subItem.farmer,
+      livestockTypeId: subItem.livestock_type,
       farmerName: subItem.farmer_name || `Farmer #${subItem.farmer}`,
       purok: subItem.farmer_address || "",
       livestockType: subItem.livestock_type_name || `Type #${subItem.livestock_type}`,
@@ -548,9 +553,11 @@ export function useInventoryFromFarmers() {
 
 export function useBatchesFromFarmers() {
   return useQuery({
-    queryKey: ["sibat-batches-records"],
+    queryKey: ["sibat-batches-drilldown"],
     queryFn: fetchRawBatches,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -684,7 +691,7 @@ export function useReviewSubmission() {
       queryClient.invalidateQueries({ queryKey: ["sibat-calving-records"] });
       queryClient.invalidateQueries({ queryKey: ["calving_records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
-      queryClient.invalidateQueries({ queryKey: ["sibat-batches-records"] });
+      queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
@@ -714,7 +721,7 @@ export function useUpdateSubmissionData() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
-      queryClient.invalidateQueries({ queryKey: ["sibat-batches-records"] });
+      queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
     },

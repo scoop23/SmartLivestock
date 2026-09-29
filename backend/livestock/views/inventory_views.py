@@ -40,7 +40,7 @@ def inventory_list_create(request):
         serializer.is_valid(raise_exception=True)
         inventory = serializer.save()
         farmer_name = user.get_full_name() or user.username
-        animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name
+        animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
         notify_role(
             role_name="SIBAT",
             notification_type=Notification.NotificationType.SIBAT,
@@ -179,13 +179,13 @@ def inventory_detail(request, pk):
         serializer.is_valid(raise_exception=True)
         was_returned = inventory.status == LivestockInventory.StatusType.SUBJECT_TO_REVISION
         inventory = serializer.save()
-        if was_returned and not inventory.batch_id:
-            inventory.status = LivestockInventory.StatusType.PENDING
-            inventory.reviewed_by = None
-            inventory.reviewed_at = None
-            inventory.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+        if was_returned and not inventory.batch_id: #type: ignore
+            inventory.status = LivestockInventory.StatusType.PENDING #type: ignore
+            inventory.reviewed_by = None #type: ignore
+            inventory.reviewed_at = None #type: ignore
+            inventory.save(update_fields=["status", "reviewed_by", "reviewed_at"]) 
             farmer_name = user.get_full_name() or user.username
-            animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name
+            animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
             notify_role(
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.SIBAT,

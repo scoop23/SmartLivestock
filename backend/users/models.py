@@ -142,3 +142,55 @@ class Notification(models.Model):
     def __str__(self):
         return f"{self.user.email} - {self.title} ({'Read' if self.is_read else 'Unread'})"
 
+
+
+class Announcement(models.Model):
+    class Audience(models.TextChoices):
+        ALL = "ALL", "Farmers and SIBAT"
+        FARMER = "FARMER", "Farmers"
+        SIBAT = "SIBAT", "SIBAT"
+
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    category = models.CharField(max_length=40, default="General")
+    audience = models.CharField(max_length=10, choices=Audience.choices, default=Audience.ALL)
+    is_published = models.BooleanField(default=False)
+    is_pinned = models.BooleanField(default=False)
+    posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="announcements")
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_pinned", "-published_at", "-created_at"]
+
+
+class ProgramSchedule(models.Model):
+    date = models.DateField()
+    program = models.CharField(max_length=100)
+    is_open = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="program_schedules")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["date", "program"]
+        constraints = [models.UniqueConstraint(fields=["date", "program"], name="unique_program_per_day")]
+
+
+class ProgramBooking(models.Model):
+    class Status(models.TextChoices):
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    schedule = models.ForeignKey(ProgramSchedule, on_delete=models.PROTECT, related_name="bookings")
+    farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="program_bookings")
+    time = models.TimeField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.CONFIRMED)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["schedule__date", "time"]
+        constraints = [
+            models.UniqueConstraint(fields=["schedule", "time"], condition=models.Q(status="CONFIRMED"), name="unique_confirmed_program_slot"),
+            models.UniqueConstraint(fields=["schedule", "farmer"], condition=models.Q(status="CONFIRMED"), name="unique_farmer_program_booking"),
+        ]

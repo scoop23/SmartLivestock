@@ -422,7 +422,9 @@ export function useAdminInventoryRecords() {
   return useQuery({
     queryKey: ["admin-inventory-records"],
     queryFn: fetchAdminInventoryRecords,
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

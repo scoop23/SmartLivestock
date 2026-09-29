@@ -13,6 +13,7 @@ import {
   Command as CommandIcon,
   Search,
   Map,
+  MapPin,
   CalendarDays,
   Megaphone,
 } from "lucide-react";
@@ -107,15 +108,26 @@ export default function FarmerDashboard() {
         variant="farmer"
         maxWidthClass="w-full"
         action={
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => refetch()}
-            className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
-            title="Refresh Dashboard Data"
-          >
-            <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
-          </Button>
+          <>
+            {user?.barangay ? (
+              <span
+                className="inline-flex items-center gap-1.5 h-11 max-w-[38vw] sm:max-w-none px-2.5 sm:px-3 rounded-xl bg-white/15 border border-white/20 text-white text-[11px] sm:text-xs font-bold backdrop-blur-xs shadow-xs min-w-0"
+                title="Your registered barangay"
+              >
+                <MapPin className="size-4 shrink-0" />
+                <span className="truncate">Brgy. {user.barangay}</span>
+              </span>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => refetch()}
+              className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+              title="Refresh Dashboard Data"
+            >
+              <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
+          </>
         }
       />
 

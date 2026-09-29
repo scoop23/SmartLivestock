@@ -1,395 +1,398 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { PageHeader } from '@/app/components/page-header';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Calendar,
   CalendarDays,
-  Plus,
-  Trash2,
-  Building2,
-  Syringe,
-  Bug,
-  Sprout,
-  Milk,
-  ChevronRight,
-  CheckCircle2,
-  X,
-  User,
-  Clock,
-  Send
-} from 'lucide-react';
+  CalendarPlus,
+  Clock3,
+  Lock,
+  RotateCw,
+  Unlock,
+  Users,
+} from "lucide-react";
+import { PageHeader } from "@/app/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { KpiCard } from "@/components/ui/kpi-card";
+import api from "@/lib/axios";
+import {
+  ProgramBooking,
+  ProgramSchedule,
+  apiError,
+  getBookings,
+  getSchedules,
+} from "@/lib/community-api";
+import {
+  PROGRAM_TIME_SLOTS,
+  CommunityEmptyState,
+  Panel,
+  ROLE_ACCENT,
+  StatusPill,
+  formatLongDate,
+  formatTime,
+  todayIso,
+} from "@/app/components/community/community-ui";
 
+const PROGRAMS = [
+  "Vaccination",
+  "Deworming",
+  "Agricultural Assistance",
+  "Milking Supervision",
+];
 
-interface FarmerAppointment {
-  id: string;
-  farmerName: string;
-  program: string;
-  time: string;
-}
+export default function AdminSchedulesPage() {
+  const accent = ROLE_ACCENT.admin;
+  const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
+  const [bookings, setBookings] = useState<ProgramBooking[]>([]);
+  const [date, setDate] = useState("");
+  const [program, setProgram] = useState(PROGRAMS[0]);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [error, setError] = useState("");
 
-interface DailyProgram {
-  date: string;
-  programs: string[];
-  appointments: FarmerAppointment[];
-}
-
-export default function AdminAvailabilityPage() {
-  // Configuration for Activity Types
-  const availableActivityTypes = [
-    { id: 'vac', name: 'Vaccination', icon: Syringe, color: 'text-orange-600 bg-orange-50' },
-    { id: 'dew', name: 'Deworming', icon: Bug, color: 'text-amber-600 bg-amber-50' },
-    { id: 'sed', name: 'Agricultural Assistance', icon: Sprout, color: 'text-green-600 bg-green-50' },
-    { id: 'mil', name: 'Milking Supervision', icon: Milk, color: 'text-blue-600 bg-blue-50' },
-  ];
-
-  // Main Schedule State
-  const [scheduleData, setScheduleData] = useState<DailyProgram[]>([
-    {
-      date: '2026-04-28',
-      programs: ['Vaccination', 'Deworming'],
-      appointments: [
-        { id: '1', farmerName: 'Juan Dela Cruz', program: 'Vaccination', time: '08:30 AM' },
-        { id: '2', farmerName: 'Maria Santos', program: 'Deworming', time: '10:00 AM' },
-      ]
-    },
-    {
-      date: '2026-04-30',
-      programs: ['Agricultural Assistance'],
-      appointments: [
-        { id: '4', farmerName: 'Elena Vilia', program: 'Agricultural Assistance', time: '09:00 AM' },
-      ]
+  const load = useCallback(async () => {
+    try {
+      const [dates, reservations] = await Promise.all([
+        getSchedules(),
+        getBookings(),
+      ]);
+      setSchedules(dates);
+      setBookings(reservations);
+      setError("");
+    } catch (e) {
+      setError(apiError(e));
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
     }
-  ]);
+  }, []);
 
-  // Form States
-  const [selectedDateDetails, setSelectedDateDetails] = useState<DailyProgram | null>(null);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
+  const refresh = useCallback(async () => {
+    setIsFetching(true);
+    await load();
+  }, [load]);
 
-  // Manual Booking States
-  const [newFarmerName, setNewFarmerName] = useState('');
-  const [selectedProgramForFarmer, setSelectedProgramForFarmer] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  // Handlers
-  const handleAddSchedule = () => {
-    if (!selectedDate || selectedPrograms.length === 0) return;
-
-    const existingIndex = scheduleData.findIndex(s => s.date === selectedDate);
-    if (existingIndex > -1) {
-      const updated = [...scheduleData];
-      updated[existingIndex].programs = selectedPrograms;
-      setScheduleData(updated);
-    } else {
-      setScheduleData([...scheduleData, { date: selectedDate, programs: selectedPrograms, appointments: [] }]);
+  async function create(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await api.post("/community/schedules/", { date, program });
+      setDate("");
+      await refresh();
+    } catch (e) {
+      setError(apiError(e));
+    } finally {
+      setBusy(false);
     }
+  }
 
-    // Logic Note: In a real app, this is where you'd trigger a 
-    // notification to the Farmers' Alert Page.
-    alert(`Global Alert Sent: ${selectedPrograms.join(', ')} is now available for ${selectedDate}`);
-
-    setSelectedDate('');
-    setSelectedPrograms([]);
-  };
-
-  const handleManualBook = () => {
-    if (!newFarmerName || !selectedProgramForFarmer || !selectedTime || !selectedDateDetails) return;
-
-    const newAppt: FarmerAppointment = {
-      id: Math.random().toString(36).substr(2, 9),
-      farmerName: newFarmerName,
-      program: selectedProgramForFarmer,
-      time: selectedTime,
-    };
-
-    const updatedSchedule = scheduleData.map(day => {
-      if (day.date === selectedDateDetails.date) {
-        return { ...day, appointments: [...day.appointments, newAppt] };
-      }
-      return day;
-    });
-
-    setScheduleData(updatedSchedule);
-    setSelectedDateDetails({
-      ...selectedDateDetails,
-      appointments: [...selectedDateDetails.appointments, newAppt]
-    });
-
-    setNewFarmerName('');
-    setSelectedProgramForFarmer('');
-    setSelectedTime('');
-  };
-
-  const removeSchedule = (date: string) => {
-    if (confirm("Are you sure you want to delete this schedule window?")) {
-      setScheduleData(scheduleData.filter(s => s.date !== date));
+  async function toggle(schedule: ProgramSchedule) {
+    setBusy(true);
+    setError("");
+    try {
+      await api.patch(
+        "/community/schedules/" + schedule.id + "/",
+        { is_open: !schedule.is_open }
+      );
+      await refresh();
+    } catch (e) {
+      setError(apiError(e));
+    } finally {
+      setBusy(false);
     }
-  };
+  }
 
-  const toggleProgramSelection = (name: string) => {
-    setSelectedPrograms(prev =>
-      prev.includes(name) ? prev.filter(p => p !== name) : [...prev, name]
-    );
-  };
+  const confirmedBySchedule = useMemo(() => {
+    const map = new Map<number, ProgramBooking[]>();
+    bookings
+      .filter((booking) => booking.status === "CONFIRMED")
+      .forEach((booking) => {
+        map.set(booking.schedule, [...(map.get(booking.schedule) ?? []), booking]);
+      });
+    return map;
+  }, [bookings]);
+
+  const openCount = schedules.filter((schedule) => schedule.is_open).length;
+  const confirmedCount = bookings.filter(
+    (booking) => booking.status === "CONFIRMED"
+  ).length;
+  const fullyBooked = schedules.filter(
+    (schedule) => schedule.booked_times.length >= PROGRAM_TIME_SLOTS.length
+  ).length;
 
   return (
     <>
       <PageHeader
-        title="Farmer Scheduling & Field Windows"
-        subtitle="Broadcast service windows & organize on-farm appointments — Padre Garcia MAO"
+        title="Farmer Schedules"
+        subtitle="Open MAO program dates and monitor farmer bookings"
         icon={<CalendarDays className="size-5 text-slate-800" />}
         variant="admin"
         maxWidthClass="w-full"
+        action={
+          <button
+            type="button"
+            onClick={() => refresh()}
+            title="Refresh schedules"
+            className={`flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 shadow-2xs transition-colors cursor-pointer ${accent.tint} ${accent.text} hover:opacity-80`}
+          >
+            <RotateCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
+          </button>
+        }
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 pb-16 sm:pb-6">
-
-          {/* Left: Schedule Window Creation */}
-          <div className="lg:col-span-5 space-y-3.5">
-            <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-              <h3 className="font-black text-slate-900 text-xs tracking-tight flex items-center gap-2 mb-3.5">
-                <Send className="w-4 h-4 text-[#1E4D2B]" />
-                Broadcast Service Availability
-              </h3>
-
-              <div className="space-y-3.5">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Target Date</label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 h-9 text-xs focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Select Programs to Open</label>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {availableActivityTypes.map((type) => (
-                      <button
-                        key={type.id}
-                        type="button"
-                        onClick={() => toggleProgramSelection(type.name)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${selectedPrograms.includes(type.name)
-                            ? 'border-[#1E4D2B] bg-emerald-50/70 shadow-2xs'
-                            : 'border-slate-100 bg-white hover:border-slate-300'
-                          }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={`p-1.5 rounded-lg ${type.color}`}>
-                            <type.icon className="w-3.5 h-3.5" />
-                          </div>
-                          <span className={`text-xs font-bold ${selectedPrograms.includes(type.name) ? 'text-[#1E4D2B]' : 'text-slate-700'}`}>
-                            {type.name}
-                          </span>
-                        </div>
-                        {selectedPrograms.includes(type.name) && <CheckCircle2 className="w-4 h-4 text-[#1E4D2B]" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddSchedule}
-                  disabled={!selectedDate || selectedPrograms.length === 0}
-                  className="w-full h-9 bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold rounded-xl shadow-xs disabled:bg-slate-200 disabled:text-slate-400 transition-all text-xs cursor-pointer mt-2"
-                >
-                  Broadcast Service Window &amp; Notify Farmers
-                </button>
-              </div>
-            </section>
-          </div>
-
-          {/* Right: Active Windows List */}
-          <div className="lg:col-span-7">
-            <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 mb-2.5 px-1">
-              <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
-              Current Schedule Windows
-            </h3>
-
-            <div className="grid grid-cols-1 gap-2.5">
-              {scheduleData.length > 0 ? (
-                scheduleData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((item) => (
-                  <div key={item.date} className="bg-white rounded-xl border border-gray-200 shadow-2xs group">
-                    <div className="p-3 sm:p-3.5 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-gray-50 p-2 rounded-lg text-center min-w-[56px]">
-                          <p className="text-[9px] font-bold text-gray-400 uppercase">
-                            {new Date(item.date).toLocaleDateString('en-US', { month: 'short' })}
-                          </p>
-                          <p className="text-lg font-black text-gray-800">
-                            {new Date(item.date).toLocaleDateString('en-US', { day: '2-digit' })}
-                          </p>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <User className="w-3 h-3 text-[#2D5A27]" />
-                            <span className="text-xs font-bold text-gray-700 uppercase">
-                              {item.appointments.length} Scheduled
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {item.programs.map((p) => (
-                              <span key={p} className="px-1.5 py-0.5 bg-green-50 text-[#2D5A27] text-[9px] font-bold rounded border border-green-100 uppercase">
-                                {p}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setSelectedDateDetails(item)}
-                          className="bg-gray-50 text-gray-500 font-bold text-[10px] uppercase px-2.5 py-1.5 rounded-lg hover:bg-[#2D5A27] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
-                        >
-                          Manage List <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => removeSchedule(item.date)}
-                          className="p-1.5 text-red-300 hover:text-red-500 rounded-lg cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="bg-white rounded-xl p-10 text-center border-2 border-dashed border-gray-200">
-                  <p className="text-gray-400 text-xs font-bold">No active programs.</p>
-                </div>
-              )}
+      <main className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
+        {/* Open a new program date */}
+        <Panel
+          title="Open a Program Date"
+          icon={<CalendarPlus className={`w-3.5 h-3.5 ${accent.icon}`} />}
+          description="Farmers can immediately book an offered time slot once the date is open."
+        >
+          <form
+            onSubmit={create}
+            className="grid gap-2.5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+          >
+            <div>
+              <label
+                htmlFor="schedule-date"
+                className="text-[11px] font-black uppercase tracking-wider text-slate-500"
+              >
+                Date
+              </label>
+              <Input
+                id="schedule-date"
+                required
+                type="date"
+                min={todayIso()}
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="mt-1.5 h-9 text-xs"
+              />
             </div>
+            <div>
+              <label
+                htmlFor="schedule-program"
+                className="text-[11px] font-black uppercase tracking-wider text-slate-500"
+              >
+                Program
+              </label>
+              <select
+                id="schedule-program"
+                value={program}
+                onChange={(event) => setProgram(event.target.value)}
+                className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 outline-none focus:border-slate-400"
+              >
+                {PROGRAMS.map((name) => (
+                  <option key={name}>{name}</option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="submit"
+              disabled={busy}
+              className="h-9 gap-1.5 rounded-xl bg-[#2D5A27] px-4 text-xs font-bold text-white hover:bg-[#24461f] cursor-pointer"
+            >
+              <CalendarPlus className="size-4" /> Open date
+            </Button>
+          </form>
+        </Panel>
+
+        {error ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs font-bold text-red-800"
+          >
+            {error}
           </div>
+        ) : null}
+
+        {/* KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <KpiCard
+            title="Program dates"
+            value={schedules.length}
+            icon={<CalendarDays className="w-4 h-4" />}
+            description="All scheduled"
+            variant="emerald"
+            size="sm"
+            isLoading={loading}
+          />
+          <KpiCard
+            title="Open for booking"
+            value={openCount}
+            icon={<Unlock className="w-4 h-4" />}
+            description="Accepting farmers"
+            variant="sky"
+            size="sm"
+            isLoading={loading}
+          />
+          <KpiCard
+            title="Confirmed bookings"
+            value={confirmedCount}
+            icon={<Users className="w-4 h-4" />}
+            description="Across all dates"
+            variant="orange"
+            size="sm"
+            isLoading={loading}
+          />
+          <KpiCard
+            title="Fully booked"
+            value={fullyBooked}
+            icon={<Clock3 className="w-4 h-4" />}
+            description={`${PROGRAM_TIME_SLOTS.length} slots filled`}
+            variant="amber"
+            size="sm"
+            isLoading={loading}
+          />
         </div>
 
-        {/* DETAILS & MANUAL BOOKING MODAL */}
-        {selectedDateDetails && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
-            <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-              <div className="bg-[#2D5A27] px-4 py-3 text-white flex justify-between items-center shrink-0">
-                <div>
-                  <h2 className="text-base font-bold italic">Schedule Management</h2>
-                  <p className="text-white/80 text-xs">Window for: {selectedDateDetails.date}</p>
+        {loading ? (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-32 rounded bg-slate-100" />
+                  <div className="h-4 w-14 rounded-full bg-slate-100" />
                 </div>
-                <button onClick={() => setSelectedDateDetails(null)} className="p-1 hover:bg-white/10 rounded-lg cursor-pointer">
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="mt-3 h-3 w-40 rounded bg-slate-100" />
+                <div className="mt-3 grid grid-cols-2 gap-1.5">
+                  {Array.from({ length: 4 }).map((__, cell) => (
+                    <div key={cell} className="h-8 rounded-lg bg-slate-100" />
+                  ))}
+                </div>
               </div>
+            ))}
+          </div>
+        ) : schedules.length === 0 ? (
+          <CommunityEmptyState
+            icon={<CalendarDays className="size-5" />}
+            title="No program dates yet"
+            description="Open a date above and farmers will be able to reserve a time slot for that program."
+          />
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {schedules
+              .slice()
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((schedule) => {
+                const confirmed = confirmedBySchedule.get(schedule.id) ?? [];
+                const taken = new Set(schedule.booked_times);
+                const filled = schedule.booked_times.length;
 
-              <div className="p-4 overflow-y-auto space-y-4">
-                {/* MANUAL ADDITION FORM */}
-                <div className="bg-blue-50/70 border border-blue-100 p-3.5 rounded-xl">
-                  <h4 className="text-[11px] font-bold text-blue-800 uppercase mb-2.5 flex items-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5" /> Manual Farmer Registration (Walk-in/Call-in)
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="md:col-span-2">
-                      <input
-                        placeholder="Farmer Full Name"
-                        value={newFarmerName}
-                        onChange={(e) => setNewFarmerName(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-blue-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                      />
-                    </div>
-                    <select
-                      value={selectedProgramForFarmer}
-                      onChange={(e) => setSelectedProgramForFarmer(e.target.value)}
-                      className="px-3 py-1.5 border border-blue-200 rounded-lg text-xs outline-none bg-white"
-                    >
-                      <option value="">Select Activity</option>
-                      {selectedDateDetails.programs.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <input
-                      type="time"
-                      value={selectedTime}
-                      onChange={(e) => setSelectedTime(e.target.value)}
-                      className="px-3 py-1.5 border border-blue-200 rounded-lg text-xs bg-white"
-                    />
-                    <button
-                      onClick={handleManualBook}
-                      disabled={!newFarmerName || !selectedProgramForFarmer || !selectedTime}
-                      className="md:col-span-2 bg-blue-600 text-white font-bold py-1.5 rounded-lg text-xs hover:bg-blue-700 disabled:bg-blue-300 transition-all cursor-pointer"
-                    >
-                      Add Farmer to Masterlist
-                    </button>
-                  </div>
-                </div>
-
-                {/* CURRENT APPOINTMENT LIST */}
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                      Confirmed Appointments ({selectedDateDetails.appointments.length})
-                    </label>
-                  </div>
-
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
-                    {selectedDateDetails.appointments.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-gray-50/60 hover:bg-gray-50/60 border-b border-gray-100">
-                            <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest">Farmer</TableHead>
-                            <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest">Activity</TableHead>
-                            <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">Schedule</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody className="divide-y divide-gray-50">
-                          {selectedDateDetails.appointments.map((apt) => (
-                            <TableRow key={apt.id} className="group hover:bg-gray-50/80 transition-all border-none">
-                              <TableCell className="px-3.5 py-2 font-semibold text-xs text-gray-800">{apt.farmerName}</TableCell>
-                              <TableCell className="px-3.5 py-2">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-[#2D5A27] border border-green-100 uppercase">
-                                  {apt.program}
-                                </span>
-                              </TableCell>
-                              <TableCell className="px-3.5 py-2 text-right">
-                                <span className="inline-flex items-center gap-1 text-xs font-mono font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                                  <Clock className="w-3 h-3 text-gray-400" /> {apt.time}
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <div className="p-6 text-center text-gray-400 text-xs">
-                        No appointments registered for this window.
+                return (
+                  <article
+                    key={schedule.id}
+                    className="flex flex-col rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs transition-all hover:shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-black text-slate-900">
+                          {schedule.program}
+                        </h3>
+                        <p className="mt-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+                          <CalendarDays className="size-3" />
+                          {formatLongDate(schedule.date)}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+                      <StatusPill
+                        className={
+                          schedule.is_open
+                            ? "text-emerald-800 bg-emerald-50 border-emerald-200"
+                            : "text-slate-600 bg-slate-100 border-slate-200"
+                        }
+                      >
+                        {schedule.is_open ? "Open" : "Closed"}
+                      </StatusPill>
+                    </div>
 
-              <div className="p-3 border-t bg-gray-50 flex gap-2">
-                <button
-                  onClick={() => setSelectedDateDetails(null)}
-                  className="flex-1 bg-white border border-gray-200 text-gray-600 font-bold py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs cursor-pointer"
-                >
-                  Close Manager
-                </button>
-                <button
-                  className="flex-1 bg-red-50 text-red-600 font-bold py-1.5 rounded-lg hover:bg-red-100 transition-all text-xs cursor-pointer"
-                >
-                  Cancel All & Broadcast
-                </button>
-              </div>
-            </div>
+                    {/* Slot occupancy grid */}
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        <span>Time slots</span>
+                        <span>
+                          {filled} / {PROGRAM_TIME_SLOTS.length} booked
+                        </span>
+                      </div>
+                      <div className="mt-1.5 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {PROGRAM_TIME_SLOTS.map((slot) => {
+                          const isTaken = taken.has(slot);
+                          return (
+                            <div
+                              key={slot}
+                              className={`rounded-lg border px-2 py-1.5 text-center text-[10px] font-black ${
+                                isTaken
+                                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                                  : "border-slate-200 bg-slate-50 text-slate-500"
+                              }`}
+                            >
+                              {formatTime(slot)}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Confirmed roster */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-100">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Confirmed farmers
+                      </p>
+                      {confirmed.length === 0 ? (
+                        <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                          No bookings yet.
+                        </p>
+                      ) : (
+                        <ul className="mt-1.5 space-y-1">
+                          {confirmed
+                            .slice()
+                            .sort((a, b) => a.time.localeCompare(b.time))
+                            .map((booking) => (
+                              <li
+                                key={booking.id}
+                                className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5"
+                              >
+                                <span className="truncate text-[11px] font-bold text-slate-700">
+                                  {booking.farmer_name}
+                                </span>
+                                <span className="shrink-0 text-[10px] font-black text-slate-500">
+                                  {formatTime(booking.time)}
+                                </span>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        disabled={busy}
+                        onClick={() => toggle(schedule)}
+                        className="h-7 gap-1 rounded-lg px-2 text-[11px] font-bold cursor-pointer"
+                      >
+                        {schedule.is_open ? (
+                          <>
+                            <Lock className="size-3" /> Close booking
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="size-3" /> Reopen booking
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </article>
+                );
+              })}
           </div>
         )}
+      </main>
     </>
   );
 }

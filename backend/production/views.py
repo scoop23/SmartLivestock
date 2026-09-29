@@ -534,6 +534,78 @@ def review_calving_record(request, pk):
     return Response(serializer.data, status=200)
 
 
+@api_view(["GET", "PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
+@transaction.atomic
+def calving_detail(request, pk):
+    """
+    GET   /production/calving/<pk>/ -> Retrieve a single calving/birth record
+    PUT   /production/calving/<pk>/ -> Full update (farmer, PENDING / SUBJECT_TO_REVISION only)
+    PATCH /production/calving/<pk>/ -> Partial update
+
+    Revision cycle:
+    When a birth declaration was returned for revision (SUBJECT_TO_REVISION),
+    the farmer edits the record and resubmits; the status resets to PENDING and
+    the reviewer audit trail is cleared so SIBAT can re-verify.
+    """
+    user = request.user
+    role_name = getattr(getattr(user, "role", None), "role_name", None)
+
+    if role_name == "FARMER":
+        calving = get_object_or_404(
+            CalvingRecord,
+            Q(created_by=user) | Q(dam__farmer__user=user),
+            pk=pk,
+        )
+    else:
+        calving = get_object_or_404(CalvingRecord, pk=pk)
+
+    if request.method in ["PUT", "PATCH"]:
+        if role_name != "FARMER":
+            return Response(
+                {"error": "Only the farmer may edit their calving record."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if calving.status not in (
+            CalvingRecord.StatusType.PENDING,
+            CalvingRecord.StatusType.SUBJECT_TO_REVISION,
+        ):
+            return Response(
+                {"error": "Only pending or returned calving records can be edited."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        was_returned = calving.status == CalvingRecord.StatusType.SUBJECT_TO_REVISION
+        serializer = CalvingRecordSerializer(
+            calving,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        if was_returned:
+            calving.status = CalvingRecord.StatusType.PENDING
+            calving.reviewed_by = None
+            calving.reviewed_at = None
+            calving.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+            notify_role(
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.MEDIUM,
+                title="Calving Record Resubmitted",
+                message=(
+                    f"{user.get_full_name() or user.username} corrected a birth "
+                    f"declaration for calf {calving.calf_tag or 'Newborn'}."
+                ),
+                link="/sibat-validation",
+            )
+        return Response(serializer.data, status=200)
+
+    # GET
+    serializer = CalvingRecordSerializer(calving)
+    return Response(serializer.data, status=200)
+
+
 # ===========================================================================
 # Animal Disposition Intent Endpoints
 # ===========================================================================

@@ -1,7 +1,8 @@
 "use client";
 
-import { Baby, Calendar, Dna, HeartPulse, Scale, Tag } from "lucide-react";
+import { Baby, Calendar, Dna, HeartPulse, PencilLine, Scale, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 import type { CalvingRecordItem } from "../production-calving-tab";
@@ -11,6 +12,7 @@ interface BirthingRecordsTableProps {
   terms: BirthingSpeciesTerminology;
   isLoading: boolean;
   onOpenNew: () => void;
+  onEditResubmit?: (record: CalvingRecordItem) => void;
 }
 
 export default function BirthingRecordsTable({
@@ -18,6 +20,7 @@ export default function BirthingRecordsTable({
   terms,
   isLoading,
   onOpenNew,
+  onEditResubmit,
 }: BirthingRecordsTableProps) {
   if (isLoading) {
     return (
@@ -70,6 +73,7 @@ export default function BirthingRecordsTable({
                 <th className="py-3 px-4">Delivery Ease</th>
                 <th className="py-3 px-4">Field Status</th>
                 <th className="py-3 px-4">Notes</th>
+                <th className="py-3 px-4">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -152,9 +156,16 @@ export default function BirthingRecordsTable({
                           SIBAT Verified
                         </span>
                       ) : status === "SUBJECT_TO_REVISION" || status === "SUBJECT_FOR_REVISION" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
-                          <span className="size-1.5 rounded-full bg-rose-500" />
-                          For Revision
+                        <span className="inline-flex flex-col items-start gap-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                            <span className="size-1.5 rounded-full bg-rose-500" />
+                            For Revision
+                          </span>
+                          {record.review_remarks && (
+                            <span className="text-[10px] font-medium text-rose-600 max-w-[180px] line-clamp-2">
+                              {record.review_remarks}
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200">
@@ -165,6 +176,22 @@ export default function BirthingRecordsTable({
                     </td>
                     <td className="py-3.5 px-4 max-w-[180px] truncate text-slate-500 text-[11px]">
                       {record.notes || "—"}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {status === "SUBJECT_TO_REVISION" || status === "SUBJECT_FOR_REVISION" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onEditResubmit?.(record)}
+                          className="text-[10px] font-bold text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 rounded-lg cursor-pointer"
+                        >
+                          <PencilLine className="size-3.5" />
+                          Correct & Resubmit
+                        </Button>
+                      ) : (
+                        <span className="text-slate-200 select-none">—</span>
+                      )}
                     </td>
                   </tr>
                 );

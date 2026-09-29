@@ -32,12 +32,14 @@ interface CensusDetailsDialogProps {
   submission: CensusSubmissionRecord | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRevise: (submission: CensusSubmissionRecord) => void;
 }
 
 export default function CensusDetailsDialog({
   submission,
   open,
   onOpenChange,
+  onRevise,
 }: CensusDetailsDialogProps) {
   if (!submission) return null;
 
@@ -236,13 +238,18 @@ export default function CensusDetailsDialog({
             Export CSV / PDF
           </Button>
 
-          <Button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-xl font-bold text-xs px-5 bg-[#1A365D] hover:bg-[#152944] text-white"
-          >
-            Close
-          </Button>
+          <div className="flex items-center gap-2">
+            {submission.status === "SUBJECT_TO_REVISION" && (
+              <Button type="button" onClick={() => onRevise(submission)}
+                className="rounded-xl font-black text-xs px-5 bg-rose-700 hover:bg-rose-800 text-white gap-1.5">
+                <RotateCcw className="size-3.5" /> Correct & Resubmit
+              </Button>
+            )}
+            <Button type="button" onClick={() => onOpenChange(false)}
+              className="rounded-xl font-bold text-xs px-5 bg-[#1A365D] hover:bg-[#152944] text-white">
+              Close
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

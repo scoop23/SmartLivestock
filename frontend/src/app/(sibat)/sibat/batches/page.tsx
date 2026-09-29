@@ -191,7 +191,9 @@ function SibatBatchesVerificationContent() {
         review_status: deriveBatchReviewStatus(batch),
       }));
     },
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Keep selectedBatch updated when data refetches

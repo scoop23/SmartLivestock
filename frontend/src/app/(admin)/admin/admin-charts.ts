@@ -203,22 +203,16 @@ export interface SpecieCompositionChartData {
 
 export interface MonthlyProductionChartData {
   month: string;
+  label: string;
   milk: number;
-  quota: number;
   meat: number;
 }
 
 export interface BiosecuritySurveillanceChartData {
   month: string;
+  label: string;
   reported: number;
-  recovered: number;
-  quarantined: number;
-}
-
-export interface AuctionTurnoverChartData {
-  month: string;
-  headsTraded: number;
-  grossTurnoverK: number;
+  deaths: number;
 }
 
 export interface SectorComplianceChartData {
@@ -229,7 +223,6 @@ export interface SectorComplianceChartData {
 export interface AdminAnalyticsMetrics {
   totalLivestock: number;
   monthlyDairyYieldL: number;
-  auctionTurnoverM: number;
   biosecurityAlerts: number;
   registeredFarmers: number;
   totalBarangaysCount: number;
@@ -237,8 +230,46 @@ export interface AdminAnalyticsMetrics {
   specieComposition: SpecieCompositionChartData[];
   monthlyProduction: MonthlyProductionChartData[];
   surveillanceTrends: BiosecuritySurveillanceChartData[];
-  auctionTrends: AuctionTurnoverChartData[];
   sectorCompliance: SectorComplianceChartData[];
+  vaccinationTotals: { vaccinated: number; total: number };
+}
+
+// Aligned with backend `analytics` app `dashboard_summary` response
+export interface ProductionSeriesPoint {
+  month: string;
+  label: string;
+  milk_l: number;
+  meat_kg: number;
+}
+
+export interface SurveillanceSeriesPoint {
+  month: string;
+  label: string;
+  reported_heads: number;
+  deaths: number;
+}
+
+export interface VaccinationCoveragePoint {
+  barangay: string;
+  total: number;
+  vaccinated: number;
+  coverage_pct: number;
+}
+
+export interface VaccinationTotals {
+  vaccinated: number;
+  total: number;
+}
+
+export interface DashboardAnalytics {
+  monthly_dairy_yield_l: number;
+  year_to_date_l?: number;
+  records_this_month?: number;
+  period?: string;
+  production_series: ProductionSeriesPoint[];
+  surveillance_series: SurveillanceSeriesPoint[];
+  vaccination_coverage: VaccinationCoveragePoint[];
+  vaccination_totals: VaccinationTotals;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -363,6 +394,16 @@ export async function fetchAdminProduction(): Promise<ProductionRecordItem[]> {
   }
 }
 
+export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics | null> {
+  try {
+    const res = await api.get<DashboardAnalytics>("analytics/dashboard/");
+    return res.data || null;
+  } catch (error) {
+    console.warn("Failed to fetch dashboard analytics:", error);
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // 5. ACCURATE DATA AGGREGATION & ANALYTICS TRANSFORMER
 // ─────────────────────────────────────────────────────────────
@@ -401,12 +442,46 @@ function normalizeSpecieCategory(rawName: string): "cattle" | "swine" | "carabao
 }
 
 /**
+ * Fallback monthly production series grouped from real production records,
+ * zero-filled across the last 12 calendar months. Used only when the backend
+ * analytics endpoint is unavailable, so the chart is never blank *and* never fake.
+ */
+function buildMonthlyProductionFallback(records: ProductionRecordItem[]): MonthlyProductionChartData[] {
+  const now = new Date();
+  const points: MonthlyProductionChartData[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    points.push({
+      month: monthKey,
+      label: d.toLocaleString("en-US", { month: "short" }),
+      milk: 0,
+      meat: 0,
+    });
+  }
+
+  const milkByMonth = new Map<string, number>();
+  records.forEach((r) => {
+    const isMilkLiters =
+      (r.productionType || "").toUpperCase() === "MILK" &&
+      (r.unit || "").toUpperCase() === "LITERS";
+    if (isMilkLiters && r.recordDate) {
+      const key = r.recordDate.slice(0, 7);
+      milkByMonth.set(key, (milkByMonth.get(key) || 0) + (Number(r.quantity) || 0));
+    }
+  });
+
+  return points.map((point) => ({ ...point, milk: milkByMonth.get(point.month) || 0 }));
+}
+
+/**
  * Computes exact municipal metrics aligned with backend models & DB records
  */
 export function computeAdminAnalytics(
   inventories: AdminInventoryItem[],
   censusSubmissions: CensusSubmissionItem[],
-  productionRecords: ProductionRecordItem[]
+  productionRecords: ProductionRecordItem[],
+  dashboardAnalytics?: DashboardAnalytics | null
 ): AdminAnalyticsMetrics {
   // 1. Initialize Barangay Herd Map with all 17 Padre Garcia Barangays
   const barangayHerdMap: Record<
@@ -566,77 +641,63 @@ export function computeAdminAnalytics(
     };
   });
 
-  // 7. Production Analytics (Dairy Milk Yield & Department of Agriculture Targets)
-  // Backend `ProductionRecord` with `production_type = 'MILK'`, `unit = 'LITERS'`
-  // Filter for APPROVED / VERIFIED production logs only
-  const milkRecords = productionRecords.filter(
-    (p) =>
-      (p.productionType || "").toUpperCase() === "MILK" &&
-      (!p.status || p.status.toUpperCase() === "APPROVED" || p.status.toUpperCase() === "VERIFIED")
-  );
+  // 7. Production, Surveillance, Vaccination & Registered Farmers
+  // Chart series and the dairy KPI come from the backend `analytics` endpoint
+  // (single source of truth). Fallbacks use only real DB records, so the
+  // dashboard never invents numbers.
+  const totalLiveMilkLiters = productionRecords
+    .filter(
+      (p) =>
+        (p.productionType || "").toUpperCase() === "MILK" &&
+        (p.unit || "").toUpperCase() === "LITERS" &&
+        (!p.status || p.status.toUpperCase() === "APPROVED" || p.status.toUpperCase() === "VERIFIED")
+    )
+    .reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
 
-  const totalLiveMilkLiters = milkRecords.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+  // KPI: exact certified figure from the backend analytics endpoint;
+  // falls back to the live DB milk log sum if the endpoint is unavailable.
+  const monthlyDairyYieldL =
+    dashboardAnalytics?.monthly_dairy_yield_l ?? Math.round(totalLiveMilkLiters);
 
-  // Baseline 6-month historical curve scaled to active Padre Garcia dairy co-op output
-  const monthlyProduction: MonthlyProductionChartData[] = [
-    { month: "Nov", milk: 165000, quota: 160000, meat: 31000 },
-    { month: "Dec", milk: 172000, quota: 165000, meat: 34500 },
-    { month: "Jan", milk: 178000, quota: 170000, meat: 32000 },
-    { month: "Feb", milk: 181000, quota: 175000, meat: 33800 },
-    { month: "Mar", milk: 184500, quota: 180000, meat: 35200 },
-    { month: "Apr", milk: 186400, quota: 182000, meat: 36100 },
-  ];
+  // Monthly milk output (liters) & meat (kg), zero-filled by calendar month
+  const monthlyProduction: MonthlyProductionChartData[] =
+    dashboardAnalytics?.production_series?.length
+      ? dashboardAnalytics.production_series.map((point) => ({
+          month: point.month,
+          label: point.label,
+          milk: Math.round(point.milk_l),
+          meat: Math.round(point.meat_kg),
+        }))
+      : buildMonthlyProductionFallback(productionRecords);
 
-  if (totalLiveMilkLiters > 0) {
-    // Inject latest live production log into the current month
-    monthlyProduction[monthlyProduction.length - 1].milk = Math.max(
-      monthlyProduction[monthlyProduction.length - 1].milk,
-      Math.round(totalLiveMilkLiters * 1000)
-    );
-  }
+  // Disease incidence vs mortality per month (certified records only)
+  const surveillanceTrends: BiosecuritySurveillanceChartData[] = (
+    dashboardAnalytics?.surveillance_series ?? []
+  ).map((point) => ({
+    month: point.month,
+    label: point.label,
+    reported: Math.round(point.reported_heads),
+    deaths: Math.round(point.deaths),
+  }));
 
-  const monthlyDairyYieldL = monthlyProduction[monthlyProduction.length - 1].milk;
+  // Vaccination coverage: share of certified inventories with a recorded date
+  const sectorCompliance: SectorComplianceChartData[] = (
+    dashboardAnalytics?.vaccination_coverage ?? []
+  ).map((point) => ({
+    sector: point.barangay,
+    rate: point.coverage_pct,
+  }));
 
-  // 8. Biosecurity Surveillance Trends
-  // Computes pending review / quarantined items
+  // Municipal totals come straight from the endpoint (full certified set),
+  // so the footer never depends on which barangays the card renders.
+  const vaccinationTotals: VaccinationTotals = dashboardAnalytics?.vaccination_totals ?? {
+    vaccinated: 0,
+    total: 0,
+  };
+
+  // Biosecurity alerts: actual pending review count (no fabricated floor)
   const pendingReviewCount = inventories.filter((i) => i.status === "PENDING").length;
-  const biosecurityAlerts = Math.max(2, pendingReviewCount);
-
-  const surveillanceTrends: BiosecuritySurveillanceChartData[] = [
-    { month: "Nov", reported: 12, recovered: 10, quarantined: 2 },
-    { month: "Dec", reported: 15, recovered: 13, quarantined: 2 },
-    { month: "Jan", reported: 9, recovered: 8, quarantined: 1 },
-    { month: "Feb", reported: 6, recovered: 5, quarantined: 1 },
-    { month: "Mar", reported: 4, recovered: 3, quarantined: 1 },
-    { month: "Apr", reported: biosecurityAlerts, recovered: Math.max(1, biosecurityAlerts - 1), quarantined: 1 },
-  ];
-
-  // 9. Auction Market Turnover (Padre Garcia Livestock Auction Market)
-  const auctionTrends: AuctionTurnoverChartData[] = [
-    { month: "Nov", headsTraded: 185, grossTurnoverK: 1240 },
-    { month: "Dec", headsTraded: 230, grossTurnoverK: 1680 },
-    { month: "Jan", headsTraded: 195, grossTurnoverK: 1390 },
-    { month: "Feb", headsTraded: 210, grossTurnoverK: 1480 },
-    { month: "Mar", headsTraded: 225, grossTurnoverK: 1540 },
-    { month: "Apr", headsTraded: 228, grossTurnoverK: 1520 },
-  ];
-
-  // 10. Sector Vaccination & Inspection Compliance per Barangay
-  const sectorCompliance: SectorComplianceChartData[] = allBarangayDistributions
-    .filter((b) => b.total > 0)
-    .slice(0, 6)
-    .map((b) => {
-      const stats = barangayHerdMap[b.barangay];
-      let rate = stats.totalRecords > 0 ? Math.round((stats.totalVaccinated / stats.totalRecords) * 100) : 90;
-      // High-standard municipal sanitary baseline (88% - 98%)
-      if (rate < 85) {
-        rate = 88 + (b.total % 10);
-      }
-      return {
-        sector: b.barangay,
-        rate: Math.min(99, Math.max(85, rate)),
-      };
-    });
+  const biosecurityAlerts = pendingReviewCount;
 
   // Distinct Registered Farmers
   const registeredFarmers = uniqueFarmerIdentifiers.size > 0 ? uniqueFarmerIdentifiers.size : 100;
@@ -644,7 +705,6 @@ export function computeAdminAnalytics(
   return {
     totalLivestock,
     monthlyDairyYieldL,
-    auctionTurnoverM: 1.52,
     biosecurityAlerts,
     registeredFarmers,
     totalBarangaysCount: PADRE_GARCIA_BARANGAYS.length,
@@ -652,8 +712,8 @@ export function computeAdminAnalytics(
     specieComposition,
     monthlyProduction,
     surveillanceTrends,
-    auctionTrends,
     sectorCompliance,
+    vaccinationTotals,
   };
 }
 
@@ -668,6 +728,7 @@ export const ADMIN_CHARTS_QUERY_KEYS = {
   census: ["admin", "census"] as const,
   production: ["admin", "production"] as const,
   analytics: ["admin", "analytics"] as const,
+  dashboard: ["admin", "analytics", "dashboard"] as const,
 };
 
 export function useAdminLivestockTypes() {
@@ -710,6 +771,15 @@ export function useAdminProduction() {
   });
 }
 
+export function useAdminDashboardSummary() {
+  return useQuery<DashboardAnalytics | null>({
+    queryKey: ADMIN_CHARTS_QUERY_KEYS.dashboard,
+    queryFn: fetchDashboardAnalytics,
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+}
+
 /**
  * Unified Hook for Admin Dashboard Visualizations and Executive Analytics
  */
@@ -719,6 +789,7 @@ export function useAdminDashboardAnalytics() {
   const productionQuery = useAdminProduction();
   const typesQuery = useAdminLivestockTypes();
   const barangaysQuery = useAdminBarangays();
+  const dashboardSummaryQuery = useAdminDashboardSummary();
 
   const isLoading =
     inventoryQuery.isLoading || censusQuery.isLoading || productionQuery.isLoading;
@@ -730,7 +801,8 @@ export function useAdminDashboardAnalytics() {
   const data: AdminAnalyticsMetrics = computeAdminAnalytics(
     inventoryQuery.data || [],
     censusQuery.data || [],
-    productionQuery.data || []
+    productionQuery.data || [],
+    dashboardSummaryQuery.data || undefined
   );
 
   const refetchAll = async () => {
@@ -740,6 +812,7 @@ export function useAdminDashboardAnalytics() {
       productionQuery.refetch(),
       typesQuery.refetch(),
       barangaysQuery.refetch(),
+      dashboardSummaryQuery.refetch(),
     ]);
   };
 
@@ -754,5 +827,6 @@ export function useAdminDashboardAnalytics() {
     productionQuery,
     typesQuery,
     barangaysQuery,
+    dashboardSummaryQuery,
   };
 }

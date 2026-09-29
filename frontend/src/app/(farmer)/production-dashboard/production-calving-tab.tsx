@@ -10,6 +10,7 @@ import api from "@/lib/axios";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import BirthingRegistrationDialog from "./components/birthing-registration-dialog";
 import BirthingRecordsTable from "./components/birthing-records-table";
+import CalvingResubmitDialog, { type EditableCalvingFields } from "./components/calving-resubmit-dialog";
 
 export interface CalvingRecordItem {
   id: number;
@@ -120,6 +121,8 @@ export default function ProductionCalvingTab({
 }) {
   const queryClient = useQueryClient();
   const [isRecordOpen, setIsRecordOpen] = useState(false);
+  const [isResubmitOpen, setIsResubmitOpen] = useState(false);
+  const [resubmitRecord, setResubmitRecord] = useState<CalvingRecordItem | null>(null);
 
   const terms = getBirthingTerminology(selectedSpecies);
 
@@ -144,6 +147,28 @@ export default function ProductionCalvingTab({
     },
     onError: () => {
       toast.error(`Failed to record ${terms.eventName.toLowerCase()} details.`);
+    },
+  });
+
+  const resubmitCalvingMutation = useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: EditableCalvingFields;
+    }) => {
+      const res = await api.patch(`production/calving/${id}/`, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success(`${terms.eventName} record corrected & resubmitted for review.`);
+      setIsResubmitOpen(false);
+      setResubmitRecord(null);
+      queryClient.invalidateQueries({ queryKey: ["calving_records"] });
+    },
+    onError: () => {
+      toast.error(`Failed to resubmit ${terms.eventName.toLowerCase()} record.`);
     },
   });
 
@@ -233,6 +258,10 @@ export default function ProductionCalvingTab({
         terms={terms}
         isLoading={isLoading}
         onOpenNew={() => setIsRecordOpen(true)}
+        onEditResubmit={(record) => {
+          setResubmitRecord(record);
+          setIsResubmitOpen(true);
+        }}
       />
 
       {/* Birthing Registration Modal Dialog */}
@@ -243,6 +272,23 @@ export default function ProductionCalvingTab({
         femaleLivestock={femaleLivestock}
         onSubmit={(payload) => recordCalvingMutation.mutate(payload)}
         isSubmitting={recordCalvingMutation.isPending}
+      />
+
+      {/* Revision Resubmit Modal Dialog */}
+      <CalvingResubmitDialog
+        open={isResubmitOpen}
+        onOpenChange={(open) => {
+          setIsResubmitOpen(open);
+          if (!open) setResubmitRecord(null);
+        }}
+        terms={terms}
+        record={resubmitRecord}
+        onSubmit={(payload) => {
+          if (resubmitRecord) {
+            resubmitCalvingMutation.mutate({ id: resubmitRecord.id, payload });
+          }
+        }}
+        isSubmitting={resubmitCalvingMutation.isPending}
       />
     </div>
   );

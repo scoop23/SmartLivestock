@@ -10,6 +10,12 @@ from livestock.models import CensusSubmission
 from livestock.services import CensusService
 from livestock.permission import isSibat, isMAO
 from smartlivestock.workflows import require_action
+from users.models import Notification
+from users.notification_views import create_notification, notify_role
+
+
+MAO_CENSUS_LINK = "/data-validation?domain=census"
+SIBAT_CENSUS_LINK = "/sibat?tab=census"
 
 
 @api_view(["GET", "POST"])
@@ -33,6 +39,19 @@ def census_list_create(request):
             report_quarter=validated_data["report_quarter"],
             remarks=validated_data.get("remarks", ""),
             items=validated_data.get("items", []),
+        )
+
+        notify_role(
+            role_name="MAO",
+            notification_type=Notification.NotificationType.GENERAL,
+            priority=Notification.Priority.MEDIUM,
+            title="Census Submission Awaiting MAO Approval",
+            message=(
+                f"{submission.submitted_by.get_full_name() or submission.submitted_by.username} "
+                f"submitted the {submission.barangay.barangay_name} "
+                f"Q{submission.report_quarter} {submission.report_year} livestock census."
+            ),
+            link=MAO_CENSUS_LINK,
         )
 
         response_serializer = CensusSubmissionSerializer(submission)
@@ -85,10 +104,24 @@ def census_detail(request, pk):
             partial=True,
         )
         serializer.is_valid(raise_exception=True)
+        was_returned = census.status == CensusSubmission.StatusType.SUBJECT_TO_REVISION
         census = CensusService.revise_census_submission(
             submission=census,
             validated_data=dict(serializer.validated_data),
         )
+        if was_returned:
+            notify_role(
+                role_name="MAO",
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.MEDIUM,
+                title="Census Submission Resubmitted",
+                message=(
+                    f"{census.submitted_by.get_full_name() or census.submitted_by.username} "
+                    f"corrected and resubmitted the {census.barangay.barangay_name} "
+                    f"Q{census.report_quarter} {census.report_year} livestock census."
+                ),
+                link=MAO_CENSUS_LINK,
+            )
         return Response(CensusSubmissionSerializer(census).data, status=status.HTTP_200_OK)
 
     # GET
@@ -120,5 +153,31 @@ def review_census_submission(request, pk):
         new_status=new_status,
         remarks=remarks,
     )
+
+    census_label = (
+        f"{submission.barangay.barangay_name} "
+        f"Q{submission.report_quarter} {submission.report_year} livestock census"
+    )
+    if new_status == CensusSubmission.StatusType.APPROVED:
+        create_notification(
+            user=submission.submitted_by,
+            notification_type=Notification.NotificationType.GENERAL,
+            priority=Notification.Priority.MEDIUM,
+            title="Census Submission Approved by MAO",
+            message=(
+                f"MAO approved the {census_label}."
+                f"{f' Remarks: {remarks}' if remarks else ''}"
+            ),
+            link=SIBAT_CENSUS_LINK,
+        )
+    elif new_status == CensusSubmission.StatusType.SUBJECT_TO_REVISION:
+        create_notification(
+            user=submission.submitted_by,
+            notification_type=Notification.NotificationType.GENERAL,
+            priority=Notification.Priority.HIGH,
+            title="Revision Required on Census Submission",
+            message=f"The {census_label} requires revision. Remarks: {remarks}",
+            link=SIBAT_CENSUS_LINK,
+        )
 
     return Response(CensusSubmissionSerializer(submission).data, status=status.HTTP_200_OK)

@@ -35,7 +35,6 @@ import {
   type SibatValidationRecord,
   type SibatInspectionData,
 } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
-import CensusSubmissionDialog from "./census-submission-dialog";
 import CensusDetailsDialog from "./census-details-dialog";
 import CensusSubmissionsView from "./census-submissions-view";
 
@@ -103,7 +102,6 @@ function SibatPortalContent() {
 
   // ── 3. Census State ──
   const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
-  const [isCensusDialogOpen, setIsCensusDialogOpen] = useState(false);
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
@@ -150,9 +148,13 @@ function SibatPortalContent() {
   };
 
   // Census dialog callbacks
-  const handleCensusSubmissionSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ["census-submissions"] });
-    handleTabChange("census");
+  const handleOpenNewCensus = () => {
+    router.push("/sibat/census/submit");
+  };
+
+  const handleOpenCensusRevision = (submission: CensusSubmissionRecord) => {
+    setSelectedCensusForDetail(null);
+    router.push("/sibat/census/submit?revise=" + submission.id);
   };
 
   const handleReviewSuccess = () => {
@@ -210,7 +212,7 @@ function SibatPortalContent() {
 
             <Button
               size="sm"
-              onClick={() => setIsCensusDialogOpen(true)}
+              onClick={handleOpenNewCensus}
               className="bg-[#1A365D] hover:bg-[#132742] text-white text-xs font-bold rounded-2xl shadow-xs gap-1.5 h-9 px-4 cursor-pointer"
             >
               <Plus className="size-3.5 text-amber-300" />
@@ -357,7 +359,7 @@ function SibatPortalContent() {
         {activeTab === "census" && (
           <CensusSubmissionsView
             censusSubmissions={censuses}
-            onOpenSubmitDialog={() => setIsCensusDialogOpen(true)}
+            onOpenSubmitDialog={handleOpenNewCensus}
             onSelectCensusForDetail={(census) => setSelectedCensusForDetail(census)}
           />
         )}
@@ -382,11 +384,7 @@ function SibatPortalContent() {
       />
 
       {/* ═══ Census Survey & Details Dialogs ═══ */}
-      <CensusSubmissionDialog
-        open={isCensusDialogOpen}
-        onOpenChange={setIsCensusDialogOpen}
-        onSubmissionSuccess={handleCensusSubmissionSuccess}
-      />
+
 
       <CensusDetailsDialog
         submission={selectedCensusForDetail}
@@ -394,6 +392,7 @@ function SibatPortalContent() {
         onOpenChange={(open) => {
           if (!open) setSelectedCensusForDetail(null);
         }}
+        onRevise={handleOpenCensusRevision}
       />
 
       {/* ═══ SIBAT Field QR Scanner Dialog ═══ */}
