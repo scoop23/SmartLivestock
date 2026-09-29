@@ -62,7 +62,9 @@ import {
 import { cn } from "@/components/ui/utils";
 import { toast } from "sonner";
 import type { LivestockInventoryItem, StatusType, EntryType } from "./page";
+import type { OperationalStatus } from "./livestock-inventory";
 import { getAvatarById } from "./livestock-inventory";
+import { OperationalStatusBadge } from "./operational-status-badge";
 
 /* ── Species Color Palette & Styling ── */
 interface SpeciesTheme {
@@ -253,6 +255,7 @@ export default function LivestockRecordList({
   // Filtering states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusType | "ALL">("ALL");
+  const [operationalFilter, setOperationalFilter] = useState<OperationalStatus | "ALL">("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<SortKey>("newest");
 
@@ -263,6 +266,7 @@ export default function LivestockRecordList({
   /* Count active filters */
   const activeFilterCount = [
     statusFilter !== "ALL",
+    operationalFilter !== "ALL",
     typeFilter !== "ALL",
     searchQuery.trim().length > 0,
   ].filter(Boolean).length;
@@ -270,6 +274,7 @@ export default function LivestockRecordList({
   const clearAllFilters = () => {
     setSearchQuery("");
     setStatusFilter("ALL");
+    setOperationalFilter("ALL");
     setTypeFilter("ALL");
     setSortBy("newest");
     setCurrentPage(1);
@@ -298,7 +303,10 @@ export default function LivestockRecordList({
       const matchesType =
         typeFilter === "ALL" || item.livestockTypeName === typeFilter;
 
-      return matchesSearch && matchesStatus && matchesType;
+      const matchesOperational =
+        operationalFilter === "ALL" || item.operationalStatus === operationalFilter;
+
+      return matchesSearch && matchesStatus && matchesType && matchesOperational;
     });
 
     // Sorting
@@ -324,12 +332,12 @@ export default function LivestockRecordList({
     });
 
     return result;
-  }, [items, searchQuery, statusFilter, typeFilter, sortBy]);
+  }, [items, searchQuery, statusFilter, operationalFilter, typeFilter, sortBy]);
 
   /* Reset pagination to page 1 whenever filters change */
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, typeFilter, sortBy, pageSize]);
+  }, [searchQuery, statusFilter, operationalFilter, typeFilter, sortBy, pageSize]);
 
   /* Paginated slice */
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -380,6 +388,8 @@ export default function LivestockRecordList({
       "Weight (kg)",
       "Last Vaccination Date",
       "Status",
+      "Herd Lifecycle",
+      "Lifecycle Changed",
       "Date Registered",
       "Officer Remarks",
     ];
@@ -395,6 +405,10 @@ export default function LivestockRecordList({
       item.weight ?? "N/A",
       item.lastVaccinationDate ?? "Pending",
       item.status,
+      item.operationalStatus,
+      item.operationalStatusChangedAt
+        ? new Date(item.operationalStatusChangedAt).toLocaleDateString()
+        : "",
       item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "",
       `"${(item.reviewRemarks || "").replace(/"/g, '""')}"`,
     ]);
@@ -555,6 +569,24 @@ export default function LivestockRecordList({
               <SelectItem value="VERIFIED">Verified by SIBAT</SelectItem>
               <SelectItem value="PENDING">Pending Review</SelectItem>
               <SelectItem value="SUBJECT_TO_REVISION">Needs Revision</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Real-world herd lifecycle, separate from municipal validation */}
+          <Select
+            value={operationalFilter}
+            onValueChange={(value) => setOperationalFilter(value as OperationalStatus | "ALL")}
+          >
+            <SelectTrigger className="w-[145px] rounded-lg h-9 border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700">
+              <SelectValue placeholder="Herd Lifecycle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Lifecycle</SelectItem>
+              <SelectItem value="ACTIVE">Active Herd</SelectItem>
+              <SelectItem value="SOLD">Sold</SelectItem>
+              <SelectItem value="DECEASED">Deceased</SelectItem>
+              <SelectItem value="SLAUGHTERED">Slaughtered</SelectItem>
+              <SelectItem value="MOVED_OUT">Moved Out</SelectItem>
             </SelectContent>
           </Select>
 
@@ -797,7 +829,10 @@ export default function LivestockRecordList({
                     </div>
 
                     {/* Clean Status Badge */}
-                    <div className="shrink-0">{getStatusBadge(item.status)}</div>
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      {getStatusBadge(item.status)}
+                      <OperationalStatusBadge status={item.operationalStatus} compact />
+                    </div>
                   </div>
 
                   {/* Core Stats: Compact 2-column layout (Weight, Immunization Status, Breed, Sex) */}
@@ -1001,6 +1036,9 @@ export default function LivestockRecordList({
                   Status
                 </TableHead>
                 <TableHead className="font-bold text-slate-700 text-xs">
+                  Herd Lifecycle
+                </TableHead>
+                <TableHead className="font-bold text-slate-700 text-xs">
                   Registered
                 </TableHead>
                 <TableHead className="font-bold text-slate-700 text-xs text-right pr-4">
@@ -1103,6 +1141,17 @@ export default function LivestockRecordList({
 
                     {/* Status Badge */}
                     <TableCell>{getStatusBadge(item.status)}</TableCell>
+
+                    <TableCell>
+                      <div className="space-y-1">
+                        <OperationalStatusBadge status={item.operationalStatus} compact />
+                        {item.operationalStatusChangedAt && item.operationalStatus !== "ACTIVE" && (
+                          <p className="text-[10px] text-slate-500">
+                            {new Date(item.operationalStatusChangedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
 
                     {/* Date */}
                     <TableCell className="text-xs font-medium text-slate-500 tabular-nums">

@@ -145,3 +145,4 @@ class MortalityRecord(models.Model):
         related_name="created_mortality_records",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    inventory_reconciled_at = models.DateTimeField(null=True, blank=True)

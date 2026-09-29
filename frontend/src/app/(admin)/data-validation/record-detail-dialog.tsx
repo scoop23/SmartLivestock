@@ -51,6 +51,7 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 export type DetailRecordData =
   | {
@@ -92,6 +93,7 @@ export type DetailRecordData =
     id: string | number;
     rawId?: number;
     isBatch?: boolean;
+    batchId?: number | null;
     farmerName: string;
     barangayName: string;
     livestockType: string;
@@ -636,13 +638,29 @@ export function RecordDetailDialog({
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                     {record.isBatch ? "Cohort Batch Information" : "Animal Registry Specifications"}
                   </span>
-                  {record.isBatch ? (
-                    <Badge className="bg-teal-100 text-teal-900 border-0 text-[10px] font-bold">
-                      Cohort Batch ({record.quantity} heads)
-                    </Badge>
+                  {record.isBatch && record.rawId ? (
+                    <Link
+                      href={`/data-validation/batches?batchId=${record.rawId}`}
+                      className="inline-flex"
+                      title="Open this cohort in the batch registry"
+                    >
+                      <Badge className="bg-teal-100 text-teal-900 border-teal-200 text-[10px] font-bold hover:bg-teal-200 cursor-pointer">
+                        Batch record ({record.quantity} heads) � View batch
+                      </Badge>
+                    </Link>
+                  ) : record.batchCode && record.batchId ? (
+                    <Link
+                      href={`/data-validation/batches?batchId=${record.batchId}`}
+                      className="inline-flex"
+                      title={`Open parent cohort ${record.batchCode}`}
+                    >
+                      <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold hover:bg-teal-100 cursor-pointer">
+                        Belongs to batch: {record.batchCode} � View batch
+                      </Badge>
+                    </Link>
                   ) : record.batchCode ? (
                     <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
-                      Cohort: {record.batchCode}
+                      Belongs to batch: {record.batchCode}
                     </Badge>
                   ) : null}
                 </div>

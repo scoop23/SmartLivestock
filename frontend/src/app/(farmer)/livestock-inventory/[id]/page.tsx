@@ -78,6 +78,7 @@ import {
   type LivestockInventoryItem,
   getAvatarById,
 } from "../livestock-inventory";
+import { OperationalStatusBadge } from "../operational-status-badge";
 import {
   getBirthingTerminology,
   type CalvingRecordItem,
@@ -148,7 +149,7 @@ export default function LivestockDetailPage() {
   const rawId = params?.id ? decodeURIComponent(String(params.id)) : "";
 
   // 1. Fetch user inventories
-  const { data: inventories = [], isLoading: isInventoryLoading } = useUserInventory();
+  const { data: inventories = [], isLoading: isInventoryLoading } = useUserInventory({ includeInactive: true });
 
   // 2. Direct single-item fetch fallback if numeric ID not found in current inventory list
   const { data: directInventory, isLoading: isDirectLoading } = useQuery({
@@ -192,6 +193,8 @@ export default function LivestockDetailPage() {
         weight: directInventory.weight ? Number(directInventory.weight) : null,
         lastVaccinationDate: directInventory.last_vaccination_date || null,
         status: directInventory.status || "APPROVED",
+        operationalStatus: directInventory.operational_status || "ACTIVE",
+        operationalStatusChangedAt: directInventory.operational_status_changed_at || null,
         reviewRemarks: directInventory.review_remarks || null,
         createdAt: directInventory.created_at || new Date().toISOString(),
         photoUrl: directInventory.photo_url || null,
@@ -744,6 +747,7 @@ export default function LivestockDetailPage() {
                     <Badge className="bg-emerald-400 text-emerald-950 font-black text-xs px-2.5 py-0.5">
                       {activeItem.status}
                     </Badge>
+                    <OperationalStatusBadge status={activeItem.operationalStatus} />
                     <Badge variant="outline" className="text-emerald-100 border-emerald-300/40 text-xs font-bold">
                       {activeItem.livestockTypeName}
                     </Badge>

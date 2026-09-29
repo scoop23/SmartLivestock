@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -11,6 +12,7 @@ from users.models import User, Notification
 from users.notification_views import create_notification
 from .models import DiseaseCase, MortalityRecord
 from .serializer import DiseaseCaseSerializer, MortalityRecordSerializer
+from livestock.reconciliation import reconcile_approved_mortality
 
 
 def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role_name):
@@ -556,6 +558,7 @@ def mortality_record_detail(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def review_mortality_record(request, pk):
     """
     POST /diseases/mortality/<pk>/review/
@@ -613,6 +616,8 @@ def review_mortality_record(request, pk):
     record.review_remarks = remarks
     record.reviewed_at = timezone.now()
     record.save()
+    if new_status == MortalityRecord.MortalityRecordStatus.APPROVED:
+        record = reconcile_approved_mortality(record)
 
     _notify_mortality_record_review(record, new_status, remarks, user, role_name)
 

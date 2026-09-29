@@ -97,13 +97,18 @@ class LivestockBatch(models.Model):
 
     @property
     def total_animals(self):
-        return self.animals.count()
+        return self.animals.filter(
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE
+        ).count()
 
     @property
     def average_weight(self):
         weights = [
             a.weight
-            for a in self.animals.filter(weight__isnull=False)
+            for a in self.animals.filter(
+                operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+                weight__isnull=False,
+            )
             if a.weight is not None
         ]
         if weights:
@@ -124,6 +129,13 @@ class LivestockInventory(models.Model):
         VERIFIED = "VERIFIED", "Verified"
         APPROVED = "APPROVED", "Approved"
         SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
+
+    class OperationalStatus(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        SOLD = "SOLD", "Sold"
+        DECEASED = "DECEASED", "Deceased"
+        SLAUGHTERED = "SLAUGHTERED", "Slaughtered"
+        MOVED_OUT = "MOVED_OUT", "Moved Out"
 
     batch = models.ForeignKey(
         LivestockBatch,
@@ -170,6 +182,12 @@ class LivestockInventory(models.Model):
     status = models.CharField(
         max_length=25, choices=StatusType.choices, default=StatusType.PENDING
     )
+    operational_status = models.CharField(
+        max_length=20,
+        choices=OperationalStatus.choices,
+        default=OperationalStatus.ACTIVE,
+    )
+    operational_status_changed_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

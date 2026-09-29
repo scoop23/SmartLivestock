@@ -63,6 +63,25 @@ def inventory_list_create(request):
         require_action(user, "inventory", "read_all")
         inventories = LivestockInventory.objects.all()
 
+    requested_operational_status = request.query_params.get("operational_status")
+    include_inactive = request.query_params.get("include_inactive", "").lower() == "true"
+    if requested_operational_status:
+        if requested_operational_status not in LivestockInventory.OperationalStatus.values:
+            return Response(
+                {
+                    "error": (
+                        f"Invalid operational_status. Valid choices are: "
+                        f"{list(LivestockInventory.OperationalStatus.values)}"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        inventories = inventories.filter(operational_status=requested_operational_status)
+    elif not include_inactive:
+        inventories = inventories.filter(
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE
+        )
+
     inventories = inventories.select_related(
         "livestock_type",
         "farmer__user",

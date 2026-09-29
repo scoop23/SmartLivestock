@@ -121,6 +121,20 @@ export interface BatchItem {
   updated_at?: string;
 }
 
+function deriveBatchReviewStatus(batch: BatchItem): BatchItem["review_status"] {
+  const statuses = (batch.animals || []).map((animal) =>
+    (animal.status || "PENDING").toUpperCase(),
+  );
+
+  if (statuses.length === 0) return "PENDING";
+  if (statuses.every((status) => status === "APPROVED")) return "APPROVED";
+  if (statuses.some((status) => status === "SUBJECT_TO_REVISION")) {
+    return "SUBJECT_TO_REVISION";
+  }
+  if (statuses.every((status) => status === "VERIFIED")) return "VERIFIED";
+  return "PENDING";
+}
+
 function AdminBatchesDrilldownContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -171,7 +185,11 @@ function AdminBatchesDrilldownContent() {
     queryKey: ["admin-batches-drilldown"],
     queryFn: async () => {
       const res = await api.get("livestock/batches/?all=true");
-      return Array.isArray(res.data) ? res.data : [];
+      const records = Array.isArray(res.data) ? (res.data as BatchItem[]) : [];
+      return records.map((batch) => ({
+        ...batch,
+        review_status: deriveBatchReviewStatus(batch),
+      }));
     },
     staleTime: 30 * 1000,
   });
@@ -397,14 +415,14 @@ function AdminBatchesDrilldownContent() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
           <AlertTriangle className="w-3 h-3 text-rose-600" />
-          Subject for Revision
+          Revision Required
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
         <Clock className="w-3 h-3 text-amber-600" />
-        Pending MAO
+        Awaiting SIBAT
       </span>
     );
   };
@@ -621,9 +639,9 @@ function AdminBatchesDrilldownContent() {
                 <SelectContent className="rounded-xl">
                   <SelectItem value="ALL">All Statuses ({batches.length})</SelectItem>
                   <SelectItem value="APPROVED">MAO Approved ({kpis.approvedBatches})</SelectItem>
-                  <SelectItem value="PENDING">Pending Review ({kpis.pendingBatches})</SelectItem>
+                  <SelectItem value="PENDING">Awaiting SIBAT ({kpis.pendingBatches})</SelectItem>
                   <SelectItem value="VERIFIED">SIBAT Verified ({kpis.verifiedBatches})</SelectItem>
-                  <SelectItem value="SUBJECT_TO_REVISION">Subject for Revision ({kpis.revisionBatches})</SelectItem>
+                  <SelectItem value="SUBJECT_TO_REVISION">Revision Required ({kpis.revisionBatches})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -727,18 +745,19 @@ function AdminBatchesDrilldownContent() {
             {filteredBatches.map((batch) => {
               const headCount = batch.total_animals || batch.animals?.length || 0;
               const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
-              const targetWeight = batch.target_weight ? Number(batch.target_weight) : null;
-              const weightProgress =
-                avgWeight && targetWeight && targetWeight > 0
-                  ? Math.min(Math.round((avgWeight / targetWeight) * 100), 100)
-                  : null;
+              const sibatCheckedCount = (batch.animals || []).filter((animal) =>
+                ["VERIFIED", "APPROVED"].includes((animal.status || "").toUpperCase()),
+              ).length;
+              const verificationProgress =
+                headCount > 0 ? Math.round((sibatCheckedCount / headCount) * 100) : 0;
+              const isReadyForMao = batch.review_status === "VERIFIED";
 
               return (
                 <Card
                   key={batch.id}
-                  className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all flex flex-col justify-between"
+                  className="group overflow-hidden rounded-2xl border-slate-200 bg-white shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all duration-200 flex flex-col"
                 >
-                  <CardHeader className="p-4 pb-3">
+                  <CardHeader className="p-3.5 pb-2.5 min-h-[88px]">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span
@@ -758,7 +777,7 @@ function AdminBatchesDrilldownContent() {
                       {getStatusBadge(batch.review_status)}
                     </div>
 
-                    <CardTitle className="text-sm font-black text-slate-900 mt-2 truncate">
+                    <CardTitle className="text-sm font-black text-slate-900 mt-1.5 truncate">
                       {batch.batch_name || `${batch.livestock_type_name} Cohort`}
                     </CardTitle>
                     <CardDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
@@ -770,70 +789,92 @@ function AdminBatchesDrilldownContent() {
                     </CardDescription>
                   </CardHeader>
 
-                  <CardContent className="p-4 pt-0 space-y-3">
-                    {/* Headcount and Housing strip */}
-                    <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
-                      <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                          Head Count
+                  <CardContent className="p-3.5 pt-0 space-y-2.5 flex flex-1 flex-col">
+                    <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2">
+                      <div className="px-1.5">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
+                          Herd Size
                         </span>
-                        <p className="font-black text-emerald-800 text-sm mt-0.5">
-                          {headCount} <span className="text-xs font-normal text-slate-600">Animals</span>
+                        <p className="text-sm leading-none font-black text-slate-900 mt-1">
+                          {headCount}
+                          <span className="text-[8px] font-bold text-slate-500 ml-1">heads</span>
                         </p>
                       </div>
-                      <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                          Housing Pen
+                      <div className="px-2">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
+                          Verified
                         </span>
-                        <p className="font-bold text-slate-800 text-xs mt-0.5 truncate">
-                          {batch.housing_pen || "General Pen"}
+                        <p className="text-sm leading-none font-black text-sky-800 mt-1">
+                          {sibatCheckedCount}
+                          <span className="text-[8px] font-bold text-slate-500 ml-1">of {headCount}</span>
+                        </p>
+                      </div>
+                      <div className="px-2">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
+                          Avg Weight
+                        </span>
+                        <p className="text-sm leading-none font-black text-slate-900 mt-1">
+                          {avgWeight ? `${avgWeight} kg` : "N/A"}
                         </p>
                       </div>
                     </div>
 
-                    {/* Weight Metrics */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-slate-500">
-                          Avg: <strong className="text-slate-800">{avgWeight ? `${avgWeight} kg` : "N/A"}</strong>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold text-slate-500">
+                          SIBAT verification - {sibatCheckedCount}/{headCount} animals
                         </span>
-                        {targetWeight && (
-                          <span className="text-slate-500">
-                            Target: <strong className="text-slate-800">{targetWeight} kg</strong>
-                          </span>
-                        )}
+                        <span className={`text-[9px] font-black ${isReadyForMao ? "text-emerald-700" : "text-sky-700"}`}>
+                          {verificationProgress}%
+                        </span>
                       </div>
-                      {weightProgress !== null && (
-                        <div className="space-y-1">
-                          <Progress value={weightProgress} className="h-1.5 bg-slate-100" />
-                          <div className="flex justify-between text-[10px] text-slate-400">
-                            <span>Growth progress</span>
-                            <span className="font-bold text-emerald-700">{weightProgress}%</span>
-                          </div>
-                        </div>
-                      )}
+                      <Progress
+                        value={verificationProgress}
+                        className={`h-1.5 bg-slate-100 ${
+                          batch.review_status === "APPROVED"
+                            ? "[&>div]:bg-emerald-600"
+                            : "[&>div]:bg-sky-600"
+                        }`}
+                      />
                     </div>
 
-                    {/* Review remarks if any */}
-                    {batch.review_remarks && (
-                      <div className="p-2 bg-amber-50/60 rounded-xl border border-amber-200/60 text-[11px] text-amber-900 flex items-start gap-1.5">
-                        <Info className="w-3.5 h-3.5 shrink-0 text-amber-600 mt-0.5" />
-                        <span className="italic line-clamp-2">&ldquo;{batch.review_remarks}&rdquo;</span>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap gap-1.5 text-[9px]">
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
+                        <Building2 className="size-3 text-slate-400" />
+                        {batch.housing_pen || "General Pen"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
+                        <Activity className="size-3 text-slate-400" />
+                        {batch.feed_type || "Standard Rations"}
+                      </span>
+                    </div>
+
+                    <div
+                      className={`h-9 px-2.5 rounded-lg border text-[10px] flex items-center gap-1.5 ${
+                        batch.review_remarks
+                          ? "bg-amber-50 border-amber-200 text-amber-900"
+                          : "bg-slate-50 border-slate-100 text-slate-400"
+                      }`}
+                    >
+                      <Info className={`size-3.5 shrink-0 ${batch.review_remarks ? "text-amber-600" : "text-slate-300"}`} />
+                      <span className="line-clamp-1">
+                        {batch.review_remarks || "No review remarks"}
+                      </span>
+                    </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    <div className="grid grid-cols-[1fr_auto] gap-1.5 pt-2 border-t border-slate-100 mt-auto">
                       <Button
                         size="sm"
                         onClick={() => {
                           setSelectedBatch(batch);
                           setIsDrilldownOpen(true);
                         }}
-                        className="flex-1 h-8 rounded-xl bg-slate-900 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 shadow-2xs"
+                        className="h-8 rounded-lg bg-slate-900 hover:bg-emerald-800 text-white font-bold text-[10px] gap-1.5 shadow-2xs"
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                        Drill Down ({headCount})
+                        <Eye className="size-3.5" />
+                        Inspect cohort
+                        <ChevronRight className="size-3.5 ml-auto" />
                       </Button>
 
                       <Button
@@ -843,16 +884,17 @@ function AdminBatchesDrilldownContent() {
                           setSelectedBatch(batch);
                           setIsBatchCertificateOpen(true);
                         }}
-                        className="h-8 rounded-xl border-slate-200 text-slate-700 hover:text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 text-xs font-bold px-2.5"
+                        className="size-8 p-0 rounded-lg border-slate-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
                         title="View Batch QR Clearance Pass"
                       >
                         <QrCode className="w-3.5 h-3.5 text-emerald-700" />
                       </Button>
 
-                      {batch.review_status !== "APPROVED" && (
+                      {batch.review_status !== "APPROVED" ? (
                         <Button
                           size="sm"
                           variant="outline"
+                          disabled={!isReadyForMao}
                           onClick={() => {
                             setBatchReviewModal({
                               open: true,
@@ -860,10 +902,34 @@ function AdminBatchesDrilldownContent() {
                               action: "APPROVED",
                             });
                           }}
-                          className="h-8 rounded-xl border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-xs font-bold px-3"
-                          title="Quick Approve Entire Batch"
+                          className="col-span-2 h-8 rounded-lg border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 text-[10px] font-bold disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                          title={
+                            isReadyForMao
+                              ? "Approve this SIBAT-verified cohort"
+                              : "Every animal must be SIBAT verified before cohort approval"
+                          }
                         >
-                          Approve
+                          {isReadyForMao ? (
+                            <>
+                              <ShieldCheck className="size-3.5" />
+                              Approve verified cohort
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="size-3.5" />
+                              Awaiting SIBAT verification
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          className="col-span-2 h-8 rounded-lg border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-100"
+                        >
+                          <CheckCircle2 className="size-3.5" />
+                          Cohort approved
                         </Button>
                       )}
                     </div>
@@ -1089,6 +1155,12 @@ function AdminBatchesDrilldownContent() {
                   <div className="flex items-center gap-1.5 mt-1">
                     <Button
                       size="sm"
+                      disabled={selectedBatch.review_status !== "VERIFIED"}
+                      title={
+                        selectedBatch.review_status === "VERIFIED"
+                          ? "Approve all SIBAT-verified animals in this cohort"
+                          : "Every animal must be SIBAT verified before cohort approval"
+                      }
                       onClick={() =>
                         setBatchReviewModal({
                           open: true,
@@ -1096,9 +1168,9 @@ function AdminBatchesDrilldownContent() {
                           action: "APPROVED",
                         })
                       }
-                      className="h-6 px-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px]"
+                      className="h-6 px-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
                     >
-                      Approve All
+                      {selectedBatch.review_status === "VERIFIED" ? "Approve All" : "Awaiting SIBAT"}
                     </Button>
                     <Button
                       size="sm"
@@ -1293,9 +1365,11 @@ function AdminBatchesDrilldownContent() {
                                     Passport
                                   </Button>
 
-                                  {animal.status !== "APPROVED" ? (
+                                  {animal.status === "VERIFIED" ? (
+                                    <>
                                     <Button
                                       size="sm"
+                                      title="Approve this SIBAT-verified animal"
                                       onClick={() => {
                                         setAnimalReviewModal({
                                           open: true,
@@ -1307,10 +1381,9 @@ function AdminBatchesDrilldownContent() {
                                     >
                                       Approve
                                     </Button>
-                                  ) : (
                                     <Button
                                       size="sm"
-                                      variant="ghost"
+                                      variant="outline"
                                       onClick={() => {
                                         setAnimalReviewModal({
                                           open: true,
@@ -1318,9 +1391,23 @@ function AdminBatchesDrilldownContent() {
                                           action: "SUBJECT_TO_REVISION",
                                         });
                                       }}
-                                      className="h-7 px-2 rounded-lg text-rose-700 hover:bg-rose-50 font-bold text-[10px]"
+                                      className="h-7 px-2 rounded-lg border-amber-300 text-amber-800 hover:bg-amber-50 font-bold text-[10px]"
                                     >
-                                      Flag
+                                      Revision
+                                    </Button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled
+                                      className="h-7 px-2 rounded-lg text-slate-500 font-bold text-[10px] disabled:opacity-100"
+                                    >
+                                      {animal.status === "APPROVED"
+                                        ? "Approved"
+                                        : animal.status === "SUBJECT_TO_REVISION"
+                                          ? "Revision requested"
+                                          : "Awaiting SIBAT"}
                                     </Button>
                                   )}
                                 </div>
@@ -1415,7 +1502,11 @@ function AdminBatchesDrilldownContent() {
             </Button>
             <Button
               size="sm"
-              disabled={reviewBatchMutation.isPending}
+              disabled={
+                reviewBatchMutation.isPending ||
+                (batchReviewModal.action === "APPROVED" &&
+                  batchReviewModal.batch?.review_status !== "VERIFIED")
+              }
               onClick={() => {
                 if (batchReviewModal.batch) {
                   reviewBatchMutation.mutate({
@@ -1454,7 +1545,7 @@ function AdminBatchesDrilldownContent() {
             <DialogTitle className="text-base font-black text-slate-900">
               {animalReviewModal.action === "APPROVED"
                 ? "Approve Individual Animal"
-                : "Flag Individual Animal"}
+                : "Request Animal Revision"}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
               Animal Tag: <strong className="font-mono text-slate-800">{animalReviewModal.animal?.tag_number}</strong>
@@ -1464,10 +1555,16 @@ function AdminBatchesDrilldownContent() {
           <div className="space-y-3 py-2">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Official Validation Remarks
+                {animalReviewModal.action === "APPROVED"
+                  ? "Official Validation Remarks"
+                  : "Required Correction Instructions"}
               </label>
               <Textarea
-                placeholder="Enter remarks or certification notes..."
+                placeholder={
+                  animalReviewModal.action === "APPROVED"
+                    ? "Enter certification notes..."
+                    : "Explain exactly what the farmer must correct..."
+                }
                 value={animalReviewRemarks}
                 onChange={(e) => setAnimalReviewRemarks(e.target.value)}
                 className="text-xs rounded-xl border-slate-200"
@@ -1487,7 +1584,14 @@ function AdminBatchesDrilldownContent() {
             </Button>
             <Button
               size="sm"
-              disabled={reviewAnimalMutation.isPending}
+              disabled={
+                reviewAnimalMutation.isPending ||
+                (animalReviewModal.action === "APPROVED" &&
+                  animalReviewModal.animal?.status !== "VERIFIED") ||
+                (animalReviewModal.action === "SUBJECT_TO_REVISION" &&
+                  (!animalReviewRemarks.trim() ||
+                    animalReviewModal.animal?.status !== "VERIFIED"))
+              }
               onClick={() => {
                 if (animalReviewModal.animal) {
                   reviewAnimalMutation.mutate({
@@ -1506,7 +1610,7 @@ function AdminBatchesDrilldownContent() {
                 ? "Processing..."
                 : animalReviewModal.action === "APPROVED"
                   ? "Certify Animal"
-                  : "Submit Flag"}
+                  : "Send for Revision"}
             </Button>
           </DialogFooter>
         </DialogContent>

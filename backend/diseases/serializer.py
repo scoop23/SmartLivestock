@@ -59,6 +59,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "reviewed_at",
             "review_remarks",
             "previous_remarks",
+            "inventory_reconciled_at",
             "created_by",
             "created_at",
         )
@@ -71,6 +72,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "reviewed_at",
             "review_remarks",
             "previous_remarks",
+            "inventory_reconciled_at",
             "created_by",
             "created_at",
         )
@@ -134,6 +136,8 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
                 raise ValidationError(
                     "You can only report disease cases against your own livestock inventory."
                 )
+        if value.operational_status != value.OperationalStatus.ACTIVE:
+            raise ValidationError("Mortality can only be recorded for active livestock.")
         return value
 
     def validate_batch(self, value):

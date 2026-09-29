@@ -33,6 +33,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import api from "@/lib/axios";
 import type { LivestockInventoryItem } from "./page";
 import { getAvatarById } from "./livestock-inventory";
+import { OperationalStatusBadge } from "./operational-status-badge";
 
 interface ProductionRecordItem {
   id: number;
@@ -210,6 +211,7 @@ export default function LivestockDetailsDialog({
             </div>
             <div className="flex items-center gap-2">
               {getStatusBadge(livestock?.status)}
+              {livestock && <OperationalStatusBadge status={livestock.operationalStatus} />}
               {livestock && (
                 <Button
                   size="sm"
@@ -489,4 +491,3 @@ export default function LivestockDetailsDialog({
     </Dialog>
   );
 }
-

@@ -43,6 +43,7 @@ export interface UnifiedSubmissionItem {
   targetWeight?: number;
   animals?: any[];
   lastVaccinationDate?: string | null;
+  operationalStatus?: string;
   damTag?: string;
   damBreed?: string;
   sireTag?: string;
@@ -75,6 +76,7 @@ export interface RawInventoryRecord {
   sex?: string;
   weight?: number | null;
   last_vaccination_date?: string | null;
+  operational_status?: string;
   status: UnifiedStatus;
   review_remarks?: string | null;
   reviewed_at?: string | null;
@@ -223,6 +225,7 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     batchCode: inv.batch_code || undefined,
     batchName: inv.batch_name || undefined,
     lastVaccinationDate: inv.last_vaccination_date,
+    operationalStatus: inv.operational_status || "ACTIVE",
     reviewRemarks: inv.review_remarks,
     reviewedAt: inv.reviewed_at,
     reviewedByName: inv.reviewed_by_name,
@@ -495,7 +498,7 @@ export async function fetchRawBatches(): Promise<any[]> {
 }
 
 export async function fetchRawInventory(): Promise<RawInventoryRecord[]> {
-  const response = await api.get("livestock/inventory/");
+  const response = await api.get("livestock/inventory/?include_inactive=true");
   return response.data as RawInventoryRecord[];
 }
 

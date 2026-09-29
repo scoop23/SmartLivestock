@@ -41,3 +41,19 @@ Remarks are required when a reviewer returns a record for revision.
 | ARCHIVED | ARCHIVED |
 
 The batch lifecycle is separate from the review status derived from its animals.
+
+## Automatic inventory reconciliation
+
+Validation status and real-world herd status are stored separately. An approved
+inventory record can be `ACTIVE`, `SOLD`, `DECEASED`, `SLAUGHTERED`, or
+`MOVED_OUT`.
+
+- MAO approval of a calving record creates one approved, active calf inventory record.
+- MAO approval of an individual sale marks that animal as sold.
+- MAO approval of an individual mortality record marks that animal as deceased.
+- A full-batch sale marks every approved active animal as sold and closes the batch.
+- Partial batch sales and batch mortality require explicit animal selection and are
+  rejected until that item-level workflow is available.
+
+Reconciliation is atomic and idempotent: the event approval and inventory update
+succeed together, and the same event cannot update inventory twice.

@@ -297,6 +297,7 @@ class LiveAnimalSale(models.Model):  # may be removed
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
+    inventory_reconciled_at = models.DateTimeField(null=True, blank=True)
 
 
 # Historical body weight logs for cattle and other livestock to monitor weight gain (ADG)
@@ -380,6 +381,14 @@ class CalvingRecord(models.Model):
         related_name="created_calving_records",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    offspring_inventory = models.OneToOneField(
+        "livestock.LivestockInventory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_calving_record",
+    )
+    inventory_reconciled_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-calving_date", "-created_at"]

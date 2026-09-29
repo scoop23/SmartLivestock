@@ -117,7 +117,10 @@ export function DataOverviewCards({
                   }`}
                 >
                   {item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION"
-                    ? "Subject for Revision"
+                    ? "Revision Required"
+                    : item.status === "VERIFIED" ? "SIBAT Verified"
+                    : item.status === "APPROVED" ? "MAO Approved"
+                    : item.status === "PENDING" || item.status === "Pending Review" ? "Awaiting SIBAT"
                     : item.healthStatus || item.status || item.qualityGrade || "Active"}
                 </Badge>
               </div>

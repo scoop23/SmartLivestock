@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import Link from "next/link";
 import api from "@/lib/axios";
+import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
 
 export interface UniversalQrScannerDialogProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ interface ScannedRecord {
   headCount: number;
   weightKg?: number | null;
   status: "APPROVED" | "VERIFIED" | "PENDING" | "SUBJECT_TO_REVISION";
+  operationalStatus?: string;
   biosecurity: "CLEARED" | "FLAGGED";
   lastVaccination?: string;
   details: string;
@@ -173,7 +175,7 @@ export function UniversalQrScannerDialog({
 
       // 2. Try querying backend for livestock tag
       try {
-        const res = await api.get("livestock/inventory/");
+        const res = await api.get("livestock/inventory/?include_inactive=true");
         const items = Array.isArray(res.data) ? res.data : [];
         const found = items.find(
           (i: any) =>
@@ -193,6 +195,7 @@ export function UniversalQrScannerDialog({
             headCount: Number(found.quantity) || 1,
             weightKg: found.weight ? Number(found.weight) : null,
             status: (found.review_status || found.status || "APPROVED").toUpperCase() as any,
+            operationalStatus: found.operational_status || "ACTIVE",
             biosecurity: "CLEARED",
             details: `Official Tag ID #${found.tag_number || found.id} registered under Municipal Agriculture Office`,
             linkUrl: `/data-validation`,
@@ -402,10 +405,15 @@ export function UniversalQrScannerDialog({
                   </h3>
                 </div>
 
-                <Badge className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold gap-1 py-1 px-2.5">
-                  <ShieldCheck className="size-3.5 text-emerald-700" />
-                  <span>MAO Cleared</span>
-                </Badge>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold gap-1 py-1 px-2.5">
+                    <ShieldCheck className="size-3.5 text-emerald-700" />
+                    <span>MAO Cleared</span>
+                  </Badge>
+                  {activeResult.type === "INDIVIDUAL" && (
+                    <LivestockOperationalStatusBadge status={activeResult.operationalStatus} />
+                  )}
+                </div>
               </div>
 
               {/* Data Specs Grid */}

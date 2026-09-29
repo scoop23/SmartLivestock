@@ -74,6 +74,7 @@ export interface ValidationInventoryItem {
   entryType: "INDIVIDUAL" | "BATCH";
   quantity: number;
   lastVaccinationDate: string | null;
+  operationalStatus?: string;
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
   reviewedBy?: string | null;
@@ -167,7 +168,7 @@ export async function fetchAdminProductionRecords(): Promise<ProductionRecordIte
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {
   try {
     const [invRes, batchRes] = await Promise.allSettled([
-      api.get("livestock/inventory/"),
+      api.get("livestock/inventory/?include_inactive=true"),
       api.get("livestock/batches/"),
     ]);
 
@@ -189,6 +190,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           entryType: item.entry_type || "INDIVIDUAL",
           quantity: Number(item.quantity) || 1,
           lastVaccinationDate: item.last_vaccination_date || null,
+          operationalStatus: item.operational_status || "ACTIVE",
           status: (item.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
           reviewRemarks: item.review_remarks || null,
           reviewedBy: item.reviewed_by_name || null,
@@ -439,8 +441,8 @@ export function getStatusPill(status: string) {
   switch (norm) {
     case "APPROVED":
       return {
-        label: "MAO Certified",
-        shortLabel: "Approved",
+        label: "MAO Approved",
+        shortLabel: "MAO Approved",
         bg: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
         dot: "bg-emerald-500",
       };
@@ -449,15 +451,15 @@ export function getStatusPill(status: string) {
     case "REJECTED":
     case "FLAGGED":
       return {
-        label: "Subject for Revision",
-        shortLabel: "For Revision",
+        label: "Revision Required",
+        shortLabel: "Revision",
         bg: "bg-rose-50 text-rose-700 border-rose-200",
         dot: "bg-rose-500",
       };
     case "VERIFIED":
       return {
-        label: "Verified by SIBAT",
-        shortLabel: "Verified",
+        label: "SIBAT Verified",
+        shortLabel: "SIBAT Verified",
         bg: "bg-sky-50 text-sky-700 border-sky-200/80",
         dot: "bg-sky-500",
       };
@@ -465,7 +467,7 @@ export function getStatusPill(status: string) {
     default:
       return {
         label: "Awaiting SIBAT",
-        shortLabel: "Pending",
+        shortLabel: "Awaiting SIBAT",
         bg: "bg-amber-50 text-amber-700 border-amber-200/80",
         dot: "bg-amber-500 animate-pulse",
       };

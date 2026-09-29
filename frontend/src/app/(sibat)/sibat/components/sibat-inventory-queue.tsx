@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import SibatStatusBadge from "./sibat-status-badge";
 import type { UnifiedSubmissionItem } from "../sibat-analytics";
+import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
 
 interface SibatInventoryQueueProps {
   submissions: UnifiedSubmissionItem[];
@@ -313,6 +314,10 @@ export default function SibatInventoryQueue({
                           )}
 
                           <SibatStatusBadge status={item.status} />
+
+                          {item.sourceType === "INVENTORY" && (
+                            <LivestockOperationalStatusBadge status={item.operationalStatus} />
+                          )}
 
                           <span className="text-[11px] font-bold text-slate-400">
                             📅 Registered: {item.recordDate}

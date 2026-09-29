@@ -230,9 +230,10 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
             "purpose",
             "status",
             "review_remarks",
+            "inventory_reconciled_at",
             "created_at",
         )
-        read_only_fields = ("status", "review_remarks", "created_at")
+        read_only_fields = ("status", "review_remarks", "inventory_reconciled_at", "created_at")
 
     def validate_livestock(self, value):
         if value is None:
@@ -242,6 +243,8 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
             raise ValidationError("You can only record a sale for your own livestock.")
         if value.status != LivestockInventory.StatusType.APPROVED:
             raise ValidationError("Only approved livestock can be recorded as sold.")
+        if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+            raise ValidationError("Only active livestock can be recorded as sold.")
         return value
 
     def validate_batch(self, value):
@@ -257,6 +260,23 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
         batch = attrs.get("batch")
         if bool(livestock) == bool(batch):
             raise ValidationError("Provide either livestock or batch, but not both.")
+        quantity = attrs.get("quantity")
+        if livestock and quantity != 1:
+            raise ValidationError({"quantity": "An individual livestock sale must have a quantity of 1."})
+        if batch:
+            active_count = batch.animals.filter(
+                status=LivestockInventory.StatusType.APPROVED,
+                operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            ).count()
+            if quantity != active_count:
+                raise ValidationError(
+                    {
+                        "quantity": (
+                            "Partial batch sales require selecting the exact animals. "
+                            "For now, only the full active batch can be sold."
+                        )
+                    }
+                )
         return attrs
 
     def create(self, validated_data):
@@ -379,9 +399,11 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             "reviewed_by_name",
             "reviewed_at",
             "review_remarks",
+            "offspring_inventory",
+            "inventory_reconciled_at",
             "created_at",
         )
-        read_only_fields = ("status", "reviewed_by", "reviewed_by_name", "reviewed_at", "review_remarks", "created_at")
+        read_only_fields = ("status", "reviewed_by", "reviewed_by_name", "reviewed_at", "review_remarks", "offspring_inventory", "inventory_reconciled_at", "created_at")
 
     def validate_dam(self, value):
         user = self.context["request"].user
@@ -389,6 +411,8 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             raise ValidationError("You can only record calving for your own livestock.")
         if value.status != LivestockInventory.StatusType.APPROVED:
             raise ValidationError("Only approved livestock can be used as the dam.")
+        if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+            raise ValidationError("Only active livestock can be used as the dam.")
         if value.sex.upper() not in {"FEMALE", "F"}:
             raise ValidationError("The selected dam must be female.")
         return value

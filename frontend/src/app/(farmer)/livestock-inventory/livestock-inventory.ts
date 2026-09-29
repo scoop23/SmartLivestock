@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type EntryType = "INDIVIDUAL" | "BATCH";
 export type StatusType = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+export type OperationalStatus = "ACTIVE" | "SOLD" | "DECEASED" | "SLAUGHTERED" | "MOVED_OUT";
 
 export interface LivestockType {
   id: number;
@@ -21,6 +22,8 @@ export interface LivestockInventoryItem {
   weight: number | null;
   lastVaccinationDate: string | null;
   status: StatusType;
+  operationalStatus: OperationalStatus;
+  operationalStatusChangedAt?: string | null;
   reviewRemarks?: string | null;
   createdAt: string;
   photoUrl?: string | null;
@@ -42,6 +45,8 @@ export interface InventoryApiItem {
   weight: number | null;
   last_vaccination_date: string | null;
   status: StatusType;
+  operational_status: OperationalStatus;
+  operational_status_changed_at: string | null;
   review_remarks: string | null;
   created_at: string;
   photo?: string | null;
@@ -403,6 +408,8 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   weight: item.weight,
   lastVaccinationDate: item.last_vaccination_date,
   status: item.status,
+  operationalStatus: item.operational_status || "ACTIVE",
+  operationalStatusChangedAt: item.operational_status_changed_at,
   reviewRemarks: item.review_remarks,
   createdAt: item.created_at,
   photoUrl: (item as any).photo || (item as any).photo_url || null,
@@ -426,8 +433,10 @@ export async function fetchLivestockTypesMap(): Promise<Record<string, number>> 
   return map;
 }
 
-export async function fetchUserInventory(): Promise<LivestockInventoryItem[]> {
-  const res = await api.get<InventoryApiItem[]>("livestock/inventory/?mine=true");
+export async function fetchUserInventory(includeInactive = false): Promise<LivestockInventoryItem[]> {
+  const res = await api.get<InventoryApiItem[]>("livestock/inventory/", {
+    params: { mine: true, include_inactive: includeInactive },
+  });
   return res.data.map(mapInventory);
 }
 
@@ -495,10 +504,11 @@ export function useLivestockTypes() {
   });
 }
 
-export function useUserInventory() {
+export function useUserInventory(options: { includeInactive?: boolean } = {}) {
+  const includeInactive = options.includeInactive ?? false;
   return useQuery<LivestockInventoryItem[]>({
-    queryKey: INVENTORY_QUERY_KEYS.inventory,
-    queryFn: fetchUserInventory,
+    queryKey: [...INVENTORY_QUERY_KEYS.inventory, includeInactive ? "all" : "active"],
+    queryFn: () => fetchUserInventory(includeInactive),
   });
 }
 
@@ -539,4 +549,3 @@ export function useCreateLivestockBatch() {
     },
   });
 }
-

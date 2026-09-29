@@ -2,14 +2,14 @@ from rest_framework.permissions import BasePermission
 
 
 class IsMAO(BasePermission):
-    """Allows access for MAO (Municipal Agriculturist Office) role."""
+    """Allow MAO officers and system administrators to use MAO-managed endpoints."""
 
     def has_permission(self, request, view):
         return bool(
             request.user
             and request.user.is_authenticated
             and getattr(request.user, "role", None)
-            and request.user.role.role_name == "MAO"
+            and request.user.role.role_name in {"MAO", "ADMIN"}
         )
 
 

@@ -83,6 +83,8 @@ class LivestockInventorySerializer(serializers.Serializer):
     )
     last_vaccination_date = serializers.DateField(required=False, allow_null=True)
     status = serializers.CharField(max_length=25, read_only=True)
+    operational_status = serializers.CharField(max_length=20, read_only=True)
+    operational_status_changed_at = serializers.DateTimeField(read_only=True, allow_null=True)
     review_remarks = serializers.CharField(read_only=True, allow_null=True)
     reviewed_at = serializers.DateTimeField(read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
@@ -171,6 +173,8 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
             "avatar_key",
             "last_vaccination_date",
             "status",
+            "operational_status",
+            "operational_status_changed_at",
             "review_remarks",
             "reviewed_by_name",
             "reviewed_at",
@@ -208,7 +212,8 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         - Computed Aggregates: total_animals (head count), average_weight (mean kg of herd)
         - Nested Roster: animals (list of BatchChildAnimalSerializer)
         - In-Memory Rollup Status: review_status (APPROVED if all animals approved,
-          SUBJECT_TO_REVISION if any need revision, VERIFIED if any verified, else PENDING),
+          SUBJECT_TO_REVISION if any need revision, VERIFIED only if all are verified,
+          else PENDING),
           review_remarks, reviewed_by_name, and reviewed_at
     Used in:
         Admin batch drilldown (/data-validation/batches), farmer cohort management, and MAO approvals.
@@ -294,7 +299,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             return "APPROVED"
         if any(s == "SUBJECT_TO_REVISION" for s in statuses):
             return "SUBJECT_TO_REVISION"
-        if any(s == "VERIFIED" for s in statuses):
+        if all(s == "VERIFIED" for s in statuses):
             return "VERIFIED"
         return "PENDING"
 

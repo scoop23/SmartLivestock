@@ -34,6 +34,7 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
     )
     for domain in ("inventory", "sales", "calving", "batches")
 }
+
 # Census only has a single transition rule; tuple of length 1 is allowed by the ellipsis type.
 REVIEW_TRANSITIONS["census"] = (
     TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),

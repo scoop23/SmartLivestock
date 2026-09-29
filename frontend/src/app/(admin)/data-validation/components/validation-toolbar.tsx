@@ -12,6 +12,14 @@ import {
 import { Search, MapPin, CheckCheck, X } from "lucide-react";
 import { ValidationStatus } from "../validation-analytics";
 
+const STATUS_FILTERS = [
+  { id: "ALL", label: "All Records", shortLabel: "All", activeClass: "bg-slate-800 text-white ring-slate-300", dotClass: "bg-slate-500" },
+  { id: "PENDING", label: "Awaiting SIBAT", shortLabel: "Awaiting SIBAT", activeClass: "bg-amber-50 text-amber-900 ring-amber-200", dotClass: "bg-amber-500" },
+  { id: "VERIFIED", label: "SIBAT Verified", shortLabel: "SIBAT Verified", activeClass: "bg-sky-50 text-sky-900 ring-sky-200", dotClass: "bg-sky-500" },
+  { id: "APPROVED", label: "MAO Approved", shortLabel: "MAO Approved", activeClass: "bg-emerald-50 text-emerald-900 ring-emerald-200", dotClass: "bg-emerald-500" },
+  { id: "REJECTED", label: "Revision Required", shortLabel: "Revision", activeClass: "bg-rose-50 text-rose-900 ring-rose-200", dotClass: "bg-rose-500" },
+] as const;
+
 interface ValidationToolbarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -86,15 +94,7 @@ export function ValidationToolbar({
         {/* Status Filter Tabs (scrollable flex on mobile, flex on desktop) */}
         <div className="w-full sm:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
           <div className="bg-gray-100 p-1 rounded-2xl flex items-center gap-1 w-max min-w-full sm:min-w-0 sm:w-auto">
-            {(
-              [
-                { id: "ALL", label: "All", shortLabel: "All" },
-                { id: "PENDING", label: "Pending", shortLabel: "Pending" },
-                { id: "VERIFIED", label: "Verified by SIBAT", shortLabel: "Verified (SIBAT)" },
-                { id: "APPROVED", label: "Approved", shortLabel: "Approved" },
-                { id: "REJECTED", label: "Subject to Revision", shortLabel: "For Revision" },
-              ] as const
-            ).map((item) => {
+            {STATUS_FILTERS.map((item) => {
               const isActive = statusFilter === item.id;
               return (
                 <button
@@ -103,15 +103,13 @@ export function ValidationToolbar({
                   onClick={() => onStatusChange(item.id as ValidationStatus)}
                   className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider sm:tracking-widest transition-all text-center whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                     isActive
-                      ? item.id === "VERIFIED"
-                        ? "bg-sky-50 text-sky-800 shadow-sm ring-1 ring-sky-200"
-                        : "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-400 hover:text-gray-700"
+                      ? item.activeClass + " shadow-sm ring-1"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-white/70"
                   }`}
                 >
-                  {item.id === "VERIFIED" && (
-                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-sky-500" : "bg-sky-400/60"}`} />
-                  )}
+                  <span
+                    className={"size-1.5 rounded-full " + item.dotClass + (isActive ? " opacity-100" : " opacity-50")}
+                  />
                   <span className="sm:hidden">{item.shortLabel}</span>
                   <span className="hidden sm:inline">{item.label}</span>
                 </button>

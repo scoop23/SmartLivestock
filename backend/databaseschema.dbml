@@ -111,6 +111,8 @@ Table livestock_inventory {
   avatar_key varchar [note: 'Preset avatar key (e.g. cattle-brahman, swine-native)']
   last_vaccination_date date
   status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  operational_status varchar [default: 'ACTIVE', note: 'ACTIVE, SOLD, DECEASED, SLAUGHTERED, MOVED_OUT']
+  operational_status_changed_at timestamp [note: 'When the animal last entered a non-active or restored lifecycle state']
   reviewed_by integer [note: 'FK to users.user_id']
   reviewed_at timestamp
   review_remarks text
@@ -152,6 +154,7 @@ Table weight_records {
 Table calving_records {
   calving_id integer [pk]
   dam_id integer [not null, note: 'FK to livestock_inventory.livestock_id (Mother cow / Dam)']
+  offspring_inventory_id integer [unique, note: 'Nullable one-to-one FK to the calf inventory created after MAO approval']
   calf_tag varchar [note: 'Ear tag assigned to newborn calf']
   calf_sex varchar [default: 'FEMALE', note: 'MALE, FEMALE']
   birth_weight decimal [note: 'Birth weight in kilograms']
@@ -160,6 +163,11 @@ Table calving_records {
   breed varchar
   calving_ease varchar [default: 'Normal / Unassisted', note: 'Normal, Slight Assistance, Veterinary Assisted']
   notes text [note: 'Calf vigor, nursing condition, colostrum intake']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  reviewed_by integer [note: 'FK to users.user_id']
+  reviewed_at timestamp
+  review_remarks text
+  inventory_reconciled_at timestamp [note: 'Set after the approved birth creates its calf inventory exactly once']
   created_by integer [not null, note: 'FK to users.user_id']
   created_at timestamp
 }
@@ -209,6 +217,7 @@ Table live_animal_sales {
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
+  inventory_reconciled_at timestamp [note: 'Set after approved sale updates the animal or full batch exactly once']
   created_by integer [not null]
   created_at timestamp
 }
@@ -236,7 +245,8 @@ Table disease_cases {
 
 Table mortality_records {
   mortality_id integer [pk]
-  livestock_id integer [not null, note: 'FK to livestock_inventory.livestock_id']
+  livestock_id integer [note: 'Nullable individual animal FK to livestock_inventory.livestock_id']
+  batch_id integer [note: 'Nullable cohort FK; exact animal selection is required before reconciliation']
   death_count integer [not null]
   cause text [not null]
   source_disease_case_id integer [note: 'Nullable - linked disease case if applicable']
@@ -247,6 +257,8 @@ Table mortality_records {
   reviewed_by integer
   reviewed_at timestamp
   review_remarks text
+  previous_remarks text [note: 'Preserved remarks from an earlier revision cycle']
+  inventory_reconciled_at timestamp [note: 'Set after approved individual mortality marks the animal deceased exactly once']
   created_by integer [not null]
   created_at timestamp
 }
@@ -451,7 +463,9 @@ Ref: weight_records.livestock_id > livestock_inventory.livestock_id
 Ref: weight_records.created_by > users.user_id
 
 Ref: calving_records.dam_id > livestock_inventory.livestock_id
+Ref: calving_records.offspring_inventory_id - livestock_inventory.livestock_id
 Ref: calving_records.created_by > users.user_id
+Ref: calving_records.reviewed_by > users.user_id
 
 Ref: animal_dispositions.livestock_id > livestock_inventory.livestock_id
 Ref: animal_dispositions.created_by > users.user_id
@@ -474,6 +488,7 @@ Ref: disease_cases.created_by > users.user_id
 Ref: disease_cases.reviewed_by > users.user_id
 
 Ref: mortality_records.livestock_id > livestock_inventory.livestock_id
+Ref: mortality_records.batch_id > livestock_batches.batch_id
 Ref: mortality_records.source_disease_case_id > disease_cases.disease_case_id
 Ref: mortality_records.created_by > users.user_id
 Ref: mortality_records.reviewed_by > users.user_id

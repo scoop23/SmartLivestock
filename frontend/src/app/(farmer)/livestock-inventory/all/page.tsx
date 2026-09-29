@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowLeft, Layers, Plus } from "lucide-react";
+import { Activity, ArrowLeft, History } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +34,9 @@ export default function AllLivestockInventoryPage() {
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
 
   const { data: livestockTypes = {} } = useLivestockTypes();
-  const { data: inventories = [], isLoading } = useUserInventory();
+  const { data: inventories = [], isLoading } = useUserInventory({ includeInactive: true });
+  const activeCount = inventories.filter((item) => item.operationalStatus === "ACTIVE").length;
+  const historicalCount = inventories.length - activeCount;
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -87,9 +89,14 @@ export default function AllLivestockInventoryPage() {
             </Button>
           </Link>
 
-          <span className="text-xs font-semibold text-slate-500">
-            <strong className="text-slate-900 font-bold">{inventories.length}</strong> Registered Animals
-          </span>
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 border border-emerald-200">
+              <Activity className="size-3" /> <strong>{activeCount}</strong> Active
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-slate-700 border border-slate-200">
+              <History className="size-3" /> <strong>{historicalCount}</strong> Reconciled History
+            </span>
+          </div>
         </div>
 
         <LivestockRecordList

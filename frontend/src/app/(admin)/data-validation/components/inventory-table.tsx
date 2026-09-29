@@ -25,6 +25,7 @@ import {
 import { ValidationInventoryItem, getStatusPill } from "../validation-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
 import { DetailRecordData } from "../record-detail-dialog";
+import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
 
 interface InventoryTableProps {
   records: ValidationInventoryItem[];
@@ -52,6 +53,7 @@ export function InventoryTable({
   const buildDetailPayload = (inv: ValidationInventoryItem): DetailRecordData => ({
     kind: "inventory",
     id: inv.id,
+    rawId: inv.rawId,
     farmerName: inv.farmerName,
     barangayName: inv.barangayName,
     livestockType: inv.livestockType,
@@ -68,6 +70,7 @@ export function InventoryTable({
     reviewedAt: inv.reviewedAt,
     createdAt: inv.createdAt,
     isBatch: inv.isBatch,
+    batchId: inv.batchId,
     batchCode: inv.batchCode,
     batchName: inv.batchName,
     housingPen: inv.housingPen,
@@ -219,7 +222,10 @@ export function InventoryTable({
                         </span>
                       </TableCell>
 
-                      <TableCell className="px-8 py-5 text-center">
+                      <TableCell className="px-8 py-5 text-center space-y-1">
+                        {!inv.isBatch && (
+                          <LivestockOperationalStatusBadge status={inv.operationalStatus} />
+                        )}
                         <Badge
                           variant="outline"
                           className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${getStatusPill(inv.status).bg}`}
@@ -366,13 +372,18 @@ export function InventoryTable({
                     </div>
                   </div>
 
-                  <Badge
-                    variant="outline"
-                    className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${getStatusPill(inv.status).bg}`}
-                  >
-                    <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(inv.status).dot}`} />
-                    {getStatusPill(inv.status).label}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {!inv.isBatch && (
+                      <LivestockOperationalStatusBadge status={inv.operationalStatus} />
+                    )}
+                    <Badge
+                      variant="outline"
+                      className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${getStatusPill(inv.status).bg}`}
+                    >
+                      <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(inv.status).dot}`} />
+                      {getStatusPill(inv.status).label}
+                    </Badge>
+                  </div>
                 </div>
 
                 {statusNorm === "VERIFIED" && inv.reviewedBy && (
@@ -422,6 +433,12 @@ export function InventoryTable({
                   <Button
                     type="button"
                     size="sm"
+                    disabled={!canReview}
+                    title={
+                      canReview
+                        ? "Approve this SIBAT-verified animal"
+                        : "SIBAT verification is required before MAO approval"
+                    }
                     onClick={() =>
                       onReview({
                         id: inv.id,
@@ -435,7 +452,7 @@ export function InventoryTable({
                         photoName: inv.photoName,
                       })
                     }
-                    className={`flex-1 py-2.5 h-auto rounded-xl text-xs font-bold gap-1.5 shadow-xs ${
+                    className={`flex-1 py-2.5 h-auto rounded-xl text-xs font-bold gap-1.5 shadow-xs disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed ${
                       inv.status === "VERIFIED"
                         ? "bg-sky-700 hover:bg-sky-800 text-white"
                         : inv.status === "PENDING"
@@ -445,11 +462,7 @@ export function InventoryTable({
                   >
                     <ShieldCheck size={15} />
                     <span>
-                      {inv.status === "VERIFIED"
-                        ? "MAO Approve"
-                        : inv.status === "PENDING"
-                        ? "Validate"
-                        : "Re-evaluate"}
+                      {canReview ? "MAO Approve" : "Awaiting SIBAT"}
                     </span>
                   </Button>
                 </div>

@@ -87,19 +87,35 @@ export function DataOverviewDetailModal({
   // Status badge styling helper
   const renderStatusBadge = (statusStr: string | undefined) => {
     const s = String(statusStr || "PENDING").toUpperCase();
-    if (s.includes("APPROV") || s.includes("VERIF") || s.includes("CERTIF") || s.includes("COMPLET")) {
+    if (s === "VERIFIED" || s.includes("SIBAT VERIFIED")) {
       return (
-        <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
+        <Badge className="bg-sky-500/20 text-sky-200 border border-sky-400/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
           <CheckCircle2 className="size-3 mr-1 inline" />
-          {statusStr}
+          SIBAT Verified
         </Badge>
       );
     }
-    if (s.includes("REVI") || s.includes("PEND") || s.includes("AUDIT")) {
+    if (s.includes("APPROV") || s.includes("CERTIF") || s.includes("COMPLET") || s.includes("MAO VERIFIED")) {
+      return (
+        <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
+          <CheckCircle2 className="size-3 mr-1 inline" />
+          {s === "APPROVED" ? "MAO Approved" : statusStr}
+        </Badge>
+      );
+    }
+    if (s.includes("REVI") || s === "REJECTED") {
+      return (
+        <Badge className="bg-rose-500/20 text-rose-200 border border-rose-400/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
+          <AlertTriangle className="size-3 mr-1 inline" />
+          Revision Required
+        </Badge>
+      );
+    }
+    if (s.includes("PEND") || s.includes("AUDIT")) {
       return (
         <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
           <Clock className="size-3 mr-1 inline" />
-          {statusStr}
+          {s === "PENDING" || s === "PENDING REVIEW" ? "Awaiting SIBAT" : statusStr}
         </Badge>
       );
     }

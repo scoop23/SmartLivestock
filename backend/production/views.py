@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -23,6 +24,7 @@ from .serializer import (
     CalvingRecordSerializer,
 )
 from smartlivestock.workflows import require_action, role_name, validate_review_transition
+from livestock.reconciliation import reconcile_approved_calving, reconcile_approved_sale
 
 
 @api_view(["GET", "POST"])
@@ -297,6 +299,7 @@ def live_animal_sale_delete(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def review_live_animal_sale(request, pk):
     """
     POST /production/sales/<pk>/review/
@@ -327,6 +330,8 @@ def review_live_animal_sale(request, pk):
     sale.review_remarks = remarks
     sale.reviewed_at = timezone.now()
     sale.save()
+    if new_status == LiveAnimalSale.StatusType.APPROVED:
+        sale = reconcile_approved_sale(sale)
 
     serializer = LiveAnimalSaleSerializer(sale)
     return Response(serializer.data, status=200)
@@ -424,6 +429,7 @@ def calving_records_list_create(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def review_calving_record(request, pk):
     """
     POST /production/calving/<pk>/review/
@@ -456,6 +462,8 @@ def review_calving_record(request, pk):
     calving.review_remarks = remarks
     calving.reviewed_at = timezone.now()
     calving.save()
+    if new_status == CalvingRecord.StatusType.APPROVED:
+        calving = reconcile_approved_calving(calving)
 
     target_farmer = getattr(getattr(calving.dam, "farmer", None), "user", None) or calving.created_by
     if target_farmer:
