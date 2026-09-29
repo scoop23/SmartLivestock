@@ -1,8 +1,8 @@
-from re import sub
 from django.db import transaction
-from django.urls import exceptions
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import CensusSubmission, CensusSubmissionItem, Barangay
+from smartlivestock.workflows import role_name, validate_review_transition
 
 
 class CensusService:
@@ -77,9 +77,50 @@ class CensusService:
         except CensusSubmission.DoesNotExist:
             raise ValidationError({"error": "Census Submission not found."})
 
+        reviewer_role = role_name(reviewer)
+        validate_review_transition(
+            domain="census",
+            role=reviewer_role,
+            current=submission.status,
+            target=new_status,
+            remarks=remarks,
+        )
         submission.status = new_status
         submission.reviewed_by = reviewer
         submission.review_remarks = remarks
-        submission.save()
+        submission.reviewed_at = timezone.now()
+        submission.save(
+            update_fields=[
+                "status",
+                "reviewed_by",
+                "review_remarks",
+                "reviewed_at",
+            ]
+        )
 
+        return submission
+
+    @staticmethod
+    @transaction.atomic
+    def revise_census_submission(*, submission, validated_data):
+        items = validated_data.pop("items", None)
+        for field in ("barangay", "report_year", "report_quarter", "remarks"):
+            if field in validated_data:
+                setattr(submission, field, validated_data[field])
+
+        if items is not None:
+            submission.items.all().delete()
+            CensusSubmissionItem.objects.bulk_create(
+                [
+                    CensusSubmissionItem(census_submission=submission, **item)
+                    for item in items
+                ]
+            )
+
+        if submission.status == CensusSubmission.StatusType.SUBJECT_TO_REVISION:
+            submission.status = CensusSubmission.StatusType.PENDING
+            submission.reviewed_by = None
+            submission.reviewed_at = None
+
+        submission.save()
         return submission

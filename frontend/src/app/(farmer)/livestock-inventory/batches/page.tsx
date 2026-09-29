@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Layers,
   ArrowLeft,
@@ -195,6 +195,7 @@ function getReviewStatusBadge(status?: string) {
 
 export default function BatchOverviewPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: rawInventories = [], isLoading } = useUserInventory();
   const { data: backendBatches = [] } = useLivestockBatches();
 
@@ -234,6 +235,14 @@ export default function BatchOverviewPage() {
   // Local store of custom added or updated individuals
   const [customIndividuals, setCustomIndividuals] = useState<Record<string, BatchIndividual[]>>({});
 
+  // Auto-select batch from ?batch=<id> query param (e.g. coming from livestock profile)
+  useEffect(() => {
+    const batchFromQuery = searchParams?.get("batch");
+    if (batchFromQuery) {
+      setSelectedBatchId(batchFromQuery);
+    }
+  }, [searchParams]);
+
   // Hydrate custom batch individuals from localStorage (from Add Livestock batch registration)
   useEffect(() => {
     try {
@@ -255,6 +264,25 @@ export default function BatchOverviewPage() {
       console.error("Failed to load local batch individuals:", e);
     }
   }, []);
+
+  // Clean up stale localStorage entries once the backend has real animal data for those batches.
+  // Without this, old registration snapshots stick around forever and may override fresh API data.
+  useEffect(() => {
+    if (!backendBatches || backendBatches.length === 0) return;
+    backendBatches.forEach((b) => {
+      if (b.animals && b.animals.length > 0) {
+        const key = `batch_individuals_${b.id}`;
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key);
+          setCustomIndividuals((prev) => {
+            const next = { ...prev };
+            delete next[String(b.id)];
+            return next;
+          });
+        }
+      }
+    });
+  }, [backendBatches]);
 
   // Compile Batches from Backend API + Inventory (or seed intelligent defaults if none)
   const batches: EnrichedBatch[] = useMemo(() => {
@@ -650,19 +678,17 @@ export default function BatchOverviewPage() {
               <Card
                 key={batch.id}
                 onClick={() => setSelectedBatchId(batch.id)}
-                className={`group relative cursor-pointer transition-all duration-200 rounded-2xl border-2 overflow-hidden flex flex-col justify-between ${
-                  isSelected
-                    ? "border-emerald-600 bg-gradient-to-b from-emerald-50/50 via-white to-emerald-50/20 shadow-md ring-2 ring-emerald-500/20"
-                    : "border-slate-200 hover:border-emerald-300 hover:shadow-md bg-white hover:-translate-y-0.5"
-                }`}
+                className={`group relative cursor-pointer transition-all duration-200 rounded-2xl border-2 overflow-hidden flex flex-col justify-between ${isSelected
+                  ? "border-emerald-600 bg-gradient-to-b from-emerald-50/50 via-white to-emerald-50/20 shadow-md ring-2 ring-emerald-500/20"
+                  : "border-slate-200 hover:border-emerald-300 hover:shadow-md bg-white hover:-translate-y-0.5"
+                  }`}
               >
                 {/* Top Ambient Glow / Accent Strip */}
                 <div
-                  className={`h-1.5 w-full transition-colors ${
-                    isSelected
-                      ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500"
-                      : "bg-transparent group-hover:bg-emerald-400/40"
-                  }`}
+                  className={`h-1.5 w-full transition-colors ${isSelected
+                    ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500"
+                    : "bg-transparent group-hover:bg-emerald-400/40"
+                    }`}
                 />
 
                 <CardContent className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
@@ -725,13 +751,12 @@ export default function BatchOverviewPage() {
                       </div>
                       <div className="h-1.5 w-full bg-slate-200/70 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            weightProgress >= 90
-                              ? "bg-gradient-to-r from-emerald-500 to-teal-500"
-                              : weightProgress >= 60
-                                ? "bg-gradient-to-r from-emerald-500 to-emerald-600"
-                                : "bg-gradient-to-r from-amber-500 to-emerald-500"
-                          }`}
+                          className={`h-full rounded-full transition-all duration-300 ${weightProgress >= 90
+                            ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                            : weightProgress >= 60
+                              ? "bg-gradient-to-r from-emerald-500 to-emerald-600"
+                              : "bg-gradient-to-r from-amber-500 to-emerald-500"
+                            }`}
                           style={{ width: `${weightProgress}%` }}
                         />
                       </div>
@@ -1068,10 +1093,10 @@ export default function BatchOverviewPage() {
                                 <Badge
                                   variant="secondary"
                                   className={`text-[10px] font-black uppercase ${animal.sex === "Female"
-                                      ? "bg-rose-50 text-rose-700 border-rose-200"
-                                      : animal.sex === "Male"
-                                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                                    : animal.sex === "Male"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
                                     }`}
                                 >
                                   {animal.sex}
@@ -1101,10 +1126,10 @@ export default function BatchOverviewPage() {
                               <TableCell>
                                 <span
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${animal.healthStatus === "Healthy"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : animal.healthStatus === "Vaccinated"
-                                        ? "bg-sky-100 text-sky-800"
-                                        : "bg-amber-100 text-amber-800"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : animal.healthStatus === "Vaccinated"
+                                      ? "bg-sky-100 text-sky-800"
+                                      : "bg-amber-100 text-amber-800"
                                     }`}
                                 >
                                   <span className="size-1.5 rounded-full bg-current" />

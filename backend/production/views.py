@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from users.models import User, Notification
-from users.notification_views import create_notification
+from users.notification_views import create_notification, notify_role
 from .models import (
     ProductionRecord,
     LiveAnimalSale,
@@ -22,6 +22,7 @@ from .serializer import (
     WeightRecordSerializer,
     CalvingRecordSerializer,
 )
+from smartlivestock.workflows import require_action, role_name, validate_review_transition
 
 
 @api_view(["GET", "POST"])
@@ -37,14 +38,24 @@ def production_record_list_create(request):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        record = serializer.save()
+        if role_name(request.user) == "FARMER":
+            farmer_name = request.user.get_full_name() or request.user.username
+            notify_role(
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.MEDIUM,
+                title="New Production Entry Awaiting Verification",
+                message=f"{farmer_name} logged {record.quantity} {record.unit} of {record.get_production_type_display()}.",
+                link="/sibat-validation",
+            )
         return Response(serializer.data, status=201)
 
     # GET
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", None)
+    user_role = role_name(user)
 
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         records = ProductionRecord.objects.filter(
             Q(created_by=user) | Q(livestock__farmer__user=user)
         ).distinct()
@@ -214,22 +225,40 @@ def live_animal_sales_list_create(request):
     POST /production/sales/ -> Record a live cattle/animal sale
     """
     if request.method == "POST":
+        require_action(request.user, "sales", "create")
         serializer = LiveAnimalSaleSerializer(
             data=request.data,
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        sale = serializer.save()
+        farmer_name = request.user.get_full_name() or request.user.username
+        sale_reference = (
+            sale.livestock.tag_number
+            if sale.livestock and sale.livestock.tag_number
+            else sale.batch.batch_code
+            if sale.batch
+            else f"Sale #{sale.pk}"
+        )
+        notify_role(
+            role_name="SIBAT",
+            notification_type=Notification.NotificationType.SIBAT,
+            priority=Notification.Priority.MEDIUM,
+            title="New Livestock Sale Awaiting Verification",
+            message=f"{farmer_name} recorded a sale for {sale_reference}.",
+            link="/sibat-validation",
+        )
         return Response(serializer.data, status=201)
 
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", None)
+    user_role = role_name(user)
 
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         sales = LiveAnimalSale.objects.filter(
             Q(created_by=user) | Q(livestock__farmer__user=user)
         ).distinct()
     else:
+        require_action(user, "sales", "read_all")
         sales = LiveAnimalSale.objects.all()
 
     sales = sales.select_related(
@@ -250,16 +279,12 @@ def live_animal_sale_delete(request, pk):
     DELETE /production/sales/<pk>/ -> Delete pending sale record
     """
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", None)
-
-    if role_name == "FARMER":
-        sale = get_object_or_404(
-            LiveAnimalSale,
-            Q(created_by=user) | Q(livestock__farmer__user=user),
-            pk=pk,
-        )
-    else:
-        sale = get_object_or_404(LiveAnimalSale, pk=pk)
+    require_action(user, "sales", "delete_own")
+    sale = get_object_or_404(
+        LiveAnimalSale,
+        Q(created_by=user) | Q(livestock__farmer__user=user),
+        pk=pk,
+    )
 
     if sale.status != LiveAnimalSale.StatusType.PENDING:
         return Response(
@@ -288,13 +313,14 @@ def review_live_animal_sale(request, pk):
         )
 
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
-
-    if role_name == "FARMER":
-        return Response(
-            {"error": "Farmers are not authorized to review sales records."},
-            status=403,
-        )
+    user_role = require_action(user, "sales", "review")
+    validate_review_transition(
+        domain="sales",
+        role=user_role,
+        current=sale.status,
+        target=new_status,
+        remarks=remarks,
+    )
 
     sale.status = new_status
     sale.reviewed_by = request.user
@@ -355,29 +381,39 @@ def calving_records_list_create(request):
     POST /production/calving/ -> Record a new calf birth
     """
     if request.method == "POST":
+        require_action(request.user, "calving", "create")
         serializer = CalvingRecordSerializer(
             data=request.data,
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        calving = serializer.save()
+        farmer_name = request.user.get_full_name() or request.user.username
+        notify_role(
+            role_name="SIBAT",
+            notification_type=Notification.NotificationType.SIBAT,
+            priority=Notification.Priority.MEDIUM,
+            title="New Calving Entry Awaiting Verification",
+            message=f"{farmer_name} recorded calf {calving.calf_tag or 'Newborn'} from dam {calving.dam.tag_number or calving.dam_id}.",
+            link="/sibat-validation",
+        )
         return Response(serializer.data, status=201)
 
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", None)
+    user_role = role_name(user)
 
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         records = CalvingRecord.objects.filter(
             Q(created_by=user) | Q(dam__farmer__user=user)
         ).distinct()
     else:
+        require_action(user, "calving", "read_all")
         records = CalvingRecord.objects.all()
 
     records = records.select_related(
         "dam__livestock_type",
         "dam__farmer__user",
         "dam__farmer__barangay",
-        "dam__barangay",
         "reviewed_by",
         "created_by",
     ).order_by("-calving_date", "-created_at")
@@ -406,31 +442,14 @@ def review_calving_record(request, pk):
         )
 
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
-
-    if role_name == "FARMER":
-        return Response(
-            {"error": "Farmers are not authorized to review calving records."},
-            status=403,
-        )
-
-    if role_name == "SIBAT":
-        if new_status == CalvingRecord.StatusType.APPROVED:
-            return Response(
-                {"error": "SIBAT officers can only verify (VERIFIED). Final approval is reserved for MAO."},
-                status=403,
-            )
-        if new_status not in [CalvingRecord.StatusType.VERIFIED, CalvingRecord.StatusType.SUBJECT_TO_REVISION]:
-            return Response(
-                {"error": "Invalid status for SIBAT. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
-                status=400,
-            )
-    elif role_name == "MAO":
-        if new_status not in CalvingRecord.StatusType.values:
-            return Response(
-                {"error": f"Invalid status '{new_status}'. Valid choices: {list(CalvingRecord.StatusType.values)}"},
-                status=400,
-            )
+    user_role = require_action(user, "calving", "review")
+    validate_review_transition(
+        domain="calving",
+        role=user_role,
+        current=calving.status,
+        target=new_status,
+        remarks=remarks,
+    )
 
     calving.status = new_status
     calving.reviewed_by = request.user

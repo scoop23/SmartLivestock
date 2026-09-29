@@ -46,7 +46,6 @@ import {
   Check,
   Building2,
   FileCheck,
-  Pencil,
   Save,
   Camera,
   ZoomIn,
@@ -206,6 +205,7 @@ export function RecordDetailDialog({
   const statusNorm = (record.status || "PENDING").toUpperCase();
   const isPending = statusNorm === "PENDING";
   const isVerified = statusNorm === "VERIFIED";
+  const canMaoReview = record.kind === "census" ? isPending : isVerified;
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
 
@@ -360,7 +360,9 @@ export function RecordDetailDialog({
                     ? "SIBAT Field-Verified"
                     : isRejected
                       ? "Subject for Revision"
-                      : "Pending MAO Review"}
+                      : record.kind === "census"
+                        ? "Pending MAO Review"
+                        : "Pending SIBAT Verification"}
               </span>
             </Badge>
           </div>
@@ -645,18 +647,6 @@ export function RecordDetailDialog({
                   ) : null}
                 </div>
 
-                {(isPending || isVerified) && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="h-6 px-2 text-[11px] font-bold text-slate-700 hover:text-slate-900 rounded-lg gap-1 cursor-pointer"
-                  >
-                    <Pencil className="size-3 text-emerald-600" />
-                    <span>{isEditing ? "Cancel Edit" : "Edit Record"}</span>
-                  </Button>
-                )}
               </div>
 
               {/* Editing Form */}
@@ -1055,7 +1045,7 @@ export function RecordDetailDialog({
           )}
 
           {/* ── MAO MUNICIPAL DECISION CONSOLE (INLINE ACTION) ── */}
-          {(isPending || isVerified) ? (
+          {canMaoReview ? (
             <div className="p-4 sm:p-5 bg-white rounded-2xl border-2 border-emerald-800/20 shadow-sm space-y-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1115,7 +1105,7 @@ export function RecordDetailDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !remarks.trim()}
                   onClick={() => handleAction("SUBJECT_TO_REVISION")}
                   className="flex-1 py-4 bg-rose-50 hover:bg-rose-100 text-rose-900 border-rose-300 rounded-xl text-xs font-black uppercase tracking-wider gap-2 cursor-pointer"
                 >
@@ -1134,7 +1124,7 @@ export function RecordDetailDialog({
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : isApproved || isRejected ? (
             /* OFFICIAL HISTORICAL STAMP */
             <div className="p-4 bg-slate-100/80 border border-slate-200 rounded-2xl space-y-2">
               <div className="flex items-center justify-between">
@@ -1155,7 +1145,7 @@ export function RecordDetailDialog({
                 </p>
               )}
             </div>
-          )}
+          ) : null}
 
         </div>
 

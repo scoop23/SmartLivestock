@@ -43,7 +43,11 @@ export function CensusTable({
   onViewDetail,
   onReview,
 }: CensusTableProps) {
-  const allSelected = records.length > 0 && records.every((c) => selectedIds.includes(c.id));
+  const reviewableRecords = records.filter(
+    (record) => (record.status || "PENDING").toUpperCase() === "PENDING",
+  );
+  const allSelected =
+    reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
 
   const buildDetailPayload = (census: CensusSubmissionRecord): DetailRecordData => ({
     kind: "census",
@@ -114,6 +118,7 @@ export function CensusTable({
                 records.map((census) => {
                   const isSelected = selectedIds.includes(census.id);
                   const statusNorm = (census.status || "PENDING").toUpperCase();
+                  const canReview = statusNorm === "PENDING";
                   const detailPayload = buildDetailPayload(census);
 
                   return (
@@ -127,6 +132,7 @@ export function CensusTable({
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => onToggleSelect(census.id)}
+                          disabled={!canReview}
                           className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
                         />
                       </TableCell>
@@ -181,6 +187,7 @@ export function CensusTable({
                           <Button
                             variant="ghost"
                             size="icon"
+                            disabled={!canReview}
                             onClick={() =>
                               onReview({
                                 id: census.id,
@@ -259,6 +266,7 @@ export function CensusTable({
           records.map((census) => {
             const isSelected = selectedIds.includes(census.id);
             const statusNorm = (census.status || "PENDING").toUpperCase();
+            const canReview = statusNorm === "PENDING";
             const detailPayload = buildDetailPayload(census);
 
             return (
@@ -277,12 +285,13 @@ export function CensusTable({
                       className="-m-2 p-2 flex items-center justify-center cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleSelect(census.id);
+                        if (canReview) onToggleSelect(census.id);
                       }}
                     >
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onToggleSelect(census.id)}
+                        disabled={!canReview}
                         className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] shrink-0"
                       />
                     </div>
@@ -333,6 +342,7 @@ export function CensusTable({
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={!canReview}
                     onClick={() => onViewDetail(detailPayload)}
                     className="flex-1 py-2.5 h-auto rounded-xl border-gray-200 text-gray-700 text-xs font-bold gap-1.5"
                   >

@@ -393,8 +393,8 @@ export function RegisterLivestockDialog({
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] }); // refresh
+      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] }); // refresh
       const wasBatch = formData.entryType === "BATCH";
       const registeredQty = wasBatch ? batchAnimals.length : formData.quantity;
       onOpenChange(false);
@@ -508,11 +508,10 @@ export function RegisterLivestockDialog({
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, entryType: "INDIVIDUAL" })}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${
-                    formData.entryType === "INDIVIDUAL"
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "INDIVIDUAL"
                       ? "bg-white text-emerald-950 shadow-sm"
                       : "text-slate-500 hover:text-slate-800"
-                  }`}
+                    }`}
                 >
                   <Tag className="w-4 h-4 text-emerald-700" />
                   Individual Animal (Tagged)
@@ -520,11 +519,10 @@ export function RegisterLivestockDialog({
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, entryType: "BATCH" })}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${
-                    formData.entryType === "BATCH"
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "BATCH"
                       ? "bg-white text-emerald-950 shadow-sm"
                       : "text-slate-500 hover:text-slate-800"
-                  }`}
+                    }`}
                 >
                   <Layers className="w-4 h-4 text-teal-700" />
                   Batch / Herd Group
@@ -574,11 +572,10 @@ export function RegisterLivestockDialog({
                           );
                         }
                       }}
-                      className={`p-2.5 rounded-2xl border text-center transition-all ${
-                        isSelected
+                      className={`p-2.5 rounded-2xl border text-center transition-all ${isSelected
                           ? "border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-xs ring-1 ring-emerald-600/30"
                           : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700 font-bold text-xs"
-                      }`}
+                        }`}
                     >
                       <span className="block text-xs truncate">{name}</span>
                     </button>
@@ -735,11 +732,10 @@ export function RegisterLivestockDialog({
                             key={av.id}
                             type="button"
                             onClick={() => handleSelectAvatar(av.id)}
-                            className={`relative p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
-                              isSelected
+                            className={`relative p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${isSelected
                                 ? "border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-600 shadow-xs scale-102"
                                 : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
-                            }`}
+                              }`}
                           >
                             <div
                               className={`size-9 rounded-lg flex items-center justify-center bg-gradient-to-br border ${av.bgGradient}`}
@@ -1131,11 +1127,10 @@ export function RegisterLivestockDialog({
                         key={n}
                         type="button"
                         onClick={() => handleBatchQuantityChange(n)}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
-                          batchAnimals.length === n
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${batchAnimals.length === n
                             ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
                             : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                        }`}
+                          }`}
                       >
                         {n} heads
                       </button>
@@ -1208,13 +1203,12 @@ export function RegisterLivestockDialog({
                             </span>
                             <Badge
                               variant="outline"
-                              className={`text-[10px] font-bold uppercase py-0 px-1.5 ${
-                                animal.sex === "Female"
+                              className={`text-[10px] font-bold uppercase py-0 px-1.5 ${animal.sex === "Female"
                                   ? "text-rose-700 bg-rose-50 border-rose-200"
                                   : animal.sex === "Male"
                                     ? "text-blue-700 bg-blue-50 border-blue-200"
                                     : "text-amber-700 bg-amber-50 border-amber-200"
-                              }`}
+                                }`}
                             >
                               {animal.sex}
                             </Badge>
@@ -1269,7 +1263,7 @@ export function RegisterLivestockDialog({
                               </SelectTrigger>
                               <SelectContent className="rounded-xl max-h-56">
                                 {currentPreset?.commonBreeds?.map((b) => (
-                                 <SelectItem key={b} value={b} className="text-xs">
+                                  <SelectItem key={b} value={b} className="text-xs">
                                     {b}
                                   </SelectItem>
                                 ))}

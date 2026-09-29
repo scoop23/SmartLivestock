@@ -11,13 +11,14 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from users.models import Notification, Role, User
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
-from .models import ProductionRecord
+from .models import CalvingRecord, LiveAnimalSale, ProductionRecord
 
 
 class ProductionRecordAPITests(APITestCase):
     def setUp(self):
         self.farmer_role = Role.objects.create(role_name=Role.UserRoles.FARMER)
         self.mao_role = Role.objects.create(role_name=Role.UserRoles.MAO)
+        self.sibat_role = Role.objects.create(role_name=Role.UserRoles.SIBAT)
         self.auction_role = Role.objects.create(role_name=Role.UserRoles.AUCTION)
         self.farmer_user = User.objects.create_user(
             username="production-farmer", email="production-farmer@example.com",
@@ -27,6 +28,11 @@ class ProductionRecordAPITests(APITestCase):
         self.mao_user = User.objects.create_user(
             username="production-mao", email="production-mao@example.com",
             password=None, role=self.mao_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.sibat_user = User.objects.create_user(
+            username="production-sibat", email="production-sibat@example.com",
+            password=None, role=self.sibat_role,
             account_status=User.AccountStatus.APPROVED,
         )
         self.auction_user = User.objects.create_user(
@@ -74,6 +80,8 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(self.record.status, ProductionRecord.ProductionStatus.PENDING)
 
     def test_mao_review_notifies_record_owner(self):
+        self.record.status = ProductionRecord.ProductionStatus.VERIFIED
+        self.record.save(update_fields=["status"])
         self.client.force_authenticate(user=self.mao_user)
         response = self.client.post(
             f"/production/records/{self.record.pk}/review/", {"status": "APPROVED"},
@@ -105,3 +113,68 @@ class ProductionRecordAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(ProductionRecord.objects.filter(batch=other_batch).exists())
+
+    def test_auction_cannot_create_or_review_sale(self):
+        sale = LiveAnimalSale.objects.create(
+            livestock=self.animal,
+            quantity=1,
+            sale_date=date(2026, 1, 2),
+            created_by=self.farmer_user,
+        )
+        self.client.force_authenticate(user=self.auction_user)
+        create_response = self.client.post(
+            "/production/sales/",
+            {
+                "livestock": self.animal.pk,
+                "quantity": 1,
+                "sale_date": "2026-01-03",
+            },
+        )
+        review_response = self.client.post(
+            f"/production/sales/{sale.pk}/review/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(review_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_sale_requires_sibat_then_mao(self):
+        sale = LiveAnimalSale.objects.create(
+            livestock=self.animal,
+            quantity=1,
+            sale_date=date(2026, 1, 2),
+            created_by=self.farmer_user,
+        )
+        self.client.force_authenticate(user=self.mao_user)
+        skipped = self.client.post(
+            f"/production/sales/{sale.pk}/review/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(skipped.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.sibat_user)
+        verified = self.client.post(
+            f"/production/sales/{sale.pk}/review/",
+            {"status": "VERIFIED"},
+        )
+        self.assertEqual(verified.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.mao_user)
+        approved = self.client.post(
+            f"/production/sales/{sale.pk}/review/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK)
+
+    def test_calving_requires_owned_approved_female_dam(self):
+        self.animal.sex = "MALE"
+        self.animal.save(update_fields=["sex"])
+        self.client.force_authenticate(user=self.farmer_user)
+        response = self.client.post(
+            "/production/calving/",
+            {
+                "dam": self.animal.pk,
+                "calving_date": "2026-01-03",
+                "calf_sex": "FEMALE",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

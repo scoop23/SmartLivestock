@@ -7,7 +7,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.cache import cache_page
-from rest_framework.exceptions import PermissionDenied
 
 from livestock.models import Barangay, LivestockInventory, LivestockType, Farmer
 from livestock.serializer import (
@@ -16,7 +15,8 @@ from livestock.serializer import (
     BarangaySerializer,
 )
 from users.models import Notification
-from users.notification_views import create_notification
+from users.notification_views import create_notification, notify_role
+from smartlivestock.workflows import require_action, role_name, validate_review_transition
 
 
 
@@ -28,19 +28,30 @@ def inventory_list_create(request):
     POST /api/livestock/inventory/ -> Register a new livestock inventory entry
     """
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
+    user_role = role_name(user)
 
     if request.method == "POST":
+        require_action(user, "inventory", "create")
         serializer = LivestockInventorySerializer(
             data=request.data,
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        inventory = serializer.save()
+        farmer_name = user.get_full_name() or user.username
+        animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name
+        notify_role(
+            role_name="SIBAT",
+            notification_type=Notification.NotificationType.SIBAT,
+            priority=Notification.Priority.MEDIUM,
+            title="New Livestock Entry Awaiting Verification",
+            message=f"{farmer_name} registered {animal_name}. Review the entry and schedule field verification.",
+            link="/sibat-validation",
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # GET: Enforce strict farmer data isolation
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             inventories = LivestockInventory.objects.filter(
@@ -49,7 +60,7 @@ def inventory_list_create(request):
         else:
             inventories = LivestockInventory.objects.filter(created_by=user)
     else:
-        # Admin / MAO / SIBAT / AUCTION: list all municipal inventories
+        require_action(user, "inventory", "read_all")
         inventories = LivestockInventory.objects.all()
 
     inventories = inventories.select_related(
@@ -77,7 +88,7 @@ def inventory_detail(request, pk):
     DELETE /api/livestock/inventory/<id>/ -> Delete entry (only if unreferenced)
     """
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
+    user_role = role_name(user)
 
     base_qs = LivestockInventory.objects.select_related(
         "livestock_type",
@@ -88,7 +99,7 @@ def inventory_detail(request, pk):
         "created_by",
     )
 
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             inventory = get_object_or_404(
@@ -97,7 +108,20 @@ def inventory_detail(request, pk):
         else:
             inventory = get_object_or_404(base_qs, created_by=user, pk=pk)
     else:
+        require_action(user, "inventory", "read_all")
         inventory = get_object_or_404(base_qs, pk=pk)
+
+    if request.method in ["PUT", "PATCH", "DELETE"]:
+        require_action(user, "inventory", "edit_own")
+        editable_statuses = {
+            LivestockInventory.StatusType.PENDING,
+            LivestockInventory.StatusType.SUBJECT_TO_REVISION,
+        }
+        if inventory.status not in editable_statuses:
+            return Response(
+                {"error": "Only PENDING or SUBJECT_TO_REVISION inventory records can be changed."},
+                status=status.HTTP_409_CONFLICT,
+            )
 
     if request.method == "DELETE":
         try:
@@ -119,7 +143,23 @@ def inventory_detail(request, pk):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
+        was_returned = inventory.status == LivestockInventory.StatusType.SUBJECT_TO_REVISION
         serializer.save()
+        if was_returned:
+            inventory.status = LivestockInventory.StatusType.PENDING
+            inventory.reviewed_by = None
+            inventory.reviewed_at = None
+            inventory.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+            farmer_name = user.get_full_name() or user.username
+            animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name
+            notify_role(
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.SIBAT,
+                priority=Notification.Priority.MEDIUM,
+                title="Livestock Entry Resubmitted",
+                message=f"{farmer_name} corrected and resubmitted {animal_name} for field verification.",
+                link="/sibat-validation",
+            )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # GET
@@ -147,29 +187,14 @@ def review_inventory(request, pk):
         )
 
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
-
-    if role_name == "FARMER":
-        raise PermissionDenied("Farmers are not authorized to review livestock inventory.")
-
-    if role_name == "SIBAT":
-        if new_status == LivestockInventory.StatusType.APPROVED:
-            raise PermissionDenied(
-                "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
-            )
-        if new_status not in [LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.SUBJECT_TO_REVISION]:
-            return Response(
-                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-    elif role_name == "MAO":
-        if new_status not in LivestockInventory.StatusType.values:
-            return Response(
-                {"error": f"Invalid status '{new_status}'. Valid choices are: {list(LivestockInventory.StatusType.values)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-    else:
-        raise PermissionDenied("You do not have permission to review livestock inventory.")
+    user_role = require_action(user, "inventory", "review")
+    validate_review_transition(
+        domain="inventory",
+        role=user_role,
+        current=inventory.status,
+        target=new_status,
+        remarks=remarks,
+    )
 
     inventory.status = new_status
     inventory.reviewed_by = request.user

@@ -43,7 +43,11 @@ export function InventoryTable({
   onViewDetail,
   onReview,
 }: InventoryTableProps) {
-  const allSelected = records.length > 0 && records.every((i) => selectedIds.includes(i.id));
+  const reviewableRecords = records.filter(
+    (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED",
+  );
+  const allSelected =
+    reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
 
   const buildDetailPayload = (inv: ValidationInventoryItem): DetailRecordData => ({
     kind: "inventory",
@@ -129,6 +133,7 @@ export function InventoryTable({
                 records.map((inv) => {
                   const isSelected = selectedIds.includes(inv.id);
                   const statusNorm = (inv.status || "PENDING").toUpperCase();
+                  const canReview = statusNorm === "VERIFIED";
                   const detailPayload = buildDetailPayload(inv);
 
                   return (
@@ -142,6 +147,7 @@ export function InventoryTable({
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => onToggleSelect(inv.id)}
+                          disabled={!canReview}
                           className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
                         />
                       </TableCell>
@@ -233,6 +239,7 @@ export function InventoryTable({
                           <Button
                             variant="ghost"
                             size="icon"
+                            disabled={!canReview}
                             onClick={() =>
                               onReview({
                                 id: inv.id,
@@ -317,6 +324,7 @@ export function InventoryTable({
           records.map((inv) => {
             const isSelected = selectedIds.includes(inv.id);
             const statusNorm = (inv.status || "PENDING").toUpperCase();
+            const canReview = statusNorm === "VERIFIED";
             const detailPayload = buildDetailPayload(inv);
 
             return (
@@ -335,12 +343,13 @@ export function InventoryTable({
                       className="-m-2 p-2 flex items-center justify-center cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleSelect(inv.id);
+                        if (canReview) onToggleSelect(inv.id);
                       }}
                     >
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onToggleSelect(inv.id)}
+                        disabled={!canReview}
                         className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] shrink-0"
                       />
                     </div>
@@ -402,6 +411,7 @@ export function InventoryTable({
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={!canReview}
                     onClick={() => onViewDetail(detailPayload)}
                     className="flex-1 py-2.5 h-auto rounded-xl border-gray-200 text-gray-700 text-xs font-bold gap-1.5"
                   >

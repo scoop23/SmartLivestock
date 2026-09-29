@@ -1,7 +1,14 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
-from users.models import User, Role
-from livestock.models import Barangay, Farmer, LivestockType, LivestockInventory, LivestockBatch
+from users.models import Notification, Role, User
+from livestock.models import (
+    Barangay,
+    CensusSubmission,
+    Farmer,
+    LivestockBatch,
+    LivestockInventory,
+    LivestockType,
+)
 
 
 class LivestockInventoryReviewTests(APITestCase):
@@ -69,7 +76,7 @@ class LivestockInventoryReviewTests(APITestCase):
     def test_sibat_cannot_grant_final_approval(self):
         self.client.force_authenticate(user=self.sibat_user)
         res = self.client.post(f"/livestock/inventory/{self.inventory.pk}/review/", {"status": "APPROVED"})
-        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_sibat_can_verify_inventory_item(self):
         self.client.force_authenticate(user=self.sibat_user)
@@ -83,6 +90,8 @@ class LivestockInventoryReviewTests(APITestCase):
         self.assertEqual(self.inventory.reviewed_by, self.sibat_user)
 
     def test_mao_can_grant_final_inventory_approval(self):
+        self.inventory.status = LivestockInventory.StatusType.VERIFIED
+        self.inventory.save(update_fields=["status"])
         self.client.force_authenticate(user=self.mao_user)
         res = self.client.post(
             f"/livestock/inventory/{self.inventory.pk}/review/",
@@ -92,6 +101,44 @@ class LivestockInventoryReviewTests(APITestCase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.status, LivestockInventory.StatusType.APPROVED)
         self.assertEqual(self.inventory.reviewed_by, self.mao_user)
+
+    def test_mao_cannot_skip_sibat_verification(self):
+        self.client.force_authenticate(user=self.mao_user)
+        res = self.client.post(
+            f"/livestock/inventory/{self.inventory.pk}/review/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.status, LivestockInventory.StatusType.PENDING)
+
+    def test_return_for_revision_requires_remarks(self):
+        self.client.force_authenticate(user=self.sibat_user)
+        res = self.client.post(
+            f"/livestock/inventory/{self.inventory.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION"},
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_new_farmer_inventory_notifies_sibat(self):
+        self.client.force_authenticate(user=self.farmer_user)
+        response = self.client.post(
+            "/livestock/inventory/",
+            {
+                "livestock_type": self.cattle_type.pk,
+                "entry_type": LivestockInventory.EntryType.INDIVIDUAL,
+                "quantity": 1,
+                "tag_number": "TAG-NOTIFY-1",
+                "breed": "Brahman",
+                "sex": "FEMALE",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        notification = Notification.objects.get(user=self.sibat_user)
+        self.assertEqual(notification.title, "New Livestock Entry Awaiting Verification")
+        self.assertEqual(notification.link, "/sibat-validation")
+        self.assertFalse(notification.is_read)
 
 
 class LivestockBatchAPITests(APITestCase):
@@ -210,3 +257,80 @@ class LivestockBatchAPITests(APITestCase):
             response = self.client.get(f"/livestock/batches/{suffix}")
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqual([item["id"] for item in response.json()], [own_batch.pk])
+
+
+class CensusPermissionWorkflowTests(APITestCase):
+    def setUp(self):
+        self.sibat_role = Role.objects.create(role_name=Role.UserRoles.SIBAT)
+        self.mao_role = Role.objects.create(role_name=Role.UserRoles.MAO)
+        self.barangay = Barangay.objects.create(
+            barangay_name="Banaybanay",
+            latitude=13.88,
+            longitude=121.21,
+        )
+        self.sibat_user = User.objects.create_user(
+            username="SIBAT-CENSUS-1",
+            email="sibat-census-1@example.com",
+            password="password123",
+            role=self.sibat_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.other_sibat_user = User.objects.create_user(
+            username="SIBAT-CENSUS-2",
+            email="sibat-census-2@example.com",
+            password="password123",
+            role=self.sibat_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.mao_user = User.objects.create_user(
+            username="MAO-CENSUS",
+            email="mao-census@example.com",
+            password="password123",
+            role=self.mao_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.submission = CensusSubmission.objects.create(
+            barangay=self.barangay,
+            report_year=2026,
+            report_quarter=3,
+            submitted_by=self.sibat_user,
+        )
+
+    def test_mao_can_approve_pending_census(self):
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.post(
+            f"/livestock/census/{self.submission.pk}/review/",
+            {"status": "APPROVED", "remarks": "Quarterly totals checked."},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, CensusSubmission.StatusType.APPROVED)
+        self.assertEqual(self.submission.reviewed_by, self.mao_user)
+        self.assertIsNotNone(self.submission.reviewed_at)
+
+    def test_mao_cannot_review_an_already_approved_census(self):
+        self.submission.status = CensusSubmission.StatusType.APPROVED
+        self.submission.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.post(
+            f"/livestock/census/{self.submission.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Reopen submission."},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_census_revision_requires_remarks(self):
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.post(
+            f"/livestock/census/{self.submission.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_sibat_cannot_edit_another_users_submission(self):
+        self.client.force_authenticate(user=self.other_sibat_user)
+        response = self.client.patch(
+            f"/livestock/census/{self.submission.pk}/",
+            {"remarks": "Attempted change"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
