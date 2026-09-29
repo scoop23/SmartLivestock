@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.cache import cache_page
 
-from livestock.models import Barangay, LivestockInventory, LivestockType, Farmer
+from livestock.models import Barangay, LivestockBatch, LivestockInventory, LivestockType, Farmer
 from livestock.serializer import (
     FarmerOptionsSerializer,
     LivestockInventorySerializer,
@@ -22,6 +22,7 @@ from smartlivestock.workflows import require_action, role_name, validate_review_
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def inventory_list_create(request):
     """
     GET  /api/livestock/inventory/ -> List livestock inventory for logged-in farmer (or all for MAO/SIBAT/Admin)
@@ -99,6 +100,7 @@ def inventory_list_create(request):
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def inventory_detail(request, pk):
     """
     GET    /api/livestock/inventory/<id>/ -> Retrieve single livestock inventory item
@@ -109,6 +111,11 @@ def inventory_detail(request, pk):
     user = request.user
     user_role = role_name(user)
 
+    if request.method != "GET":
+        batch_id = LivestockInventory.objects.filter(pk=pk).values_list("batch_id", flat=True).first()
+        if batch_id:
+            get_object_or_404(LivestockBatch.objects.select_for_update(), pk=batch_id)
+
     base_qs = LivestockInventory.objects.select_related(
         "livestock_type",
         "farmer__user",
@@ -117,6 +124,8 @@ def inventory_detail(request, pk):
         "reviewed_by",
         "created_by",
     )
+    if request.method != "GET":
+        base_qs = base_qs.select_for_update(of=("self",))
 
     if user_role == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
@@ -143,6 +152,11 @@ def inventory_detail(request, pk):
             )
 
     if request.method == "DELETE":
+        if inventory.batch_id:
+            return Response(
+                {"error": "Cohort animals must remain with their batch. Delete the pending batch instead."},
+                status=status.HTTP_409_CONFLICT,
+            )
         try:
             inventory.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -163,8 +177,8 @@ def inventory_detail(request, pk):
         )
         serializer.is_valid(raise_exception=True)
         was_returned = inventory.status == LivestockInventory.StatusType.SUBJECT_TO_REVISION
-        serializer.save()
-        if was_returned:
+        inventory = serializer.save()
+        if was_returned and not inventory.batch_id:
             inventory.status = LivestockInventory.StatusType.PENDING
             inventory.reviewed_by = None
             inventory.reviewed_at = None
@@ -234,6 +248,19 @@ def review_inventory(request, pk):
     inventory.review_remarks = remarks
     inventory.reviewed_at = timezone.now()
     inventory.save()
+
+    if new_status == LivestockInventory.StatusType.VERIFIED:
+        notify_role(
+            role_name="MAO",
+            notification_type=Notification.NotificationType.GENERAL,
+            priority=Notification.Priority.MEDIUM,
+            title="Livestock Entry Awaiting MAO Approval",
+            message=(
+                f"SIBAT verified {inventory.tag_number or inventory.livestock_type.name} "
+                f"from {inventory.farmer.user.get_full_name() or inventory.farmer.user.username}."
+            ),
+            link="/data-validation?domain=inventory",
+        )
 
     # Automatically notify the animal's owner/registrant
     target_user = None

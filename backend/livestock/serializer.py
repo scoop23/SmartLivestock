@@ -118,6 +118,43 @@ class LivestockInventorySerializer(serializers.Serializer):
                 return None
         return None
 
+    def validate(self, attrs):
+        user = self.context["request"].user
+        farmer = getattr(user, "farmer_profile", None)
+        if farmer is None:
+            raise serializers.ValidationError("A farmer profile is required.")
+
+        current_batch_id = self.instance.batch_id if self.instance else None
+        batch = attrs.get("batch", self.instance.batch if self.instance else None)
+        if current_batch_id and (batch is None or batch.pk != current_batch_id):
+            raise serializers.ValidationError(
+                {"batch": "A cohort member cannot be moved to another cohort or detached."}
+            )
+        if batch:
+            batch = LivestockBatch.objects.select_for_update().get(pk=batch.pk)
+            if batch.farmer_id != farmer.pk:  # type: ignore[attr-defined]
+                raise serializers.ValidationError({"batch": "This cohort belongs to another farmer."})
+            if batch.status != LivestockBatch.StatusType.ACTIVE:
+                raise serializers.ValidationError({"batch": "This cohort is no longer active."})
+            livestock_type = attrs.get(
+                "livestock_type", self.instance.livestock_type if self.instance else None
+            )
+            if livestock_type and livestock_type.pk != batch.livestock_type.pk:
+                raise serializers.ValidationError(
+                    {"livestock_type": "The animal species must match its cohort."}
+                )
+            if batch.animals.exclude(
+                status__in=["PENDING", "SUBJECT_TO_REVISION"]
+            ).exists():
+                raise serializers.ValidationError(
+                    {"batch": "This cohort is already verified or approved."}
+                )
+            if not current_batch_id and batch.animals.exclude(status="PENDING").exists():
+                raise serializers.ValidationError(
+                    {"batch": "New animals can only join a pending cohort."}
+                )
+        return attrs
+
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user

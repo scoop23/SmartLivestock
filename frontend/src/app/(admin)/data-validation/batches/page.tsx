@@ -137,6 +137,32 @@ function deriveBatchReviewStatus(batch: BatchItem): BatchItem["review_status"] {
   return "PENDING";
 }
 
+function BatchPager({
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+}) {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 text-xs">
+      <span className="text-[11px] text-slate-500 font-medium">
+        Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)} className="h-7 rounded-lg text-[10px] font-bold">‹ Prev</Button>
+        <span className="px-2.5 py-1 rounded-lg bg-emerald-800 text-white font-black text-[10px]">Page {page} / {pageCount}</span>
+        <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)} className="h-7 rounded-lg text-[10px] font-bold">Next ›</Button>
+      </div>
+    </div>
+  );
+}
+
 function AdminBatchesDrilldownContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -149,6 +175,10 @@ function AdminBatchesDrilldownContent() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [barangayFilter, setBarangayFilter] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const BATCH_PAGE_SIZE = 10;
+  const ANIMAL_PAGE_SIZE = 10;
+  const [batchPage, setBatchPage] = useState(1);
+  const [animalPage, setAnimalPage] = useState(1);
 
   // Selected batch for drilldown inspection
   const [selectedBatch, setSelectedBatch] = useState<BatchItem | null>(null);
@@ -164,12 +194,7 @@ function AdminBatchesDrilldownContent() {
   }>({ open: false, batch: null, action: "APPROVED" });
   const [reviewRemarks, setReviewRemarks] = useState("");
 
-  const [animalReviewModal, setAnimalReviewModal] = useState<{
-    open: boolean;
-    animal: ChildAnimal | null;
-    action: "APPROVED" | "SUBJECT_TO_REVISION";
-  }>({ open: false, animal: null, action: "APPROVED" });
-  const [animalReviewRemarks, setAnimalReviewRemarks] = useState("");
+
 
   // Reviewer notes (append-only audit trail)
   const [batchNoteText, setBatchNoteText] = useState("");
@@ -305,6 +330,20 @@ function AdminBatchesDrilldownContent() {
     });
   }, [batches, searchQuery, speciesFilter, statusFilter, barangayFilter]);
 
+  const pageCountBatches = Math.max(1, Math.ceil(filteredBatches.length / BATCH_PAGE_SIZE));
+  const pagedBatches = filteredBatches.slice(
+    (batchPage - 1) * BATCH_PAGE_SIZE,
+    batchPage * BATCH_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setBatchPage(1);
+  }, [searchQuery, speciesFilter, statusFilter, barangayFilter]);
+
+  useEffect(() => {
+    if (batchPage > pageCountBatches) setBatchPage(pageCountBatches);
+  }, [batchPage, pageCountBatches]);
+
   // ── Filtered Animals inside Selected Batch ──────────────────────────────
   const filteredChildAnimals = useMemo(() => {
     if (!selectedBatch || !selectedBatch.animals) return [];
@@ -325,6 +364,20 @@ function AdminBatchesDrilldownContent() {
     });
   }, [selectedBatch, animalSearchQuery, animalStatusFilter]);
 
+  const pageCountAnimals = Math.max(1, Math.ceil(filteredChildAnimals.length / ANIMAL_PAGE_SIZE));
+  const pagedChildAnimals = filteredChildAnimals.slice(
+    (animalPage - 1) * ANIMAL_PAGE_SIZE,
+    animalPage * ANIMAL_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setAnimalPage(1);
+  }, [selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
+
+  useEffect(() => {
+    if (animalPage > pageCountAnimals) setAnimalPage(pageCountAnimals);
+  }, [animalPage, pageCountAnimals]);
+
   // ── Mutations: Batch Review ──────────────────────────────────────────────
   const reviewBatchMutation = useMutation({
     mutationFn: async ({
@@ -342,6 +395,35 @@ function AdminBatchesDrilldownContent() {
       });
       return res.data;
     },
+    onMutate: async (variables) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["sibat-batches-drilldown"] }),
+        queryClient.cancelQueries({ queryKey: ["admin-batches-drilldown"] }),
+      ]);
+      const previousSibat = queryClient.getQueryData<BatchItem[]>(["sibat-batches-drilldown"]);
+      const previousAdmin = queryClient.getQueryData<BatchItem[]>(["admin-batches-drilldown"]);
+      const previousSelected = selectedBatch;
+      const previousModal = batchReviewModal;
+      const updateBatch = (batch: BatchItem): BatchItem =>
+        batch.id === variables.batchId
+          ? {
+              ...batch,
+              review_status: variables.status,
+              review_remarks: variables.remarks,
+              animals: batch.animals.map((animal) => ({
+                ...animal,
+                status: variables.status,
+                review_remarks: variables.remarks,
+              })),
+            }
+          : batch;
+      for (const key of [["sibat-batches-drilldown"], ["admin-batches-drilldown"]]) {
+        queryClient.setQueryData<BatchItem[]>(key, (current) => current?.map(updateBatch));
+      }
+      setSelectedBatch((current) => current ? updateBatch(current) : null);
+      setBatchReviewModal((current) => ({ ...current, open: false }));
+      return { previousSibat, previousAdmin, previousSelected, previousModal };
+    },
     onSuccess: (data, variables) => {
       const verb =
         variables.status === "APPROVED"
@@ -350,51 +432,27 @@ function AdminBatchesDrilldownContent() {
       toast.success(`Batch ${selectedBatch?.batch_code || ""} ${verb}!`, {
         description: `All child animals in this cohort updated to ${variables.status}.`,
       });
-      queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
       setBatchReviewModal({ open: false, batch: null, action: "APPROVED" });
       setReviewRemarks("");
     },
-    onError: (err) => {
+    onError: (err, _variables, context) => {
+      if (context?.previousSibat) {
+        queryClient.setQueryData(["sibat-batches-drilldown"], context.previousSibat);
+      }
+      if (context?.previousAdmin) {
+        queryClient.setQueryData(["admin-batches-drilldown"], context.previousAdmin);
+      }
+      setSelectedBatch(context?.previousSelected ?? null);
+      if (context?.previousModal) setBatchReviewModal(context.previousModal);
       console.error("Batch review failed:", err);
       toast.error("Failed to update batch review status. Please try again.");
     },
-  });
-
-  // ── Mutations: Individual Animal Review ──────────────────────────────────
-  const reviewAnimalMutation = useMutation({
-    mutationFn: async ({
-      animalId,
-      status,
-      remarks,
-    }: {
-      animalId: number;
-      status: "APPROVED" | "SUBJECT_TO_REVISION";
-      remarks: string;
-    }) => {
-      const res = await api.post(`livestock/inventory/${animalId}/review/`, {
-        status,
-        remarks,
-      });
-      return res.data;
-    },
-    onSuccess: (data, variables) => {
-      const verb =
-        variables.status === "APPROVED"
-          ? "certified & approved"
-          : "returned for revision";
-      toast.success(`Animal tag verified: ${verb}.`);
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      setAnimalReviewModal({ open: false, animal: null, action: "APPROVED" });
-      setAnimalReviewRemarks("");
-    },
-    onError: (err) => {
-      console.error("Animal review failed:", err);
-      toast.error("Failed to update animal review status.");
     },
   });
 
@@ -773,8 +831,9 @@ function AdminBatchesDrilldownContent() {
           </div>
         ) : viewMode === "grid" ? (
           /* Grid View Mode */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {filteredBatches.map((batch) => {
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {pagedBatches.map((batch) => {
               const headCount = batch.total_animals || batch.animals?.length || 0;
               const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
               const sibatCheckedCount = (batch.animals || []).filter((animal) =>
@@ -969,6 +1028,8 @@ function AdminBatchesDrilldownContent() {
                 </Card>
               );
             })}
+            </div>
+            <BatchPager page={batchPage} pageSize={BATCH_PAGE_SIZE} total={filteredBatches.length} onPageChange={setBatchPage} />
           </div>
         ) : (
           /* Table View Mode */
@@ -1004,7 +1065,7 @@ function AdminBatchesDrilldownContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredBatches.map((batch) => {
+                  {pagedBatches.map((batch) => {
                     const headCount = batch.total_animals || batch.animals?.length || 0;
                     return (
                       <TableRow key={batch.id} className="hover:bg-slate-50/60 transition-colors">
@@ -1087,6 +1148,9 @@ function AdminBatchesDrilldownContent() {
                   })}
                 </TableBody>
               </Table>
+            </div>
+            <div className="border-t border-slate-200 bg-slate-50/50">
+              <BatchPager page={batchPage} pageSize={BATCH_PAGE_SIZE} total={filteredBatches.length} onPageChange={setBatchPage} />
             </div>
           </div>
         )}
@@ -1347,7 +1411,7 @@ function AdminBatchesDrilldownContent() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredChildAnimals.map((animal) => {
+                        pagedChildAnimals.map((animal) => {
                           const avatar = getDefaultAvatarForSpecies(selectedBatch.livestock_type_name);
                           const animalWeight = animal.weight ? Number(animal.weight) : null;
                           const batchAvg = selectedBatch.average_weight ? Number(selectedBatch.average_weight) : null;
@@ -1483,6 +1547,9 @@ function AdminBatchesDrilldownContent() {
                     </TableBody>
                   </Table>
                 </div>
+                {filteredChildAnimals.length > ANIMAL_PAGE_SIZE && (
+                  <BatchPager page={animalPage} pageSize={ANIMAL_PAGE_SIZE} total={filteredChildAnimals.length} onPageChange={setAnimalPage} />
+                )}
               </div>
 
               {/* Modal Footer */}
@@ -1590,91 +1657,6 @@ function AdminBatchesDrilldownContent() {
                 : batchReviewModal.action === "APPROVED"
                   ? "Confirm MAO Approval"
                   : "Return for Revision"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ──────────────────────────────────────────────────────────────────────────
-          INDIVIDUAL ANIMAL REVIEW MODAL
-      ────────────────────────────────────────────────────────────────────────── */}
-      <Dialog
-        open={animalReviewModal.open}
-        onOpenChange={(open) => {
-          if (!open) setAnimalReviewModal({ open: false, animal: null, action: "APPROVED" });
-        }}
-      >
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-lg md:max-w-xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black text-slate-900">
-              {animalReviewModal.action === "APPROVED"
-                ? "Approve Individual Animal"
-                : "Request Animal Revision"}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Animal Tag: <strong className="font-mono text-slate-800">{animalReviewModal.animal?.tag_number}</strong>
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 py-2">
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                {animalReviewModal.action === "APPROVED"
-                  ? "Official Validation Remarks"
-                  : "Required Correction Instructions"}
-              </label>
-              <Textarea
-                placeholder={
-                  animalReviewModal.action === "APPROVED"
-                    ? "Enter certification notes..."
-                    : "Explain exactly what the farmer must correct..."
-                }
-                value={animalReviewRemarks}
-                onChange={(e) => setAnimalReviewRemarks(e.target.value)}
-                className="text-xs rounded-xl border-slate-200"
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAnimalReviewModal({ open: false, animal: null, action: "APPROVED" })}
-              className="rounded-xl text-xs font-bold"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={
-                reviewAnimalMutation.isPending ||
-                (animalReviewModal.action === "APPROVED" &&
-                  animalReviewModal.animal?.status !== "VERIFIED") ||
-                (animalReviewModal.action === "SUBJECT_TO_REVISION" &&
-                  (!animalReviewRemarks.trim() ||
-                    animalReviewModal.animal?.status !== "VERIFIED"))
-              }
-              onClick={() => {
-                if (animalReviewModal.animal) {
-                  reviewAnimalMutation.mutate({
-                    animalId: animalReviewModal.animal.id,
-                    status: animalReviewModal.action,
-                    remarks: animalReviewRemarks,
-                  });
-                }
-              }}
-              className={`rounded-xl text-xs font-bold text-white ${animalReviewModal.action === "APPROVED"
-                ? "bg-emerald-700 hover:bg-emerald-800"
-                : "bg-rose-700 hover:bg-rose-800"
-                }`}
-            >
-              {reviewAnimalMutation.isPending
-                ? "Processing..."
-                : animalReviewModal.action === "APPROVED"
-                  ? "Certify Animal"
-                  : "Send for Revision"}
             </Button>
           </DialogFooter>
         </DialogContent>

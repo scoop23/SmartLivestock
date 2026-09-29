@@ -73,6 +73,9 @@ export default function ProductionRecordDialog({
   isDeleting?: boolean;
 }) {
   const isApproved = record?.status === "APPROVED";
+  const isVerified = record?.status === "VERIFIED";
+  const canDelete = record?.status === "PENDING";
+  const canEdit = canDelete || record?.status === "SUBJECT_TO_REVISION";
 
   const meta = typeMeta[record?.productionType ?? "milk"];
   const TypeIcon = meta.icon;
@@ -213,14 +216,14 @@ export default function ProductionRecordDialog({
 
             {/* Footer */}
             <div className="border-t border-slate-200 bg-slate-50 px-6 py-4">
-              {isApproved ? (
+              {isApproved || isVerified ? (
                 <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium">
                   <Lock className="w-4 h-4 shrink-0" />
-                  This record has been approved and can no longer be edited or deleted.
+                  This record is under review or approved and can no longer be edited or deleted.
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full">
-                  {onDelete ? (
+                  {canDelete && onDelete ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -231,7 +234,7 @@ export default function ProductionRecordDialog({
                       <Trash2 className="w-4 h-4" /> Delete / Cancel Record
                     </Button>
                   ) : null}
-                  {onEdit ? (
+                  {canEdit && onEdit ? (
                     <Button
                       type="button"
                       onClick={() => onEdit(record)}

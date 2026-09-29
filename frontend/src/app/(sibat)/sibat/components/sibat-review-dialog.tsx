@@ -211,18 +211,6 @@ export default function SibatReviewDialog({
                 <Layers className="size-3.5 text-[#1A365D]" />
                 <span>{submission.sourceType === "CALVING" ? "Birthing & Pedigree Information" : isBatch ? "Cohort Batch Information" : "Animal Identification"}</span>
               </div>
-              {isPending && submission.sourceType !== "CALVING" && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="h-6 px-2 text-[11px] font-bold text-slate-700 hover:text-slate-900 rounded-lg gap-1 cursor-pointer"
-                >
-                  <Pencil className="size-3 text-emerald-600" />
-                  <span>{isEditing ? "Cancel Edit" : "Edit Details"}</span>
-                </Button>
-              )}
             </div>
 
             <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 space-y-3 text-xs">

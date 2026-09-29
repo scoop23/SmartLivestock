@@ -63,6 +63,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import api from "@/lib/axios";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useUserInventory,
   useLivestockTypes,
@@ -195,6 +197,7 @@ function getReviewStatusBadge(status?: string) {
 
 export default function BatchOverviewPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const { data: rawInventories = [], isLoading } = useUserInventory();
   const { data: backendBatches = [] } = useLivestockBatches();
@@ -207,6 +210,7 @@ export default function BatchOverviewPage() {
 
   // Dialog States
   const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
   const [isBatchProductionOpen, setIsBatchProductionOpen] = useState(false);
   const [isQrCardOpen, setIsQrCardOpen] = useState(false);
@@ -513,6 +517,22 @@ export default function BatchOverviewPage() {
   }, [currentBatch]);
 
   // Handlers
+  const handleResubmitCohort = async () => {
+    if (!currentBatch || !backendBatches.some((batch) => String(batch.id) === currentBatch.id)) return;
+    setIsResubmitting(true);
+    try {
+      await api.patch(`livestock/batches/${currentBatch.id}/`, { resubmit: true });
+      await queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+      await queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Whole cohort resubmitted to SIBAT for verification.");
+    } catch (error) {
+      console.error("Cohort resubmission failed:", error);
+      toast.error("Could not resubmit the cohort. Check that every member is returned for revision.");
+    } finally {
+      setIsResubmitting(false);
+    }
+  };
+
   const handleOpenWeighModal = (animal: BatchIndividual) => {
     setWeighTarget(animal);
     setNewWeightInput(String(animal.weightKg));
@@ -866,6 +886,19 @@ export default function BatchOverviewPage() {
                       <Clock className="size-3.5" /> PENDING VERIFICATION
                     </Badge>
                   )}
+
+                  {currentBatch.reviewStatus === "SUBJECT_TO_REVISION" &&
+                    backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
+                      <Button
+                        type="button"
+                        disabled={isResubmitting}
+                        onClick={handleResubmitCohort}
+                        className="bg-amber-400 text-amber-950 hover:bg-amber-300 rounded-xl text-xs font-bold"
+                      >
+                        <RefreshCw className="size-3.5 mr-1.5" />
+                        {isResubmitting ? "Resubmitting..." : "Resubmit Whole Cohort"}
+                      </Button>
+                    )}
 
                   {/* Printable Biosecurity QR Pass Button */}
                   <Button

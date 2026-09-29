@@ -1,24 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { PageHeader } from "@/app/components/page-header";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import {
-  ShieldCheck,
-  Layers,
-  ChevronRight,
-  FileSpreadsheet,
-  Milk,
-  Tag,
-  Activity,
-  X,
-  QrCode,
-} from "lucide-react";
+import { ShieldCheck, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
@@ -27,7 +15,6 @@ import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dial
 import {
   ValidationDomain,
   ValidationStatus,
-  VALIDATION_DOMAINS,
   useAdminCensusSubmissions,
   useAdminProductionRecords,
   useAdminInventoryRecords,
@@ -43,12 +30,12 @@ import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/produc
 import {
   ValidationKpis,
   ValidationToolbar,
-  CensusTable,
-  ProductionTable,
-  InventoryTable,
-  IncidentsTable,
   DiseaseMortalityReviewDialog,
   ValidationPagination,
+  DomainTabs,
+  CohortBatchesBanner,
+  BulkActionDock,
+  ActiveDomainTable,
 } from "./components";
 import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
 
@@ -61,41 +48,6 @@ import {
   RecordDetailDialog,
   DetailRecordData,
 } from "./record-detail-dialog";
-
-const DOMAIN_CARD_CONFIG: Record<
-  ValidationDomain,
-  {
-    title: string;
-    subtitle: string;
-    activeIconBg: string;
-    activeBorder: string;
-  }
-> = {
-  census: {
-    title: "Quarterly Census",
-    subtitle: "Barangay Livestock Roster",
-    activeIconBg: "bg-emerald-700 text-white shadow-emerald-700/20",
-    activeBorder: "data-[state=active]:border-emerald-300 data-[state=active]:ring-1 data-[state=active]:ring-emerald-300/40",
-  },
-  production: {
-    title: "Production Yields",
-    subtitle: "Milk, Eggs, Wool & Honey Logs",
-    activeIconBg: "bg-amber-600 text-white shadow-amber-600/20",
-    activeBorder: "data-[state=active]:border-amber-300 data-[state=active]:ring-1 data-[state=active]:ring-amber-300/40",
-  },
-  inventory: {
-    title: "Livestock Inventory",
-    subtitle: "Individual Tags & Cohort Pens",
-    activeIconBg: "bg-sky-700 text-white shadow-sky-700/20",
-    activeBorder: "data-[state=active]:border-sky-300 data-[state=active]:ring-1 data-[state=active]:ring-sky-300/40",
-  },
-  incidents: {
-    title: "Field Declarations",
-    subtitle: "Disease Outbreaks & Mortalities",
-    activeIconBg: "bg-rose-700 text-white shadow-rose-700/20",
-    activeBorder: "data-[state=active]:border-rose-300 data-[state=active]:ring-1 data-[state=active]:ring-rose-300/40",
-  },
-};
 
 function matchesStatusFilter(
   rawStatus: string | null | undefined,
@@ -114,12 +66,44 @@ function matchesStatusFilter(
   return s === statusFilter;
 }
 
-export default function AdminDataValidationPage() {
+// Cohort members must move through review as a unit — never individually.
+// This splits review targets so cohort animals are blocked from individual
+// approval and can only move via their batch card.
+function splitCohortInventoryIds(
+  itemIds: (string | number)[],
+  records: ValidationInventoryItem[]
+): { processableIds: (string | number)[]; blockedCohortIds: (string | number)[] } {
+  const processableIds: (string | number)[] = [];
+  const blockedCohortIds: (string | number)[] = [];
+  itemIds.forEach((id) => {
+    const strId = String(id);
+    if (strId.startsWith("batch-")) {
+      processableIds.push(id);
+      return;
+    }
+    const record = records.find((r) => String(r.id) === strId);
+    if (!record || (!record.isBatch && (record.batchId != null || !!record.batchCode))) {
+      blockedCohortIds.push(id);
+      return;
+    }
+    processableIds.push(id);
+  });
+  return { processableIds, blockedCohortIds };
+}
+
+function AdminDataValidationContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const requestedDomain = searchParams.get("domain");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Domain tab & filter states
   const [activeDomain, setActiveDomain] = useState<ValidationDomain>("census");
+  useEffect(() => {
+    if (requestedDomain === "inventory" || requestedDomain === "production") {
+      setActiveDomain(requestedDomain);
+    }
+  }, [requestedDomain]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ValidationStatus>("ALL");
   const [barangayFilter, setBarangayFilter] = useState<string>("ALL");
@@ -393,7 +377,8 @@ export default function AdminDataValidationPage() {
           .map((p) => p.id);
       case "inventory":
         return paginatedInventory
-          .filter((i) => (i.status || "PENDING").toUpperCase() === "VERIFIED")
+          .filter((i) => (i.status || "PENDING").toUpperCase() === "VERIFIED" &&
+            (i.isBatch || (i.batchId == null && !i.batchCode)))
           .map((i) => i.id);
       case "incidents":
         return paginatedIncidents
@@ -455,7 +440,8 @@ export default function AdminDataValidationPage() {
         }));
     } else if (activeDomain === "inventory") {
       targets = inventoryRecords
-        .filter((i) => selectedIds.includes(i.id) && (i.status || "PENDING").toUpperCase() === "VERIFIED")
+        .filter((i) => selectedIds.includes(i.id) && (i.status || "PENDING").toUpperCase() === "VERIFIED" &&
+          (i.isBatch || (i.batchId == null && !i.batchCode)))
         .map((i) => ({
           id: i.id,
           domain: "inventory",
@@ -529,15 +515,25 @@ export default function AdminDataValidationPage() {
         queryClient.invalidateQueries({ queryKey: ["production-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
       } else if (activeDomain === "inventory") {
-        setLocalInventoryOverrides((prev) => {
-          const next = { ...prev };
-          itemIds.forEach((id) => {
-            next[id] = { status: action, remarks };
-          });
-          return next;
-        });
+        const { processableIds, blockedCohortIds } = splitCohortInventoryIds(itemIds, inventoryRecords);
+
+        if (blockedCohortIds.length > 0) {
+          toast.info(
+            `${blockedCohortIds.length} livestock record(s) belong to a livestock cohort and are reviewed as a batch.`,
+            {
+              description:
+                "Approve the whole cohort from its batch card in the Livestock Inventory tab or the Batches & Drilldown console.",
+            }
+          );
+        }
+
+        if (processableIds.length === 0) {
+          setSelectedIds([]);
+          return;
+        }
+
         await Promise.all(
-          itemIds.map((id) => {
+          processableIds.map((id) => {
             const strId = String(id);
             if (strId.startsWith("batch-")) {
               const cleanId = strId.replace("batch-", "");
@@ -546,11 +542,32 @@ export default function AdminDataValidationPage() {
             return api.post(`livestock/inventory/${id}/review/`, { status: action, remarks });
           })
         );
+        setLocalInventoryOverrides((prev) => {
+          const next = { ...prev };
+          processableIds.forEach((id) => {
+            next[id] = { status: action, remarks };
+          });
+          return next;
+        });
         queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
         queryClient.invalidateQueries({ queryKey: ["inventory"] });
         queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-batches-records"] });
+
+        setSelectedIds([]);
+
+        const actionVerb = action === "APPROVED" ? "approved & certified" : "returned for revision";
+        if (processableIds.length === 1) {
+          toast.success(`Record successfully ${actionVerb}.`, {
+            description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
+          });
+        } else {
+          toast.success(`${processableIds.length} records successfully ${actionVerb}.`, {
+            description: remarks ? `Remarks: "${remarks}"` : "Batch status updated across selected entries.",
+          });
+        }
+        return;
       } else {
         setLocalIncidentOverrides((prev) => {
           const next = { ...prev };
@@ -687,141 +704,19 @@ export default function AdminDataValidationPage() {
         />
 
         {/* Cohort Batches & Livestock Drilldown Callout Banner */}
-        <div className="bg-gradient-to-r from-[#1E4D2B] via-emerald-900 to-[#163b21] text-white p-3.5 sm:p-4 rounded-2xl shadow-xs border border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
-              <Layers className="size-5 text-emerald-300" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
-                  Municipal Cohort Batches &amp; Livestock Drilldown
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 font-mono">
-                  99 Batches • 300 Heads
-                </span>
-              </div>
-              <p className="text-xs text-emerald-100/90 font-medium mt-0.5">
-                Inspect registered livestock batches and drill down into individual ear tag biometrics, vaccination history, and pen housing.
-              </p>
-            </div>
-          </div>
-          <Link href="/data-validation/batches" className="shrink-0">
-            <Button
-              size="sm"
-              className="w-full sm:w-auto bg-white text-[#1E4D2B] hover:bg-emerald-50 font-bold text-xs rounded-xl shadow-xs gap-1.5 h-9"
-            >
-              <span>Inspect Batches &amp; Drilldown</span>
-              <ChevronRight className="size-4" />
-            </Button>
-          </Link>
-        </div>
+        <CohortBatchesBanner />
 
         {/* ── Remastered Executive Domain Switcher Tabs ── */}
-        <div className="w-full space-y-2.5">
-          <Tabs
-            value={activeDomain}
-            onValueChange={(val) => {
-              setActiveDomain(val as ValidationDomain);
-              setSelectedIds([]);
-            }}
-            className="w-full space-y-2.5"
-          >
-            <TabsList className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 p-2 bg-slate-100/90 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs h-auto">
-              {VALIDATION_DOMAINS.map((domain) => {
-                const config = DOMAIN_CARD_CONFIG[domain.id];
-                const pendingCount = domainPendingCounts[domain.id];
-                const verifiedCount = domainVerifiedCounts[domain.id];
-                const totalCount = domainTotalCounts[domain.id];
-                const isActive = activeDomain === domain.id;
-
-                return (
-                  <TabsTrigger
-                    key={domain.id}
-                    value={domain.id}
-                    className={`group relative flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl transition-all duration-200 text-left border border-slate-200/70 bg-white/70 hover:bg-white hover:border-slate-300 data-[state=active]:bg-white data-[state=active]:shadow-sm cursor-pointer h-auto ${config.activeBorder}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`size-10 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs ${
-                          isActive
-                            ? `${config.activeIconBg} shadow-xs`
-                            : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/80 group-hover:text-slate-800"
-                        }`}
-                      >
-                        {domain.id === "census" && <FileSpreadsheet className="size-4.5" />}
-                        {domain.id === "production" && <Milk className="size-4.5" />}
-                        {domain.id === "inventory" && <Tag className="size-4.5" />}
-                        {domain.id === "incidents" && <Activity className="size-4.5" />}
-                      </div>
-
-                      <div className="text-left min-w-0">
-                        <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 truncate">
-                          {config.title}
-                        </p>
-                        <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 truncate mt-0.5">
-                          {config.subtitle}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      {pendingCount > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300/80 font-mono shadow-2xs">
-                          <span className="size-1.5 rounded-full bg-amber-600 animate-pulse" />
-                          {pendingCount} Pending
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 font-mono">
-                          {totalCount} Total
-                        </span>
-                      )}
-
-                      {verifiedCount > 0 && (
-                        <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded-md font-mono hidden sm:inline-block">
-                          {verifiedCount} Verified
-                        </span>
-                      )}
-                    </div>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-
-          {/* Contextual Active Queue Telemetry Strip */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs text-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span className="font-black text-slate-900 truncate">
-                {DOMAIN_CARD_CONFIG[activeDomain].title} Validation Queue
-              </span>
-              <span className="text-slate-300 hidden sm:inline">&bull;</span>
-              <span className="text-slate-500 font-medium truncate hidden sm:inline">
-                {VALIDATION_DOMAINS.find((d) => d.id === activeDomain)?.description}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Queue Telemetry:
-              </span>
-              <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[10px] font-mono font-bold">
-                {domainTotalCounts[activeDomain]} Total Records
-              </Badge>
-              {domainPendingCounts[activeDomain] > 0 && (
-                <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-[10px] font-mono font-bold">
-                  {domainPendingCounts[activeDomain]} Awaiting SIBAT
-                </Badge>
-              )}
-              {domainVerifiedCounts[activeDomain] > 0 && (
-                <Badge className="bg-sky-100 text-sky-900 border-sky-200 text-[10px] font-mono font-bold">
-                  {domainVerifiedCounts[activeDomain]} Ready for MAO
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
+        <DomainTabs
+          activeDomain={activeDomain}
+          onDomainChange={(val) => {
+            setActiveDomain(val);
+            setSelectedIds([]);
+          }}
+          pendingCounts={domainPendingCounts}
+          verifiedCounts={domainVerifiedCounts}
+          totalCounts={domainTotalCounts}
+        />
 
         {/* Search, Filter & Bulk Actions Toolbar */}
         <ValidationToolbar
@@ -847,50 +742,19 @@ export default function AdminDataValidationPage() {
         />
 
         {/* Domain Data Tables */}
-        {activeDomain === "census" && (
-          <CensusTable
-            records={paginatedCensus}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
-            onReview={openReviewSingle}
-          />
-        )}
-
-        {activeDomain === "production" && (
-          <ProductionTable
-            records={paginatedProduction}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
-            onReview={openReviewSingle}
-          />
-        )}
-
-        {activeDomain === "inventory" && (
-          <InventoryTable
-            records={paginatedInventory}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
-            onReview={openReviewSingle}
-          />
-        )}
-
-        {activeDomain === "incidents" && (
-          <IncidentsTable
-            records={paginatedIncidents}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
-            onReview={openReviewSingle}
-            onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
-          />
-        )}
+        <ActiveDomainTable
+          activeDomain={activeDomain}
+          census={paginatedCensus}
+          production={paginatedProduction}
+          inventory={paginatedInventory}
+          incidents={paginatedIncidents}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onSelectAll={handleSelectAll}
+          onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
+          onReview={openReviewSingle}
+          onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
+        />
 
         {/* Responsive Pagination Bar */}
         <ValidationPagination
@@ -910,39 +774,11 @@ export default function AdminDataValidationPage() {
       </div>
 
       {/* ── FLOATING MOBILE BULK ACTION DOCK ── */}
-      {selectedIds.length > 0 && (
-        <div className="sm:hidden fixed bottom-4 inset-x-3.5 z-40 animate-in slide-in-from-bottom-5 duration-300">
-          <div className="bg-gray-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl flex items-center justify-between border border-gray-800">
-            <div className="flex items-center gap-2.5">
-              <span className="w-7 h-7 rounded-xl bg-green-500/20 text-green-400 font-black text-xs flex items-center justify-center font-mono">
-                {selectedIds.length}
-              </span>
-              <span className="text-xs font-bold text-gray-200">
-                {selectedIds.length === 1 ? "Record Selected" : "Records Selected"}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                onClick={openReviewBatch}
-                className="bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold py-2.5 px-3.5 rounded-xl shadow-md gap-1.5"
-              >
-                <ShieldCheck size={14} />
-                <span>Validate ({selectedIds.length})</span>
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setSelectedIds([])}
-                className="h-8 w-8 text-gray-400 hover:text-white rounded-xl hover:bg-gray-800"
-              >
-                <X size={14} />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BulkActionDock
+        count={selectedIds.length}
+        onValidate={openReviewBatch}
+        onClear={() => setSelectedIds([])}
+      />
 
       {/* Batch / Single Review Dialog */}
       <ValidationReviewDialog
@@ -1023,5 +859,13 @@ export default function AdminDataValidationPage() {
         role="admin"
       />
     </>
+  );
+}
+
+export default function AdminDataValidationPage() {
+  return (
+    <Suspense fallback={<ValidationLoadingScreen />}>
+      <AdminDataValidationContent />
+    </Suspense>
   );
 }

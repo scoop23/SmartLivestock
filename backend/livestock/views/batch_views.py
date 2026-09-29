@@ -134,6 +134,7 @@ def batch_list_create(request):
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def batch_detail(request, pk):
     """
     GET    /api/livestock/batches/<id>/ -> Retrieve single batch and its animal roster
@@ -148,13 +149,13 @@ def batch_detail(request, pk):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
-                LivestockBatch, Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
+                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
             )
         else:
-            batch = get_object_or_404(LivestockBatch, created_by=user, pk=pk)
+            batch = get_object_or_404(LivestockBatch.objects.select_for_update(), created_by=user, pk=pk)
     else:
         require_action(user, "batches", "read_all")
-        batch = get_object_or_404(LivestockBatch, pk=pk)
+        batch = get_object_or_404(LivestockBatch.objects.select_for_update(), pk=pk)
 
     if request.method == "GET":
         serializer = LivestockBatchSerializer(batch, context={"request": request})
@@ -163,6 +164,24 @@ def batch_detail(request, pk):
     if request.method in ["PUT", "PATCH"]:
         require_action(user, "batches", "edit_own")
         data = request.data
+        states = set(batch.animals.values_list("status", flat=True))
+        resubmit = str(data.get("resubmit", "")).lower() in {"true", "1"}
+        if resubmit and states != {LivestockInventory.StatusType.SUBJECT_TO_REVISION}:
+            return Response(
+                {"error": "Only a fully returned cohort can be resubmitted."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if (set(data) - {"status", "resubmit"} or resubmit) and (
+            batch.status != LivestockBatch.StatusType.ACTIVE
+            or not states.issubset({
+                LivestockInventory.StatusType.PENDING,
+                LivestockInventory.StatusType.SUBJECT_TO_REVISION,
+            })
+        ):
+            return Response(
+                {"error": "Verified or approved cohort details are locked."},
+                status=status.HTTP_409_CONFLICT,
+            )
         updatable = [
             "batch_name",
             "housing_pen",
@@ -181,15 +200,18 @@ def batch_detail(request, pk):
                     val = None
                 setattr(batch, field, val)
         batch.save()
-        if batch.animals.filter(
-            status=LivestockInventory.StatusType.SUBJECT_TO_REVISION
-        ).exists():
-            batch.animals.filter(
-                status=LivestockInventory.StatusType.SUBJECT_TO_REVISION
-            ).update(
+        if resubmit:
+            batch.animals.all().update(
                 status=LivestockInventory.StatusType.PENDING,
                 reviewed_by=None,
                 reviewed_at=None,
+            )
+            notify_role(
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.SIBAT,
+                title="Cohort Resubmitted for Verification",
+                message=f"{user.get_full_name() or user.username} resubmitted cohort {batch.batch_code} for field review.",
+                link="/sibat/batches?batchId=" + str(batch.pk),
             )
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -218,6 +240,7 @@ def batch_detail(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def batch_add_animals(request, pk):
     """
     POST /api/livestock/batches/<id>/animals/ -> Add one or more animals to this batch
@@ -230,10 +253,10 @@ def batch_add_animals(request, pk):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
-                LivestockBatch, Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
+                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
             )
         else:
-            batch = get_object_or_404(LivestockBatch, created_by=user, pk=pk)
+            batch = get_object_or_404(LivestockBatch.objects.select_for_update(), created_by=user, pk=pk)
     else:
         require_action(user, "batches", "edit_own")
         batch = get_object_or_404(LivestockBatch, pk=pk)
@@ -241,6 +264,11 @@ def batch_add_animals(request, pk):
     if batch.status != LivestockBatch.StatusType.ACTIVE:
         return Response(
             {"error": "Animals can only be added to an ACTIVE batch."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    if batch.animals.exclude(status=LivestockInventory.StatusType.PENDING).exists():
+        return Response(
+            {"error": "Animals can only be added before cohort verification begins."},
             status=status.HTTP_409_CONFLICT,
         )
 
@@ -290,6 +318,7 @@ def batch_add_animals(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def batch_review(request, pk):
     """
     POST /api/livestock/batches/<id>/review/
@@ -297,7 +326,12 @@ def batch_review(request, pk):
     - SIBAT: Field inspection of the pen/herd (status = VERIFIED or SUBJECT_TO_REVISION)
     - MAO: Official municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    batch = get_object_or_404(LivestockBatch, pk=pk)
+    batch = get_object_or_404(LivestockBatch.objects.select_for_update(), pk=pk)
+    if batch.status != LivestockBatch.StatusType.ACTIVE:
+        return Response(
+            {"error": "Only active cohorts can enter validation."},
+            status=status.HTTP_409_CONFLICT,
+        )
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -344,8 +378,21 @@ def batch_review(request, pk):
                 else f"MAO Approval ({user.get_full_name() or user.username})"
             )
             audit_entry = f"\n[{timestamp_str}] {reviewer_title} - {new_status}: {remarks}"
-            batch.notes = (batch.notes + audit_entry).strip()
+            batch.notes = (batch.notes + audit_entry).strip() # append the previous note
             batch.save(update_fields=["notes", "updated_at"])
+
+    if new_status == LivestockInventory.StatusType.VERIFIED:
+        notify_role(
+            role_name="MAO",
+            notification_type=Notification.NotificationType.GENERAL,
+            priority=Notification.Priority.MEDIUM,
+            title="Livestock Cohort Awaiting MAO Approval",
+            message=(
+                f"SIBAT verified cohort {batch.batch_code} with "
+                f"{batch.animals.count()} animal(s)."
+            ),
+            link=f"/data-validation/batches?batchId={batch.pk}",
+        )
 
     # Notify the farmer
     target_user = None

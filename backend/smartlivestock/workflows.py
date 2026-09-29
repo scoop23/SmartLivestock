@@ -35,6 +35,9 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
     for domain in ("inventory", "sales", "calving", "batches")
 }
 
+# Production declarations use the same field-verification and municipal-approval steps.
+REVIEW_TRANSITIONS["production"] = REVIEW_TRANSITIONS["inventory"]
+
 # Census has a single transition rule (SIBAT is the source, so a census is born
 # VERIFIED when submitted and only awaits MAO certification).
 REVIEW_TRANSITIONS["census"] = (

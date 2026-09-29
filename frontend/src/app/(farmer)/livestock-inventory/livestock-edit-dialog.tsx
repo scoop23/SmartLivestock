@@ -215,6 +215,7 @@ export default function LivestockEditDialog({
                   <Select
                     value={form.livestockType}
                     onValueChange={(val) => set({ livestockType: val })}
+                    disabled={!!item.batchId}
                   >
                     <SelectTrigger id="editLivestockType">
                       <SelectValue placeholder="Select animal" />
@@ -236,6 +237,7 @@ export default function LivestockEditDialog({
                   <Select
                     value={form.batchId || "none"}
                     onValueChange={(val) => set({ batchId: val === "none" ? "" : val })}
+                    disabled={!!item.batchId}
                   >
                     <SelectTrigger id="editBatch">
                       <SelectValue placeholder="Select cohort (optional)" />

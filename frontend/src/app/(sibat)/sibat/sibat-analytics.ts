@@ -36,6 +36,7 @@ export interface UnifiedSubmissionItem {
   sex?: string;
   weight?: number | null;
   entryType?: "INDIVIDUAL" | "BATCH";
+  batchId?: number | null;
   batchCode?: string;
   batchName?: string;
   housingPen?: string;
@@ -222,6 +223,7 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     sex: inv.sex,
     weight: inv.weight,
     entryType: inv.entry_type,
+    batchId: inv.batch ?? null,
     batchCode: inv.batch_code || undefined,
     batchName: inv.batch_name || undefined,
     lastVaccinationDate: inv.last_vaccination_date,
@@ -623,7 +625,9 @@ export function useSibatSubmissions() {
   };
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
-  const inventoryUnified = (invQuery.data || []).map(mapInventoryToUnified);
+  const inventoryUnified = (invQuery.data || [])
+    .filter((inventory) => inventory.batch == null && !inventory.batch_code)
+    .map(mapInventoryToUnified);
   const batchUnified = (batchQuery.data || []).map(mapBatchToUnified);
   const calvingUnified = (calvingQuery.data || []).map(mapCalvingToUnified);
 
@@ -657,6 +661,9 @@ export function useReviewSubmission() {
       status: "VERIFIED" | "SUBJECT_TO_REVISION" | "REJECTED";
       remarks: string;
     }) => {
+      if (item.sourceType === "INVENTORY" && (item.batchId != null || item.batchCode)) {
+        throw new Error("Cohort animals must be reviewed through their batch.");
+      }
       let endpoint = `livestock/inventory/${item.rawId}/review/`;
       if (item.sourceType === "PRODUCTION") {
         endpoint = `production/records/${item.rawId}/review/`;

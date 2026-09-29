@@ -99,6 +99,11 @@ def production_record_detail(request, pk):
         record = get_object_or_404(ProductionRecord, pk=pk)
 
     if request.method == "DELETE":
+        if role_name != "FARMER":
+            return Response(
+                {"error": "Only the farmer may delete their production record."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if record.status != ProductionRecord.ProductionStatus.PENDING:
             return Response(
                 {"error": "Only PENDING production records can be deleted."},
@@ -108,11 +113,20 @@ def production_record_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method in ["PUT", "PATCH"]:
-        if record.status != ProductionRecord.ProductionStatus.PENDING:
+        if role_name != "FARMER":
             return Response(
-                {"error": "Only PENDING production records can be edited."},
+                {"error": "Only the farmer may edit their production record."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        if record.status not in (
+            ProductionRecord.ProductionStatus.PENDING,
+            ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION,
+        ):
+            return Response(
+                {"error": "Only pending or returned production records can be edited."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        was_returned = record.status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION
         serializer = ProductionRecordSerializer(
             record,
             data=request.data,
@@ -121,6 +135,22 @@ def production_record_detail(request, pk):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if was_returned:
+            record.status = ProductionRecord.ProductionStatus.PENDING
+            record.reviewed_by = None
+            record.reviewed_at = None
+            record.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+            notify_role(
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.MEDIUM,
+                title="Production Record Resubmitted",
+                message=(
+                    f"{user.get_full_name() or user.username} corrected a "
+                    f"{record.get_production_type_display()} production record."
+                ),
+                link="/sibat-validation",
+            )
         return Response(serializer.data, status=200)
 
     # GET
@@ -156,29 +186,33 @@ def review_production_record(request, pk):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    if role_name == "SIBAT":
-        if new_status == ProductionRecord.ProductionStatus.APPROVED:
-            return Response(
-                {"error": "SIBAT officers can only verify (VERIFIED). Final approval is reserved for MAO."},
-                status=403,
-            )
-        if new_status not in [ProductionRecord.ProductionStatus.VERIFIED, ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION]:
-            return Response(
-                {"error": "Invalid status for SIBAT. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
-                status=400,
-            )
-    elif role_name == "MAO":
-        if new_status not in ProductionRecord.ProductionStatus.values:
-            return Response(
-                {"error": f"Invalid status '{new_status}'. Valid choices: {list(ProductionRecord.ProductionStatus.values)}"},
-                status=400,
-            )
+    validate_review_transition(
+        domain="production",
+        role=role_name,
+        current=record.status,
+        target=new_status,
+        remarks=remarks,
+    )
 
     record.status = new_status
     record.reviewed_by = request.user
     record.review_remarks = remarks
     record.reviewed_at = timezone.now()
     record.save()
+
+    if new_status == ProductionRecord.ProductionStatus.VERIFIED:
+        notify_role(
+            role_name="MAO",
+            notification_type=Notification.NotificationType.PRODUCTION,
+            priority=Notification.Priority.MEDIUM,
+            title="Production Record Awaiting MAO Approval",
+            message=(
+                f"SIBAT verified {record.quantity} {record.unit} of "
+                f"{record.get_production_type_display()} from "
+                f"{record.created_by.get_full_name() or record.created_by.username}."
+            ),
+            link="/data-validation?domain=production",
+        )
 
     owner = record.livestock.farmer if record.livestock else (record.batch.farmer if record.batch else None)
     target_farmer = owner.user if owner else None

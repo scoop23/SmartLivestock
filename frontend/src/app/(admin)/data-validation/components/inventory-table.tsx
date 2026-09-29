@@ -435,7 +435,6 @@ export function InventoryTable({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={!canReview}
                     onClick={() => onViewDetail(detailPayload)}
                     className="flex-1 py-2.5 h-auto rounded-xl border-gray-200 text-gray-700 text-xs font-bold gap-1.5"
                   >
