@@ -4,14 +4,19 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from livestock.models import LivestockBatch, LivestockInventory, LivestockType
 from livestock.serializer import LivestockBatchSerializer, LivestockInventorySerializer
 from users.models import Notification
-from users.notification_views import create_notification
+from users.notification_views import create_notification, notify_role
+from smartlivestock.workflows import (
+    require_action,
+    role_name,
+    validate_batch_lifecycle,
+    validate_review_transition,
+)
 
 
 @api_view(["GET", "POST"])
@@ -22,14 +27,15 @@ def batch_list_create(request):
     POST /api/livestock/batches/ -> Create a new batch, optionally with a list of child animals
     """
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
+    user_role = role_name(user)
 
     if request.method == "POST":
+        require_action(user, "batches", "create")
         data = request.data.copy()
         animals_data = data.pop("animals", None)
 
         farmer_profile = getattr(user, "farmer_profile", None)
-        if not farmer_profile and role_name == "FARMER":
+        if not farmer_profile:
             return Response(
                 {"error": "Farmer profile not found for current user."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -49,11 +55,7 @@ def batch_list_create(request):
 
         livestock_type = get_object_or_404(LivestockType, pk=livestock_type_id)
 
-        default_animal_status = (
-            LivestockInventory.StatusType.APPROVED
-            if role_name in ["MAO", "ADMIN"]
-            else LivestockInventory.StatusType.PENDING
-        )
+        default_animal_status = LivestockInventory.StatusType.PENDING
 
         with transaction.atomic():
             batch = LivestockBatch.objects.create(
@@ -65,7 +67,7 @@ def batch_list_create(request):
                 feed_type=data.get("feed_type", ""),
                 target_weight=data.get("target_weight") or None,
                 target_harvest_date=data.get("target_harvest_date") or None,
-                status=data.get("status", LivestockBatch.StatusType.ACTIVE),
+                status=LivestockBatch.StatusType.ACTIVE,
                 notes=data.get("notes", ""),
                 created_by=user,
             )
@@ -90,10 +92,19 @@ def batch_list_create(request):
                     )
 
         serializer = LivestockBatchSerializer(batch, context={"request": request})
+        farmer_name = user.get_full_name() or user.username
+        notify_role(
+            role_name="SIBAT",
+            notification_type=Notification.NotificationType.SIBAT,
+            priority=Notification.Priority.MEDIUM,
+            title="New Livestock Batch Awaiting Verification",
+            message=f"{farmer_name} registered batch {batch.batch_code} with {batch.animals.count()} animal(s).",
+            link="/sibat-validation",
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # GET List
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batches = LivestockBatch.objects.filter(
@@ -102,6 +113,7 @@ def batch_list_create(request):
         else:
             batches = LivestockBatch.objects.filter(created_by=user)
     else:
+        require_action(user, "batches", "read_all")
         batches = LivestockBatch.objects.all()
 
     # Optional query filters
@@ -130,9 +142,9 @@ def batch_detail(request, pk):
     DELETE /api/livestock/batches/<id>/ -> Delete batch
     """
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
+    user_role = role_name(user)
 
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
@@ -141,6 +153,7 @@ def batch_detail(request, pk):
         else:
             batch = get_object_or_404(LivestockBatch, created_by=user, pk=pk)
     else:
+        require_action(user, "batches", "read_all")
         batch = get_object_or_404(LivestockBatch, pk=pk)
 
     if request.method == "GET":
@@ -148,6 +161,7 @@ def batch_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     if request.method in ["PUT", "PATCH"]:
+        require_action(user, "batches", "edit_own")
         data = request.data
         updatable = [
             "batch_name",
@@ -158,6 +172,8 @@ def batch_detail(request, pk):
             "status",
             "notes",
         ]
+        if "status" in data:
+            validate_batch_lifecycle(batch.status, data["status"])
         for field in updatable:
             if field in data:
                 val = data[field]
@@ -165,10 +181,31 @@ def batch_detail(request, pk):
                     val = None
                 setattr(batch, field, val)
         batch.save()
+        if batch.animals.filter(
+            status=LivestockInventory.StatusType.SUBJECT_TO_REVISION
+        ).exists():
+            batch.animals.filter(
+                status=LivestockInventory.StatusType.SUBJECT_TO_REVISION
+            ).update(
+                status=LivestockInventory.StatusType.PENDING,
+                reviewed_by=None,
+                reviewed_at=None,
+            )
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     if request.method == "DELETE":
+        require_action(user, "batches", "edit_own")
+        if batch.animals.exclude(
+            status__in=[
+                LivestockInventory.StatusType.PENDING,
+                LivestockInventory.StatusType.SUBJECT_TO_REVISION,
+            ]
+        ).exists():
+            return Response(
+                {"error": "A batch with verified or approved animals cannot be deleted."},
+                status=status.HTTP_409_CONFLICT,
+            )
         # Disassociate child animals or delete them
         with transaction.atomic():
             batch.animals.all().delete()
@@ -187,9 +224,9 @@ def batch_add_animals(request, pk):
     Payload: { "animals": [ { tag_number, breed, sex, weight, avatar_key, last_vaccination_date }, ... ] }
     """
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
+    user_role = role_name(user)
 
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
@@ -198,7 +235,14 @@ def batch_add_animals(request, pk):
         else:
             batch = get_object_or_404(LivestockBatch, created_by=user, pk=pk)
     else:
+        require_action(user, "batches", "edit_own")
         batch = get_object_or_404(LivestockBatch, pk=pk)
+
+    if batch.status != LivestockBatch.StatusType.ACTIVE:
+        return Response(
+            {"error": "Animals can only be added to an ACTIVE batch."},
+            status=status.HTTP_409_CONFLICT,
+        )
 
     animals_data = request.data.get("animals", [])
     if isinstance(animals_data, dict):
@@ -210,11 +254,7 @@ def batch_add_animals(request, pk):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    default_animal_status = (
-        LivestockInventory.StatusType.APPROVED
-        if role_name in ["MAO", "ADMIN"]
-        else LivestockInventory.StatusType.PENDING
-    )
+    default_animal_status = LivestockInventory.StatusType.PENDING
 
     created_animals = []
     with transaction.atomic():
@@ -268,29 +308,26 @@ def batch_review(request, pk):
         )
 
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
-
-    if role_name == "FARMER":
-        raise PermissionDenied("Farmers are not authorized to review livestock batches.")
-
-    if role_name == "SIBAT":
-        if new_status == LivestockInventory.StatusType.APPROVED:
-            raise PermissionDenied(
-                "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
-            )
-        if new_status not in [LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.SUBJECT_TO_REVISION]:
-            return Response(
-                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-    elif role_name in ["MAO", "ADMIN"]:
-        if new_status not in LivestockInventory.StatusType.values:
-            return Response(
-                {"error": f"Invalid status '{new_status}'. Valid choices are: {list(LivestockInventory.StatusType.values)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-    else:
-        raise PermissionDenied("You do not have permission to review livestock batches.")
+    user_role = require_action(user, "batches", "review")
+    current_statuses = set(batch.animals.values_list("status", flat=True))
+    if not current_statuses:
+        return Response(
+            {"error": "An empty batch cannot be reviewed."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    if len(current_statuses) != 1:
+        return Response(
+            {"error": "All animals in a batch must have the same review status before batch review."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    current_status = current_statuses.pop()
+    validate_review_transition(
+        domain="batches",
+        role=user_role,
+        current=current_status,
+        target=new_status,
+        remarks=remarks,
+    )
 
     with transaction.atomic():
         batch.animals.all().update(
@@ -303,7 +340,7 @@ def batch_review(request, pk):
             timestamp_str = timezone.now().strftime("%Y-%m-%d %H:%M")
             reviewer_title = (
                 f"SIBAT Verification ({user.get_full_name() or user.username})"
-                if role_name == "SIBAT"
+                if user_role == "SIBAT"
                 else f"MAO Approval ({user.get_full_name() or user.username})"
             )
             audit_entry = f"\n[{timestamp_str}] {reviewer_title} - {new_status}: {remarks}"

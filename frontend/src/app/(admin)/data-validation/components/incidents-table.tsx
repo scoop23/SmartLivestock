@@ -54,7 +54,11 @@ export function IncidentsTable({
   onReview,
   onReviewHealth,
 }: IncidentsTableProps) {
-  const allSelected = records.length > 0 && records.every((inc) => selectedIds.includes(inc.id));
+  const reviewableRecords = records.filter(
+    (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED",
+  );
+  const allSelected =
+    reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
 
   const buildDetailPayload = (inc: ValidationIncidentItem): DetailRecordData => ({
     kind: "incident",
@@ -166,6 +170,7 @@ export function IncidentsTable({
                   const detailPayload = buildDetailPayload(inc);
                   const iconStyle = getIncidentIcon(inc.type);
                   const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";
+                  const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED";
 
                   return (
                     <TableRow
@@ -178,6 +183,7 @@ export function IncidentsTable({
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => onToggleSelect(inc.id)}
+                          disabled={!canReview}
                           className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
                         />
                       </TableCell>
@@ -263,6 +269,7 @@ export function IncidentsTable({
                           {isHealthOrMortality ? (
                             <Button
                               size="sm"
+                              disabled={!canReview}
                               onClick={() => onReviewHealth ? onReviewHealth(inc) : onViewDetail(detailPayload)}
                               className="h-8 px-3 rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-[11px] font-black uppercase tracking-wider gap-1.5 shadow-xs cursor-pointer"
                             >
@@ -273,6 +280,7 @@ export function IncidentsTable({
                             <Button
                               variant="ghost"
                               size="icon"
+                              disabled={!canReview}
                               onClick={() =>
                                 onReview({
                                   id: inc.id,
@@ -351,6 +359,7 @@ export function IncidentsTable({
             const detailPayload = buildDetailPayload(inc);
             const iconStyle = getIncidentIcon(inc.type);
             const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";
+            const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED";
 
             return (
               <div
@@ -368,12 +377,13 @@ export function IncidentsTable({
                       className="-m-2 p-2 flex items-center justify-center cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleSelect(inc.id);
+                        if (canReview) onToggleSelect(inc.id);
                       }}
                     >
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onToggleSelect(inc.id)}
+                        disabled={!canReview}
                         className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] shrink-0"
                       />
                     </div>
@@ -430,6 +440,7 @@ export function IncidentsTable({
                     <Button
                       type="button"
                       size="sm"
+                      disabled={!canReview}
                       onClick={() => onReviewHealth ? onReviewHealth(inc) : onViewDetail(detailPayload)}
                       className="w-full py-3 h-auto rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-black uppercase tracking-wider gap-2 shadow-xs cursor-pointer"
                     >
@@ -452,6 +463,7 @@ export function IncidentsTable({
                       <Button
                         type="button"
                         size="sm"
+                        disabled={!canReview}
                         onClick={() =>
                           onReview({
                             id: inc.id,

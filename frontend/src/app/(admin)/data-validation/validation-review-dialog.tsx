@@ -333,7 +333,7 @@ export function ValidationReviewDialog({
           <Button
             type="button"
             variant="outline"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !remarks.trim()}
             onClick={() => handleAction("SUBJECT_TO_REVISION")}
             className="flex-1 py-4 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-xl text-xs font-black uppercase tracking-wider gap-2 cursor-pointer"
           >

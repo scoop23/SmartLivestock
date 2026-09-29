@@ -660,18 +660,25 @@ export default function LivestockDetailPage() {
         {/* Navigation & Breadcrumb */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Link href="/livestock-inventory">
+            <Link
+              href={
+                activeItem.batchId
+                  ? `/livestock-inventory/batches?batch=${activeItem.batchId}`
+                  : "/livestock-inventory"
+              }
+            >
               <Button
                 variant="outline"
                 size="sm"
                 className="rounded-xl border-slate-300 font-bold text-xs gap-1.5 text-slate-700 hover:bg-slate-100"
               >
-                <ArrowLeft className="size-3.5" /> Back to Herd
+                <ArrowLeft className="size-3.5" />
+                {activeItem.batchId ? "Back to Batch" : "Back to Herd"}
               </Button>
             </Link>
 
             {activeItem.batchCode && (
-              <Link href="/livestock-inventory/batches">
+              <Link href={`/livestock-inventory/batches?batch=${activeItem.batchId}`}>
                 <Button
                   variant="outline"
                   size="sm"

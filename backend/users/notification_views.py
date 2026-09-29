@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from users.models import Notification
+from users.models import Notification, User
 from users.serializer import NotificationSerializer
 
 
@@ -27,6 +27,34 @@ def create_notification(
         message=message,
         link=link,
     )
+
+
+def notify_role(
+    role_name: str,
+    notification_type: str = Notification.NotificationType.GENERAL,
+    title: str = "",
+    message: str = "",
+    priority: str = Notification.Priority.MEDIUM,
+    link: str | None = None,
+) -> int:
+    """Create the same in-app notification for every approved user in a role."""
+    recipients = User.objects.filter(
+        role__role_name=role_name,
+        account_status=User.AccountStatus.APPROVED,
+    )
+    notifications = [
+        Notification(
+            user=user,
+            notification_type=notification_type,
+            priority=priority,
+            title=title,
+            message=message,
+            link=link,
+        )
+        for user in recipients
+    ]
+    Notification.objects.bulk_create(notifications)
+    return len(notifications)
 
 
 @api_view(["GET"])

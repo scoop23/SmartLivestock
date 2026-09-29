@@ -234,6 +234,31 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("status", "review_remarks", "created_at")
 
+    def validate_livestock(self, value):
+        if value is None:
+            return value
+        user = self.context["request"].user
+        if value.farmer.user_id != user.id and value.created_by_id != user.id:
+            raise ValidationError("You can only record a sale for your own livestock.")
+        if value.status != LivestockInventory.StatusType.APPROVED:
+            raise ValidationError("Only approved livestock can be recorded as sold.")
+        return value
+
+    def validate_batch(self, value):
+        if value is None:
+            return value
+        user = self.context["request"].user
+        if value.farmer.user_id != user.id and value.created_by_id != user.id:
+            raise ValidationError("You can only record a sale for your own batch.")
+        return value
+
+    def validate(self, attrs):
+        livestock = attrs.get("livestock")
+        batch = attrs.get("batch")
+        if bool(livestock) == bool(batch):
+            raise ValidationError("Provide either livestock or batch, but not both.")
+        return attrs
+
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
@@ -357,6 +382,16 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("status", "reviewed_by", "reviewed_by_name", "reviewed_at", "review_remarks", "created_at")
+
+    def validate_dam(self, value):
+        user = self.context["request"].user
+        if value.farmer.user_id != user.id and value.created_by_id != user.id:
+            raise ValidationError("You can only record calving for your own livestock.")
+        if value.status != LivestockInventory.StatusType.APPROVED:
+            raise ValidationError("Only approved livestock can be used as the dam.")
+        if value.sex.upper() not in {"FEMALE", "F"}:
+            raise ValidationError("The selected dam must be female.")
+        return value
 
     def create(self, validated_data):
         user = self.context["request"].user

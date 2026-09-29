@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { PageHeader } from "@/app/components/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -370,13 +371,21 @@ export default function AdminDataValidationPage() {
   const currentPageRecordIds = useMemo(() => {
     switch (activeDomain) {
       case "census":
-        return paginatedCensus.map((c) => c.id);
+        return paginatedCensus
+          .filter((c) => (c.status || "PENDING").toUpperCase() === "PENDING")
+          .map((c) => c.id);
       case "production":
-        return paginatedProduction.map((p) => p.id);
+        return paginatedProduction
+          .filter((p) => (p.status || "PENDING").toUpperCase() === "VERIFIED")
+          .map((p) => p.id);
       case "inventory":
-        return paginatedInventory.map((i) => i.id);
+        return paginatedInventory
+          .filter((i) => (i.status || "PENDING").toUpperCase() === "VERIFIED")
+          .map((i) => i.id);
       case "incidents":
-        return paginatedIncidents.map((inc) => inc.id);
+        return paginatedIncidents
+          .filter((inc) => (inc.status || "PENDING").toUpperCase() === "VERIFIED")
+          .map((inc) => inc.id);
     }
   }, [activeDomain, paginatedCensus, paginatedProduction, paginatedInventory, paginatedIncidents]);
 
@@ -409,7 +418,7 @@ export default function AdminDataValidationPage() {
     let targets: ReviewTargetItem[] = [];
     if (activeDomain === "census") {
       targets = censusSubmissions
-        .filter((c) => selectedIds.includes(c.id))
+        .filter((c) => selectedIds.includes(c.id) && (c.status || "PENDING").toUpperCase() === "PENDING")
         .map((c) => ({
           id: c.id,
           domain: "census",
@@ -421,7 +430,7 @@ export default function AdminDataValidationPage() {
         }));
     } else if (activeDomain === "production") {
       targets = productionRecords
-        .filter((p) => selectedIds.includes(p.id))
+        .filter((p) => selectedIds.includes(p.id) && (p.status || "PENDING").toUpperCase() === "VERIFIED")
         .map((p) => ({
           id: p.id,
           domain: "production",
@@ -433,7 +442,7 @@ export default function AdminDataValidationPage() {
         }));
     } else if (activeDomain === "inventory") {
       targets = inventoryRecords
-        .filter((i) => selectedIds.includes(i.id))
+        .filter((i) => selectedIds.includes(i.id) && (i.status || "PENDING").toUpperCase() === "VERIFIED")
         .map((i) => ({
           id: i.id,
           domain: "inventory",
@@ -447,7 +456,7 @@ export default function AdminDataValidationPage() {
         }));
     } else {
       targets = incidents
-        .filter((inc) => selectedIds.includes(inc.id))
+        .filter((inc) => selectedIds.includes(inc.id) && (inc.status || "PENDING").toUpperCase() === "VERIFIED")
         .map((inc) => ({
           id: inc.id,
           domain: "incidents",
@@ -483,7 +492,7 @@ export default function AdminDataValidationPage() {
           });
           return next;
         });
-        await Promise.allSettled(
+        await Promise.all(
           itemIds.map((id) =>
             api.post(`livestock/census/${id}/review/`, { status: action, remarks })
           )
@@ -498,7 +507,7 @@ export default function AdminDataValidationPage() {
           });
           return next;
         });
-        await Promise.allSettled(
+        await Promise.all(
           itemIds.map((id) =>
             api.post(`production/records/${id}/review/`, { status: action, remarks })
           )
@@ -514,7 +523,7 @@ export default function AdminDataValidationPage() {
           });
           return next;
         });
-        await Promise.allSettled(
+        await Promise.all(
           itemIds.map((id) => {
             const strId = String(id);
             if (strId.startsWith("batch-")) {
@@ -537,7 +546,7 @@ export default function AdminDataValidationPage() {
           });
           return next;
         });
-        await Promise.allSettled(
+        await Promise.all(
           itemIds.map((id) => {
             const strId = String(id);
             if (strId.startsWith("dis-")) {
@@ -549,6 +558,10 @@ export default function AdminDataValidationPage() {
             } else if (strId.startsWith("sale-")) {
               const cleanId = strId.replace("sale-", "");
               return api.post(`production/sales/${cleanId}/review/`, { status: action, remarks });
+            }
+            if (strId.startsWith("birth-")) {
+              const cleanId = strId.replace("birth-", "");
+              return api.post("production/calving/" + cleanId + "/review/", { status: action, remarks });
             }
             return Promise.resolve();
           })
@@ -571,7 +584,13 @@ export default function AdminDataValidationPage() {
       }
     } catch (err) {
       console.error("Failed to perform validation review action:", err);
-      toast.error("Failed to complete review action. Please check network or permissions.");
+      const responseData = axios.isAxiosError(err)
+        ? (err.response?.data as { status?: string; remarks?: string; error?: string } | undefined)
+        : undefined;
+      const apiMessage = responseData?.status || responseData?.remarks || responseData?.error;
+      toast.error("Review action was not applied.", {
+        description: apiMessage || "The record may still require SIBAT verification or a different workflow step.",
+      });
     }
   };
 

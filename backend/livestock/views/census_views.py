@@ -9,6 +9,7 @@ from livestock.serializer import CensusSubmissionSerializer
 from livestock.models import CensusSubmission
 from livestock.services import CensusService
 from livestock.permission import isSibat, isMAO
+from smartlivestock.workflows import require_action
 
 
 @api_view(["GET", "POST"])
@@ -19,8 +20,7 @@ def census_list_create(request):
     POST /api/livestock/census/ -> Submit a new quarterly census batch
     """
     if request.method == "POST":
-        if not isSibat().has_permission(request, census_list_create):
-            raise PermissionDenied("Only Sibat cooperative staff can submit census batches.")
+        require_action(request.user, "census", "create")
         serializer = CensusSubmissionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
@@ -39,6 +39,7 @@ def census_list_create(request):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     # GET
+    require_action(request.user, "census", "read_all")
     submissions = (
         CensusSubmission.objects.select_related(
             "barangay", "submitted_by", "reviewed_by"
@@ -65,10 +66,16 @@ def census_detail(request, pk):
     )
 
     if request.method in ["PUT", "PATCH"]:
-        if census.status == CensusSubmission.StatusType.APPROVED:
+        require_action(request.user, "census", "edit_own")
+        if census.submitted_by_id != request.user.id:
+            raise PermissionDenied("SIBAT users may only revise census submissions they created.")
+        if census.status not in {
+            CensusSubmission.StatusType.PENDING,
+            CensusSubmission.StatusType.SUBJECT_TO_REVISION,
+        }:
             return Response(
-                {"error": "Cannot modify a census submission that has already been approved."},
-                status=status.HTTP_403_FORBIDDEN,
+                {"error": "Only PENDING or SUBJECT_TO_REVISION census submissions can be changed."},
+                status=status.HTTP_409_CONFLICT,
             )
 
         serializer = CensusSubmissionSerializer(
@@ -77,10 +84,14 @@ def census_detail(request, pk):
             partial=True,
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        census = CensusService.revise_census_submission(
+            submission=census,
+            validated_data=dict(serializer.validated_data),
+        )
+        return Response(CensusSubmissionSerializer(census).data, status=status.HTTP_200_OK)
 
     # GET
+    require_action(request.user, "census", "read_all")
     serializer = CensusSubmissionSerializer(census)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -101,6 +112,7 @@ def review_census_submission(request, pk):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    require_action(request.user, "census", "review")
     submission = CensusService.review_census_submission(
         submission_id=pk,
         reviewer=request.user,
