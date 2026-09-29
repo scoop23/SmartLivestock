@@ -1,7 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarDays, Check, Search, Syringe, Weight, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ShieldCheck,
+  Syringe,
+  Tag,
+  Weight,
+  X,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,12 +20,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/components/ui/utils";
 import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
-import { cowHead } from "@lucide/lab";
-import { Icon } from 'lucide-react';
 
 interface SelectLivestockDialogProps {
   open: boolean;
@@ -24,21 +33,18 @@ interface SelectLivestockDialogProps {
   onSelect: (item: LivestockInventoryItem) => void;
 }
 
+const PAGE_SIZE = 6;
+
 const formatDate = (date: string | null | undefined) => {
   if (!date) return "Unknown date";
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
-  if (match) {
-    const [, y, m, d] = match;
-    const month = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-US", { month: "short" });
-    return `${month} ${Number(d)}, ${y}`;
-  }
-  return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-};
-
-const typeColors: Record<string, string> = {
-  Cattle: "bg-emerald-100 text-emerald-700",
-  Goat: "bg-amber-100 text-amber-700",
-  Swine: "bg-sky-100 text-sky-700",
+  if (!match) return new Date(date).toLocaleDateString();
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
 export default function SelectLivestockDialog({
@@ -49,154 +55,247 @@ export default function SelectLivestockDialog({
   onSelect,
 }: SelectLivestockDialogProps) {
   const [query, setQuery] = useState("");
+  const [species, setSpecies] = useState("ALL");
+  const [page, setPage] = useState(1);
 
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? items.filter((item) =>
-      [item.tagNumber, item.livestockTypeName, item.breed, item.sex, item.id]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q)),
-    )
-    : items;
+  const speciesOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(items.map((item) => item.livestockTypeName).filter(Boolean)),
+      ).sort(),
+    [items],
+  );
+
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchesSpecies =
+        species === "ALL" || item.livestockTypeName.toLowerCase() === species.toLowerCase();
+      const matchesQuery =
+        !normalizedQuery ||
+        [
+          item.tagNumber,
+          item.batchCode,
+          item.batchName,
+          item.livestockTypeName,
+          item.breed,
+          item.sex,
+          item.id,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+      return matchesSpecies && matchesQuery;
+    });
+  }, [items, query, species]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const visibleItems = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setQuery("");
+      setSpecies("ALL");
+      setPage(1);
+    }
+    onOpenChange(nextOpen);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[92vh] flex flex-col p-2 gap-0 overflow-hidden rounded-2xl ">
-        <DialogHeader className="p-5 pb-3 border-b border-slate-100 flex-shrink-0">
-          <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
-            <div className="p-2.5 rounded-lg bg-[#2D5A27]/10 text-[#2D5A27]">
-              <Icon iconNode={cowHead} className="size-5" />
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[94vh] p-0 gap-0 overflow-hidden rounded-3xl border-0 shadow-2xl bg-slate-50">
+        <DialogHeader className="relative overflow-hidden px-5 sm:px-6 py-5 bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-left">
+          <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex items-start gap-3">
+            <div className="size-11 rounded-2xl bg-white/15 border border-white/15 flex items-center justify-center shrink-0">
+              <Tag className="size-5 text-white" />
             </div>
-            Select Approved Livestock
-          </DialogTitle>
-          <DialogDescription className="text-base text-slate-500 mt-1.5">
-            Choose an approved batch or animal to link to this production record.
-          </DialogDescription>
+            <div>
+              <DialogTitle className="text-xl font-black text-white">
+                Choose Production Livestock
+              </DialogTitle>
+              <DialogDescription className="text-sm text-white/75 mt-1">
+                All {items.length} MAO-approved livestock records are available below.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        {items.length > 0 && (
-          <div className="px-5 pt-3 pb-2 flex-shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 bg-white space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <Input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by tag, batch, breed..."
-                className="pl-10 pr-9 h-11 text-base bg-slate-50"
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search tag, cohort, breed, or ID..."
+                className="pl-9 pr-9 h-10 rounded-xl bg-slate-50 border-slate-200"
                 autoComplete="off"
               />
               {query && (
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
+                  onClick={() => {
+                    setQuery("");
+                    setPage(1);
+                  }}
                   aria-label="Clear search"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="size-4" />
                 </button>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-2">
-              Showing {filtered.length} of {items.length} approved livestock
-              {filtered.length !== items.length ? ` matching "${query.trim()}"` : ""}
-            </p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              {["ALL", ...speciesOptions].map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  size="sm"
+                  variant={species === option ? "default" : "outline"}
+                  onClick={() => {
+                    setSpecies(option);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "h-10 rounded-xl text-xs font-bold shrink-0",
+                    species === option && "bg-[#2D5A27] hover:bg-[#244a20]",
+                  )}
+                >
+                  {option === "ALL" ? "All species" : option}
+                </Button>
+              ))}
+            </div>
           </div>
-        )}
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold text-slate-600">
+              {filtered.length === 0
+                ? "No matching livestock"
+                : `Showing ${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
+            </span>
+            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+              <ShieldCheck className="size-3.5" />
+              Approved only
+            </span>
+          </div>
+        </div>
 
-        <div className="flex-1 justify-center p-4 min-h-0">
+        <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
           {items.length === 0 ? (
-            <p className="text-base text-slate-500 text-center py-12 px-6">
-              No approved livestock found. Livestock must be validated and approved by SIBAT / MAO before logging production.
-            </p>
+            <EmptyState text="No approved livestock is available for production logging." />
           ) : filtered.length === 0 ? (
-            <p className="text-base text-slate-500 text-center py-12 px-6">
-              No livestock matches your search.
-            </p>
+            <EmptyState text="No livestock matches the current search and species filter." />
           ) : (
-            <ScrollArea className="h-full w-full ">
-              <div className="flex flex-col divide-y divide-slate-100 gap-2">
-                {filtered.map((item) => {
-                  const selected = selectedId === item.id;
-                  const color = typeColors[item.livestockTypeName] ?? "bg-slate-100 text-slate-600";
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        onSelect(item);
-                        onOpenChange(false);
-                      }}
-                      className={cn(
-                        " text-left px-5 py-4 flex items-center justify-between gap-4 transition-colors rounded-2xl",
-                        selected ? "bg-emerald-200" : "hover:bg-slate-50",
-                      )}
-                    >
-                      <div className="min-w-0 flex items-center gap-3.5">
-                        <div className={cn("shrink-0 flex items-center justify-center size-11 rounded-xl", color)}>
-                          <Icon iconNode={cowHead} className="size-6" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-base font-bold text-slate-900 truncate">
-                              {item.entryType === "INDIVIDUAL"
-                                ? item.tagNumber || "Un-tagged"
-                                : `Batch #${item.id} (${item.quantity} heads)`}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {visibleItems.map((item) => {
+                const selected = selectedId === item.id;
+                const title =
+                  item.entryType === "INDIVIDUAL"
+                    ? item.tagNumber || `Animal #${item.id}`
+                    : item.batchCode || item.batchName || `Cohort #${item.id}`;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      onSelect(item);
+                      handleOpenChange(false);
+                    }}
+                    className={cn(
+                      "group text-left rounded-2xl border-2 bg-white p-4 transition-all hover:-translate-y-0.5 hover:shadow-md",
+                      selected
+                        ? "border-[#2D5A27] ring-2 ring-[#2D5A27]/15"
+                        : "border-slate-200 hover:border-emerald-300",
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={cn(
+                        "size-11 rounded-2xl flex items-center justify-center shrink-0",
+                        selected ? "bg-[#2D5A27] text-white" : "bg-emerald-50 text-emerald-700",
+                      )}>
+                        {selected ? <Check className="size-5" /> : <Tag className="size-5" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-black text-slate-900 truncate">{title}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 truncate">
+                              {item.livestockTypeName} · {item.breed || "Breed not specified"} · {item.sex || "Sex not specified"}
                             </p>
-                            <span className={cn(
-                              "shrink-0 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border",
-                              item.entryType === "BATCH"
-                                ? "bg-sky-50 text-sky-700 border-sky-200"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-200",
-                            )}>
-                              {item.entryType === "BATCH" ? "Batch" : "Individual"}
-                            </span>
-                            <span className={cn(
-                              "shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                              item.status === "APPROVED"
-                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                : "bg-amber-100 text-amber-800 border-amber-300"
-                            )}>
-                              {item.status}
-                            </span>
                           </div>
-                          <p className="text-sm text-slate-500 mt-1 truncate">
-                            {item.livestockTypeName} • {item.breed || "Standard Breed"} • {item.sex}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-                            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                              <CalendarDays className="w-4 h-4 text-slate-400" />
-                              Added {formatDate(item.createdAt)}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                              <Syringe className="w-4 h-4 text-slate-400" />
-                              {item.lastVaccinationDate
-                                ? `Vax ${formatDate(item.lastVaccinationDate)}`
-                                : "No vax record"}
-                            </span>
-                            {item.weight != null && (
-                              <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                                <Weight className="w-4 h-4 text-slate-400" />
-                                {item.weight} kg
-                              </span>
-                            )}
-                          </div>
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                            Approved
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600">
+                          <span className="inline-flex items-center gap-1.5">
+                            <CalendarDays className="size-3.5 text-slate-400" />
+                            {formatDate(item.createdAt)}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Weight className="size-3.5 text-slate-400" />
+                            {item.weight != null ? `${item.weight} kg` : "No weight"}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 col-span-2">
+                            <Syringe className="size-3.5 text-slate-400" />
+                            {item.lastVaccinationDate
+                              ? `Vaccinated ${formatDate(item.lastVaccinationDate)}`
+                              : "No vaccination date recorded"}
+                          </span>
                         </div>
                       </div>
-                      <div className="shrink-0 flex flex-col items-end gap-1">
-                        {selected && (
-                          <span className="inline-flex items-center gap-1 text-sm font-bold text-[#2D5A27]">
-                            <Check className="w-5 h-5" /> Selected
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           )}
+        </div>
+
+        <div className="px-4 sm:px-6 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <p className="text-[11px] text-slate-500">
+            Page {safePage} of {pageCount} · {items.length} approved record{items.length === 1 ? "" : "s"} total
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}
+              className="rounded-xl font-bold gap-1"
+            >
+              <ChevronLeft className="size-4" /> Previous
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={safePage >= pageCount}
+              onClick={() => setPage(safePage + 1)}
+              className="rounded-xl bg-[#2D5A27] hover:bg-[#244a20] font-bold gap-1"
+            >
+              Next <ChevronRight className="size-4" />
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="min-h-56 rounded-2xl border border-dashed border-slate-300 bg-white flex flex-col items-center justify-center text-center p-8">
+      <Search className="size-8 text-slate-300 mb-3" />
+      <p className="text-sm font-bold text-slate-700">{text}</p>
+      <p className="text-xs text-slate-400 mt-1">Try clearing the search or selecting another species.</p>
+    </div>
   );
 }

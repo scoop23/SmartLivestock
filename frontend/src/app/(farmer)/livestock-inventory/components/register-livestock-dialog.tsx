@@ -279,6 +279,19 @@ export function RegisterLivestockDialog({
 
   const currentPreset = getSpeciesPreset(formData.livestockType);
 
+  // Species gate: cohorts keep a single species, so an individual animal may only
+  // be assigned to a cohort whose livestock type matches the selected species.
+  const batchSpeciesById = useMemo(() => {
+    return Object.fromEntries(
+      userBatches.map((b) => [String(b.id), b.livestockTypeName])
+    );
+  }, [userBatches]);
+
+  const matchingBatches = useMemo(
+    () => userBatches.filter((b) => b.livestockTypeName === formData.livestockType),
+    [userBatches, formData.livestockType]
+  );
+
   const addMutation = useMutation({
     mutationFn: async () => {
       const typeId = livestockTypes[formData.livestockType];
@@ -552,6 +565,11 @@ export function RegisterLivestockDialog({
                           breed: defBreed,
                           isOtherBreed: false,
                           customBreed: "",
+                          batchId:
+                            batchSpeciesById[String(prev.batchId)] &&
+                            batchSpeciesById[String(prev.batchId)] !== name
+                              ? ""
+                              : prev.batchId,
                           avatarKey: prev.photoDataUrl ? prev.avatarKey : defAvatar.id,
                           tagNumber:
                             prev.entryType === "INDIVIDUAL" && !prev.tagNumber
@@ -775,13 +793,24 @@ export function RegisterLivestockDialog({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Standalone Animal (No Batch)</SelectItem>
-                      {userBatches.map((b) => (
+                      {matchingBatches.map((b) => (
                         <SelectItem key={b.id} value={String(b.id)}>
                           {b.batchCode} ({b.batchName || b.livestockTypeName})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {userBatches.length > 0 ? (
+                    matchingBatches.length > 0 ? (
+                      <p className="text-[10px] font-medium text-slate-400">
+                        Only {formData.livestockType} cohorts are listed — each cohort keeps a single species.
+                      </p>
+                    ) : (
+                      <p className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                        No {formData.livestockType} cohorts yet. Switch to Batch mode to create one, or register this livestock as a standalone animal.
+                      </p>
+                    )
+                  ) : null}
                 </div>
 
                 {/* Individual Breed Selection (Dropdown + Others) */}

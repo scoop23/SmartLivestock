@@ -1,17 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   Baby,
-  Calculator,
-  ChevronRight,
-  ClipboardCheck,
-  Dna,
-  Layers,
   LineChart as LineChartIcon,
   Milk,
   Plus,
@@ -19,11 +13,10 @@ import {
   Scale,
   ShieldCheck,
   ShoppingBag,
-  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
 
@@ -39,8 +32,7 @@ import ProductionCalvingTab, {
 import ProductionWeightTab from "./production-weight-tab";
 import ProductionSalesTab from "./production-sales-tab";
 import ProductionForecastsTab from "./production-forecasts-tab";
-import { ENTERPRISE_CONFIGS } from "./production-enterprise-hub";
-import ProductionWizard from "./production-wizard";
+import ProductionWizard, { getProductionTypesForLivestock } from "./production-wizard";
 import ProductionDeleteDialog from "./production-delete-dialog";
 
 import {
@@ -77,7 +69,6 @@ export default function ProductionDashboardView({
   showEnterpriseSwitch = true,
 }: ProductionDashboardViewProps) {
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   // Wizard state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -128,8 +119,43 @@ export default function ProductionDashboardView({
   });
 
   const approvedInventories = useMemo(() => {
-    return inventories.filter((item) => item.status === "APPROVED");
+    return inventories.filter(
+      (item) =>
+        item.status === "APPROVED" &&
+        (item.operationalStatus || "ACTIVE") === "ACTIVE",
+    );
   }, [inventories]);
+
+  const ownedSpecies = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          approvedInventories
+            .map((item) => item.livestockTypeName?.trim())
+            .filter((name): name is string => Boolean(name)),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [approvedInventories],
+  );
+
+  const allowedProductionTypes = useMemo(() => {
+    if (selectedSpecies && selectedSpecies !== "ALL") {
+      return getProductionTypesForLivestock(selectedSpecies);
+    }
+    const allowed = new Set<ProductionType>();
+    ownedSpecies.forEach((speciesName) => {
+      getProductionTypesForLivestock(speciesName).forEach((type) => allowed.add(type));
+    });
+    const displayOrder: ProductionType[] = ["milk", "meat", "eggs", "wool"];
+    return displayOrder.filter((type) => allowed.has(type));
+  }, [ownedSpecies, selectedSpecies]);
+
+  const activeProductionType = allowedProductionTypes.includes(productionType)
+    ? productionType
+    : allowedProductionTypes[0] ?? "milk";
+
+  // console.log(Array.from(new Set(approvedInventories.map((r) => r.livestockTypeName))).sort((left, right) => left.localeCompare(right)));
+
 
   const filteredInventories = useMemo(() => {
     if (!selectedSpecies || selectedSpecies === "ALL")
@@ -148,21 +174,10 @@ export default function ProductionDashboardView({
 
   const terms = getBirthingTerminology(selectedSpecies);
 
-  // Sync initial productionType default when selectedSpecies changes
-  useEffect(() => {
-    if (selectedSpecies && selectedSpecies !== "ALL") {
-      const s = selectedSpecies.toLowerCase();
-      if (s.includes("swine") || s.includes("pig")) setProductionType("meat");
-      else if (s.includes("poultry") || s.includes("chicken")) setProductionType("eggs");
-      else if (s.includes("sheep")) setProductionType("wool");
-      else setProductionType("milk");
-    }
-  }, [selectedSpecies]);
-
   // Dynamically adapt button label when user changes between Milk, Meat, Eggs, Wool
   const quickLogLabel = useMemo(() => {
     const s = (selectedSpecies || "").toLowerCase();
-    switch (productionType) {
+    switch (activeProductionType) {
       case "meat":
         if (s.includes("swine") || s.includes("pig")) return "Log Pork & Carcass";
         if (s.includes("cattle")) return "Log Beef & Carcass";
@@ -182,7 +197,7 @@ export default function ProductionDashboardView({
         if (s.includes("cattle")) return "Log Cow Milk Yield";
         return "Log Daily Milk Yield";
     }
-  }, [productionType, selectedSpecies]);
+  }, [activeProductionType, selectedSpecies]);
 
   const handleFieldChange = (field: string, val: string | number) => {
     setFormState((prev) => ({ ...prev, [field]: val }));
@@ -210,7 +225,7 @@ export default function ProductionDashboardView({
   const handleOpenEditWizard = (record: ProductionRecordItem) => {
     setEditingRecord(record);
     setProductionType(record.productionType);
-    const targetLivestockId = String(record.livestockId || (record as any).livestock || "");
+    const targetLivestockId = String(record.livestockId || "");
     const matchedInv =
       inventories.find((i) => String(i.id) === targetLivestockId) ||
       (targetLivestockId
@@ -326,7 +341,6 @@ export default function ProductionDashboardView({
     () => computeProductionAnalytics(filteredProductionRecords),
     [filteredProductionRecords]
   );
-  const currentSummary = analytics.by_type[productionType] ?? EMPTY_TYPE_ANALYTICS;
   const pendingCount = filteredProductionRecords.filter((r) => r.status === "PENDING").length;
 
   return (
@@ -366,7 +380,7 @@ export default function ProductionDashboardView({
         {/* Quick Enterprise Switcher Pills */}
         {showEnterpriseSwitch && onSpeciesChange && (
           <div className="flex items-center gap-1.5 overflow-x-auto">
-            {Object.keys(ENTERPRISE_CONFIGS).map((sName) => (
+            {ownedSpecies.map((sName) => (
               <button
                 key={sName}
                 type="button"
@@ -508,8 +522,8 @@ export default function ProductionDashboardView({
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
             <ProductionTypeSelector
-              types={analytics.available_types}
-              selected={productionType}
+              types={allowedProductionTypes}
+              selected={activeProductionType}
               onSelect={handleTypeSelect}
             />
             <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -545,8 +559,8 @@ export default function ProductionDashboardView({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
                 <ProductionCharts
-                  type={productionType}
-                  data={analytics.by_type[productionType] ?? EMPTY_TYPE_ANALYTICS}
+                  type={activeProductionType}
+                  data={analytics.by_type[activeProductionType] ?? EMPTY_TYPE_ANALYTICS}
                 />
               </div>
 
@@ -610,7 +624,7 @@ export default function ProductionDashboardView({
 
       {/* Preserved Production Entry Wizard (modal) */}
       <ProductionWizard
-        productionType={productionType}
+        productionType={activeProductionType}
         onTypeChange={handleTypeSelect}
         clickedInventory={clickedInventory}
         onSelectInventory={setClickedInventory}

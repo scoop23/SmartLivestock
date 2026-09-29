@@ -124,6 +124,7 @@ def inventory_detail(request, pk):
         "reviewed_by",
         "created_by",
     )
+
     if request.method != "GET":
         base_qs = base_qs.select_for_update(of=("self",))
 
@@ -152,7 +153,7 @@ def inventory_detail(request, pk):
             )
 
     if request.method == "DELETE":
-        if inventory.batch_id:
+        if inventory.batch_id: #type: ignore
             return Response(
                 {"error": "Cohort animals must remain with their batch. Delete the pending batch instead."},
                 status=status.HTTP_409_CONFLICT,
@@ -211,13 +212,13 @@ def review_inventory(request, pk):
     """
     inventory = get_object_or_404(LivestockInventory, pk=pk)
 
-    if inventory.batch_id:
+    if inventory.batch_id: # type: ignore
         batch = inventory.batch
         return Response(
             {
                 "error": (
-                    f"This animal belongs to cohort {batch.batch_code}. Review the entire "
-                    f"batch via livestock/batches/{inventory.batch_id}/review/ so all cohort "
+                    f"This animal belongs to cohort {batch.batch_code}. Review the entire " # type: ignore
+                        f"batch via livestock/batches/{inventory.batch_id}/review/ so all cohort "# type: ignore
                     "animals move through FARMER -> SIBAT -> MAO validation together."
                 )
             },

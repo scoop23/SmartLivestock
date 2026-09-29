@@ -17,7 +17,11 @@ export default function SpeciesProductionPage() {
 
   const { data: inventories = [], isLoading } = useUserInventory();
 
-  const approvedInventories = inventories.filter((i) => i.status === "APPROVED");
+  const approvedInventories = inventories.filter(
+    (item) =>
+      item.status === "APPROVED" &&
+      (item.operationalStatus || "ACTIVE") === "ACTIVE",
+  );
   const uniqueSpecies = useMemo(() => {
     return Array.from(
       new Set(

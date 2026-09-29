@@ -11,6 +11,31 @@ from livestock.models import LivestockInventory, LivestockBatch
 from rest_framework.exceptions import ValidationError
 
 
+PRODUCTION_RULES = (
+    (("CATTLE", "BAKA", "BOVINE", "COW"), {"MILK", "MEAT"}),
+    (("CARABAO", "KALABAW", "BUFFALO"), {"MILK", "MEAT"}),
+    (("GOAT", "KAMBING", "CAPRINE"), {"MILK", "MEAT"}),
+    (("SHEEP", "TUPA", "OVINE", "LAMB", "RAM"), {"MEAT", "WOOL"}),
+    (("SWINE", "PIG", "BABOY", "HOG", "PORCINE"), {"MEAT"}),
+    (("POULTRY", "CHICKEN", "MANOK", "DUCK", "ITIK", "HEN", "LAYER"), {"EGGS", "MEAT"}),
+)
+
+PRODUCTION_UNITS = {
+    "MILK": "LITERS",
+    "MEAT": "KILOGRAMS",
+    "EGGS": "PIECES",
+    "WOOL": "KILOGRAMS",
+}
+
+
+def allowed_production_types(livestock_type_name):
+    normalized_name = (livestock_type_name or "").strip().upper()
+    for aliases, production_types in PRODUCTION_RULES:
+        if any(alias in normalized_name for alias in aliases):
+            return production_types
+    return set()
+
+
 class ProductionRecordSerializer(serializers.ModelSerializer):
     """
     Returns:
@@ -115,6 +140,10 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 "Only approved livestock can be logged for production."
             )
+        if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+            raise ValidationError(
+                "Production can only be logged for active livestock."
+            )
         return value
 
     def validate_batch(self, value):
@@ -123,7 +152,15 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         if value.farmer.user_id != user.id and value.created_by_id != user.id:
             raise ValidationError("You can only log production against your own batch.")
+        if value.status != LivestockBatch.StatusType.ACTIVE:
+            raise ValidationError("Production can only be logged for an active batch.")
+        animal_statuses = set(value.animals.values_list("status", flat=True))
+        if not animal_statuses or animal_statuses != {LivestockInventory.StatusType.APPROVED}:
+            raise ValidationError(
+                "Every animal in the batch must be MAO approved before production can be logged."
+            )
         return value
+
     def validate(self, attrs):
         if self.instance is None:
             # for create
@@ -141,26 +178,39 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             )
             unit = attrs.get("unit", self.instance.unit)
 
-        if not livestock and not batch:
-            raise ValidationError("Either livestock or batch must be provided.")
+        if bool(livestock) == bool(batch):
+            raise ValidationError(
+                "Choose exactly one production source: livestock or batch."
+            )
 
-        if livestock:
-            livestock_type_name = getattr(getattr(livestock, "livestock_type", None), "name", "").upper()
-        elif batch:
-            livestock_type_name = getattr(getattr(batch, "livestock_type", None), "name", "").upper()
-        else:
-            livestock_type_name = ""
-        if "CATTLE" in livestock_type_name or "BAKA" in livestock_type_name:
-            if production_type not in [
-                ProductionRecord.ProductionType.MILK,
-                ProductionRecord.ProductionType.MEAT,
-            ]:
-                raise ValidationError("Cattle production records can be for milk or meat.")
+        source = livestock or batch
+        livestock_type_name = getattr(
+            getattr(source, "livestock_type", None),
+            "name",
+            "",
+        )
+        allowed_types = allowed_production_types(livestock_type_name)
+        if not allowed_types:
+            raise ValidationError({
+                "production_type": (
+                    f"Production rules are not configured for livestock type "
+                    f"'{livestock_type_name or 'Unknown'}'."
+                )
+            })
+        if production_type not in allowed_types:
+            allowed_labels = ", ".join(sorted(allowed_types))
+            raise ValidationError({
+                "production_type": (
+                    f"{livestock_type_name} production can only be recorded as "
+                    f"{allowed_labels}."
+                )
+            })
 
-            if production_type == ProductionRecord.ProductionType.MILK and unit != ProductionRecord.UnitType.LITERS:
-                raise ValidationError("Milk production must be recorded in liters.")
-            if production_type == ProductionRecord.ProductionType.MEAT and unit != ProductionRecord.UnitType.KILOGRAMS:
-                raise ValidationError("Meat production must be recorded in kilograms.")
+        expected_unit = PRODUCTION_UNITS.get(production_type)
+        if unit != expected_unit:
+            raise ValidationError({
+                "unit": f"{production_type.title()} production must use {expected_unit}."
+            })
 
         return attrs
 

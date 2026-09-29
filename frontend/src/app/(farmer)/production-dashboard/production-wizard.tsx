@@ -8,11 +8,14 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Egg,
+  Info,
   Milk,
   Package,
   Send,
+  ShieldCheck,
+  Sparkles,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +35,7 @@ import ProductionFormFields, {
 } from "./production-form-fields";
 import SelectLivestockDialog from "./select-livestock-dialog";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
-import type { UpdateProductionPayload, WizardMode } from "./production-dashboard-view";
+import type { WizardMode } from "./production-dashboard-view";
 
 import { type ProductionType, ProductionRecordItem } from "./production-analytics";
 
@@ -160,7 +163,7 @@ export function getProductionTypesForLivestock(livestockTypeName?: string | null
   return ["milk", "meat"];
 }
 
-export default function ProductionWizard({
+function ProductionWizardContent({
   productionType,
   onTypeChange,
   clickedInventory,
@@ -170,34 +173,14 @@ export default function ProductionWizard({
   approvedInventories,
   isLoading,
   isSubmitting,
-  resetSignal,
   onSubmit,
   open,
   onClose,
   mode,
-  editingRecord,
 }: ProductionWizardProps) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(mode === "edit" ? 2 : 0);
   const [selectOpen, setSelectOpen] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
-  const [prevResetSignal, setPrevResetSignal] = useState(resetSignal);
-  const [prevOpen, setPrevOpen] = useState(open);
-
-  if (resetSignal !== prevResetSignal) {
-    setPrevResetSignal(resetSignal);
-    setStep(mode === "edit" ? 2 : 0);
-    setSelectOpen(false);
-    setIsCertified(mode === "edit");
-  }
-
-  if (open !== prevOpen) {
-    setPrevOpen(open);
-    if (open) {
-      setStep(mode === "edit" ? 2 : 0);
-      setSelectOpen(false);
-      setIsCertified(mode === "edit");
-    }
-  }
 
   const availableTypes = getProductionTypesForLivestock(clickedInventory?.livestockTypeName);
   const meta = typeMeta[productionType] ?? typeMeta[availableTypes[0]] ?? typeMeta.milk;
@@ -228,6 +211,15 @@ export default function ProductionWizard({
         : step === 2
           ? getEnteredQty() > 0
           : true;
+
+  const validationMessage =
+    step === 0 && !clickedInventory
+      ? "Select an approved animal before continuing."
+      : step === 2 && !String(formState.prodDate ?? "").trim()
+        ? "Enter the production date."
+        : step === 2 && getEnteredQty() <= 0
+          ? "Enter a production quantity greater than zero."
+          : null;
 
   const buildPayload = (): ProductionPayload | null => {
     if (!clickedInventory) return null;
@@ -309,29 +301,45 @@ export default function ProductionWizard({
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl border-slate-200 shadow-2xl">
-        <DialogHeader className="px-5 md:px-6 pt-5 md:pt-6 pb-3 border-b border-slate-100 text-left">
-          <DialogTitle className="text-xl font-bold text-slate-900">
-            {mode === "edit" ? "Edit Production Record" : "Log Production"}
-          </DialogTitle>
-          <DialogDescription className="text-sm text-slate-500 mt-1">
-            {mode === "edit"
-              ? "Update production yield details and notes"
-              : "Record milk, meat, eggs, and wool production"}
-          </DialogDescription>
+      <DialogContent className="sm:max-w-4xl max-h-[94vh] overflow-hidden p-0 gap-0 rounded-3xl border-0 shadow-2xl bg-slate-50">
+        <DialogHeader className="relative overflow-hidden px-5 md:px-7 py-5 md:py-6 text-left bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-white">
+          <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex items-start gap-3.5">
+            <div className="size-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0 border border-white/15">
+              <Sparkles className="size-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl md:text-2xl font-black text-white">
+                {mode === "edit" ? "Correct Production Entry" : "New Production Entry"}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-white/75 mt-1">
+                {mode === "edit"
+                  ? "Update the returned details, review them, and resubmit to SIBAT."
+                  : "Declare a verified yield from one of your approved livestock records."}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="p-5 md:p-6">
-          <div className="flex items-center gap-0 mb-6">
+        <div className="overflow-y-auto p-4 sm:p-5 md:p-7">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mb-5">
             {STEP_LABELS.map((label, i) => {
               const isActive = i === step;
               const isDone = i < step;
               return (
-                <div key={label} className={cn("flex items-center", i < STEP_LABELS.length - 1 && "flex-1")}>
-                  <div className="flex flex-col items-center gap-1.5">
+                <div
+                  key={label}
+                  className={cn(
+                    "rounded-2xl border px-2 py-2.5 sm:px-3 transition-colors",
+                    isActive && "border-[#2D5A27] bg-white shadow-sm",
+                    isDone && "border-emerald-200 bg-emerald-50",
+                    !isDone && !isActive && "border-slate-200 bg-slate-100/70",
+                  )}
+                >
+                  <div className="flex items-center gap-2">
                     <div
                       className={cn(
-                        "size-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors",
+                        "size-7 rounded-xl flex items-center justify-center text-[11px] font-black transition-colors shrink-0",
                         isDone && "bg-emerald-600 text-white",
                         isActive && "bg-[#2D5A27] text-white ring-4 ring-[#2D5A27]/15",
                         !isDone && !isActive && "bg-slate-100 text-slate-400",
@@ -341,22 +349,19 @@ export default function ProductionWizard({
                     </div>
                     <span
                       className={cn(
-                        "text-[11px] font-medium whitespace-nowrap",
+                        "text-[10px] sm:text-xs font-bold truncate",
                         isActive || isDone ? "text-slate-900" : "text-slate-400",
                       )}
                     >
                       {label}
                     </span>
                   </div>
-                  {i < STEP_LABELS.length - 1 && (
-                    <div className={cn("flex-1 h-0.5 mx-2 mt-[-18px] rounded", i < step ? "bg-emerald-600" : "bg-slate-200")} />
-                  )}
                 </div>
               );
             })}
           </div>
 
-          <div className="flex items-center gap-3 mb-5">
+          <div className="flex items-center gap-3 mb-4 bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs">
             <div
               className={cn(
                 "p-2.5 rounded-xl",
@@ -382,13 +387,13 @@ export default function ProductionWizard({
                     : typeTitle}
               </h3>
               <p className="text-xs text-slate-500">
-                Step {step + 1} of {STEP_LABELS.length} — {STEP_LABELS[step]}
+                Step {step + 1} of {STEP_LABELS.length} · Complete the information below
               </p>
             </div>
           </div>
 
           {step === 0 && (
-            <div>
+            <div className="space-y-3">
               {isLoading ? (
                 <p className="text-sm text-slate-500 py-4">Loading inventory...</p>
               ) : approvedInventories.length === 0 ? (
@@ -403,13 +408,20 @@ export default function ProductionWizard({
                     type="button"
                     onClick={() => setSelectOpen(true)}
                     className={cn(
-                      "w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border-2 text-left transition-all",
+                      "w-full flex items-center justify-between gap-4 px-4 sm:px-5 py-4 rounded-2xl border-2 text-left transition-all bg-white",
                       clickedInventory
                         ? "border-[#2D5A27] bg-[#2D5A27]/5"
                         : "border-dashed border-slate-300 bg-white hover:border-slate-400",
                     )}
                   >
-                    <div className="min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cn(
+                        "size-11 rounded-2xl flex items-center justify-center shrink-0",
+                        clickedInventory ? "bg-[#2D5A27] text-white" : "bg-slate-100 text-slate-500",
+                      )}>
+                        <Tag className="size-5" />
+                      </div>
+                      <div className="min-w-0">
                       {clickedInventory ? (
                         <>
                           <p className="text-sm font-bold text-slate-900 truncate">
@@ -427,6 +439,7 @@ export default function ProductionWizard({
                           <p className="text-xs text-slate-400 mt-0.5">Link a batch or animal to this record</p>
                         </>
                       )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {clickedInventory && (
@@ -437,6 +450,10 @@ export default function ProductionWizard({
                       <ChevronDown className="w-5 h-5 text-slate-400" />
                     </div>
                   </button>
+                  <div className="flex items-start gap-2 rounded-xl bg-sky-50 border border-sky-100 px-3.5 py-3 text-xs text-sky-900">
+                    <Info className="size-4 shrink-0 mt-0.5" />
+                    Only MAO-approved livestock can be used as the source of a production declaration.
+                  </div>
 
                   <SelectLivestockDialog
                     open={selectOpen}
@@ -501,7 +518,7 @@ export default function ProductionWizard({
 
           {step === 2 && (
             <form
-              className="space-y-4"
+              className="space-y-5 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (canContinue) handleNext();
@@ -516,7 +533,7 @@ export default function ProductionWizard({
                     name="prodDate"
                     type="date"
                     max={new Date().toISOString().split("T")[0]}
-                    className="pl-10"
+                    className="pl-10 h-11 rounded-xl"
                     value={String(formState.prodDate ?? new Date().toISOString().split("T")[0])}
                     onChange={(e) => onFieldChange("prodDate", e.target.value)}
                   />
@@ -534,18 +551,25 @@ export default function ProductionWizard({
                 <Textarea
                   id="notes"
                   name="notes"
-                  rows={2}
-                  placeholder="Optional details..."
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Optional context for SIBAT and MAO reviewers..."
                   value={String(formState.notes ?? "")}
                   onChange={(e) => onFieldChange("notes", e.target.value)}
                 />
               </div>
+              {validationMessage && (
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                  <Info className="size-4 shrink-0" />
+                  {validationMessage}
+                </div>
+              )}
             </form>
           )}
 
           {step === 3 && (
-            <div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 divide-y divide-slate-100 overflow-hidden">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden shadow-xs">
                 <ReviewRow label="Livestock" value={
                   clickedInventory
                     ? clickedInventory.entryType === "INDIVIDUAL"
@@ -580,7 +604,7 @@ export default function ProductionWizard({
               </div>
 
               {/* Farmer Production Declaration Banner */}
-              <div className="flex items-start gap-3 p-3.5 mt-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
                 <Checkbox
                   id="certify-production"
                   checked={isCertified}
@@ -591,14 +615,14 @@ export default function ProductionWizard({
                   htmlFor="certify-production"
                   className="text-xs font-semibold text-slate-800 leading-snug cursor-pointer select-none"
                 >
-                  I certify that the recorded yield was harvested from my registered livestock on this date and is ready for field verification by the assigned <span className="font-extrabold text-emerald-950">SIBAT Agricultural Technologist</span> and MAO.
+                  I certify that this information is accurate and may be reviewed first by <span className="font-extrabold text-emerald-950">SIBAT</span>, then officially approved by MAO.
                 </label>
               </div>
 
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !isCertified}
-                className="w-full mt-4 bg-emerald-700 p-6 hover:bg-emerald-800 text-white gap-2 font-medium shadow-sm cursor-pointer disabled:opacity-50"
+                className="w-full h-12 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-bold shadow-sm cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
                 {isSubmitting
@@ -607,8 +631,8 @@ export default function ProductionWizard({
                   ? "Update Record"
                   : "Submit Record"}
               </Button>
-              <p className="text-[11px] text-slate-400 text-center mt-2">
-                Submitted records go through LGU validation before approval.
+              <p className="text-[11px] text-slate-500 text-center">
+                Workflow: Farmer submission → SIBAT verification → MAO approval
               </p>
               <Button
                 type="button"
@@ -622,7 +646,8 @@ export default function ProductionWizard({
           )}
 
           {step < 3 && (
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-200">
+              <div className="min-w-[88px]">
               {step > 0 && (
                 <Button
                   type="button"
@@ -633,15 +658,16 @@ export default function ProductionWizard({
                   <ChevronLeft className="w-4 h-4" /> Back
                 </Button>
               )}
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-slate-300" />
-                <span className="text-xs text-slate-400">{step + 1} of {STEP_LABELS.length}</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                Saved only after final submission
               </div>
               <Button
                 type="button"
                 onClick={handleNext}
                 disabled={!canContinue}
-                className="bg-[#2D5A27] hover:bg-[#244a20] text-white gap-2"
+                className="h-10 rounded-xl bg-[#2D5A27] hover:bg-[#244a20] text-white gap-2 font-bold min-w-[112px]"
               >
                 Continue <ChevronRight className="w-4 h-4" />
               </Button>
@@ -650,6 +676,15 @@ export default function ProductionWizard({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export default function ProductionWizard(props: ProductionWizardProps) {
+  return (
+    <ProductionWizardContent
+      key={`${props.mode}-${props.resetSignal}-${props.open ? "open" : "closed"}`}
+      {...props}
+    />
   );
 }
 

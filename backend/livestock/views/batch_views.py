@@ -379,7 +379,7 @@ def batch_review(request, pk):
             )
             audit_entry = f"\n[{timestamp_str}] {reviewer_title} - {new_status}: {remarks}"
             batch.notes = (batch.notes + audit_entry).strip() # append the previous note
-            batch.save(update_fields=["notes", "updated_at"])
+            batch.save(update_fields=["notes", "updated_at"]) # saves only this 2
 
     if new_status == LivestockInventory.StatusType.VERIFIED:
         notify_role(

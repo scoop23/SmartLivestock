@@ -86,6 +86,7 @@ const SPECIES_CONFIG: Record<string, SpeciesVisualConfig> = {
   },
   Sheep: {
     icon: Package,
+    image: "/images/sheep2.jfif",
     cardBg: "bg-violet-50/40 hover:bg-violet-50/70",
     border: "border-violet-900/15",
     iconBg: "bg-violet-900/10",

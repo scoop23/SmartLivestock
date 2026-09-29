@@ -27,7 +27,12 @@ export default function ProductionDashboardPage() {
   console.log(productionRecords)
 
   const approvedInventories = useMemo(
-    () => inventories.filter((item) => item.status === "APPROVED"),
+    () =>
+      inventories.filter(
+        (item) =>
+          item.status === "APPROVED" &&
+          (item.operationalStatus || "ACTIVE") === "ACTIVE",
+      ),
     [inventories]
   );
 
