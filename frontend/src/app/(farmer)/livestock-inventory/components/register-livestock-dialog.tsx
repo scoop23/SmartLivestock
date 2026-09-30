@@ -499,10 +499,10 @@ export function RegisterLivestockDialog({
             </div>
             <div>
               <DialogTitle className="text-xl font-black text-white">
-                Register Livestock
+                Add Livestock
               </DialogTitle>
               <DialogDescription className="text-xs text-emerald-200/80 mt-0.5">
-                Submit new animal records into the municipal verification registry.
+                Add an animal or a group of animals to your livestock.
               </DialogDescription>
             </div>
           </div>
@@ -1424,7 +1424,7 @@ export function RegisterLivestockDialog({
             {/* Live Preview Card */}
             <div className="p-3.5 rounded-2xl border border-emerald-900/10 bg-emerald-50/40 text-xs">
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900/60 block mb-1">
-                Registry Live Card Preview
+                Preview
               </span>
               {formData.entryType === "INDIVIDUAL" ? (
                 <div className="flex items-center gap-3">
@@ -1494,7 +1494,7 @@ export function RegisterLivestockDialog({
               disabled={addMutation.isPending}
               className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl h-11 px-6 shadow-sm cursor-pointer"
             >
-              {addMutation.isPending ? "Submitting..." : "Submit to Registry"}
+              {addMutation.isPending ? "Submitting..." : "Submit for Review"}
             </Button>
           </div>
         </form>

@@ -63,7 +63,7 @@ export function InventoryTelemetryHeader({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
-            Herd Telemetry & Biometric KPIs
+            Livestock Overview
           </h2>
           <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
             • {inventories.length} {inventories.length === 1 ? "record" : "records"} active
@@ -99,7 +99,7 @@ export function InventoryTelemetryHeader({
             <div className="flex items-center gap-1.5 text-slate-700 font-bold">
               <Layers className="size-3.5 text-emerald-600" />
               <span>{totalHeads.toLocaleString()}</span>
-              <span className="text-slate-400 font-medium text-[11px]">Total Heads</span>
+              <span className="text-slate-400 font-medium text-[11px]">Animals</span>
             </div>
             <div className="flex items-center gap-1.5 text-slate-700 font-bold">
               <CheckCircle2 className="size-3.5 text-sky-600" />

@@ -228,20 +228,20 @@ export default function ProductionEnterpriseHub({
             <div className="flex items-center gap-2.5 flex-wrap">
               <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full backdrop-blur-md">
                 <Sparkles className="w-3.5 h-3.5 mr-1 text-emerald-400" />
-                Farm Enterprise Production Hub
+                Production
               </Badge>
               <span className="text-xs font-semibold text-emerald-200/70">
-                {speciesSummary.length} Active Livestock Enterprises
+                {speciesSummary.length} Livestock Types
               </span>
             </div>
 
             <div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                Select a Livestock Enterprise
+                Select Livestock
               </h1>
               <p className="text-sm text-emerald-100/80 font-medium mt-1 leading-relaxed">
-                Choose a specific livestock category to access dedicated production yield ledgers,
-                species-tailored birthing logs (Calving, Kidding, Lambing), and biometric growth analytics.
+                Choose a livestock type to view and record production,
+                birth records, and production history.
               </p>
             </div>
           </div>
@@ -253,7 +253,7 @@ export default function ProductionEnterpriseHub({
               className="gap-2 border-emerald-700/50 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl h-12 px-5 backdrop-blur-md transition-all active:scale-95"
             >
               <Activity className="w-4 h-4 text-emerald-300" />
-              All-Farm Consolidated View
+              All Livestock
             </Button>
           </div>
         </div>
@@ -270,7 +270,7 @@ export default function ProductionEnterpriseHub({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
             <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Your Registered Farm Enterprises ({speciesSummary.length})
+              Your Livestock Types ({speciesSummary.length})
             </h2>
           </div>
         </div>
@@ -307,7 +307,7 @@ export default function ProductionEnterpriseHub({
                   {/* Title & Tagline */}
                   <div>
                     <h3 className="text-xl font-black tracking-tight text-white group-hover:text-emerald-300 transition-colors flex items-center justify-between">
-                      <span>{item.name} Enterprise</span>
+                      <span>{item.name}</span>
                       <ChevronRight className="size-5 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
                     </h3>
                     <p className="text-xs text-slate-200/80 font-medium mt-1 line-clamp-2">
@@ -334,7 +334,7 @@ export default function ProductionEnterpriseHub({
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs">
                     <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
                       <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Registry Records
+                        Livestock Records
                       </span>
                       <span className="text-sm font-black text-white">
                         {item.recordsCount} Entries
@@ -342,7 +342,7 @@ export default function ProductionEnterpriseHub({
                     </div>
                     <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
                       <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Yield Logs
+                        Production Records
                       </span>
                       <span className="text-sm font-black text-white">
                         {item.productionLogs} Recorded
@@ -380,17 +380,17 @@ export default function ProductionEnterpriseHub({
                   <Activity className="size-6 text-emerald-400" />
                 </div>
                 <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                  {totalHeadsAll} Total Heads
+                  {totalHeadsAll} Animals
                 </Badge>
               </div>
 
               <div>
                 <h3 className="text-xl font-black tracking-tight text-white group-hover:text-emerald-300 transition-colors flex items-center justify-between">
-                  <span>Farm Consolidated Ledger</span>
+                  <span>All Farm Production</span>
                   <ChevronRight className="size-5 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
                 </h3>
                 <p className="text-xs text-slate-300/80 font-medium mt-1">
-                  View full combined financial valuation, total farm volume trends, and consolidated multi-species audit logs.
+                  View production totals and records for all your livestock.
                 </p>
               </div>
 
@@ -400,7 +400,7 @@ export default function ProductionEnterpriseHub({
                     All Species
                   </span>
                   <span className="text-sm font-black text-white">
-                    {speciesSummary.length} Enterprises
+                    {speciesSummary.length} Livestock Types
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
@@ -423,7 +423,7 @@ export default function ProductionEnterpriseHub({
                 }}
                 className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black rounded-2xl h-11 text-xs transition-all shadow-md active:scale-98"
               >
-                Open Consolidated Dashboard
+                View All Production
                 <ChevronRight className="size-4 ml-1" />
               </Button>
             </div>

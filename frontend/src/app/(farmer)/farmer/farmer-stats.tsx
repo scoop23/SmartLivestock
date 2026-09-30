@@ -63,15 +63,15 @@ export default function FarmerStats({
 
   const allCards: CardConfig[] = [
     {
-      label: "My Livestock Herd",
+      label: "My Livestock",
       icon: <Icon iconNode={cowHead} className="size-4.5" />,
       variant: "emerald",
       value: cattleCount.toLocaleString(),
       sub: livestockSub,
-      description: "Padre Garcia registry",
+      description: "Animals on your farm",
     },
     {
-      label: "Monthly Dairy Yield",
+      label: "Production This Month",
       icon: <Milk className="size-4.5" />,
       variant: "sky",
       value: milkLiters !== null && milkLiters > 0 ? `${formatQty(milkLiters)} L` : "0 L",
@@ -82,24 +82,24 @@ export default function FarmerStats({
             ? "text-emerald-700 bg-emerald-100 border-emerald-200"
             : "text-rose-700 bg-rose-100 border-rose-200"
           : undefined,
-      description: "Approved milk output",
+      description: "Milk recorded this month",
     },
     {
-      label: "Health & Symptom Alerts",
+      label: "Animal Health Reports",
       icon: <AlertTriangle className="size-4.5" />,
       variant: activeAlerts > 0 ? "rose" : "stone",
       value: activeAlerts.toLocaleString(),
-      sub: activeAlerts > 0 ? "Needs inspection" : "All healthy",
+      sub: activeAlerts > 0 ? "Waiting for review" : "No active reports",
       subClass: activeAlerts > 0 ? "text-rose-700 bg-rose-100 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200",
-      description: "Surveillance cases",
+      description: "Reports needing attention",
     },
     {
-      label: "Inspection Compliance",
+      label: "Record Status",
       icon: <ShieldCheck className="size-4.5" />,
       variant: "amber",
       value: cattleCount > 0 ? `${Math.round((approvedCount / cattleCount) * 100)}%` : "100%",
-      sub: pendingCount === 0 ? "Fully certified" : `${pendingCount} awaiting SIBAT`,
-      description: "Cooperative verification",
+      sub: pendingCount === 0 ? "All records reviewed" : `${pendingCount} waiting for review`,
+      description: "Your records reviewed by the livestock office",
     },
   ];
 

@@ -282,7 +282,7 @@ export default function ProductionSalesTab({
               <div className="p-10 text-center">
                 <p className="text-sm font-semibold text-slate-600">No sales recorded yet</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Record live animal sales to track price per head and municipal auction proceeds.
+                  Record animal sales and the price received.
                 </p>
               </div>
             ) : (

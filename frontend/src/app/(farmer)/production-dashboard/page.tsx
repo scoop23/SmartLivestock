@@ -60,8 +60,8 @@ export default function ProductionDashboardPage() {
   return (
     <>
       <PageHeader
-        title="Production & Yield Telemetry"
-        subtitle="Official LGU production logs, maternal lineage birthing registry, and biometric growth tracking"
+        title="Production"
+        subtitle="Record production and births, and review your past records."
         variant="farmer"
         maxWidthClass="w-full"
       />

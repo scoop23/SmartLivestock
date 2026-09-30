@@ -16,7 +16,7 @@ export function InventoryTabsNav({
 }: InventoryTabsNavProps) {
   return (
     <TabsList className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-2 bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs h-auto">
-      {/* Tab 1: Species Breakdown */}
+      {/* Tab 1: Livestock Types */}
       <TabsTrigger
         value="types"
         className="group relative flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left border border-transparent data-[state=active]:bg-white data-[state=active]:border-emerald-200/80 data-[state=active]:shadow-sm data-[state=active]:text-emerald-950 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer h-auto"
@@ -26,18 +26,18 @@ export function InventoryTabsNav({
             <Layers className="size-4.5" />
           </div>
           <div className="text-left min-w-0">
-            <p className="text-sm font-black tracking-tight leading-tight">Species Breakdown</p>
+            <p className="text-sm font-black tracking-tight leading-tight">Livestock Types</p>
             <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-emerald-700/80 truncate">
-              Herd Categories & Distribution
+              Choose a type to view your animals
             </p>
           </div>
         </div>
         <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-colors bg-slate-200/70 text-slate-700 group-data-[state=active]:bg-emerald-100 group-data-[state=active]:text-emerald-800 shrink-0 border border-transparent group-data-[state=active]:border-emerald-200/60">
-          {speciesCount > 0 ? `${speciesCount} Species` : "Species"}
+          {speciesCount > 0 ? `${speciesCount} Species` : "Types"}
         </span>
       </TabsTrigger>
 
-      {/* Tab 2: Complete Herd Registry */}
+      {/* Tab 2: All Livestock */}
       <TabsTrigger
         value="all"
         className="group relative flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left border border-transparent data-[state=active]:bg-white data-[state=active]:border-teal-200/80 data-[state=active]:shadow-sm data-[state=active]:text-teal-950 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer h-auto"
@@ -47,9 +47,9 @@ export function InventoryTabsNav({
             <Tag className="size-4.5" />
           </div>
           <div className="text-left min-w-0">
-            <p className="text-sm font-black tracking-tight leading-tight">Complete Herd Registry</p>
+            <p className="text-sm font-black tracking-tight leading-tight">All Livestock</p>
             <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-teal-700/80 truncate">
-              Ear Tags, Biometrics & Actions
+              Animal details and actions
             </p>
           </div>
         </div>
@@ -58,7 +58,7 @@ export function InventoryTabsNav({
         </span>
       </TabsTrigger>
 
-      {/* Tab 3: Health & Immunization Tracker */}
+      {/* Tab 3: Health & Vaccinations Tracker */}
       <TabsTrigger
         value="health"
         className="group relative flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left border border-transparent data-[state=active]:bg-white data-[state=active]:border-emerald-200/80 data-[state=active]:shadow-sm data-[state=active]:text-emerald-950 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer h-auto"
@@ -68,15 +68,15 @@ export function InventoryTabsNav({
             <ShieldCheck className="size-4.5" />
           </div>
           <div className="text-left min-w-0">
-            <p className="text-sm font-black tracking-tight leading-tight">Health & Immunization</p>
+            <p className="text-sm font-black tracking-tight leading-tight">Health & Vaccinations</p>
             <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-emerald-700/80 truncate">
-              Surveillance & Biosecurity
+              Vaccination and health details
             </p>
           </div>
         </div>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-colors bg-emerald-50 text-emerald-800 shrink-0 border border-emerald-200/60">
           <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
-          {vaxRate}% Vax
+          {vaxRate}% vaccinated
         </span>
       </TabsTrigger>
     </TabsList>

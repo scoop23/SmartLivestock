@@ -74,7 +74,7 @@ export default function ProductionForecastsTab({
           title="30-Day Milk Forecast"
           value={`${forecast30DaysMilk.toLocaleString()} L`}
           icon={<Milk className="size-4.5" />}
-          badge="Projected monthly yield"
+          badge="Estimated monthly production"
           variant="sky"
         />
         <KpiCard
@@ -191,7 +191,7 @@ export default function ProductionForecastsTab({
               <p className="text-[11px] text-slate-500 mt-0.5">Approved breeding & milking stock</p>
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
-              <p className="text-slate-400 font-semibold uppercase text-[10px]">Estimated 90-Day Milk Yield</p>
+              <p className="text-slate-400 font-semibold uppercase text-[10px]">Estimated Milk Production for 90 Days</p>
               <p className="text-base font-bold text-slate-900 mt-1">{forecast90DaysMilk.toLocaleString()} Liters</p>
               <p className="text-[11px] text-slate-500 mt-0.5">Based on daily average</p>
             </div>
@@ -202,7 +202,7 @@ export default function ProductionForecastsTab({
             </div>
           </div>
           <p className="text-slate-400 text-[11px] text-center pt-2">
-            * Note: Forecasts are mathematical models provided for farm budgeting and municipal feed planning. Actual production may vary with weather, nutrition, and veterinary interventions.
+            * Note: These are estimates to help plan ahead. Actual production may vary with weather, feed, and animal health.
           </p>
         </CardContent>
       </Card>

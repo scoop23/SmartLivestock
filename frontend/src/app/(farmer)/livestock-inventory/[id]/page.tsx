@@ -482,7 +482,7 @@ export default function LivestockDetailPage() {
     },
     onSuccess: (data) => {
       toast.success(`Production record of ${data.quantity} ${data.unit} logged successfully!`, {
-        description: "Submitted to municipal production telemetry & SIBAT verification.",
+        description: "Production record submitted for review.",
       });
       setIsProductionDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
@@ -502,7 +502,7 @@ export default function LivestockDetailPage() {
     if (!activeItem) return;
     const qty = parseFloat(prodQuantity);
     if (isNaN(qty) || qty <= 0) {
-      toast.error("Please enter a valid yield quantity.");
+      toast.error("Please enter a valid production amount.");
       return;
     }
 
@@ -605,8 +605,8 @@ export default function LivestockDetailPage() {
     return (
       <>
         <PageHeader
-          title="Loading Livestock Profile..."
-          subtitle="Retrieving biometrics, production records, and municipal registry..."
+          title="Loading Animal Details..."
+          subtitle="Loading animal details and records..."
           variant="farmer"
           maxWidthClass="w-full"
         />
@@ -627,8 +627,8 @@ export default function LivestockDetailPage() {
     return (
       <>
         <PageHeader
-          title="Livestock Record Not Found"
-          subtitle="The requested animal profile could not be found in your municipal inventory."
+          title="Animal Not Found"
+          subtitle="This animal could not be found in your livestock list."
           variant="farmer"
           maxWidthClass="w-full"
         />
@@ -643,7 +643,7 @@ export default function LivestockDetailPage() {
           <div className="pt-2">
             <Link href="/livestock-inventory">
               <Button className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5">
-                <ArrowLeft className="size-3.5" /> Back to Livestock Inventory
+                <ArrowLeft className="size-3.5" /> Back to My Livestock
               </Button>
             </Link>
           </div>
@@ -655,8 +655,8 @@ export default function LivestockDetailPage() {
   return (
     <>
       <PageHeader
-        title={`Livestock Profile: ${activeItem.tagNumber || `ID #${activeItem.id}`}`}
-        subtitle={`Official Animal Profile, Biometrics & Municipal Production Registry • Padre Garcia LGU`}
+        title={`Animal: ${activeItem.tagNumber || `ID #${activeItem.id}`}`}
+        subtitle={`Animal details and production records`}
         variant="farmer"
         maxWidthClass="w-full"
       />
@@ -810,7 +810,7 @@ export default function LivestockDetailPage() {
               <p className="font-black text-slate-900">{targetWeight} kg</p>
             </div>
             <div className="p-3.5 space-y-0.5">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Carcass Yield Projection</span>
+              <span className="text-[10px] font-bold uppercase text-slate-400">Estimated Meat</span>
               <p className="font-black text-emerald-700">~{projectedCarcassKg} kg meat ({meatDressingPct}%)</p>
             </div>
             <div className="p-3.5 space-y-0.5">
@@ -874,7 +874,7 @@ export default function LivestockDetailPage() {
               value="production"
               className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
             >
-              <Milk className="size-3.5 mr-1.5 text-sky-600" /> Production &amp; Yield
+              <Milk className="size-3.5 mr-1.5 text-sky-600" /> Production
             </TabsTrigger>
             <TabsTrigger
               value="calving"
@@ -1053,7 +1053,7 @@ export default function LivestockDetailPage() {
                     Animal Production Records (Milk / Meat / Eggs)
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500 font-medium">
-                    Outputs logged here connect directly to the municipal Production Telemetry Dashboard and official validation queues.
+                    Your production records appear here after you submit them.
                   </CardDescription>
                 </div>
 
@@ -1062,13 +1062,13 @@ export default function LivestockDetailPage() {
                   size="sm"
                   className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm"
                 >
-                  <Plus className="size-3.5" /> Log New Output
+                  <Plus className="size-3.5" /> Record Production
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Total Recorded Yield</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Total Production</span>
                   <p className="text-2xl font-black text-slate-900">
                     {productionLogs.reduce((acc, curr) => acc + curr.quantity, 0).toFixed(1)}{" "}
                     {productionLogs[0]?.unit || "Units"}
@@ -1161,7 +1161,7 @@ export default function LivestockDetailPage() {
                     </Badge>
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500 font-medium">
-                    Maternal progeny records for Tag #{activeItem.tagNumber} linked to Padre Garcia municipal breeding and census telemetry.
+                    Birth records for Tag #{activeItem.tagNumber}
                   </CardDescription>
                 </div>
 
@@ -1210,7 +1210,7 @@ export default function LivestockDetailPage() {
                   <div className="space-y-1 max-w-sm mx-auto">
                     <h4 className="font-bold text-sm text-slate-800">No {terms.eventName.toLowerCase()} records yet</h4>
                     <p className="text-xs text-slate-500">
-                      When this animal delivers offspring, record the birth here to register progeny and trace maternal lineage in the municipal database.
+                      When this animal has a newborn, add its birth details here.
                     </p>
                   </div>
                   <Button
@@ -1282,10 +1282,10 @@ export default function LivestockDetailPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-black text-slate-900">
-                    Veterinary &amp; Biosecurity Record
+                    Health &amp; Vaccinations
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500 font-medium">
-                    Official vaccination records, health clearances, and disease incident reports on file with the Padre Garcia municipal vet.
+                    Vaccination dates and animal health reports.
                   </CardDescription>
                 </div>
 
@@ -1295,7 +1295,7 @@ export default function LivestockDetailPage() {
                     size="sm"
                     className="rounded-xl border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs gap-1.5"
                   >
-                    <AlertTriangle className="size-3.5" /> Report Illness
+                    <AlertTriangle className="size-3.5" /> Report Sick Animal
                   </Button>
                 </Link>
               </div>
@@ -1306,10 +1306,10 @@ export default function LivestockDetailPage() {
                     <ShieldCheck className="size-5 text-emerald-700 mt-0.5 shrink-0" />
                     <div className="space-y-0.5">
                       <p className="text-xs font-black text-slate-900">
-                        Official Vaccination Logged &amp; Verified
+                        Vaccination Recorded
                       </p>
                       <p className="text-[11px] text-slate-600">
-                        Last immunization administered on <strong>{activeItem.lastVaccinationDate}</strong> as certified in the Municipal Livestock Database.
+                        Last vaccinated on <strong>{activeItem.lastVaccinationDate}</strong>
                       </p>
                     </div>
                   </div>
@@ -1318,10 +1318,10 @@ export default function LivestockDetailPage() {
                     <Clock className="size-5 text-amber-700 mt-0.5 shrink-0" />
                     <div className="space-y-0.5">
                       <p className="text-xs font-black text-slate-900">
-                        No Vaccination Record On File
+                        No Vaccination Date
                       </p>
                       <p className="text-[11px] text-slate-600">
-                        This animal does not currently have a recorded immunization date. Consult your assigned SIBAT officer or barangay livestock technician.
+                        No vaccination date is recorded for this animal. Contact your local livestock officer for help.
                       </p>
                     </div>
                   </div>
@@ -1330,7 +1330,7 @@ export default function LivestockDetailPage() {
                 {/* Real Disease Cases */}
                 {animalDiseaseCases.length > 0 ? (
                   <div className="space-y-2 pt-2">
-                    <h5 className="font-bold text-xs text-slate-800">Reported Veterinary Incidents:</h5>
+                    <h5 className="font-bold text-xs text-slate-800">Animal Health Reports:</h5>
                     {animalDiseaseCases.map((d) => (
                       <div key={d.id} className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3">
                         <AlertTriangle className="size-4 text-rose-600 mt-0.5 shrink-0" />
@@ -1353,10 +1353,10 @@ export default function LivestockDetailPage() {
                     <CheckCircle2 className="size-5 text-emerald-600 mt-0.5 shrink-0" />
                     <div className="space-y-0.5">
                       <p className="text-xs font-black text-slate-900">
-                        Clean Disease Record
+                        No Health Reports
                       </p>
                       <p className="text-[11px] text-slate-600">
-                        Zero active disease incidents or biosecurity quarantine notices recorded for Tag #{activeItem.tagNumber}.
+                        No active health reports for Tag #{activeItem.tagNumber}.
                       </p>
                     </div>
                   </div>
@@ -1438,7 +1438,7 @@ export default function LivestockDetailPage() {
               <span>Record New Weight for {activeItem.tagNumber}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Enter the current scale reading. Saved weights update the animal profile and municipal telemetry in real time.
+              Enter the current weight. It will be added to the animal record.
             </DialogDescription>
           </DialogHeader>
 
@@ -1467,7 +1467,7 @@ export default function LivestockDetailPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="font-bold text-slate-700">Field Notes / Scale Conditions</Label>
+              <Label className="font-bold text-slate-700">Notes</Label>
               <Input
                 value={weighNotes}
                 onChange={(e) => setWeighNotes(e.target.value)}
@@ -1506,7 +1506,7 @@ export default function LivestockDetailPage() {
               <span>Log Production Output for {activeItem.tagNumber}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Record individual daily output. This connects directly to the Production Dashboard and municipal records.
+              Record individual daily output. This connects directly to the Production page.
             </DialogDescription>
           </DialogHeader>
 
@@ -1578,7 +1578,7 @@ export default function LivestockDetailPage() {
                 disabled={logProductionMutation.isPending}
                 className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
               >
-                {logProductionMutation.isPending ? "Submitting..." : "Submit to Production Registry"}
+                {logProductionMutation.isPending ? "Submitting..." : "Save Production Record"}
               </Button>
             </DialogFooter>
           </form>
@@ -1594,7 +1594,7 @@ export default function LivestockDetailPage() {
               <span>Record {terms.eventName} for Dam #{activeItem.tagNumber}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Register newborn {terms.offspringName.toLowerCase()} and maternal lineage directly into the municipal birthing registry.
+              Add newborn {terms.offspringName.toLowerCase()} and birth details to the animal records.
             </DialogDescription>
           </DialogHeader>
 

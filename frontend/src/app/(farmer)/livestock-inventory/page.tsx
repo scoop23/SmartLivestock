@@ -132,7 +132,7 @@ export default function LivestockInventoryPage() {
       "Weight (kg)",
       "Vaccinated",
       "Last Vaccination Date",
-      "Registry Status",
+      "Review Status",
       "Review Remarks",
       "Registration Date",
     ];
@@ -157,19 +157,19 @@ export default function LivestockInventoryPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `livestock_registry_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `my_livestock_${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success("Livestock registry exported successfully as CSV");
+    toast.success("Livestock list downloaded successfully");
   };
 
   return (
     <>
       <PageHeader
-        title="Livestock Inventory"
-        subtitle="Manage your livestock entries, track biometrics, and monitor herd health"
+        title="My Livestock"
+        subtitle="View your animals, check their health, and add new livestock."
         variant="farmer"
         maxWidthClass="w-full"
         action={

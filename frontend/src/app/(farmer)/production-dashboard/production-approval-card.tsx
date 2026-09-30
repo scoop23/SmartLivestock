@@ -82,7 +82,7 @@ export default function ProductionApprovalCard({
               Approval & Remark Details
             </h3>
             <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
-              Select any production record from the list to view its official approval verification, validator remarks, and yield logs.
+              Choose a production record to see its review status and notes.
             </p>
           </div>
 
@@ -216,7 +216,7 @@ export default function ProductionApprovalCard({
                   </Badge>
                 </div>
                 <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
-                  This production entry has been inspected, verified, and officially logged into the municipal database.
+                  This production record has been reviewed and saved to your history.
                 </p>
               </div>
             </div>

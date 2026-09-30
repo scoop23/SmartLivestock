@@ -86,10 +86,10 @@ export default function FarmerCharts({
         <div>
           <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
             <TrendingUp className="size-4.5 text-[#2D5A27]" />
-            Farm Operational & Biological Intelligence
+            Your Farm at a Glance
           </h3>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Real-time telemetry across herd demographics, monthly dairy yields, inspection compliance, and health surveillance
+            Livestock, production, record status, and animal health
           </p>
         </div>
       </div>
@@ -105,10 +105,10 @@ export default function FarmerCharts({
                 </div>
                 <div>
                   <CardTitle className="text-sm font-bold text-slate-900">
-                    Herd Composition Breakdown
+                    Livestock by Type
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500">
-                    Live registered species in Padre Garcia registry
+                    Animals by livestock type
                   </CardDescription>
                 </div>
               </div>
@@ -205,7 +205,7 @@ export default function FarmerCharts({
                 </div>
                 <div>
                   <CardTitle className="text-sm font-bold text-slate-900">
-                    Monthly Dairy Yield Output
+                    Monthly Milk Production
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500">
                     Milk production volume trajectory in Liters (L)
@@ -227,7 +227,7 @@ export default function FarmerCharts({
                 <div className="p-3 bg-white rounded-2xl shadow-2xs border border-sky-900/10 mb-2.5">
                   <Milk className="size-6 text-sky-800" />
                 </div>
-                <p className="text-xs font-bold text-slate-700">No milk yields logged</p>
+                <p className="text-xs font-bold text-slate-700">No milk production recorded yet</p>
                 <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
                   Log your daily or weekly dairy milk harvest in the production dashboard.
                 </p>
@@ -315,7 +315,7 @@ export default function FarmerCharts({
                     Inspection & Certification Status
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500">
-                    Municipal Agriculture Office audit compliance
+                    Records reviewed
                   </CardDescription>
                 </div>
               </div>
@@ -406,10 +406,10 @@ export default function FarmerCharts({
                 </div>
                 <div>
                   <CardTitle className="text-sm font-bold text-slate-900">
-                    Health Surveillance & Incident Trends
+                    Animal Health Reports
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500">
-                    Recent sickness cases vs mortality casualties
+                    Sickness and animal death reports
                   </CardDescription>
                 </div>
               </div>

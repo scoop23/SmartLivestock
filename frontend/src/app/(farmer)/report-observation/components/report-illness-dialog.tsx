@@ -165,7 +165,7 @@ export default function ReportIllnessDialog({
     e.preventDefault();
 
     if (!selectedInventoryId) {
-      toast.error("Please select an animal from your livestock registry first.");
+      toast.error("Please select an animal from your livestock first.");
       return;
     }
 
@@ -308,7 +308,7 @@ export default function ReportIllnessDialog({
                 <DialogDescription className="text-xs text-white/80 font-medium mt-0.5">
                   {isEditMode
                     ? "Update the existing declaration and return it to the review queue."
-                    : "Notify SIBAT validators and MAO municipal vets for rapid field assistance"}
+                    : "Send this report to the local livestock team for follow-up."}
                 </DialogDescription>
               </div>
             </div>

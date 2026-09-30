@@ -101,7 +101,7 @@ export default function FarmerActivityFeed({
           <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-800">
             <Activity className="size-4" />
           </div>
-          Recent Farm Activity & Review Status
+          Recent Farm Activity
         </CardTitle>
         <div className="flex items-center gap-1.5">
           {onOpenReportsList && (
@@ -129,7 +129,7 @@ export default function FarmerActivityFeed({
               onClick={() => router.push("/report-observation")}
               className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-50 rounded-xl cursor-pointer"
             >
-              Surveillance Hub <ChevronRight className="size-3.5 ml-0.5" />
+              Animal Health <ChevronRight className="size-3.5 ml-0.5" />
             </Button>
           )}
         </div>
@@ -143,7 +143,7 @@ export default function FarmerActivityFeed({
             </div>
             <p className="text-xs font-bold text-slate-700">No activity logged yet</p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Register livestock or log milk production to see live status updates here.
+              Add livestock or record production to see updates here.
             </p>
             <div className="mt-3 flex justify-center gap-2">
               <Button

@@ -155,7 +155,7 @@ export default function FarmerReportsListDialog({
                   My Health & Mortality Reports
                 </DialogTitle>
                 <DialogDescription className="text-xs text-emerald-100/90 font-medium mt-0.5">
-                  Track validation status, inspector visits, and official municipal vet findings
+                  See your report status and review updates.
                 </DialogDescription>
               </div>
             </div>

@@ -45,7 +45,7 @@ export default function InventoryStats({
       sub: `${inventories.length} entries`,
     },
     {
-      label: "Approved in Registry",
+      label: "Approved Livestock",
       icon: <CheckCircle2 className="size-4.5" />,
       variant: "sky",
       value: hasRecords ? `${approvedHeads.toLocaleString()} heads` : "—",

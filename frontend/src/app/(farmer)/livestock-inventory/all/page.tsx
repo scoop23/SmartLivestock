@@ -71,8 +71,8 @@ export default function AllLivestockInventoryPage() {
   return (
     <>
       <PageHeader
-        title="All Livestock Registry"
-        subtitle="Complete centralized registry of all animal entries across every species."
+        title="All Livestock"
+        subtitle="View and manage your animals."
         variant="farmer"
         maxWidthClass="w-full"
       />

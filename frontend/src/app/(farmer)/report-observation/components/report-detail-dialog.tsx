@@ -54,7 +54,7 @@ export default function ReportDetailDialog({
         return {
           bg: "bg-emerald-100 text-emerald-900 border-emerald-300",
           icon: <CheckCircle2 className="size-3.5 text-emerald-700" />,
-          title: "Approved by MAO Municipal Vet",
+          title: "Approved by local veterinarian",
           stage: 3,
         };
       case "VERIFIED":
@@ -115,7 +115,7 @@ export default function ReportDetailDialog({
                   </span>
                 </div>
                 <DialogDescription className="text-xs text-white/80 font-medium mt-0.5">
-                  Official municipal surveillance tracking record • Padre Garcia MAO
+                  Your report for the local livestock team
                 </DialogDescription>
               </div>
             </div>
@@ -132,7 +132,7 @@ export default function ReportDetailDialog({
           {/* 1. 3-Step Lifecycle Stepper */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3">
-              Surveillance Lifecycle Stepper
+              Review Progress
             </p>
             <div className="grid grid-cols-3 gap-2">
               {/* Step 1 */}
@@ -216,11 +216,11 @@ export default function ReportDetailDialog({
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-700 shrink-0" />
                 <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900">
-                  MAO Municipal Vet Clearance Verified
+                  Reviewed by the local livestock office
                 </h4>
               </div>
               <p className="text-xs font-medium text-emerald-900">
-                {report.reviewRemarks || "Case reviewed and registered into Padre Garcia municipal health ledger."}
+                {report.reviewRemarks || "Your report has been reviewed."}
               </p>
               {report.reviewedByName && (
                 <p className="text-[10px] text-emerald-700 font-bold">

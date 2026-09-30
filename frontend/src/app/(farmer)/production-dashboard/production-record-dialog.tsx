@@ -168,7 +168,7 @@ export default function ProductionRecordDialog({
                         Validated & Approved
                       </p>
                       <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                        This production entry has been inspected, verified, and officially logged into municipal records.
+                        This production record has been reviewed and saved to your history.
                       </p>
                     </div>
                   </div>

@@ -103,7 +103,7 @@ export default function BirthingRegistrationDialog({
                 Record New {terms.eventName} & Offspring
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Log maternal lineage, birth weight, and offspring identity for municipal census records.
+                Record the newborn animal, its parent, and birth weight.
               </DialogDescription>
             </div>
           </div>

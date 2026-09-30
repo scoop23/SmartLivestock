@@ -29,10 +29,10 @@ export function DeleteLivestockDialog({
       <DialogContent className="sm:max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-lg font-black text-slate-900">
-            Delete Livestock Record
+            Remove Livestock
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to remove this record from your registry? This action cannot be
+            Are you sure you want to remove this record from your livestock list? This action cannot be
             undone.
           </DialogDescription>
         </DialogHeader>

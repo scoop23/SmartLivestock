@@ -104,7 +104,7 @@ export default function FarmerDashboard() {
     <>
       <PageHeader
         title={`${greeting}, ${farmerName}!`}
-        subtitle="Padre Garcia, Batangas — Municipal Livestock Operations & Biosecurity Portal"
+        subtitle="Your livestock, farm records, and updates in one place."
         variant="farmer"
         maxWidthClass="w-full"
         action={
@@ -162,7 +162,7 @@ export default function FarmerDashboard() {
         <div className="rounded-2xl bg-slate-50/80 border border-slate-200/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-slate-700 font-bold">
             <Sparkles className="size-4 text-[#2D5A27]" />
-            <span>Padre Garcia Municipal Field Services</span>
+            <span>Farm Services</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -171,7 +171,7 @@ export default function FarmerDashboard() {
               className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/90 text-slate-700 font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs text-[11px]"
             >
               <CalendarDays className="size-3.5 text-indigo-600" />
-              <span>MAO Programs</span>
+              <span>Programs & Visits</span>
             </button>
 
             <button
@@ -179,7 +179,7 @@ export default function FarmerDashboard() {
               className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/90 text-slate-700 font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs text-[11px]"
             >
               <Map className="size-3.5 text-teal-600" />
-              <span>Pasture GIS Map</span>
+              <span>Farm Map</span>
             </button>
 
             <button
@@ -187,7 +187,7 @@ export default function FarmerDashboard() {
               className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200/90 text-slate-700 font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs text-[11px]"
             >
               <Megaphone className="size-3.5 text-amber-600" />
-              <span>Announcements</span>
+              <span>Activities</span>
             </button>
           </div>
         </div>

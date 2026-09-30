@@ -50,7 +50,7 @@ export default function SpeciesProductionPage() {
     <>
       <PageHeader
         title={`${species === "ALL" ? "Combined Herd" : species} Production Logs`}
-        subtitle="Official LGU daily yield records, maternal lineage birthing logs, and weight gain tracking"
+        subtitle="Production records, animal births, and weight history"
         variant="farmer"
         maxWidthClass="w-full"
       />

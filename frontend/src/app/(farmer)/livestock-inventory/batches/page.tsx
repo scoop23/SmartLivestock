@@ -623,8 +623,8 @@ export default function BatchOverviewPage() {
   return (
     <>
       <PageHeader
-        title="Livestock Batch & Flock Overview"
-        subtitle="Monitor herd performance, individual animal tracking within herds, and aggregate yield."
+        title="My Herds"
+        subtitle="View your herds and the animals in each group."
         variant="farmer"
         maxWidthClass="w-full"
       />
@@ -656,7 +656,7 @@ export default function BatchOverviewPage() {
               size="sm"
               className="rounded-xl border-emerald-600/30 text-emerald-800 hover:bg-emerald-50 font-bold text-xs gap-1.5 cursor-pointer"
             >
-              <TrendingUp className="size-3.5 text-emerald-600" /> Log Batch Yield
+              <TrendingUp className="size-3.5 text-emerald-600" /> Record Herd Production
             </Button>
 
             <Button
@@ -729,7 +729,7 @@ export default function BatchOverviewPage() {
                           <span className="text-xl font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
                             {headCount}
                           </span>
-                          <span className="text-[10px] font-bold uppercase text-slate-400">Heads</span>
+                          <span className="text-[10px] font-bold uppercase text-slate-400">Animals</span>
                         </div>
                         <div className="flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-600">
                           <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1006,7 +1006,7 @@ export default function BatchOverviewPage() {
                   </div>
                   <div className="space-y-1 flex-1">
                     <h4 className="text-sm font-black text-emerald-950 flex items-center gap-2">
-                      <span>How Batch vs. Individual Tracking Powers Production & Yield</span>
+                      <span>Recording Herd Production</span>
                       {/* <Badge className="bg-emerald-200 text-emerald-900 text-[9px] font-black">Capstone Standard</Badge> */}
                     </h4>
                     <p className="text-xs text-slate-700 leading-relaxed font-medium">
@@ -1030,7 +1030,7 @@ export default function BatchOverviewPage() {
                       <Beef className="size-3.5 text-amber-600" /> Meat & Dressing Percentage
                     </p>
                     <p className="text-slate-600 text-[11px]">
-                      Total batch liveweight ({yieldMetrics.totalBiomass} kg) projects {yieldMetrics.dressedYieldKg} kg carcass yield for Padre Garcia slaughterhouse and livestock auction.
+                      Total herd weight ({yieldMetrics.totalBiomass} kg) projects {yieldMetrics.dressedYieldKg} kg carcass yield for Padre Garcia slaughterhouse and livestock auction.
                     </p>
                   </div>
 
@@ -1501,13 +1501,13 @@ export default function BatchOverviewPage() {
               type="button"
               onClick={() => {
                 toast.success(
-                  `Batch yield record of ${batchProductionData.quantity} ${batchProductionData.unit} logged successfully for ${currentBatch?.batchCode}!`
+                  `Herd production record of ${batchProductionData.quantity} ${batchProductionData.unit} logged successfully for ${currentBatch?.batchCode}!`
                 );
                 setIsBatchProductionOpen(false);
               }}
               className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
             >
-              Submit Batch Yield
+              Submit Production
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1621,15 +1621,15 @@ export default function BatchOverviewPage() {
                   <span className="font-bold text-slate-900">{currentBatch.species} • {currentBatch.breed}</span>
                 </div>
                 <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
-                  <span className="text-slate-500 font-medium">Registered Heads:</span>
-                  <span className="font-bold text-emerald-700">{currentBatch.individuals.length} Heads (100% Active)</span>
+                  <span className="text-slate-500 font-medium">Registered Animals:</span>
+                  <span className="font-bold text-emerald-700">{currentBatch.individuals.length} Animals (100% Active)</span>
                 </div>
                 <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
                   <span className="text-slate-500 font-medium">Housing Enclosure:</span>
                   <span className="font-bold text-slate-900">{currentBatch.housingPen}</span>
                 </div>
                 <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
-                  <span className="text-slate-500 font-medium">Municipal Review:</span>
+                  <span className="text-slate-500 font-medium">Review Status:</span>
                   <span className="font-bold">
                     {currentBatch.reviewStatus === "APPROVED" ? (
                       <span className="text-emerald-700">✓ MAO Final Approved</span>
@@ -1641,7 +1641,7 @@ export default function BatchOverviewPage() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Biosecurity Clearance:</span>
+                  <span className="text-slate-500 font-medium">Animal Health Status:</span>
                   <span className="text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
                     Ord. 2026-03 Compliant
                   </span>

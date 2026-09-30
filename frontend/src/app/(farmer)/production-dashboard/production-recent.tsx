@@ -84,7 +84,7 @@ export default function ProductionRecent({
                 Recent Production Output Feed
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Latest submitted yields awaiting municipal validation or verified
+                Your recent production records and their review status
               </CardDescription>
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function ProductionRecent({
             <p className="text-xs text-slate-400 mt-0.5">
               {query || statusFilter !== "ALL"
                 ? "Try clearing filters to see more results."
-                : "Record your first daily yield to start logging."}
+                : "Add your first production record to get started."}
             </p>
           </div>
         ) : (
@@ -161,7 +161,7 @@ export default function ProductionRecent({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-slate-900">
-                          {PRODUCTION_TYPE_LABELS[record.productionType] ?? "Yield"}
+                          {PRODUCTION_TYPE_LABELS[record.productionType] ?? "Production"}
                         </span>
                         <Badge
                           className={`text-[10px] font-bold uppercase tracking-wider ${

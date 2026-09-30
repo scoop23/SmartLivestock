@@ -43,21 +43,21 @@ export function SpeciesDrilldownView({
             type="button"
             onClick={onBack}
             className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 transition-colors cursor-pointer"
-            title="Back to all species"
+            title="Back to livestock types"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-xl font-black text-slate-900">{selectedType} Registry</h2>
+            <h2 className="text-xl font-black text-slate-900">{selectedType}</h2>
             <p className="text-xs font-semibold text-slate-500">
-              Viewing all {selectedType.toLowerCase()} records in your herd
+              Your {selectedType.toLowerCase()} and their details
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Badge className="bg-emerald-100 text-emerald-800 border-0 font-bold px-3 py-1">
-            {totalHeads} Total Heads
+            {totalHeads} Animals
           </Badge>
           <Badge className="bg-slate-100 text-slate-700 border-0 font-bold px-3 py-1">
             {items.length} Records
@@ -82,7 +82,7 @@ export function SpeciesDrilldownView({
                   {selectedType} Herds
                 </h3>
                 <p className="text-xs font-medium text-slate-500 truncate">
-                  Group-managed batches raised together under one herd
+                  Animals raised together as one herd
                 </p>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-100 text-teal-900 border border-teal-200/60 shrink-0">
@@ -96,7 +96,7 @@ export function SpeciesDrilldownView({
                 className="gap-2 bg-white hover:bg-teal-50 border border-teal-900/15 hover:border-teal-300 text-teal-950 font-bold text-xs rounded-xl h-9 px-3.5 transition-colors cursor-pointer"
               >
                 <Layers className="size-3.5 text-teal-700" />
-                <span>Batch Management</span>
+                <span>View Herds</span>
                 <ChevronRight className="size-3 text-slate-400 -ml-1" />
               </Button>
             </Link>

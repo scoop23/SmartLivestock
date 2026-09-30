@@ -238,10 +238,10 @@ export default function ProductionCalvingTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <h3 className="text-base font-bold text-slate-900">
-            {terms.eventName} & Birth Registry
+            {terms.eventName}  & Birth Records
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Record new born {terms.offspringPlural.toLowerCase()}, pedigree lineage, and birth weights.
+            Record newborn {terms.offspringPlural.toLowerCase()}, pedigree lineage, and birth weights.
           </p>
         </div>
         <Button

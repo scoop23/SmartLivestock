@@ -125,7 +125,7 @@ export default function FarmerSchedulingPage() {
   return (
     <>
       <PageHeader
-        title="Field Scheduling"
+        title="Programs & Visits"
         // subtitle="Reserve a slot for the next MAO program visit"
         // icon={<CalendarDays className="size-5 text-slate-800" />}
         variant="farmer"
@@ -155,7 +155,7 @@ export default function FarmerSchedulingPage() {
             <CommunityEmptyState
               icon={<CalendarDays className="size-5" />}
               title="No open program dates"
-              description="The Municipal Agriculture Office has not opened any booking dates yet. Check back later."
+              description="No programs or visit dates are available yet. Check back later."
             />
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">

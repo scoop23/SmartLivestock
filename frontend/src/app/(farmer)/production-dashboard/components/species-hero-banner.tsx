@@ -89,7 +89,7 @@ export default function SpeciesHeroBanner({
             <Sparkles className="size-3.5" />
             {!species || species === "ALL"
               ? "All Farm Production Overview"
-              : `${species} Production & Biometric Hub`}
+              : `${species} Production`}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
             {!species || species === "ALL"
@@ -98,7 +98,7 @@ export default function SpeciesHeroBanner({
           </h2>
           <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
             {speciesConfig?.tagline ||
-              "Log daily yields, record maternal lineage births, and track growth velocity for municipal verification."}
+              "Record production and births, and review your records."}
           </p>
 
           {/* Quick Telemetry Chips */}
@@ -106,13 +106,13 @@ export default function SpeciesHeroBanner({
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10">
               <Icon iconNode={cowHead} className="size-5"/>
               <span>
-                <strong>{totalHeads}</strong> Heads in Enterprise
+                <strong>{totalHeads}</strong> Animals
               </span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10">
               <Milk className="size-4 text-sky-400" />
               <span>
-                <strong>{filteredProductionRecords.length}</strong> Yield Logs
+                <strong>{filteredProductionRecords.length}</strong> Production Records
               </span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10">
@@ -133,7 +133,7 @@ export default function SpeciesHeroBanner({
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
               </span>
               <span className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wider">
-                LGU Biosecurity Active
+                Animal Health & Safety
               </span>
             </div>
             <span className="text-[10px] font-mono font-semibold text-emerald-200/80 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
@@ -144,7 +144,7 @@ export default function SpeciesHeroBanner({
           <div className="grid grid-cols-2 gap-3 py-0.5">
             <div className="space-y-0.5">
               <span className="text-[10px] uppercase tracking-wide text-emerald-200/70 font-semibold">
-                Total Output Yield
+                Total Production
               </span>
               <p className="text-base sm:text-lg font-black text-white">
                 {totalYieldFormatted}

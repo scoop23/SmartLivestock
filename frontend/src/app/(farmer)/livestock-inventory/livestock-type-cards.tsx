@@ -175,7 +175,7 @@ export default function LivestockTypeCards({
               </span>
             </div>
             <p className="text-xs font-medium text-slate-500 truncate">
-              Click any category card to filter herd records & view individual biometric profiles
+              Choose a livestock type to view your animals.
             </p>
           </div>
         </div>
@@ -316,7 +316,7 @@ export default function LivestockTypeCards({
                   {/* Progress Bar of Approved Ratio */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-stone-600">
-                      <span>Registry Verification</span>
+                      <span>Review Status</span>
                       <span className="font-bold text-emerald-950">{approvedRate}%</span>
                     </div>
                     <div className="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">

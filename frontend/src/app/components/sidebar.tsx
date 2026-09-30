@@ -107,30 +107,38 @@ const adminLinks: SidebarLink[] = [
 ];
 
 const farmerLinks: SidebarLink[] = [
-  { path: '/farmer', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/farmer', label: 'Home', icon: LayoutDashboard },
   {
     path: '/livestock-inventory',
-    label: 'Livestock & Herd',
+    label: 'My Livestock',
     icon: CowHeadIcon,
     subLinks: [
-      { path: '/livestock-inventory', label: 'Herd Overview' },
-      { path: '/livestock-inventory/batches', label: 'Herds', badge: 'Herds' },
-      { path: '/livestock-inventory/all', label: 'All Registry List' },
+      { path: '/livestock-inventory', label: 'Overview' },
+      { path: '/livestock-inventory/batches', label: 'Herds' },
+      { path: '/livestock-inventory/all', label: 'All Livestock' },
     ],
   },
   {
     path: '/production-dashboard',
-    label: 'Production & Yield',
+    label: 'Record',
     icon: ClipboardCheck,
     subLinks: [
-      { path: '/production-dashboard', label: 'Production Summary' },
-      { path: '/production-dashboard/history', label: 'Historical Records' },
+      { path: '/production-dashboard', label: 'Production' },
+      { path: '/production-dashboard/history', label: 'Production History' },
     ],
   },
-  { path: '/report-observation', label: 'Report Illness/Mortality', icon: Stethoscope },
-  { path: '/gis-user-map', label: 'GIS Farm Map', icon: Map },
+  { path: '/report-observation', label: 'Report', icon: Stethoscope },
+  {
+    path: '/gis-user-map',
+    label: 'My Farm',
+    icon: Map,
+    subLinks: [
+      { path: '/gis-user-map', label: 'Farm Map' },
+      { path: '/farmer-scheduling', label: 'Programs & Visits' },
+    ],
+  },
   { path: '/farmer-announcement', label: 'Activities', icon: Megaphone },
-  { path: '/farmer-scheduling', label: 'Field Scheduling', icon: CalendarDays },
+
 ];
 
 const sibatLinks: SidebarLink[] = [

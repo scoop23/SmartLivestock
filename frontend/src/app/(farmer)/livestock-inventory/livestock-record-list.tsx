@@ -429,7 +429,7 @@ export default function LivestockRecordList({
     link.click();
     document.body.removeChild(link);
 
-    toast.success("Registry Exported", {
+    toast.success("Livestock list downloaded", {
       description: `Downloaded ${filtered.length} records as CSV spreadsheet.`,
     });
   };
@@ -924,7 +924,7 @@ export default function LivestockRecordList({
                     ) : (
                       <div className="w-full p-1.5 rounded-lg bg-slate-50/60 border border-dashed border-slate-200/60 text-[10px] text-slate-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-3 h-3 text-slate-400" />
-                        <span>Standard registry record verified</span>
+                        <span>Record approved</span>
                       </div>
                     )}
                   </div>

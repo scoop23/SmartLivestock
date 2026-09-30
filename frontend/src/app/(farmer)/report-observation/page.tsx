@@ -92,7 +92,7 @@ export default function ReportObservationPage() {
   const handleRefresh = () => {
     refetchDiseases();
     refetchMortality();
-    toast.success("Health surveillance records updated.");
+    toast.success("Animal health reports updated.");
   };
 
   const handleEditReport = (report: FarmerReport) => {
@@ -241,8 +241,8 @@ export default function ReportObservationPage() {
   return (
     <>
       <PageHeader
-        title="Livestock Health & Mortality Surveillance"
-        subtitle="Padre Garcia Municipal Agriculture Office • Rapid Disease Reporting & SIBAT Inspection System"
+        title="Animal Health"
+        subtitle="Report an illness or animal death and follow its review status."
         variant="farmer"
         maxWidthClass="w-full"
         action={
@@ -252,7 +252,7 @@ export default function ReportObservationPage() {
               size="icon"
               onClick={handleRefresh}
               className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
-              title="Refresh Surveillance Feed"
+              title="Refresh reports"
             >
               <RefreshCw className={`size-5 ${isRefreshing ? "animate-spin" : ""}`} />
             </Button>
@@ -280,10 +280,10 @@ export default function ReportObservationPage() {
           <div className="space-y-1">
             <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
               <Activity className="size-5 text-emerald-200" />
-              Municipal Biosecurity Surveillance Hub
+              Report an Animal Problem
             </h3>
             <p className="text-xs text-emerald-100/85 font-medium max-w-xl leading-relaxed">
-              Timely reporting helps the Padre Garcia Municipal Agriculture Office prevent disease outbreaks. SIBAT validators are deployed within 24 hours of report lodgement.
+              Early reports help local animal health staff respond to possible illness.
             </p>
           </div>
 
@@ -293,7 +293,7 @@ export default function ReportObservationPage() {
               className="flex-1 sm:flex-none rounded-xl bg-rose-600/25 hover:bg-rose-600/40 text-rose-100 text-xs font-bold h-10 px-4 gap-1.5 border border-rose-400/30 cursor-pointer"
             >
               <Skull className="size-4 text-rose-300" />
-              <span>Report Mortality</span>
+              <span>Report Animal Death</span>
             </Button>
 
             <Button
@@ -301,7 +301,7 @@ export default function ReportObservationPage() {
               className="flex-1 sm:flex-none rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-black h-10 px-4 gap-1.5 shadow-sm cursor-pointer"
             >
               <Stethoscope className="size-4" />
-              <span>Report Sickness</span>
+              <span>Report Sick Animal</span>
             </Button>
           </div>
         </div>
@@ -314,10 +314,10 @@ export default function ReportObservationPage() {
               <div>
                 <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
                   <Activity className="size-5 text-emerald-700" />
-                  Your Lodged Health & Mortality Reports
+                  Your Reports
                 </h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Click on any report to inspect the SIBAT field validation dossier, inspector findings, and official MAO review remarks
+                  Select a report to see its details and review updates.
                 </p>
               </div>
 

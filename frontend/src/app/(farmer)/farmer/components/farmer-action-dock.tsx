@@ -65,14 +65,14 @@ export default function FarmerActionDock({
         return;
       }
 
-      // Alt+M (Report Mortality / MortalityRecord)
+      // Alt+M (Report Animal Death / MortalityRecord)
       if (e.altKey && e.key.toLowerCase() === "m") {
         e.preventDefault();
         onOpenReportIllness("MORTALITY");
         return;
       }
 
-      // Alt+A (Register Animal / LivestockInventory)
+      // Alt+A (Add Livestock / LivestockInventory)
       if (e.altKey && e.key.toLowerCase() === "a") {
         e.preventDefault();
         router.push("/livestock-inventory");
@@ -131,7 +131,7 @@ export default function FarmerActionDock({
                 </TooltipContent>
               </Tooltip>
 
-              {/* 2. Report Mortality (MortalityRecord) */}
+              {/* 2. Report Animal Death (MortalityRecord) */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -143,7 +143,7 @@ export default function FarmerActionDock({
                       <Skull className="size-4" />
                     </div>
                     <span className="text-xs font-black tracking-tight hidden md:inline">
-                      Report Mortality
+                      Report Animal Death
                     </span>
                     <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-slate-100 rounded-md border border-slate-200/80">
                       {modKey}M
@@ -151,11 +151,11 @@ export default function FarmerActionDock({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={10} className="font-bold text-xs">
-                  <p>Log Animal Mortality Casualty ({modKey}+M)</p>
+                  <p>Report an animal death ({modKey}+M)</p>
                 </TooltipContent>
               </Tooltip>
 
-              {/* 3. Register Animal (LivestockInventory) */}
+              {/* 3. Add Livestock (LivestockInventory) */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -167,7 +167,7 @@ export default function FarmerActionDock({
                       <Plus className="size-4" />
                     </div>
                     <span className="text-xs font-black tracking-tight hidden md:inline">
-                      Register Animal
+                      Add Livestock
                     </span>
                     <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-slate-100 rounded-md border border-slate-200/80">
                       {modKey}A
@@ -175,11 +175,11 @@ export default function FarmerActionDock({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={10} className="font-bold text-xs">
-                  <p>Add Animal to Municipal Herd Registry ({modKey}+A)</p>
+                  <p>Add an animal to your livestock ({modKey}+A)</p>
                 </TooltipContent>
               </Tooltip>
 
-              {/* 4. Log Yield (ProductionRecord) */}
+              {/* 4. Record Production (ProductionRecord) */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -191,7 +191,7 @@ export default function FarmerActionDock({
                       <Package className="size-4" />
                     </div>
                     <span className="text-xs font-black tracking-tight hidden md:inline">
-                      Log Yield
+                      Record Production
                     </span>
                     <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-slate-100 rounded-md border border-slate-200/80">
                       {modKey}P
@@ -199,7 +199,7 @@ export default function FarmerActionDock({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={10} className="font-bold text-xs">
-                  <p>Record Milk Harvest & Production ({modKey}+P)</p>
+                  <p>Enter your production ({modKey}+P)</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -236,14 +236,14 @@ export default function FarmerActionDock({
       <CommandDialog
         open={isCommandOpen}
         onOpenChange={setIsCommandOpen}
-        title="Padre Garcia Farmer Operations"
-        description="Search tools, log animal data, or inspect reports..."
+        title="Quick Actions"
+        description="Find an action or report..."
       >
         <CommandInput placeholder="Type a command, animal tag, or tool..." />
         <CommandList className="max-h-[380px] overflow-y-auto">
           <CommandEmpty>No matching action found.</CommandEmpty>
 
-          <CommandGroup heading="Backend Operational Models">
+          <CommandGroup heading="Quick Actions">
             <CommandItem
               onSelect={() => {
                 setIsCommandOpen(false);
@@ -252,7 +252,7 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Stethoscope className="size-4 text-amber-600" />
-              <span>Report Sickness or Clinical Symptoms (DiseaseCase)</span>
+              <span>Report a sick animal</span>
               <CommandShortcut>{modKey}S</CommandShortcut>
             </CommandItem>
 
@@ -264,7 +264,7 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Skull className="size-4 text-rose-600" />
-              <span>Report Deceased Animal / Loss (MortalityRecord)</span>
+              <span>Report an animal death</span>
               <CommandShortcut>{modKey}M</CommandShortcut>
             </CommandItem>
 
@@ -276,7 +276,7 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Plus className="size-4 text-[#2D5A27]" />
-              <span>Register Animal to Herd Registry (LivestockInventory)</span>
+              <span>Add livestock</span>
               <CommandShortcut>{modKey}A</CommandShortcut>
             </CommandItem>
 
@@ -288,14 +288,14 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Milk className="size-4 text-sky-600" />
-              <span>Log Dairy Yield & Farm Production (ProductionRecord)</span>
+              <span>Record production</span>
               <CommandShortcut>{modKey}P</CommandShortcut>
             </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Surveillance & Health Tracking">
+          <CommandGroup heading="Reports & Animal Health">
             <CommandItem
               onSelect={() => {
                 setIsCommandOpen(false);
@@ -315,7 +315,7 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Activity className="size-4 text-emerald-700" />
-              <span>Open Full Surveillance Ledger</span>
+              <span>View your reports</span>
             </CommandItem>
 
             <CommandItem
@@ -326,13 +326,13 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Bell className="size-4 text-rose-600" />
-              <span>Municipal Weather & Biosecurity Advisories</span>
+              <span>Activities & updates</span>
             </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Municipal Programs & GIS">
+          <CommandGroup heading="Farm Services">
             <CommandItem
               onSelect={() => {
                 setIsCommandOpen(false);
@@ -341,7 +341,7 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <CalendarDays className="size-4 text-indigo-600" />
-              <span>MAO Vaccination & Veterinary Programs</span>
+              <span>Vaccination & veterinary visits</span>
             </CommandItem>
 
             <CommandItem
@@ -352,7 +352,7 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Map className="size-4 text-teal-600" />
-              <span>Pasture Grazing GIS & Boundary Map</span>
+              <span>Farm Map</span>
             </CommandItem>
 
             <CommandItem
@@ -363,7 +363,7 @@ export default function FarmerActionDock({
               className="cursor-pointer gap-2 py-2.5"
             >
               <Megaphone className="size-4 text-amber-600" />
-              <span>Municipal Announcements & Bulletins</span>
+              <span>Activities</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>
