@@ -20,3 +20,6 @@ media/
 backend/media/
 backend/local.sqlite3
 backend/.env
+
+# Local database backups contain hashed passwords
+backups/
