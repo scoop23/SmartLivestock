@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertTriangle, RotateCw } from "lucide-react";
+import { Activity, AlertTriangle, CalendarDays, ClipboardCheck, GraduationCap, HeartPulse, Megaphone, MapPin, RotateCw, ShieldAlert, ShoppingBasket, Syringe, Users, type LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** Time slots the backend accepts for a program booking (users/community_views.py TIMES). */
@@ -44,42 +44,55 @@ export const AUDIENCE_LABEL: Record<string, string> = {
 };
 
 /** Visual tone per activity category so the feed is scannable at a glance. */
-export const CATEGORY_TONE: Record<
-  string,
-  { badge: string; icon: string }
-> = {
-  "Health Alert": {
-    badge: "text-rose-800 bg-rose-50 border-rose-200",
-    icon: "text-rose-600",
-  },
-  Event: { badge: "text-sky-800 bg-sky-50 border-sky-200", icon: "text-sky-600" },
-  Program: {
-    badge: "text-emerald-800 bg-emerald-50 border-emerald-200",
-    icon: "text-emerald-600",
-  },
-  "Market Update": {
-    badge: "text-amber-800 bg-amber-50 border-amber-200",
-    icon: "text-amber-600",
-  },
-  "Field Memo": {
-    badge: "text-slate-700 bg-slate-100 border-slate-200",
-    icon: "text-slate-500",
-  },
-  General: {
-    badge: "text-indigo-800 bg-indigo-50 border-indigo-200",
-    icon: "text-indigo-500",
-  },
+export type ActivityCategoryConfig = {
+  value: string;
+  group: "Programs" | "Health" | "Training" | "Events" | "Advisories";
+  icon: LucideIcon;
+  badge: string;
+  iconClass: string;
 };
 
-export function categoryTone(category: string) {
-  return (
-    CATEGORY_TONE[category] ?? {
-      badge: "text-slate-700 bg-slate-100 border-slate-200",
-      icon: "text-slate-500",
-    }
-  );
+export const ACTIVITY_CATEGORIES: ActivityCategoryConfig[] = [
+  { value: "General", group: "Events", icon: Megaphone, badge: "text-indigo-800 bg-indigo-50 border-indigo-200", iconClass: "text-indigo-600" },
+  { value: "Vaccination", group: "Programs", icon: Syringe, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Animal Health", group: "Health", icon: HeartPulse, badge: "text-rose-800 bg-rose-50 border-rose-200", iconClass: "text-rose-600" },
+  { value: "Livestock Inspection", group: "Health", icon: ClipboardCheck, badge: "text-sky-800 bg-sky-50 border-sky-200", iconClass: "text-sky-700" },
+  { value: "Disease Prevention", group: "Health", icon: ShieldAlert, badge: "text-amber-900 bg-amber-50 border-amber-200", iconClass: "text-amber-700" },
+  { value: "Farmer Training", group: "Training", icon: GraduationCap, badge: "text-violet-800 bg-violet-50 border-violet-200", iconClass: "text-violet-700" },
+  { value: "Seminar", group: "Training", icon: GraduationCap, badge: "text-violet-800 bg-violet-50 border-violet-200", iconClass: "text-violet-700" },
+  { value: "Farmer Meeting", group: "Events", icon: Users, badge: "text-sky-800 bg-sky-50 border-sky-200", iconClass: "text-sky-700" },
+  { value: "Livestock Registration", group: "Programs", icon: ClipboardCheck, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Field Visit", group: "Programs", icon: MapPin, badge: "text-teal-800 bg-teal-50 border-teal-200", iconClass: "text-teal-700" },
+  { value: "Market / Auction", group: "Events", icon: ShoppingBasket, badge: "text-orange-900 bg-orange-50 border-orange-200", iconClass: "text-orange-700" },
+  { value: "Livestock Program", group: "Programs", icon: CalendarDays, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Biosecurity Advisory", group: "Advisories", icon: ShieldAlert, badge: "text-amber-900 bg-amber-50 border-amber-200", iconClass: "text-amber-700" },
+  { value: "Emergency Notice", group: "Advisories", icon: Activity, badge: "text-rose-900 bg-rose-50 border-rose-200", iconClass: "text-rose-700" },
+  { value: "Other", group: "Events", icon: Megaphone, badge: "text-slate-700 bg-slate-100 border-slate-200", iconClass: "text-slate-600" },
+  // Retain existing category values so saved announcements remain readable/editable.
+  { value: "Health Alert", group: "Health", icon: HeartPulse, badge: "text-rose-800 bg-rose-50 border-rose-200", iconClass: "text-rose-600" },
+  { value: "Event", group: "Events", icon: CalendarDays, badge: "text-sky-800 bg-sky-50 border-sky-200", iconClass: "text-sky-700" },
+  { value: "Program", group: "Programs", icon: CalendarDays, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Market Update", group: "Events", icon: ShoppingBasket, badge: "text-orange-900 bg-orange-50 border-orange-200", iconClass: "text-orange-700" },
+  { value: "Field Memo", group: "Advisories", icon: Megaphone, badge: "text-slate-700 bg-slate-100 border-slate-200", iconClass: "text-slate-600" },
+];
+
+export const ACTIVITY_FILTERS = ["All", "Programs", "Health", "Training", "Events", "Advisories"] as const;
+
+export function activityCategory(category: string) {
+  return ACTIVITY_CATEGORIES.find((entry) => entry.value === category) ?? ACTIVITY_CATEGORIES[0];
 }
 
+export function categoryMatchesFilter(category: string, filter: string) {
+  return filter === "All" || activityCategory(category).group === filter;
+}
+
+export const CATEGORY_TONE = Object.fromEntries(
+  ACTIVITY_CATEGORIES.map((entry) => [entry.value, { badge: entry.badge, icon: entry.iconClass }]),
+) as Record<string, { badge: string; icon: string }>;
+
+export function categoryTone(category: string) {
+  return CATEGORY_TONE[category] ?? CATEGORY_TONE.General;
+}
 /** "2026-03-14" -> "Sat, 14 Mar 2026" (avoids timezone drift from parsing as UTC). */
 export function formatLongDate(iso: string): string {
   if (!iso) return "—";
@@ -113,6 +126,15 @@ export function formatTime(value: string): string {
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
+
+/** A program has no single time, it spans every bookable slot, so show first -> last. */
+export function formatTimeWindow(): string {
+  const first = PROGRAM_TIME_SLOTS[0];
+  const last = PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1];
+  if (!first || !last) return "—";
+  return `${formatTime(first)} – ${formatTime(last)}`;
+}
+
 
 export function todayIso(): string {
   const now = new Date();

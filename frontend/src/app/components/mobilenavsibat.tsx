@@ -1,7 +1,5 @@
-import React from 'react'
 import { useRouter } from 'next/navigation'; // Changed from 'react-router'
-import { Sidebar } from './sidebar';
-import { TrendingUp, AlertTriangle, Package, Bell, Plus, Icon } from 'lucide-react';
+import { TrendingUp, Package, Bell, Icon } from 'lucide-react';
 import { cowHead } from '@lucide/lab';
 
 
@@ -47,7 +45,7 @@ export default function MobileNavSibat() {
           className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#2D5A27] relative"
         >
           <Bell className="w-6 h-6" />
-          <span className="text-xs">Announcements</span>
+          <span className="text-xs">Activities</span>
         </button>
       </div>
     </nav>

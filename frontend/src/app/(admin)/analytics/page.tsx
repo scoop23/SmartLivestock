@@ -8,25 +8,10 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { TrendingUp, TrendingDown, AlertCircle, CheckCircle, Lightbulb, BarChart3 } from 'lucide-react';
 import PredictiveCharts from '@/app/components/analytics/predictiveCharts';
 import AdminForecastingConsole from '@/app/components/analytics/adminforecasting';
+import DescriptiveAnalytics from '@/app/components/analytics/descriptive-analytics';
 
 export default function AnalyticsPage() {
   const [analyticsView, setAnalyticsView] = useState<'descriptive' | 'predictive' | 'prescriptive'>('descriptive');
-
-  const mortalityByDisease = [
-    { disease: 'FMD', cases: 6, percentage: 40 },
-    { disease: 'Brucellosis', cases: 3, percentage: 20 },
-    { disease: 'Mastitis', cases: 2, percentage: 13 },
-    { disease: 'Old Age', cases: 4, percentage: 27 },
-  ];
-
-  const monthlyMortality = [
-    { month: 'Oct', rate: 1.5, cases: 5 },
-    { month: 'Nov', rate: 1.3, cases: 4 },
-    { month: 'Dec', rate: 1.8, cases: 6 },
-    { month: 'Jan', rate: 1.2, cases: 4 },
-    { month: 'Feb', rate: 1.0, cases: 3 },
-    { month: 'Mar', rate: 1.2, cases: 4 },
-  ];
 
   const milkForecast = [
     { month: 'Apr (Actual)', actual: 99900, forecast: null },
@@ -156,80 +141,8 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Descriptive Analytics View */}
-          {analyticsView === 'descriptive' && (
-            <div className="space-y-3.5">
-              <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
-                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-3">Historical Mortality Rates</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={monthlyMortality}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#64748b' }} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Cases', angle: 90, position: 'insideRight', fontSize: 10, fill: '#64748b' }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
-                    <Line yAxisId="left" type="monotone" dataKey="rate" stroke="#D32F2F" name="Mortality Rate (%)" strokeWidth={2} />
-                    <Line yAxisId="right" type="monotone" dataKey="cases" stroke="#2D5A27" name="Total Cases" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-                <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-3">Mortality Causes Distribution</h3>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <PieChart>
-                      <Pie
-                        data={mortalityByDisease}
-                        dataKey="cases"
-                        nameKey="disease"
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent = 0 }) => `${name}: ${percent}%`}
-                        outerRadius={75}
-                        fill="#8884d8"
-                      >
-                        {mortalityByDisease.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={['#D32F2F', '#F57C00', '#FBC02D', '#8BC34A'][index]} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight mb-3">Disease Occurrence by Type</h3>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={mortalityByDisease} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="disease" tick={{ fontSize: 11, fill: '#64748b' }} />
-                      <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                      <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
-                      <Bar dataKey="cases" fill="#2D5A27" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="bg-blue-50/80 border border-blue-200/80 rounded-xl p-3.5 sm:p-4">
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-xs font-black text-blue-900 uppercase tracking-wider mb-1">Key Insights</h4>
-                    <ul className="space-y-1 text-xs text-blue-800 font-medium">
-                      <li>• Mortality rate decreased by 16.7% compared to last quarter</li>
-                      <li>• FMD remains the leading cause at 40% of all cases</li>
-                      <li>• San Roque and Quilo-quilo show lowest mortality rates</li>
-                      <li>• Peak mortality observed in December due to weather conditions</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Descriptive data comes from approved records through the analytics API. */}
+          {analyticsView === 'descriptive' && <DescriptiveAnalytics />}
           {/* Predictive Analytics View */}
           {analyticsView === 'predictive' && (
             <div className="space-y-6">

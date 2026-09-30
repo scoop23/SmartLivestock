@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Bell,
   Calendar,
   LogOut,
   Megaphone,
@@ -35,11 +34,11 @@ interface NavLink {
 
 const links: NavLink[] = [
   { path: "/farmer", label: "Home", icon: HomeIcon },
-  { path: "/livestock-inventory", label: "Inventory", icon: Package },
-  { path: "/production-dashboard", label: "production Dashboard", icon: TrendingUp },
-  { path: "/gis-user-map", label: "GIS", icon: GisGlobePoi },
-  { path: "/farmer-announcement", label: "Announcement", icon: Megaphone },
-  { path: "/farmer-scheduling", label: "Scheduling", icon: Calendar },
+  { path: "/livestock-inventory", label: "My Livestock", icon: Package },
+  { path: "/production-dashboard", label: "Record Production", icon: TrendingUp },
+  { path: "/gis-user-map", label: "Farm Map", icon: GisGlobePoi },
+  { path: "/farmer-announcement", label: "Activities", icon: Megaphone },
+  { path: "/farmer-scheduling", label: "Programs & Visits", icon: Calendar },
 ];
 
 export default function MobileNav() {

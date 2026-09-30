@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarCheck,
   CalendarDays,
@@ -9,11 +9,15 @@ import {
   Clock3,
   Info,
   Loader2,
+  MapPin,
   RotateCw,
   X,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
 import {
@@ -37,11 +41,22 @@ import {
   isUpcoming,
 } from "@/app/components/community/community-ui";
 
+function localDateFromIso(value: string): Date {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function isoFromLocalDate(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
 export default function FarmerSchedulingPage() {
   const accent = ROLE_ACCENT.farmer;
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [scheduleId, setScheduleId] = useState("");
+  const [calendarDate, setCalendarDate] = useState<Date | null>(null);
+  const initializedCalendar = useRef(false);
   const [time, setTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
@@ -54,6 +69,14 @@ export default function FarmerSchedulingPage() {
       const [open, mine] = await Promise.all([getSchedules(), getBookings()]);
       setSchedules(open);
       setBookings(mine);
+      if (!initializedCalendar.current) {
+        const requestedSchedule = new URLSearchParams(window.location.search).get("schedule");
+        const requested = open.find((schedule) => schedule.id === Number(requestedSchedule));
+        const initialSchedule = requested ?? open[0];
+        if (initialSchedule) setCalendarDate(localDateFromIso(initialSchedule.date));
+        if (requested) setScheduleId(String(requested.id));
+        initializedCalendar.current = true;
+      }
       setError("");
     } catch (e) {
       setError(apiError(e));
@@ -69,20 +92,25 @@ export default function FarmerSchedulingPage() {
   }, [load]);
 
   useEffect(() => {
+    // The async request updates loading state when it resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const selected = schedules.find((s) => s.id === Number(scheduleId));
-  const availableTimes = useMemo(
-    () =>
-      PROGRAM_TIME_SLOTS.filter(
-        (slot) => !selected?.booked_times.includes(slot)
-      ),
-    [selected]
+  const selected = schedules.find((schedule) => schedule.id === Number(scheduleId));
+  const datesWithPrograms = useMemo(() => new Set(schedules.map((schedule) => schedule.date)), [schedules]);
+  const programsOnDate = useMemo(
+    () => calendarDate ? schedules.filter((schedule) => schedule.date === isoFromLocalDate(calendarDate)) : [],
+    [calendarDate, schedules],
   );
+  const confirmedScheduleIds = useMemo(
+    () => new Set(bookings.filter((booking) => booking.status === "CONFIRMED").map((booking) => booking.schedule)),
+    [bookings],
+  );
+  const availableTimes = useMemo(() => selected?.remaining_slots ? PROGRAM_TIME_SLOTS : [], [selected]);
 
   async function book() {
-    if (!scheduleId || !time) return;
+    if (!scheduleId || !time || confirmedScheduleIds.has(Number(scheduleId))) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -94,6 +122,7 @@ export default function FarmerSchedulingPage() {
       setMessage("Booking confirmed. Please arrive on time.");
       setScheduleId("");
       setTime("");
+      window.history.replaceState({}, "", window.location.pathname);
       await refresh();
     } catch (e) {
       setError(apiError(e));
@@ -144,107 +173,67 @@ export default function FarmerSchedulingPage() {
 
       <main className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
         {/* Booking form */}
-        <Panel
-          title="Book a Program"
-          icon={<CalendarPlus className={`w-3.5 h-3.5 ${accent.icon}`} />}
-          description="Pick an open date, then choose one of the remaining time slots."
-        >
-          {loading ? (
-            <CommunitySkeleton />
-          ) : schedules.length === 0 ? (
-            <CommunityEmptyState
-              icon={<CalendarDays className="size-5" />}
-              title="No open program dates"
-              description="No programs or visit dates are available yet. Check back later."
-            />
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="book-schedule"
-                  className="text-[11px] font-black uppercase tracking-wider text-slate-500"
-                >
-                  Available program
-                </label>
-                <select
-                  id="book-schedule"
-                  value={scheduleId}
-                  onChange={(event) => {
-                    setScheduleId(event.target.value);
-                    setTime("");
-                  }}
-                  className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-slate-400"
-                >
-                  <option value="">Choose a program and date</option>
-                  {schedules.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.program} — {formatLongDate(s.date)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <Card className="gap-0 border-slate-200 shadow-2xs">
+          <CardHeader className="p-4 sm:p-5">
+            <CardTitle className="flex items-center gap-2 text-base font-bold tracking-tight">
+              <CalendarPlus className="size-4 text-emerald-700" /> Book a Program
+            </CardTitle>
+            <CardDescription>Choose a date with a program, review its details, then select an available time.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5 px-4 pb-4 sm:px-5 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+            {loading ? <CommunitySkeleton cards={2} /> : schedules.length === 0 ? (
+              <div className="lg:col-span-2"><CommunityEmptyState icon={<CalendarDays className="size-5" />} title="No open program dates" description="No programs or visit dates are available yet. Check back later." /></div>
+            ) : <>
+              <section className="rounded-xl border border-slate-200 bg-white p-2 sm:p-3" aria-label="Choose a program date">
+                <Calendar
+                  mode="single"
+                  selected={calendarDate ?? undefined}
+                  onSelect={(day) => { setCalendarDate(day ?? null); setScheduleId(""); setTime(""); }}
+                  disabled={(day) => !datesWithPrograms.has(isoFromLocalDate(day))}
+                  modifiers={{ programDate: schedules.map((schedule) => localDateFromIso(schedule.date)) }}
+                  modifiersClassNames={{ programDate: "bg-emerald-50 font-semibold text-emerald-900" }}
+                  className="mx-auto w-full"
+                />
+                <p className="px-2 pb-2 text-center text-xs text-slate-500">Highlighted dates have programs available for booking.</p>
+              </section>
 
-              <div>
-                <label
-                  htmlFor="book-time"
-                  className="text-[11px] font-black uppercase tracking-wider text-slate-500"
-                >
-                  Time
-                </label>
-                {selected ? (
-                  <div className="mt-1.5 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                    {PROGRAM_TIME_SLOTS.map((slot) => {
-                      const taken = selected.booked_times.includes(slot);
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          disabled={taken}
-                          onClick={() => setTime(slot)}
-                          className={`rounded-lg border px-2 py-2 text-[11px] font-black transition-colors ${
-                            taken
-                              ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 line-through"
-                              : time === slot
-                                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                                : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:bg-emerald-50/50"
-                          }`}
-                        >
-                          {formatTime(slot)}
-                        </button>
-                      );
+              <div className="min-w-0 space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-slate-900">{calendarDate ? `Programs on ${formatLongDate(isoFromLocalDate(calendarDate))}` : "Select a program date"}</h3>
+                  {calendarDate && programsOnDate.length === 0 ? <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">No programs are available on this date.</p> : null}
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                    {programsOnDate.map((schedule) => {
+                      const alreadyBooked = confirmedScheduleIds.has(schedule.id);
+                      const isFull = schedule.registration_status === "FULL";
+                      const active = selected?.id === schedule.id;
+                      return <Card key={schedule.id} className={`gap-0 shadow-none transition-colors ${active ? "border-emerald-600 ring-1 ring-emerald-600" : "border-slate-200"}`}>
+                        <CardContent className="space-y-2.5 p-3.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0"><h4 className="truncate text-sm font-semibold text-slate-900">{schedule.program}</h4>{schedule.location ? <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><MapPin className="size-3.5" />{schedule.location}</p> : null}</div>
+                            <Badge variant="outline" className={isFull ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-800"}>{isFull ? "Fully booked" : "Open"}</Badge>
+                          </div>
+                          <p className="text-xs text-slate-600">{schedule.booking_count} / {schedule.capacity} slots booked · {schedule.remaining_slots} slots remaining</p>
+                          <Button type="button" variant={active ? "secondary" : "outline"} className="w-full" disabled={isFull || alreadyBooked} onClick={() => { setScheduleId(String(schedule.id)); setTime(""); }}>
+                            {alreadyBooked ? "Already booked" : isFull ? "Fully booked" : active ? "Program selected" : "Review program"}
+                          </Button>
+                        </CardContent>
+                      </Card>;
                     })}
                   </div>
-                ) : (
-                  <p className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] font-medium text-slate-500">
-                    <Info className="size-3.5 shrink-0" /> Select a program first to
-                    see its time slots.
-                  </p>
-                )}
-              </div>
+                </div>
 
-              <div className="lg:col-span-2 flex flex-wrap items-center justify-between gap-2.5 pt-3.5 border-t border-slate-100">
-                <p className="text-[10px] font-medium text-slate-500">
-                  {selected
-                    ? availableTimes.length + " of " + PROGRAM_TIME_SLOTS.length + " slots still available"
-                    : "Bookings are free and can be cancelled while the visit is still upcoming."}
-                </p>
-                <Button
-                  type="button"
-                  onClick={book}
-                  disabled={busy || !scheduleId || !time || availableTimes.length === 0}
-                  className="h-9 gap-1.5 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-50 cursor-pointer"
-                >
-                  {busy ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <CalendarCheck className="size-4" />
-                  )}
-                  Confirm booking
-                </Button>
+                {selected ? <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5" aria-labelledby="program-review-title">
+                  <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 id="program-review-title" className="text-sm font-semibold text-slate-900">Review {selected.program}</h3><p className="mt-1 text-xs text-slate-500">{formatLongDate(selected.date)}{selected.location ? ` · ${selected.location}` : ""}</p></div><Badge variant="secondary">{selected.remaining_slots} slots remaining</Badge></div>
+                  <div><p className="mb-2 text-xs font-medium text-slate-700">Choose a time</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{PROGRAM_TIME_SLOTS.map((slot) => {
+                    return <Button key={slot} type="button" variant={time === slot ? "default" : "outline"} disabled={busy || selected.remaining_slots === 0 || confirmedScheduleIds.has(selected.id)} onClick={() => setTime(slot)} className={time === slot ? "bg-emerald-700 text-white hover:bg-emerald-800" : ""}>{formatTime(slot)}</Button>;
+                  })}</div></div>
+                  {confirmedScheduleIds.has(selected.id) ? <p className="text-xs text-amber-800">You already have a confirmed booking for this program.</p> : null}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3"><p className="text-xs text-slate-500">Bookings are free. You can cancel before the visit date.</p><Button type="button" disabled={busy || !time || availableTimes.length === 0 || confirmedScheduleIds.has(selected.id)} onClick={book} className="bg-emerald-700 text-white hover:bg-emerald-800">{busy ? <Loader2 className="animate-spin" /> : <CalendarCheck />} Confirm booking</Button></div>
+                </section> : <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">Choose a listed program to review its times and book a slot.</p>}
               </div>
-            </div>
-          )}
-        </Panel>
+            </>}
+          </CardContent>
+        </Card>
 
         {error ? (
           <div

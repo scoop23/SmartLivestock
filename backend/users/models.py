@@ -144,19 +144,46 @@ class Notification(models.Model):
 
 
 
+PROGRAM_TIME_SLOTS = ("08:00", "09:30", "11:00", "13:30")
+
 class Announcement(models.Model):
     class Audience(models.TextChoices):
         ALL = "ALL", "Farmers and SIBAT"
         FARMER = "FARMER", "Farmers"
         SIBAT = "SIBAT", "SIBAT"
 
+    class Category(models.TextChoices):
+        GENERAL = "General", "General"
+        VACCINATION = "Vaccination", "Vaccination"
+        ANIMAL_HEALTH = "Animal Health", "Animal Health"
+        LIVESTOCK_INSPECTION = "Livestock Inspection", "Livestock Inspection"
+        DISEASE_PREVENTION = "Disease Prevention", "Disease Prevention"
+        FARMER_TRAINING = "Farmer Training", "Farmer Training"
+        SEMINAR = "Seminar", "Seminar"
+        FARMER_MEETING = "Farmer Meeting", "Farmer Meeting"
+        LIVESTOCK_REGISTRATION = "Livestock Registration", "Livestock Registration"
+        FIELD_VISIT = "Field Visit", "Field Visit"
+        MARKET_AUCTION = "Market / Auction", "Market / Auction"
+        LIVESTOCK_PROGRAM = "Livestock Program", "Livestock Program"
+        BIOSECURITY_ADVISORY = "Biosecurity Advisory", "Biosecurity Advisory"
+        EMERGENCY_NOTICE = "Emergency Notice", "Emergency Notice"
+        OTHER = "Other", "Other"
+        HEALTH_ALERT = "Health Alert", "Health Alert"
+        EVENT = "Event", "Event"
+        PROGRAM = "Program", "Program"
+        MARKET_UPDATE = "Market Update", "Market Update"
+        FIELD_MEMO = "Field Memo", "Field Memo"
+
+
     title = models.CharField(max_length=200)
     content = models.TextField()
-    category = models.CharField(max_length=40, default="General")
+    image = models.ImageField(upload_to="activity_images/%Y/%m/", blank=True, null=True)
+    category = models.CharField(max_length=40, choices=Category.choices, default=Category.GENERAL)
     audience = models.CharField(max_length=10, choices=Audience.choices, default=Audience.ALL)
     is_published = models.BooleanField(default=False)
     is_pinned = models.BooleanField(default=False)
     posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="announcements")
+    schedule = models.ForeignKey("ProgramSchedule", on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements")
     published_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -165,16 +192,32 @@ class Announcement(models.Model):
         ordering = ["-is_pinned", "-published_at", "-created_at"]
 
 
+
+class AnnouncementPhoto(models.Model):
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name="photos")
+    image = models.ImageField(upload_to="activity_images/%Y/%m/")
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+
 class ProgramSchedule(models.Model):
     date = models.DateField()
+    capacity = models.PositiveIntegerField(default=4)
     program = models.CharField(max_length=100)
+    location = models.CharField(max_length=200, blank=True)
     is_open = models.BooleanField(default=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="program_schedules")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["date", "program"]
-        constraints = [models.UniqueConstraint(fields=["date", "program"], name="unique_program_per_day")]
+        constraints = [
+            models.UniqueConstraint(fields=["date", "program"], name="unique_program_per_day"),
+            models.CheckConstraint(condition=models.Q(capacity__gte=1), name="program_capacity_at_least_one"),
+        ]
 
 
 class ProgramBooking(models.Model):
@@ -191,6 +234,5 @@ class ProgramBooking(models.Model):
     class Meta:
         ordering = ["schedule__date", "time"]
         constraints = [
-            models.UniqueConstraint(fields=["schedule", "time"], condition=models.Q(status="CONFIRMED"), name="unique_confirmed_program_slot"),
             models.UniqueConstraint(fields=["schedule", "farmer"], condition=models.Q(status="CONFIRMED"), name="unique_farmer_program_booking"),
         ]
