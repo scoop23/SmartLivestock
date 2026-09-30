@@ -251,7 +251,7 @@ export default function LoginPage() {
       {/* ═════════════════════════════════════════════════════════════════════
           LEFT PANEL: ULTRA-MODERN HERO, LIVE TELEMETRY & BRANDING
          ═════════════════════════════════════════════════════════════════════ */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-7/12 relative overflow-hidden bg-[#071907] flex-col justify-between p-10 xl:p-14 2xl:p-16 text-white min-h-screen">
+      <div className="hidden lg:flex lg:w-7/12 xl:w-3/5 2xl:w-2/3 relative overflow-hidden bg-[#071907] flex-col justify-between p-6 xl:p-12 2xl:p-8 text-white min-h-screen">
         {/* Background Layer 1: Pastoral Image with Cinematic Slow Zoom */}
         <div className="absolute inset-0 z-0 overflow-hidden">
           <Image
@@ -297,25 +297,29 @@ export default function LoginPage() {
         </div>
 
         {/* Center Section: Animated Title & Dynamic Telemetry HUD */}
-        <div className="relative z-10 max-w-xl space-y-6 my-auto py-4">
-          <div className="space-y-4 animate-in fade-in slide-in-from-left-6 duration-700">
+        <div className="relative z-10 flex-1 flex items-center w-full py-2">
+        <div className="w-full max-w-4xl xl:max-w-5xl mx-auto space-y-5 xl:space-y-6">
+          <div className="space-y-3 animate-in fade-in slide-in-from-left-6 duration-700 text-center">
             {/* LGU Telemetry Pill Tag */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-400/35 text-emerald-300 text-[11px] font-bold tracking-wide uppercase shadow-lg shadow-emerald-950/40">
-              <Radio className="size-3.5 text-emerald-400 animate-pulse" />
-              <span>Official Municipal Agriculture Office Platform</span>
+            <div className="flex justify-center">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-400/35 text-emerald-300 text-[11px] font-bold tracking-wide uppercase shadow-lg shadow-emerald-950/40">
+                <Radio className="size-3.5 text-emerald-400 animate-pulse shrink-0" />
+                <span>Official Municipal Agriculture Office Platform</span>
+              </div>
             </div>
 
             {/* Glowing Gradient Title */}
-            <h1 className="text-3xl sm:text-4xl xl:text-5xl 2xl:text-[3.15rem] font-black text-white tracking-tight leading-[1.12] drop-shadow-md">
-              SmartLivestock{' '}
-              <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-emerald-100 bg-clip-text text-transparent">
-                Information &amp; Surveillance
-              </span>{' '}
-              System
+            <h1 className="text-base lg:text-lg xl:text-xl 2xl:text-3xl font-black text-white tracking-tight leading-[1.15] drop-shadow-md line-clamp-1">
+              SmartLivestock Information &amp; Surveillance
             </h1>
 
+            {/* Gradient "System" Accent */}
+            <span className="block text-base lg:text-lg xl:text-xl 2xl:text-2xl font-black uppercase tracking-[0.05em] leading-tight bg-gradient-to-r from-emerald-300 via-teal-200 to-emerald-100 bg-clip-text text-transparent">
+              System
+            </span>
+
             {/* Comprehensive Platform Description */}
-            <p className="text-emerald-100/90 text-sm sm:text-base xl:text-lg leading-relaxed font-normal">
+            <p className="text-emerald-100/90 text-xs sm:text-sm xl:text-base leading-relaxed font-normal text-center max-w-2xl mx-auto">
               A comprehensive digital livestock management platform for the Municipality of Padre Garcia.
               Track animal health, log dairy and meat production, and streamline multi-tier SIBAT &amp; MAO certifications.
             </p>
@@ -406,6 +410,7 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
+        </div>
 
         {/* Bottom Status Ticker with Live Sonar Pulse */}
         <div className="relative z-10 pt-5 border-t border-white/15 flex items-center justify-between text-xs text-emerald-200/90 font-semibold animate-in fade-in slide-in-from-bottom-3 duration-700">
@@ -426,7 +431,7 @@ export default function LoginPage() {
       {/* ═════════════════════════════════════════════════════════════════════
           RIGHT PANEL: LOGIN FORM (Swapped to Right)
          ═════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex flex-col justify-between p-5 xs:p-7 sm:p-10 md:p-12 lg:p-12 xl:p-16 2xl:p-20 bg-white min-h-screen overflow-y-auto animate-in fade-in slide-in-from-right-8 duration-700 ease-out">
+      <div className="flex-1 flex flex-col justify-between p-5 xs:p-7 sm:p-10 md:p-12 lg:p-8 xl:p-14 2xl:p-16 bg-white min-h-screen overflow-y-auto animate-in fade-in slide-in-from-right-8 duration-700 ease-out">
         {/* Top Header Logo */}
         <div className="flex items-center justify-between mb-5 sm:mb-8">
           <div className="flex items-center gap-2.5 sm:gap-3 group">
