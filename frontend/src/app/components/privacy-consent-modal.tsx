@@ -13,8 +13,9 @@ import {
   LogOut,
   MapPin,
   Shield,
-  Sprout,
 } from 'lucide-react';
+import { Icon } from 'lucide-react';
+import { cowHead } from '@lucide/lab';
 import {
   Dialog,
   DialogContent,
@@ -124,7 +125,7 @@ export function PrivacyConsentModal() {
           {/* Welcome Alert Card */}
           <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 space-y-1">
             <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-              <Sprout className="size-4 text-emerald-700" />
+              <Icon iconNode={cowHead} className="size-4 text-emerald-700" />
               Welcome, {user.firstName || user.email}!
             </h4>
             <p className="text-xs text-emerald-900/90 leading-relaxed font-medium">

@@ -8,12 +8,13 @@ import {
   AlertCircle,
   XCircle,
   ChevronRight,
-  Sprout,
   Milk,
   Stethoscope,
   Skull,
   RotateCcw,
 } from "lucide-react";
+import { Icon } from "lucide-react";
+import { cowHead } from "@lucide/lab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ interface FarmerActivityFeedProps {
 }
 
 const TYPE_ICONS = {
-  INVENTORY: <Sprout className="size-3.5 text-emerald-700" />,
+  INVENTORY: <Icon iconNode={cowHead} className="size-3.5 text-emerald-700" />,
   PRODUCTION: <Milk className="size-3.5 text-sky-700" />,
   DISEASE: <Stethoscope className="size-3.5 text-amber-700" />,
   MORTALITY: <Skull className="size-3.5 text-rose-700" />,

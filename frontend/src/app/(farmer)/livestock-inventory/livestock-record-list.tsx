@@ -24,7 +24,6 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
-  Sprout,
   Tag,
   Trash2,
   Weight,
@@ -34,6 +33,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import { Icon } from "lucide-react";
+import { cowHead } from "@lucide/lab";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -879,7 +880,7 @@ export default function LivestockRecordList({
                     {/* Breed & Species */}
                     <div className="p-2 rounded-lg bg-slate-50/90 border border-slate-200/70 flex items-center gap-2">
                       <div className="p-1 rounded-md bg-white text-slate-700 shadow-2xs shrink-0">
-                        <Sprout className="w-3.5 h-3.5 text-slate-600" />
+                        <Icon iconNode={cowHead} className="w-3.5 h-3.5 text-slate-600" />
                       </div>
                       <div className="min-w-0">
                         <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">

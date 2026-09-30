@@ -6,7 +6,7 @@ import { AskAIBar } from '@/app/components/ask-ai-bar';
 import {
   LayoutDashboard,
   Users, CheckSquare, Map, TrendingUp, AlertTriangle,
-  Sprout, FileText, Download, FileSpreadsheet,
+  FileText, Download, FileSpreadsheet,
   FileBarChart, Database, Milk, Scale, ChevronRight,
   ClipboardList
 } from 'lucide-react';
@@ -16,6 +16,10 @@ import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import { AdminChartsView } from './admin-charts-view';
 import { useAdminDashboardAnalytics } from './admin-charts';
 import { ValidationLoadingScreen } from '@/components/validation-loading-screen';
+
+const CowHeadIcon = ({ className }: { className?: string }) => (
+  <Icon iconNode={cowHead} className={className} />
+);
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -183,7 +187,7 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5">
             {[
-              { title: 'Livestock Inventory', desc: 'Complete cattle census', icon: Sprout, color: 'bg-emerald-50 text-emerald-800' },
+              { title: 'Livestock Inventory', desc: 'Complete cattle census', icon: CowHeadIcon, color: 'bg-emerald-50 text-emerald-800' },
               { title: 'Production Summary', desc: 'Milk & meat yield logs', icon: TrendingUp, color: 'bg-blue-50 text-blue-800' },
               { title: 'Disease & Mortality', desc: 'Surveillance & clinical reports', icon: AlertTriangle, color: 'bg-rose-50 text-rose-800' },
               { title: 'Farmer Registry', desc: '18-Barangay raisers directory', icon: Users, color: 'bg-purple-50 text-purple-800' },

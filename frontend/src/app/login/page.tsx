@@ -17,7 +17,6 @@ import {
   Sparkles,
   HelpCircle,
   Loader2,
-  Sprout,
   Radio,
   TrendingUp,
   Wifi,
@@ -717,7 +716,7 @@ export default function LoginPage() {
             onClick={() => router.push('/farmer-registration')}
             className="group w-full h-12 sm:h-13 border-2 border-emerald-900/20 text-[#2D5A27] hover:bg-emerald-50/80 font-black text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <Sprout className="size-4 group-hover:rotate-12 transition-transform" />
+            <Icon iconNode={cowHead} className="size-4 group-hover:rotate-12 transition-transform" />
             <span>Register as Livestock Raiser</span>
           </Button>
         </div>

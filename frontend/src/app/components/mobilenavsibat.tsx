@@ -1,7 +1,8 @@
 import React from 'react'
 import { useRouter } from 'next/navigation'; // Changed from 'react-router'
 import { Sidebar } from './sidebar';
-import { Sprout, TrendingUp, AlertTriangle, Package, Bell, Plus } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Package, Bell, Plus, Icon } from 'lucide-react';
+import { cowHead } from '@lucide/lab';
 
 
 export default function MobileNavSibat() {
@@ -13,7 +14,7 @@ export default function MobileNavSibat() {
           onClick={() => router.push('/sibat')}
           className="flex flex-col items-center gap-1 text-[#2D5A27]"
         >
-          <Sprout className="w-6 h-6" />
+          <Icon iconNode={cowHead} className="w-6 h-6" />
           <span className="text-xs">Home</span>
         </button>
 

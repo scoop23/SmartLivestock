@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   Map,
-  Sprout,
   LogOut,
   Database,
   ShieldCheck,
@@ -35,7 +34,6 @@ import {
   User as UserIcon,
   Key,
   QrCode,
-  type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -56,6 +54,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
+const CowHeadIcon = ({ className }: { className?: string }) => (
+  <Icon iconNode={cowHead} className={className} />
+);
+
 interface SidebarProps {
   role: 'farmer' | 'lgu' | 'sibat' | 'auction';
   onLogout: () => void;
@@ -70,7 +72,7 @@ export interface SidebarSubLink {
 export interface SidebarLink {
   path: string;
   label: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string }>;
   badge?: string;
   subLinks?: SidebarSubLink[];
 }
@@ -109,7 +111,7 @@ const farmerLinks: SidebarLink[] = [
   {
     path: '/livestock-inventory',
     label: 'Livestock & Herd',
-    icon: Sprout,
+    icon: CowHeadIcon,
     subLinks: [
       { path: '/livestock-inventory', label: 'Herd Overview' },
       { path: '/livestock-inventory/batches', label: 'Batches & Flocks', badge: 'Batches' },

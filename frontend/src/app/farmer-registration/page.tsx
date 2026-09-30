@@ -18,7 +18,6 @@ import {
   EyeOff,
   ExternalLink,
   Loader2,
-  Sprout,
   FileCheck,
   Check,
   X,
@@ -29,6 +28,8 @@ import {
   Mail,
   Building2,
 } from 'lucide-react';
+import { Icon } from 'lucide-react';
+import { cowHead } from '@lucide/lab';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
@@ -420,7 +421,7 @@ export default function FarmerRegistrationPage() {
           <div className="absolute -left-8 -bottom-8 size-36 bg-emerald-300/10 rounded-full blur-2xl pointer-events-none" />
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-[10px] font-black uppercase tracking-wider text-emerald-200 mb-2">
-            <Sprout className="size-3 text-emerald-300" />
+            <Icon iconNode={cowHead} className="size-3 text-emerald-300" />
             <span>Municipality of Padre Garcia • MAO Registry</span>
           </div>
 
