@@ -126,8 +126,8 @@ export default function FarmerSchedulingPage() {
     <>
       <PageHeader
         title="Field Scheduling"
-        subtitle="Reserve a slot for the next MAO program visit"
-        icon={<CalendarDays className="size-5 text-slate-800" />}
+        // subtitle="Reserve a slot for the next MAO program visit"
+        // icon={<CalendarDays className="size-5 text-slate-800" />}
         variant="farmer"
         maxWidthClass="w-full"
         action={
