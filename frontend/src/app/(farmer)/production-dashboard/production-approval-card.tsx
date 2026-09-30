@@ -112,7 +112,7 @@ export default function ProductionApprovalCard({
           <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/60 text-left flex items-start gap-2.5">
             <Info className="size-4 text-amber-700 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-900 leading-normal">
-              Records marked <span className="font-semibold text-emerald-800">APPROVED</span> have been inspected and confirmed by the local SIBAT officer.
+              Records marked <span className="font-semibold text-emerald-800">APPROVED</span> have been inspected and confirmed by the local CBAT officer.
             </p>
           </div>
         </CardContent>
