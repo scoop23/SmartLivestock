@@ -1334,7 +1334,7 @@
     "is_superuser": false,
     "username": "rene.rea",
     "first_name": "Rene",
-    "last_name": "Reña",
+    "last_name": "ReÃ±a",
     "is_staff": false,
     "is_active": true,
     "date_joined": "2026-09-22T10:33:04.505Z",
@@ -3362,6 +3362,150 @@
     "is_read": false,
     "link": "/production-dashboard",
     "created_at": "2026-09-29T11:33:47.710Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 56,
+  "fields": {
+    "user": [
+      "mao@example.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Cawongan Q3 2026 livestock census.",
+    "is_read": true,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:30:53.089Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 57,
+  "fields": {
+    "user": [
+      "emmanuel@smartlivestock.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Cawongan Q3 2026 livestock census.",
+    "is_read": false,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:30:53.089Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 58,
+  "fields": {
+    "user": [
+      "shantel@smartlivestock.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Cawongan Q3 2026 livestock census.",
+    "is_read": false,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:30:53.089Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 59,
+  "fields": {
+    "user": [
+      "alexa@smartlivestock.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Cawongan Q3 2026 livestock census.",
+    "is_read": false,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:30:53.089Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 60,
+  "fields": {
+    "user": [
+      "sibat@example.com"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Approved by MAO",
+    "message": "MAO approved the Cawongan Q3 2026 livestock census. Remarks: Data cross-checked with cooperative collection logs.",
+    "is_read": false,
+    "link": "/sibat?tab=census",
+    "created_at": "2026-09-29T14:31:42.148Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 61,
+  "fields": {
+    "user": [
+      "mao@example.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Manggas Q3 2026 livestock census.",
+    "is_read": false,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:32:54.937Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 62,
+  "fields": {
+    "user": [
+      "emmanuel@smartlivestock.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Manggas Q3 2026 livestock census.",
+    "is_read": true,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:32:54.937Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 63,
+  "fields": {
+    "user": [
+      "shantel@smartlivestock.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Manggas Q3 2026 livestock census.",
+    "is_read": false,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:32:54.937Z"
+  }
+},
+{
+  "model": "users.notification",
+  "pk": 64,
+  "fields": {
+    "user": [
+      "alexa@smartlivestock.gov.ph"
+    ],
+    "notification_type": "general",
+    "priority": "medium",
+    "title": "Census Submission Awaiting MAO Approval",
+    "message": "Sibat Officer submitted the Manggas Q3 2026 livestock census.",
+    "is_read": false,
+    "link": "/data-validation?domain=census",
+    "created_at": "2026-09-29T14:32:54.937Z"
   }
 },
 {
@@ -15642,6 +15786,46 @@
   }
 },
 {
+  "model": "livestock.censussubmission",
+  "pk": 2,
+  "fields": {
+    "barangay": 4,
+    "report_year": 2026,
+    "report_quarter": 3,
+    "submitted_by": [
+      "sibat@example.com"
+    ],
+    "submission_date": "2026-09-29",
+    "status": "APPROVED",
+    "reviewed_by": [
+      "mao@example.gov.ph"
+    ],
+    "reviewed_at": "2026-09-29T14:31:41.995Z",
+    "remarks": "good sweep ngl",
+    "review_remarks": "Data cross-checked with cooperative collection logs.",
+    "created_at": "2026-09-29T14:30:52.813Z"
+  }
+},
+{
+  "model": "livestock.censussubmission",
+  "pk": 3,
+  "fields": {
+    "barangay": 2,
+    "report_year": 2026,
+    "report_quarter": 3,
+    "submitted_by": [
+      "sibat@example.com"
+    ],
+    "submission_date": "2026-09-29",
+    "status": "VERIFIED",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "remarks": "ay ay ay",
+    "review_remarks": "",
+    "created_at": "2026-09-29T14:32:54.678Z"
+  }
+},
+{
   "model": "livestock.censussubmissionitem",
   "pk": 1,
   "fields": {
@@ -15672,6 +15856,94 @@
     "livestock_type": 1,
     "number_of_heads": 1,
     "remarks": ""
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 4,
+  "fields": {
+    "census_submission": 2,
+    "farmer": 213,
+    "livestock_type": 1,
+    "number_of_heads": 5,
+    "remarks": "Breeder herd"
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 5,
+  "fields": {
+    "census_submission": 2,
+    "farmer": 212,
+    "livestock_type": 1,
+    "number_of_heads": 3,
+    "remarks": "Draft / working animals"
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 6,
+  "fields": {
+    "census_submission": 2,
+    "farmer": 216,
+    "livestock_type": 1,
+    "number_of_heads": 16,
+    "remarks": "Fattening pens"
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 7,
+  "fields": {
+    "census_submission": 2,
+    "farmer": 219,
+    "livestock_type": 1,
+    "number_of_heads": 7,
+    "remarks": "Backyard raiser"
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 8,
+  "fields": {
+    "census_submission": 3,
+    "farmer": 200,
+    "livestock_type": 1,
+    "number_of_heads": 4,
+    "remarks": "Breeder herd"
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 9,
+  "fields": {
+    "census_submission": 3,
+    "farmer": 199,
+    "livestock_type": 1,
+    "number_of_heads": 2,
+    "remarks": "Draft / working animals"
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 10,
+  "fields": {
+    "census_submission": 3,
+    "farmer": 204,
+    "livestock_type": 3,
+    "number_of_heads": 15,
+    "remarks": "Fattening pens"
+  }
+},
+{
+  "model": "livestock.censussubmissionitem",
+  "pk": 11,
+  "fields": {
+    "census_submission": 3,
+    "farmer": 203,
+    "livestock_type": 1,
+    "number_of_heads": 6,
+    "remarks": "Backyard raiser"
   }
 },
 {
