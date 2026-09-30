@@ -5,17 +5,18 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
+  Icon,
   Milk,
   ShieldCheck,
   Sparkles,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import { ENTERPRISE_CONFIGS } from "../production-enterprise-hub";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import type { ProductionRecordItem } from "../production-analytics";
 import type { CalvingRecordItem } from "../production-calving-tab";
+import { cowHead } from "@lucide/lab";
 
 interface SpeciesHeroBannerProps {
   species?: string | null;
@@ -103,7 +104,7 @@ export default function SpeciesHeroBanner({
           {/* Quick Telemetry Chips */}
           <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10">
-              <Users className="size-4 text-emerald-400" />
+              <Icon iconNode={cowHead} className="size-5"/>
               <span>
                 <strong>{totalHeads}</strong> Heads in Enterprise
               </span>
