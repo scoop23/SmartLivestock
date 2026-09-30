@@ -961,7 +961,7 @@ export function UserProfileView() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Primary Mobile (SMS Alerts)</Label>
+                          <Label className="text-xs font-bold text-slate-700">Mobile</Label>
                           <Input
                             disabled={!isEditing}
                             value={formData.phone}
@@ -1031,7 +1031,7 @@ export function UserProfileView() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Barangay (Padre Garcia)</Label>
+                          <Label className="text-xs font-bold text-slate-700">Barangay</Label>
                           <Input
                             disabled={!isEditing}
                             value={formData.barangay}

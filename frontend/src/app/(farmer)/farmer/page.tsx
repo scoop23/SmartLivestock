@@ -57,10 +57,10 @@ export default function FarmerDashboard() {
   const currentHour = new Date().getHours();
   const greeting =
     currentHour < 12
-      ? "Good morning"
+      ? "Good Morning"
       : currentHour < 18
-      ? "Good afternoon"
-      : "Good evening";
+      ? "Good Afternoon"
+      : "Good Evening";
 
   // Handle opening illness dialog with specific default type
   const handleOpenReportIllness = (defaultType: "DISEASE" | "MORTALITY" = "DISEASE") => {
