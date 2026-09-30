@@ -8,7 +8,7 @@ export { DiseaseMortalityReviewDialog } from "./disease-mortality-review-dialog"
 export { ValidationLoadingScreen } from "./validation-loading-screen";
 export { ValidationPagination } from "./validation-pagination";
 export { DomainTabs } from "./domain-tabs";
-export { CohortBatchesBanner } from "./cohort-batches-banner";
+export { HerdBatchesBanner } from "./herd-batches-banner";
 export { BulkActionDock } from "./bulk-action-dock";
 export { ActiveDomainTable } from "./active-domain-table";
 

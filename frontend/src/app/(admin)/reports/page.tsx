@@ -82,7 +82,7 @@ export default function ReportsPage() {
                   <option>Livestock Inventory & Tag Roster</option>
                   <option>Health & Vaccination Surveillance Log</option>
                   <option>Sales & Commercial Financials</option>
-                  <option>Feeding Activity & Cohort Nutrition</option>
+                  <option>Feeding Activity & Herd Nutrition</option>
                 </select>
               </div>
 

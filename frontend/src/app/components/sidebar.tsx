@@ -95,7 +95,7 @@ const adminLinks: SidebarLink[] = [
     icon: ShieldCheck,
     subLinks: [
       { path: '/data-validation', label: 'Overview & Verification' },
-      { path: '/data-validation/batches', label: 'Batches & Livestock Drilldown', badge: 'Batches' },
+      { path: '/data-validation/batches', label: 'Herd Register', badge: 'Herds' },
     ],
   },
   { path: '/gis-map', label: 'GIS Map', icon: Map },
@@ -114,7 +114,7 @@ const farmerLinks: SidebarLink[] = [
     icon: CowHeadIcon,
     subLinks: [
       { path: '/livestock-inventory', label: 'Herd Overview' },
-      { path: '/livestock-inventory/batches', label: 'Batches & Flocks', badge: 'Batches' },
+      { path: '/livestock-inventory/batches', label: 'Herds', badge: 'Herds' },
       { path: '/livestock-inventory/all', label: 'All Registry List' },
     ],
   },
@@ -140,7 +140,7 @@ const sibatLinks: SidebarLink[] = [
     icon: ClipboardCheck,
     subLinks: [
       { path: '/sibat', label: 'Overview & Field Queues' },
-      { path: '/sibat/batches', label: 'Batches & Cohort Verification', badge: 'Batches' },
+      { path: '/sibat/batches', label: 'Herd Verification', badge: 'Herds' },
     ],
   },
   { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Activity },

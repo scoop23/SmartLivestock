@@ -99,7 +99,7 @@ export function UniversalQrScannerDialog({
         border: "border-emerald-200",
         badge: "bg-emerald-100 text-emerald-800",
         title: "Municipal Agriculture Office • Universal QR Scanner",
-        sub: "Rapid official audit of individual cattle passports, cohort batches, and transport permits.",
+        sub: "Rapid official audit of individual cattle passports, herds, and transport permits.",
       };
 
   // Camera stream lifecycle
@@ -160,7 +160,7 @@ export function UniversalQrScannerDialog({
               weightKg: found.average_weight ? Number(found.average_weight) : null,
               status: (found.review_status || "APPROVED").toUpperCase() as any,
               biosecurity: "CLEARED",
-              details: `Housing: ${found.housing_pen || "General Pen"} • Feeding: ${found.feed_type || "Standard"}`,
+              details: `Housing: ${found.housing_pen || "General Pen"} • Feeding: ${found.feed_type || "—"}`,
               linkUrl: `/data-validation/batches?batchId=${encodeURIComponent(found.id)}`,
             });
             setIsSearching(false);
@@ -210,14 +210,14 @@ export function UniversalQrScannerDialog({
       }
 
       // 3. Fallback resolution for demonstration & quick codes
-      const isBatchCode = trimmed.includes("BATCH") || trimmed.includes("COHORT");
+      const isBatchCode = trimmed.includes("BATCH") || trimmed.includes("HERD");
       const isPermit = trimmed.includes("CLR") || trimmed.includes("TP");
 
       setActiveResult({
         code: trimmed,
         type: isBatchCode ? "BATCH" : isPermit ? "PERMIT" : "INDIVIDUAL",
         title: isBatchCode
-          ? "Certified Cattle Herd Cohort"
+          ? "Certified Cattle Herd"
           : isPermit
           ? "Livestock Movement Clearance"
           : "Registered Breeder Cattle",

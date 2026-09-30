@@ -26,7 +26,7 @@ class DiseaseCase(models.Model):
         related_name="disease_cases",
         null=True,
         blank=True,
-        help_text="Optional link if disease outbreak affects an entire cohort batch.",
+        help_text="Optional link if disease outbreak affects an entire herd.",
     )
     name = models.CharField(max_length=150, blank=False)
     affected_count = models.IntegerField(default=0)
@@ -95,7 +95,7 @@ class MortalityRecord(models.Model):
         related_name="mortality_records",
         null=True,
         blank=True,
-        help_text="Optional link if mortality is recorded for a cohort batch.",
+        help_text="Optional link if mortality is recorded for a herd.",
     )
     death_count = models.PositiveIntegerField()
     cause = models.TextField()

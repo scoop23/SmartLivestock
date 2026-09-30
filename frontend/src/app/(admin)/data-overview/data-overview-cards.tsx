@@ -152,7 +152,7 @@ export function DataOverviewCards({
                     </div>
                     {item.batchCode && (
                       <div className="flex justify-between text-slate-600">
-                        <span>Cohort:</span>
+                        <span>Herd:</span>
                         <strong className="text-[#2D5A27] font-mono text-[11px] truncate max-w-[130px]" title={item.batchName || item.batchCode}>
                           {item.batchName || item.batchCode}
                         </strong>

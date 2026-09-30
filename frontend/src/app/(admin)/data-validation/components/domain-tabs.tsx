@@ -28,7 +28,7 @@ const DOMAIN_CARD_CONFIG: Record<
   },
   inventory: {
     title: "Livestock Inventory",
-    subtitle: "Individual Tags & Cohort Pens",
+    subtitle: "Individual Tags & Herd Pens",
     activeIconBg: "bg-sky-700 text-white shadow-sky-700/20",
     activeBorder: "data-[state=active]:border-sky-300 data-[state=active]:ring-1 data-[state=active]:ring-sky-300/40",
   },

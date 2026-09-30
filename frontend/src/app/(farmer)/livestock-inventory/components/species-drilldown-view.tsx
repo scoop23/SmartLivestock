@@ -64,7 +64,7 @@ export function SpeciesDrilldownView({
           </Badge>
           {speciesBatches.length > 0 && (
             <Badge className="bg-teal-100 text-teal-800 border-0 font-bold px-3 py-1">
-              {speciesBatches.length} {speciesBatches.length === 1 ? "Cohort" : "Cohorts"}
+              {speciesBatches.length} {speciesBatches.length === 1 ? "Herd" : "Herds"}
             </Badge>
           )}
         </div>
@@ -79,10 +79,10 @@ export function SpeciesDrilldownView({
               </div>
               <div className="min-w-0">
                 <h3 className="text-sm font-black text-teal-950 tracking-tight">
-                  {selectedType} Cohorts
+                  {selectedType} Herds
                 </h3>
                 <p className="text-xs font-medium text-slate-500 truncate">
-                  Group-managed batches raised together under one cohort
+                  Group-managed batches raised together under one herd
                 </p>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-100 text-teal-900 border border-teal-200/60 shrink-0">

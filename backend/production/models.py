@@ -111,7 +111,7 @@ class SlaughterRecord(models.Model):
         related_name="slaughter_records",
         null=True,
         blank=True,
-        help_text="Optional link if slaughter is recorded for a cohort batch.",
+        help_text="Optional link if slaughter is recorded for a herd.",
     )
 
     barangay = models.ForeignKey(
@@ -213,7 +213,7 @@ class LiveAnimalSale(models.Model):  # may be removed
         related_name="live_animal_sales",
         null=True,
         blank=True,
-        help_text="Optional link if animals are sold from a cohort batch.",
+        help_text="Optional link if animals are sold from a herd.",
     )
 
     quantity = models.PositiveIntegerField()

@@ -179,7 +179,7 @@ export function DataOverviewOverallView({
               }`}
             >
               <span className="text-sm shrink-0">📦</span>
-              <span>Cohort Batches</span>
+              <span>Herds</span>
               <Badge
                 variant="secondary"
                 className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full border-0 transition-colors ${
@@ -216,7 +216,7 @@ export function DataOverviewOverallView({
         </div>
       </div>
 
-      {/* ── Specie & Cohort Breakdown Grid (Visible in Combined, Matrix, and Batches) ── */}
+      {/* ── Specie & Herd Breakdown Grid (Visible in Combined, Matrix, and Batches) ── */}
       {focusMode !== "activity" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
           {/* 1. Cattle Breakdown */}
@@ -323,7 +323,7 @@ export function DataOverviewOverallView({
             </CardContent>
           </Card>
 
-          {/* 5. Cohort Batches & Pens */}
+          {/* 5. Herds & Pens */}
           <Card
             onClick={() => onNavigateTab("batches")}
             className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/40 to-white shadow-2xs hover:shadow-xs transition-all cursor-pointer group hover:border-emerald-300"
@@ -342,7 +342,7 @@ export function DataOverviewOverallView({
                   {totalBatchesCount.toLocaleString()}
                 </p>
                 <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center justify-between">
-                  <span>Cohorts & Batches</span>
+                  <span>Herds</span>
                   <ChevronRight className="size-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                 </p>
               </div>
@@ -377,7 +377,7 @@ export function DataOverviewOverallView({
                     Padre Garcia 18-Barangay Master Data Matrix
                   </h3>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Consolidated livestock headcount, cohort batches, dairy yields, and active surveillance across all sectors.
+                    Consolidated livestock headcount, herds, dairy yields, and active surveillance across all sectors.
                   </p>
                 </div>
 
@@ -489,7 +489,7 @@ export function DataOverviewOverallView({
                                 onNavigateTab("batches");
                               }}
                               className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold px-1.5 py-0.2 hover:bg-emerald-100 cursor-pointer transition-colors"
-                              title="View cohort batches in this sector"
+                              title="View herds in this sector"
                             >
                               {b.batchCount} {b.batchCount === 1 ? "batch" : "batches"}
                             </Badge>
@@ -562,7 +562,7 @@ export function DataOverviewOverallView({
           {/* Right 4 Columns in Combined Mode */}
           {focusMode === "combined" && (
             <div className="xl:col-span-4 space-y-3.5">
-              {/* Active Cohorts & Group Pens Snapshot */}
+              {/* Active Herds & Group Pens Snapshot */}
               {batchList && batchList.length > 0 && (
                 <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
                   <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/80 to-white">
@@ -572,10 +572,10 @@ export function DataOverviewOverallView({
                       </div>
                       <div>
                         <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                          Active Cohorts & Group Pens
+                          Active Herds & Group Pens
                         </h4>
                         <p className="text-[10px] text-slate-500 font-medium">
-                          {batchList.length} monitored feeding cohorts in municipality
+                          {batchList.length} monitored feeding herds in municipality
                         </p>
                       </div>
                     </div>
@@ -600,7 +600,7 @@ export function DataOverviewOverallView({
                           if (onSelectRecord) onSelectRecord(batch, "batches");
                         }}
                         className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition-all cursor-pointer group flex items-center justify-between gap-2"
-                        title="Click to view cohort details"
+                        title="Click to view herd details"
                       >
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-800 transition-colors">
@@ -761,14 +761,14 @@ export function DataOverviewOverallView({
         </div>
       )}
 
-      {/* ── SECTION B: Cohort Batches Master Focus Mode ── */}
+      {/* ── SECTION B: Herds Master Focus Mode ── */}
       {focusMode === "batches" && (
         <div className="space-y-3.5 animate-in fade-in-50 duration-200">
           <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <Boxes className="size-5 text-[#2D5A27]" />
-                <span>Municipal Cohort Batches & Housing Pens Master</span>
+                <span>Municipal Herd Register & Housing Pens</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5 font-medium">
                 Comprehensive directory of animal lots, pen allocations, vaccination clearances, and digital biosecurity passes.
@@ -835,7 +835,7 @@ export function DataOverviewOverallView({
                   </div>
 
                   <div className="pt-2 flex items-center justify-between text-[11px] text-[#2D5A27] font-bold">
-                    <span>Manage Cohort Roster</span>
+                    <span>Manage Herd Roster</span>
                     <ChevronRight className="size-3 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </CardContent>

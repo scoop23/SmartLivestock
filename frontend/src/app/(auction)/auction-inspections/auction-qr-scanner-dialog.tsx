@@ -56,7 +56,7 @@ const VERIFICATION_DATABASE: Record<string, VerificationResult> = {
   "BATCH-SWN-2026-01": {
     code: "BATCH-SWN-2026-01",
     type: "BATCH",
-    title: "Swine Commercial Fatteners Cohort",
+    title: "Swine Commercial Fatteners Herd",
     owner: "Mateo Dimayuga",
     barangay: "Brgy. Poblacion, Padre Garcia",
     details: "Large White x Landrace • Pen 3 Fattening Barn",
@@ -70,7 +70,7 @@ const VERIFICATION_DATABASE: Record<string, VerificationResult> = {
   "BATCH-PLT-2026-04": {
     code: "BATCH-PLT-2026-04",
     type: "BATCH",
-    title: "Poultry Layers Cohort",
+    title: "Poultry Layers Herd",
     owner: "Clara Hernandez",
     barangay: "Brgy. Manggas, Padre Garcia",
     details: "Lohmann Brown • Coop B Free Range",
@@ -221,7 +221,7 @@ export function AuctionQrScannerDialog({
             </div>
           </div>
           <DialogDescription className="text-xs text-slate-500">
-            Rapid checkpoint verification for incoming transport trucks, cohort batches, and individual ear tags.
+            Rapid checkpoint verification for incoming transport trucks, herds, and individual ear tags.
           </DialogDescription>
         </DialogHeader>
 

@@ -133,7 +133,7 @@ export function DataOverviewTable({
                       Batch Name & Housing Pen
                     </TableHead>
                     <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                      Specie & Cohort Size
+                      Specie & Herd Size
                     </TableHead>
                     <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                       Feed Program
@@ -341,7 +341,7 @@ export function DataOverviewTable({
                                 : "bg-blue-100 text-blue-800"
                             }`}
                           >
-                            {item.batchCode ? "COHORT" : item.entryType || "INDIVIDUAL"} ({item.quantity || 1})
+                            {item.batchCode ? "HERD" : item.entryType || "INDIVIDUAL"} ({item.quantity || 1})
                           </Badge>
                           {item.batchCode && (
                             <span

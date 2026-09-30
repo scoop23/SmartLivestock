@@ -809,7 +809,7 @@ export default function LivestockRecordList({
                           <Link
                             href="/livestock-inventory/batches"
                             className="flex items-center gap-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide shadow-2xs shrink-0 transition-colors"
-                            title={`Belongs to Batch: ${item.batchCode}`}
+                            title={`Belongs to Herd: ${item.batchCode}`}
                           >
                             <Layers className="w-2.5 h-2.5 text-teal-600" />
                             <span>{item.batchCode}</span>
@@ -895,14 +895,14 @@ export default function LivestockRecordList({
                       </div>
                     </div>
 
-                    {/* Sex & Cohort */}
+                    {/* Sex & Herd */}
                     <div className="p-2 rounded-lg bg-slate-50/90 border border-slate-200/70 flex items-center gap-2">
                       <div className="p-1 rounded-md bg-white text-teal-700 shadow-2xs shrink-0">
                         <Tag className="w-3.5 h-3.5 text-teal-700" />
                       </div>
                       <div className="min-w-0">
                         <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                          Sex {item.batchCode ? "• Cohort" : ""}
+                          Sex {item.batchCode ? "• Herd" : ""}
                         </span>
                         <span className="font-extrabold text-slate-900 truncate block leading-tight">
                           {item.sex}{item.batchCode ? ` • ${item.batchCode}` : ""}

@@ -45,7 +45,7 @@ class LivestockType(models.Model):
         return f"{self.name}"
 
 
-# Grouping / cohort for batch-managed livestock (e.g. swine, poultry, goats, feedlot cattle).
+# Grouping / herd for batch-managed livestock (e.g. swine, poultry, goats, feedlot cattle).
 # Individual animals (LivestockInventory) link to LivestockBatch via batch FK.
 class LivestockBatch(models.Model):
     if TYPE_CHECKING:
@@ -118,7 +118,7 @@ class LivestockBatch(models.Model):
 
 # Each farmer's entry Livestock Inventory with its own specific Livestock Type
 # which then gets stored into LivestockInventory.
-# If part of a cohort/group, batch points to LivestockBatch.
+# If part of a herd/group, batch points to LivestockBatch.
 class LivestockInventory(models.Model):
     class EntryType(models.TextChoices):
         INDIVIDUAL = "INDIVIDUAL", "Individual"
@@ -143,7 +143,7 @@ class LivestockInventory(models.Model):
         null=True,
         blank=True,
         related_name="animals",
-        help_text="Optional cohort/batch this individual animal belongs to.",
+        help_text="Optional herd this individual animal belongs to.",
     )
     farmer = models.ForeignKey(
         "Farmer", on_delete=models.PROTECT, related_name="inventories"

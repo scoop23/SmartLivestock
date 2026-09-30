@@ -33,7 +33,7 @@ import {
   DiseaseMortalityReviewDialog,
   ValidationPagination,
   DomainTabs,
-  CohortBatchesBanner,
+  HerdBatchesBanner,
   BulkActionDock,
   ActiveDomainTable,
 } from "./components";
@@ -66,15 +66,15 @@ function matchesStatusFilter(
   return s === statusFilter;
 }
 
-// Cohort members must move through review as a unit — never individually.
-// This splits review targets so cohort animals are blocked from individual
+// Herd members must move through review as a unit — never individually.
+// This splits review targets so herd animals are blocked from individual
 // approval and can only move via their batch card.
-function splitCohortInventoryIds(
+function splitHerdInventoryIds(
   itemIds: (string | number)[],
   records: ValidationInventoryItem[]
-): { processableIds: (string | number)[]; blockedCohortIds: (string | number)[] } {
+): { processableIds: (string | number)[]; blockedHerdIds: (string | number)[] } {
   const processableIds: (string | number)[] = [];
-  const blockedCohortIds: (string | number)[] = [];
+  const blockedHerdIds: (string | number)[] = [];
   itemIds.forEach((id) => {
     const strId = String(id);
     if (strId.startsWith("batch-")) {
@@ -83,12 +83,12 @@ function splitCohortInventoryIds(
     }
     const record = records.find((r) => String(r.id) === strId);
     if (!record || (!record.isBatch && (record.batchId != null || !!record.batchCode))) {
-      blockedCohortIds.push(id);
+      blockedHerdIds.push(id);
       return;
     }
     processableIds.push(id);
   });
-  return { processableIds, blockedCohortIds };
+  return { processableIds, blockedHerdIds };
 }
 
 function AdminDataValidationContent() {
@@ -515,14 +515,14 @@ function AdminDataValidationContent() {
         queryClient.invalidateQueries({ queryKey: ["production-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
       } else if (activeDomain === "inventory") {
-        const { processableIds, blockedCohortIds } = splitCohortInventoryIds(itemIds, inventoryRecords);
+        const { processableIds, blockedHerdIds } = splitHerdInventoryIds(itemIds, inventoryRecords);
 
-        if (blockedCohortIds.length > 0) {
+        if (blockedHerdIds.length > 0) {
           toast.info(
-            `${blockedCohortIds.length} livestock record(s) belong to a livestock cohort and are reviewed as a batch.`,
+            `${blockedHerdIds.length} livestock record(s) belong to a herd and are reviewed together.`,
             {
               description:
-                "Approve the whole cohort from its batch card in the Livestock Inventory tab or the Batches & Drilldown console.",
+                "Review the whole herd from its herd card in Livestock Inventory or the Herd Validation console.",
             }
           );
         }
@@ -703,8 +703,8 @@ function AdminDataValidationContent() {
           verifiedBreakdown={domainVerifiedCounts}
         />
 
-        {/* Cohort Batches & Livestock Drilldown Callout Banner */}
-        <CohortBatchesBanner />
+        {/* Herds & Livestock Drilldown Callout Banner */}
+        <HerdBatchesBanner />
 
         {/* ── Remastered Executive Domain Switcher Tabs ── */}
         <DomainTabs

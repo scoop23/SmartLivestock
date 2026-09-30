@@ -8,7 +8,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
     """
     Returns:
         Epidemiological illness / outbreak report:
-        - Target Animal/Pen: livestock (individual animal ID), batch (cohort pen ID),
+        - Target Animal/Pen: livestock (individual animal ID), batch (herd pen ID),
           tag_number, breed, batch_code, livestock_type_name
         - Demographics: farmer_name, barangay_name
         - Clinical Details: name (illness name/symptoms), affected_count (head count), record_date
@@ -162,7 +162,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             affected_count = attrs.get("affected_count", self.instance.affected_count)
 
         if not livestock and not batch:
-            raise ValidationError("Either an individual livestock animal or cohort batch must be specified.")
+            raise ValidationError("Either an individual livestock animal or herd must be specified.")
 
         if affected_count is not None and affected_count <= 0:
             raise ValidationError({"affected_count": "Affected count must be a positive number."})
@@ -385,7 +385,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             source_disease = attrs.get("source_disease_case", self.instance.source_disease_case)
 
         if not livestock and not batch:
-            raise ValidationError("Either an individual livestock animal or cohort batch must be specified.")
+            raise ValidationError("Either an individual livestock animal or herd must be specified.")
 
         if death_count is not None and death_count <= 0:
             raise ValidationError({"death_count": "Death count must be at least 1."})

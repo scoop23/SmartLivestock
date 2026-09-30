@@ -211,7 +211,7 @@ export function RecordDetailDialog({
   const canMaoReview = isVerified;
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
-  const isCohortInventory =
+  const isHerdInventory =
     record.kind === "inventory" &&
     !record.isBatch &&
     (record.batchId != null || !!record.batchCode);
@@ -641,13 +641,13 @@ export function RecordDetailDialog({
               <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                    {record.isBatch ? "Cohort Batch Information" : "Animal Registry Specifications"}
+                    {record.isBatch ? "Herd Information" : "Animal Registry Specifications"}
                   </span>
                   {record.isBatch && record.rawId ? (
                     <Link
                       href={`/data-validation/batches?batchId=${record.rawId}`}
                       className="inline-flex"
-                      title="Open this cohort in the batch registry"
+                      title="Open this herd in the batch registry"
                     >
                       <Badge className="bg-teal-100 text-teal-900 border-teal-200 text-[10px] font-bold hover:bg-teal-200 cursor-pointer">
                         Batch record ({record.quantity} heads) � View batch
@@ -657,7 +657,7 @@ export function RecordDetailDialog({
                     <Link
                       href={`/data-validation/batches?batchId=${record.batchId}`}
                       className="inline-flex"
-                      title={`Open parent cohort ${record.batchCode}`}
+                      title={`Open parent herd ${record.batchCode}`}
                     >
                       <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold hover:bg-teal-100 cursor-pointer">
                         Belongs to batch: {record.batchCode} � View batch
@@ -676,7 +676,7 @@ export function RecordDetailDialog({
               {isEditing ? (
                 <div className="bg-white p-4 rounded-2xl border-2 border-emerald-300 shadow-sm space-y-3">
                   <p className="text-xs font-black uppercase text-emerald-800 tracking-wider">
-                    {record.isBatch ? "Modify Cohort Parameters" : "Correct Animal Identification & Biometrics"}
+                    {record.isBatch ? "Modify Herd Parameters" : "Correct Animal Identification & Biometrics"}
                   </p>
 
                   {record.isBatch ? (
@@ -806,13 +806,13 @@ export function RecordDetailDialog({
 
                     <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                        {record.isBatch ? "Cohort Code" : "Ear Tag / RFID"}
+                        {record.isBatch ? "Herd Code" : "Ear Tag / RFID"}
                       </span>
                       <p className="text-xs font-mono font-black text-emerald-800 mt-1">
                         {record.tagNumber || "No Tag Code"}
                       </p>
                       <p className="text-[10px] text-slate-500">
-                        {record.isBatch ? "Pen Cohort" : `Entry: ${record.entryType}`}
+                        {record.isBatch ? "Housing Pen" : `Entry: ${record.entryType}`}
                       </p>
                     </div>
 
@@ -827,7 +827,7 @@ export function RecordDetailDialog({
                       </p>
                       <p className="text-[10px] text-slate-500">
                         {record.isBatch
-                          ? `Feed: ${record.feedType || "Rations"}`
+                          ? `Feed: ${record.feedType || "—"}`
                           : "Official Vet Record"}
                       </p>
                     </div>
@@ -838,7 +838,7 @@ export function RecordDetailDialog({
                     <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                          Linked Individual Animals in this Cohort ({record.animals.length} heads):
+                          Linked Individual Animals in this Herd ({record.animals.length} heads):
                         </span>
                         <a
                           href={`/data-validation/batches?batchId=${encodeURIComponent(
@@ -848,7 +848,7 @@ export function RecordDetailDialog({
                           )}`}
                           className="text-[10px] font-black text-emerald-700 hover:text-emerald-800 hover:underline"
                         >
-                          Open In Cohort Drilldown Center →
+                          Open In Herd Drilldown Center →
                         </a>
                       </div>
                       <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
@@ -1068,8 +1068,8 @@ export function RecordDetailDialog({
             </div>
           )}
 
-          {/* ── COHORT MEMBER — BATCH REVIEW REQUIRED ── */}
-          {canMaoReview && isCohortInventory ? (
+          {/* ── HERD MEMBER — BATCH REVIEW REQUIRED ── */}
+          {canMaoReview && isHerdInventory ? (
             <div className="p-4 sm:p-5 bg-white rounded-2xl border-2 border-sky-800/20 shadow-sm space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -1078,10 +1078,10 @@ export function RecordDetailDialog({
                   </div>
                   <div>
                     <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                      Cohort Member — Managed as a Batch
+                      Herd Member — Reviewed Together
                     </h4>
                     <p className="text-[10px] text-slate-500">
-                      Individual MAO certification is disabled for cohort livestock
+                      Individual MAO certification is disabled for herd livestock
                     </p>
                   </div>
                 </div>
@@ -1091,13 +1091,13 @@ export function RecordDetailDialog({
               </div>
 
               <p className="text-xs text-slate-600 leading-relaxed">
-                This animal belongs to livestock cohort{" "}
+                This animal belongs to livestock herd{" "}
                 <span className="font-black text-slate-900">
                   {record.batchCode ? `"${record.batchCode}"` : `#${record.batchId}`}
                 </span>{" "}
                 and is certified together with all of its pen-mates. Approve or return the{" "}
                 <span className="font-black text-slate-900">entire batch</span> so every
-                cohort animal shares the same review status.
+                herd animal shares the same review status.
               </p>
 
               <Link

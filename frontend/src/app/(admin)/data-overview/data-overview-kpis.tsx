@@ -101,7 +101,7 @@ export function DataOverviewKpis({
               <p className="text-xs sm:text-sm font-black text-emerald-950 leading-tight tabular-nums truncate">
                 {totalBatches}{" "}
                 <span className="text-[10px] font-bold text-[#2D5A27] hidden sm:inline">
-                  Cohorts
+                  Herds
                 </span>
               </p>
             </div>
@@ -228,13 +228,13 @@ export function DataOverviewKpis({
           isLoading={isLoading}
         />
 
-        {/* 2. Active Cohorts & Batches */}
+        {/* 2. Active Herds */}
         <KpiCard
-          title="Cohorts & Batches"
+          title="Herds"
           value={totalBatches.toLocaleString()}
           icon={<Boxes className="size-5" />}
           description="Housing pens & lots"
-          badge="Cohort Master"
+          badge="Herd Master"
           variant="default"
           isLoading={isLoading}
         />

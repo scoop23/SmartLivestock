@@ -678,7 +678,7 @@ export default function LivestockDetailPage() {
                 className="rounded-xl border-slate-300 font-bold text-xs gap-1.5 text-slate-700 hover:bg-slate-100"
               >
                 <ArrowLeft className="size-3.5" />
-                {activeItem.batchId ? "Back to Batch" : "Back to Herd"}
+                {activeItem.batchId ? "Back to Herds" : "Back to Herd"}
               </Button>
             </Link>
 
@@ -690,7 +690,7 @@ export default function LivestockDetailPage() {
                   className="rounded-xl border-emerald-300 bg-emerald-50/50 text-emerald-800 hover:bg-emerald-100 font-bold text-xs gap-1.5"
                 >
                   <Layers className="size-3.5 text-emerald-600" />
-                  <span>Batch: {activeItem.batchCode}</span>
+                  <span>Herd: {activeItem.batchCode}</span>
                 </Button>
               </Link>
             )}
@@ -769,7 +769,7 @@ export default function LivestockDetailPage() {
                       <Link href="/livestock-inventory/batches">
                         <Badge className="bg-teal-500/30 hover:bg-teal-500/50 text-teal-200 border-teal-400/40 font-bold text-xs px-2.5 py-0.5 inline-flex items-center gap-1 transition-colors cursor-pointer">
                           <Layers className="size-3" />
-                          <span>Cohort: {activeItem.batchCode}</span>
+                          <span>Herd: {activeItem.batchCode}</span>
                         </Badge>
                       </Link>
                     )}
@@ -1406,10 +1406,10 @@ export default function LivestockDetailPage() {
               ) : activeItem.batchCode ? (
                 <div className="p-4 rounded-2xl bg-teal-50/50 border border-teal-200 space-y-2 pt-2">
                   <span className="text-[10px] font-black uppercase text-teal-800 flex items-center gap-1">
-                    <Layers className="size-3.5" /> Batch Cohort Origin
+                    <Layers className="size-3.5" /> Herd Origin
                   </span>
                   <p className="text-sm font-black text-slate-900">
-                    Registered as part of Cohort: {activeItem.batchName || activeItem.batchCode}
+                    Registered as part of Herd: {activeItem.batchName || activeItem.batchCode}
                   </p>
                   <p className="text-xs text-slate-600">
                     Animal entered the municipal inventory as part of batch <strong>{activeItem.batchCode}</strong> ({activeItem.breed}). Individual parent tags were not separately indexed.
@@ -1834,7 +1834,7 @@ export default function LivestockDetailPage() {
                 )}
                 {activeItem.batchCode && (
                   <Badge variant="outline" className="text-[10px] font-mono font-bold text-slate-600">
-                    Cohort: {activeItem.batchCode}
+                    Herd: {activeItem.batchCode}
                   </Badge>
                 )}
               </div>

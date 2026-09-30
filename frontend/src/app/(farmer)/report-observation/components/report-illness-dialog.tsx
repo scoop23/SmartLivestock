@@ -357,7 +357,7 @@ export default function ReportIllnessDialog({
               </span>
               {selectedCattle && (
                 <span className="text-[10px] font-bold text-slate-400">
-                  {selectedCattle.batchCode ? `Cohort: ${selectedCattle.batchCode}` : "Individual Animal"}
+                  {selectedCattle.batchCode ? `Herd: ${selectedCattle.batchCode}` : "Individual Animal"}
                 </span>
               )}
             </Label>
@@ -375,7 +375,7 @@ export default function ReportIllnessDialog({
                   >
                     #{inv.tagNumber || `TAG-${inv.id}`} • {inv.livestockTypeName || "Livestock"} (
                     {inv.breed || "Standard"}, {inv.sex || "Female"})
-                    {inv.batchCode ? ` • [Cohort: ${inv.batchCode}]` : ""}
+                    {inv.batchCode ? ` • [Herd: ${inv.batchCode}]` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -8,7 +8,7 @@ urlpatterns = [
     path("inventory/<int:pk>/review/", views.review_inventory, name="review_inventory"),
     path("livestock_types/", views.list_livestock_types, name="list_livestock_types"),
 
-    # Livestock Batches & Cohorts
+    # Livestock Herds
     path("batches/", views.batch_list_create, name="batch_list_create"),
     path("batches/<int:pk>/", views.batch_detail, name="batch_detail"),
     path("batches/<int:pk>/animals/", views.batch_add_animals, name="batch_add_animals"),

@@ -140,6 +140,8 @@ export interface SpeciesPreset {
   name: string;
   tagPrefix: string;
   commonBreeds: string[];
+  /** Typical ration/feed formulations for this species, offered as suggestions. */
+  commonFeeds: string[];
   suggestedWeightKg: string;
   iconName: string;
 }
@@ -157,6 +159,13 @@ export const SPECIES_PRESETS: Record<string, SpeciesPreset> = {
       "Philippine Native (Batangas)",
       "Crossbred Dairy",
     ],
+    commonFeeds: [
+      "Green Maize Silage",
+      "Rice Bran & Corn Mix",
+      "Calf Starter / Grower Mash",
+      "Molasses Multi-Nutrient Block",
+      "Napier Grass Pasture",
+    ],
     suggestedWeightKg: "350 - 450",
     iconName: "beef",
   },
@@ -168,6 +177,13 @@ export const SPECIES_PRESETS: Record<string, SpeciesPreset> = {
       "Murrah Buffalo",
       "Bulgarian Murrah",
       "Crossbred Dairy Carabao",
+    ],
+    commonFeeds: [
+      "Green Maize Silage",
+      "Rice Straw & Green Fodder",
+      "Coconut Copra Meal Mix",
+      "Molasses Multi-Nutrient Block",
+      "Water Hyacinth & River Grass",
     ],
     suggestedWeightKg: "400 - 550",
     iconName: "shield",
@@ -183,6 +199,13 @@ export const SPECIES_PRESETS: Record<string, SpeciesPreset> = {
       "Alpine",
       "Philippine Native Goat",
     ],
+    commonFeeds: [
+      "Napier Grass & Goat Concentrate",
+      "Goat Pellets / Kid Grower Mash",
+      "Leucaena & Browse Foliage",
+      "Rice Bran & Copra Meal Mix",
+      "Molasses Multi-Nutrient Block",
+    ],
     suggestedWeightKg: "30 - 55",
     iconName: "sparkles",
   },
@@ -195,6 +218,13 @@ export const SPECIES_PRESETS: Record<string, SpeciesPreset> = {
       "Dorper",
       "St. Croix",
       "Barbados Blackbelly",
+    ],
+    commonFeeds: [
+      "Napier Grass & Sheep Pellets",
+      "Sheep Grower Mash",
+      "Leucaena Foliage (Browse)",
+      "Rice Bran & Corn Mix",
+      "Green Maize & Crop Residues",
     ],
     suggestedWeightKg: "35 - 60",
     iconName: "package",
@@ -209,6 +239,13 @@ export const SPECIES_PRESETS: Record<string, SpeciesPreset> = {
       "Pietrain",
       "Philippine Native Pig",
     ],
+    commonFeeds: [
+      "Starter / Pre-starter Mash",
+      "Grower Mash (15% CP)",
+      "Finisher Pellets",
+      "Lactating Sow Mash",
+      "Rice Bran & Copra Meal Mix",
+    ],
     suggestedWeightKg: "85 - 110",
     iconName: "layers",
   },
@@ -221,6 +258,13 @@ export const SPECIES_PRESETS: Record<string, SpeciesPreset> = {
       "Philippine Native Chicken",
       "Pekin Duck",
       "Mallard Duck (Itik)",
+    ],
+    commonFeeds: [
+      "Layer Mash 18% Protein",
+      "Broiler Starter / Grower Feed",
+      "Corn & Rice Bran (Caged Layers)",
+      "Duck Pellets",
+      "Native Chicken Free-Range Mash",
     ],
     suggestedWeightKg: "1.5 - 2.5",
     iconName: "egg",

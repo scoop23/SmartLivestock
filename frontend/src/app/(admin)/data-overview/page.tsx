@@ -95,7 +95,7 @@ export default function DataOverviewPage() {
   const livestockList: LivestockRecord[] = useMemo(() => {
     if (!rawInventory || rawInventory.length === 0) return [];
     return rawInventory.map((item) => {
-      // Find matching cohort batch from rawBatches or item fields
+      // Find matching herd from rawBatches or item fields
       const matchingBatch = rawBatches?.find(
         (b: any) =>
           (item.batchId && (b.id === item.batchId || b.rawId === item.batchId)) ||
@@ -170,7 +170,7 @@ export default function DataOverviewPage() {
       barangay: item.barangay_name || "Banaba",
       specie: item.livestock_type_name || "Cattle",
       housingPen: item.housing_pen || "General Pen",
-      feedType: item.feed_type || "Commercial Concentrates",
+      feedType: item.feed_type || "—",
       targetWeight: item.target_weight || null,
       targetHarvestDate: item.target_harvest_date || null,
       totalAnimals: item.total_animals || (item.animals ? item.animals.length : 0),
@@ -695,7 +695,7 @@ export default function DataOverviewPage() {
       });
     }
 
-    // 5. Live Batches & Cohorts
+    // 5. Live Herds
     if (rawBatches && rawBatches.length > 0) {
       rawBatches.forEach((batch) => {
         const rawDate = batch.created_at ? new Date(batch.created_at).getTime() : 0;
@@ -732,7 +732,7 @@ export default function DataOverviewPage() {
             barangay: batch.barangay_name || "Padre Garcia",
             specie: batch.livestock_type_name || "Livestock",
             housingPen: batch.housing_pen || "General Pen",
-            feedType: batch.feed_type || "Commercial Concentrates",
+            feedType: batch.feed_type || "—",
             totalAnimals: batch.total_animals || 0,
             status: batch.review_status || batch.status || "PENDING",
             createdAt: batch.created_at?.slice(0, 10) || "2026-04-20",
@@ -1125,7 +1125,7 @@ export default function DataOverviewPage() {
       const headers = [
         "Batch ID",
         "Batch Code",
-        "Batch Name",
+        "Herd Name",
         "Farmer / Raiser",
         "Barangay",
         "Specie",
@@ -1216,7 +1216,7 @@ export default function DataOverviewPage() {
         <div className="p-3 sm:p-4 md:p-5 w-full">
           <ValidationLoadingScreen
             title="Synchronizing Municipal System Data Overview"
-            subtitle="Aggregating live animal registries, cohort batches, dairy production, biosecurity alerts, and barangay census..."
+            subtitle="Aggregating live animal registries, herds, dairy production, biosecurity alerts, and barangay census..."
             badgeLabel="Live Ledger Sync"
             authorityText="Padre Garcia Municipal Agriculture Office • Batangas"
             items={[
@@ -1229,7 +1229,7 @@ export default function DataOverviewPage() {
               },
               {
                 id: "batches",
-                label: "Cohorts & Batches",
+                label: "Herds",
                 sublabel: "Housing pens & feeding programs",
                 icon: <Boxes className="size-4 shrink-0 text-[#2D5A27]" />,
                 loaded: rawBatches !== undefined,

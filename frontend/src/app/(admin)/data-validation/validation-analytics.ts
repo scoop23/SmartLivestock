@@ -216,7 +216,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           barangayName: b.barangay_name || "Padre Garcia",
           livestockType: b.livestock_type_name || "Livestock",
           tagNumber: b.batch_code,
-          breed: b.animals?.[0]?.breed || "Cohort Roster",
+          breed: b.animals?.[0]?.breed || "Herd Roster",
           sex: "Mixed / Herd",
           weight: b.average_weight ? Number(b.average_weight) : null,
           entryType: "BATCH",

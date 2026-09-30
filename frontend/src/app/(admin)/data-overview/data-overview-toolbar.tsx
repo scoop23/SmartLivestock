@@ -103,7 +103,7 @@ const DOMAIN_PILLARS: DomainPillar[] = [
       },
       {
         id: "batches",
-        label: "Cohorts & Batches",
+        label: "Herds",
         emoji: "📦",
         icon: Boxes,
         activeColorClass: "bg-[#2D5A27] text-white shadow-xs",

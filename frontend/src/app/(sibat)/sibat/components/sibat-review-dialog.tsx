@@ -140,7 +140,7 @@ export default function SibatReviewDialog({
               submission.sourceType === "CALVING"
                 ? "Calving event verified and forwarded to MAO for municipal registration!"
                 : isBatch
-                ? "Cohort Batch verified and forwarded to MAO queue!"
+                ? "Herd verified and forwarded to MAO queue!"
                 : submission.sourceType === "PRODUCTION"
                 ? "Harvest yield verified and forwarded to MAO queue!"
                 : "Animal verified and forwarded to MAO queue!"
@@ -173,7 +173,7 @@ export default function SibatReviewDialog({
                   {submission.sourceType === "CALVING"
                     ? "Verify Calving & Birthing Event"
                     : isBatch
-                    ? "Review Cohort Batch"
+                    ? "Review Herd"
                     : submission.sourceType === "PRODUCTION"
                     ? "Review Harvest & Yield Log"
                     : "Review Animal Submission"}
@@ -184,7 +184,7 @@ export default function SibatReviewDialog({
                     : submission.sourceType === "PRODUCTION"
                     ? "Production Yield Log"
                     : isBatch
-                    ? `Cohort Batch #${submission.rawId}`
+                    ? `Herd #${submission.rawId}`
                     : `Livestock Tag #${submission.tagNumber || submission.rawId}`}
                 </DialogDescription>
               </div>
@@ -193,7 +193,7 @@ export default function SibatReviewDialog({
             <div className="flex items-center gap-2">
               {submission.batchCode && !isBatch && (
                 <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
-                  Cohort: {submission.batchCode}
+                  Herd: {submission.batchCode}
                 </Badge>
               )}
               <SibatStatusBadge status={submission.status} />
@@ -209,7 +209,7 @@ export default function SibatReviewDialog({
             <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-100">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                 <Layers className="size-3.5 text-[#1A365D]" />
-                <span>{submission.sourceType === "CALVING" ? "Birthing & Pedigree Information" : isBatch ? "Cohort Batch Information" : "Animal Identification"}</span>
+                <span>{submission.sourceType === "CALVING" ? "Birthing & Pedigree Information" : isBatch ? "Herd Information" : "Animal Identification"}</span>
               </div>
             </div>
 
@@ -409,7 +409,7 @@ export default function SibatReviewDialog({
                 </div>
               )}
 
-              {/* Specific Metadata for Cohort Batches */}
+              {/* Specific Metadata for Herds */}
               {isBatch && (
                 <div className="pt-2 border-t border-slate-200/50 space-y-2.5">
                   {isEditing ? (
@@ -477,7 +477,7 @@ export default function SibatReviewDialog({
                       <div>
                         <span className="text-[11px] font-semibold text-slate-400 block">Feed Formulation</span>
                         <span className="font-bold text-slate-800 block pt-0.5">
-                          {submission.feedType || "Farm Rations"}
+                          {submission.feedType || "—"}
                         </span>
                       </div>
                       <div>
@@ -493,7 +493,7 @@ export default function SibatReviewDialog({
                   {submission.animals && submission.animals.length > 0 && (
                     <div className="pt-2 border-t border-slate-200/50">
                       <span className="text-[11px] font-semibold text-slate-500 block mb-1">
-                        Animals Linked to this Cohort ({submission.animals.length} heads):
+                        Animals Linked to this Herd ({submission.animals.length} heads):
                       </span>
                       <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                         {submission.animals.map((a: any) => (

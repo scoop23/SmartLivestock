@@ -71,7 +71,7 @@ export default function SibatInventoryQueue({
   entryTypeFilter,
   onEntryTypeFilterChange,
 }: SibatInventoryQueueProps) {
-  // Filter for INVENTORY (individual animals) and BATCH (cohort herds)
+  // Filter for INVENTORY (individual animals) and BATCH (herds)
   const invSubmissions = useMemo(() => {
     return submissions.filter((s) => s.sourceType === "INVENTORY" || s.sourceType === "BATCH");
   }, [submissions]);
@@ -167,7 +167,7 @@ export default function SibatInventoryQueue({
             className="h-9 px-3 rounded-2xl bg-[#1A365D] hover:bg-[#132742] text-white text-xs font-black gap-1.5 shadow-2xs cursor-pointer"
           >
             <Layers className="size-3.5 text-amber-300" />
-            Batch Verification Center
+            Herd Verification Center
           </Button>
         </Link>
       </div>
@@ -228,7 +228,7 @@ export default function SibatInventoryQueue({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                📦 Batch Herds
+                📦 Herds
               </button>
             </div>
           </div>
@@ -319,7 +319,7 @@ export default function SibatInventoryQueue({
           {pagedSubmissions.map((item) => {
             const isPending = item.status === "PENDING";
             const isIndividual = item.entryType === "INDIVIDUAL";
-            const isCohortMember = isIndividual && !!item.batchCode;
+            const isHerdMember = isIndividual && !!item.batchCode;
             const emoji = getAnimalEmoji(item.livestockTypeName || item.detailsTitle);
 
             return (
@@ -343,7 +343,7 @@ export default function SibatInventoryQueue({
 
                           {item.batchCode && isIndividual && (
                             <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
-                              Cohort: {item.batchCode}
+                              Herd: {item.batchCode}
                             </Badge>
                           )}
 
@@ -363,7 +363,7 @@ export default function SibatInventoryQueue({
                             {isIndividual ? (
                               <>Ear Tag: #{item.tagNumber || "Unassigned"}</>
                             ) : (
-                              <>Cohort: {item.tagNumber || item.batchCode || `Batch #${item.rawId}`}</>
+                              <>Herd: {item.tagNumber || item.batchCode || `Batch #${item.rawId}`}</>
                             )}
                           </h4>
                           <span className="text-xs text-slate-500 font-bold">
@@ -411,10 +411,10 @@ export default function SibatInventoryQueue({
                     <div className="flex items-center gap-2 shrink-0 lg:self-center">
                       <Button
                         onClick={() => onReview(item)}
-                        disabled={isPending && isCohortMember}
+                        disabled={isPending && isHerdMember}
                         title={
-                          isPending && isCohortMember
-                            ? "Cohort animals share one review status. Verify the whole batch from the Batch Verification Center."
+                          isPending && isHerdMember
+                            ? "Herd animals share one review status. Verify the whole batch from the Herd Verification Center."
                             : undefined
                         }
                         className={`h-10 px-4 rounded-2xl text-xs font-black gap-1.5 transition-all shadow-2xs cursor-pointer ${
@@ -424,12 +424,12 @@ export default function SibatInventoryQueue({
                         }`}
                       >
                         {isPending ? (
-                          isCohortMember ? (
+                          isHerdMember ? (
                             <>Batch review only</>
                           ) : (
                             <>
                               <ClipboardCheck className="size-4 text-amber-300" />
-                              {isIndividual ? "Verify Tag & Animal" : "Verify Cohort Batch"}
+                              {isIndividual ? "Verify Tag & Animal" : "Verify Herd"}
                             </>
                           )
                         ) : (

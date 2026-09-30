@@ -432,7 +432,7 @@ function AdminBatchesDrilldownContent() {
           ? "approved & certified"
           : "returned for revision";
       toast.success(`Batch ${selectedBatch?.batch_code || ""} ${verb}!`, {
-        description: `All child animals in this cohort updated to ${variables.status}.`,
+        description: `All child animals in this herd updated to ${variables.status}.`,
       });
       queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -466,7 +466,7 @@ function AdminBatchesDrilldownContent() {
     },
     onSuccess: () => {
       toast.success("Note added to batch audit trail.", {
-        description: "The farmer can now see this note on the cohort page.",
+        description: "The farmer can now see this note on the herd page.",
       });
       queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
@@ -532,8 +532,8 @@ function AdminBatchesDrilldownContent() {
   return (
     <>
       <PageHeader
-        title="Municipal Batch & Cohort Validation"
-        subtitle="Official MAO inspection center: review complete livestock cohorts and drill down into individual ear tags"
+        title="Municipal Herd Validation"
+        subtitle="Official MAO inspection center: review complete livestock herds and drill down into individual ear tags"
         variant="admin"
         maxWidthClass="w-full"
         icon={<Layers className="size-5 text-slate-800" />}
@@ -603,7 +603,7 @@ function AdminBatchesDrilldownContent() {
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-emerald-300 transition-all">
             <CardContent className="p-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Total Cohort Batches
+                Total Herds
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-slate-900 font-mono">
@@ -807,7 +807,7 @@ function AdminBatchesDrilldownContent() {
         {isLoading ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
             <RefreshCw className="w-8 h-8 mx-auto text-emerald-600 animate-spin mb-3" />
-            <p className="text-sm font-black text-slate-800">Loading Municipal Cohort Batches...</p>
+            <p className="text-sm font-black text-slate-800">Loading Municipal Herds...</p>
             <p className="text-xs text-slate-500 mt-1">Retrieving 99 batches and individual animal rosters from backend</p>
           </div>
         ) : filteredBatches.length === 0 ? (
@@ -871,7 +871,7 @@ function AdminBatchesDrilldownContent() {
                     </div>
 
                     <CardTitle className="text-sm font-black text-slate-900 mt-1.5 truncate">
-                      {batch.batch_name || `${batch.livestock_type_name} Cohort`}
+                      {batch.batch_name || `${batch.livestock_type_name} Herd`}
                     </CardTitle>
                     <CardDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                       <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -938,7 +938,7 @@ function AdminBatchesDrilldownContent() {
                       </span>
                       <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
                         <Activity className="size-3 text-slate-400" />
-                        {batch.feed_type || "Standard Rations"}
+                        {batch.feed_type || "—"}
                       </span>
                     </div>
 
@@ -966,7 +966,7 @@ function AdminBatchesDrilldownContent() {
                         className="h-8 rounded-lg bg-slate-900 hover:bg-emerald-800 text-white font-bold text-[10px] gap-1.5 shadow-2xs"
                       >
                         <Eye className="size-3.5" />
-                        Inspect cohort
+                        Inspect herd
                         <ChevronRight className="size-3.5 ml-auto" />
                       </Button>
 
@@ -998,14 +998,14 @@ function AdminBatchesDrilldownContent() {
                           className="col-span-2 h-8 rounded-lg border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 text-[10px] font-bold disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                           title={
                             isReadyForMao
-                              ? "Approve this SIBAT-verified cohort"
-                              : "Every animal must be SIBAT verified before cohort approval"
+                              ? "Approve this SIBAT-verified herd"
+                              : "Every animal must be SIBAT verified before herd approval"
                           }
                         >
                           {isReadyForMao ? (
                             <>
                               <ShieldCheck className="size-3.5" />
-                              Approve verified cohort
+                              Approve verified herd
                             </>
                           ) : (
                             <>
@@ -1022,7 +1022,7 @@ function AdminBatchesDrilldownContent() {
                           className="col-span-2 h-8 rounded-lg border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-100"
                         >
                           <CheckCircle2 className="size-3.5" />
-                          Cohort approved
+                          Herd approved
                         </Button>
                       )}
                     </div>
@@ -1044,7 +1044,7 @@ function AdminBatchesDrilldownContent() {
                       Batch Code
                     </TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      Cohort Name &amp; Species
+                      Herd Name &amp; Species
                     </TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                       Farmer &amp; Barangay
@@ -1104,7 +1104,7 @@ function AdminBatchesDrilldownContent() {
                         <TableCell className="text-xs text-slate-600">
                           <div>Pen: {batch.housing_pen || "General"}</div>
                           <div className="text-[10px] text-slate-400 truncate max-w-[120px]">
-                            {batch.feed_type || "Rations"}
+                            {batch.feed_type || "—"}
                           </div>
                         </TableCell>
                         <TableCell className="text-xs">
@@ -1159,7 +1159,7 @@ function AdminBatchesDrilldownContent() {
       </div>
 
       {/* ──────────────────────────────────────────────────────────────────────────
-          DEEP DRILLDOWN INSPECTION DIALOG (COHORT & INDIVIDUAL LIVESTOCK ROSTER)
+          DEEP DRILLDOWN INSPECTION DIALOG (HERD & INDIVIDUAL LIVESTOCK ROSTER)
       ────────────────────────────────────────────────────────────────────────── */}
       <Dialog
         open={isDrilldownOpen}
@@ -1178,7 +1178,7 @@ function AdminBatchesDrilldownContent() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {selectedBatch.livestock_type_name} Cohort
+                      {selectedBatch.livestock_type_name} Herd
                     </span>
                     <span className="font-mono text-xs font-bold text-emerald-200">
                       {selectedBatch.batch_code}
@@ -1220,7 +1220,7 @@ function AdminBatchesDrilldownContent() {
                     {selectedBatch.housing_pen || "Standard Pen"}
                   </p>
                   <p className="text-[10px] text-slate-500 truncate">
-                    Feed: {selectedBatch.feed_type || "Rations"}
+                    Feed: {selectedBatch.feed_type || "—"}
                   </p>
                 </div>
 
@@ -1248,7 +1248,7 @@ function AdminBatchesDrilldownContent() {
 
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200/80">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    MAO Cohort Action
+                    MAO Herd Action
                   </span>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 mt-1">
                     <Button
@@ -1256,8 +1256,8 @@ function AdminBatchesDrilldownContent() {
                       disabled={selectedBatch.review_status !== "VERIFIED"}
                       title={
                         selectedBatch.review_status === "VERIFIED"
-                          ? "Approve all SIBAT-verified animals in this cohort"
-                          : "Every animal must be SIBAT verified before cohort approval"
+                          ? "Approve all SIBAT-verified animals in this herd"
+                          : "Every animal must be SIBAT verified before herd approval"
                       }
                       onClick={() =>
                         setBatchReviewModal({
@@ -1521,7 +1521,7 @@ function AdminBatchesDrilldownContent() {
                                       size="sm"
                                       variant="outline"
                                       disabled
-                                      title="Cohort animals share one review status. Use the batch-level Approve / Return to Revision actions in the batch card above."
+                                      title="Herd animals share one review status. Use the batch-level Approve / Return to Revision actions in the batch card above."
                                       className="h-7 px-2 rounded-lg text-slate-500 font-bold text-[10px] disabled:opacity-100"
                                     >
                                       Batch review only
@@ -1588,12 +1588,12 @@ function AdminBatchesDrilldownContent() {
               {batchReviewModal.action === "APPROVED" ? (
                 <>
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  Approve Cohort Batch &amp; All Heads
+                  Approve Herd &amp; All Heads
                 </>
               ) : (
                 <>
                   <AlertTriangle className="w-5 h-5 text-rose-600" />
-                  Request Cohort Revision
+                  Request Herd Revision
                 </>
               )}
             </DialogTitle>
@@ -1828,11 +1828,11 @@ function AdminBatchesDrilldownContent() {
                 verifiedAt={selectedBatch.reviewed_at ? selectedBatch.reviewed_at.slice(0, 10) : undefined}
               />
 
-              {/* Enrolled Animals in this Cohort */}
+              {/* Enrolled Animals in this Herd */}
               {selectedBatch.animals && selectedBatch.animals.length > 0 && (
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                    Enrolled Ear Tag Codes in this Cohort ({selectedBatch.animals.length} heads):
+                    Enrolled Ear Tag Codes in this Herd ({selectedBatch.animals.length} heads):
                   </span>
                   <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                     {selectedBatch.animals.map((a) => (
@@ -1878,7 +1878,7 @@ function AdminBatchesDrilldownContent() {
 
 export default function AdminBatchesDrilldownPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Cohort Batches & Animals...</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Herds & Animals...</div>}>
       <AdminBatchesDrilldownContent />
     </Suspense>
   );

@@ -153,7 +153,7 @@ function generateInitialIndividuals(
   return results;
 }
 
-// Helper to render official regulatory review badge for cohorts
+// Helper to render official regulatory review badge for herds
 function getReviewStatusBadge(status?: string) {
   if (status === "APPROVED") {
     return (
@@ -329,9 +329,9 @@ export default function BatchOverviewPage() {
       return {
         id: String(b.id),
         batchCode: b.batchCode,
-        batchName: b.batchName || `${b.livestockTypeName} Cohort`,
+        batchName: b.batchName || `${b.livestockTypeName} Herd`,
         species: b.livestockTypeName,
-        breed: b.animals?.[0]?.breed || "Cohort Roster",
+        breed: b.animals?.[0]?.breed || "Herd Roster",
         totalQuantity: b.totalAnimals || indList.length,
         activeCount: indList.length,
         mortalityCount: 0,
@@ -343,7 +343,7 @@ export default function BatchOverviewPage() {
         reviewStatus: b.reviewStatus || "PENDING",
         reviewRemarks: b.reviewRemarks,
         notes: b.notes,
-        feedType: b.feedType || "Farm Rations",
+        feedType: b.feedType || "—",
         individuals: indList,
       };
     });
@@ -376,7 +376,7 @@ export default function BatchOverviewPage() {
       return {
         id: String(item.id),
         batchCode: batchCode,
-        batchName: item.batchName || `${item.livestockTypeName} Cohort`,
+        batchName: item.batchName || `${item.livestockTypeName} Herd`,
         species: item.livestockTypeName,
         breed: item.breed || "Standard Hybrid",
         totalQuantity: item.quantity,
@@ -517,17 +517,17 @@ export default function BatchOverviewPage() {
   }, [currentBatch]);
 
   // Handlers
-  const handleResubmitCohort = async () => {
+  const handleResubmitHerd = async () => {
     if (!currentBatch || !backendBatches.some((batch) => String(batch.id) === currentBatch.id)) return;
     setIsResubmitting(true);
     try {
       await api.patch(`livestock/batches/${currentBatch.id}/`, { resubmit: true });
       await queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
       await queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      toast.success("Whole cohort resubmitted to SIBAT for verification.");
+      toast.success("Whole herd resubmitted to SIBAT for verification.");
     } catch (error) {
-      console.error("Cohort resubmission failed:", error);
-      toast.error("Could not resubmit the cohort. Check that every member is returned for revision.");
+      console.error("Herd resubmission failed:", error);
+      toast.error("Could not resubmit the herd. Check that every member is returned for revision.");
     } finally {
       setIsResubmitting(false);
     }
@@ -624,7 +624,7 @@ export default function BatchOverviewPage() {
     <>
       <PageHeader
         title="Livestock Batch & Flock Overview"
-        subtitle="Monitor cohort performance, individual animal tracking within batches, and aggregate yield."
+        subtitle="Monitor herd performance, individual animal tracking within herds, and aggregate yield."
         variant="farmer"
         maxWidthClass="w-full"
       />
@@ -738,10 +738,10 @@ export default function BatchOverviewPage() {
                       </div>
                     </div>
 
-                    {/* Batch Name & Tag Subtitle */}
+                    {/* Herd Name & Tag Subtitle */}
                     <div className="space-y-1">
                       <h4 className="font-black text-base text-slate-900 leading-snug group-hover:text-emerald-900 transition-colors line-clamp-1">
-                        {batch.batchName || `${batch.species} Cohort`}
+                        {batch.batchName || `${batch.species} Herd`}
                       </h4>
                       <div className="flex items-center gap-1.5 text-xs flex-wrap">
                         <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
@@ -803,7 +803,7 @@ export default function BatchOverviewPage() {
                             Feed Ration
                           </span>
                           <p className="font-bold text-slate-700 truncate leading-tight text-xs mt-0.5">
-                            {batch.feedType || "Farm Rations"}
+                            {batch.feedType || "—"}
                           </p>
                         </div>
                       </div>
@@ -824,7 +824,7 @@ export default function BatchOverviewPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 group-hover:text-emerald-700 py-1 px-2.5 rounded-lg group-hover:bg-emerald-50/70 transition-colors">
-                        <span>Click to inspect cohort</span>
+                        <span>Click to inspect herd</span>
                         <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     )}
@@ -844,10 +844,10 @@ export default function BatchOverviewPage() {
                 <div className="space-y-1.5">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-200 text-xs font-bold uppercase tracking-wider backdrop-blur-xs border border-white/10">
                     <Beef className="size-3.5" />
-                    <span>Cohort ID: {currentBatch.batchCode}</span>
+                    <span>Herd Code: {currentBatch.batchCode}</span>
                   </div>
                   <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                    {currentBatch.batchName || `${currentBatch.species} Cohort`}
+                    {currentBatch.batchName || `${currentBatch.species} Herd`}
                   </h2>
                   <p className="text-xs text-emerald-100/80 font-medium">
                     {currentBatch.batchCode} &bull; {currentBatch.species} &bull; {currentBatch.breed}
@@ -892,11 +892,11 @@ export default function BatchOverviewPage() {
                       <Button
                         type="button"
                         disabled={isResubmitting}
-                        onClick={handleResubmitCohort}
+                        onClick={handleResubmitHerd}
                         className="bg-amber-400 text-amber-950 hover:bg-amber-300 rounded-xl text-xs font-bold"
                       >
                         <RefreshCw className="size-3.5 mr-1.5" />
-                        {isResubmitting ? "Resubmitting..." : "Resubmit Whole Cohort"}
+                        {isResubmitting ? "Resubmitting..." : "Resubmit Whole Herd"}
                       </Button>
                     )}
 
@@ -1010,7 +1010,7 @@ export default function BatchOverviewPage() {
                       {/* <Badge className="bg-emerald-200 text-emerald-900 text-[9px] font-black">Capstone Standard</Badge> */}
                     </h4>
                     <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      In livestock science, batches represent commercial cohorts (e.g. 10 fatteners or 30 layers), but each animal has distinct biological gain. By tracking individual weight and health below:
+                      In livestock science, batches represent commercial herds (e.g. 10 fatteners or 30 layers), but each animal has distinct biological gain. By tracking individual weight and health below:
                     </p>
                   </div>
                 </div>
@@ -1021,7 +1021,7 @@ export default function BatchOverviewPage() {
                       <Scale className="size-3.5 text-emerald-600" /> Average Daily Gain (ADG)
                     </p>
                     <p className="text-slate-600 text-[11px]">
-                      Comparing individual weights against batch average ({currentBatch.averageWeightKg} kg) reveals top growers vs runts in the cohort.
+                      Comparing individual weights against batch average ({currentBatch.averageWeightKg} kg) reveals top growers vs runts in the herd.
                     </p>
                   </div>
 
@@ -1039,7 +1039,7 @@ export default function BatchOverviewPage() {
                       <Egg className="size-3.5 text-sky-600" /> Dairy & Egg Aggregate Output
                     </p>
                     <p className="text-slate-600 text-[11px]">
-                      For layers or dairy herds, yield logs can be entered once for the batch and distributed or correlated with individual head counts.
+                      For layers or dairy herds, yield logs can be entered once for the herd and distributed or correlated with individual head counts.
                     </p>
                   </div>
                 </div>
@@ -1313,7 +1313,7 @@ export default function BatchOverviewPage() {
                 <span>Add Animal to {currentBatch?.batchCode}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Register a new individual animal in this cohort with its specific ear tag, gender, and starting weight.
+                Register a new individual animal in this herd with its specific ear tag, gender, and starting weight.
               </DialogDescription>
             </DialogHeader>
 
@@ -1412,7 +1412,7 @@ export default function BatchOverviewPage() {
                 type="submit"
                 className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
               >
-                Save to Cohort
+                Save to Herd
               </Button>
             </DialogFooter>
           </form>
@@ -1531,7 +1531,7 @@ export default function BatchOverviewPage() {
               </div>
             </div>
             <DialogTitle className="text-base font-black text-emerald-950 pt-1">
-              Cohort Biosecurity &amp; Movement Clearance Pass
+              Herd Biosecurity &amp; Movement Clearance Pass
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
               Official QR clearance for auction pen entry, checkpoints, and bulk livestock transport.

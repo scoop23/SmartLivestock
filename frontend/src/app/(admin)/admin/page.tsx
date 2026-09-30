@@ -52,7 +52,7 @@ export default function AdminDashboard() {
               {
                 id: "inventory",
                 label: "Livestock Inventory",
-                sublabel: "Individual tags & cohort registrations",
+                sublabel: "Individual tags & herd registrations",
                 icon: <Icon iconNode={cowHead} className="size-4 shrink-0 text-emerald-700" />,
                 loaded: !inventoryQuery.isLoading && inventoryQuery.data !== undefined,
               },

@@ -98,7 +98,7 @@ Table livestock_batches {
 
 Table livestock_inventory {
   livestock_id integer [pk]
-  batch_id integer [note: 'Optional FK to livestock_batches.batch_id (cohort/batch link)']
+  batch_id integer [note: 'Optional FK to livestock_batches.batch_id (herd group link)']
   farmer_id integer [not null]
   livestock_type_id integer [not null]
   entry_type varchar [default: 'INDIVIDUAL', note: 'INDIVIDUAL - all animals tracked as individual records']
@@ -186,7 +186,7 @@ Table animal_dispositions {
 Table slaughter_records {
   slaughter_id integer [pk]
   livestock_id integer [note: 'Nullable for batch slaughter - FK to livestock_inventory']
-  batch_id integer [note: 'Nullable - FK to livestock_batches for cohort slaughter']
+  batch_id integer [note: 'Nullable - FK to livestock_batches for herd slaughter']
   barangay_id integer [note: 'Origin barangay']
   livestock_type_id integer [not null]
   quantity integer [not null]
@@ -203,7 +203,7 @@ Table slaughter_records {
 Table live_animal_sales {
   sale_id integer [pk]
   livestock_id integer [note: 'Nullable if sold from batch - FK to livestock_inventory']
-  batch_id integer [note: 'Nullable - FK to livestock_batches if sold as batch cohort']
+  batch_id integer [note: 'Nullable - FK to livestock_batches if sold as herd']
   quantity integer [not null]
   sale_method varchar [default: 'MATA-MATA', note: 'MATA-MATA, WEIGHING, OTHER']
   total_live_weight decimal [note: 'Combined live weight in kg']
@@ -246,7 +246,7 @@ Table disease_cases {
 Table mortality_records {
   mortality_id integer [pk]
   livestock_id integer [note: 'Nullable individual animal FK to livestock_inventory.livestock_id']
-  batch_id integer [note: 'Nullable cohort FK; exact animal selection is required before reconciliation']
+  batch_id integer [note: 'Nullable herd FK; exact animal selection is required before reconciliation']
   death_count integer [not null]
   cause text [not null]
   source_disease_case_id integer [note: 'Nullable - linked disease case if applicable']

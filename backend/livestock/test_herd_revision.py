@@ -7,46 +7,46 @@ from production.models import ProductionRecord
 from users.models import Notification, Role, User
 
 
-class CohortRevisionTests(APITestCase):
+class HerdRevisionTests(APITestCase):
     def setUp(self):
         farmer_role = Role.objects.create(role_name=Role.UserRoles.FARMER)
         sibat_role = Role.objects.create(role_name=Role.UserRoles.SIBAT)
         mao_role = Role.objects.create(role_name=Role.UserRoles.MAO)
         self.farmer_user = User.objects.create_user(
-            username="cohort-farmer", email="cohort-farmer@example.com",
+            username="herd-farmer", email="herd-farmer@example.com",
             password="test-password", role=farmer_role,
             account_status=User.AccountStatus.APPROVED,
         )
         self.sibat_user = User.objects.create_user(
-            username="cohort-sibat", email="cohort-sibat@example.com",
+            username="herd-sibat", email="herd-sibat@example.com",
             password="test-password", role=sibat_role,
             account_status=User.AccountStatus.APPROVED,
         )
         self.mao_user = User.objects.create_user(
-            username="cohort-mao", email="cohort-mao@example.com",
+            username="herd-mao", email="herd-mao@example.com",
             password="test-password", role=mao_role,
             account_status=User.AccountStatus.APPROVED,
         )
         barangay = Barangay.objects.create(
-            barangay_name="Cohort Test", latitude=13.8821, longitude=121.2144,
+            barangay_name="Herd Test", latitude=13.8821, longitude=121.2144,
         )
         farmer = Farmer.objects.create(
             user=self.farmer_user, barangay=barangay, farm_size=1, address="Test farm",
         )
-        livestock_type = LivestockType.objects.create(name="Cohort test cattle")
+        livestock_type = LivestockType.objects.create(name="Herd test cattle")
         self.batch = LivestockBatch.objects.create(
-            farmer=farmer, livestock_type=livestock_type, batch_name="Test cohort",
-            batch_code="COHORT-TEST-1", created_by=self.farmer_user,
+            farmer=farmer, livestock_type=livestock_type, batch_name="Test herd",
+            batch_code="HERD-TEST-1", created_by=self.farmer_user,
         )
         self.animals = [
             LivestockInventory.objects.create(
                 farmer=farmer, livestock_type=livestock_type, batch=self.batch,
-                tag_number=f"COHORT-{number}", created_by=self.farmer_user,
+                tag_number=f"HERD-{number}", created_by=self.farmer_user,
             )
             for number in (1, 2)
         ]
 
-    def test_returned_cohort_stays_together_until_explicit_resubmission(self):
+    def test_returned_herd_stays_together_until_explicit_resubmission(self):
         animal_url = f"/livestock/inventory/{self.animals[0].pk}/"
         review_url = f"/livestock/batches/{self.batch.pk}/review/"
         batch_url = f"/livestock/batches/{self.batch.pk}/"
@@ -85,7 +85,7 @@ class CohortRevisionTests(APITestCase):
         )
         self.assertTrue(Notification.objects.filter(
             user=self.mao_user,
-            title="Livestock Cohort Awaiting MAO Approval",
+            title="Livestock Herd Awaiting MAO Approval",
             link=f"/data-validation/batches?batchId={self.batch.pk}",
         ).exists())
         self.client.force_authenticate(user=self.mao_user)

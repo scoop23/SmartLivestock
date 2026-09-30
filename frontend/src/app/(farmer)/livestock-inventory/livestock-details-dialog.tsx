@@ -265,7 +265,7 @@ export default function LivestockDetailsDialog({
                           </div>
                           <div>
                             <h4 className="text-xs font-black text-slate-900">
-                              Part of Cohort: {livestock.batchCode}
+                              Part of Herd: {livestock.batchCode}
                             </h4>
                             <p className="text-[11px] text-slate-600 mt-0.5">
                               {livestock.batchName ? `${livestock.batchName} • ` : ""}Tracked as an individual animal inside this batch.
@@ -280,7 +280,7 @@ export default function LivestockDetailsDialog({
                           }}
                           className="rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs gap-1.5 shrink-0"
                         >
-                          <span>View Batch Roster</span>
+                          <span>View Herd Roster</span>
                           <ExternalLink className="size-3" />
                         </Button>
                       </div>
@@ -320,7 +320,7 @@ export default function LivestockDetailsDialog({
                         <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.tagNumber || `TAG-${livestock.id}`}</p>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assigned Cohort</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assigned Herd</span>
                         <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.batchCode || "Individual"}</p>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">

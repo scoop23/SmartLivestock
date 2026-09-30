@@ -168,7 +168,7 @@ def batch_detail(request, pk):
         resubmit = str(data.get("resubmit", "")).lower() in {"true", "1"}
         if resubmit and states != {LivestockInventory.StatusType.SUBJECT_TO_REVISION}:
             return Response(
-                {"error": "Only a fully returned cohort can be resubmitted."},
+                {"error": "Only a fully returned herd can be resubmitted."},
                 status=status.HTTP_409_CONFLICT,
             )
         if (set(data) - {"status", "resubmit"} or resubmit) and (
@@ -179,7 +179,7 @@ def batch_detail(request, pk):
             })
         ):
             return Response(
-                {"error": "Verified or approved cohort details are locked."},
+                {"error": "Verified or approved herd details are locked."},
                 status=status.HTTP_409_CONFLICT,
             )
         updatable = [
@@ -209,8 +209,8 @@ def batch_detail(request, pk):
             notify_role(
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.SIBAT,
-                title="Cohort Resubmitted for Verification",
-                message=f"{user.get_full_name() or user.username} resubmitted cohort {batch.batch_code} for field review.",
+                title="Herd Resubmitted for Verification",
+                message=f"{user.get_full_name() or user.username} resubmitted herd {batch.batch_code} for field review.",
                 link="/sibat/batches?batchId=" + str(batch.pk),
             )
         serializer = LivestockBatchSerializer(batch, context={"request": request})
@@ -268,7 +268,7 @@ def batch_add_animals(request, pk):
         )
     if batch.animals.exclude(status=LivestockInventory.StatusType.PENDING).exists():
         return Response(
-            {"error": "Animals can only be added before cohort verification begins."},
+            {"error": "Animals can only be added before herd verification begins."},
             status=status.HTTP_409_CONFLICT,
         )
 
@@ -329,7 +329,7 @@ def batch_review(request, pk):
     batch = get_object_or_404(LivestockBatch.objects.select_for_update(), pk=pk)
     if batch.status != LivestockBatch.StatusType.ACTIVE:
         return Response(
-            {"error": "Only active cohorts can enter validation."},
+            {"error": "Only active herds can enter validation."},
             status=status.HTTP_409_CONFLICT,
         )
     new_status = request.data.get("status")
@@ -386,9 +386,9 @@ def batch_review(request, pk):
             role_name="MAO",
             notification_type=Notification.NotificationType.GENERAL,
             priority=Notification.Priority.MEDIUM,
-            title="Livestock Cohort Awaiting MAO Approval",
+            title="Livestock Herd Awaiting MAO Approval",
             message=(
-                f"SIBAT verified cohort {batch.batch_code} with "
+                f"SIBAT verified herd {batch.batch_code} with "
                 f"{batch.animals.count()} animal(s)."
             ),
             link=f"/data-validation/batches?batchId={batch.pk}",
@@ -411,7 +411,7 @@ def batch_review(request, pk):
                 user=target_user,
                 notification_type=Notification.NotificationType.SIBAT,
                 priority=Notification.Priority.MEDIUM,
-                title="Cohort Batch Verified by SIBAT",
+                title="Herd Verified by SIBAT",
                 message=f"Your {species_name} batch [{batch_info}] has been verified on-farm by SIBAT.{f' Remarks: {remarks}' if remarks else ''}",
                 link="/livestock-inventory/batches",
             )
@@ -420,7 +420,7 @@ def batch_review(request, pk):
                 user=target_user,
                 notification_type=Notification.NotificationType.GENERAL,
                 priority=Notification.Priority.MEDIUM,
-                title="Cohort Batch Approved by MAO",
+                title="Herd Approved by MAO",
                 message=f"Official certification approved for your {species_name} batch [{batch_info}].",
                 link="/livestock-inventory/batches",
             )
@@ -429,7 +429,7 @@ def batch_review(request, pk):
                 user=target_user,
                 notification_type=Notification.NotificationType.GENERAL,
                 priority=Notification.Priority.HIGH,
-                title="Revision Required on Cohort Batch",
+                title="Revision Required on Herd",
                 message=f"Your {species_name} batch [{batch_info}] requires revision.{f' Note: {remarks}' if remarks else ''}",
                 link="/livestock-inventory/batches",
             )

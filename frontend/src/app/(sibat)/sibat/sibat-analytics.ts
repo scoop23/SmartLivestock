@@ -240,7 +240,7 @@ export const mapBatchToUnified = (b: any): UnifiedSubmissionItem => {
     id: `batch-${b.id}`,
     rawId: b.id,
     sourceType: "BATCH",
-    submissionTypeLabel: `Cohort Batch (${b.total_animals || 0} Heads)`,
+    submissionTypeLabel: `Herd (${b.total_animals || 0} Heads)`,
     farmerName: b.farmer_name || "Registered Farmer",
     barangayName: b.barangay_name || "Padre Garcia",
     livestockTypeName: b.livestock_type_name || "Livestock",
@@ -250,7 +250,7 @@ export const mapBatchToUnified = (b: any): UnifiedSubmissionItem => {
     unit: "Heads",
     recordDate: b.created_at ? b.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
     status: (b.review_status || "PENDING") as UnifiedStatus,
-    breed: b.animals?.[0]?.breed || "Cohort Roster",
+    breed: b.animals?.[0]?.breed || "Herd Roster",
     tagNumber: b.batch_code,
     weight: b.average_weight ? Number(b.average_weight) : null,
     entryType: "BATCH",
@@ -669,7 +669,7 @@ export function useReviewSubmission() {
       remarks: string;
     }) => {
       if (item.sourceType === "INVENTORY" && (item.batchId != null || item.batchCode)) {
-        throw new Error("Cohort animals must be reviewed through their batch.");
+        throw new Error("Herd animals must be reviewed through their batch.");
       }
       let endpoint = `livestock/inventory/${item.rawId}/review/`;
       if (item.sourceType === "PRODUCTION") {

@@ -186,7 +186,7 @@ export function UserProfileView() {
   const [auditEvents, setAuditEvents] = useState([
     {
       id: "evt_1",
-      action: "Certified Livestock Cohort #BAT-2026-042",
+      action: "Certified Livestock Herd #BAT-2026-042",
       category: "Herd Registry",
       timestamp: "Today, 11:32 AM",
       ip: "120.29.74.112",

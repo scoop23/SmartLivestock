@@ -175,7 +175,7 @@ export default function LivestockEditDialog({
                       {[item.livestockTypeName, item.breed, item.sex]
                         .filter(Boolean)
                         .join(" • ")}
-                      {item.batchCode ? ` • Cohort: ${item.batchCode}` : ""}
+                      {item.batchCode ? ` • Herd: ${item.batchCode}` : ""}
                     </DialogDescription>
                   </div>
                 </div>
@@ -233,14 +233,14 @@ export default function LivestockEditDialog({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="editBatch">Assigned Cohort / Batch</Label>
+                  <Label htmlFor="editBatch">Assigned Herd</Label>
                   <Select
                     value={form.batchId || "none"}
                     onValueChange={(val) => set({ batchId: val === "none" ? "" : val })}
                     disabled={!!item.batchId}
                   >
                     <SelectTrigger id="editBatch">
-                      <SelectValue placeholder="Select cohort (optional)" />
+                      <SelectValue placeholder="Select herd (optional)" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Standalone (No Batch)</SelectItem>

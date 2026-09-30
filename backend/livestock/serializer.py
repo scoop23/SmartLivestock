@@ -33,10 +33,10 @@ class BarangaySerializer(serializers.ModelSerializer):
 class LivestockInventorySerializer(serializers.Serializer):
     """
     Returns:
-        Complete individual animal passport or cohort entry with resolved relationships:
+        Complete individual animal passport or herd entry with resolved relationships:
         - Identity: id, tag_number, breed, sex, weight, photo, photo_url (absolute URI), avatar_key
         - Farmer & Barangay: farmer (ID), farmer_name (full name/username), barangay_name, barangay_id
-        - Batch / Cohort: batch (ID), batch_code, batch_name (null if independent animal)
+        - Herd Group: batch (ID), batch_code, batch_name (null if independent animal)
         - Classification: livestock_type (ID), livestock_type_name, entry_type (INDIVIDUAL/BATCH), quantity
         - Lifecycle: last_vaccination_date, created_at
         - Review & Audit: status (PENDING/VERIFIED/APPROVED/SUBJECT_TO_REVISION),
@@ -128,30 +128,30 @@ class LivestockInventorySerializer(serializers.Serializer):
         batch = attrs.get("batch", self.instance.batch if self.instance else None)
         if current_batch_id and (batch is None or batch.pk != current_batch_id):
             raise serializers.ValidationError(
-                {"batch": "A cohort member cannot be moved to another cohort or detached."}
+                {"batch": "A herd member cannot be moved to another herd or detached."}
             )
         if batch:
             batch = LivestockBatch.objects.select_for_update().get(pk=batch.pk)
             if batch.farmer_id != farmer.pk:  # type: ignore[attr-defined]
-                raise serializers.ValidationError({"batch": "This cohort belongs to another farmer."})
+                raise serializers.ValidationError({"batch": "This herd belongs to another farmer."})
             if batch.status != LivestockBatch.StatusType.ACTIVE:
-                raise serializers.ValidationError({"batch": "This cohort is no longer active."})
+                raise serializers.ValidationError({"batch": "This herd is no longer active."})
             livestock_type = attrs.get(
                 "livestock_type", self.instance.livestock_type if self.instance else None
             )
             if livestock_type and livestock_type.pk != batch.livestock_type.pk:
                 raise serializers.ValidationError(
-                    {"livestock_type": "The animal species must match its cohort."}
+                    {"livestock_type": "The animal species must match its herd."}
                 )
             if batch.animals.exclude(
                 status__in=["PENDING", "SUBJECT_TO_REVISION"]
             ).exists():
                 raise serializers.ValidationError(
-                    {"batch": "This cohort is already verified or approved."}
+                    {"batch": "This herd is already verified or approved."}
                 )
             if not current_batch_id and batch.animals.exclude(status="PENDING").exists():
                 raise serializers.ValidationError(
-                    {"batch": "New animals can only join a pending cohort."}
+                    {"batch": "New animals can only join a pending herd."}
                 )
         return attrs
 
@@ -242,7 +242,7 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
 class LivestockBatchSerializer(serializers.ModelSerializer):
     """
     Returns:
-        Full cohort/batch dossier with aggregated statistics and child animal roster:
+        Full herd record with aggregated statistics and child animal roster:
         - Batch Identifiers: id, batch_name, batch_code, housing_pen, feed_type
         - Production Targets: target_weight, target_harvest_date, status, notes
         - Farmer & Barangay: farmer (ID), farmer_name, barangay_id, barangay_name
@@ -253,7 +253,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
           else PENDING),
           review_remarks, reviewed_by_name, and reviewed_at
     Used in:
-        Admin batch drilldown (/data-validation/batches), farmer cohort management, and MAO approvals.
+        Admin batch drilldown (/data-validation/batches), farmer herd management, and MAO approvals.
     """
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)
@@ -344,7 +344,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         # In-memory computation: only a remark shared by every reviewed animal is a
         # genuine batch-level remark (a whole-batch review stamps all animals with
         # the same text). Individually reviewed animals keep their own remarks and
-        # must not surface as the cohort's official note.
+        # must not surface as the herd's official note.
         reviewed = [
             a.review_remarks.strip()
             for a in obj.animals.all()

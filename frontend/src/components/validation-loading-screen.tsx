@@ -64,7 +64,7 @@ export function ValidationLoadingScreen({
     {
       id: "inventory",
       label: "Livestock Inventory",
-      sublabel: "Individual tags & cohort pens",
+      sublabel: "Individual tags & herd pens",
       icon: <Tag className="size-4 shrink-0" />,
       loaded: inventoryLoaded,
     },

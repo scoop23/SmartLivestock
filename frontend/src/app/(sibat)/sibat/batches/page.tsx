@@ -407,7 +407,7 @@ function SibatBatchesVerificationContent() {
       toast.success(`Batch ${selectedBatch?.batch_code || ""} ${verb}!`, {
         description:
           variables.status === "VERIFIED"
-            ? `All child animals in this cohort updated to VERIFIED and sent to the MAO approval queue.`
+            ? `All child animals in this herd updated to VERIFIED and sent to the MAO approval queue.`
             : `Farmer will be asked to correct the flagged items and resubmit.`,
       });
       queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
@@ -443,7 +443,7 @@ function SibatBatchesVerificationContent() {
     },
     onSuccess: () => {
       toast.success("Note added to batch audit trail.", {
-        description: "The farmer can now see this note on the cohort page.",
+        description: "The farmer can now see this note on the herd page.",
       });
       queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
@@ -509,8 +509,8 @@ function SibatBatchesVerificationContent() {
   return (
     <>
       <PageHeader
-        title="SIBAT Batch & Cohort Verification"
-        subtitle="Municipal Field Sector: verify farmer-logged livestock cohorts at the farm and forward them to the MAO approval queue"
+        title="SIBAT Herd Verification"
+        subtitle="Municipal Field Sector: verify farmer-logged livestock herds at the farm and forward them to the MAO approval queue"
         variant="sibat"
         maxWidthClass="w-full"
         icon={<Layers className="size-5 text-white" />}
@@ -779,7 +779,7 @@ function SibatBatchesVerificationContent() {
         {isLoading ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
             <RefreshCw className="w-8 h-8 mx-auto text-sky-600 animate-spin mb-3" />
-            <p className="text-sm font-black text-slate-800">Loading Farm Cohort Batches...</p>
+            <p className="text-sm font-black text-slate-800">Loading farm herds...</p>
             <p className="text-xs text-slate-500 mt-1">Retrieving batch records and individual animal rosters from backend</p>
           </div>
         ) : filteredBatches.length === 0 ? (
@@ -846,7 +846,7 @@ function SibatBatchesVerificationContent() {
                     </div>
 
                     <CardTitle className="text-sm font-black text-slate-900 mt-1.5 truncate">
-                      {batch.batch_name || `${batch.livestock_type_name} Cohort`}
+                      {batch.batch_name || `${batch.livestock_type_name} Herd`}
                     </CardTitle>
                     <CardDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                       <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -913,7 +913,7 @@ function SibatBatchesVerificationContent() {
                       </span>
                       <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
                         <Activity className="size-3 text-slate-400" />
-                        {batch.feed_type || "Standard Rations"}
+                        {batch.feed_type || "—"}
                       </span>
                     </div>
 
@@ -960,7 +960,7 @@ function SibatBatchesVerificationContent() {
                           className="col-span-2 h-8 rounded-lg border-sky-300 bg-sky-50 text-sky-900 hover:bg-sky-100 text-[10px] font-bold disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                           title={
                             canVerify
-                              ? "Verify every animal in this cohort and forward to MAO"
+                              ? "Verify every animal in this herd and forward to MAO"
                               : "Every animal must be pending field review before verification"
                           }
                         >
@@ -994,7 +994,7 @@ function SibatBatchesVerificationContent() {
                           className="col-span-2 h-8 rounded-lg border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-100"
                         >
                           <CheckCircle2 className="size-3.5" />
-                          Cohort approved
+                          Herd approved
                         </Button>
                       )}
                     </div>
@@ -1025,7 +1025,7 @@ function SibatBatchesVerificationContent() {
                       Batch Code
                     </TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      Cohort Name &amp; Species
+                      Herd Name &amp; Species
                     </TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                       Farmer &amp; Barangay
@@ -1085,7 +1085,7 @@ function SibatBatchesVerificationContent() {
                         <TableCell className="text-xs text-slate-600">
                           <div>Pen: {batch.housing_pen || "General"}</div>
                           <div className="text-[10px] text-slate-400 truncate max-w-[120px]">
-                            {batch.feed_type || "Rations"}
+                            {batch.feed_type || "—"}
                           </div>
                         </TableCell>
                         <TableCell className="text-xs">
@@ -1153,7 +1153,7 @@ function SibatBatchesVerificationContent() {
       </div>
 
       {/* ──────────────────────────────────────────────────────────────────────────
-          DEEP DRILLDOWN INSPECTION DIALOG (COHORT & INDIVIDUAL LIVESTOCK ROSTER)
+          DEEP DRILLDOWN INSPECTION DIALOG (HERD & INDIVIDUAL LIVESTOCK ROSTER)
       ────────────────────────────────────────────────────────────────────────── */}
       <Dialog
         open={isDrilldownOpen}
@@ -1172,7 +1172,7 @@ function SibatBatchesVerificationContent() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                      {selectedBatch.livestock_type_name} Cohort
+                      {selectedBatch.livestock_type_name} Herd
                     </span>
                     <span className="font-mono text-xs font-bold text-sky-200">
                       {selectedBatch.batch_code}
@@ -1202,7 +1202,7 @@ function SibatBatchesVerificationContent() {
                     {selectedBatch.housing_pen || "Standard Pen"}
                   </p>
                   <p className="text-[10px] text-slate-500 truncate">
-                    Feed: {selectedBatch.feed_type || "Rations"}
+                    Feed: {selectedBatch.feed_type || "—"}
                   </p>
                 </div>
 
@@ -1244,7 +1244,7 @@ function SibatBatchesVerificationContent() {
                       disabled={selectedBatch.review_status !== "PENDING" || !everyAnimalPending(selectedBatch)}
                       title={
                         selectedBatch.review_status === "PENDING" && everyAnimalPending(selectedBatch)
-                          ? "Verify all animals in this cohort and forward to MAO"
+                          ? "Verify all animals in this herd and forward to MAO"
                           : "Every animal must be pending field review before batch verification"
                       }
                       onClick={() =>
@@ -1500,7 +1500,7 @@ function SibatBatchesVerificationContent() {
                                       size="sm"
                                       variant="outline"
                                       disabled
-                                      title="Cohort animals share one review status. Use the batch-level Verify & Forward / Return to Revision actions above."
+                                      title="Herd animals share one review status. Use the whole-herd Verify & Forward / Return to Revision actions above."
                                       className="h-7 px-2 rounded-lg text-slate-500 font-bold text-[10px] disabled:opacity-100"
                                     >
                                       Batch review only
@@ -1598,12 +1598,12 @@ function SibatBatchesVerificationContent() {
               {batchReviewModal.action === "VERIFIED" ? (
                 <>
                   <ShieldCheck className="w-5 h-5 text-sky-600" />
-                  Verify Cohort Batch &amp; All Heads
+                  Verify Herd &amp; All Heads
                 </>
               ) : (
                 <>
                   <AlertTriangle className="w-5 h-5 text-rose-600" />
-                  Request Cohort Revision
+                  Request Herd Revision
                 </>
               )}
             </DialogTitle>
@@ -1683,7 +1683,7 @@ function SibatBatchesVerificationContent() {
 
 export default function SibatBatchesVerificationPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Cohort Batches & Animals...</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading herds and animals...</div>}>
       <SibatBatchesVerificationContent />
     </Suspense>
   );

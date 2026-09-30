@@ -134,7 +134,7 @@ export default function SelectLivestockDialog({
                   setQuery(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Search tag, cohort, breed, or ID..."
+                placeholder="Search tag, herd, breed, or ID..."
                 className="pl-9 pr-9 h-10 rounded-xl bg-slate-50 border-slate-200"
                 autoComplete="off"
               />
@@ -198,7 +198,7 @@ export default function SelectLivestockDialog({
                 const title =
                   item.entryType === "INDIVIDUAL"
                     ? item.tagNumber || `Animal #${item.id}`
-                    : item.batchCode || item.batchName || `Cohort #${item.id}`;
+                    : item.batchCode || item.batchName || `Herd #${item.id}`;
                 return (
                   <button
                     key={item.id}

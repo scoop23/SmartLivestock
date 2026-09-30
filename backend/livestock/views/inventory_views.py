@@ -155,7 +155,7 @@ def inventory_detail(request, pk):
     if request.method == "DELETE":
         if inventory.batch_id: #type: ignore
             return Response(
-                {"error": "Cohort animals must remain with their batch. Delete the pending batch instead."},
+                {"error": "Herd animals must remain together. Delete the pending herd instead."},
                 status=status.HTTP_409_CONFLICT,
             )
         try:
@@ -217,8 +217,8 @@ def review_inventory(request, pk):
         return Response(
             {
                 "error": (
-                    f"This animal belongs to cohort {batch.batch_code}. Review the entire " # type: ignore
-                        f"batch via livestock/batches/{inventory.batch_id}/review/ so all cohort "# type: ignore
+                    f"This animal belongs to herd {batch.batch_code}. Review the herd at " # type: ignore
+                        f"livestock/batches/{inventory.batch_id}/review/ so every animal "# type: ignore
                     "animals move through FARMER -> SIBAT -> MAO validation together."
                 )
             },

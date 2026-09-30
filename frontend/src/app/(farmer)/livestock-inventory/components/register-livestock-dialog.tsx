@@ -76,6 +76,8 @@ const initialFormData = {
   batchName: "",
   housingPen: "",
   feedType: "",
+  isOtherFeed: false,
+  customFeed: "",
   breed: "Brahman",
   isOtherBreed: false,
   customBreed: "",
@@ -279,8 +281,8 @@ export function RegisterLivestockDialog({
 
   const currentPreset = getSpeciesPreset(formData.livestockType);
 
-  // Species gate: cohorts keep a single species, so an individual animal may only
-  // be assigned to a cohort whose livestock type matches the selected species.
+  // Species gate: herds keep a single species, so an individual animal may only
+  // be assigned to a herd whose livestock type matches the selected species.
   const batchSpeciesById = useMemo(() => {
     return Object.fromEntries(
       userBatches.map((b) => [String(b.id), b.livestockTypeName])
@@ -360,17 +362,20 @@ export function RegisterLivestockDialog({
           ) / 10
           : null;
         const mainBreed = formData.isOtherBreed
-          ? (formData.customBreed?.trim() || "Mixed / Cohort Hybrid")
-          : (formData.breed?.trim() || batchAnimals[0]?.breed?.trim() || "Standard Cohort");
+          ? (formData.customBreed?.trim() || "Mixed / Herd Hybrid")
+          : (formData.breed?.trim() || batchAnimals[0]?.breed?.trim() || "Standard Herd");
         const batchTag = `BATCH-${formData.livestockType.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-        const batchName = formData.batchName?.trim() || `${formData.livestockType} Cohort (${batchAnimals.length} Heads)`;
+        const batchName = formData.batchName?.trim() || `${formData.livestockType} Herd (${batchAnimals.length} Heads)`;
+        const resolvedFeedType = formData.isOtherFeed
+          ? formData.customFeed?.trim() || ""
+          : formData.feedType?.trim() || "";
 
         const response = await api.post("/livestock/batches/", {
           livestock_type: typeId,
           batch_name: batchName,
           batch_code: batchTag,
           housing_pen: formData.housingPen?.trim() || "Standard Pen",
-          feed_type: formData.feedType?.trim() || "Standard Rations",
+          feed_type: resolvedFeedType,
           target_weight: avgWeight ? Math.round(avgWeight * 1.3) : null,
           animals: batchAnimals.map((a) => ({
             tag_number: a.tagNumber.trim(),
@@ -414,10 +419,10 @@ export function RegisterLivestockDialog({
       setFormData(initialFormData);
 
       if (wasBatch) {
-        toast.success(`Batch cohort of ${registeredQty} heads created!`, {
-          description: "Individual animals saved. Would you like to view their cohort roster?",
+        toast.success(`Herd of ${registeredQty} heads created!`, {
+          description: "Individual animals saved. Would you like to view their herd roster?",
           action: {
-            label: "Open Batch Roster",
+            label: "Open Herd Roster",
             onClick: () => router.push("/livestock-inventory/batches"),
           },
         });
@@ -538,7 +543,7 @@ export function RegisterLivestockDialog({
                     }`}
                 >
                   <Layers className="w-4 h-4 text-teal-700" />
-                  Batch / Herd Group
+                  Herd
                 </button>
               </div>
             </div>
@@ -565,6 +570,9 @@ export function RegisterLivestockDialog({
                           breed: defBreed,
                           isOtherBreed: false,
                           customBreed: "",
+                          feedType: "",
+                          isOtherFeed: false,
+                          customFeed: "",
                           batchId:
                             batchSpeciesById[String(prev.batchId)] &&
                             batchSpeciesById[String(prev.batchId)] !== name
@@ -575,7 +583,7 @@ export function RegisterLivestockDialog({
                             prev.entryType === "INDIVIDUAL" && !prev.tagNumber
                               ? generateSuggestedTag(name)
                               : prev.tagNumber,
-                          batchName: prev.batchName ? prev.batchName : `${name} Cohort #${Math.floor(100 + Math.random() * 900)}`,
+                          batchName: prev.batchName ? prev.batchName : `${name} Herd #${Math.floor(100 + Math.random() * 900)}`,
                         }));
                         if (formData.entryType === "BATCH") {
                           const prefix = preset.tagPrefix || name.slice(0, 3).toUpperCase();
@@ -775,13 +783,13 @@ export function RegisterLivestockDialog({
                   </div>
                 </div>
 
-                {/* Assigned Batch / Cohort (Optional) */}
+                {/* Assigned Herd (Optional) */}
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="assignedBatch"
                     className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between"
                   >
-                    <span>Cohort / Batch Group (Optional)</span>
+                    <span>Herd (Optional)</span>
                     <span className="text-[10px] text-slate-400 font-semibold">Assign to batch</span>
                   </Label>
                   <Select
@@ -803,11 +811,11 @@ export function RegisterLivestockDialog({
                   {userBatches.length > 0 ? (
                     matchingBatches.length > 0 ? (
                       <p className="text-[10px] font-medium text-slate-400">
-                        Only {formData.livestockType} cohorts are listed — each cohort keeps a single species.
+                        Only {formData.livestockType} herds are listed — each herd keeps a single species.
                       </p>
                     ) : (
                       <p className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                        No {formData.livestockType} cohorts yet. Switch to Batch mode to create one, or register this livestock as a standalone animal.
+                        No {formData.livestockType} herds yet. Switch to Herd mode to create one, or register this livestock as a standalone animal.
                       </p>
                     )
                   ) : null}
@@ -982,10 +990,10 @@ export function RegisterLivestockDialog({
                       </div>
                       <div>
                         <Label className="text-xs font-black uppercase tracking-wider text-slate-800">
-                          Batch Cohort Profile
+                          Herd Profile
                         </Label>
                         <p className="text-[11px] text-slate-500">
-                          Assign an identifiable cohort name and housing details
+                          Assign an identifiable herd name and housing details
                         </p>
                       </div>
                     </div>
@@ -995,18 +1003,18 @@ export function RegisterLivestockDialog({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    {/* Batch Name */}
+                    {/* Herd Name */}
                     <div className="space-y-1.5 sm:col-span-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="batchName" className="text-xs font-black uppercase tracking-wider text-slate-600">
-                          Batch Name / Cohort Title <span className="text-rose-500">*</span>
+                          Herd Name <span className="text-rose-500">*</span>
                         </Label>
                         <button
                           type="button"
                           onClick={() =>
                             setFormData((prev) => ({
                               ...prev,
-                              batchName: `${prev.livestockType} Cohort #${Math.floor(100 + Math.random() * 900)}`,
+                              batchName: `${prev.livestockType} Herd #${Math.floor(100 + Math.random() * 900)}`,
                             }))
                           }
                           className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
@@ -1040,16 +1048,62 @@ export function RegisterLivestockDialog({
 
                     {/* Feed Formulation */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="feedType" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Feed Formulation / Rations
-                      </Label>
-                      <Input
-                        id="feedType"
-                        placeholder="e.g. Finisher Pellets, Napier Grass"
-                        value={formData.feedType}
-                        onChange={(e) => setFormData({ ...formData, feedType: e.target.value })}
-                        className="h-9.5 rounded-xl bg-white text-xs"
-                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="feedType" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                          Feed Formulation / Rations
+                        </Label>
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          Optional · {currentPreset?.name} suggestions
+                        </span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex-1">
+                          <Select
+                            value={formData.isOtherFeed ? "OTHER" : formData.feedType || "NOT_SPECIFIED"}
+                            onValueChange={(val) => {
+                              if (val === "OTHER") {
+                                setFormData((prev) => ({ ...prev, isOtherFeed: true }));
+                              } else {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  feedType: val === "NOT_SPECIFIED" ? "" : val,
+                                  isOtherFeed: false,
+                                  customFeed: "",
+                                }));
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="feedType" className="h-9.5 rounded-xl bg-white text-xs font-medium">
+                              <SelectValue placeholder="Select a common feed formulation (optional)..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl max-h-60">
+                              <SelectItem value="NOT_SPECIFIED" className="text-xs text-slate-500">
+                                Not specified
+                              </SelectItem>
+                              {currentPreset?.commonFeeds?.map((f) => (
+                                <SelectItem key={f} value={f} className="text-xs">
+                                  {f}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
+                                ➕ Others (Specify custom feed)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {formData.isOtherFeed ? (
+                          <div className="flex-1 animate-in fade-in-50 duration-200">
+                            <Input
+                              id="customFeed"
+                              maxLength={100}
+                              placeholder="e.g. Finisher Pellets, Napier Grass"
+                              value={formData.customFeed}
+                              onChange={(e) => setFormData({ ...formData, customFeed: e.target.value })}
+                              className="h-9.5 rounded-xl bg-white text-xs"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
@@ -1057,10 +1111,10 @@ export function RegisterLivestockDialog({
                   <div className="pt-2 border-t border-slate-200/60 space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="batchPrimaryBreed" className="text-xs font-black uppercase tracking-wider text-slate-600">
-                        Primary Cohort Breed
+                        Primary Herd Breed
                       </Label>
                       <span className="text-[10px] text-slate-400 font-semibold">
-                        Applies to all animals in this cohort
+                        Applies to all animals in this herd
                       </span>
                     </div>
 
@@ -1078,7 +1132,7 @@ export function RegisterLivestockDialog({
                           }}
                         >
                           <SelectTrigger id="batchPrimaryBreed" className="h-10 rounded-xl bg-white text-xs font-medium">
-                            <SelectValue placeholder="Select common cohort breed..." />
+                            <SelectValue placeholder="Select common herd breed..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl max-h-60">
                             {currentPreset?.commonBreeds?.map((b) => (
@@ -1117,7 +1171,7 @@ export function RegisterLivestockDialog({
                 <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-black uppercase tracking-wider text-slate-600">
-                      Batch Cohort Size
+                      Herd Size
                     </Label>
                     <span className="text-xs font-bold text-emerald-700">
                       {batchAnimals.length} Individual Animal{batchAnimals.length !== 1 ? "s" : ""} in Roster
@@ -1167,7 +1221,7 @@ export function RegisterLivestockDialog({
                   </div>
                 </div>
 
-                {/* Interactive Batch Cohort Individual Animals Roster Editor */}
+                {/* Interactive Herd Individual Animals Roster Editor */}
                 <div className="space-y-2.5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
@@ -1407,7 +1461,7 @@ export function RegisterLivestockDialog({
                   <div className="flex items-center justify-between font-bold text-emerald-950">
                     <span className="text-sm font-black flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-emerald-700" />
-                      Batch Cohort: {batchAnimals.length} Heads of {formData.livestockType}
+                      Herd: {batchAnimals.length} Heads of {formData.livestockType}
                     </span>
                     <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px]">
                       Batch Entry

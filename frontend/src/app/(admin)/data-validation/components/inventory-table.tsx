@@ -44,12 +44,12 @@ export function InventoryTable({
   onViewDetail,
   onReview,
 }: InventoryTableProps) {
-  const isCohortMember = (record: ValidationInventoryItem) =>
+  const isHerdMember = (record: ValidationInventoryItem) =>
     !record.isBatch && (record.batchId != null || !!record.batchCode);
 
   const reviewableRecords = records.filter(
     (record) =>
-      (record.status || "PENDING").toUpperCase() === "VERIFIED" && !isCohortMember(record),
+      (record.status || "PENDING").toUpperCase() === "VERIFIED" && !isHerdMember(record),
   );
   const allSelected =
     reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
@@ -140,8 +140,8 @@ export function InventoryTable({
                 records.map((inv) => {
                   const isSelected = selectedIds.includes(inv.id);
                   const statusNorm = (inv.status || "PENDING").toUpperCase();
-                  const isCohortMemberRow = isCohortMember(inv);
-                  const canReview = statusNorm === "VERIFIED" && !isCohortMemberRow;
+                  const isHerdMemberRow = isHerdMember(inv);
+                  const canReview = statusNorm === "VERIFIED" && !isHerdMemberRow;
                   const detailPayload = buildDetailPayload(inv);
 
                   return (
@@ -178,7 +178,7 @@ export function InventoryTable({
                               </p>
                               {inv.isBatch && (
                                 <Badge className="bg-teal-100 text-teal-900 border-0 text-[8px] font-black uppercase px-1.5 py-0.5">
-                                  Cohort
+                                  Herd
                                 </Badge>
                               )}
                               {inv.batchCode && !inv.isBatch && (
@@ -188,7 +188,7 @@ export function InventoryTable({
                               )}
                             </div>
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                              {inv.breed || (inv.isBatch ? "Cohort Roster" : "Standard Breed")}
+                              {inv.breed || (inv.isBatch ? "Herd Roster" : "Standard Breed")}
                             </span>
                           </div>
                         </div>
@@ -247,9 +247,9 @@ export function InventoryTable({
 
                       <TableCell className="px-8 py-5 text-right">
                         <div className="flex flex-col items-end gap-2">
-                          {isCohortMemberRow && statusNorm === "VERIFIED" && (
+                          {isHerdMemberRow && statusNorm === "VERIFIED" && (
                             <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded px-1.5 py-0.5">
-                              Approve via batch card
+                              Open herd review
                             </span>
                           )}
                           <div className="flex items-center justify-end gap-2">
@@ -342,8 +342,8 @@ export function InventoryTable({
           records.map((inv) => {
             const isSelected = selectedIds.includes(inv.id);
             const statusNorm = (inv.status || "PENDING").toUpperCase();
-            const isCohortMemberRow = isCohortMember(inv);
-            const canReview = statusNorm === "VERIFIED" && !isCohortMemberRow;
+            const isHerdMemberRow = isHerdMember(inv);
+            const canReview = statusNorm === "VERIFIED" && !isHerdMemberRow;
             const detailPayload = buildDetailPayload(inv);
 
             return (
@@ -449,8 +449,8 @@ export function InventoryTable({
                     title={
                       canReview
                         ? "Approve this SIBAT-verified animal"
-                        : isCohortMemberRow
-                          ? "Cohort member — approve the whole batch instead"
+                        : isHerdMemberRow
+                          ? "Herd member — review the whole herd instead"
                           : "SIBAT verification is required before MAO approval"
                     }
                     onClick={() =>
@@ -478,7 +478,7 @@ export function InventoryTable({
                     <span>
                       {canReview
                         ? "MAO Approve"
-                        : isCohortMemberRow
+                        : isHerdMemberRow
                           ? "Batch review only"
                           : "Awaiting SIBAT"}
                     </span>

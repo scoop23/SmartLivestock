@@ -40,7 +40,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     """
     Returns:
         Periodic agricultural yield entry (milk, meat, eggs, or wool):
-        - Source: livestock (individual animal ID) or batch (cohort ID), batch_code
+        - Source: livestock (individual animal ID) or batch (herd ID), batch_code
         - Farmer & Location: farmer_name, barangay_name, livestock_type_name
         - Yield Metrics: production_type (e.g. MILK, MEAT, EGGS), quantity, unit (LITERS, KILOGRAMS),
           record_date, notes

@@ -181,7 +181,7 @@ export function DataOverviewDetailModal({
               {!isBatch && (record.batchCode || record.batchName) && (
                 <>
                   <span>•</span>
-                  <span>Cohort: <strong>{record.batchName || record.batchCode}</strong></span>
+                  <span>Herd: <strong>{record.batchName || record.batchCode}</strong></span>
                 </>
               )}
             </DialogDescription>
@@ -223,7 +223,7 @@ export function DataOverviewDetailModal({
                   className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 >
                   <span className="text-sm">🐄</span>
-                  <span>Cohort Roster ({record.animals.length})</span>
+                  <span>Herd Roster ({record.animals.length})</span>
                 </TabsTrigger>
               )}
             </TabsList>
@@ -235,7 +235,7 @@ export function DataOverviewDetailModal({
           {/* TAB 1: OVERVIEW & SPECIFICATIONS */}
           {activeSubTab === "overview" && (
             <div className="space-y-4 animate-in fade-in-50 duration-200">
-              {/* Batch & Cohort Membership Highlight for Individual Livestock */}
+              {/* Herd Membership Highlight for Individual Livestock */}
               {!isBatch && (
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-slate-50/80 to-emerald-50/40 border border-emerald-200/80 shadow-2xs space-y-3">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -245,7 +245,7 @@ export function DataOverviewDetailModal({
                       </div>
                       <div>
                         <h4 className="text-xs font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
-                          <span>Batch &amp; Herd Cohort Membership</span>
+                          <span>Herd Membership</span>
                         </h4>
                         <p className="text-[11px] text-emerald-800/80 font-medium">
                           Official municipal grouping, housing pen, and collective feeding allocation
@@ -256,7 +256,7 @@ export function DataOverviewDetailModal({
                     {record.batchCode || record.batchName ? (
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge className="bg-[#2D5A27] text-white border-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 shadow-2xs">
-                          Assigned to Cohort
+                          Assigned to Herd
                         </Badge>
                         <Link
                           href={`/data-validation/batches?batchId=${encodeURIComponent(
@@ -265,7 +265,7 @@ export function DataOverviewDetailModal({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 px-2.5 py-0.5 rounded-lg transition-all shadow-2xs cursor-pointer"
-                          title="Open Cohort Roster in Validation Center (New Tab)"
+                          title="Open Herd Roster in Validation Center (New Tab)"
                         >
                           <span>Open Batch File</span>
                           <ExternalLink className="size-3" />
@@ -283,7 +283,7 @@ export function DataOverviewDetailModal({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         <div className="p-3 rounded-xl bg-white border border-emerald-100 shadow-2xs">
                           <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
-                            Cohort Code
+                            Herd Code
                           </span>
                           <p className="text-xs font-mono font-black text-emerald-900 mt-0.5 truncate">
                             {record.batchCode || "N/A"}
@@ -292,7 +292,7 @@ export function DataOverviewDetailModal({
 
                         <div className="p-2.5 rounded-xl bg-white border border-emerald-100 shadow-2xs sm:col-span-2">
                           <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
-                            Cohort / Group Name
+                            Herd / Group Name
                           </span>
                           <p className="text-xs font-black text-slate-900 mt-0.5 truncate">
                             {record.batchName || `Batch ${record.batchCode}`}
@@ -331,7 +331,7 @@ export function DataOverviewDetailModal({
                         Individual Animal Registration
                       </p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        This animal was registered as an independent head and is not part of an aggregated cohort or batch.
+                        This animal was registered individually and is not part of a herd.
                       </p>
                     </div>
                   )}
@@ -356,7 +356,7 @@ export function DataOverviewDetailModal({
 
                   {!isBatch && record.batchCode && (
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Assigned Cohort</span>
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Assigned Herd</span>
                       <p className="text-xs font-mono font-black text-slate-900 mt-0.5 truncate">
                         {record.batchName || record.batchCode}
                       </p>
@@ -759,13 +759,13 @@ export function DataOverviewDetailModal({
             </div>
           )}
 
-          {/* TAB 4: COHORT ROSTER (BATCHES ONLY) */}
+          {/* TAB 4: HERD ROSTER (BATCHES ONLY) */}
           {activeSubTab === "roster" && isBatch && (
             <div className="space-y-3 animate-in fade-in-50 duration-200">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-black text-slate-900">
-                    Cohort Individual Animals Roster
+                    Herd Individual Animals Roster
                   </h4>
                   <p className="text-[11px] text-slate-500">
                     All tagged animals officially registered within this housing pen

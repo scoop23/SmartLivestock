@@ -76,7 +76,7 @@ export default function LivestockInventoryPage() {
     ? inventories.filter((item) => item.livestockTypeName === selectedType)
     : inventories;
 
-  // Cohorts belonging to the selected species, so the species drilldown can
+  // Herds belonging to the selected species, so the species drilldown can
   // surface group-managed batches alongside the individual registry records.
   const typeFilteredBatches =
     selectedType === "Cattle"
