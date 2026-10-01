@@ -197,15 +197,15 @@ export function CommunityEmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-2xs p-12 text-center">
-      <div className="mx-auto flex size-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs p-12 text-center">
+      <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
         {icon}
       </div>
-      <h3 className="mt-3 text-sm font-black text-slate-800">{title}</h3>
-      <p className="mx-auto mt-1 max-w-md text-xs font-medium text-slate-500">
+      <h3 className="mt-3.5 text-base sm:text-lg font-black text-slate-900 tracking-tight">{title}</h3>
+      <p className="mx-auto mt-1.5 max-w-md text-sm font-medium text-slate-500 leading-relaxed">
         {description}
       </p>
-      {action ? <div className="mt-4">{action}</div> : null}
+      {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );
 }
@@ -218,18 +218,18 @@ export function CommunityErrorCard({
   onRetry: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-      <AlertTriangle className="mx-auto size-6 text-red-600" />
-      <h3 className="mt-2 text-sm font-black text-red-800">
+    <div className="rounded-2xl border border-red-200 bg-red-50 p-8 sm:p-10 text-center">
+      <AlertTriangle className="mx-auto size-7 text-red-600" />
+      <h3 className="mt-3 text-base sm:text-lg font-black text-red-900 tracking-tight">
         Unable to load this data
       </h3>
-      <p className="mt-1 text-xs font-medium text-red-700">{message}</p>
+      <p className="mt-1.5 text-sm font-medium text-red-700 leading-relaxed">{message}</p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-4 inline-flex h-9 items-center gap-2 rounded-xl bg-red-700 px-4 text-xs font-bold text-white transition-colors hover:bg-red-800 cursor-pointer"
+        className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-red-700 px-5 text-sm font-bold text-white transition-colors hover:bg-red-800 cursor-pointer shadow-xs"
       >
-        <RotateCw className="size-3.5" /> Retry
+        <RotateCw className="size-4" /> Retry
       </button>
     </div>
   );
@@ -245,7 +245,7 @@ export function StatusPill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${className}`}
     >
       {children}
     </span>
@@ -270,17 +270,17 @@ export function Panel({
 }) {
   return (
     <section
-      className={`bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200 ${className}`}
+      className={`bg-white p-4 sm:p-5 rounded-xl shadow-2xs border border-slate-200 ${className}`}
     >
       {title ? (
-        <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center justify-between gap-2 mb-3">
           <div>
-            <h3 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
               {icon}
               {title}
             </h3>
             {description ? (
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
                 {description}
               </p>
             ) : null}

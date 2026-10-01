@@ -1,5 +1,7 @@
 "use client";
 
+import ProductionValuation from "./production-valuation";
+
 import { Beef, CalendarDays, Egg, Lock, Milk, Package, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,6 +141,7 @@ export default function ProductionRecordDialog({
                 </div>
               </div>
 
+              <ProductionValuation record={record} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <InfoCard
                   label="Livestock"

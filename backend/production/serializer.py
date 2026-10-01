@@ -107,6 +107,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "livestock_type_name",
             "production_type",
             "quantity",
+            "valuation_snapshot",
             "unit",
             "record_date",
             "notes",
@@ -116,7 +117,13 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "reviewed_by_name",
             "created_at",
         )
-        read_only_fields = ("status", "review_remarks", "reviewed_at", "created_at")
+        read_only_fields = ("status", "review_remarks", "reviewed_at", "created_at", "valuation_snapshot")
+
+    def validate_quantity(self, value):
+        # A submitted measurement needs a positive amount; no report is not zero output.
+        if value <= 0:
+            raise ValidationError("Recorded production quantity must be greater than zero.")
+        return value
 
     def validate_livestock(
         self,
@@ -217,7 +224,11 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
-        return ProductionRecord.objects.create(**validated_data)
+        from .services.valuation import snapshot_for
+        record = ProductionRecord(**validated_data)
+        record.valuation_snapshot = snapshot_for(record)
+        record.save()
+        return record
 
     def update(self, instance, validated_data):
         allowed = [
@@ -232,6 +243,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+        from .services.valuation import snapshot_for
+        instance.valuation_snapshot = snapshot_for(instance, instance.valuation_snapshot)
         instance.save()
 
         return instance

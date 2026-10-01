@@ -50,20 +50,8 @@ export default function SpeciesHeroBanner({
     )
     .reduce((sum, i) => sum + (i.quantity || 1), 0);
 
-  const totalYield = filteredProductionRecords.reduce(
-    (sum, r) => sum + Number(r.quantity || 0),
-    0
-  );
-
-  const unit = (() => {
-    const s = (species || "").toUpperCase();
-    if (s.includes("POULTRY") || s.includes("CHICKEN")) return "pcs";
-    if (s.includes("SWINE") || s.includes("PIG") || s.includes("SHEEP")) return "kg";
-    return "L";
-  })();
-
-  const totalYieldFormatted =
-    totalYield > 0 ? `${totalYield.toLocaleString()} ${unit}` : `0.0 ${unit}`;
+  // Different production units cannot form one combined quantity.
+  const productionRecordCount = filteredProductionRecords.length;
 
   const pendingCount = filteredProductionRecords.filter(
     (r) => r.status === "PENDING"
@@ -144,10 +132,10 @@ export default function SpeciesHeroBanner({
           <div className="grid grid-cols-2 gap-3 py-0.5">
             <div className="space-y-0.5">
               <span className="text-[10px] uppercase tracking-wide text-emerald-200/70 font-semibold">
-                Total Production
+                Reported Production Records
               </span>
               <p className="text-base sm:text-lg font-black text-white">
-                {totalYieldFormatted}
+                {productionRecordCount.toLocaleString()}
               </p>
             </div>
 
@@ -162,7 +150,7 @@ export default function SpeciesHeroBanner({
                   </span>
                 ) : (
                   <span className="text-emerald-300 flex items-center gap-1 font-bold text-[11px]">
-                    <CheckCircle2 className="size-3.5" /> 100% Certified
+                    <CheckCircle2 className="size-3.5" /> No pending submissions
                   </span>
                 )}
               </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import ProductionValuation from "./production-valuation";
+
 import {
   Beef,
   CalendarDays,
@@ -132,15 +134,14 @@ export default function ProductionApprovalCard({
     <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white transition-all duration-300">
       {/* Header Band */}
       <div
-        className={`px-5 py-4 text-white ${
-          isApproved
+        className={`px-5 py-4 text-white ${isApproved
             ? "bg-gradient-to-r from-[#2D5A27] via-[#356B2E] to-[#47873E]"
             : isVerified
-            ? "bg-gradient-to-r from-sky-600 via-sky-600 to-sky-700"
-            : isPending
-            ? "bg-gradient-to-r from-amber-600 via-amber-600 to-amber-700"
-            : "bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700"
-        }`}
+              ? "bg-gradient-to-r from-sky-600 via-sky-600 to-sky-700"
+              : isPending
+                ? "bg-gradient-to-r from-amber-600 via-amber-600 to-amber-700"
+                : "bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700"
+          }`}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -157,31 +158,30 @@ export default function ProductionApprovalCard({
             </div>
           </div>
           <Badge
-            className={`shrink-0 uppercase font-extrabold tracking-wider text-[10px] px-2.5 py-0.5 shadow-xs ${
-              isApproved
+            className={`shrink-0 uppercase font-extrabold tracking-wider text-[10px] px-2.5 py-0.5 shadow-xs ${isApproved
                 ? "bg-white text-[#2D5A27] hover:bg-white"
                 : isPending
-                ? "bg-white text-amber-800 hover:bg-white"
-                : "bg-white text-rose-800 hover:bg-white"
-            }`}
+                  ? "bg-white text-amber-800 hover:bg-white"
+                  : "bg-white text-rose-800 hover:bg-white"
+              }`}
           >
             {(record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED") ? "Subject for Revision" : record.status}
           </Badge>
         </div>
       </div>
 
-      <CardContent className="p-5 space-y-4">
+      <CardContent className="p-4 sm:p-5 space-y-3.5">
         {/* Quantity & Output Callout */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Logged Quantity
             </p>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-3xl font-black text-slate-900 tracking-tight">
+              <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 {formatQty(record.quantity)}
               </span>
-              <span className="text-sm font-bold text-slate-600">
+              <span className="text-xs sm:text-sm font-bold text-slate-600">
                 {PRODUCTION_TYPE_UNITS[record.productionType] ?? record.unit}
               </span>
             </div>
@@ -197,6 +197,9 @@ export default function ProductionApprovalCard({
             </p>
           </div>
         </div>
+
+        {/* Estimated Production Value */}
+        <ProductionValuation record={record} />
 
         {/* Status-specific Approval & Remark Section */}
         {isApproved && (

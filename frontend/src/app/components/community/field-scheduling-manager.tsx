@@ -186,9 +186,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             <Button
               type="button"
               onClick={startCreate}
-              className={`h-9 gap-1.5 rounded-lg px-3.5 text-xs font-semibold text-white shadow-xs ${accent}`}
+              className={`h-10 gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold text-white shadow-xs ${accent}`}
             >
-              <Plus className="size-3.5" />
+              <Plus className="size-4" />
               <span>Create Program</span>
             </Button>
           </div>
@@ -197,7 +197,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
       <main className="w-full space-y-4 p-3 sm:p-4 md:p-5">
         {error ? (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-bold text-red-800">
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-red-800">
             {error}
           </p>
         ) : null}
@@ -210,7 +210,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             icon={<CalendarDays className="size-4" />}
             description="All scheduled programs"
             variant="emerald"
-            size="sm"
             isLoading={loading}
           />
           <KpiCard
@@ -219,7 +218,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             icon={<Users className="size-4" />}
             description="Across all schedules"
             variant="sky"
-            size="sm"
             isLoading={loading}
           />
           <KpiCard
@@ -228,7 +226,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             icon={<Clock3 className="size-4" />}
             description={`${openCount} of ${schedules.length} open for booking`}
             variant="orange"
-            size="sm"
             isLoading={loading}
           />
         </div>
@@ -246,8 +243,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 title="No scheduled programs yet"
                 description="Create a program date to make appointment slots available for farmer registration."
                 action={
-                  <Button type="button" onClick={startCreate} className={`mt-2 h-9 text-xs text-white ${accent}`}>
-                    <Plus className="mr-1.5 size-3.5" /> Create Program
+                  <Button type="button" onClick={startCreate} className={`mt-2 h-10 px-4 text-xs sm:text-sm font-bold text-white rounded-xl ${accent}`}>
+                    <Plus className="mr-1.5 size-4" /> Create Program
                   </Button>
                 }
               />
@@ -278,11 +275,11 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   <CardHeader className="gap-2 p-4 sm:p-4.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
-                        <CardTitle className="truncate text-base font-bold tracking-tight text-slate-900">
+                        <CardTitle className="truncate text-base sm:text-lg font-black tracking-tight text-slate-900">
                           {schedule.program}
                         </CardTitle>
-                        <CardDescription className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-slate-500">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                        <CardDescription className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs sm:text-sm text-slate-500 font-medium">
+                          <span className="inline-flex items-center gap-1.5 text-slate-700 font-semibold">
                             <CalendarDays className="size-3.5 text-emerald-700" />
                             {formatLongDate(schedule.date)}
                           </span>
@@ -301,7 +298,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
                       <Badge
                         variant="outline"
-                        className={`shrink-0 text-[10px] font-semibold tracking-wider ${statusConfig.className}`}
+                        className={`shrink-0 text-xs font-bold uppercase tracking-wider ${statusConfig.className}`}
                       >
                         {statusConfig.label}
                       </Badge>
@@ -311,11 +308,11 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   <CardContent className="space-y-3 px-4 pb-4 sm:px-4.5">
                     {/* Capacity Display & Progress Bar */}
                     <div className="space-y-1.5 rounded-lg bg-slate-50/80 p-2.5 border border-slate-100">
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
                         <span className="font-medium text-slate-700">
                           <strong className="font-semibold text-slate-900">{schedule.booking_count}</strong> / {schedule.capacity} booked
                         </span>
-                        <span className="text-xs font-medium">
+                        <span className="font-medium">
                           {schedule.remaining_slots > 0 ? (
                             <span className="text-emerald-700 font-semibold">{schedule.remaining_slots} slots remaining</span>
                           ) : (
@@ -337,10 +334,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         return (
                           <span
                             key={slot}
-                            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${
                               slotBookings > 0
                                 ? "border-amber-200 bg-amber-50 text-amber-900"
-                                : "border-slate-200/80 bg-slate-50 text-slate-500"
+                                : "border-slate-200/80 bg-slate-50 text-slate-600"
                             }`}
                           >
                             <Clock3 className="size-3 text-slate-400" />
@@ -361,7 +358,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                       variant="outline"
                       size="sm"
                       onClick={() => setSelected(schedule)}
-                      className="h-8 gap-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100"
                     >
                       <Users className="size-3.5 text-slate-500" />
                       View bookings ({roster.length})
@@ -373,7 +370,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         size="sm"
                         variant="ghost"
                         onClick={() => startEdit(schedule)}
-                        className="h-8 gap-1 rounded-lg px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        className="h-9 gap-1 rounded-xl px-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100"
                       >
                         <Pencil className="size-3" /> Edit
                       </Button>
@@ -382,7 +379,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         size="sm"
                         variant="ghost"
                         onClick={() => setPendingAction({ schedule, action: schedule.is_open ? "close" : "reopen" })}
-                        className="h-8 gap-1 rounded-lg px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        className="h-9 gap-1 rounded-xl px-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100"
                       >
                         {schedule.is_open ? (
                           <>
@@ -418,19 +415,19 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg rounded-2xl border border-slate-200">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-900">
+            <DialogTitle className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
               {editing ? "Edit Program" : "Create Program"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
+            <DialogDescription className="text-xs sm:text-sm text-slate-500 font-medium">
               Set the program schedule, location, and maximum participants. Farmers will be able to book available time slots.
             </DialogDescription>
           </DialogHeader>
 
           <form id="schedule-form" onSubmit={saveSchedule} className="space-y-4 pt-1">
             {/* Section 1: Program Information */}
-            <div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3.5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Program Information</p>
-              <label className="block space-y-1 text-xs font-medium text-slate-700" htmlFor="schedule-program">
+            <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <p className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">Program Information</p>
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-program">
                 Program Title
                 <Input
                   id="schedule-program"
@@ -439,16 +436,16 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   value={form.program}
                   onChange={(event) => setForm({ ...form, program: event.target.value })}
                   placeholder="e.g. Cattle & Swine Vaccination Drive"
-                  className="h-9 text-xs"
+                  className="h-10 text-sm font-medium"
                 />
               </label>
             </div>
 
             {/* Section 2: Schedule & Location */}
-            <div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3.5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Schedule & Location</p>
+            <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <p className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">Schedule & Location</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="block space-y-1 text-xs font-medium text-slate-700" htmlFor="schedule-date">
+                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-date">
                   Date
                   <Input
                     id="schedule-date"
@@ -458,14 +455,14 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     min={editing && editing.date < todayIso() ? undefined : todayIso()}
                     disabled={Boolean(editing && editing.date < todayIso())}
                     onChange={(event) => setForm({ ...form, date: event.target.value })}
-                    className="h-9 text-xs"
+                    className="h-10 text-sm font-medium"
                   />
                   {editing && editing.date < todayIso() ? (
-                    <span className="block text-[11px] font-normal text-slate-400">Past dates cannot be altered.</span>
+                    <span className="block text-xs font-medium text-slate-400">Past dates cannot be altered.</span>
                   ) : null}
                 </label>
 
-                <label className="block space-y-1 text-xs font-medium text-slate-700" htmlFor="schedule-capacity">
+                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-capacity">
                   Maximum Slots
                   <Input
                     id="schedule-capacity"
@@ -476,12 +473,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     step={1}
                     value={form.capacity}
                     onChange={(event) => setForm({ ...form, capacity: event.target.value })}
-                    className="h-9 text-xs"
+                    className="h-10 text-sm font-medium"
                   />
                 </label>
               </div>
 
-              <label className="block space-y-1 text-xs font-medium text-slate-700" htmlFor="schedule-location">
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-location">
                 Location <span className="font-normal text-slate-400">(optional)</span>
                 <Input
                   id="schedule-location"
@@ -489,22 +486,21 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   value={form.location}
                   onChange={(event) => setForm({ ...form, location: event.target.value })}
                   placeholder="e.g. Municipal Agriculture Office, Padre Garcia"
-                  className="h-9 text-xs"
+                  className="h-10 text-sm font-medium"
                 />
               </label>
             </div>
           </form>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-slate-100">
-            <Button type="button" variant="outline" size="sm" onClick={() => setFormOpen(false)} className="h-9 text-xs">
+          <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t border-slate-100">
+            <Button type="button" variant="outline" onClick={() => setFormOpen(false)} className="h-10 px-4 rounded-xl text-xs sm:text-sm font-bold">
               Cancel
             </Button>
             <Button
               type="submit"
               form="schedule-form"
-              size="sm"
               disabled={busy}
-              className={`h-9 text-xs text-white ${accent}`}
+              className={`h-10 px-4 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs ${accent}`}
             >
               {busy ? "Saving…" : editing ? "Save changes" : "Create Program"}
             </Button>
@@ -519,13 +515,13 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             <>
               <DialogHeader>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <DialogTitle className="text-lg font-bold text-slate-900">{selected.program}</DialogTitle>
-                  <Badge variant="outline" className="text-xs font-semibold">
+                  <DialogTitle className="text-base sm:text-xl font-black text-slate-900 tracking-tight">{selected.program}</DialogTitle>
+                  <Badge variant="outline" className="text-xs sm:text-sm font-bold">
                     {selectedBookings.length} {selectedBookings.length === 1 ? "farmer" : "farmers"} registered
                   </Badge>
                 </div>
-                <DialogDescription className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-slate-500 pt-0.5">
-                  <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                <DialogDescription className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs sm:text-sm text-slate-500 font-medium pt-0.5">
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-slate-700">
                     <CalendarDays className="size-3.5 text-emerald-700" />
                     {formatLongDate(selected.date)}
                   </span>
@@ -540,22 +536,22 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Registered Farmers</h3>
-                  <span className="text-xs text-slate-500">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">Registered Farmers</h3>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-500">
                     Capacity: {selected.booking_count} / {selected.capacity}
                   </span>
                 </div>
 
                 {selectedBookings.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
+                  <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs sm:text-sm text-slate-500 font-medium">
                     No farmer bookings recorded for this program yet.
                   </p>
                 ) : (
                   <>
                     {/* Desktop Table View */}
                     <div className="hidden sm:block overflow-hidden rounded-xl border border-slate-200">
-                      <table className="w-full text-left text-xs">
-                        <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase text-slate-500">
+                      <table className="w-full text-left text-xs sm:text-sm">
+                        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
                           <tr>
                             <th className="px-3.5 py-2.5">Farmer Name</th>
                             <th className="px-3.5 py-2.5">Barangay</th>
@@ -566,13 +562,13 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         <tbody className="divide-y divide-slate-100 bg-white">
                           {selectedBookings.map((booking) => (
                             <tr key={booking.id} className="hover:bg-slate-50/60">
-                              <td className="px-3.5 py-2.5 font-medium text-slate-900">{booking.farmer_name}</td>
-                              <td className="px-3.5 py-2.5 text-slate-500">{booking.farmer_barangay || "—"}</td>
-                              <td className="px-3.5 py-2.5 font-medium text-slate-700">{formatTime(booking.time)}</td>
+                              <td className="px-3.5 py-2.5 font-bold text-slate-900">{booking.farmer_name}</td>
+                              <td className="px-3.5 py-2.5 text-slate-600">{booking.farmer_barangay || "—"}</td>
+                              <td className="px-3.5 py-2.5 font-semibold text-slate-700">{formatTime(booking.time)}</td>
                               <td className="px-3.5 py-2.5 text-right">
                                 <Badge
                                   variant="outline"
-                                  className={`text-[10px] font-medium ${
+                                  className={`text-xs font-bold ${
                                     booking.status === "CONFIRMED"
                                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                                       : "border-slate-200 bg-slate-100 text-slate-600"
@@ -593,12 +589,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         <div key={booking.id} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-1.5">
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <p className="text-xs font-semibold text-slate-900">{booking.farmer_name}</p>
-                              <p className="text-[11px] text-slate-500">{booking.farmer_barangay || "Barangay not provided"}</p>
+                              <p className="text-xs sm:text-sm font-bold text-slate-900">{booking.farmer_name}</p>
+                              <p className="text-xs text-slate-500">{booking.farmer_barangay || "Barangay not provided"}</p>
                             </div>
                             <Badge
                               variant="outline"
-                              className={`text-[10px] font-medium ${
+                              className={`text-xs font-bold ${
                                 booking.status === "CONFIRMED"
                                   ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                                   : "border-slate-200 bg-slate-100 text-slate-600"
@@ -607,7 +603,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               {booking.status === "CONFIRMED" ? "Confirmed" : "Cancelled"}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
                             <Clock3 className="size-3 text-slate-400" />
                             {formatTime(booking.time)}
                           </div>
@@ -619,20 +615,19 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               </div>
 
               <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-3 border-t border-slate-100">
-                <Button type="button" variant="outline" size="sm" onClick={() => startEdit(selected)} className="h-9 text-xs">
-                  <Pencil className="mr-1.5 size-3" /> Edit program
+                <Button type="button" variant="outline" onClick={() => startEdit(selected)} className="h-10 px-4 rounded-xl text-xs sm:text-sm font-bold">
+                  <Pencil className="mr-1.5 size-3.5" /> Edit program
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
                   onClick={() => setPendingAction({ schedule: selected, action: selected.is_open ? "close" : "reopen" })}
-                  className="h-9 text-xs"
+                  className="h-10 px-4 rounded-xl text-xs sm:text-sm font-bold"
                 >
                   {selected.is_open ? (
-                    <><LockKeyhole className="mr-1.5 size-3 text-slate-500" /> Close program</>
+                    <><LockKeyhole className="mr-1.5 size-3.5 text-slate-500" /> Close program</>
                   ) : (
-                    <><UnlockKeyhole className="mr-1.5 size-3 text-slate-500" /> Reopen program</>
+                    <><UnlockKeyhole className="mr-1.5 size-3.5 text-slate-500" /> Reopen program</>
                   )}
                 </Button>
               </DialogFooter>

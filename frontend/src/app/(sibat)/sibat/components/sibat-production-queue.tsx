@@ -46,7 +46,7 @@ const STATUS_TABS: Array<{
   { value: "all", label: "All Logs", emoji: "📋" },
   { value: "pending", label: "Needs Verification", emoji: "⏳" },
   { value: "verified", label: "Verified / In MAO Queue", emoji: "✨" },
-  { value: "decided", label: "MAO Certified", emoji: "✅" },
+  { value: "decided", label: "Reviewed / Returned", emoji: "✅" },
 ];
 
 const getCommodityEmoji = (title: string = "", sourceType: string = "") => {

@@ -1,5 +1,7 @@
 "use client";
 
+import ProductionValuation from "./production-valuation";
+
 import { useState, useMemo } from "react";
 import { AxiosError } from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -382,6 +384,7 @@ export default function ProductionHistory() {
                             )}
                           </div>
 
+                          <ProductionValuation record={record} compact />
                           <div className="flex flex-wrap items-baseline gap-2 mb-1.5">
                             <p className="text-xl font-black text-slate-900">
                               {record.quantity.toLocaleString()}{" "}

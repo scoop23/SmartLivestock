@@ -1,5 +1,6 @@
 import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
+import { SPECIE_COLOR_PALETTE, normalizeSpeciesCategory as normalizeSpecieCategory } from "@/lib/species-colors";
 
 // ─────────────────────────────────────────────────────────────
 // 1. DOMAIN & BACKEND MODEL ALIGNED INTERFACES
@@ -409,38 +410,7 @@ export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics | nu
 // 5. ACCURATE DATA AGGREGATION & ANALYTICS TRANSFORMER
 // ─────────────────────────────────────────────────────────────
 
-const SPECIE_COLOR_PALETTE: Record<string, string> = {
-  Cattle: "#2D5A27", // Forest Green
-  Swine: "#F59E0B",  // Amber Orange
-  Carabao: "#0284C7", // Cobalt Sky Blue
-  Goat: "#8B5CF6",   // Purple Violet
-  Sheep: "#A855F7",  // Medium Purple
-  Poultry: "#EC4899", // Rose Pink
-  Other: "#64748B",   // Slate Gray
-};
-
-/**
- * Normalizes any backend specie string to a standard category
- */
-function normalizeSpecieCategory(rawName: string): "cattle" | "swine" | "carabao" | "goat" | "poultry" | "other" {
-  const name = (rawName || "").toLowerCase();
-  if (name.includes("swine") || name.includes("pig") || name.includes("baboy") || name.includes("hog")) {
-    return "swine";
-  }
-  if (name.includes("carabao") || name.includes("buffalo") || name.includes("kalabaw")) {
-    return "carabao";
-  }
-  if (name.includes("goat") || name.includes("kambing") || name.includes("sheep") || name.includes("tupa")) {
-    return "goat";
-  }
-  if (name.includes("poultry") || name.includes("chicken") || name.includes("manok") || name.includes("duck") || name.includes("itik") || name.includes("egg")) {
-    return "poultry";
-  }
-  if (name.includes("cattle") || name.includes("baka") || name.includes("bovine") || name.includes("bull") || name.includes("heifer") || name.includes("cow")) {
-    return "cattle";
-  }
-  return "other";
-}
+// (SPECIE_COLOR_PALETTE and normalizeSpecieCategory are imported from @/lib/species-colors)
 
 /**
  * Fallback monthly production series grouped from real production records,
@@ -535,7 +505,8 @@ export function computeAdminAnalytics(
     const qty = Number(inv.quantity) || 1;
     const cat = normalizeSpecieCategory(inv.livestockTypeName);
 
-    barangayHerdMap[bName][cat === "other" ? "cattle" : cat] += qty;
+    const herdKey = cat === "sheep" ? "goat" : cat === "other" ? "cattle" : cat;
+    barangayHerdMap[bName][herdKey] += qty;
     barangayHerdMap[bName].totalRecords += 1;
 
     if (inv.lastVaccinationDate) {
@@ -545,7 +516,7 @@ export function computeAdminAnalytics(
     // Specie count
     if (cat === "swine") specieHeadCounts.Swine += qty;
     else if (cat === "carabao") specieHeadCounts.Carabao += qty;
-    else if (cat === "goat") specieHeadCounts.Goat += qty;
+    else if (cat === "goat" || cat === "sheep") specieHeadCounts.Goat += qty;
     else if (cat === "poultry") specieHeadCounts.Poultry += qty;
     else specieHeadCounts.Cattle += qty;
 
@@ -578,11 +549,12 @@ export function computeAdminAnalytics(
       const cat = normalizeSpecieCategory(item.livestockTypeName);
 
       // Add to barangay herd if census records add further coverage
-      barangayHerdMap[bName][cat === "other" ? "cattle" : cat] += qty;
+      const herdKey = cat === "sheep" ? "goat" : cat === "other" ? "cattle" : cat;
+      barangayHerdMap[bName][herdKey] += qty;
 
       if (cat === "swine") specieHeadCounts.Swine += qty;
       else if (cat === "carabao") specieHeadCounts.Carabao += qty;
-      else if (cat === "goat") specieHeadCounts.Goat += qty;
+      else if (cat === "goat" || cat === "sheep") specieHeadCounts.Goat += qty;
       else if (cat === "poultry") specieHeadCounts.Poultry += qty;
       else specieHeadCounts.Cattle += qty;
 

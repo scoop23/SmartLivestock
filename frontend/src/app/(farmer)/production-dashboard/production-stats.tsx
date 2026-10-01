@@ -62,29 +62,29 @@ export default function ProductionStats({
   summary?: ProductionAnalyticsSummary;
 }) {
   const hasRecords = summary?.has_records ?? false;
-  const growthPct = summary?.growth_pct ?? 0;
+  const growthPct = summary?.growth_pct ?? null;
   const unit = PRODUCTION_TYPE_UNITS[type];
   const meta = TYPE_META[type];
   const MainIcon = meta.icon;
 
   const allCards: CardConfig[] = [
     {
-      label: `Total ${meta.sub.split(" ")[0]} Produced`,
+      label: `Recorded ${meta.sub.split(" ")[0]} Output`,
       icon: <MainIcon className="size-4.5" />,
       variant: meta.variant,
       value: hasRecords ? `${formatQty(summary!.total)} ${unit}` : "—",
       sub: meta.sub,
     },
     {
-      label: "Production Growth",
-      icon: growthPct >= 0 ? <TrendingUp className="size-4.5" /> : <TrendingDown className="size-4.5" />,
-      variant: growthPct >= 0 ? "emerald" : "rose",
-      value: hasRecords
-        ? `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`
+      label: "Recorded Output Change",
+      icon: (growthPct ?? 0) >= 0 ? <TrendingUp className="size-4.5" /> : <TrendingDown className="size-4.5" />,
+      variant: (growthPct ?? 0) >= 0 ? "emerald" : "rose",
+      value: hasRecords && growthPct !== null
+        ? `${(growthPct ?? 0) >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`
         : "—",
-      sub: "vs. last month",
+      sub: "Current partial month vs. last month",
       subClass:
-        growthPct >= 0
+        (growthPct ?? 0) >= 0
           ? "text-emerald-700 bg-emerald-100 border-emerald-200"
           : "text-rose-700 bg-rose-100 border-rose-200",
     },
@@ -96,11 +96,11 @@ export default function ProductionStats({
       sub: "Submitted entries",
     },
     {
-      label: "Estimated Value",
+      label: "Estimated Production Value",
       icon: <PhilippinePeso className="size-4.5" />,
       variant: "emerald",
-      value: hasRecords ? formatPeso(summary!.estimated_value) : "—",
-      sub: "At market prices",
+      value: summary?.estimated_value != null ? formatPeso(summary.estimated_value) : "Not available",
+      sub: `${summary?.valued_record_count ?? 0} reports valued using PSA; not sales revenue`,
     },
   ];
 

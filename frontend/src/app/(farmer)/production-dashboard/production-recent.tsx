@@ -1,5 +1,7 @@
 "use client";
 
+import ProductionValuation from "./production-valuation";
+
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -159,6 +161,7 @@ export default function ProductionRecent({
                     </div>
 
                     <div className="min-w-0">
+                      <ProductionValuation record={record} compact />
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-slate-900">
                           {PRODUCTION_TYPE_LABELS[record.productionType] ?? "Production"}

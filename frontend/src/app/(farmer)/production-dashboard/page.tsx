@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,6 +49,16 @@ export default function ProductionDashboardPage() {
     );
   }, [approvedInventories]);
 
+  // Explain missing species without making unapproved animals selectable.
+  const awaitingSpecies = useMemo(() => {
+    const eligible = new Set(uniqueSpecies.map((name) => name.toLowerCase()));
+    return Array.from(new Set(inventories
+      .filter((item) => ["PENDING", "VERIFIED"].includes(item.status)
+        && (item.operationalStatus || "ACTIVE") === "ACTIVE")
+      .map((item) => item.livestockTypeName.trim())
+      .filter((name) => name && !eligible.has(name.toLowerCase()))));
+  }, [inventories, uniqueSpecies]);
+
   const isLoading = isInventoryLoading || isRecordsLoading;
 
   const handleSelectSpecies = (speciesName: string | null) => {
@@ -61,12 +73,22 @@ export default function ProductionDashboardPage() {
     <>
       <PageHeader
         title="Production"
-        subtitle="Record production and births, and review your past records."
+        subtitle="Report production when information is available, record births, and review your submissions."
         variant="farmer"
         maxWidthClass="w-full"
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
+        {!isInventoryLoading && awaitingSpecies.length > 0 && (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">Awaiting inventory approval: {awaitingSpecies.join(", ")}</p>
+              <p className="text-xs leading-relaxed">These livestock types become available for production after SIBAT verification and MAO approval. Only active, approved animals can be selected.</p>
+              <Link href="/livestock-inventory" className="inline-flex min-h-11 items-center text-xs font-medium underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2">View livestock inventory</Link>
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <div className="space-y-4">
             <Skeleton className="h-64 w-full rounded-3xl" />

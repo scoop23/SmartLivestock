@@ -46,10 +46,10 @@ export function ActivityPhotoCarousel({
 
   const arrowBase = "absolute top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/60 bg-white/85 text-slate-800 shadow-md backdrop-blur-sm transition hover:bg-white";
   const prevArrowClass = isDialog
-    ? `${arrowBase} left-4 size-10`
+    ? `${arrowBase} left-2.5 sm:left-4 size-8 sm:size-10`
     : `${arrowBase} left-2.5 size-8 sm:left-3 sm:size-9`;
   const nextArrowClass = isDialog
-    ? `${arrowBase} right-4 size-10`
+    ? `${arrowBase} right-2.5 sm:right-4 size-8 sm:size-10`
     : `${arrowBase} right-2.5 size-8 sm:right-3 sm:size-9`;
 
   return (

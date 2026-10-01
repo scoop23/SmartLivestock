@@ -35,6 +35,7 @@ def production_record_list_create(request):
     POST /production/records/ -> Create a new production record
     """
     if request.method == "POST":
+        require_action(request.user, "production", "create")
         serializer = ProductionRecordSerializer(
             data=request.data,
             context={"request": request},
@@ -59,16 +60,19 @@ def production_record_list_create(request):
 
     if user_role == "FARMER":
         records = ProductionRecord.objects.filter(
-            Q(created_by=user) | Q(livestock__farmer__user=user)
+            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
         ).distinct()
     else:
-        # MAO, SIBAT, ADMIN: list all records
+        require_action(user, "production", "read_all")
         records = ProductionRecord.objects.all()
 
     records = records.select_related(
         "livestock__farmer__user",
         "livestock__farmer__barangay",
         "livestock__livestock_type",
+        "batch__farmer__user",
+        "batch__farmer__barangay",
+        "batch__livestock_type",
         "created_by",
         "reviewed_by",
     ).order_by("-record_date", "-created_at")
@@ -92,10 +96,11 @@ def production_record_detail(request, pk):
     if role_name == "FARMER":
         record = get_object_or_404(
             ProductionRecord,
-            Q(created_by=user) | Q(livestock__farmer__user=user),
+            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
     else:
+        require_action(user, "production", "read_all")
         record = get_object_or_404(ProductionRecord, pk=pk)
 
     if request.method == "DELETE":

@@ -28,8 +28,13 @@ export const PRODUCTION_TYPE_UNITS: Record<ProductionType, string> = {
 export interface ProductionAnalyticsSummary {
   total: number;
   record_count: number;
-  estimated_value: number;
-  growth_pct: number;
+  estimated_value: number | null;
+  valued_record_count?: number;
+  unvalued_record_count?: number;
+  reference_periods?: string[];
+  reference_prices?: ProductionValuationSnapshot[];
+  fallback_record_count?: number;
+  growth_pct: number | null;
   has_records: boolean;
 }
 
@@ -69,8 +74,8 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
   summary: {
     total: 0,
     record_count: 0,
-    estimated_value: 0,
-    growth_pct: 0,
+    estimated_value: null,
+    growth_pct: null,
     has_records: false,
   },
   trend: [],
@@ -81,7 +86,17 @@ export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
 // Real production records (from GET production/records/)
 // ---------------------------------------------------------------------------
 
+export interface ProductionValuationSnapshot {
+  price_match?: "EXACT_PERIOD" | "PREVIOUS_PERIOD";
+  pricing_policy?: string;
+  estimated_value: string; price: string; unit: string; currency: string;
+  commodity: string; commodity_id: string; reference_period: string;
+  geographic_level: string; geography: string; source: string; source_url: string;
+  source_title: string; source_table: string; publication_status: string; revision: number;
+}
+
 export interface ProductionRecordItem {
+  valuationSnapshot?: ProductionValuationSnapshot | null;
   id: number;
   barangayName?: string | null;
   farmerName: string | null;
@@ -100,6 +115,7 @@ export interface ProductionRecordItem {
 }
 
 export interface ApiProductionRecord {
+  valuation_snapshot?: ProductionValuationSnapshot | null;
   id: number;
   barangay_name?: string | null;
   farmer_name: string;
@@ -119,6 +135,7 @@ export interface ApiProductionRecord {
 
 export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecordItem => ({
   id: item.id,
+  valuationSnapshot: item.valuation_snapshot ?? null,
   barangayName: item.barangay_name ?? null,
   farmerName: item.farmer_name ?? null,
   livestockId: item.livestock,
@@ -152,14 +169,6 @@ export async function deleteProductionRecord(id: number): Promise<void> {
   await api.delete(`production/records/${id}/`);
 }
 
-// Estimated market prices per unit (in PHP)
-const ESTIMATED_UNIT_PRICES: Record<ProductionType, number> = {
-  milk: 50,  // PHP 50 per liter
-  meat: 320, // PHP 320 per kg
-  eggs: 9,   // PHP 9 per piece
-  wool: 250  // PHP 250 per kg
-};
-
 export function computeProductionAnalytics(records: ProductionRecordItem[]): ProductionAnalytics {
   const typesFound = new Set<ProductionType>();
   const groupedByType: Record<string, ProductionRecordItem[]> = {};
@@ -186,7 +195,6 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
 
   available_types.forEach((type) => {
     const typeRecords = groupedByType[type] || [];
-    const unitPrice = ESTIMATED_UNIT_PRICES[type] || 50;
 
     let totalQty = 0;
     let currentMonthQty = 0;
@@ -207,7 +215,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
       }
     });
 
-    let growth_pct = 0;
+    let growth_pct: number | null = null;
     if (prevMonthQty > 0) {
       growth_pct = ((currentMonthQty - prevMonthQty) / prevMonthQty) * 100;
     }
@@ -216,16 +224,31 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([period, quantity]) => ({ period, quantity }));
 
-    const value_trend: ProductionValuePoint[] = trend.map((t) => ({
-      period: t.period,
-      value: t.quantity * unitPrice,
-    }));
+    // Sum backend snapshots only; price matching and monetary rounding stay on the server.
+    const valuedRecords = typeRecords.filter((record) => record.valuationSnapshot != null);
+    const valueMap = new Map<string, number>();
+    valuedRecords.forEach((record) => {
+      const month = record.recordDate.slice(0, 7);
+      valueMap.set(month, (valueMap.get(month) ?? 0) + Number(record.valuationSnapshot!.estimated_value));
+    });
+    const value_trend: ProductionValuePoint[] = [...valueMap.entries()].sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, value]) => ({ period, value }));
 
     by_type[type] = {
       summary: {
         total: totalQty,
         record_count: typeRecords.length,
-        estimated_value: totalQty * unitPrice,
+        estimated_value: valuedRecords.length ? valuedRecords.reduce((sum, record) => sum + Number(record.valuationSnapshot!.estimated_value), 0) : null,
+        valued_record_count: valuedRecords.length,
+        reference_periods: [...new Set(valuedRecords.map(record => record.valuationSnapshot!.reference_period))],
+        // Keep distinct prices visible when reports use different commodities or periods.
+        reference_prices: [...new Map(valuedRecords.map(record => {
+          const snapshot = record.valuationSnapshot!;
+          return [JSON.stringify([snapshot.commodity_id, snapshot.price, snapshot.unit,
+            snapshot.reference_period, snapshot.geography, snapshot.revision, snapshot.source_url]), snapshot] as const;
+        })).values()],
+        fallback_record_count: valuedRecords.filter(record => record.valuationSnapshot!.price_match === "PREVIOUS_PERIOD").length,
+        unvalued_record_count: typeRecords.length - valuedRecords.length,
         growth_pct,
         has_records: typeRecords.length > 0,
       },

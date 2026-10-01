@@ -3,8 +3,8 @@
 import calendar
 from datetime import date
 
-from django.db.models import Case, Count, F, IntegerField, Q, Sum, Value, When
-from django.db.models.functions import Coalesce, TruncMonth
+from django.db.models import Case, Count, DecimalField, F, IntegerField, Q, Sum, Value, When
+from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
 
 from diseases.models import DiseaseCase, MortalityRecord
@@ -73,8 +73,9 @@ def descriptive_summary(today=None):
     ]
     total_heads = sum(row["heads"] for row in population_by_barangay)
     vaccinated_heads = sum(row["vaccinated"] or 0 for row in barangay_rows)
+    # A recorded date is only a snapshot proxy; it does not prove immunity.
     coverage = [
-        {"barangay": row["farmer__barangay__barangay_name"],
+        {"barangay_id": row["farmer__barangay_id"], "barangay": row["farmer__barangay__barangay_name"],
          "total": row["heads"] or 0,
          "vaccinated": row["vaccinated"] or 0,
          "coverage_pct": round((row["vaccinated"] or 0) / row["heads"] * 100, 1) if row["heads"] else 0}
@@ -96,6 +97,7 @@ def descriptive_summary(today=None):
         status=ProductionRecord.ProductionStatus.APPROVED,
         record_date__range=(start, today),
     )
+    # Keep units separate: liters, kilograms, and pieces cannot be added together.
     production_by_type = [
         {"type": row["production_type"], "unit": row["unit"],
          "quantity": float(row["quantity"] or 0), "records": row["records"]}
@@ -109,6 +111,7 @@ def descriptive_summary(today=None):
         .annotate(quantity=Sum("quantity"), records=Count("id"))
         .order_by("month", "production_type", "unit")
     )
+    # Batch-only events get their location through the batch farmer FK.
     production_by_barangay = [
         {"barangay_id": row["barangay_id"], "barangay": row["barangay"], "type": row["production_type"],
          "unit": row["unit"], "quantity": float(row["quantity"] or 0)}
@@ -139,6 +142,28 @@ def descriptive_summary(today=None):
     milk_ytd = sum(float(row["quantity"] or 0) for row in milk_rows if row["month"].year == today.year)
     milk_records_this_month = sum(row["records"] for row in milk_rows if row["month"] == current_month)
 
+    # Sum saved valuations in SQL; missing references are excluded, not treated as zero value.
+    valued = production.filter(valuation_snapshot__isnull=False).annotate(
+        psa_value=Cast("valuation_snapshot__estimated_value", DecimalField(max_digits=24, decimal_places=2)))
+    valuation_totals = valued.aggregate(value=Sum("psa_value"), valued_records=Count("id"))
+    def value_rows(queryset, fields):
+        return [dict(row, value=float(row["value"])) for row in queryset.values(*fields)
+                .annotate(value=Sum("psa_value"), records=Count("id")).order_by(*fields)]
+    estimated_values = {
+        "estimated_value": float(valuation_totals["value"]) if valuation_totals["value"] is not None else None,
+        "valued_records": valuation_totals["valued_records"],
+        "unvalued_records": sum(row["records"] for row in production_by_type) - valuation_totals["valued_records"],
+        "by_month": value_rows(valued.annotate(month=TruncMonth("record_date")), ["month"]),
+        "by_type": value_rows(valued, ["production_type"]),
+        "by_species": value_rows(valued.annotate(species=Coalesce("livestock__livestock_type__name", "batch__livestock_type__name")), ["species"]),
+        "by_barangay": value_rows(valued.annotate(barangay_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+                                                    barangay=Coalesce("livestock__farmer__barangay__barangay_name", "batch__farmer__barangay__barangay_name")), ["barangay_id", "barangay"]),
+        "by_commodity": value_rows(valued, ["valuation_snapshot__commodity_id", "valuation_snapshot__commodity"]),
+    }
+    for row in estimated_values["by_month"]:
+        row["month"] = row["month"].isoformat()
+
+    # A date range excludes undated legacy events rather than inventing dates.
     disease = DiseaseCase.objects.filter(status=DiseaseCase.DiseaseStatus.APPROVED, record_date__range=(start, today))
     disease_totals = disease.aggregate(cases=Count("id"), affected_heads=Sum("affected_count"))
     disease_monthly = list(
@@ -186,7 +211,7 @@ def descriptive_summary(today=None):
         "period": {"start": start.isoformat(), "end": today.isoformat()},
         "population": {"total_heads": total_heads, "by_barangay": population_by_barangay, "by_species": population_by_species},
         "production": {"records": sum(row["records"] for row in production_by_type),
-                       "by_type": production_by_type, "trend": production_trend, "by_barangay": production_by_barangay},
+                       "by_type": production_by_type, "trend": production_trend, "by_barangay": production_by_barangay, "valuation": estimated_values},
         "disease": {"cases": disease_totals["cases"], "affected_heads": disease_totals["affected_heads"] or 0,
                     "trend": [{"month": row["month"].isoformat(), "cases": row["cases"], "affected_heads": row["affected_heads"] or 0} for row in disease_monthly],
                     "by_type": disease_by_type, "by_barangay": disease_by_barangay},

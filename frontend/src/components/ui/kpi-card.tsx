@@ -160,10 +160,10 @@ export const KpiCard: React.FC<KpiCardProps> = ({
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-[11px] font-bold text-stone-600 line-clamp-2 leading-tight">{title}</p>
+              <p className="text-xs sm:text-sm font-bold text-stone-700 line-clamp-2 leading-tight">{title}</p>
 
               {description && (
-                <p className="text-[10px] text-stone-500 font-medium truncate mt-0.5">{description}</p>
+                <p className="text-xs text-stone-500 font-medium truncate mt-0.5">{description}</p>
               )}
             </div>
           </div>
@@ -172,7 +172,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
             <div>
               <span
                 className={cn(
-                  "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 self-start text-[9px]",
+                  "font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full whitespace-nowrap shrink-0 self-start text-xs",
                   badgeClassName || styles.badgeDefault
                 )}
               >
@@ -218,8 +218,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
           {badge && (
             <span
               className={cn(
-                "font-black uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap",
-                isSm ? "text-[9px]" : "text-[10px] px-2.5 py-1",
+                "font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full whitespace-nowrap text-xs",
                 badgeClassName || styles.badgeDefault
               )}
             >
@@ -229,7 +228,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
         </div>
 
         {/* Title / Label */}
-        <p className={cn("font-bold text-stone-600 truncate", isSm ? "text-[11px]" : "text-xs")}>{title}</p>
+        <p className="text-xs sm:text-sm font-bold text-stone-600 truncate">{title}</p>
 
         {/* Metric Value */}
         <div className={cn("font-black text-slate-900 tracking-tight truncate", isSm ? "text-xl sm:text-2xl mt-0.5" : "text-2xl sm:text-3xl mt-1")}>
@@ -238,7 +237,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
 
         {/* Optional extra description */}
         {description && (
-          <p className={cn("text-stone-500 font-medium truncate", isSm ? "text-[10px] mt-0.5" : "text-[11px] mt-1")}>{description}</p>
+          <p className="text-xs text-stone-500 font-medium truncate mt-0.5">{description}</p>
         )}
       </div>
 

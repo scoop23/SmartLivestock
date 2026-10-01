@@ -62,6 +62,8 @@ class ProductionRecord(models.Model):
         default=ProductionStatus.PENDING,
     )
 
+    valuation_snapshot = models.JSONField(null=True, blank=True, editable=False)
+
     notes = models.TextField(
         max_length=500,
         blank=True,
@@ -424,3 +426,83 @@ class AnimalDisposition(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class PSACommodityMapping(models.Model):
+    """An explicit species/product mapping; it never changes production eligibility."""
+    livestock_type = models.ForeignKey("livestock.LivestockType", on_delete=models.PROTECT)
+    production_type = models.CharField(max_length=20, choices=ProductionRecord.ProductionType.choices)
+    unit = models.CharField(max_length=20, choices=ProductionRecord.UnitType.choices)
+    commodity_id = models.CharField(max_length=100)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["livestock_type", "production_type", "unit"], name="unique_psa_product_mapping")]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from .serializer import allowed_production_types, PRODUCTION_UNITS
+        if self.production_type not in allowed_production_types(self.livestock_type.name):
+            raise ValidationError("This species does not support the selected production type.")
+        if PRODUCTION_UNITS.get(self.production_type) != self.unit:
+            raise ValidationError("The reference unit must match the production unit.")
+
+    def __str__(self):
+        return f"{self.livestock_type}: {self.production_type} / {self.unit}"
+
+
+class PSAReferencePrice(models.Model):
+    class ProductBasis(models.TextChoices):
+        MILK = "MILK", "Milk"
+        EGGS = "EGGS", "Eggs"
+        CARCASS = "CARCASS", "Carcass/meat yield"
+        WOOL = "WOOL", "Wool"
+        LIVEWEIGHT = "LIVEWEIGHT", "Live animal weight (not meat yield)"
+
+    commodity_id = models.CharField(max_length=100)
+    commodity = models.CharField(max_length=150)
+    product_basis = models.CharField(max_length=20, choices=ProductBasis.choices)
+    unit = models.CharField(max_length=20, choices=ProductionRecord.UnitType.choices)
+    price = models.DecimalField(max_digits=12, decimal_places=4)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    reference_period = models.CharField(max_length=100)
+    geographic_level = models.CharField(max_length=50, default="NATIONAL")
+    geography = models.CharField(max_length=100, default="Philippines")
+    source_url = models.URLField(max_length=500)
+    source_title = models.CharField(max_length=250)
+    source_table = models.CharField(max_length=100)
+    publication_status = models.CharField(max_length=50, default="Preliminary")
+    revision = models.PositiveIntegerField(default=1)
+    active = models.BooleanField(default=True)
+    loaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(price__gt=0), name="positive_psa_price"),
+            models.CheckConstraint(condition=models.Q(period_end__gte=models.F("period_start")), name="valid_psa_period"),
+            models.UniqueConstraint(fields=["commodity_id", "period_start", "period_end", "revision", "geographic_level", "geography"], name="unique_psa_price_revision"),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from urllib.parse import urlparse
+        host = urlparse(self.source_url).hostname or ""
+        if host != "psa.gov.ph" and not host.endswith(".psa.gov.ph"):
+            raise ValidationError("Reference evidence must link to the official PSA website.")
+        if self.price <= 0 or self.period_end < self.period_start:
+            raise ValidationError("A positive price and valid reference period are required.")
+
+    def save(self, *args, **kwargs):
+        from django.core.exceptions import ValidationError
+        # Publish a new revision instead of silently changing historical evidence.
+        if self.pk:
+            previous = type(self).objects.get(pk=self.pk)
+            for field in self._meta.concrete_fields:
+                if field.name not in {"id", "active", "loaded_at"} and getattr(previous, field.name) != getattr(self, field.name):
+                    raise ValidationError("PSA references are immutable; add a new revision and deactivate the old one.")
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.commodity}: {self.reference_period} ({self.geography})"

@@ -315,7 +315,7 @@ function ProductionWizardContent({
               <DialogDescription className="text-sm text-white/75 mt-1">
                 {mode === "edit"
                   ? "Update the returned details, review them, and resubmit to SIBAT."
-                  : "Declare a verified yield from one of your approved livestock records."}
+                  : "Reporting is optional. Enter production information you have recorded; SIBAT and MAO will review your submission."}
               </DialogDescription>
             </div>
           </div>
@@ -615,7 +615,7 @@ function ProductionWizardContent({
                   htmlFor="certify-production"
                   className="text-xs font-semibold text-slate-800 leading-snug cursor-pointer select-none"
                 >
-                  I certify that this information is accurate and may be reviewed first by <span className="font-extrabold text-emerald-950">SIBAT</span>, then officially approved by MAO.
+                  I confirm this report reflects the information available to me and may be reviewed first by <span className="font-extrabold text-emerald-950">SIBAT</span>, then officially approved by MAO.
                 </label>
               </div>
 

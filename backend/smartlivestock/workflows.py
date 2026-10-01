@@ -12,6 +12,7 @@ AUCTION = "AUCTION"
 
 
 ROLE_MATRIX = {
+    "production": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}},
     "inventory": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}, "edit_own": {FARMER}},
     "sales": {"create": {FARMER}, "read_all": {SIBAT, MAO, AUCTION}, "review": {SIBAT, MAO}, "delete_own": {FARMER}},
     "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}},
