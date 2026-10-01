@@ -314,56 +314,180 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
           </section>
         ) : null}
 
-        <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="text-sm font-semibold text-slate-900">Manage activities</h2><p className="text-xs text-slate-500">Search and filter published posts and drafts.</p></div>
-            <label className="relative block w-full sm:max-w-xs"><Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title, details, or author" aria-label="Search announcements" className="h-9 pl-9 text-xs" /></label>
-          </div>
-          <div className="flex flex-col gap-2 border-y border-slate-100 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="-mx-1 flex gap-1 overflow-x-auto px-1">
-              {([ ["all", "All"], ["published", "Published"], ["draft", "Drafts"], ["pinned", "Pinned"], ["linked", "With field program"], ["unlinked", "No field program"] ] as const).map(([value, label]) => <Button key={value} type="button" size="sm" variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => setFilter(value)} className={`shrink-0 rounded-full px-3 text-[11px] ${filter === value ? "bg-emerald-800 text-white hover:bg-emerald-900" : "bg-slate-50 text-slate-600"}`}>{label}</Button>)}
+        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs sm:p-5">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Manage activities</h2>
+              <p className="text-xs text-slate-500">Search and filter published announcements and drafts.</p>
             </div>
+            <label className="relative block w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search title, details, or author…"
+                aria-label="Search announcements"
+                className="h-8.5 rounded-lg pl-8 text-xs"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-2.5 border-y border-slate-100 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 sm:pb-0" role="group" aria-label="Filter by status">
+              {([
+                ["all", "All"],
+                ["published", "Published"],
+                ["draft", "Drafts"],
+                ["pinned", "Pinned"],
+                ["linked", "With field program"],
+                ["unlinked", "No field program"],
+              ] as const).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={filter === value ? "default" : "outline"}
+                  aria-pressed={filter === value}
+                  onClick={() => setFilter(value)}
+                  className={`h-8 shrink-0 rounded-full px-3 text-xs font-medium ${
+                    filter === value
+                      ? "bg-emerald-800 text-white hover:bg-emerald-900"
+                      : "border-slate-200 bg-slate-50/80 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger aria-label="Filter by category" className="h-9 w-full sm:w-auto"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="All categories">All categories</SelectItem>{ACTIVITY_CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value}>{category.value}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Filter by category" className="h-8.5 w-full rounded-lg text-xs sm:w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All categories">All categories</SelectItem>
+                {ACTIVITY_CATEGORIES.map((category) => (
+                  <SelectItem key={category.value} value={category.value}>{category.value}</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
-          {isFetching ? <p className="inline-flex items-center gap-1.5 text-[11px] text-slate-500"><RotateCw className="size-3 animate-spin" /> Updating</p> : null}
-          {loading ? <CommunitySkeleton cards={3} /> : error && items.length === 0 ? <CommunityErrorCard message={error} onRetry={() => void refresh()} /> : visible.length === 0 ? <CommunityEmptyState icon={<Megaphone className="size-5" />} title="No announcements found" description="Try another category or clear the filters." /> : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+
+          {isFetching ? (
+            <p className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+              <RotateCw className="size-3 animate-spin" /> Updating…
+            </p>
+          ) : null}
+
+          {loading ? (
+            <CommunitySkeleton cards={4} />
+          ) : error && items.length === 0 ? (
+            <CommunityErrorCard message={error} onRetry={() => void refresh()} />
+          ) : visible.length === 0 ? (
+            <CommunityEmptyState
+              icon={<Megaphone className="size-5" />}
+              title="No announcements found"
+              description="Try another category or clear the filters."
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
               {visible.map((item) => {
                 const category = activityCategory(item.category);
                 const Icon = category.icon;
                 const photos = [...(item.image ? [item.image] : []), ...item.photos.map((photo) => photo.image)];
+                const displayDate = item.schedule?.date || item.published_at || item.created_at;
+
                 return (
-                  <Card key={item.id} onClick={() => setSelected(item)} className="group flex min-w-0 cursor-pointer flex-col gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-within:ring-2 focus-within:ring-emerald-500/40">
-                    <div className="group relative aspect-video w-full overflow-hidden bg-slate-100">
+                  <Card
+                    key={item.id}
+                    onClick={() => setSelected(item)}
+                    className={`group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 focus-within:ring-emerald-500/40 ${
+                      item.is_pinned ? "border-amber-300/80" : "border-slate-200"
+                    }`}
+                  >
+                    {/* Consistent Aspect Ratio Image */}
+                    <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-slate-100">
                       <ActivityPhotoCarousel photos={photos} alt={item.title} />
-                      {item.is_pinned ? <span className="absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-amber-400/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-950 shadow-sm backdrop-blur-sm"><Pin className="size-3" />Pinned</span> : null}
+                      {item.is_pinned ? (
+                        <Badge className="absolute right-3 top-3 z-20 border-amber-300 bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-amber-950 shadow-xs">
+                          <Pin className="mr-1 size-2.5" /> Pinned
+                        </Badge>
+                      ) : null}
                     </div>
-                    <CardContent className="flex flex-1 flex-col p-4">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge variant="outline" className={`gap-1 text-[9px] font-bold uppercase ${category.badge}`}><Icon className={`size-3 ${category.iconClass}`} />{item.category}</Badge>
-                        <Badge variant={item.is_published ? "secondary" : "outline"}>{item.is_published ? "Published" : "Draft"}</Badge>
+
+                    {/* Compact News Card Content */}
+                    <CardContent className="flex flex-1 flex-col p-4 sm:p-4.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant="outline" className={`gap-1 text-[10px] font-medium uppercase tracking-wider ${category.badge}`}>
+                            <Icon className={`size-3 shrink-0 ${category.iconClass}`} />
+                            {item.category}
+                          </Badge>
+                          <Badge
+                            variant={item.is_published ? "secondary" : "outline"}
+                            className="text-[10px] font-medium"
+                          >
+                            {item.is_published ? "Published" : "Draft"}
+                          </Badge>
+                        </div>
+                        <span className="text-[11px] text-slate-400">
+                          {formatShortDate(displayDate)}
+                        </span>
                       </div>
-                      <h3 className="mt-2.5 text-sm font-black leading-snug text-slate-900 transition-colors group-hover:text-emerald-800">
-                        <button type="button" className="text-left">{item.title}</button>
+
+                      <h3 className="mt-2 line-clamp-2 text-sm sm:text-base font-semibold leading-snug text-slate-900 transition-colors group-hover:text-emerald-800">
+                        {item.title}
                       </h3>
-                      <p className="mt-1.5 line-clamp-5 flex-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-600">{item.content}</p>
-                      <div className="mt-2 text-[10px] text-slate-500">{AUDIENCE_LABEL[item.audience]} · {formatShortDate(item.published_at || item.created_at)}</div>
+
+                      <p className="mt-1 line-clamp-2 text-xs sm:text-[13px] leading-relaxed text-slate-600">
+                        {item.content}
+                      </p>
+
                       {item.schedule ? (
-                        <div className="mt-2 space-y-1 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-[11px] text-slate-600">
-                          <p className="truncate font-semibold text-slate-700">Field program: {item.schedule.program}</p>
-                          <p className="flex items-center gap-1.5"><CalendarDays className="size-3.5 shrink-0 text-emerald-600" />{formatShortDate(item.schedule.date)} · {formatTimeWindow()}</p>
-                          {item.schedule.location ? <p className="flex items-start gap-1.5"><MapPin className="mt-px size-3.5 shrink-0 text-rose-500" /><span className="line-clamp-2">{item.schedule.location}</span></p> : null}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
+                          <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+                            <CalendarDays className="size-3 text-emerald-700" />
+                            {formatShortDate(item.schedule.date)}
+                          </span>
+                          {item.schedule.location ? (
+                            <span className="inline-flex items-center gap-1 truncate text-slate-500">
+                              <MapPin className="size-3 text-rose-500" />
+                              {item.schedule.location}
+                            </span>
+                          ) : null}
                         </div>
                       ) : null}
-                      <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+
+                      {/* Card Footer with Audience and Actions */}
+                      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
+                        <span className="text-[11px] text-slate-400">
+                          {AUDIENCE_LABEL[item.audience]}
+                        </span>
+
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button type="button" variant="outline" size="icon" aria-label={`Actions for ${item.title}`} onClick={(event) => event.stopPropagation()} className="relative z-10 size-9 rounded-lg"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onSelect={() => startEdit(item)}><Pencil className="size-4" />Edit activity</DropdownMenuItem>
-                            <DropdownMenuItem variant="destructive" disabled={busy} onSelect={() => setDeleteTarget(item)}><Trash2 className="size-4" />Delete activity</DropdownMenuItem>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Actions for ${item.title}`}
+                              onClick={(event) => event.stopPropagation()}
+                              className="size-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                            >
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-36">
+                            <DropdownMenuItem onSelect={() => startEdit(item)}>
+                              <Pencil className="mr-2 size-3.5" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={busy}
+                              onSelect={() => setDeleteTarget(item)}
+                            >
+                              <Trash2 className="mr-2 size-3.5" /> Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

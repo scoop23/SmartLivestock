@@ -245,7 +245,8 @@ export interface ProductionSeriesPoint {
 export interface SurveillanceSeriesPoint {
   month: string;
   label: string;
-  reported_heads: number;
+  reported_heads?: number;
+  affected_heads?: number;
   deaths: number;
 }
 
@@ -673,11 +674,11 @@ export function computeAdminAnalytics(
   // Disease incidence vs mortality per month (certified records only)
   const surveillanceTrends: BiosecuritySurveillanceChartData[] = (
     dashboardAnalytics?.surveillance_series ?? []
-  ).map((point) => ({
+  ).map((point: any) => ({
     month: point.month,
     label: point.label,
-    reported: Math.round(point.reported_heads),
-    deaths: Math.round(point.deaths),
+    reported: Math.round(Number(point.reported_heads ?? point.affected_heads ?? 0)) || 0,
+    deaths: Math.round(Number(point.deaths ?? 0)) || 0,
   }));
 
   // Vaccination coverage: share of certified inventories with a recorded date
@@ -685,7 +686,7 @@ export function computeAdminAnalytics(
     dashboardAnalytics?.vaccination_coverage ?? []
   ).map((point) => ({
     sector: point.barangay,
-    rate: point.coverage_pct,
+    rate: Number(point.coverage_pct ?? 0) || 0,
   }));
 
   // Municipal totals come straight from the endpoint (full certified set),

@@ -37,9 +37,9 @@ export function ActivityPhotoCarousel({
 
   if (photos.length === 0) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400">
-        <ImageIcon className={isDialog ? "size-12" : "size-8"} aria-hidden="true" />
-        <span className="text-[11px] font-medium">No photos attached</span>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400">
+        <ImageIcon className={isDialog ? "size-10" : "size-8"} aria-hidden="true" />
+        <span className="text-[11px] font-medium text-slate-400">No photos attached</span>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function ActivityPhotoCarousel({
               <img
                 src={photo}
                 alt={`${alt}, photo ${index + 1} of ${photos.length}`}
-                className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
             </CarouselItem>
           ))}

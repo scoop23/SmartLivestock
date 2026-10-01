@@ -228,6 +228,10 @@ export function AdminChartsView() {
                 <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px' }}
+                  formatter={(value: any, name: any) => [
+                    isNaN(Number(value)) ? '0' : Number(value).toLocaleString(),
+                    name,
+                  ]}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '6px' }} />
                 <Area type="monotone" dataKey="reported" name="Case Incidence (Heads)" stroke="#F59E0B" strokeWidth={2} fillOpacity={1} fill="url(#colorReported)" />
@@ -255,24 +259,27 @@ export function AdminChartsView() {
             <p className="text-[11px] text-slate-500 font-medium mb-3">Share of certified inventories with a recorded vaccination date</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
-              {sectorCompliance.map((sector) => (
-                <div key={sector.sector} className="space-y-1">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="font-bold text-slate-700 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      Brgy. {sector.sector}
-                    </span>
-                    <span className="font-black text-slate-900">{sector.rate}%</span>
+              {sectorCompliance.map((sector) => {
+                const safeRate = isNaN(Number(sector.rate)) ? 0 : Number(sector.rate);
+                return (
+                  <div key={sector.sector} className="space-y-1">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="font-bold text-slate-700 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Brgy. {sector.sector}
+                      </span>
+                      <span className="font-black text-slate-900">{safeRate}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${safeRate >= 95 ? 'bg-emerald-600' : safeRate >= 90 ? 'bg-[#2D5A27]' : 'bg-amber-500'
+                          }`}
+                        style={{ width: `${Math.min(100, Math.max(0, safeRate))}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${sector.rate >= 95 ? 'bg-emerald-600' : sector.rate >= 90 ? 'bg-[#2D5A27]' : 'bg-amber-500'
-                        }`}
-                      style={{ width: `${sector.rate}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

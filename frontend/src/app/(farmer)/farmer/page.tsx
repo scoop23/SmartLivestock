@@ -4,14 +4,8 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/app/components/page-header";
 import {
-  Bell,
   RefreshCw,
-  Skull,
-  Stethoscope,
-  ClipboardList,
   Sparkles,
-  Command as CommandIcon,
-  Search,
   Map,
   MapPin,
   CalendarDays,
@@ -22,8 +16,8 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import FarmerStats from "./farmer-stats";
 import FarmerCharts from "./farmer-charts";
+import FarmerProgramsVisits from "./components/farmer-programs-visits";
 import FarmerActivityFeed from "./farmer-activity-feed";
-import FarmerActionDock from "./components/farmer-action-dock";
 import { useFarmerDashboardAnalytics, type FarmerActivityItem } from "./farmer-analytics";
 import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
 import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
@@ -158,7 +152,10 @@ export default function FarmerDashboard() {
         {/* 2. VISUALIZATION & CHARTS MATRIX (4-CHART GRID) */}
         <FarmerCharts data={analytics} isLoading={isLoading} />
 
-        {/* 3. MUNICIPAL RESOURCES STRIP (COMPACT COMPLEMENT TO FLOATING DOCK) */}
+        {/* 3. PROGRAMS & VISITS (UPCOMING SCHEDULES) */}
+        <FarmerProgramsVisits />
+
+        {/* 4. MUNICIPAL RESOURCES STRIP (COMPACT COMPLEMENT TO FLOATING DOCK) */}
         <div className="rounded-2xl bg-slate-50/80 border border-slate-200/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-slate-700 font-bold">
             <Sparkles className="size-4 text-[#2D5A27]" />
@@ -192,7 +189,7 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* 4. LIVE FARM ACTIVITY & REVIEW STATUS FEED */}
+        {/* 5. LIVE FARM ACTIVITY & REVIEW STATUS FEED */}
         <FarmerActivityFeed
           activities={analytics?.recent_activities}
           isLoading={isLoading}

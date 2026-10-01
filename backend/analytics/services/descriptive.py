@@ -180,6 +180,7 @@ def descriptive_summary(today=None):
     death_series = _series(mortality_monthly, "deaths", start)
     for case_point, death_point in zip(surveillance, death_series):
         case_point["deaths"] = death_point["deaths"]
+        case_point["reported_heads"] = case_point.get("affected_heads", 0)
 
     descriptive = {
         "period": {"start": start.isoformat(), "end": today.isoformat()},
