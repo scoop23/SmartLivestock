@@ -142,6 +142,11 @@ export default function ProductionRecordDialog({
               </div>
 
               <ProductionValuation record={record} />
+              {record.slaughterDetails && <div className="rounded-xl bg-amber-50 p-3 text-sm">
+                <p className="font-semibold">Slaughter: {record.slaughterDetails.quantity} animal(s)</p>
+                <p className="mt-1 text-xs">{record.slaughterDetails.animals.map(animal => animal.tag_number || `Animal #${animal.id}`).join(", ")}</p>
+                <p className="mt-1 text-xs">{record.slaughterDetails.inventory_reconciled_at ? "Selected animals marked slaughtered after MAO approval." : "Inventory changes only after MAO approval."}</p>
+              </div>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <InfoCard
                   label="Livestock"

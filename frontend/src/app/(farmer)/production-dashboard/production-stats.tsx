@@ -67,6 +67,9 @@ export default function ProductionStats({
   const meta = TYPE_META[type];
   const MainIcon = meta.icon;
 
+  const hasValuation =
+    summary?.estimated_value != null && (summary?.valued_record_count ?? 0) > 0;
+
   const allCards: CardConfig[] = [
     {
       label: `Recorded ${meta.sub.split(" ")[0]} Output`,
@@ -95,17 +98,24 @@ export default function ProductionStats({
       value: hasRecords ? (summary!.record_count ?? 0).toLocaleString() : "—",
       sub: "Submitted entries",
     },
-    {
+  ];
+
+  if (hasValuation) {
+    allCards.push({
       label: "Estimated Production Value",
       icon: <PhilippinePeso className="size-4.5" />,
       variant: "emerald",
-      value: summary?.estimated_value != null ? formatPeso(summary.estimated_value) : "Not available",
-      sub: `${summary?.valued_record_count ?? 0} reports valued using PSA; not sales revenue`,
-    },
-  ];
+      value: formatPeso(summary!.estimated_value!),
+      sub: "Official PSA benchmark; not cash sales",
+    });
+  }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div
+      className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${
+        hasValuation ? "lg:grid-cols-4" : ""
+      } gap-4`}
+    >
       {allCards.map((card) => (
         <KpiCard
           key={card.label}

@@ -19,14 +19,11 @@ export default function ProductionValuation({
 }) {
   const snapshot = record.valuationSnapshot;
 
+  if (!snapshot) {
+    return null;
+  }
+
   if (compact) {
-    if (!snapshot) {
-      return (
-        <span className="text-[11px] text-slate-400 italic">
-          No PSA price estimate
-        </span>
-      );
-    }
     return (
       <div className="flex items-center gap-1.5 flex-wrap text-xs text-emerald-900">
         <span className="font-bold text-emerald-950">
@@ -35,22 +32,6 @@ export default function ProductionValuation({
         <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 font-medium">
           PSA {snapshot.reference_period}
         </span>
-      </div>
-    );
-  }
-
-  if (!snapshot) {
-    return (
-      <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 flex items-start gap-2.5 text-xs text-slate-600">
-        <Info className="size-4 text-slate-400 shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <p className="font-bold text-slate-800">
-            Estimated Value: Not Available
-          </p>
-          <p className="text-[11px] text-slate-500 leading-snug">
-            🌾 <span className="font-medium text-slate-700">Farmer Note:</span> Official PSA benchmark price is not yet on file for this period. Your production quantity is still valid, recorded, and unaffected.
-          </p>
-        </div>
       </div>
     );
   }

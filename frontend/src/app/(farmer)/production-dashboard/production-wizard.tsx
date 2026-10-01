@@ -41,6 +41,7 @@ import { type ProductionType, ProductionRecordItem } from "./production-analytic
 
 export type ProductionPayload = {
   livestock: number;
+  selected_animals?: number[];
   production_type: "MILK" | "MEAT" | "EGGS" | "WOOL";
   quantity: number;
   unit: "LITERS" | "PIECES" | "KILOGRAMS";
@@ -177,16 +178,22 @@ function ProductionWizardContent({
   open,
   onClose,
   mode,
+  editingRecord,
 }: ProductionWizardProps) {
   const [step, setStep] = useState(mode === "edit" ? 2 : 0);
   const [selectOpen, setSelectOpen] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
+  const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>(() =>
+    editingRecord?.slaughterDetails?.animals.map(animal => animal.id) ?? (clickedInventory ? [Number(clickedInventory.id)] : []));
+  const slaughterCandidates = approvedInventories.filter(item => item.quantity === 1 &&
+    (clickedInventory?.batchId ? item.batchId === clickedInventory.batchId : item.id === clickedInventory?.id));
 
   const availableTypes = getProductionTypesForLivestock(clickedInventory?.livestockTypeName);
   const meta = typeMeta[productionType] ?? typeMeta[availableTypes[0]] ?? typeMeta.milk;
 
   const handleSelectInventory = (item: LivestockInventoryItem | null) => {
     onSelectInventory(item);
+    setSelectedAnimalIds(item ? [Number(item.id)] : []);
     if (item) {
       const allowed = getProductionTypesForLivestock(item.livestockTypeName);
       if (!allowed.includes(productionType)) {
@@ -203,13 +210,15 @@ function ProductionWizardContent({
     return 0;
   };
 
+  const hasEligibleSelection = selectedAnimalIds.length > 0 && selectedAnimalIds.every(id =>
+    slaughterCandidates.some(animal => Number(animal.id) === id));
   const canContinue =
     step === 0
       ? !!clickedInventory
       : step === 1
         ? !!productionType
         : step === 2
-          ? getEnteredQty() > 0
+          ? getEnteredQty() > 0 && !!String(formState.prodDate ?? "").trim() && (productionType !== "meat" || hasEligibleSelection)
           : true;
 
   const validationMessage =
@@ -219,7 +228,9 @@ function ProductionWizardContent({
         ? "Enter the production date."
         : step === 2 && getEnteredQty() <= 0
           ? "Enter a production quantity greater than zero."
-          : null;
+          : step === 2 && productionType === "meat" && !hasEligibleSelection
+            ? "Select eligible individual animals for this slaughter entry."
+            : null;
 
   const buildPayload = (): ProductionPayload | null => {
     if (!clickedInventory) return null;
@@ -258,6 +269,7 @@ function ProductionWizardContent({
       }
     } else if (productionType === "meat") {
       payload.quantity = Number(formState.meatQty) || 0;
+      payload.selected_animals = selectedAnimalIds;
       if (formState.meatPurpose) {
         payload.notes = `[Purpose: ${formState.meatPurpose}] ${payload.notes}`.trim();
       }
@@ -287,7 +299,7 @@ function ProductionWizardContent({
     productionType === "milk"
       ? "Log Dairy Milk Production"
       : productionType === "meat"
-        ? "Log Meat & Carcass Yield"
+        ? "Report Slaughter & Carcass Output"
         : productionType === "eggs"
           ? "Log Egg Production"
           : "Log Wool Production";
@@ -394,12 +406,13 @@ function ProductionWizardContent({
 
           {step === 0 && (
             <div className="space-y-3">
+              <p className="text-xs text-slate-500">Only MAO-approved, active livestock with a positive head count can be selected. Meat output is recorded in kilograms; animal deaths belong in Mortality.</p>
               {isLoading ? (
                 <p className="text-sm text-slate-500 py-4">Loading inventory...</p>
               ) : approvedInventories.length === 0 ? (
                 <div className="p-6 text-center rounded-xl border border-dashed border-slate-200">
                   <p className="text-sm text-slate-500">
-                    No approved livestock found. Only livestock approved by SIBAT / MAO can be logged for production.
+                    No eligible livestock found. Production requires MAO-approved, active livestock with a positive head count.
                   </p>
                 </div>
               ) : (
@@ -525,7 +538,7 @@ function ProductionWizardContent({
               }}
             >
               <div className="space-y-2">
-                <Label htmlFor="prodDate">Date</Label>
+                <Label htmlFor="prodDate">{productionType === "meat" ? "Slaughter date" : "Date"}</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
                   <Input
@@ -540,6 +553,26 @@ function ProductionWizardContent({
                 </div>
               </div>
 
+              {productionType === "meat" && (
+                <div className="space-y-3">
+                  <Label>Animals slaughtered ({selectedAnimalIds.length} selected)</Label>
+                  <p className="text-xs text-slate-500">Select the exact animals. Their inventory changes only after MAO approval; unselected herd members remain active.</p>
+                  <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                    {slaughterCandidates.map(animal => (
+                      <label key={animal.id} className="flex min-h-12 items-center gap-3 px-3 py-2 cursor-pointer">
+                        <Checkbox
+                          checked={selectedAnimalIds.includes(Number(animal.id))}
+                          disabled={animal.id === clickedInventory?.id}
+                          onCheckedChange={checked => setSelectedAnimalIds(ids => checked
+                            ? [...new Set([...ids, Number(animal.id)])] : ids.filter(id => id !== Number(animal.id)))}
+                        />
+                        <span className="text-sm font-medium">{animal.tagNumber || `Animal #${animal.id}`}<span className="block text-xs font-normal text-slate-500">{animal.batchCode || animal.livestockTypeName}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                  {slaughterCandidates.length === 0 && <p className="text-sm text-amber-700">No eligible individual animals are available. Aggregate head counts cannot identify slaughtered animals.</p>}
+                </div>
+              )}
               <ProductionFormFields
                 type={productionType}
                 value={formState}
@@ -584,6 +617,7 @@ function ProductionWizardContent({
                   }
                 />
                 <ReviewRow label="Production Type" value={meta.label} />
+                {productionType === "meat" && <ReviewRow label={`Animals slaughtered (${selectedAnimalIds.length})`} value={slaughterCandidates.filter(animal => selectedAnimalIds.includes(Number(animal.id))).map(animal => animal.tagNumber || `Animal #${animal.id}`).join(", ")} />}
                 <ReviewRow
                   label="Date"
                   value={formatDate(String(formState.prodDate ?? new Date().toISOString().split("T")[0]))}

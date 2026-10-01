@@ -511,6 +511,10 @@ function AdminDataValidationContent() {
             api.post(`production/records/${id}/review/`, { status: action, remarks })
           )
         );
+        queryClient.invalidateQueries({ queryKey: ["inventory"] });
+        queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
+        queryClient.invalidateQueries({ queryKey: ["production_records"] });
         queryClient.invalidateQueries({ queryKey: ["admin-production-records"] });
         queryClient.invalidateQueries({ queryKey: ["production-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });

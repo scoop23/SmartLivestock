@@ -45,11 +45,14 @@ import {
   type ProductionTypeAnalytics,
 } from "./production-analytics";
 
-const TYPE_CHART: Record<ProductionType, { label: string; color: string; unit: string }> = {
-  milk: { label: "Liters", color: "#0284c7", unit: "L" },
-  meat: { label: "Kilograms", color: "#e11d48", unit: "kg" },
-  eggs: { label: "Pieces", color: "#d97706", unit: "pcs" },
-  wool: { label: "Kilograms", color: "#57534e", unit: "kg" },
+const TYPE_CHART: Record<
+  ProductionType,
+  { label: string; color: string; activeColor: string; unit: string }
+> = {
+  milk: { label: "Liters", color: "#0284c7", activeColor: "#0369a1", unit: "L" },
+  meat: { label: "Kilograms", color: "#dc2626", activeColor: "#b91c1c", unit: "kg" },
+  eggs: { label: "Pieces", color: "#d97706", activeColor: "#b45309", unit: "pcs" },
+  wool: { label: "Kilograms", color: "#57534e", activeColor: "#44403c", unit: "kg" },
 };
 
 const TYPE_ICONS: Record<ProductionType, typeof Milk> = {
@@ -103,6 +106,19 @@ export default function ProductionCharts({
     };
   });
 
+  // Only show Estimated Value where a compatible price exists (e.g. cattle milk)
+  const hasValuation = Boolean(
+    (data.summary?.reference_prices && data.summary.reference_prices.length > 0) ||
+    valueTrend.length > 0
+  );
+  const currentView = hasValuation ? activeView : "volume";
+
+  // Dynamic chart config based on current production type color
+  const dynamicChartConfig = {
+    quantity: { label: "Output Volume", color: unitInfo.color },
+    value: { label: "Estimated Production Value", color: "#059669" },
+  } satisfies ChartConfig;
+
   // Calculate quick stats
   const totalVolume = trend.reduce((sum, item) => sum + item.quantity, 0);
   const peakMonth = [...trend].sort((a, b) => b.quantity - a.quantity)[0];
@@ -138,48 +154,50 @@ export default function ProductionCharts({
                 Recorded {label} Production
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                {activeView === "volume"
+                {currentView === "volume"
                   ? "Reported production volume trends across review statuses."
                   : "Estimated production value based on official PSA benchmark farmgate rates."}
               </CardDescription>
             </div>
           </div>
 
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setActiveView("volume")}
-              aria-pressed={activeView === "volume"}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeView === "volume"
-                  ? "bg-white text-sky-800 shadow-xs border border-slate-200/60"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/40"
-              }`}
-            >
-              <LineChartIcon className="size-3.5" />
-              Yield Volume ({unitInfo.unit})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView("value")}
-              aria-pressed={activeView === "value"}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeView === "value"
-                  ? "bg-white text-emerald-800 shadow-xs border border-slate-200/60"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/40"
-              }`}
-            >
-              <PhilippinePeso className="size-3.5" />
-              Estimated Value (PHP)
-            </button>
-          </div>
+          {/* View Toggle: Only show when a compatible valuation exists */}
+          {hasValuation && (
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setActiveView("volume")}
+                aria-pressed={currentView === "volume"}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  currentView === "volume"
+                    ? "bg-white text-sky-800 shadow-xs border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/40"
+                }`}
+              >
+                <LineChartIcon className="size-3.5" />
+                Yield Volume ({unitInfo.unit})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("value")}
+                aria-pressed={currentView === "value"}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  currentView === "value"
+                    ? "bg-white text-emerald-800 shadow-xs border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/40"
+                }`}
+              >
+                <PhilippinePeso className="size-3.5" />
+                Estimated Value (PHP)
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Quick Statistical Highlight Ribbon */}
         {trend.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 mt-2 border-t border-slate-100 text-xs">
-            {activeView === "volume" ? (
+            {currentView === "volume" ? (
               <>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                   <span className="text-slate-400 text-[10px] font-semibold uppercase block">
@@ -202,7 +220,10 @@ export default function ProductionCharts({
                     <span className="text-slate-400 text-[10px] font-semibold uppercase block">
                       Peak Month Record
                     </span>
-                    <span className="font-bold text-sky-800 text-sm mt-0.5 block">
+                    <span
+                      className="font-bold text-sm mt-0.5 block"
+                      style={{ color: unitInfo.color }}
+                    >
                       {peakMonth.quantity.toLocaleString()} {unitInfo.unit} ({formatPeriodMonth(peakMonth.period)})
                     </span>
                   </div>
@@ -243,7 +264,7 @@ export default function ProductionCharts({
       </CardHeader>
 
       <CardContent className="p-5 sm:p-6 pt-4">
-        {activeView === "value" && (
+        {currentView === "value" && hasValuation && (
           <div className="mb-3.5 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-emerald-50/50 to-teal-50/40 p-3 sm:p-3.5 text-xs shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -302,24 +323,19 @@ export default function ProductionCharts({
           </div>
         )}
 
-        {activeView === "value" && valueTrend.length === 0 ? (
-          <ChartEmpty
-            label="Estimated Value Guide Unavailable"
-            description="Official PSA benchmark farmgate prices are not yet on file for this period. Your production quantity logs are safely recorded and verified."
-          />
-        ) : mergedData.length === 0 ? (
+        {mergedData.length === 0 ? (
           <ChartEmpty label={`No ${label.toLowerCase()} records logged yet`} />
-        ) : activeView === "volume" ? (
-          <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
+        ) : currentView === "volume" ? (
+          <ChartContainer config={dynamicChartConfig} className="aspect-auto h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={mergedData}
                 margin={{ top: 12, right: 12, bottom: 0, left: -10 }}
               >
                 <defs>
-                  <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0284c7" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#0284c7" stopOpacity={0.0} />
+                  <linearGradient id={`volumeGradient-${type}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={unitInfo.color} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={unitInfo.color} stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -350,18 +366,18 @@ export default function ProductionCharts({
                 <Area
                   type="monotone"
                   dataKey="quantity"
-                  stroke="#0284c7"
+                  stroke={unitInfo.color}
                   strokeWidth={2.5}
                   fillOpacity={1}
-                  fill="url(#volumeGradient)"
-                  dot={{ r: 4, fill: "#0284c7", strokeWidth: 2, stroke: "#ffffff" }}
-                  activeDot={{ r: 6, fill: "#0369a1" }}
+                  fill={`url(#volumeGradient-${type})`}
+                  dot={{ r: 4, fill: unitInfo.color, strokeWidth: 2, stroke: "#ffffff" }}
+                  activeDot={{ r: 6, fill: unitInfo.activeColor }}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </ChartContainer>
         ) : (
-          <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
+          <ChartContainer config={dynamicChartConfig} className="aspect-auto h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={mergedData}

@@ -446,6 +446,26 @@ function buildMonthlyProductionFallback(records: ProductionRecordItem[]): Monthl
 }
 
 /**
+ * Fallback monthly surveillance series (disease cases & mortalities),
+ * zero-filled across the last 12 calendar months with month labels.
+ */
+function buildMonthlySurveillanceFallback(): BiosecuritySurveillanceChartData[] {
+  const now = new Date();
+  const points: BiosecuritySurveillanceChartData[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    points.push({
+      month: monthKey,
+      label: d.toLocaleString("en-US", { month: "short" }),
+      reported: 0,
+      deaths: 0,
+    });
+  }
+  return points;
+}
+
+/**
  * Computes exact municipal metrics aligned with backend models & DB records
  */
 export function computeAdminAnalytics(
@@ -644,14 +664,15 @@ export function computeAdminAnalytics(
       : buildMonthlyProductionFallback(productionRecords);
 
   // Disease incidence vs mortality per month (certified records only)
-  const surveillanceTrends: BiosecuritySurveillanceChartData[] = (
-    dashboardAnalytics?.surveillance_series ?? []
-  ).map((point: any) => ({
-    month: point.month,
-    label: point.label,
-    reported: Math.round(Number(point.reported_heads ?? point.affected_heads ?? 0)) || 0,
-    deaths: Math.round(Number(point.deaths ?? 0)) || 0,
-  }));
+  const surveillanceTrends: BiosecuritySurveillanceChartData[] =
+    dashboardAnalytics?.surveillance_series?.length
+      ? dashboardAnalytics.surveillance_series.map((point: any) => ({
+          month: point.month,
+          label: point.label ? (point.label.includes(" ") ? point.label.split(" ")[0] : point.label) : "",
+          reported: Math.round(Number(point.reported_heads ?? point.affected_heads ?? 0)) || 0,
+          deaths: Math.round(Number(point.deaths ?? 0)) || 0,
+        }))
+      : buildMonthlySurveillanceFallback();
 
   // Vaccination coverage: share of certified inventories with a recorded date
   const sectorCompliance: SectorComplianceChartData[] = (

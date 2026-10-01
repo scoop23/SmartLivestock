@@ -62,6 +62,13 @@ interface ProductionDashboardViewProps {
   showEnterpriseSwitch?: boolean;
 }
 
+function productionErrorMessage(error: unknown, fallback: string): string {
+  const data = (error as { response?: { data?: Record<string, unknown> } })?.response?.data;
+  if (!data || typeof data !== "object") return fallback;
+  const messages = Object.values(data).flat().filter((value): value is string => typeof value === "string");
+  return messages.join(" ") || fallback;
+}
+
 export default function ProductionDashboardView({
   selectedSpecies,
   onSpeciesChange,
@@ -122,7 +129,7 @@ export default function ProductionDashboardView({
     return inventories.filter(
       (item) =>
         item.status === "APPROVED" &&
-        (item.operationalStatus || "ACTIVE") === "ACTIVE",
+        (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0,
     );
   }, [inventories]);
 
@@ -300,8 +307,8 @@ export default function ProductionDashboardView({
       setIsWizardOpen(false);
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
     },
-    onError: () => {
-      toast.error("Failed to log production record.");
+    onError: (error: unknown) => {
+      toast.error(productionErrorMessage(error, "Failed to log production record."));
     },
   });
 
@@ -316,8 +323,8 @@ export default function ProductionDashboardView({
       setEditingRecord(null);
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
     },
-    onError: () => {
-      toast.error("Failed to update production record.");
+    onError: (error: unknown) => {
+      toast.error(productionErrorMessage(error, "Failed to update production record."));
     },
   });
 

@@ -4,6 +4,7 @@ import calendar
 from datetime import date
 
 from django.db.models import Case, Count, DecimalField, F, IntegerField, Q, Sum, Value, When
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
 
@@ -97,18 +98,23 @@ def descriptive_summary(today=None):
         status=ProductionRecord.ProductionStatus.APPROVED,
         record_date__range=(start, today),
     )
+    # Linked meat entries are queue projections: use their slaughter weight once,
+    # never add the same event's ProductionRecord and SlaughterRecord weights.
+    production = production.annotate(output_quantity=Case(
+        When(slaughter__isnull=False, then=F("slaughter__carcass_weight")),
+        default=F("quantity"), output_field=DecimalField(max_digits=10, decimal_places=2)))
     # Keep units separate: liters, kilograms, and pieces cannot be added together.
     production_by_type = [
         {"type": row["production_type"], "unit": row["unit"],
          "quantity": float(row["quantity"] or 0), "records": row["records"]}
         for row in production.values("production_type", "unit")
-        .annotate(quantity=Sum("quantity"), records=Count("id"))
+        .annotate(quantity=Sum("output_quantity"), records=Count("id"))
         .order_by("production_type", "unit")
     ]
     production_monthly = list(
         production.annotate(month=TruncMonth("record_date"))
         .values("month", "production_type", "unit")
-        .annotate(quantity=Sum("quantity"), records=Count("id"))
+        .annotate(quantity=Sum("output_quantity"), records=Count("id"))
         .order_by("month", "production_type", "unit")
     )
     # Batch-only events get their location through the batch farmer FK.
@@ -119,7 +125,7 @@ def descriptive_summary(today=None):
             barangay_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
             barangay=Coalesce("livestock__farmer__barangay__barangay_name", "batch__farmer__barangay__barangay_name"),
         ).values("barangay_id", "barangay", "production_type", "unit")
-        .annotate(quantity=Sum("quantity"))
+        .annotate(quantity=Sum("output_quantity"))
         .order_by("barangay", "production_type", "unit")
     ]
     production_trend = [
@@ -144,7 +150,7 @@ def descriptive_summary(today=None):
 
     # Sum saved valuations in SQL; missing references are excluded, not treated as zero value.
     valued = production.filter(valuation_snapshot__isnull=False).annotate(
-        psa_value=Cast("valuation_snapshot__estimated_value", DecimalField(max_digits=24, decimal_places=2)))
+        psa_value=Cast(KeyTextTransform("estimated_value", "valuation_snapshot"), DecimalField(max_digits=24, decimal_places=2)))
     valuation_totals = valued.aggregate(value=Sum("psa_value"), valued_records=Count("id"))
     def value_rows(queryset, fields):
         return [dict(row, value=float(row["value"])) for row in queryset.values(*fields)

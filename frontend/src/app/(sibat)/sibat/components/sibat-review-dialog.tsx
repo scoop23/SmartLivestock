@@ -248,6 +248,12 @@ export default function SibatReviewDialog({
                 </div>
               </div>
 
+              {submission.slaughterDetails && <div className="rounded-xl bg-amber-50 p-3 text-xs space-y-1">
+                <p className="font-semibold">Slaughter event: {submission.slaughterDetails.quantity} animals</p>
+                <p>{submission.slaughterDetails.animals.map(animal => animal.tag_number || `Animal #${animal.id}`).join(", ")}</p>
+                <p>Only these animals leave active inventory after MAO approval.</p>
+              </div>}
+
               {/* Specific Metadata for Individual Animals */}
               {!isBatch && submission.sourceType === "INVENTORY" && (
                 <div className="pt-2 border-t border-slate-200/50 space-y-2.5">

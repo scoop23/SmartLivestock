@@ -62,6 +62,10 @@ class ProductionRecord(models.Model):
         default=ProductionStatus.PENDING,
     )
 
+    # A meat entry is a projection of one authoritative slaughter event.
+    slaughter = models.OneToOneField("SlaughterRecord", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="production_output")
+
     valuation_snapshot = models.JSONField(null=True, blank=True, editable=False)
 
     notes = models.TextField(
@@ -130,6 +134,11 @@ class SlaughterRecord(models.Model):
         related_name="slaughter_records",
     )
 
+    # Weight cannot identify animals: preserve the exact inventory IDs independently.
+    selected_animals = models.ManyToManyField("livestock.LivestockInventory",
+        through="SlaughterAnimal", related_name="selected_slaughters", blank=True)
+    inventory_reconciled_at = models.DateTimeField(null=True, blank=True)
+
     quantity = models.PositiveIntegerField()
 
     carcass_weight = models.DecimalField(
@@ -174,6 +183,14 @@ class SlaughterRecord(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
+
+
+class SlaughterAnimal(models.Model):
+    slaughter = models.ForeignKey(SlaughterRecord, on_delete=models.CASCADE)
+    animal = models.ForeignKey("livestock.LivestockInventory", on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["slaughter", "animal"], name="unique_slaughter_animal")]
 
 
 # Tracks live animal sales at auction markets.

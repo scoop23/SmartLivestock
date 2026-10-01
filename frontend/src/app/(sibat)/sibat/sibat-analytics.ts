@@ -26,6 +26,7 @@ export interface UnifiedSubmissionItem {
   livestockTypeName: string;
   detailsTitle: string;
   quantityDisplay: string;
+  slaughterDetails?: ProductionRecordItem["slaughterDetails"];
   quantity: number;
   unit: string;
   recordDate: string;
@@ -192,6 +193,7 @@ export const mapProductionToUnified = (p: ProductionRecordItem): UnifiedSubmissi
     detailsTitle: `${p.livestockTypeName || "Livestock"} — ${typeLabels[p.productionType] || p.productionType}`,
     quantityDisplay: `${Number(p.quantity).toLocaleString()} ${unitLabel}`,
     quantity: p.quantity,
+    slaughterDetails: p.slaughterDetails,
     unit: unitLabel,
     recordDate: p.recordDate,
     status: p.status as UnifiedStatus,

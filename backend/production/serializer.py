@@ -1,3 +1,5 @@
+from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers  # type: ignore
 from .models import (
     ProductionRecord,
@@ -49,6 +51,16 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     Used in:
         Farmer production logging dashboard (/production-dashboard) and MAO municipal yield ledger.
     """
+    selected_animals = serializers.PrimaryKeyRelatedField(many=True, queryset=LivestockInventory.objects.all(), required=False, write_only=True)
+    slaughter_details = serializers.SerializerMethodField()
+
+    def get_slaughter_details(self, obj):
+        if not obj.slaughter_id:
+            return None
+        return {"id": obj.slaughter_id, "quantity": obj.slaughter.quantity,
+                "animals": [{"id": a.pk, "tag_number": a.tag_number} for a in obj.slaughter.selected_animals.all()],
+                "inventory_reconciled_at": obj.slaughter.inventory_reconciled_at}
+
     livestock_type_name = serializers.SerializerMethodField()
     farmer_name = serializers.SerializerMethodField()
     barangay_name = serializers.SerializerMethodField()
@@ -108,6 +120,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "production_type",
             "quantity",
             "valuation_snapshot",
+            "slaughter_details",
+            "selected_animals",
             "unit",
             "record_date",
             "notes",
@@ -132,33 +146,31 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         if not value:
             return value
         user = self.context["request"].user
-        # If user has a farmer profile, enforce that they can only log for their own animals
-        if hasattr(user, "farmer_profile"):
-            if value.farmer_id != user.farmer_profile.id and value.created_by_id != user.id:
-                raise ValidationError(
-                    "You can only log production against your own livestock."
-                )
-        elif value.created_by_id != user.id:
-            raise ValidationError(
-                "You can only log production against your own livestock."
-            )
+        # Ownership comes from the farmer relationship, not who encoded the inventory.
+        farmer = getattr(user, "farmer_profile", None)
+        if not farmer or value.farmer_id != farmer.id:
+            raise ValidationError("You can only log production against your own livestock.")
 
+        # Approval is administrative validation; operational status is current availability.
         if value.status != "APPROVED":
             raise ValidationError(
                 "Only approved livestock can be logged for production."
             )
         if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
             raise ValidationError(
-                "Production can only be logged for active livestock."
+                "This livestock is no longer active and cannot be used for this production record."
             )
+        if value.quantity <= 0:
+            raise ValidationError("Production requires livestock with a positive head count.")
         return value
 
     def validate_batch(self, value):
         if not value:
             return value
         user = self.context["request"].user
-        if value.farmer.user_id != user.id and value.created_by_id != user.id:
-            raise ValidationError("You can only log production against your own batch.")
+        farmer = getattr(user, "farmer_profile", None)
+        if not farmer or value.farmer_id != farmer.id:
+            raise ValidationError("You can only log production against your own herd.")
         if value.status != LivestockBatch.StatusType.ACTIVE:
             raise ValidationError("Production can only be logged for an active batch.")
         animal_statuses = set(value.animals.values_list("status", flat=True))
@@ -166,6 +178,10 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 "Every animal in the batch must be MAO approved before production can be logged."
             )
+        # Approved historical members may remain in the herd after death or sale.
+        # At least one currently active animal must still be available for output reporting.
+        if not value.animals.filter(operational_status=LivestockInventory.OperationalStatus.ACTIVE, quantity__gt=0).exists():
+            raise ValidationError("This herd has no active livestock with a positive head count.")
         return value
 
     def validate(self, attrs):
@@ -190,6 +206,19 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                 "Choose exactly one production source: livestock or batch."
             )
 
+        # PATCH may omit its source; revalidate the stored source before accepting edits.
+        if livestock and "livestock" not in attrs:
+            try:
+                self.validate_livestock(livestock)
+            except ValidationError as error:
+                raise ValidationError({"livestock": error.detail})
+        if batch and "batch" not in attrs:
+            try:
+                self.validate_batch(batch)
+            except ValidationError as error:
+                raise ValidationError({"batch": error.detail})
+
+        # MEAT records kilograms of output, not deaths or heads removed from inventory.
         source = livestock or batch
         livestock_type_name = getattr(
             getattr(source, "livestock_type", None),
@@ -219,17 +248,36 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                 "unit": f"{production_type.title()} production must use {expected_unit}."
             })
 
+        if production_type == "MEAT":
+            event_date = attrs.get("record_date", self.instance.record_date if self.instance else None)
+            if event_date and event_date > timezone.localdate():
+                raise ValidationError({"record_date": "Slaughter date cannot be in the future."})
+            animals = attrs.get("selected_animals")
+            if "selected_animals" not in self.initial_data:
+                animals = list(self.instance.slaughter.selected_animals.all()) if self.instance and self.instance.slaughter_id else ([livestock] if livestock else [])
+            from .services.slaughter import validate_animals
+            record = ProductionRecord(livestock=livestock, batch=batch)
+            validate_animals(record, animals)
+            attrs["selected_animals"] = animals
+        elif attrs.get("selected_animals") or (self.instance and self.instance.slaughter_id):
+            raise ValidationError({"production_type": "A slaughter entry must remain MEAT."})
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
         from .services.valuation import snapshot_for
+        animals = validated_data.pop("selected_animals", [])
         record = ProductionRecord(**validated_data)
         record.valuation_snapshot = snapshot_for(record)
         record.save()
+        if record.production_type == "MEAT":
+            from .services.slaughter import sync_slaughter
+            sync_slaughter(record, animals)
         return record
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         allowed = [
             "livestock",
@@ -246,7 +294,9 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         from .services.valuation import snapshot_for
         instance.valuation_snapshot = snapshot_for(instance, instance.valuation_snapshot)
         instance.save()
-
+        if instance.production_type == "MEAT":
+            from .services.slaughter import sync_slaughter
+            sync_slaughter(instance, validated_data.get("selected_animals", []))
         return instance
 
 

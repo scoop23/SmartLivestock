@@ -95,7 +95,15 @@ export interface ProductionValuationSnapshot {
   source_title: string; source_table: string; publication_status: string; revision: number;
 }
 
+export interface SlaughterDetails {
+  id: number;
+  quantity: number;
+  animals: { id: number; tag_number: string }[];
+  inventory_reconciled_at: string | null;
+}
+
 export interface ProductionRecordItem {
+  slaughterDetails?: SlaughterDetails | null;
   valuationSnapshot?: ProductionValuationSnapshot | null;
   id: number;
   barangayName?: string | null;
@@ -115,6 +123,7 @@ export interface ProductionRecordItem {
 }
 
 export interface ApiProductionRecord {
+  slaughter_details?: SlaughterDetails | null;
   valuation_snapshot?: ProductionValuationSnapshot | null;
   id: number;
   barangay_name?: string | null;
@@ -135,6 +144,7 @@ export interface ApiProductionRecord {
 
 export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecordItem => ({
   id: item.id,
+  slaughterDetails: item.slaughter_details ?? null,
   valuationSnapshot: item.valuation_snapshot ?? null,
   barangayName: item.barangay_name ?? null,
   farmerName: item.farmer_name ?? null,

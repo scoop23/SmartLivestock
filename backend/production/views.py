@@ -50,7 +50,7 @@ def production_record_list_create(request):
                 priority=Notification.Priority.MEDIUM,
                 title="New Production Entry Awaiting Verification",
                 message=f"{farmer_name} logged {record.quantity} {record.unit} of {record.get_production_type_display()}.",
-                link="/sibat-validation",
+                link="/sibat?tab=production",
             )
         return Response(serializer.data, status=201)
 
@@ -77,12 +77,14 @@ def production_record_list_create(request):
         "reviewed_by",
     ).order_by("-record_date", "-created_at")
 
+    records = records.select_related("slaughter").prefetch_related("slaughter__selected_animals")
     serializer = ProductionRecordSerializer(records, many=True)
     return Response(serializer.data, status=200)
 
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def production_record_detail(request, pk):
     """
     GET    /production/records/<pk>/ -> Retrieve single production record
@@ -95,13 +97,13 @@ def production_record_detail(request, pk):
 
     if role_name == "FARMER":
         record = get_object_or_404(
-            ProductionRecord,
+            ProductionRecord.objects.select_for_update(of=("self",)),
             Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
     else:
         require_action(user, "production", "read_all")
-        record = get_object_or_404(ProductionRecord, pk=pk)
+        record = get_object_or_404(ProductionRecord.objects.select_for_update(), pk=pk)
 
     if request.method == "DELETE":
         if role_name != "FARMER":
@@ -114,7 +116,10 @@ def production_record_detail(request, pk):
                 {"error": "Only PENDING production records can be deleted."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        slaughter = record.slaughter if record.slaughter_id else None
         record.delete()
+        if slaughter:
+            slaughter.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method in ["PUT", "PATCH"]:
@@ -145,6 +150,8 @@ def production_record_detail(request, pk):
             record.reviewed_by = None
             record.reviewed_at = None
             record.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+            if record.slaughter_id:
+                SlaughterRecord.objects.filter(pk=record.slaughter_id).update(status="PENDING", reviewed_by=None, reviewed_at=None)
             notify_role(
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.PRODUCTION,
@@ -154,7 +161,7 @@ def production_record_detail(request, pk):
                     f"{user.get_full_name() or user.username} corrected a "
                     f"{record.get_production_type_display()} production record."
                 ),
-                link="/sibat-validation",
+                link="/sibat?tab=production",
             )
         return Response(serializer.data, status=200)
 
@@ -165,6 +172,7 @@ def production_record_detail(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def review_production_record(request, pk):
     """
     POST /production/records/<pk>/review/
@@ -172,7 +180,7 @@ def review_production_record(request, pk):
     - SIBAT: Field verification (status = VERIFIED)
     - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    record = get_object_or_404(ProductionRecord, pk=pk)
+    record = get_object_or_404(ProductionRecord.objects.select_for_update(), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -204,6 +212,16 @@ def review_production_record(request, pk):
     record.review_remarks = remarks
     record.reviewed_at = timezone.now()
     record.save()
+    if record.slaughter_id:
+        slaughter = record.slaughter
+        slaughter.status = new_status
+        slaughter.reviewed_by = request.user
+        slaughter.review_remarks = remarks
+        slaughter.reviewed_at = record.reviewed_at
+        slaughter.save(update_fields=["status", "reviewed_by", "review_remarks", "reviewed_at"])
+        if new_status == "APPROVED":
+            from .services.slaughter import reconcile_approved_slaughter
+            reconcile_approved_slaughter(slaughter)
 
     if new_status == ProductionRecord.ProductionStatus.VERIFIED:
         notify_role(
@@ -287,7 +305,7 @@ def live_animal_sales_list_create(request):
             priority=Notification.Priority.MEDIUM,
             title="New Livestock Sale Awaiting Verification",
             message=f"{farmer_name} recorded a sale for {sale_reference}.",
-            link="/sibat-validation",
+            link="/sibat?tab=production",
         )
         return Response(serializer.data, status=201)
 
@@ -439,7 +457,7 @@ def calving_records_list_create(request):
             priority=Notification.Priority.MEDIUM,
             title="New Calving Entry Awaiting Verification",
             message=f"{farmer_name} recorded calf {calving.calf_tag or 'Newborn'} from dam {calving.dam.tag_number or calving.dam_id}.",
-            link="/sibat-validation",
+            link="/sibat?tab=production",
         )
         return Response(serializer.data, status=201)
 
@@ -602,7 +620,7 @@ def calving_detail(request, pk):
                     f"{user.get_full_name() or user.username} corrected a birth "
                     f"declaration for calf {calving.calf_tag or 'Newborn'}."
                 ),
-                link="/sibat-validation",
+                link="/sibat?tab=production",
             )
         return Response(serializer.data, status=200)
 

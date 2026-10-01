@@ -52,6 +52,7 @@ export function ProductionTable({
 
   const buildDetailPayload = (prod: ProductionRecordItem): DetailRecordData => ({
     kind: "production",
+    slaughterDetails: prod.slaughterDetails,
     id: prod.id,
     farmerName: prod.farmerName || "Registered Farmer",
     barangayName: prod.barangayName || "Batangas Municipality",

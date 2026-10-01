@@ -20,7 +20,7 @@ export default function SpeciesProductionPage() {
   const approvedInventories = inventories.filter(
     (item) =>
       item.status === "APPROVED" &&
-      (item.operationalStatus || "ACTIVE") === "ACTIVE",
+      (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0,
   );
   const uniqueSpecies = useMemo(() => {
     return Array.from(

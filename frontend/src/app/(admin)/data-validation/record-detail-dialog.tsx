@@ -74,6 +74,7 @@ export type DetailRecordData =
   }
   | {
     kind: "production";
+    slaughterDetails?: { quantity: number; animals: {id: number; tag_number: string}[]; inventory_reconciled_at: string | null } | null;
     id: number;
     farmerName: string;
     barangayName: string;
@@ -620,6 +621,12 @@ export function RecordDetailDialog({
                   <p className="text-[11px] text-slate-500 mt-0.5">Animal: {record.livestockTypeName}</p>
                 </div>
               </div>
+
+              {record.slaughterDetails && <div className="rounded-xl bg-amber-50 p-3 text-sm space-y-1">
+                <p className="font-semibold">Slaughter: {record.slaughterDetails.quantity} animals</p>
+                <p className="text-xs">{record.slaughterDetails.animals.map(animal => animal.tag_number || `Animal #${animal.id}`).join(", ")}</p>
+                <p className="text-xs">{record.slaughterDetails.inventory_reconciled_at ? "Inventory transition completed." : "Approving will mark only the selected animals slaughtered."}</p>
+              </div>}
 
               {record.notes && (
                 <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
