@@ -45,13 +45,17 @@ export default function FarmerProgramsVisits() {
     let active = true;
     async function load() {
       try {
-        const [openSchedules, userBookings] = await Promise.all([
+        const [schedulesResult, bookingsResult] = await Promise.allSettled([
           getSchedules(),
           getBookings(),
         ]);
         if (active) {
-          setSchedules(openSchedules);
-          setBookings(userBookings);
+          if (schedulesResult.status === "fulfilled") {
+            setSchedules(schedulesResult.value);
+          }
+          if (bookingsResult.status === "fulfilled") {
+            setBookings(bookingsResult.value);
+          }
         }
       } catch {
         // Keep empty if load fails

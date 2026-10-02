@@ -56,10 +56,26 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
 
   const load = useCallback(async () => {
     try {
-      const [activityRows, scheduleRows] = await Promise.all([getActivities(), getSchedules()]);
-      setItems(activityRows);
-      setSchedules(scheduleRows);
-      setError("");
+      const [activitiesResult, schedulesResult] = await Promise.allSettled([
+        getActivities(),
+        getSchedules(),
+      ]);
+
+      if (activitiesResult.status === "fulfilled") {
+        setItems(activitiesResult.value);
+      }
+      if (schedulesResult.status === "fulfilled") {
+        setSchedules(schedulesResult.value);
+      }
+
+      if (activitiesResult.status === "rejected") {
+        setError(apiError(activitiesResult.reason));
+      } else {
+        if (schedulesResult.status === "rejected" && process.env.NODE_ENV !== "production") {
+          console.warn("[ActivitiesEditor] Schedules load warning:", schedulesResult.reason);
+        }
+        setError("");
+      }
     } catch (e) {
       setError(apiError(e));
     } finally {

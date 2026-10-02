@@ -44,7 +44,16 @@ def announcements(request):
     if request.method == "GET":
         if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
             return Response({"detail": "Forbidden."}, status=403)
-        qs = Announcement.objects.select_related("posted_by", "schedule").prefetch_related("schedule__bookings", Prefetch("schedule__bookings", queryset=scope_reviewer_queryset(ProgramBooking.objects.all(), request.user), to_attr="scoped_bookings"), "photos")
+        prefetch_items = ["schedule__bookings", "photos"]
+        if role == Role.UserRoles.SIBAT:
+            prefetch_items.append(
+                Prefetch(
+                    "schedule__bookings",
+                    queryset=scope_reviewer_queryset(ProgramBooking.objects.all(), request.user),
+                    to_attr="scoped_bookings",
+                )
+            )
+        qs = Announcement.objects.select_related("posted_by", "schedule").prefetch_related(*prefetch_items)
         if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT):
             qs = qs.filter(is_published=True).filter(Q(audience="ALL") | Q(audience=role))
         return Response(AnnouncementSerializer(qs, many=True, context={"request": request}).data)
@@ -85,9 +94,16 @@ def schedules(request):
     if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
         return Response({"detail": "Forbidden."}, status=403)
     if request.method == "GET":
-        qs = ProgramSchedule.objects.prefetch_related(
-            "bookings", Prefetch("bookings", queryset=scope_reviewer_queryset(ProgramBooking.objects.all(), request.user), to_attr="scoped_bookings")
-        )
+        prefetch_items = ["bookings"]
+        if role == Role.UserRoles.SIBAT:
+            prefetch_items.append(
+                Prefetch(
+                    "bookings",
+                    queryset=scope_reviewer_queryset(ProgramBooking.objects.all(), request.user),
+                    to_attr="scoped_bookings",
+                )
+            )
+        qs = ProgramSchedule.objects.prefetch_related(*prefetch_items)
         if role == Role.UserRoles.FARMER:
             qs = qs.filter(is_open=True, date__gte=date.today())
         return Response(ProgramScheduleSerializer(qs, many=True, context={"request": request}).data)

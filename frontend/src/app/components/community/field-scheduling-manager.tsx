@@ -41,10 +41,30 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   const load = useCallback(async () => {
     try {
-      const [scheduleRows, bookingRows] = await Promise.all([getSchedules(), getBookings()]);
-      setSchedules(scheduleRows);
-      setBookings(bookingRows);
-      setError("");
+      const [schedulesResult, bookingsResult] = await Promise.allSettled([
+        getSchedules(),
+        getBookings(),
+      ]);
+
+      if (schedulesResult.status === "fulfilled") {
+        setSchedules(schedulesResult.value);
+      }
+      if (bookingsResult.status === "fulfilled") {
+        setBookings(bookingsResult.value);
+      }
+
+      if (schedulesResult.status === "rejected" && bookingsResult.status === "rejected") {
+        setError(apiError(schedulesResult.reason));
+      } else if (schedulesResult.status === "rejected") {
+        setError(apiError(schedulesResult.reason));
+      } else if (bookingsResult.status === "rejected") {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[FieldSchedulingManager] Bookings load warning:", bookingsResult.reason);
+        }
+        setError("");
+      } else {
+        setError("");
+      }
     } catch (e) {
       setError(apiError(e));
     } finally {
