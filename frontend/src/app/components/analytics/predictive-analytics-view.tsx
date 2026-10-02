@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import {
-  Area,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
@@ -72,6 +74,8 @@ interface EvaluationResponse {
       start_month: string;
       end_month: string;
       observations: number;
+      actual_values?: number[];
+      months?: string[];
     };
   };
   selection?: {
@@ -114,6 +118,45 @@ interface ForecastResponse {
   forecast?: ForecastPoint[];
   chart_data?: ChartTimelinePoint[];
 }
+
+const COMMODITIES = [
+  {
+    type: "MILK",
+    unit: "LITERS",
+    label: "Milk",
+    icon: "🥛",
+    desc: "Dairy yield in Liters",
+  },
+  {
+    type: "MEAT",
+    unit: "KILOGRAMS",
+    label: "Meat (Farmer)",
+    icon: "🥩",
+    desc: "Farmer-reported meat output in kg (slaughter=NULL)",
+  },
+  {
+    type: "EGGS",
+    unit: "PIECES",
+    label: "Eggs",
+    icon: "🥚",
+    desc: "Layer poultry production in Pieces",
+  },
+  {
+    type: "WOOL",
+    unit: "KILOGRAMS",
+    label: "Wool",
+    icon: "🧶",
+    desc: "Fleece output in Kilograms",
+  },
+];
+
+const MODEL_COLORS: Record<string, string> = {
+  "Naive Baseline": "#64748b",
+  "Linear Regression": "#2563eb",
+  "Random Forest": "#7c3aed",
+  ARIMA: "#d97706",
+  "Holt-Winters": "#0891b2",
+};
 
 export default function PredictiveAnalyticsView() {
   const [productionType, setProductionType] = useState<string>("MILK");
@@ -243,6 +286,46 @@ export default function PredictiveAnalyticsView() {
   if (evalData?.status === "insufficient_data") {
     return (
       <div className="space-y-6">
+        {/* Commodity Selector allows user to check other series */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+              Select Production Commodity & Unit Series:
+            </span>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {COMMODITIES.map((c) => {
+                const isActive = productionType === c.type;
+                return (
+                  <button
+                    key={c.type}
+                    onClick={() => {
+                      setProductionType(c.type);
+                      setUnit(c.unit);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-emerald-700 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    <span>{c.icon}</span>
+                    <span>{c.label}</span>
+                    <span className="text-[10px] opacity-80">({c.unit})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <Button
+            onClick={() => setRefreshTrigger((prev) => prev + 1)}
+            variant="outline"
+            size="sm"
+            className="text-xs"
+          >
+            <RefreshCw className="size-3.5 mr-1" /> Re-check Data
+          </Button>
+        </div>
+
         <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-3 text-amber-900">
@@ -261,20 +344,20 @@ export default function PredictiveAnalyticsView() {
           </CardHeader>
           <CardContent className="space-y-4 text-amber-900 text-sm">
             <div className="rounded-xl bg-white/80 p-4 border border-amber-200 space-y-2">
-              <p className="font-semibold text-slate-800">
-                Why is the model not predicting?
-              </p>
-              <p className="text-slate-600 leading-relaxed">
-                {evalData.message}
-              </p>
+              <p className="font-semibold text-slate-800">Why is the model not predicting?</p>
+              <p className="text-slate-600 leading-relaxed">{evalData.message}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 text-xs">
                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <span className="text-slate-500 block">Target Commodity:</span>
-                  <span className="font-bold text-slate-800">{productionType} ({unit})</span>
+                  <span className="font-bold text-slate-800">
+                    {productionType} ({unit})
+                  </span>
                 </div>
                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <span className="text-slate-500 block">Available Monthly Observations:</span>
-                  <span className="font-bold text-amber-800">{evalData.data?.total_monthly_observations ?? 0} months</span>
+                  <span className="font-bold text-amber-800">
+                    {evalData.data?.total_monthly_observations ?? 0} months
+                  </span>
                 </div>
                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <span className="text-slate-500 block">Minimum Required:</span>
@@ -294,7 +377,7 @@ export default function PredictiveAnalyticsView() {
                 <code>python manage.py seed_productions --months 36</code>
               </div>
               <p className="text-slate-400 font-sans text-[11px]">
-                This command generates 36 months of realistic synthetic monthly records marked with <code>AI_SEED::PREDICTIVE_ANALYTICS::V1</code>.
+                This command generates 36 months of realistic synthetic monthly records marked with <code>AI_SEED::ANALYTICS_TEST::PRODUCTION::V2</code>.
                 When finished, remove ONLY the test records with: <code>python manage.py seed_productions --clean</code>. Real farmer data is never touched.
               </p>
             </div>
@@ -317,6 +400,27 @@ export default function PredictiveAnalyticsView() {
   const meta = forecastData?.metadata;
   const chartData = forecastData?.chart_data ?? [];
 
+  // Filter models that evaluated successfully for comparison charts
+  const validModels = models.filter((m) => m.mae !== null && m.rmse !== null);
+
+  // Chart 5 Data Preparation: Chronological Test Period Actual vs Model Predictions
+  const testPeriodInfo = evalData?.data?.test_period;
+  const testPeriodMonths = testPeriodInfo?.months || [];
+  const testPeriodActuals = testPeriodInfo?.actual_values || [];
+
+  const testPeriodChartData = testPeriodMonths.map((mLabel, idx) => {
+    const point: Record<string, any> = {
+      month: mLabel,
+      Actual: testPeriodActuals[idx] ?? null,
+    };
+    models.forEach((m) => {
+      if (m.test_predictions && m.test_predictions[idx] !== undefined) {
+        point[m.name] = m.test_predictions[idx];
+      }
+    });
+    return point;
+  });
+
   return (
     <div className="space-y-6">
       {/* 1. SEED DATA WARNING BANNER */}
@@ -329,7 +433,15 @@ export default function PredictiveAnalyticsView() {
                 Seeded Test Dataset Active (Development & Evaluation Mode)
               </p>
               <p className="text-xs text-amber-700">
-                Records carry deterministic marker <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px]">{evalData?.data?.seed_marker}</code>. Run <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px]">manage.py seed_productions --clean</code> to revert to authoritative real data.
+                Records carry deterministic marker{" "}
+                <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px]">
+                  {evalData?.data?.seed_marker}
+                </code>
+                . Run{" "}
+                <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px]">
+                  manage.py seed_productions --clean
+                </code>{" "}
+                to revert to authoritative real data.
               </p>
             </div>
           </div>
@@ -356,7 +468,8 @@ export default function PredictiveAnalyticsView() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Horizon Selector */}
             <div className="flex items-center bg-slate-100 p-1 rounded-lg text-xs font-medium">
               <span className="px-2.5 py-1 text-slate-500">Horizon:</span>
               {[3, 6, 12].map((h) => (
@@ -385,16 +498,55 @@ export default function PredictiveAnalyticsView() {
           </div>
         </div>
 
-        {/* Top KPI Cards */}
+        {/* CHART 7 / COMMODITY SWITCHER: Unit Purity Guarantee */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200/70">
+          <div className="flex items-center gap-2">
+            <Layers className="size-4 text-slate-500" />
+            <span className="text-xs font-semibold text-slate-700">Commodity Target:</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {COMMODITIES.map((c) => {
+              const isActive = productionType === c.type;
+              return (
+                <button
+                  key={c.type}
+                  onClick={() => {
+                    setProductionType(c.type);
+                    setUnit(c.unit);
+                  }}
+                  title={c.desc}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-emerald-700 text-white shadow-xs"
+                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <span>{c.icon}</span>
+                  <span>{c.label}</span>
+                  <span
+                    className={`text-[10px] px-1 rounded ${
+                      isActive ? "bg-emerald-800 text-emerald-100" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {c.unit}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-slate-500 w-full lg:w-auto italic">
+            * Unit Purity: Liters, kilograms, and pieces are strictly separated to maintain valid time-series scales.
+          </p>
+        </div>
+
+        {/* Top KPI Cards (Including Chart 6: Forecast Change vs Baseline) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
             <span className="text-xs font-medium text-slate-500 block mb-1">
               Target Commodity & Unit
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-slate-900">
-                {productionType}
-              </span>
+              <span className="text-2xl font-bold text-slate-900">{productionType}</span>
               <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
                 {unit}
               </span>
@@ -431,6 +583,7 @@ export default function PredictiveAnalyticsView() {
             </span>
           </div>
 
+          {/* CHART 6: FORECAST CHANGE / BASELINE COMPARISON */}
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
             <span className="text-xs font-medium text-slate-500 block mb-1">
               Projected {horizon}-Month Outlook
@@ -457,22 +610,25 @@ export default function PredictiveAnalyticsView() {
         </div>
       </div>
 
-      {/* 3. FORECAST TIMELINE CHART */}
+      {/* 3. CHART 1: HISTORICAL VS FORECAST TIMELINE CHART */}
       <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
         <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <LineChartIcon className="size-4 text-emerald-600" />
-                Historical Recorded Yield vs. Out-of-Sample Forecast
+                Chart 1: Historical Recorded Yield vs. Out-of-Sample Forecast
               </CardTitle>
               <p className="text-xs text-slate-500 mt-0.5">
-                Solid line represents approved historical actuals; dashed line represents future {selectedModel} forecast.
+                Solid green line represents approved historical actuals; dashed amber line represents future {selectedModel} forecast.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-white text-slate-700 font-mono text-[11px]">
                 Model: {selectedModel}
+              </Badge>
+              <Badge variant="outline" className="bg-white text-slate-700 font-mono text-[11px]">
+                Horizon: +{horizon}m
               </Badge>
               <Badge variant="outline" className="bg-white text-slate-700 font-mono text-[11px]">
                 {unit}
@@ -555,11 +711,11 @@ export default function PredictiveAnalyticsView() {
             </div>
           )}
 
-          {/* Quick Forecast Numerical Breakdown */}
+          {/* Forecast Values Row */}
           {forecastData?.forecast && (
             <div className="mt-4 pt-4 border-t border-slate-100">
               <span className="text-xs font-bold text-slate-700 block mb-2">
-                Out-of-Sample Forecasted Months:
+                Out-of-Sample Forecasted Months ({selectedModel}):
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                 {forecastData.forecast.map((pt) => (
@@ -569,7 +725,8 @@ export default function PredictiveAnalyticsView() {
                   >
                     <span className="text-[11px] text-slate-500 block">{pt.month_label}</span>
                     <span className="text-sm font-bold text-amber-900">
-                      {pt.predicted} <span className="text-[10px] font-normal text-slate-500">{unit}</span>
+                      {pt.predicted}{" "}
+                      <span className="text-[10px] font-normal text-slate-500">{unit}</span>
                     </span>
                   </div>
                 ))}
@@ -579,7 +736,238 @@ export default function PredictiveAnalyticsView() {
         </CardContent>
       </Card>
 
-      {/* 4. MODEL COMPARISON BENCHMARK TABLE */}
+      {/* 4. CHART 5: TEST PERIOD ACTUAL VS MODEL PREDICTIONS */}
+      {testPeriodChartData.length > 0 && (
+        <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+          <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Calendar className="size-4 text-purple-600" />
+                  Chart 5: Test Period Actual vs Candidate Model Predictions
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Chronological holdout validation: Visualizes how each candidate model tracked the unseen test months (
+                  {testPeriodInfo?.start_month} to {testPeriodInfo?.end_month}).
+                </p>
+              </div>
+              <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-xs">
+                {testPeriodChartData.length} Test Months
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={testPeriodChartData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748b" }} />
+                  <YAxis
+                    label={{
+                      value: `Output (${unit})`,
+                      angle: -90,
+                      position: "insideLeft",
+                      fontSize: 11,
+                      fill: "#64748b",
+                    }}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                  />
+                  <Tooltip
+                    formatter={(val: any, name: any) => [
+                      val !== null ? `${val} ${unit}` : "N/A",
+                      name === "Actual" ? "Actual Test Value" : name,
+                    ]}
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.95)",
+                      borderRadius: "10px",
+                      border: "1px solid #e2e8f0",
+                      fontSize: "12px",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                  />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: "10px", fontSize: "12px" }} />
+                  <Line
+                    type="monotone"
+                    dataKey="Actual"
+                    name="Actual Value"
+                    stroke="#16a34a"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: "#16a34a" }}
+                  />
+                  {validModels.map((m) => (
+                    <Line
+                      key={m.name}
+                      type="monotone"
+                      dataKey={m.name}
+                      name={m.name}
+                      stroke={MODEL_COLORS[m.name] || "#6b7280"}
+                      strokeWidth={m.name === selectedModel ? 2.5 : 1.5}
+                      strokeDasharray={m.name === "Naive Baseline" ? "3 3" : "5 5"}
+                      dot={{ r: 3 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2 italic text-center">
+              Training data (oldest {evalData?.data?.training_observations} months) → unseen test period (newest{" "}
+              {evalData?.data?.test_observations} months). All models evaluated fairly on the same test horizon.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 5. CHARTS 2, 3, 4: MODEL BENCHMARK ERROR COMPARISON CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* CHART 2: MAE COMPARISON */}
+        <Card className="border-slate-200 shadow-sm bg-white">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <CardTitle className="text-sm font-bold text-slate-800 flex items-center justify-between">
+              <span>Chart 2: Model MAE Comparison</span>
+              <Badge variant="outline" className="text-[10px] text-emerald-800 bg-emerald-50">
+                Primary Criterion
+              </Badge>
+            </CardTitle>
+            <p className="text-xs text-slate-500 mt-1">
+              Lower MAE means the model&apos;s predictions were, on average, closer to the actual observed values.
+            </p>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={validModels} margin={{ top: 10, right: 10, left: -10, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: "#64748b" }}
+                    angle={-25}
+                    textAnchor="end"
+                    interval={0}
+                  />
+                  <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
+                  <Tooltip
+                    formatter={(val: any) => [`${val} ${unit}`, "MAE"]}
+                    contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="mae" name="MAE" radius={[4, 4, 0, 0]}>
+                    {validModels.map((entry) => (
+                      <Cell
+                        key={`cell-mae-${entry.name}`}
+                        fill={entry.name === selectedModel ? "#10b981" : "#94a3b8"}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 italic">
+              * Regression error evaluation: Measures average error distance in {unit}. Not classification accuracy.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* CHART 3: RMSE COMPARISON */}
+        <Card className="border-slate-200 shadow-sm bg-white">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <CardTitle className="text-sm font-bold text-slate-800 flex items-center justify-between">
+              <span>Chart 3: Model RMSE Comparison</span>
+              <Badge variant="outline" className="text-[10px] text-blue-800 bg-blue-50">
+                Large Errors
+              </Badge>
+            </CardTitle>
+            <p className="text-xs text-slate-500 mt-1">
+              RMSE penalizes large prediction errors more heavily than MAE due to squaring.
+            </p>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={validModels} margin={{ top: 10, right: 10, left: -10, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: "#64748b" }}
+                    angle={-25}
+                    textAnchor="end"
+                    interval={0}
+                  />
+                  <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
+                  <Tooltip
+                    formatter={(val: any) => [`${val} ${unit}`, "RMSE"]}
+                    contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="rmse" name="RMSE" radius={[4, 4, 0, 0]}>
+                    {validModels.map((entry) => (
+                      <Cell
+                        key={`cell-rmse-${entry.name}`}
+                        fill={entry.name === selectedModel ? "#3b82f6" : "#cbd5e1"}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 italic">
+              * If RMSE is much larger than MAE, the model made occasional large mistaken predictions.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* CHART 4: R² COMPARISON */}
+        <Card className="border-slate-200 shadow-sm bg-white">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <CardTitle className="text-sm font-bold text-slate-800 flex items-center justify-between">
+              <span>Chart 4: Model R² Score</span>
+              <Badge variant="outline" className="text-[10px] text-indigo-800 bg-indigo-50">
+                Variance Explained
+              </Badge>
+            </CardTitle>
+            <p className="text-xs text-slate-500 mt-1">
+              R² closer to 1 indicates more variance explained relative to a horizontal mean line.
+            </p>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={validModels} margin={{ top: 10, right: 10, left: -10, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: "#64748b" }}
+                    angle={-25}
+                    textAnchor="end"
+                    interval={0}
+                  />
+                  <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
+                  <Tooltip
+                    formatter={(val: any) => [val, "R² Score"]}
+                    contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="r2" name="R²" radius={[4, 4, 0, 0]}>
+                    {validModels.map((entry) => (
+                      <Cell
+                        key={`cell-r2-${entry.name}`}
+                        fill={
+                          entry.r2 !== null && entry.r2 >= 0
+                            ? entry.name === selectedModel
+                              ? "#8b5cf6"
+                              : "#c4b5fd"
+                            : "#f87171"
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 italic">
+              * R² can be negative if a model performs worse than the simple historical average.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 6. MODEL COMPARISON BENCHMARK TABLE */}
       <Card className="border-slate-200 shadow-sm bg-white">
         <CardHeader className="border-b border-slate-100 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -589,7 +977,8 @@ export default function PredictiveAnalyticsView() {
                 Fair Model Evaluation Benchmark ({evalData?.data?.test_observations} Unseen Test Months)
               </CardTitle>
               <p className="text-xs text-slate-500 mt-0.5">
-                Every candidate model is evaluated on the exact same chronological test split ({evalData?.data?.test_period?.start_month} to {evalData?.data?.test_period?.end_month}).
+                Every candidate model is evaluated on the exact same chronological test split (
+                {evalData?.data?.test_period?.start_month} to {evalData?.data?.test_period?.end_month}).
               </p>
             </div>
             <Button
@@ -599,7 +988,7 @@ export default function PredictiveAnalyticsView() {
               className="text-xs text-slate-600 hover:text-slate-900"
             >
               <HelpCircle className="size-3.5 mr-1" />
-              {showMethodology ? "Hide Guide" : "Evaluation Guide"}
+              {showMethodology ? "Hide Guide" : "Why This Matters (Guide)"}
             </Button>
           </div>
         </CardHeader>
@@ -685,36 +1074,50 @@ export default function PredictiveAnalyticsView() {
             </Table>
           </div>
 
-          {/* Educational Methodology Drawer / Card */}
+          {/* 7. PHASE 4: EDUCATIONAL METHODOLOGY DRAWER ("WHY THIS MATTERS") */}
           {showMethodology && (
-            <div className="p-5 bg-slate-50 border-t border-slate-200 text-xs text-slate-700 space-y-3">
+            <div className="p-5 bg-slate-50 border-t border-slate-200 text-xs text-slate-700 space-y-4">
               <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
                 <Info className="size-4 text-blue-600" />
-                How Model Evaluation Works in SmartLivestock
+                SmartLivestock Predictive Analytics: Methodological Foundations
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
                 <div className="bg-white p-3.5 rounded-lg border border-slate-200">
                   <span className="font-bold text-slate-800 block mb-1">
-                    1. Chronological Split (No Data Leakage)
+                    1. Why Chronological Splitting?
                   </span>
                   <p className="text-slate-600 leading-relaxed">
-                    Data is split chronologically: the oldest {evalData?.data?.training_observations} months form the training set, and the newest {evalData?.data?.test_observations} months form the unseen test set. We never randomly shuffle time series data because future observations would leak into training.
+                    Standard ML shuffles data randomly, but in time series, random shuffling causes{" "}
+                    <strong>data leakage</strong>: if a model trains on future data, it cheats when predicting past values.
+                    We strictly reserve the newest months as an unseen test period (Past → Training, Future → Testing).
                   </p>
                 </div>
                 <div className="bg-white p-3.5 rounded-lg border border-slate-200">
                   <span className="font-bold text-slate-800 block mb-1">
-                    2. MAE vs. RMSE Error Metrics
+                    2. Why MAE (Mean Absolute Error)?
                   </span>
                   <p className="text-slate-600 leading-relaxed">
-                    <strong>MAE (Mean Absolute Error)</strong> measures the average distance from true production in {unit}. <strong>RMSE (Root Mean Squared Error)</strong> squares errors before taking the root, heavily penalizing large individual prediction mistakes.
+                    MAE tells us the average size of the prediction error in the exact same physical unit as the target ({unit}).
+                    Unlike percentage accuracy, MAE reflects real physical deviation (e.g. &quot;off by 14.5 Liters&quot;).
                   </p>
                 </div>
                 <div className="bg-white p-3.5 rounded-lg border border-slate-200">
                   <span className="font-bold text-slate-800 block mb-1">
-                    3. Why We Don&apos;t Say &quot;Accuracy %&quot;
+                    3. Why Compare Multiple Models?
                   </span>
                   <p className="text-slate-600 leading-relaxed">
-                    Accuracy is a classification metric (e.g. healthy vs. sick). In continuous yield forecasting, exact decimal hits are impossible. Regression uses MAE, RMSE, and R² to measure how close predictions are to actual quantities.
+                    Different models make different assumptions: Linear models assume steady trends, Random Forest captures non-linear
+                    interactions, while ARIMA and Holt-Winters model autoregression and seasonality. Benchmarking them reveals which
+                    fits the actual agricultural pattern.
+                  </p>
+                </div>
+                <div className="bg-white p-3.5 rounded-lg border border-slate-200">
+                  <span className="font-bold text-slate-800 block mb-1">
+                    4. Why Use a Baseline?
+                  </span>
+                  <p className="text-slate-600 leading-relaxed">
+                    A baseline (Persistence) gives us a simple reference point: &quot;Next month will equal this month.&quot;
+                    A complex machine learning model must prove it achieves a lower MAE than the simple baseline to justify its use.
                   </p>
                 </div>
               </div>
