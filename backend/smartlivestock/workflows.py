@@ -9,17 +9,18 @@ FARMER = "FARMER"
 SIBAT = "SIBAT"
 MAO = "MAO"
 AUCTION = "AUCTION"
+ADMIN = "ADMIN"
 
 
 ROLE_MATRIX = {
-    "disease": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "edit_own": {FARMER}, "review": {SIBAT, MAO}},
-    "mortality": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "edit_own": {FARMER}, "review": {SIBAT, MAO}},
-    "production": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}},
-    "inventory": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}, "edit_own": {FARMER}},
-    "sales": {"create": {FARMER}, "read_all": {SIBAT, MAO, AUCTION}, "review": {SIBAT, MAO}, "delete_own": {FARMER}},
-    "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}},
-    "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}, "edit_own": {FARMER}},
-    "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO}, "review": {MAO}, "edit_own": {SIBAT}},
+    "disease": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
+    "mortality": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
+    "production": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
+    "inventory": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
+    "sales": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, MAO, ADMIN}, "delete_own": {FARMER}},
+    "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
+    "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
+    "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
 }
 
 
@@ -34,6 +35,7 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
     domain: (
         TransitionRule(SIBAT, "PENDING", frozenset({"VERIFIED", "SUBJECT_TO_REVISION"})),
         TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+        TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     )
     for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality")
 }
@@ -45,6 +47,7 @@ REVIEW_TRANSITIONS["production"] = REVIEW_TRANSITIONS["inventory"]
 # VERIFIED when submitted and only awaits MAO certification).
 REVIEW_TRANSITIONS["census"] = (
     TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )
 
 
