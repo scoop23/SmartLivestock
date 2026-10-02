@@ -1,6 +1,7 @@
 from smartlivestock.workflows import scope_reviewer_queryset
 from django.db import transaction
-from django.db.models import Q
+from django.db.models.deletion import ProtectedError
+from django.db.models import Q, Prefetch, Count, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -9,7 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from livestock.models import LivestockBatch, LivestockInventory, LivestockType
-from livestock.serializer import LivestockBatchSerializer, LivestockInventorySerializer
+from livestock.list_queries import LivestockListPagination, batch_list_annotations, filter_livestock_list
+from livestock.serializer import LivestockBatchListSerializer, LivestockBatchSerializer, LivestockInventorySerializer
 from users.models import Notification
 from users.notification_views import create_notification, notify_role
 from smartlivestock.workflows import (
@@ -127,10 +129,43 @@ def batch_list_create(request):
     if status_param:
         batches = batches.filter(status=status_param)
 
-    batches = batches.select_related(
-        "livestock_type", "farmer__user", "farmer__barangay"
-    ).prefetch_related("animals__reviewed_by")
-    serializer = LivestockBatchSerializer(batches, many=True, context={"request": request})
+    batches = batches.select_related("livestock_type", "farmer__user", "farmer__barangay")
+    include_roster = request.query_params.get("include_roster") == "true" or request.query_params.get("full") == "true"
+
+    if request.query_params.get("summary") == "true":
+        batches = batch_list_annotations(batches)
+        batches = filter_livestock_list(batches, request.query_params, batch=True)
+        pager = LivestockListPagination()
+        records = pager.paginate_queryset(batches.order_by("-created_at", "-pk"), request)
+        response = pager.get_paginated_response(LivestockBatchListSerializer(records, many=True, context={"request": request}).data)
+        # These counts describe the filtered set, not just the current page.
+        response.data["summary"] = batches.aggregate(
+            totalAnimals=Sum("active_animal_count"), approvedBatches=Count("id", filter=Q(list_review_status="APPROVED")),
+            pendingBatches=Count("id", filter=Q(list_review_status="PENDING")), verifiedBatches=Count("id", filter=Q(list_review_status="VERIFIED")),
+            revisionBatches=Count("id", filter=Q(list_review_status="SUBJECT_TO_REVISION")),
+        )
+        return response
+
+    if include_roster:
+        batches = filter_livestock_list(batches, request.query_params, batch=True).prefetch_related(
+            "animals__reviewed_by__role", "animals__livestock_type"
+        )
+        if "page" in request.query_params:
+            pager = LivestockListPagination()
+            records = pager.paginate_queryset(batches.order_by("-created_at", "-pk"), request)
+            return pager.get_paginated_response(LivestockBatchSerializer(records, many=True, context={"request": request}).data)
+        serializer = LivestockBatchSerializer(batches.order_by("-created_at", "-pk"), many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # High-performance SQL annotated list (1 query instead of hundreds)
+    batches = batch_list_annotations(batches)
+    batches = filter_livestock_list(batches, request.query_params, batch=True)
+    if "page" in request.query_params:
+        pager = LivestockListPagination()
+        records = pager.paginate_queryset(batches.order_by("-created_at", "-pk"), request)
+        return pager.get_paginated_response(LivestockBatchListSerializer(records, many=True, context={"request": request}).data)
+
+    serializer = LivestockBatchListSerializer(batches.order_by("-created_at", "-pk"), many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -160,6 +195,8 @@ def batch_detail(request, pk):
         batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     if request.method == "GET":
+        # Detail loads one roster and its reviewers in fixed queries, after permission checks.
+        batch = LivestockBatch.objects.select_related("livestock_type", "farmer__user", "farmer__barangay").prefetch_related("animals__reviewed_by__role").get(pk=batch.pk)
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -236,10 +273,25 @@ def batch_detail(request, pk):
                 {"error": "A batch with verified or approved animals cannot be deleted."},
                 status=status.HTTP_409_CONFLICT,
             )
-        # Disassociate child animals or delete them
-        with transaction.atomic():
-            batch.animals.all().delete()
-            batch.delete()
+        # Batch-only events use SET_NULL in the schema; deleting their source would
+        # hide farmer history and remove its authoritative barangay relationship.
+        if any(getattr(batch, relation).exists() for relation in (
+            "production_records", "slaughter_records", "live_animal_sales", "disease_cases", "mortality_records"
+        )):
+            return Response(
+                {"error": "Cannot delete a herd with linked event history. Keep the herd for historical records."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        # Protected event history must survive an attempted herd deletion.
+        try:
+            with transaction.atomic():
+                batch.animals.all().delete()
+                batch.delete()
+        except ProtectedError:
+            return Response(
+                {"error": "Cannot delete this herd because its animals have linked production, disease, inspection or other protected history."},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(
             {"message": f"Batch '{batch.batch_code}' and linked records deleted."},
             status=status.HTTP_200_OK,

@@ -87,6 +87,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     operational_status_changed_at = serializers.DateTimeField(read_only=True, allow_null=True)
     review_remarks = serializers.CharField(read_only=True, allow_null=True)
     reviewed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 
@@ -202,6 +203,7 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
         Nested `animals` array of LivestockBatchSerializer for batch rosters and individual inspection.
     """
     photo_url = serializers.SerializerMethodField(read_only=True)
+    reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -221,6 +223,7 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
             "operational_status_changed_at",
             "review_remarks",
             "reviewed_by_name",
+            "reviewed_by_role",
             "reviewed_at",
             "created_at",
         ]
@@ -276,6 +279,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     animals = serializers.SerializerMethodField(read_only=True)
     review_status = serializers.SerializerMethodField(read_only=True)
     review_remarks = serializers.SerializerMethodField(read_only=True)
+    reviewed_by_role = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
     reviewed_at = serializers.SerializerMethodField(read_only=True)
 
@@ -303,6 +307,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             "review_status",
             "review_remarks",
             "reviewed_by_name",
+            "reviewed_by_role",
             "reviewed_at",
             "created_at",
             "updated_at",
@@ -361,6 +366,14 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             return reviewed[0]
         return None
 
+    def get_reviewed_by_role(self, obj):
+        # Match the latest reviewed animal used for the herd's reviewer name.
+        reviewed = [a for a in obj.animals.all() if a.reviewed_by and a.reviewed_at]
+        if not reviewed:
+            return None
+        reviewer = max(reviewed, key=lambda a: a.reviewed_at).reviewed_by
+        return reviewer.role.role_name if reviewer.role else None
+
     def get_reviewed_by_name(self, obj):
         # In-memory computation
         reviewed = [a for a in obj.animals.all() if a.reviewed_by and a.reviewed_at]
@@ -378,6 +391,24 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             latest = max(reviewed, key=lambda a: a.reviewed_at)
             return latest.reviewed_at
         return None
+
+
+class LivestockBatchListSerializer(LivestockBatchSerializer):
+    enrolled_animals = serializers.IntegerField(source="child_count", read_only=True)
+    verified_animals = serializers.SerializerMethodField()
+
+    def get_verified_animals(self, obj):
+        return obj.verified_children + obj.approved_children
+
+    total_animals = serializers.IntegerField(source="active_animal_count", read_only=True)
+    average_weight = serializers.DecimalField(source="active_average_weight", max_digits=6, decimal_places=2, read_only=True, allow_null=True)
+    review_status = serializers.CharField(source="list_review_status", read_only=True)
+
+    class Meta(LivestockBatchSerializer.Meta):
+        # Rosters, review history and photos are fetched only when a detail is opened.
+        fields = ("enrolled_animals", "verified_animals") + tuple(f for f in LivestockBatchSerializer.Meta.fields if f not in {
+            "animals", "notes", "review_remarks", "reviewed_by_name", "reviewed_by_role", "reviewed_at",
+        })
 
 
 class CensusSubmissionItemSerializer(serializers.ModelSerializer):

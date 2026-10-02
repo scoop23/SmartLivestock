@@ -98,19 +98,16 @@ class LivestockBatch(models.Model):
 
     @property
     def total_animals(self):
-        return self.animals.filter(
-            operational_status=LivestockInventory.OperationalStatus.ACTIVE
-        ).count()
+        # .all() reuses a prefetched roster; .filter() would issue a query per herd.
+        return sum(a.operational_status == LivestockInventory.OperationalStatus.ACTIVE
+                   for a in self.animals.all())
 
     @property
     def average_weight(self):
         weights = [
             a.weight
-            for a in self.animals.filter(
-                operational_status=LivestockInventory.OperationalStatus.ACTIVE,
-                weight__isnull=False,
-            )
-            if a.weight is not None
+            for a in self.animals.all()
+            if a.operational_status == LivestockInventory.OperationalStatus.ACTIVE and a.weight is not None
         ]
         if weights:
             return round(sum(weights) / len(weights), 2)

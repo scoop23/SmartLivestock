@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { PageHeader } from "@/app/components/page-header";
 import { QrCodePass } from "@/components/qr-code-pass";
@@ -112,6 +112,8 @@ export interface BatchItem {
   target_harvest_date?: string | null;
   status: string;
   notes?: string;
+  enrolled_animals?: number;
+  verified_animals?: number;
   total_animals: number;
   average_weight: number | string | null;
   animals: ChildAnimal[];
@@ -123,7 +125,14 @@ export interface BatchItem {
   updated_at?: string;
 }
 
+interface BatchPage {
+  count: number;
+  results: BatchItem[];
+  summary: { totalAnimals: number | null; approvedBatches: number; pendingBatches: number; verifiedBatches: number; revisionBatches: number };
+}
+
 function deriveBatchReviewStatus(batch: BatchItem): BatchItem["review_status"] {
+  if (batch.review_status) return batch.review_status;
   const statuses = (batch.animals || []).map((animal) =>
     (animal.status || "PENDING").toUpperCase(),
   );
@@ -212,139 +221,53 @@ function AdminBatchesDrilldownContent() {
   const [isBatchCertificateOpen, setIsBatchCertificateOpen] = useState(false);
   const [copiedTag, setCopiedTag] = useState<string | null>(null);
 
-  // ── Data Fetching ────────────────────────────────────────────────────────
-  const {
-    data: batches = [],
-    isLoading,
-    isRefetching,
-    refetch,
-  } = useQuery<BatchItem[]>({
-    queryKey: ["admin-batches-drilldown"],
-    queryFn: async () => {
-      const res = await api.get("livestock/batches/?all=true");
-      const records = Array.isArray(res.data) ? (res.data as BatchItem[]) : [];
-      return records.map((batch) => ({
-        ...batch,
-        review_status: deriveBatchReviewStatus(batch),
-      }));
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
+  // The list fetches a single page without rosters; detail queries run only after selection.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  useEffect(() => setBatchPage(1), [debouncedSearch, speciesFilter, statusFilter, barangayFilter]);
+  const params = { summary: "true", page: batchPage, page_size: BATCH_PAGE_SIZE,
+    search: debouncedSearch, species: speciesFilter, review_status: statusFilter, barangay: barangayFilter };
+  const { data: batchPageData, isLoading, isFetching: isRefetching, isError, refetch } = useQuery<BatchPage>({
+    queryKey: ["admin-batches-drilldown", params],
+    queryFn: async ({ signal }) => (await api.get("livestock/batches/", { params, signal })).data,
+    staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false, placeholderData: keepPreviousData,
   });
-
-  // Keep selectedBatch updated when data refetches
+  const batches = batchPageData?.results || [];
+  const detailId = selectedBatch?.id || (batchIdParam && /^\d+$/.test(batchIdParam) ? Number(batchIdParam) : null);
+  const detailQuery = useQuery<BatchItem>({
+    queryKey: ["admin-batch-detail", detailId],
+    enabled: !!detailId && (isDrilldownOpen || isBatchCertificateOpen || !!batchIdParam),
+    queryFn: async ({ signal }) => (await api.get(`livestock/batches/${detailId}/`, { signal })).data,
+    staleTime: 30 * 1000,
+  });
   useEffect(() => {
-    if (selectedBatch) {
-      const updated = batches.find((b) => b.id === selectedBatch.id);
-      if (updated) setSelectedBatch(updated);
+    if (detailQuery.data) {
+      setSelectedBatch(detailQuery.data);
+      if (batchIdParam) setIsDrilldownOpen(true);
     }
-  }, [batches, selectedBatch]);
-
-  // Automatically select and open batch drilldown dialog if `batchId` is present in URL
-  useEffect(() => {
-    if (!batchIdParam || !batches || batches.length === 0) return;
-
-    const rawParam = String(batchIdParam).trim();
-    const numericId = Number(rawParam.replace(/\D/g, ""));
-
-    const found = batches.find((b) => {
-      if (numericId && b.id === numericId) return true;
-      if (String(b.id) === rawParam) return true;
-      if (b.batch_code && b.batch_code.toLowerCase() === rawParam.toLowerCase()) return true;
-      if (b.batch_name && b.batch_name.toLowerCase() === rawParam.toLowerCase()) return true;
-      return false;
-    });
-
-    if (found) {
-      setSelectedBatch(found);
-      setIsDrilldownOpen(true);
-    }
-  }, [batchIdParam, batches]);
-
-  // ── KPI Metrics ──────────────────────────────────────────────────────────
-  const kpis = useMemo(() => {
-    const totalBatches = batches.length;
-    const totalAnimals = batches.reduce((acc, b) => acc + (b.total_animals || b.animals?.length || 0), 0);
-    const approvedBatches = batches.filter(
-      (b) => (b.review_status || "PENDING").toUpperCase() === "APPROVED"
-    ).length;
-    const pendingBatches = batches.filter(
-      (b) => (b.review_status || "PENDING").toUpperCase() === "PENDING"
-    ).length;
-    const verifiedBatches = batches.filter(
-      (b) => (b.review_status || "").toUpperCase() === "VERIFIED"
-    ).length;
-    const revisionBatches = batches.filter((b) => {
-      const s = (b.review_status || "").toUpperCase();
-      return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION";
-    }).length;
-    const avgHeads = totalBatches > 0 ? (totalAnimals / totalBatches).toFixed(1) : "0";
-
-    return {
-      totalBatches,
-      totalAnimals,
-      approvedBatches,
-      pendingBatches,
-      verifiedBatches,
-      revisionBatches,
-      avgHeads,
-    };
-  }, [batches]);
-
-  // Unique species for filter
-  const speciesList = useMemo(() => {
-    const set = new Set<string>();
-    batches.forEach((b) => {
-      if (b.livestock_type_name) set.add(b.livestock_type_name);
-    });
-    return Array.from(set).sort();
-  }, [batches]);
-
-  // ── Filtered Batches ─────────────────────────────────────────────────────
-  const filteredBatches = useMemo(() => {
-    return batches.filter((b) => {
-      const matchSearch =
-        !searchQuery ||
-        b.batch_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.batch_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.farmer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.barangay_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.animals?.some((a) =>
-          a.tag_number?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-
-      const matchSpecies =
-        speciesFilter === "ALL" ||
-        b.livestock_type_name?.trim().toLowerCase() === speciesFilter.trim().toLowerCase();
-
-      const matchStatus =
-        statusFilter === "ALL" ||
-        (statusFilter === "SUBJECT_TO_REVISION"
-          ? (b.review_status || "").trim().toUpperCase() === "SUBJECT_TO_REVISION" || (b.review_status || "").trim().toUpperCase() === "SUBJECT_FOR_REVISION"
-          : (b.review_status || "PENDING").trim().toUpperCase() === statusFilter.trim().toUpperCase());
-
-      const matchBarangay =
-        barangayFilter === "ALL" ||
-        b.barangay_name?.trim().toLowerCase() === barangayFilter.trim().toLowerCase();
-
-      return matchSearch && matchSpecies && matchStatus && matchBarangay;
-    });
-  }, [batches, searchQuery, speciesFilter, statusFilter, barangayFilter]);
-
-  const pageCountBatches = Math.max(1, Math.ceil(filteredBatches.length / BATCH_PAGE_SIZE));
-  const pagedBatches = filteredBatches.slice(
-    (batchPage - 1) * BATCH_PAGE_SIZE,
-    batchPage * BATCH_PAGE_SIZE,
-  );
-
-  useEffect(() => {
-    setBatchPage(1);
-  }, [searchQuery, speciesFilter, statusFilter, barangayFilter]);
-
-  useEffect(() => {
-    if (batchPage > pageCountBatches) setBatchPage(pageCountBatches);
-  }, [batchPage, pageCountBatches]);
+  }, [detailQuery.data, batchIdParam]);
+  const references = useQuery<{ species: { name: string }[]; barangays: { barangay_name: string }[] }>({
+    queryKey: ["admin-batch-filter-options"],
+    queryFn: async () => {
+      const [species, barangays] = await Promise.all([api.get("livestock/livestock_types/"), api.get("livestock/barangays/")]);
+      return { species: species.data, barangays: barangays.data };
+    }, staleTime: 10 * 60 * 1000,
+  });
+  const speciesList = (references.data?.species || []).map((s) => s.name);
+  const kpis = {
+    totalBatches: batchPageData?.count || 0,
+    totalAnimals: batchPageData?.summary.totalAnimals || 0,
+    approvedBatches: batchPageData?.summary.approvedBatches || 0,
+    pendingBatches: batchPageData?.summary.pendingBatches || 0,
+    verifiedBatches: batchPageData?.summary.verifiedBatches || 0,
+    revisionBatches: batchPageData?.summary.revisionBatches || 0,
+    avgHeads: batchPageData?.count ? ((batchPageData.summary.totalAnimals || 0) / batchPageData.count).toFixed(1) : "0",
+  };
+  const filteredBatches = batches;
+  const pagedBatches = batches;
 
   // ── Filtered Animals inside Selected Batch ──────────────────────────────
   const filteredChildAnimals = useMemo(() => {
@@ -403,7 +326,7 @@ function AdminBatchesDrilldownContent() {
         queryClient.cancelQueries({ queryKey: ["admin-batches-drilldown"] }),
       ]);
       const previousSibat = queryClient.getQueryData<BatchItem[]>(["sibat-batches-drilldown"]);
-      const previousAdmin = queryClient.getQueryData<BatchItem[]>(["admin-batches-drilldown"]);
+      const previousAdmin = queryClient.getQueriesData<BatchPage>({ queryKey: ["admin-batches-drilldown"] });
       const previousSelected = selectedBatch;
       const previousModal = batchReviewModal;
       const updateBatch = (batch: BatchItem): BatchItem =>
@@ -412,21 +335,24 @@ function AdminBatchesDrilldownContent() {
               ...batch,
               review_status: variables.status,
               review_remarks: variables.remarks,
-              animals: batch.animals.map((animal) => ({
+              animals: (batch.animals || []).map((animal) => ({
                 ...animal,
                 status: variables.status,
                 review_remarks: variables.remarks,
               })),
             }
           : batch;
-      for (const key of [["sibat-batches-drilldown"], ["admin-batches-drilldown"]]) {
-        queryClient.setQueryData<BatchItem[]>(key, (current) => current?.map(updateBatch));
-      }
+      queryClient.setQueryData<BatchItem[]>(["sibat-batches-drilldown"], (current) => current?.map(updateBatch));
+      queryClient.setQueriesData<BatchPage>({ queryKey: ["admin-batches-drilldown"] }, (current) => current ? { ...current, results: current.results.map(updateBatch) } : current);
       setSelectedBatch((current) => current ? updateBatch(current) : null);
       setBatchReviewModal((current) => ({ ...current, open: false }));
       return { previousSibat, previousAdmin, previousSelected, previousModal };
     },
     onSuccess: (data, variables) => {
+      if (data.batch) {
+        setSelectedBatch(data.batch);
+        queryClient.setQueryData(["admin-batch-detail", variables.batchId], data.batch);
+      }
       const verb =
         variables.status === "APPROVED"
           ? "approved & certified"
@@ -445,7 +371,7 @@ function AdminBatchesDrilldownContent() {
         queryClient.setQueryData(["sibat-batches-drilldown"], context.previousSibat);
       }
       if (context?.previousAdmin) {
-        queryClient.setQueryData(["admin-batches-drilldown"], context.previousAdmin);
+        for (const [key, value] of context.previousAdmin) queryClient.setQueryData(key, value);
       }
       setSelectedBatch(context?.previousSelected ?? null);
       if (context?.previousModal) setBatchReviewModal(context.previousModal);
@@ -470,6 +396,7 @@ function AdminBatchesDrilldownContent() {
       });
       queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-batch-detail"] });
       setBatchNoteText("");
     },
     onError: (err) => {
@@ -540,7 +467,9 @@ function AdminBatchesDrilldownContent() {
       />
 
       <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
-        {/* Navigation Breadcrumb / Top Bar */}
+        {(isError || detailQuery.isError) && <p role="alert" className="p-4 text-sm text-rose-700">Could not load livestock data. <button className="underline" onClick={() => { refetch(); detailQuery.refetch(); }}>Retry</button></p>}
+      {detailQuery.isFetching && <p className="px-4 text-xs text-slate-500">Loading herd roster...</p>}
+      {/* Navigation Breadcrumb / Top Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <div className="flex items-center gap-2">
             <Link href="/data-validation">
@@ -712,7 +641,7 @@ function AdminBatchesDrilldownContent() {
                   <SelectValue placeholder="All Species" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="ALL">All Species ({batches.length})</SelectItem>
+                  <SelectItem value="ALL">All Species</SelectItem>
                   {speciesList.map((sp) => (
                     <SelectItem key={sp} value={sp}>
                       {sp}
@@ -729,7 +658,7 @@ function AdminBatchesDrilldownContent() {
                   <SelectValue placeholder="Review Status" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="ALL">All Statuses ({batches.length})</SelectItem>
+                  <SelectItem value="ALL">All Statuses</SelectItem>
                   <SelectItem value="APPROVED">MAO Approved ({kpis.approvedBatches})</SelectItem>
                   <SelectItem value="PENDING">Awaiting SIBAT ({kpis.pendingBatches})</SelectItem>
                   <SelectItem value="VERIFIED">SIBAT Verified ({kpis.verifiedBatches})</SelectItem>
@@ -746,7 +675,7 @@ function AdminBatchesDrilldownContent() {
                 </SelectTrigger>
                 <SelectContent className="rounded-xl max-h-56">
                   <SelectItem value="ALL">All Barangays</SelectItem>
-                  {PADRE_GARCIA_BARANGAYS.map((brgy) => (
+                  {(references.data?.barangays || []).map((b) => b.barangay_name).map((brgy) => (
                     <SelectItem key={brgy} value={brgy}>
                       {brgy}
                     </SelectItem>
@@ -838,7 +767,7 @@ function AdminBatchesDrilldownContent() {
             {pagedBatches.map((batch) => {
               const headCount = batch.total_animals || batch.animals?.length || 0;
               const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
-              const sibatCheckedCount = (batch.animals || []).filter((animal) =>
+              const sibatCheckedCount = batch.verified_animals ?? (batch.animals || []).filter((animal) =>
                 ["VERIFIED", "APPROVED"].includes((animal.status || "").toUpperCase()),
               ).length;
               const verificationProgress =
@@ -1031,7 +960,7 @@ function AdminBatchesDrilldownContent() {
               );
             })}
             </div>
-            <BatchPager page={batchPage} pageSize={BATCH_PAGE_SIZE} total={filteredBatches.length} onPageChange={setBatchPage} />
+            <BatchPager page={batchPage} pageSize={BATCH_PAGE_SIZE} total={batchPageData?.count || 0} onPageChange={setBatchPage} />
           </div>
         ) : (
           /* Table View Mode */
@@ -1152,7 +1081,7 @@ function AdminBatchesDrilldownContent() {
               </Table>
             </div>
             <div className="border-t border-slate-200 bg-slate-50/50">
-              <BatchPager page={batchPage} pageSize={BATCH_PAGE_SIZE} total={filteredBatches.length} onPageChange={setBatchPage} />
+              <BatchPager page={batchPage} pageSize={BATCH_PAGE_SIZE} total={batchPageData?.count || 0} onPageChange={setBatchPage} />
             </div>
           </div>
         )}

@@ -1,3 +1,4 @@
+from livestock.list_queries import LivestockListPagination, filter_livestock_list, inventory_management_page
 from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
@@ -23,7 +24,6 @@ from smartlivestock.workflows import require_action, role_name, validate_review_
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-@transaction.atomic
 def inventory_list_create(request):
     """
     GET  /api/livestock/inventory/ -> List livestock inventory for logged-in farmer (or all for MAO/SIBAT/Admin)
@@ -34,24 +34,25 @@ def inventory_list_create(request):
 
     if request.method == "POST":
         require_action(user, "inventory", "create")
-        serializer = LivestockInventorySerializer(
-            data=request.data,
-            context={"request": request},
-        )
-        serializer.is_valid(raise_exception=True)
-        inventory = serializer.save()
-        farmer_name = user.get_full_name() or user.username
-        animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
-        notify_role(
-            barangay_id=inventory.farmer.barangay_id,
-            role_name="SIBAT",
-            notification_type=Notification.NotificationType.SIBAT,
-            priority=Notification.Priority.MEDIUM,
-            title="New Livestock Entry Awaiting Verification",
-            message=f"{farmer_name} registered {animal_name}. Review the entry and schedule field verification.",
-            link="/sibat-validation",
-        )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        with transaction.atomic():
+            serializer = LivestockInventorySerializer(
+                data=request.data,
+                context={"request": request},
+            )
+            serializer.is_valid(raise_exception=True)
+            inventory = serializer.save()
+            farmer_name = user.get_full_name() or user.username
+            animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
+            notify_role(
+                barangay_id=inventory.farmer.barangay_id,
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.SIBAT,
+                priority=Notification.Priority.MEDIUM,
+                title="New Livestock Entry Awaiting Verification",
+                message=f"{farmer_name} registered {animal_name}. Review the entry and schedule field verification.",
+                link="/sibat-validation",
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # GET: Enforce strict farmer data isolation
     if user_role == "FARMER":
@@ -85,15 +86,38 @@ def inventory_list_create(request):
             operational_status=LivestockInventory.OperationalStatus.ACTIVE
         )
 
+    inventories = filter_livestock_list(inventories, request.query_params)
     inventories = inventories.select_related(
         "livestock_type",
         "farmer__user",
         "farmer__barangay",
         "batch",
-        "reviewed_by",
+        "reviewed_by__role",
         "created_by",
+    ).only(
+        "id", "tag_number", "breed", "sex", "weight", "entry_type", "quantity",
+        "last_vaccination_date", "status", "operational_status", "operational_status_changed_at",
+        "review_remarks", "reviewed_at", "created_at", "photo", "avatar_key",
+        "livestock_type__id", "livestock_type__name",
+        "farmer__id", "farmer__user__id", "farmer__user__first_name", "farmer__user__last_name", "farmer__user__username",
+        "farmer__barangay__id", "farmer__barangay__barangay_name",
+        "batch__id", "batch__batch_code", "batch__batch_name",
+        "reviewed_by__id", "reviewed_by__first_name", "reviewed_by__last_name", "reviewed_by__username",
+        "reviewed_by__role__id", "reviewed_by__role__role_name",
+        "created_by__id", "created_by__first_name", "created_by__last_name", "created_by__username",
     ).order_by("-created_at")
 
+    if "page" in request.query_params and request.query_params.get("include_batches") == "true":
+        if role_name(user) == "FARMER":
+            batches = LivestockBatch.objects.filter(farmer__user=user)
+        else:
+            require_action(user, "batches", "read_all")
+            batches = scope_reviewer_queryset(LivestockBatch.objects.all(), user)
+        return inventory_management_page(inventories, batches, request)
+    if "page" in request.query_params:
+        pager = LivestockListPagination()
+        records = pager.paginate_queryset(inventories.order_by("-created_at", "-pk"), request)
+        return pager.get_paginated_response(LivestockInventorySerializer(records, many=True, context={"request": request}).data)
     serializer = LivestockInventorySerializer(
         inventories, many=True, context={"request": request}
     )
@@ -123,7 +147,7 @@ def inventory_detail(request, pk):
         "farmer__user",
         "farmer__barangay",
         "batch",
-        "reviewed_by",
+        "reviewed_by__role",
         "created_by",
     )
 
