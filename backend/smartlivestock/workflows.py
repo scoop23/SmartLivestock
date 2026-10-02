@@ -12,6 +12,8 @@ AUCTION = "AUCTION"
 
 
 ROLE_MATRIX = {
+    "disease": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "edit_own": {FARMER}, "review": {SIBAT, MAO}},
+    "mortality": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "edit_own": {FARMER}, "review": {SIBAT, MAO}},
     "production": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}},
     "inventory": {"create": {FARMER}, "read_all": {SIBAT, MAO}, "review": {SIBAT, MAO}, "edit_own": {FARMER}},
     "sales": {"create": {FARMER}, "read_all": {SIBAT, MAO, AUCTION}, "review": {SIBAT, MAO}, "delete_own": {FARMER}},
@@ -33,7 +35,7 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
         TransitionRule(SIBAT, "PENDING", frozenset({"VERIFIED", "SUBJECT_TO_REVISION"})),
         TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     )
-    for domain in ("inventory", "sales", "calving", "batches")
+    for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality")
 }
 
 # Production declarations use the same field-verification and municipal-approval steps.
@@ -92,3 +94,30 @@ def validate_batch_lifecycle(current: str, target: str) -> None:
         raise ValidationError(
             {"status": f"Batch status cannot move from {current} to {target}. Allowed next statuses: {allowed}."}
         )
+
+
+def scope_reviewer_queryset(queryset, user):
+    """SIBAT sees private domain records only in its explicitly assigned barangay."""
+    if role_name(user) != SIBAT:
+        return queryset
+    from django.db.models import Q
+    paths = {
+        "LivestockInventory": ("farmer__barangay_id",),
+        "LivestockBatch": ("farmer__barangay_id",),
+        "Farmer": ("barangay_id",),
+        "CensusSubmission": ("barangay_id",),
+        "ProductionRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+        "LiveAnimalSale": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+        "DiseaseCase": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+        "MortalityRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+        "CalvingRecord": ("dam__farmer__barangay_id",),
+        "WeightRecord": ("livestock__farmer__barangay_id",),
+        "AnimalDisposition": ("livestock__farmer__barangay_id",),
+    }
+    barangay_id = user.assigned_barangay_id
+    if not barangay_id or queryset.model.__name__ not in paths:
+        return queryset.none()
+    condition = Q()
+    for path in paths[queryset.model.__name__]:
+        condition |= Q(**{path: barangay_id})
+    return queryset.filter(condition)

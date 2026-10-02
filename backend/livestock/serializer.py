@@ -124,12 +124,19 @@ class LivestockInventorySerializer(serializers.Serializer):
         if farmer is None:
             raise serializers.ValidationError("A farmer profile is required.")
 
+        entry_type = attrs.get("entry_type", self.instance.entry_type if self.instance else "INDIVIDUAL")
+        quantity = attrs.get("quantity", self.instance.quantity if self.instance else 1)
+        if entry_type == "INDIVIDUAL" and quantity != 1:
+            raise serializers.ValidationError({"quantity": "An individual animal must represent exactly one head."})
+
         current_batch_id = self.instance.batch_id if self.instance else None
         batch = attrs.get("batch", self.instance.batch if self.instance else None)
         if current_batch_id and (batch is None or batch.pk != current_batch_id):
             raise serializers.ValidationError(
                 {"batch": "A herd member cannot be moved to another herd or detached."}
             )
+        if batch and (entry_type != "INDIVIDUAL" or quantity != 1):
+            raise serializers.ValidationError({"quantity": "Herd members must be individual animals with one head each."})
         if batch:
             batch = LivestockBatch.objects.select_for_update().get(pk=batch.pk)
             if batch.farmer_id != farmer.pk:  # type: ignore[attr-defined]

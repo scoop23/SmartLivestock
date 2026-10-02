@@ -1,3 +1,4 @@
+from django.db.models import Sum
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from .models import DiseaseCase, MortalityRecord
@@ -59,7 +60,6 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "reviewed_at",
             "review_remarks",
             "previous_remarks",
-            "inventory_reconciled_at",
             "created_by",
             "created_at",
         )
@@ -72,7 +72,6 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "reviewed_at",
             "review_remarks",
             "previous_remarks",
-            "inventory_reconciled_at",
             "created_by",
             "created_at",
         )
@@ -130,25 +129,23 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
         if not value:
             return value
         user = self.context["request"].user
-        # If user has a farmer profile, enforce that they can only log for their own animals
-        if hasattr(user, "farmer_profile"):
-            if value.farmer_id != user.farmer_profile.id:
-                raise ValidationError(
-                    "You can only report disease cases against your own livestock inventory."
-                )
+        # Ownership is authoritative even if the submitting user has no farmer profile.
+        if value.farmer.user_id != user.pk:
+            raise ValidationError(
+                "You can only report disease cases against your own livestock inventory."
+            )
         if value.operational_status != value.OperationalStatus.ACTIVE:
-            raise ValidationError("Mortality can only be recorded for active livestock.")
+            raise ValidationError("Disease can only be reported for active livestock.")
         return value
 
     def validate_batch(self, value):
         if not value:
             return value
         user = self.context["request"].user
-        if hasattr(user, "farmer_profile"):
-            if value.farmer_id != user.farmer_profile.id:
-                raise ValidationError(
-                    "You can only report disease cases against your own livestock batches."
-                )
+        if value.farmer.user_id != user.pk:
+            raise ValidationError(
+                "You can only report disease cases against your own livestock batches."
+            )
         return value
 
     def validate(self, attrs):
@@ -161,8 +158,12 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             batch = attrs.get("batch", self.instance.batch)
             affected_count = attrs.get("affected_count", self.instance.affected_count)
 
-        if not livestock and not batch:
-            raise ValidationError("Either an individual livestock animal or herd must be specified.")
+        if bool(livestock) == bool(batch):
+            raise ValidationError("Specify exactly one individual animal or herd.")
+        if livestock and "livestock" not in attrs:
+            self.validate_livestock(livestock)
+        if batch and "batch" not in attrs:
+            self.validate_batch(batch)
 
         if affected_count is not None and affected_count <= 0:
             raise ValidationError({"affected_count": "Affected count must be a positive number."})
@@ -175,6 +176,10 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        if batch:
+            available = batch.animals.filter(operational_status="ACTIVE").aggregate(heads=Sum("quantity"))["heads"] or 0
+            if batch.status != "ACTIVE" or affected_count > available:
+                raise ValidationError({"affected_count": "Affected heads cannot exceed the active herd population."})
         return attrs
 
     def create(self, validated_data):
@@ -354,22 +359,22 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         if not value:
             return value
         user = self.context["request"].user
-        if hasattr(user, "farmer_profile"):
-            if value.farmer_id != user.farmer_profile.id:
-                raise ValidationError(
-                    "You can only log mortality records against your own livestock inventory."
-                )
+        if value.farmer.user_id != user.pk:
+            raise ValidationError(
+                "You can only log mortality records against your own livestock inventory."
+            )
+        if value.status != "APPROVED" or value.operational_status != "ACTIVE" or value.quantity != 1:
+            raise ValidationError("Mortality requires an approved, active animal representing one head.")
         return value
 
     def validate_batch(self, value):
         if not value:
             return value
         user = self.context["request"].user
-        if hasattr(user, "farmer_profile"):
-            if value.farmer_id != user.farmer_profile.id:
-                raise ValidationError(
-                    "You can only log mortality records against your own livestock batches."
-                )
+        if value.farmer.user_id != user.pk:
+            raise ValidationError(
+                "You can only log mortality records against your own livestock batches."
+            )
         return value
 
     def validate(self, attrs):
@@ -384,8 +389,12 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             death_count = attrs.get("death_count", self.instance.death_count)
             source_disease = attrs.get("source_disease_case", self.instance.source_disease_case)
 
-        if not livestock and not batch:
-            raise ValidationError("Either an individual livestock animal or herd must be specified.")
+        if bool(livestock) == bool(batch):
+            raise ValidationError("Specify exactly one individual animal or herd.")
+        if livestock and "livestock" not in attrs:
+            self.validate_livestock(livestock)
+        if batch and "batch" not in attrs:
+            self.validate_batch(batch)
 
         if death_count is not None and death_count <= 0:
             raise ValidationError({"death_count": "Death count must be at least 1."})
@@ -398,13 +407,14 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
                     }
                 )
 
-        if source_disease and livestock:
-            if source_disease.livestock_id and source_disease.livestock_id != livestock.id:
-                raise ValidationError(
-                    {
-                        "source_disease_case": "The referenced disease case belongs to a different livestock item."
-                    }
-                )
+        # An aggregate herd count cannot identify which animals must become DECEASED.
+        if batch:
+            raise ValidationError({"batch": "Select the exact individual deceased animal; aggregate herd mortality cannot reconcile inventory."})
+        if death_count != 1:
+            raise ValidationError({"death_count": "An individual mortality declaration must have a death count of 1."})
+        if source_disease and (source_disease.livestock_id != livestock.pk and
+                not (source_disease.livestock_id is None and source_disease.batch_id and source_disease.batch_id == livestock.batch_id)):
+            raise ValidationError({"source_disease_case": "Disease must refer to this animal or its own herd."})
 
         return attrs
 

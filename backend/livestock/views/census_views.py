@@ -1,3 +1,5 @@
+from django.db import transaction
+from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -67,20 +69,22 @@ def census_list_create(request):
         .order_by("-created_at", "-submission_date")
     )
 
+    submissions = scope_reviewer_queryset(submissions, request.user)
     serializer = CensusSubmissionSerializer(submissions, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["GET", "PUT", "PATCH"])
 @permission_classes([IsAuthenticated, isSibat | isMAO])
+@transaction.atomic
 def census_detail(request, pk):
     """
     GET       /api/livestock/census/<id>/ -> Retrieve single census submission
     PUT/PATCH /api/livestock/census/<id>/ -> Update census submission header/remarks
     """
     census = get_object_or_404(
-        CensusSubmission.objects.select_related("barangay", "submitted_by", "reviewed_by")
-        .prefetch_related("items__farmer__user", "items__livestock_type"),
+        scope_reviewer_queryset(CensusSubmission.objects.select_for_update(of=("self",)).select_related("barangay", "submitted_by", "reviewed_by")
+        .prefetch_related("items__farmer__user", "items__livestock_type"), request.user),
         pk=pk,
     )
 

@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 # TODO: Write tests for:
@@ -43,6 +44,8 @@ class ProductionRecordAPITests(APITestCase):
         barangay = Barangay.objects.create(
             barangay_name="San Roque", latitude=13.8821, longitude=121.2144,
         )
+        self.sibat_user.assigned_barangay = barangay
+        self.sibat_user.save(update_fields=["assigned_barangay"])
         self.farmer = Farmer.objects.create(
             user=self.farmer_user, barangay=barangay, address="Purok 1",
         )
@@ -476,8 +479,9 @@ class ProductionRecordAPITests(APITestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("active", str(response.data))
         animal.operational_status = "ACTIVE"
+        animal.entry_type = "BATCH"  # Legacy aggregate rows remain distinct from individual animals.
         animal.quantity = 0
-        animal.save(update_fields=["operational_status", "quantity"])
+        animal.save(update_fields=["entry_type", "operational_status", "quantity"])
         self.assertEqual(self.client.post("/production/records/", payload).status_code, 400)
 
     def test_inventory_encoder_cannot_submit_other_farmers_meat(self):
@@ -515,9 +519,10 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(self.client.post("/production/records/", payload).status_code, 400)
         self.assertEqual(self.client.patch(f"/production/records/{record_id}/", {"quantity": "6"}).status_code, 400)
         animal.operational_status = "ACTIVE"
+        animal.entry_type = "BATCH"  # Legacy aggregate rows remain distinct from individual animals.
         animal.quantity = 0
-        animal.save(update_fields=["operational_status", "quantity"])
-        self.assertEqual(self.client.post("/production/records/", payload).status_code, 400)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            animal.save(update_fields=["entry_type", "operational_status", "quantity"])
 
     def test_meat_edit_revalidates_omitted_inventory_source(self):
         animal = self.swine_animal()
@@ -669,9 +674,11 @@ class ProductionRecordAPITests(APITestCase):
         animals[0].save(update_fields=["operational_status", "status"])
         self.assertEqual(self.submit_slaughter(herd, animals[:1]).status_code, 400)
         animals[0].status = "APPROVED"
+        # A multi-head herd child is rejected at storage time, before slaughter selection.
+        animals[0].entry_type = "BATCH"
         animals[0].quantity = 3
-        animals[0].save(update_fields=["status", "quantity"])
-        self.assertEqual(self.submit_slaughter(herd, animals[:1]).status_code, 400)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            animals[0].save(update_fields=["entry_type", "status", "quantity"])
 
     def test_approval_rolls_back_if_selected_animal_is_no_longer_available(self):
         herd, animals = self.slaughter_herd(2)

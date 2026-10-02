@@ -29,6 +29,7 @@ class DescriptiveSummaryTests(TestCase):
         return LivestockInventory.objects.create(
             farmer=self.farmer, livestock_type=species or self.cattle,
             batch=batch, status=status, quantity=quantity,
+            entry_type="INDIVIDUAL" if quantity == 1 else "BATCH",
             operational_status=operational, last_vaccination_date=vaccination,
             created_by=self.user,
         )
@@ -118,7 +119,7 @@ class DescriptiveSummaryTests(TestCase):
         user = User.objects.create_user(username="farmer2", email="farmer2@example.test", role=self.user.role)
         farmer = Farmer.objects.create(user=user, barangay=other, address="Other farm")
         self.animal(quantity=3, vaccination=self.today)
-        LivestockInventory.objects.create(farmer=farmer, livestock_type=self.goat, quantity=2, status="APPROVED", created_by=user)
+        LivestockInventory.objects.create(farmer=farmer, livestock_type=self.goat, entry_type="BATCH", quantity=2, status="APPROVED", created_by=user)
         for status in ("PENDING", "VERIFIED", "SUBJECT_TO_REVISION"):
             self.animal(status=status, quantity=20)
         for operational in ("SOLD", "DECEASED", "SLAUGHTERED", "MOVED_OUT"):

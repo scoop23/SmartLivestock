@@ -30,6 +30,8 @@ class HerdRevisionTests(APITestCase):
         barangay = Barangay.objects.create(
             barangay_name="Herd Test", latitude=13.8821, longitude=121.2144,
         )
+        self.sibat_user.assigned_barangay = barangay
+        self.sibat_user.save(update_fields=["assigned_barangay"])
         farmer = Farmer.objects.create(
             user=self.farmer_user, barangay=barangay, farm_size=1, address="Test farm",
         )

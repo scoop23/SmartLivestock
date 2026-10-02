@@ -8,6 +8,8 @@ from livestock.models import LivestockBatch, LivestockInventory
 
 
 def _require_active(inventory: LivestockInventory, event_name: str) -> None:
+    if inventory.status != LivestockInventory.StatusType.APPROVED or inventory.quantity != 1:
+        raise ValidationError({"inventory": f"{event_name} requires an approved individual animal with one head."})
     if inventory.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
         raise ValidationError(
             {
@@ -64,6 +66,8 @@ def reconcile_approved_sale(sale):
         raise ValidationError({"status": "Only an approved sale can update inventory."})
 
     changed_at = timezone.now()
+    if bool(sale.livestock_id) == bool(sale.batch_id) or sale.quantity <= 0:
+        raise ValidationError({"inventory": "Select exactly one sale source and a positive head count."})
     if sale.livestock_id:
         inventory = LivestockInventory.objects.select_for_update().get(pk=sale.livestock_id)
         _require_active(inventory, "Sale")
@@ -74,14 +78,18 @@ def reconcile_approved_sale(sale):
         inventory.save(update_fields=["operational_status", "operational_status_changed_at"])
     elif sale.batch_id:
         batch = LivestockBatch.objects.select_for_update().get(pk=sale.batch_id)
+        if batch.status != batch.StatusType.ACTIVE:
+            raise ValidationError({"batch": "Only an active herd can be sold."})
+        if batch.animals.filter(operational_status="ACTIVE").exclude(status="APPROVED").exists():
+            raise ValidationError({"batch": "All active herd animals must be approved before a full-herd sale."})
         active_animals = list(
             LivestockInventory.objects.select_for_update().filter(
                 batch=batch,
                 status=LivestockInventory.StatusType.APPROVED,
                 operational_status=LivestockInventory.OperationalStatus.ACTIVE,
-            )
+            ).order_by("pk")
         )
-        if sale.quantity != len(active_animals):
+        if any(animal.quantity != 1 for animal in active_animals) or sale.quantity != len(active_animals):
             raise ValidationError(
                 {"quantity": "Only a complete active batch can be reconciled until exact animals are selected."}
             )

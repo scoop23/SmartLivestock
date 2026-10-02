@@ -71,6 +71,7 @@ class DiseaseAndMortalityAPITests(APITestCase):
         self.farmer1_livestock = LivestockInventory.objects.create(
             farmer=self.farmer1_profile,
             livestock_type=self.cattle_type,
+            entry_type="BATCH",
             quantity=5,
             tag_number="TAG-001",
             breed="Brahman",
@@ -81,11 +82,17 @@ class DiseaseAndMortalityAPITests(APITestCase):
         self.farmer2_livestock = LivestockInventory.objects.create(
             farmer=self.farmer2_profile,
             livestock_type=self.cattle_type,
+            entry_type="BATCH",
             quantity=3,
             tag_number="TAG-002",
             breed="Angus",
             created_by=self.farmer2_user,
         )
+
+        User.objects.filter(role__role_name="SIBAT").update(assigned_barangay=self.barangay)
+        for value in vars(self).values():
+            if isinstance(value, User) and value.role.role_name == "SIBAT":
+                value.assigned_barangay_id = self.barangay.pk
 
     def test_unauthenticated_requests_blocked(self):
         response = self.client.get("/diseases/cases/")
@@ -363,6 +370,11 @@ class DiseaseAndMortalityAPITests(APITestCase):
         self.assertEqual(case.status, DiseaseCase.DiseaseStatus.APPROVED)
 
     def test_mortality_record_creation_and_review(self):
+        self.farmer1_livestock.entry_type = "INDIVIDUAL"
+        self.farmer1_livestock.quantity = 1
+        self.farmer1_livestock.status = "APPROVED"
+        self.farmer1_livestock.save()
+
         self.client.force_authenticate(user=self.farmer1_user)
         payload = {
             "livestock": self.farmer1_livestock.pk,

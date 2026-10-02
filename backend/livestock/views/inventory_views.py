@@ -1,3 +1,4 @@
+from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from django.db.models import Q
@@ -42,6 +43,7 @@ def inventory_list_create(request):
         farmer_name = user.get_full_name() or user.username
         animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
         notify_role(
+            barangay_id=inventory.farmer.barangay_id,
             role_name="SIBAT",
             notification_type=Notification.NotificationType.SIBAT,
             priority=Notification.Priority.MEDIUM,
@@ -56,13 +58,13 @@ def inventory_list_create(request):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             inventories = LivestockInventory.objects.filter(
-                Q(farmer=farmer_profile) | Q(created_by=user)
+                Q(farmer=farmer_profile)
             ).distinct()
         else:
-            inventories = LivestockInventory.objects.filter(created_by=user)
+            inventories = LivestockInventory.objects.none()
     else:
         require_action(user, "inventory", "read_all")
-        inventories = LivestockInventory.objects.all()
+        inventories = scope_reviewer_queryset(LivestockInventory.objects.all(), request.user)
 
     requested_operational_status = request.query_params.get("operational_status")
     include_inactive = request.query_params.get("include_inactive", "").lower() == "true"
@@ -132,13 +134,13 @@ def inventory_detail(request, pk):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             inventory = get_object_or_404(
-                base_qs, Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
+                base_qs, Q(farmer=farmer_profile), pk=pk
             )
         else:
-            inventory = get_object_or_404(base_qs, created_by=user, pk=pk)
+            inventory = get_object_or_404(base_qs.none(), pk=pk)
     else:
         require_action(user, "inventory", "read_all")
-        inventory = get_object_or_404(base_qs, pk=pk)
+        inventory = get_object_or_404(scope_reviewer_queryset(base_qs, request.user), pk=pk)
 
     if request.method in ["PUT", "PATCH", "DELETE"]:
         require_action(user, "inventory", "edit_own")
@@ -187,6 +189,7 @@ def inventory_detail(request, pk):
             farmer_name = user.get_full_name() or user.username
             animal_name = inventory.tag_number or inventory.breed or inventory.livestock_type.name #type: ignore
             notify_role(
+                barangay_id=inventory.farmer.barangay_id,
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.SIBAT,
                 priority=Notification.Priority.MEDIUM,
@@ -203,6 +206,7 @@ def inventory_detail(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def review_inventory(request, pk):
     """
     POST /api/livestock/inventory/<id>/review/
@@ -210,7 +214,7 @@ def review_inventory(request, pk):
     - SIBAT: Field tagging & verification (status = VERIFIED)
     - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    inventory = get_object_or_404(LivestockInventory, pk=pk)
+    inventory = get_object_or_404(scope_reviewer_queryset(LivestockInventory.objects.select_for_update(), request.user), pk=pk)
 
     if inventory.batch_id: # type: ignore
         batch = inventory.batch
@@ -327,10 +331,12 @@ def get_barangays(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_farmer_by_barangays(request, barangay_id):
     """
     GET /api/livestock/farmers/<barangay_id>/
     """
-    farmers = Farmer.objects.filter(barangay_id=barangay_id).select_related("user")
+    require_action(request.user, "census", "read_all")
+    farmers = scope_reviewer_queryset(Farmer.objects.filter(barangay_id=barangay_id).select_related("user"), request.user)
     serializer = FarmerOptionsSerializer(farmers, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)

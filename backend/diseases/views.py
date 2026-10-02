@@ -1,3 +1,4 @@
+from smartlivestock.workflows import scope_reviewer_queryset
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -7,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
+from smartlivestock.workflows import require_action, validate_review_transition
 
 from users.models import User, Notification
 from users.notification_views import create_notification
@@ -104,7 +106,9 @@ def _notify_disease_case_created(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(role__role_name__in=["SIBAT", "MAO"]):
+        for staff in User.objects.filter(
+            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
+        ):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -122,7 +126,9 @@ def _notify_disease_case_resubmitted(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(role__role_name__in=["SIBAT", "MAO"]):
+        for staff in User.objects.filter(
+            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
+        ):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -223,7 +229,9 @@ def _notify_mortality_record_created(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(role__role_name__in=["SIBAT", "MAO"]):
+        for staff in User.objects.filter(
+            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
+        ):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -241,7 +249,9 @@ def _notify_mortality_record_resubmitted(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(role__role_name__in=["SIBAT", "MAO"]):
+        for staff in User.objects.filter(
+            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
+        ):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -267,6 +277,7 @@ def disease_case_list_create(request):
     POST /diseases/cases/ -> Submit a new disease case report
     """
     if request.method == "POST":
+        require_action(request.user, "disease", "create")
         serializer = DiseaseCaseSerializer(
             data=request.data,
             context={"request": request},
@@ -282,11 +293,12 @@ def disease_case_list_create(request):
 
     if role_name == "FARMER":
         records = DiseaseCase.objects.filter(
-            Q(created_by=user) | Q(livestock__farmer__user=user)
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
         ).distinct()
     else:
         # MAO, SIBAT: list all municipal disease cases
-        records = DiseaseCase.objects.all()
+        require_action(user, "disease", "read_all")
+        records = scope_reviewer_queryset(DiseaseCase.objects.all(), request.user)
 
     # Apply optional query param filters
     status_param = request.query_params.get("status")
@@ -301,6 +313,9 @@ def disease_case_list_create(request):
         "livestock__farmer__user",
         "livestock__farmer__barangay",
         "livestock__livestock_type",
+        "batch__farmer__user",
+        "batch__farmer__barangay",
+        "batch__livestock_type",
         "created_by",
         "reviewed_by",
     ).order_by("-record_date", "-created_at")
@@ -311,6 +326,7 @@ def disease_case_list_create(request):
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def disease_case_detail(request, pk):
     """
     GET    /diseases/cases/<pk>/ -> Retrieve single disease case
@@ -323,12 +339,18 @@ def disease_case_detail(request, pk):
 
     if role_name == "FARMER":
         record = get_object_or_404(
-            DiseaseCase,
-            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
+            DiseaseCase.objects.select_for_update(),
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
     else:
-        record = get_object_or_404(DiseaseCase, pk=pk)
+        require_action(user, "disease", "read_all")
+        record = get_object_or_404(scope_reviewer_queryset(DiseaseCase.objects.all(), request.user), pk=pk)
+
+    if request.method in {"PUT", "PATCH", "DELETE"}:
+        require_action(user, "disease", "edit_own")
+        if request.method != "DELETE" and record.status not in {"PENDING", "SUBJECT_TO_REVISION"}:
+            return Response({"error": "Verified or approved health records are locked."}, status=409)
 
     if request.method == "DELETE":
         if record.status != DiseaseCase.DiseaseStatus.PENDING:
@@ -372,6 +394,7 @@ def disease_case_detail(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def review_disease_case(request, pk):
     """
     POST /diseases/cases/<pk>/review/
@@ -379,7 +402,7 @@ def review_disease_case(request, pk):
     - SIBAT: Can verify (status = VERIFIED)
     - MAO: Final municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    record = get_object_or_404(DiseaseCase, pk=pk)
+    record = get_object_or_404(scope_reviewer_queryset(DiseaseCase.objects.select_for_update(), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -422,6 +445,8 @@ def review_disease_case(request, pk):
     else:
         raise PermissionDenied("You do not have permission to review disease cases.")
 
+    validate_review_transition(domain="disease", role=role_name, current=record.status, target=new_status, remarks=remarks)
+
     if "inspector_photo" in request.FILES:
         record.inspector_photo = request.FILES["inspector_photo"]
     record.status = new_status
@@ -448,6 +473,7 @@ def mortality_record_list_create(request):
     POST /diseases/mortality/ -> Log a new livestock mortality record
     """
     if request.method == "POST":
+        require_action(request.user, "mortality", "create")
         serializer = MortalityRecordSerializer(
             data=request.data,
             context={"request": request},
@@ -463,11 +489,12 @@ def mortality_record_list_create(request):
 
     if role_name == "FARMER":
         records = MortalityRecord.objects.filter(
-            Q(created_by=user) | Q(livestock__farmer__user=user)
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
         ).distinct()
     else:
         # MAO, SIBAT: list all municipal mortality records
-        records = MortalityRecord.objects.all()
+        require_action(user, "mortality", "read_all")
+        records = scope_reviewer_queryset(MortalityRecord.objects.all(), request.user)
 
     # Apply optional query param filters
     status_param = request.query_params.get("status")
@@ -487,6 +514,9 @@ def mortality_record_list_create(request):
         "livestock__farmer__barangay",
         "livestock__livestock_type",
         "source_disease_case",
+        "batch__farmer__user",
+        "batch__farmer__barangay",
+        "batch__livestock_type",
         "created_by",
         "reviewed_by",
     ).order_by("-record_date", "-created_at")
@@ -497,6 +527,7 @@ def mortality_record_list_create(request):
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def mortality_record_detail(request, pk):
     """
     GET    /diseases/mortality/<pk>/ -> Retrieve single mortality record
@@ -509,12 +540,18 @@ def mortality_record_detail(request, pk):
 
     if role_name == "FARMER":
         record = get_object_or_404(
-            MortalityRecord,
-            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
+            MortalityRecord.objects.select_for_update(),
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
     else:
-        record = get_object_or_404(MortalityRecord, pk=pk)
+        require_action(user, "mortality", "read_all")
+        record = get_object_or_404(scope_reviewer_queryset(MortalityRecord.objects.all(), request.user), pk=pk)
+
+    if request.method in {"PUT", "PATCH", "DELETE"}:
+        require_action(user, "mortality", "edit_own")
+        if request.method != "DELETE" and record.status not in {"PENDING", "SUBJECT_TO_REVISION"}:
+            return Response({"error": "Verified or approved health records are locked."}, status=409)
 
     if request.method == "DELETE":
         if record.status != MortalityRecord.MortalityRecordStatus.PENDING:
@@ -566,7 +603,7 @@ def review_mortality_record(request, pk):
     - SIBAT: Can verify on-farm (status = VERIFIED)
     - MAO: Final municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    record = get_object_or_404(MortalityRecord, pk=pk)
+    record = get_object_or_404(scope_reviewer_queryset(MortalityRecord.objects.select_for_update(), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -608,6 +645,8 @@ def review_mortality_record(request, pk):
             )
     else:
         raise PermissionDenied("You do not have permission to review mortality records.")
+
+    validate_review_transition(domain="mortality", role=role_name, current=record.status, target=new_status, remarks=remarks)
 
     if "inspector_photo" in request.FILES:
         record.inspector_photo = request.FILES["inspector_photo"]

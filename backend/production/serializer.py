@@ -352,7 +352,7 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
         if value is None:
             return value
         user = self.context["request"].user
-        if value.farmer.user_id != user.id and value.created_by_id != user.id:
+        if value.farmer.user_id != user.id:
             raise ValidationError("You can only record a sale for your own livestock.")
         if value.status != LivestockInventory.StatusType.APPROVED:
             raise ValidationError("Only approved livestock can be recorded as sold.")
@@ -364,19 +364,29 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
         if value is None:
             return value
         user = self.context["request"].user
-        if value.farmer.user_id != user.id and value.created_by_id != user.id:
+        if value.farmer.user_id != user.id:
             raise ValidationError("You can only record a sale for your own batch.")
         return value
 
     def validate(self, attrs):
-        livestock = attrs.get("livestock")
-        batch = attrs.get("batch")
+        livestock = attrs.get("livestock", self.instance.livestock if self.instance else None)
+        batch = attrs.get("batch", self.instance.batch if self.instance else None)
         if bool(livestock) == bool(batch):
             raise ValidationError("Provide either livestock or batch, but not both.")
-        quantity = attrs.get("quantity")
+        if livestock:
+            self.validate_livestock(livestock)
+        if batch:
+            self.validate_batch(batch)
+        if self.instance and (self.instance.livestock_id != getattr(livestock, "pk", None) or self.instance.batch_id != getattr(batch, "pk", None)):
+            raise ValidationError({"inventory": "The original sale source cannot be replaced."})
+        quantity = attrs.get("quantity", self.instance.quantity if self.instance else None)
         if livestock and quantity != 1:
             raise ValidationError({"quantity": "An individual livestock sale must have a quantity of 1."})
+        if quantity is None or quantity <= 0:
+            raise ValidationError({"quantity": "Sale head count must be positive."})
         if batch:
+            if batch.status != "ACTIVE" or batch.animals.filter(operational_status="ACTIVE").exclude(status="APPROVED").exists():
+                raise ValidationError({"batch": "A sale requires an active herd with approved active animals."})
             active_count = batch.animals.filter(
                 status=LivestockInventory.StatusType.APPROVED,
                 operational_status=LivestockInventory.OperationalStatus.ACTIVE,
@@ -393,7 +403,14 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
-        pass
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        if instance.status == "SUBJECT_TO_REVISION":
+            instance.status = "PENDING"
+            instance.reviewed_by = None
+            instance.reviewed_at = None
+        instance.save()
+        return instance
 
     def create(self, validated_data):
         user = self.context["request"].user
@@ -430,6 +447,13 @@ class WeightRecordSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("created_at",)
+
+    def validate_livestock(self, value):
+        if value.farmer.user_id != self.context["request"].user.pk:
+            raise ValidationError("Select your own livestock.")
+        if value.operational_status != "ACTIVE":
+            raise ValidationError("Select active livestock.")
+        return value
 
     def create(self, validated_data):
         user = self.context["request"].user
@@ -523,7 +547,7 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
 
     def validate_dam(self, value):
         user = self.context["request"].user
-        if value.farmer.user_id != user.id and value.created_by_id != user.id:
+        if value.farmer.user_id != user.id:
             raise ValidationError("You can only record calving for your own livestock.")
         if value.status != LivestockInventory.StatusType.APPROVED:
             raise ValidationError("Only approved livestock can be used as the dam.")
@@ -532,6 +556,12 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
         if value.sex.upper() not in {"FEMALE", "F"}:
             raise ValidationError("The selected dam must be female.")
         return value
+
+    def validate(self, attrs):
+        if self.instance and "dam" in attrs and attrs["dam"].pk != self.instance.dam_id:
+            raise ValidationError({"dam": "The dam cannot be changed on an existing birth declaration."})
+        self.validate_dam(attrs.get("dam", self.instance.dam if self.instance else None))
+        return attrs
 
     def create(self, validated_data):
         user = self.context["request"].user
@@ -584,6 +614,13 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("created_at",)
+
+    def validate_livestock(self, value):
+        if value.farmer.user_id != self.context["request"].user.pk:
+            raise ValidationError("Select your own livestock.")
+        if value.operational_status != "ACTIVE":
+            raise ValidationError("Select active livestock.")
+        return value
 
     def create(self, validated_data):
         user = self.context["request"].user

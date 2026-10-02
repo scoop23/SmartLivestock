@@ -1,5 +1,6 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -203,6 +204,26 @@ class LivestockInventory(models.Model):
         related_name="created_inventories",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            # This also protects bulk imports and QuerySet.update(), which bypass clean().
+            models.CheckConstraint(
+                condition=~models.Q(entry_type="INDIVIDUAL") | models.Q(quantity=1),
+                name="individual_inventory_one_head",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(batch__isnull=True) | models.Q(entry_type="INDIVIDUAL", quantity=1),
+                name="herd_inventory_one_animal",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.entry_type == self.EntryType.INDIVIDUAL and self.quantity != 1:
+            raise ValidationError({"quantity": "An individual animal must represent exactly one head."})
+        if self.batch_id and (self.farmer_id != self.batch.farmer_id or self.livestock_type_id != self.batch.livestock_type_id):
+            raise ValidationError({"batch": "Animal ownership and species must match its herd."})
 
     def __str__(self):
         tag = f" [{self.tag_number}]" if self.tag_number else ""

@@ -36,12 +36,15 @@ def notify_role(
     message: str = "",
     priority: str = Notification.Priority.MEDIUM,
     link: str | None = None,
+    barangay_id: int | None = None,
 ) -> int:
     """Create the same in-app notification for every approved user in a role."""
     recipients = User.objects.filter(
         role__role_name=role_name,
         account_status=User.AccountStatus.APPROVED,
     )
+    if role_name == "SIBAT" and barangay_id is not None:
+        recipients = recipients.filter(assigned_barangay_id=barangay_id)
     notifications = [
         Notification(
             user=user,

@@ -1,3 +1,4 @@
+from smartlivestock.workflows import scope_reviewer_queryset
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -94,6 +95,7 @@ def batch_list_create(request):
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         farmer_name = user.get_full_name() or user.username
         notify_role(
+            barangay_id=batch.farmer.barangay_id,
             role_name="SIBAT",
             notification_type=Notification.NotificationType.SIBAT,
             priority=Notification.Priority.MEDIUM,
@@ -108,13 +110,13 @@ def batch_list_create(request):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batches = LivestockBatch.objects.filter(
-                Q(farmer=farmer_profile) | Q(created_by=user)
+                Q(farmer=farmer_profile)
             ).distinct()
         else:
-            batches = LivestockBatch.objects.filter(created_by=user)
+            batches = LivestockBatch.objects.none()
     else:
         require_action(user, "batches", "read_all")
-        batches = LivestockBatch.objects.all()
+        batches = scope_reviewer_queryset(LivestockBatch.objects.all(), request.user)
 
     # Optional query filters
     livestock_type_param = request.query_params.get("livestock_type")
@@ -149,13 +151,13 @@ def batch_detail(request, pk):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
-                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
+                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile), pk=pk
             )
         else:
-            batch = get_object_or_404(LivestockBatch.objects.select_for_update(), created_by=user, pk=pk)
+            batch = get_object_or_404(LivestockBatch.objects.none(), pk=pk)
     else:
         require_action(user, "batches", "read_all")
-        batch = get_object_or_404(LivestockBatch.objects.select_for_update(), pk=pk)
+        batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
 
     if request.method == "GET":
         serializer = LivestockBatchSerializer(batch, context={"request": request})
@@ -192,6 +194,11 @@ def batch_detail(request, pk):
             "notes",
         ]
         if "status" in data:
+            # Selling/harvesting is the result of an approved event, never a farmer toggle.
+            if data["status"] != batch.status and data["status"] != "ARCHIVED":
+                return Response({"error": "Herd operational transitions require an approved sale or slaughter."}, status=409)
+            if data["status"] == "ARCHIVED" and batch.animals.filter(operational_status="ACTIVE").exists():
+                return Response({"error": "A herd with active animals cannot be archived."}, status=409)
             validate_batch_lifecycle(batch.status, data["status"])
         for field in updatable:
             if field in data:
@@ -207,6 +214,7 @@ def batch_detail(request, pk):
                 reviewed_at=None,
             )
             notify_role(
+                barangay_id=batch.farmer.barangay_id,
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.SIBAT,
                 title="Herd Resubmitted for Verification",
@@ -253,13 +261,13 @@ def batch_add_animals(request, pk):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
-                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile) | Q(created_by=user), pk=pk
+                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile), pk=pk
             )
         else:
-            batch = get_object_or_404(LivestockBatch.objects.select_for_update(), created_by=user, pk=pk)
+            batch = get_object_or_404(LivestockBatch.objects.none(), pk=pk)
     else:
         require_action(user, "batches", "edit_own")
-        batch = get_object_or_404(LivestockBatch, pk=pk)
+        batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
 
     if batch.status != LivestockBatch.StatusType.ACTIVE:
         return Response(
@@ -326,7 +334,7 @@ def batch_review(request, pk):
     - SIBAT: Field inspection of the pen/herd (status = VERIFIED or SUBJECT_TO_REVISION)
     - MAO: Official municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    batch = get_object_or_404(LivestockBatch.objects.select_for_update(), pk=pk)
+    batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
     if batch.status != LivestockBatch.StatusType.ACTIVE:
         return Response(
             {"error": "Only active herds can enter validation."},
@@ -446,6 +454,7 @@ def batch_review(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def batch_add_notes(request, pk):
     """
     POST /api/livestock/batches/<id>/notes/
@@ -457,7 +466,7 @@ def batch_add_notes(request, pk):
     if user_role != "ADMIN":
         require_action(user, "batches", "review")
 
-    batch = get_object_or_404(LivestockBatch, pk=pk)
+    batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
 
     text = request.data.get("text", "").strip()
     if not text:

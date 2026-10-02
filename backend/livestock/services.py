@@ -24,6 +24,11 @@ class CensusService:
         3. Create all child CensusSubmissionItem in one atomic transaction
         """
 
+        if role_name(user) != "SIBAT" or user.assigned_barangay_id != barangay.pk:
+            raise ValidationError({"barangay": "Submit census only for your assigned barangay."})
+        if any(item["farmer"].barangay_id != barangay.pk for item in (items or [])):
+            raise ValidationError({"items": "Every census farmer must belong to the submission barangay."})
+
         # prevent dupes
         already_submitted = CensusSubmission.objects.filter(
             barangay=barangay,  # checks if barangay alr exists
@@ -103,6 +108,18 @@ class CensusService:
     @staticmethod
     @transaction.atomic
     def revise_census_submission(*, submission, validated_data):
+        submission = CensusSubmission.objects.select_for_update().get(pk=submission.pk)
+        if submission.status not in {"PENDING", "VERIFIED", "SUBJECT_TO_REVISION"}:
+            raise ValidationError({"status": "An approved census snapshot is immutable."})
+        barangay = validated_data.get("barangay", submission.barangay)
+        if submission.submitted_by.assigned_barangay_id != barangay.pk:
+            raise ValidationError({"barangay": "Census must remain in the submitting officer's assigned barangay."})
+        checked_items = validated_data.get("items")
+        if checked_items is None:
+            if submission.items.exclude(farmer__barangay=barangay).exists():
+                raise ValidationError({"items": "Census farmers must belong to the submission barangay."})
+        elif any(item["farmer"].barangay_id != barangay.pk for item in checked_items):
+            raise ValidationError({"items": "Census farmers must belong to the submission barangay."})
         items = validated_data.pop("items", None)
         for field in ("barangay", "report_year", "report_quarter", "remarks"):
             if field in validated_data:

@@ -1,3 +1,4 @@
+from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
@@ -45,6 +46,7 @@ def production_record_list_create(request):
         if role_name(request.user) == "FARMER":
             farmer_name = request.user.get_full_name() or request.user.username
             notify_role(
+                barangay_id=(record.livestock or record.batch).farmer.barangay_id,
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.PRODUCTION,
                 priority=Notification.Priority.MEDIUM,
@@ -60,11 +62,11 @@ def production_record_list_create(request):
 
     if user_role == "FARMER":
         records = ProductionRecord.objects.filter(
-            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
         ).distinct()
     else:
         require_action(user, "production", "read_all")
-        records = ProductionRecord.objects.all()
+        records = scope_reviewer_queryset(ProductionRecord.objects.all(), request.user)
 
     records = records.select_related(
         "livestock__farmer__user",
@@ -98,12 +100,12 @@ def production_record_detail(request, pk):
     if role_name == "FARMER":
         record = get_object_or_404(
             ProductionRecord.objects.select_for_update(of=("self",)),
-            Q(created_by=user) | Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
     else:
         require_action(user, "production", "read_all")
-        record = get_object_or_404(ProductionRecord.objects.select_for_update(), pk=pk)
+        record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(), request.user), pk=pk)
 
     if request.method == "DELETE":
         if role_name != "FARMER":
@@ -153,6 +155,7 @@ def production_record_detail(request, pk):
             if record.slaughter_id:
                 SlaughterRecord.objects.filter(pk=record.slaughter_id).update(status="PENDING", reviewed_by=None, reviewed_at=None)
             notify_role(
+                barangay_id=(record.livestock or record.batch).farmer.barangay_id,
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.PRODUCTION,
                 priority=Notification.Priority.MEDIUM,
@@ -180,7 +183,7 @@ def review_production_record(request, pk):
     - SIBAT: Field verification (status = VERIFIED)
     - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    record = get_object_or_404(ProductionRecord.objects.select_for_update(), pk=pk)
+    record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -300,6 +303,7 @@ def live_animal_sales_list_create(request):
             else f"Sale #{sale.pk}"
         )
         notify_role(
+            barangay_id=(sale.livestock or sale.batch).farmer.barangay_id,
             role_name="SIBAT",
             notification_type=Notification.NotificationType.SIBAT,
             priority=Notification.Priority.MEDIUM,
@@ -314,11 +318,11 @@ def live_animal_sales_list_create(request):
 
     if user_role == "FARMER":
         sales = LiveAnimalSale.objects.filter(
-            Q(created_by=user) | Q(livestock__farmer__user=user)
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
         ).distinct()
     else:
         require_action(user, "sales", "read_all")
-        sales = LiveAnimalSale.objects.all()
+        sales = scope_reviewer_queryset(LiveAnimalSale.objects.all(), request.user)
 
     sales = sales.select_related(
         "livestock__farmer__user",
@@ -331,25 +335,36 @@ def live_animal_sales_list_create(request):
     return Response(serializer.data, status=200)
 
 
-@api_view(["DELETE"])
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def live_animal_sale_delete(request, pk):
-    """
-    DELETE /production/sales/<pk>/ -> Delete pending sale record
-    """
+    """Keep the existing sale URL; returned declarations can reenter field review."""
     user = request.user
+    queryset = LiveAnimalSale.objects.select_for_update()
+    if role_name(user) == "FARMER":
+        queryset = queryset.filter(Q(livestock__farmer__user=user) | Q(batch__farmer__user=user))
+    else:
+        require_action(user, "sales", "read_all")
+        queryset = scope_reviewer_queryset(queryset, user)
+    sale = get_object_or_404(queryset, pk=pk)
+    if request.method == "GET":
+        return Response(LiveAnimalSaleSerializer(sale).data)
     require_action(user, "sales", "delete_own")
-    sale = get_object_or_404(
-        LiveAnimalSale,
-        Q(created_by=user) | Q(livestock__farmer__user=user),
-        pk=pk,
-    )
-
-    if sale.status != LiveAnimalSale.StatusType.PENDING:
-        return Response(
-            {"error": "Only PENDING sale records can be deleted."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+    if request.method == "PATCH":
+        if sale.status not in {"PENDING", "SUBJECT_TO_REVISION"}:
+            return Response({"error": "Verified or approved sales are locked."}, status=409)
+        returned = sale.status == "SUBJECT_TO_REVISION"
+        serializer = LiveAnimalSaleSerializer(sale, data=request.data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        sale = serializer.save()
+        if returned:
+            notify_role(role_name="SIBAT", barangay_id=(sale.livestock or sale.batch).farmer.barangay_id,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                title="Sale Resubmitted for Verification", message=f"Sale #{sale.pk} was corrected by its farmer.", link="/sibat?tab=production")
+        return Response(serializer.data)
+    if sale.status != "PENDING":
+        return Response({"error": "Only PENDING sale records can be deleted."}, status=403)
     sale.delete()
     return Response(status=204)
 
@@ -362,7 +377,7 @@ def review_live_animal_sale(request, pk):
     POST /production/sales/<pk>/review/
     Official MAO / SIBAT verification action (VERIFIED / APPROVED / SUBJECT_TO_REVISION)
     """
-    sale = get_object_or_404(LiveAnimalSale, pk=pk)
+    sale = get_object_or_404(scope_reviewer_queryset(LiveAnimalSale.objects.select_for_update(), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -390,6 +405,14 @@ def review_live_animal_sale(request, pk):
     if new_status == LiveAnimalSale.StatusType.APPROVED:
         sale = reconcile_approved_sale(sale)
 
+    owner = (sale.livestock or sale.batch).farmer.user
+    create_notification(user=owner, notification_type=Notification.NotificationType.PRODUCTION,
+        title=f"Livestock Sale: {new_status.replace('_', ' ').title()}",
+        message=f"{user_role} reviewed your sale declaration.{(' Remarks: ' + remarks) if remarks else ''}",
+        link="/production-dashboard")
+    if new_status == "VERIFIED":
+        notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
+            title="Verified Sale Awaiting MAO Approval", message=f"Sale #{sale.pk} was verified by SIBAT.", link="/data-validation")
     serializer = LiveAnimalSaleSerializer(sale)
     return Response(serializer.data, status=200)
 
@@ -405,6 +428,7 @@ def weight_records_list_create(request):
     POST /production/weights/ -> Log new weight for an animal
     """
     if request.method == "POST":
+        require_action(request.user, "inventory", "create")
         serializer = WeightRecordSerializer(
             data=request.data,
             context={"request": request},
@@ -418,10 +442,11 @@ def weight_records_list_create(request):
 
     if role_name == "FARMER":
         records = WeightRecord.objects.filter(
-            Q(created_by=user) | Q(livestock__farmer__user=user)
+            Q(livestock__farmer__user=user)
         ).distinct()
     else:
-        records = WeightRecord.objects.all()
+        require_action(user, "inventory", "read_all")
+        records = scope_reviewer_queryset(WeightRecord.objects.all(), request.user)
 
     records = records.select_related(
         "livestock__livestock_type",
@@ -452,6 +477,7 @@ def calving_records_list_create(request):
         calving = serializer.save()
         farmer_name = request.user.get_full_name() or request.user.username
         notify_role(
+            barangay_id=calving.dam.farmer.barangay_id,
             role_name="SIBAT",
             notification_type=Notification.NotificationType.SIBAT,
             priority=Notification.Priority.MEDIUM,
@@ -466,11 +492,11 @@ def calving_records_list_create(request):
 
     if user_role == "FARMER":
         records = CalvingRecord.objects.filter(
-            Q(created_by=user) | Q(dam__farmer__user=user)
+            Q(dam__farmer__user=user)
         ).distinct()
     else:
         require_action(user, "calving", "read_all")
-        records = CalvingRecord.objects.all()
+        records = scope_reviewer_queryset(CalvingRecord.objects.all(), request.user)
 
     records = records.select_related(
         "dam__livestock_type",
@@ -494,7 +520,7 @@ def review_calving_record(request, pk):
     - SIBAT: Field verification of calf on farm (status = VERIFIED)
     - MAO / Admin: Official municipal registration approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    calving = get_object_or_404(CalvingRecord, pk=pk)
+    calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -553,6 +579,9 @@ def review_calving_record(request, pk):
                 link="/production-dashboard",
             )
 
+    if new_status == "VERIFIED":
+        notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
+            title="Verified Calving Awaiting MAO Approval", message=f"Calving #{calving.pk} was verified by SIBAT.", link="/data-validation")
     serializer = CalvingRecordSerializer(calving)
     return Response(serializer.data, status=200)
 
@@ -577,11 +606,12 @@ def calving_detail(request, pk):
     if role_name == "FARMER":
         calving = get_object_or_404(
             CalvingRecord,
-            Q(created_by=user) | Q(dam__farmer__user=user),
+            Q(dam__farmer__user=user),
             pk=pk,
         )
     else:
-        calving = get_object_or_404(CalvingRecord, pk=pk)
+        require_action(user, "calving", "read_all")
+        calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(), request.user), pk=pk)
 
     if request.method in ["PUT", "PATCH"]:
         if role_name != "FARMER":
@@ -612,6 +642,7 @@ def calving_detail(request, pk):
             calving.reviewed_at = None
             calving.save(update_fields=["status", "reviewed_by", "reviewed_at"])
             notify_role(
+                barangay_id=calving.dam.farmer.barangay_id,
                 role_name="SIBAT",
                 notification_type=Notification.NotificationType.PRODUCTION,
                 priority=Notification.Priority.MEDIUM,
@@ -640,6 +671,7 @@ def animal_disposition_list_create(request):
     POST /production/dispositions/ -> Declare intent (For Sale, For Slaughter, Movement)
     """
     if request.method == "POST":
+        require_action(request.user, "inventory", "create")
         serializer = AnimalDispositionSerializer(
             data=request.data,
             context={"request": request},
@@ -653,10 +685,11 @@ def animal_disposition_list_create(request):
 
     if role_name == "FARMER":
         records = AnimalDisposition.objects.filter(
-            Q(created_by=user) | Q(livestock__farmer__user=user)
+            Q(livestock__farmer__user=user)
         ).distinct()
     else:
-        records = AnimalDisposition.objects.all()
+        require_action(user, "inventory", "read_all")
+        records = scope_reviewer_queryset(AnimalDisposition.objects.all(), request.user)
 
     records = records.select_related(
         "livestock__livestock_type",

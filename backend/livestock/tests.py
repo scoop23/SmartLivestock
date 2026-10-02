@@ -61,12 +61,17 @@ class LivestockInventoryReviewTests(APITestCase):
         self.inventory = LivestockInventory.objects.create(
             farmer=self.farmer_profile,
             livestock_type=self.cattle_type,
-            quantity=2,
+            quantity=1,
             tag_number="TAG-101",
             breed="Brahman Cross",
             created_by=self.farmer_user,
             status=LivestockInventory.StatusType.PENDING,
         )
+
+        User.objects.filter(role__role_name="SIBAT").update(assigned_barangay=self.barangay)
+        for value in vars(self).values():
+            if isinstance(value, User) and value.role.role_name == "SIBAT":
+                value.assigned_barangay_id = self.barangay.pk
 
     def test_farmer_cannot_review_inventory(self):
         self.client.force_authenticate(user=self.farmer_user)
@@ -179,6 +184,11 @@ class LivestockBatchAPITests(APITestCase):
             barangay=self.barangay,
             address="Poblacion, Padre Garcia",
         )
+
+        User.objects.filter(role__role_name="SIBAT").update(assigned_barangay=self.barangay)
+        for value in vars(self).values():
+            if isinstance(value, User) and value.role.role_name == "SIBAT":
+                value.assigned_barangay_id = self.barangay.pk
 
     def test_create_batch_with_individual_roster(self):
         self.client.force_authenticate(user=self.farmer_user)
@@ -311,6 +321,11 @@ class CensusPermissionWorkflowTests(APITestCase):
             report_quarter=3,
             submitted_by=self.sibat_user,
         )
+
+        User.objects.filter(role__role_name="SIBAT").update(assigned_barangay=self.barangay)
+        for value in vars(self).values():
+            if isinstance(value, User) and value.role.role_name == "SIBAT":
+                value.assigned_barangay_id = self.barangay.pk
 
     def test_mao_can_approve_pending_census(self):
         self.client.force_authenticate(user=self.mao_user)

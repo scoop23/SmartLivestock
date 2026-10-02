@@ -1,11 +1,12 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 
 # Pre-movement inspection of livestock before transport.
 # shipper FK points to Farmer (if registered), but shipper_name is always stored as text
-# in case the shipper isn't in the system. The shipper's Barangay is used as the origin
-# on the resulting clearance certificate.
+# in case the shipper isn't in the system. Clearance origin uses the supplied place
+# or the registered shipper address, regardless of municipality.
 class LivestockInspection(models.Model):
     class PurposeType(models.TextChoices):
         BREEDING = "BREEDING", "Breeding"
@@ -70,6 +71,10 @@ class LivestockInspectionItem(models.Model):
         related_name="inspection_items",
     )
 
+    # Internal items identify a real animal; external items remain aggregate lines.
+    inventory = models.ForeignKey("livestock.LivestockInventory", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="inspection_items")
+
     quantity = models.PositiveIntegerField()
 
     sex = models.CharField(
@@ -87,6 +92,23 @@ class LivestockInspectionItem(models.Model):
         blank=True,
     )
 
+    def clean(self):
+        super().clean()
+        if self.quantity is None or self.quantity <= 0:
+            raise ValidationError({"quantity": "Inspection head count must be positive."})
+        if self.inventory_id:
+            animal = self.inventory
+            if self.inspection.shipper_id != animal.farmer_id:
+                raise ValidationError({"inventory": "Select inventory belonging to the registered shipper."})
+            if self.livestock_type_id != animal.livestock_type_id or self.quantity != 1:
+                raise ValidationError({"inventory": "Internal items must match the animal species and represent one head."})
+            if animal.status != "APPROVED" or animal.operational_status != "ACTIVE" or animal.quantity != 1:
+                raise ValidationError({"inventory": "Select an approved, active individual animal."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.livestock_type} ({self.quantity})"
 
@@ -94,7 +116,7 @@ class LivestockInspectionItem(models.Model):
 # Official clearance certificate issued after a successful inspection.
 # OneToOne with LivestockInspection — each inspection can have at most one clearance.
 # control_number is a unique identifier printed on the physical certificate.
-# Contains transport details: origin (default: Padre Garcia), vehicle plate, handler license.
+# Origin preserves the supplied place or the registered shipper address; unknown stays blank.
 class LivestockInspectionClearance(models.Model):
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -113,9 +135,9 @@ class LivestockInspectionClearance(models.Model):
         unique=True,
     )
 
-    date_issued = models.DateField()
+    date_issued = models.DateField(null=True, blank=True)
 
-    time_issued = models.TimeField()
+    time_issued = models.TimeField(null=True, blank=True)
 
     shipper_address = models.CharField(
         max_length=255,
@@ -123,7 +145,8 @@ class LivestockInspectionClearance(models.Model):
 
     origin = models.CharField(
         max_length=255,
-        default="Padre Garcia, Batangas",
+        blank=True,
+        default="",
     )
 
     vehicle_plate_number = models.CharField(
@@ -142,6 +165,8 @@ class LivestockInspectionClearance(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="issued_clearances",
+        null=True,
+        blank=True,
     )
 
     status = models.CharField(
@@ -171,6 +196,24 @@ class LivestockInspectionClearance(models.Model):
         auto_now_add=True,
     )
 
+    def clean(self):
+        super().clean()
+        # Pending requests must not look like issued official certificates.
+        issuance = (self.issued_by_id, self.date_issued, self.time_issued)
+        if self.status == self.StatusType.APPROVED and not all(issuance):
+            raise ValidationError("Approved clearance requires an issuer and actual issuance date/time.")
+        if self.status != self.StatusType.APPROVED and any(issuance):
+            raise ValidationError("Issuance fields must remain empty until clearance is approved.")
+
+    def save(self, *args, **kwargs):
+        if not self.origin and self.inspection_id and self.inspection.shipper_id:
+            # The address may be outside Padre Garcia; no municipality is guessed.
+            self.origin = self.inspection.shipper.address.strip()
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {"origin"}
+        self.clean()
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return self.control_number
 
@@ -184,8 +227,7 @@ class MeatMovementRecord(models.Model):
         CARABEEF = "CARABEEF", "Carabeef"
         GOAT = "GOAT", "Goat"
         PORK = "PORK", "Pork"
-
-    CHICKEN = "CHICKEN", "Chicken"
+        CHICKEN = "CHICKEN", "Chicken"
 
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"
