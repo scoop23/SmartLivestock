@@ -138,6 +138,12 @@ export default function ProductionCharts({
   const avgMonthlyVolume =
     trend.length > 0 ? (totalVolume / trend.length).toFixed(1) : "0";
 
+  // Chart colors: Point A (verified), Point B (awaiting), blend (both combined)
+  const pointAColor = type === "meat" ? "#dc2626" : "#0284c7";
+  const pointBColor = "#eab308";
+  const combiningColor = type === "meat" ? "#f97316" : "#06b6d4";
+  const hasPending = totalPendingVolume > 0;
+
   // Value view statistics
   const totalEstimatedValue = valueTrend.reduce((sum, item) => sum + (item.value ?? 0), 0);
   const totalVerifiedValue = valueTrend.reduce((sum, item) => sum + (item.verifiedValue ?? 0), 0);
@@ -222,7 +228,9 @@ export default function ProductionCharts({
                     {totalVolume.toLocaleString()} {unitInfo.unit}
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
-                    {totalVerifiedVolume.toLocaleString()} {unitInfo.unit} verified · {totalPendingVolume.toLocaleString()} {unitInfo.unit} awaiting
+                    {hasPending
+                      ? `${totalVerifiedVolume.toLocaleString()} ${unitInfo.unit} verified · ${totalPendingVolume.toLocaleString()} ${unitInfo.unit} awaiting`
+                      : `${totalVerifiedVolume.toLocaleString()} ${unitInfo.unit} verified`}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
@@ -262,7 +270,9 @@ export default function ProductionCharts({
                     {formatPesoCompact(totalEstimatedValue)}
                   </span>
                   <span className="text-[10px] text-emerald-800 font-medium block mt-0.5">
-                    {formatPesoCompact(totalVerifiedValue)} verified · {formatPesoCompact(totalPendingValue)} indicative
+                    {totalPendingValue > 0
+                      ? `${formatPesoCompact(totalVerifiedValue)} verified · ${formatPesoCompact(totalPendingValue)} indicative`
+                      : `${formatPesoCompact(totalVerifiedValue)} verified`}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
@@ -356,26 +366,27 @@ export default function ProductionCharts({
               <span className="flex items-center gap-1.5 font-bold text-slate-800">
                 <span
                   className="size-2.5 rounded-full"
-                  style={{ backgroundColor: type === "meat" ? "#dc2626" : "#0284c7" }}
+                  style={{ backgroundColor: pointAColor }}
                 />
-                <span>Point A · Verified ({type === "meat" ? "Red" : "Blue"})</span>
+                <span>Verified ({type === "meat" ? "Red" : "Blue"})</span>
               </span>
-              <span className="flex items-center gap-1.5 font-semibold text-slate-600 text-[11px]">
-                <span
-                  className="h-2 w-7 rounded-full shadow-2xs inline-block"
-                  style={{
-                    background:
-                      type === "meat"
-                        ? "linear-gradient(to right, #dc2626, #f97316, #eab308)"
-                        : "linear-gradient(to right, #0284c7, #06b6d4, #eab308)",
-                  }}
-                />
-                <span>Combining in middle</span>
-              </span>
-              <span className="flex items-center gap-1.5 font-bold text-amber-800">
-                <span className="size-2.5 rounded-full bg-yellow-400 border border-yellow-500" />
-                <span>Point B · Awaiting Review (Yellow)</span>
-              </span>
+              {hasPending && (
+                <>
+                  <span className="flex items-center gap-1.5 font-semibold text-slate-600 text-[11px]">
+                    <span
+                      className="h-2 w-7 rounded-full shadow-2xs inline-block"
+                      style={{
+                        background: `linear-gradient(to right, ${pointAColor}, ${combiningColor}, ${pointBColor})`,
+                      }}
+                    />
+                    <span>Combining in middle</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 font-bold text-amber-800">
+                    <span className="size-2.5 rounded-full bg-yellow-400 border border-yellow-500" />
+                    <span>Awaiting Review (Yellow)</span>
+                  </span>
+                </>
+              )}
               {totalRevisionVolume > 0 && (
                 <span className="flex items-center gap-1.5 font-bold text-rose-800">
                   <span className="size-2.5 rounded-full bg-rose-400 border border-rose-500" />
@@ -384,7 +395,9 @@ export default function ProductionCharts({
               )}
             </div>
             <p className="text-[11px] text-slate-500 italic">
-              Your chart shows all your submitted records with verified records distinguished from pending reviews.
+              {hasPending
+                ? "Your chart shows all your submitted records with verified records distinguished from pending reviews."
+                : "Your chart shows all your submitted records, all of which have completed official verification."}
             </p>
           </div>
         )}
@@ -400,15 +413,33 @@ export default function ProductionCharts({
               >
                 <defs>
                   {/* Point A (Blue or Red if meat) -> Middle (combining blend) -> Point B (Yellow) */}
-                  <linearGradient id={`strokeGradient-${type}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor={type === "meat" ? "#dc2626" : "#0284c7"} />
-                    <stop offset="50%" stopColor={type === "meat" ? "#f97316" : "#06b6d4"} />
-                    <stop offset="100%" stopColor="#eab308" />
+                  <linearGradient
+                    id={`strokeGradient-${type}-${hasPending ? "blend" : "solid"}`}
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="0%"
+                  >
+                    <stop offset="0%" stopColor={pointAColor} />
+                    {hasPending && <stop offset="50%" stopColor={combiningColor} />}
+                    <stop offset="100%" stopColor={hasPending ? pointBColor : pointAColor} />
                   </linearGradient>
-                  <linearGradient id={`areaCombinedGradient-${type}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor={type === "meat" ? "#dc2626" : "#0284c7"} stopOpacity={0.4} />
-                    <stop offset="50%" stopColor={type === "meat" ? "#f97316" : "#06b6d4"} stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="#eab308" stopOpacity={0.35} />
+                  <linearGradient
+                    id={`areaCombinedGradient-${type}-${hasPending ? "blend" : "solid"}`}
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="0%"
+                  >
+                    <stop offset="0%" stopColor={pointAColor} stopOpacity={0.4} />
+                    {hasPending && (
+                      <stop offset="50%" stopColor={combiningColor} stopOpacity={0.28} />
+                    )}
+                    <stop
+                      offset="100%"
+                      stopColor={hasPending ? pointBColor : pointAColor}
+                      stopOpacity={hasPending ? 0.35 : 0.4}
+                    />
                   </linearGradient>
                   <linearGradient id="revisionGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
@@ -437,7 +468,6 @@ export default function ProductionCharts({
                     if (!active || !payload?.length) return null;
                     const item = payload[0]?.payload;
                     if (!item) return null;
-                    const pointAColor = type === "meat" ? "#dc2626" : "#0284c7";
                     return (
                       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-lg text-xs space-y-1.5 min-w-[200px]">
                         <p className="font-bold text-slate-900 border-b border-slate-100 pb-1">
@@ -452,21 +482,23 @@ export default function ProductionCharts({
                         <div className="flex items-center justify-between" style={{ color: pointAColor }}>
                           <span className="flex items-center gap-1.5 font-medium">
                             <span className="size-2 rounded-full" style={{ backgroundColor: pointAColor }} />
-                            Point A (Verified):
+                            Verified:
                           </span>
                           <span className="font-bold">
                             {Number(item.verifiedQuantity || 0).toLocaleString()} {unitInfo.unit}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-amber-700">
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <span className="size-2 rounded-full bg-yellow-500" />
-                            Point B (Awaiting Review):
-                          </span>
-                          <span className="font-bold">
-                            {Number(item.pendingQuantity || 0).toLocaleString()} {unitInfo.unit}
-                          </span>
-                        </div>
+                        {hasPending && (
+                          <div className="flex items-center justify-between text-amber-700">
+                            <span className="flex items-center gap-1.5 font-medium">
+                              <span className="size-2 rounded-full bg-yellow-500" />
+                              Awaiting Review:
+                            </span>
+                            <span className="font-bold">
+                              {Number(item.pendingQuantity || 0).toLocaleString()} {unitInfo.unit}
+                            </span>
+                          </div>
+                        )}
                         {Number(item.revisionQuantity || 0) > 0 && (
                           <div className="flex items-center justify-between text-rose-800">
                             <span className="flex items-center gap-1.5 font-medium">
@@ -486,29 +518,28 @@ export default function ProductionCharts({
                   type="monotone"
                   dataKey="quantity"
                   name="Recorded Output"
-                  stroke={`url(#strokeGradient-${type})`}
+                  stroke={`url(#strokeGradient-${type}-${hasPending ? "blend" : "solid"})`}
                   strokeWidth={3}
                   fillOpacity={1}
-                  fill={`url(#areaCombinedGradient-${type})`}
+                  fill={`url(#areaCombinedGradient-${type}-${hasPending ? "blend" : "solid"})`}
                   dot={(dotProps: any) => {
                     const { cx, cy, payload, index } = dotProps;
                     if (cx == null || cy == null || !payload) return null;
-                    const pointAColor = type === "meat" ? "#dc2626" : "#0284c7";
-                    const pointBColor = "#eab308";
-                    const combiningColor = type === "meat" ? "#f97316" : "#06b6d4";
 
                     const hasVerified = (payload.verifiedQuantity ?? 0) > 0;
-                    const hasPending = (payload.pendingQuantity ?? 0) > 0;
+                    const hasPendingPoint = (payload.pendingQuantity ?? 0) > 0;
 
                     let dotFill = pointAColor;
                     let isCombined = false;
 
-                    if (hasVerified && hasPending) {
+                    if (!hasPending) {
+                      dotFill = pointAColor;
+                    } else if (hasVerified && hasPendingPoint) {
                       dotFill = combiningColor;
                       isCombined = true;
-                    } else if (hasPending && !hasVerified) {
+                    } else if (hasPendingPoint && !hasVerified) {
                       dotFill = pointBColor;
-                    } else if (hasVerified && !hasPending) {
+                    } else if (hasVerified && !hasPendingPoint) {
                       dotFill = pointAColor;
                     } else {
                       const totalPoints = mergedData.length;
@@ -541,7 +572,7 @@ export default function ProductionCharts({
                     r: 7,
                     strokeWidth: 2,
                     stroke: "#ffffff",
-                    fill: type === "meat" ? "#f97316" : "#06b6d4",
+                    fill: hasPending ? combiningColor : pointAColor,
                   }}
                 />
               </AreaChart>
