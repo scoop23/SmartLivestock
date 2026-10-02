@@ -9,6 +9,11 @@ from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
 
 from diseases.models import DiseaseCase, MortalityRecord
+from movements.models import (
+    LivestockInspection,
+    LivestockInspectionItem,
+    LivestockInspectionClearance,
+)
 from .population import population_summary
 from smartlivestock.workflows import scope_reviewer_queryset
 from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
@@ -177,6 +182,127 @@ def descriptive_summary(today=None, *, user=None):
         case_point["deaths"] = death_point["deaths"]
         case_point["reported_heads"] = case_point.get("affected_heads", 0)
 
+    # -------------------------------------------------------------------------
+    # LIVESTOCK INSPECTION & CLEARANCE ANALYTICS
+    # -------------------------------------------------------------------------
+    # EDUCATIONAL NOTE ON PREVENTING CROSS-JOIN DOUBLE COUNTING:
+    # A single LivestockInspection event can contain multiple LivestockInspectionItem
+    # rows (e.g. 2 bulls, 5 fattening steers).
+    # If we joined inspections directly to items in a single query with COUNT(inspection),
+    # an inspection with 3 items would be falsely counted 3 times!
+    # Therefore, we count distinct inspections from LivestockInspection, and calculate
+    # aggregate head counts from LivestockInspectionItem separately.
+    # -------------------------------------------------------------------------
+    inspections_base = scope_reviewer_queryset(LivestockInspection.objects.all(), user).filter(
+        inspection_date__range=(start, today)
+    )
+    total_inspections = inspections_base.count()
+
+    inspection_items_base = LivestockInspectionItem.objects.filter(
+        inspection__in=inspections_base
+    )
+    inspected_heads = inspection_items_base.aggregate(total=Sum("quantity"))["total"] or 0
+
+    # Group by inspection purpose
+    insp_by_purpose = {
+        row["purpose"]: row["count"]
+        for row in inspections_base.values("purpose").annotate(count=Count("id"))
+    }
+    heads_by_purpose = {
+        row["inspection__purpose"]: row["heads"]
+        for row in inspection_items_base.values("inspection__purpose").annotate(heads=Sum("quantity"))
+    }
+    by_purpose = [
+        {
+            "purpose": code,
+            "label": label,
+            "inspections": insp_by_purpose.get(code, 0),
+            "inspected_heads": heads_by_purpose.get(code, 0),
+        }
+        for code, label in LivestockInspection.PurposeType.choices
+    ]
+
+    # Group by destination
+    insp_by_dest = {
+        row["destination"]: row["count"]
+        for row in inspections_base.values("destination").annotate(count=Count("id"))
+    }
+    heads_by_dest = {
+        row["inspection__destination"]: row["heads"]
+        for row in inspection_items_base.values("inspection__destination").annotate(heads=Sum("quantity"))
+    }
+    destinations = sorted(
+        insp_by_dest.keys(),
+        key=lambda d: (-heads_by_dest.get(d, 0), -insp_by_dest.get(d, 0)),
+    )
+    by_destination = [
+        {
+            "destination": dest,
+            "inspections": insp_by_dest.get(dest, 0),
+            "inspected_heads": heads_by_dest.get(dest, 0),
+        }
+        for dest in destinations
+    ]
+
+    # Monthly inspection trend (12-month window matching descriptive period)
+    monthly_insp_counts = {
+        row["month"]: row["count"]
+        for row in inspections_base.annotate(month=TruncMonth("inspection_date"))
+        .values("month")
+        .annotate(count=Count("id"))
+    }
+    monthly_head_counts = {
+        row["month"]: row["heads"]
+        for row in inspection_items_base.annotate(month=TruncMonth("inspection__inspection_date"))
+        .values("month")
+        .annotate(heads=Sum("quantity"))
+    }
+    inspection_monthly_trend = [
+        {
+            "month": m.isoformat(),
+            "label": f"{calendar.month_abbr[m.month]} {m.year}",
+            "inspections": monthly_insp_counts.get(m, 0),
+            "inspected_heads": monthly_head_counts.get(m, 0),
+        }
+        for m in _months(start)
+    ]
+
+    # Clearance issuance status breakdown
+    clearances_qs = LivestockInspectionClearance.objects.filter(inspection__in=inspections_base)
+    clearance_status_counts = {
+        row["status"]: row["count"]
+        for row in clearances_qs.values("status").annotate(count=Count("id"))
+    }
+    clearance_status_breakdown = [
+        {
+            "status": code,
+            "label": label,
+            "count": clearance_status_counts.get(code, 0),
+        }
+        for code, label in LivestockInspectionClearance.StatusType.choices
+    ]
+
+    approved_clearances = clearance_status_counts.get(
+        LivestockInspectionClearance.StatusType.APPROVED, 0
+    )
+    approved_clearance_rate = (
+        round((approved_clearances / total_inspections) * 100, 1)
+        if total_inspections > 0
+        else 0.0
+    )
+
+    inspection_analytics = {
+        "total_inspections": total_inspections,
+        "inspected_heads": inspected_heads,
+        "by_purpose": by_purpose,
+        "by_destination": by_destination,
+        "monthly_trend": inspection_monthly_trend,
+        "clearance_status": clearance_status_breakdown,
+        "approved_clearances": approved_clearances,
+        "approved_clearance_rate_pct": approved_clearance_rate,
+        "rate_denominator_description": "Approved clearances divided by total inspections in the reporting period.",
+    }
+
     descriptive = {
         "period": {"start": start.isoformat(), "end": today.isoformat()},
         "population": population,
@@ -194,6 +320,7 @@ def descriptive_summary(today=None, *, user=None):
         "sales": {"sales": sale_totals["sales"], "animals": sale_totals["animals"] or 0,
                   "recorded_value": float(sale_totals["recorded_value"]) if sale_totals["recorded_value"] is not None else None,
                   "priced_sales": sale_totals["priced_sales"]},
+        "inspection": inspection_analytics,
     }
     return {
         "monthly_dairy_yield_l": milk_this_month["milk_l"] if milk_this_month else 0,

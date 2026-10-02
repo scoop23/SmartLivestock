@@ -11,6 +11,11 @@ from analytics.services.descriptive import descriptive_summary
 from analytics.services.population import population_summary
 from analytics.services.overview import overview_summary
 from diseases.models import DiseaseCase, MortalityRecord
+from movements.models import (
+    LivestockInspection,
+    LivestockInspectionItem,
+    LivestockInspectionClearance,
+)
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
 from production.models import LiveAnimalSale, ProductionRecord
 from users.models import Role, User
@@ -326,3 +331,103 @@ class AdminConsistencyTests(TestCase):
         self.assertEqual(len(baseline), len(populated))
         self.assertEqual(len(populated), 5)
         self.assertEqual(result["total_heads"], 30)
+
+    def test_inspection_descriptive_analytics_and_no_double_counting(self):
+        from datetime import time
+        # 1. Verify empty inspection state
+        initial = descriptive_summary(self.today)["descriptive"]["inspection"]
+        self.assertEqual(initial["total_inspections"], 0)
+        self.assertEqual(initial["inspected_heads"], 0)
+        self.assertEqual(initial["approved_clearance_rate_pct"], 0.0)
+
+        # 2. Create Inspection 1 with 2 items (Multi-item line to verify NO cross-join duplication)
+        insp1 = LivestockInspection.objects.create(
+            shipper=self.farmer,
+            shipper_name="Juan Test",
+            destination="San Juan, Batangas",
+            purpose=LivestockInspection.PurposeType.BREEDING,
+            inspection_date=date(2026, 9, 10),
+            created_by=self.user,
+        )
+        LivestockInspectionItem.objects.create(
+            inspection=insp1,
+            livestock_type=self.cattle,
+            quantity=2,
+            sex=LivestockInspectionItem.SexType.FEMALE,
+            classification=LivestockInspectionItem.ClassificationType.BREEDER,
+        )
+        LivestockInspectionItem.objects.create(
+            inspection=insp1,
+            livestock_type=self.cattle,
+            quantity=3,
+            sex=LivestockInspectionItem.SexType.MALE,
+            classification=LivestockInspectionItem.ClassificationType.BREEDER,
+        )
+        LivestockInspectionClearance.objects.create(
+            inspection=insp1,
+            control_number="CLR-TEST-2026-0001",
+            status=LivestockInspectionClearance.StatusType.APPROVED,
+            date_issued=date(2026, 9, 10),
+            time_issued=time(9, 30),
+            issued_by=self.user,
+            shipper_address="Padre Garcia",
+        )
+
+        # 3. Create Inspection 2 with 1 item (Pending clearance)
+        insp2 = LivestockInspection.objects.create(
+            shipper=self.farmer,
+            shipper_name="Maria Test",
+            destination="Rosario, Batangas",
+            purpose=LivestockInspection.PurposeType.SLAUGHTER,
+            inspection_date=date(2026, 9, 15),
+            created_by=self.user,
+        )
+        LivestockInspectionItem.objects.create(
+            inspection=insp2,
+            livestock_type=self.goat,
+            quantity=4,
+            sex=LivestockInspectionItem.SexType.MIXED,
+            classification=LivestockInspectionItem.ClassificationType.SLAUGHTER,
+        )
+        LivestockInspectionClearance.objects.create(
+            inspection=insp2,
+            control_number="CLR-TEST-2026-0002",
+            status=LivestockInspectionClearance.StatusType.PENDING,
+            shipper_address="Padre Garcia",
+        )
+
+        # 4. Evaluate descriptive summary
+        res = descriptive_summary(self.today)["descriptive"]["inspection"]
+
+        # CRITICAL TEST: 2 inspections (not 3 due to cross join), 9 heads (2 + 3 + 4)
+        self.assertEqual(res["total_inspections"], 2)
+        self.assertEqual(res["inspected_heads"], 9)
+
+        # Purpose breakdown
+        purposes = {row["purpose"]: row for row in res["by_purpose"]}
+        self.assertEqual(purposes["BREEDING"]["inspections"], 1)
+        self.assertEqual(purposes["BREEDING"]["inspected_heads"], 5)
+        self.assertEqual(purposes["SLAUGHTER"]["inspections"], 1)
+        self.assertEqual(purposes["SLAUGHTER"]["inspected_heads"], 4)
+        self.assertEqual(purposes["FATTENING"]["inspections"], 0)
+        self.assertEqual(purposes["FATTENING"]["inspected_heads"], 0)
+
+        # Destination breakdown
+        dests = {row["destination"]: row for row in res["by_destination"]}
+        self.assertEqual(dests["San Juan, Batangas"]["inspections"], 1)
+        self.assertEqual(dests["San Juan, Batangas"]["inspected_heads"], 5)
+        self.assertEqual(dests["Rosario, Batangas"]["inspections"], 1)
+        self.assertEqual(dests["Rosario, Batangas"]["inspected_heads"], 4)
+
+        # Clearance status breakdown
+        status_map = {row["status"]: row["count"] for row in res["clearance_status"]}
+        self.assertEqual(status_map["APPROVED"], 1)
+        self.assertEqual(status_map["PENDING"], 1)
+        self.assertEqual(res["approved_clearances"], 1)
+        self.assertEqual(res["approved_clearance_rate_pct"], 50.0)
+
+        # Monthly trend (September 2026)
+        sept = next(pt for pt in res["monthly_trend"] if pt["month"] == "2026-09-01")
+        self.assertEqual(sept["inspections"], 2)
+        self.assertEqual(sept["inspected_heads"], 9)
+
