@@ -78,10 +78,9 @@ export default function LivestockInventoryPage() {
 
   // Herds belonging to the selected species, so the species drilldown can
   // surface group-managed batches alongside the individual registry records.
-  const typeFilteredBatches =
-    selectedType === "Cattle"
-      ? userBatches.filter((batch) => batch.livestockTypeName === selectedType)
-      : [];
+  const typeFilteredBatches = selectedType
+    ? userBatches.filter((batch) => batch.livestockTypeName === selectedType)
+    : [];
 
   // Mutations
   const deleteMutation = useMutation({
