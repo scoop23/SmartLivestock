@@ -185,6 +185,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
     barangay = serializers.SerializerMethodField()
+    assigned_barangay_id = serializers.IntegerField(read_only=True)
+    assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
 
     class Meta:
         model = User
@@ -197,6 +199,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "profile_image",
             "phone_number",
             "barangay",
+            "assigned_barangay_id",
+            "assigned_barangay_name",
         )
         read_only_fields = ("id", "role", "barangay")
 

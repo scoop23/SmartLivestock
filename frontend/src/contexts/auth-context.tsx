@@ -19,6 +19,8 @@ export interface User {
   profileImage?: string | null;
   phoneNumber?: string | null;
   barangay?: string | null;
+  assignedBarangayId?: number | null;
+  assignedBarangayName?: string | null;
 }
 
 interface DecodedToken {
@@ -90,6 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const decoded = jwtDecode<DecodedToken>(token);
       setUser((prev) => ({
+        ...prev,
         firstName: prev?.firstName || null,
         lastName: prev?.lastName || null,
         email: decoded.email || prev?.email || null,
@@ -115,6 +118,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         profileImage: data.profile_image || null,
         phoneNumber: data.phone_number || null,
         barangay: data.barangay || null,
+        assignedBarangayId: data.assigned_barangay_id ?? null,
+        assignedBarangayName: data.assigned_barangay_name ?? null,
       });
       setAccessToken(latestToken);
     } catch (error: any) {
@@ -135,6 +140,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const decoded = jwtDecode<DecodedToken>(currentToken);
             if (!decoded.exp || decoded.exp * 1000 > Date.now()) {
               setUser((prev) => ({
+                ...prev,
                 firstName: prev?.firstName || null,
                 lastName: prev?.lastName || null,
                 email: decoded.email || prev?.email || null,

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
+import { useAuth } from "@/contexts/auth-context";
 import {
   CensusSubmissionRecord,
   CensusItemEntry,
@@ -68,6 +69,7 @@ export default function CensusSubmissionForm({
   onSubmissionSuccess,
   submissionToRevise = null,
 }: CensusSubmissionFormProps) {
+  const { user } = useAuth();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const initialQuarter = Math.ceil(currentMonth / 3);
@@ -309,7 +311,7 @@ export default function CensusSubmissionForm({
                       <SelectValue placeholder="Select Barangay" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 rounded-xl">
-                      {barangays?.map((brgy) => (
+                      {barangays?.filter((brgy) => user?.role !== "SIBAT" || brgy.id === user.assignedBarangayId).map((brgy) => (
                         <SelectItem key={brgy.id} value={String(brgy.id)} className="text-xs font-medium">
                           Brgy. {brgy.barangayName}
                         </SelectItem>

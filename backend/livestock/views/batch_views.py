@@ -151,13 +151,13 @@ def batch_detail(request, pk):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
-                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile), pk=pk
+                LivestockBatch.objects.select_for_update(of=("self",)), Q(farmer=farmer_profile), pk=pk
             )
         else:
             batch = get_object_or_404(LivestockBatch.objects.none(), pk=pk)
     else:
         require_action(user, "batches", "read_all")
-        batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
+        batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     if request.method == "GET":
         serializer = LivestockBatchSerializer(batch, context={"request": request})
@@ -261,13 +261,13 @@ def batch_add_animals(request, pk):
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
             batch = get_object_or_404(
-                LivestockBatch.objects.select_for_update(), Q(farmer=farmer_profile), pk=pk
+                LivestockBatch.objects.select_for_update(of=("self",)), Q(farmer=farmer_profile), pk=pk
             )
         else:
             batch = get_object_or_404(LivestockBatch.objects.none(), pk=pk)
     else:
         require_action(user, "batches", "edit_own")
-        batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
+        batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     if batch.status != LivestockBatch.StatusType.ACTIVE:
         return Response(
@@ -334,7 +334,7 @@ def batch_review(request, pk):
     - SIBAT: Field inspection of the pen/herd (status = VERIFIED or SUBJECT_TO_REVISION)
     - MAO: Official municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
+    batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
     if batch.status != LivestockBatch.StatusType.ACTIVE:
         return Response(
             {"error": "Only active herds can enter validation."},
@@ -466,7 +466,7 @@ def batch_add_notes(request, pk):
     if user_role != "ADMIN":
         require_action(user, "batches", "review")
 
-    batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(), request.user), pk=pk)
+    batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     text = request.data.get("text", "").strip()
     if not text:

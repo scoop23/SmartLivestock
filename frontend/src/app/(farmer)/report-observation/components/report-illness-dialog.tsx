@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -12,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -27,16 +25,14 @@ import {
   Camera,
   Calendar,
   X,
-  AlertTriangle,
-  Info,
+  Icon,
 } from "lucide-react";
-import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
-import { ReportType } from "../report-observation-types";
+import { ReportType, FarmerReport } from "../report-observation-types";
 import { saveAttachedPhoto } from "@/lib/photo-storage";
 
 interface ReportIllnessDialogProps {
@@ -44,7 +40,7 @@ interface ReportIllnessDialogProps {
   onOpenChange: (open: boolean) => void;
   defaultType?: ReportType;
   defaultInventoryId?: string;
-  existingReport?: any | null;
+  existingReport?: FarmerReport | null;
   mode?: "create" | "edit";
   onSuccess?: () => void;
 }
@@ -60,17 +56,18 @@ const EASY_SIGNS = [
   { id: "weak", label: "Lethargic / Weak", sub: "Lying down, isolating from herd" },
 ];
 
-const EASY_MORTALITY_CAUSES = [
+export const DEFAULT_MORTALITY_CAUSE = "Unknown (Needs Vet Inspection)";
+
+export const EASY_MORTALITY_CAUSES = [
+  "Unknown (Needs Vet Inspection)",
   "Sudden Death / Severe Bloat",
   "Severe Respiratory / Lung Infection",
   "Calving / Birthing Complications",
   "Physical Injury / Accident",
   "Old Age / Natural Causes",
-  "Unknown (Needs Vet Inspection)",
 ];
 
-export default function ReportIllnessDialog({
-  open,
+function ReportIllnessDialogContent({
   onOpenChange,
   defaultType = "DISEASE",
   defaultInventoryId,
@@ -79,59 +76,46 @@ export default function ReportIllnessDialog({
   onSuccess,
 }: ReportIllnessDialogProps) {
   const queryClient = useQueryClient();
-  const { data: inventories = [], isLoading: isLoadingInventory } = useUserInventory();
-
-  const [reportType, setReportType] = useState<ReportType>(defaultType);
-  const [selectedInventoryId, setSelectedInventoryId] = useState<string>(defaultInventoryId || "");
-  const [conditionName, setConditionName] = useState<string>("");
-  const [affectedCount, setAffectedCount] = useState<number>(1);
-  const [recordDate, setRecordDate] = useState<string>(
-    () => new Date().toISOString().split("T")[0]
-  );
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
-  const [description, setDescription] = useState<string>("");
-  const [photoName, setPhotoName] = useState<string>("");
-  const [photoDataUrl, setPhotoDataUrl] = useState<string>("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const { data: inventories = [] } = useUserInventory();
   const isEditMode = mode === "edit" && !!existingReport;
 
-  React.useEffect(() => {
-    if (defaultType) setReportType(defaultType);
-  }, [defaultType]);
-
-  React.useEffect(() => {
+  const [reportType, setReportType] = useState<ReportType>(() =>
+    isEditMode && existingReport ? (existingReport.reportType || defaultType) : defaultType
+  );
+  const [selectedInventoryId, setSelectedInventoryId] = useState<string>(() => {
     if (isEditMode && existingReport) {
-      setReportType(existingReport.reportType || defaultType);
-      setSelectedInventoryId(
-        String(existingReport.inventoryId || existingReport.rawItem?.livestock || defaultInventoryId || "")
-      );
-      setConditionName(existingReport.name || "");
-      setAffectedCount(existingReport.affectedCount || 1);
-      setRecordDate(existingReport.recordDate || new Date().toISOString().split("T")[0]);
-      setSelectedSymptoms(Array.isArray(existingReport.symptoms) ? existingReport.symptoms : []);
-      setDescription(
-        existingReport.description && existingReport.description !== existingReport.name
-          ? existingReport.description
-          : ""
-      );
-      if (existingReport.photoUrl) {
-        setPhotoDataUrl(existingReport.photoUrl);
-        setPhotoName(existingReport.photoName || "existing_report_photo");
-      } else {
-        setPhotoDataUrl("");
-        setPhotoName("");
-      }
-      setPhotoFile(null);
-      return;
+      return String(existingReport.inventoryId || existingReport.rawItem?.livestock || defaultInventoryId || "");
     }
+    return defaultInventoryId || (inventories[0] ? String(inventories[0].id) : "");
+  });
+  const [conditionName, setConditionName] = useState<string>(() => {
+    if (isEditMode && existingReport) return existingReport.name || "";
+    return defaultType === "MORTALITY" ? DEFAULT_MORTALITY_CAUSE : "";
+  });
+  const [affectedCount, setAffectedCount] = useState<number>(() =>
+    isEditMode && existingReport ? (existingReport.affectedCount || 1) : 1
+  );
+  const [recordDate, setRecordDate] = useState<string>(() =>
+    isEditMode && existingReport ? (existingReport.recordDate || new Date().toISOString().split("T")[0]) : new Date().toISOString().split("T")[0]
+  );
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>(() =>
+    isEditMode && existingReport && Array.isArray(existingReport.symptoms) ? existingReport.symptoms : []
+  );
+  const [description, setDescription] = useState<string>(() =>
+    isEditMode && existingReport && existingReport.description && existingReport.description !== existingReport.name
+      ? existingReport.description
+      : ""
+  );
+  const [photoName, setPhotoName] = useState<string>(() =>
+    isEditMode && existingReport ? (existingReport.photoName || (existingReport.photoUrl ? "existing_report_photo" : "")) : ""
+  );
+  const [photoDataUrl, setPhotoDataUrl] = useState<string>(() =>
+    isEditMode && existingReport ? (existingReport.photoUrl || "") : ""
+  );
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-    if (defaultInventoryId) {
-      setSelectedInventoryId(defaultInventoryId);
-    } else if (inventories.length > 0 && !selectedInventoryId) {
-      setSelectedInventoryId(String(inventories[0].id));
-    }
-  }, [defaultInventoryId, defaultType, existingReport, inventories, isEditMode, selectedInventoryId]);
+  const effectiveInventoryId = selectedInventoryId || (inventories[0] ? String(inventories[0].id) : "");
 
   const selectedCattle = useMemo(() => {
     return inventories.find((inv) => String(inv.id) === String(selectedInventoryId));
@@ -164,7 +148,7 @@ export default function ReportIllnessDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedInventoryId) {
+    if (!effectiveInventoryId) {
       toast.error("Please select an animal from your livestock first.");
       return;
     }
@@ -175,13 +159,13 @@ export default function ReportIllnessDialog({
         ? selectedSymptoms.join(", ")
         : reportType === "DISEASE"
         ? "General Health Concern"
-        : "Unspecified Cause");
+        : DEFAULT_MORTALITY_CAUSE);
 
     setIsSubmitting(true);
 
     try {
       const formData = new FormData();
-      formData.append("livestock", selectedInventoryId);
+      formData.append("livestock", effectiveInventoryId);
       if (reportType === "DISEASE") {
         formData.append("name", mainName);
         formData.append("affected_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
@@ -257,7 +241,7 @@ export default function ReportIllnessDialog({
         );
       }
 
-      setConditionName("");
+      setConditionName(defaultType === "MORTALITY" ? DEFAULT_MORTALITY_CAUSE : "");
       setAffectedCount(1);
       setDescription("");
       setSelectedSymptoms([]);
@@ -266,20 +250,35 @@ export default function ReportIllnessDialog({
       setPhotoFile(null);
       onSuccess?.();
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to submit observation:", err);
-      const msg = err.response?.data?.error || err.response?.data?.detail || "Submission failed.";
+      const axiosErr = err as { response?: { data?: { error?: string; detail?: string } } };
+      const msg = axiosErr.response?.data?.error || axiosErr.response?.data?.detail || "Submission failed.";
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleSelectReportType = (type: ReportType) => {
+    setReportType(type);
+    if (!isEditMode) {
+      if (type === "MORTALITY") {
+        if (!conditionName || !EASY_MORTALITY_CAUSES.includes(conditionName)) {
+          setConditionName(DEFAULT_MORTALITY_CAUSE);
+        }
+      } else {
+        if (conditionName === DEFAULT_MORTALITY_CAUSE || EASY_MORTALITY_CAUSES.includes(conditionName)) {
+          setConditionName("");
+        }
+      }
+    }
+  };
+
   const isDisease = reportType === "DISEASE";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-3xl border-0 shadow-2xl">
+    <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-3xl border-0 shadow-2xl">
         {/* Header with Type Switcher */}
         <div
           className={`p-6 text-white transition-colors relative overflow-hidden ${
@@ -317,7 +316,7 @@ export default function ReportIllnessDialog({
             <div className="flex bg-black/20 p-1 rounded-xl border border-white/10">
               <button
                 type="button"
-                onClick={() => setReportType("DISEASE")}
+                onClick={() => handleSelectReportType("DISEASE")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                   isDisease ? "bg-white text-emerald-950 shadow-sm" : "text-white/70 hover:text-white"
                 }`}
@@ -326,7 +325,7 @@ export default function ReportIllnessDialog({
               </button>
               <button
                 type="button"
-                onClick={() => setReportType("MORTALITY")}
+                onClick={() => handleSelectReportType("MORTALITY")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                   !isDisease ? "bg-white text-rose-950 shadow-sm" : "text-white/70 hover:text-white"
                 }`}
@@ -362,7 +361,7 @@ export default function ReportIllnessDialog({
               )}
             </Label>
 
-            <Select value={selectedInventoryId} onValueChange={setSelectedInventoryId}>
+            <Select value={effectiveInventoryId} onValueChange={setSelectedInventoryId}>
               <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]">
                 <SelectValue placeholder="Select livestock from your herd..." />
               </SelectTrigger>
@@ -441,6 +440,11 @@ export default function ReportIllnessDialog({
                       {cause}
                     </SelectItem>
                   ))}
+                  {conditionName && !EASY_MORTALITY_CAUSES.includes(conditionName) && (
+                    <SelectItem value={conditionName} className="text-xs font-semibold py-2">
+                      {conditionName}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -546,7 +550,7 @@ export default function ReportIllnessDialog({
 
             <Button
               type="submit"
-              disabled={isSubmitting || !selectedInventoryId}
+              disabled={isSubmitting || !effectiveInventoryId}
               className={`rounded-xl text-white text-xs font-black h-10 px-6 gap-2 shadow-sm cursor-pointer ${
                 isDisease
                   ? "bg-[#2D5A27] hover:bg-[#22441d]"
@@ -574,6 +578,16 @@ export default function ReportIllnessDialog({
           </div>
         </form>
       </DialogContent>
+  );
+}
+
+export default function ReportIllnessDialog(props: ReportIllnessDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <ReportIllnessDialogContent
+        key={`${props.mode}-${props.existingReport?.id ?? "new"}-${props.defaultType}-${props.open ? "open" : "closed"}`}
+        {...props}
+      />
     </Dialog>
   );
 }

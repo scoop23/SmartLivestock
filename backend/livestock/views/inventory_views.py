@@ -116,7 +116,7 @@ def inventory_detail(request, pk):
     if request.method != "GET":
         batch_id = LivestockInventory.objects.filter(pk=pk).values_list("batch_id", flat=True).first()
         if batch_id:
-            get_object_or_404(LivestockBatch.objects.select_for_update(), pk=batch_id)
+            get_object_or_404(LivestockBatch.objects.select_for_update(of=("self",)), pk=batch_id)
 
     base_qs = LivestockInventory.objects.select_related(
         "livestock_type",
@@ -214,7 +214,7 @@ def review_inventory(request, pk):
     - SIBAT: Field tagging & verification (status = VERIFIED)
     - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    inventory = get_object_or_404(scope_reviewer_queryset(LivestockInventory.objects.select_for_update(), request.user), pk=pk)
+    inventory = get_object_or_404(scope_reviewer_queryset(LivestockInventory.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     if inventory.batch_id: # type: ignore
         batch = inventory.batch

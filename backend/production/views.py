@@ -105,7 +105,7 @@ def production_record_detail(request, pk):
         )
     else:
         require_action(user, "production", "read_all")
-        record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(), request.user), pk=pk)
+        record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     if request.method == "DELETE":
         if role_name != "FARMER":
@@ -183,7 +183,8 @@ def review_production_record(request, pk):
     - SIBAT: Field verification (status = VERIFIED)
     - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(), request.user), pk=pk)
+    # Scope joins optional animal/herd sources; PostgreSQL must lock only the event row.
+    record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -341,7 +342,7 @@ def live_animal_sales_list_create(request):
 def live_animal_sale_delete(request, pk):
     """Keep the existing sale URL; returned declarations can reenter field review."""
     user = request.user
-    queryset = LiveAnimalSale.objects.select_for_update()
+    queryset = LiveAnimalSale.objects.select_for_update(of=("self",))
     if role_name(user) == "FARMER":
         queryset = queryset.filter(Q(livestock__farmer__user=user) | Q(batch__farmer__user=user))
     else:
@@ -377,7 +378,7 @@ def review_live_animal_sale(request, pk):
     POST /production/sales/<pk>/review/
     Official MAO / SIBAT verification action (VERIFIED / APPROVED / SUBJECT_TO_REVISION)
     """
-    sale = get_object_or_404(scope_reviewer_queryset(LiveAnimalSale.objects.select_for_update(), request.user), pk=pk)
+    sale = get_object_or_404(scope_reviewer_queryset(LiveAnimalSale.objects.select_for_update(of=("self",)), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -520,7 +521,7 @@ def review_calving_record(request, pk):
     - SIBAT: Field verification of calf on farm (status = VERIFIED)
     - MAO / Admin: Official municipal registration approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(), request.user), pk=pk)
+    calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -611,7 +612,7 @@ def calving_detail(request, pk):
         )
     else:
         require_action(user, "calving", "read_all")
-        calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(), request.user), pk=pk)
+        calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     if request.method in ["PUT", "PATCH"]:
         if role_name != "FARMER":

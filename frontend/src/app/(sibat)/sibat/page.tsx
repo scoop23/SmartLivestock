@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   QrCode,
 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ import {
 type SibatActiveTab = "health" | "production" | "inventory" | "census";
 
 function SibatPortalContent() {
+  const { user, isLoading: isLoadingAccount } = useAuth();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -177,6 +179,16 @@ function SibatPortalContent() {
         variant="sibat"
         maxWidthClass="w-full"
       />
+
+      {!isLoadingAccount && user?.role === "SIBAT" && !user.assignedBarangayId && (
+        <div role="alert" className="mx-4 my-4 rounded-xl bg-amber-50 p-4 text-amber-950 md:mx-8">
+          <p className="font-semibold">Barangay assignment required</p>
+          <p className="mt-1 text-sm">Your account has no assigned barangay, so private farmer logs and review queues are unavailable. Ask your administrator to assign your barangay in Django admin, then refresh this page. Existing farmer records have not been removed.</p>
+        </div>
+      )}
+      {user?.role === "SIBAT" && user.assignedBarangayName && (
+        <p className="px-4 pt-3 text-sm text-slate-600 md:px-8">Assigned barangay: <strong>{user.assignedBarangayName}</strong>. Private farmer logs are limited to this barangay.</p>
+      )}
 
       {/* ═══ Warm, Friendly Welcome Banner ═══ */}
       <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 border-b border-amber-500/20 shadow-xs">

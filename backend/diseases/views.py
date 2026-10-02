@@ -339,7 +339,7 @@ def disease_case_detail(request, pk):
 
     if role_name == "FARMER":
         record = get_object_or_404(
-            DiseaseCase.objects.select_for_update(),
+            DiseaseCase.objects.select_for_update(of=("self",)),
             Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
@@ -402,7 +402,8 @@ def review_disease_case(request, pk):
     - SIBAT: Can verify (status = VERIFIED)
     - MAO: Final municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    record = get_object_or_404(scope_reviewer_queryset(DiseaseCase.objects.select_for_update(), request.user), pk=pk)
+    # Scope joins optional animal/herd sources; PostgreSQL must lock only the event row.
+    record = get_object_or_404(scope_reviewer_queryset(DiseaseCase.objects.select_for_update(of=("self",)), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -540,7 +541,7 @@ def mortality_record_detail(request, pk):
 
     if role_name == "FARMER":
         record = get_object_or_404(
-            MortalityRecord.objects.select_for_update(),
+            MortalityRecord.objects.select_for_update(of=("self",)),
             Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
@@ -603,7 +604,8 @@ def review_mortality_record(request, pk):
     - SIBAT: Can verify on-farm (status = VERIFIED)
     - MAO: Final municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    record = get_object_or_404(scope_reviewer_queryset(MortalityRecord.objects.select_for_update(), request.user), pk=pk)
+    # Scope joins optional animal/herd sources; PostgreSQL must lock only the event row.
+    record = get_object_or_404(scope_reviewer_queryset(MortalityRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
