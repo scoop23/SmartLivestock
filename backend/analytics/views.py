@@ -9,9 +9,6 @@ from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem
 from livestock.permission import isMAO, isSibat
 from .services.descriptive import descriptive_summary
 from .services.overview import overview_summary
-from .services.predictive.evaluation import evaluate_all_models
-from .services.predictive.forecasting import generate_future_forecast
-from .services.predictive.rules import generate_prescriptive_recommendations
 from smartlivestock.workflows import scope_reviewer_queryset
 
 
@@ -169,12 +166,28 @@ def census_summary(request):
 def predictive_model_comparison(request):
     """
     Evaluates candidate forecasting models (Naive, Linear Regression, Random Forest, ARIMA, Holt-Winters)
-    on chronological train/test split of approved production data.
+    on chronological train/test split of approved municipal data across production, disease, mortality,
+    slaughter, and auction domains.
     """
-    production_type = request.query_params.get("production_type", "MILK").upper()
-    unit = request.query_params.get("unit", "LITERS").upper()
+    from .services.predictive.evaluation import evaluate_all_models
 
-    res = evaluate_all_models(production_type=production_type, unit=unit, user=request.user)
+    domain = request.query_params.get("domain", "production").lower()
+    target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
+    target = target.upper()
+
+    default_unit = "LITERS" if domain == "production" else (
+        "CASES" if domain == "disease" else (
+            "HEADS" if domain in ("mortality", "slaughter", "auction") else "LITERS"
+        )
+    )
+    unit = request.query_params.get("unit", default_unit).upper()
+
+    res = evaluate_all_models(
+        domain=domain,
+        target=target,
+        unit=unit,
+        user=request.user,
+    )
     return Response(res)
 
 
@@ -182,15 +195,26 @@ def predictive_model_comparison(request):
 @permission_classes([IsAuthenticated, isMAO | isSibat])
 def predictive_forecast(request):
     """
-    Generates out-of-sample future projections using the best evaluated model.
+    Generates out-of-sample future projections using the best evaluated model across any domain.
     """
-    production_type = request.query_params.get("production_type", "MILK").upper()
-    unit = request.query_params.get("unit", "LITERS").upper()
+    from .services.predictive.forecasting import generate_future_forecast
+
+    domain = request.query_params.get("domain", "production").lower()
+    target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
+    target = target.upper()
+
+    default_unit = "LITERS" if domain == "production" else (
+        "CASES" if domain == "disease" else (
+            "HEADS" if domain in ("mortality", "slaughter", "auction") else "LITERS"
+        )
+    )
+    unit = request.query_params.get("unit", default_unit).upper()
     horizon = int(request.query_params.get("horizon", 6))
     preferred_model = request.query_params.get("model")
 
     res = generate_future_forecast(
-        production_type=production_type,
+        domain=domain,
+        target=target,
         unit=unit,
         horizon_months=horizon,
         preferred_model=preferred_model,
@@ -206,6 +230,8 @@ def prescriptive_recommendations(request):
     Evaluates transparent, evidence-based prescriptive rules based on forecasts
     and real municipal observations.
     """
+    from .services.predictive.rules import generate_prescriptive_recommendations
+
     production_type = request.query_params.get("production_type", "MILK").upper()
     unit = request.query_params.get("unit", "LITERS").upper()
 

@@ -56,13 +56,19 @@ class Command(BaseCommand):
             default=20,
             help="Number of synthetic mortality records to generate (default: 20).",
         )
+        parser.add_argument(
+            "--months",
+            type=int,
+            default=12,
+            help="Number of historical months across which to distribute records (default: 12).",
+        )
 
     def handle(self, *args, **options):
         if options["clean"]:
             self._handle_clean()
             return
 
-        self._handle_seed(count=options["count"])
+        self._handle_seed(count=options["count"], months=options.get("months", 12))
 
     def _handle_clean(self):
         seed_qs = MortalityRecord.objects.filter(review_remarks__contains=SEED_MARKER_MORTALITY)
@@ -80,7 +86,7 @@ class Command(BaseCommand):
             )
         )
 
-    def _handle_seed(self, count: int):
+    def _handle_seed(self, count: int, months: int = 12):
         existing_count = MortalityRecord.objects.filter(review_remarks__contains=SEED_MARKER_MORTALITY).count()
         if existing_count > 0:
             self.stdout.write(
@@ -116,7 +122,7 @@ class Command(BaseCommand):
             animal = animals[i % len(animals)]
             creator_user = (animal.farmer.user if (animal.farmer and animal.farmer.user) else None) or mao_user
 
-            month_offset = i % 12
+            month_offset = i % max(1, months)
             year = today.year - (month_offset // 12)
             month = today.month - (month_offset % 12)
             if month <= 0:

@@ -53,16 +53,19 @@ class Command(BaseCommand):
             self.stdout.write("1. Cleaning synthetic livestock inspections & clearances...")
             call_command("seed_inspections", clean=True)
 
-            self.stdout.write("2. Cleaning synthetic mortality records...")
+            self.stdout.write("2. Cleaning synthetic slaughter records...")
+            call_command("seed_slaughters", clean=True)
+
+            self.stdout.write("3. Cleaning synthetic mortality records...")
             call_command("seed_mortality", clean=True)
 
-            self.stdout.write("3. Cleaning synthetic disease cases...")
+            self.stdout.write("4. Cleaning synthetic disease cases...")
             call_command("seed_diseases", clean=True)
 
-            self.stdout.write("4. Cleaning synthetic calving records...")
+            self.stdout.write("5. Cleaning synthetic calving records...")
             call_command("seed_calving", clean=True)
 
-            self.stdout.write("5. Cleaning synthetic production records...")
+            self.stdout.write("6. Cleaning synthetic production records...")
             call_command("seed_productions", clean=True)
 
             self.stdout.write(
@@ -73,21 +76,24 @@ class Command(BaseCommand):
             )
             return
 
-        self.stdout.write(self.style.NOTICE(f"Seeding synthetic analytics test datasets (Production: {months} months)..."))
+        self.stdout.write(self.style.NOTICE(f"Seeding synthetic analytics test datasets (Production & Slaughter: {months} months)..."))
 
-        self.stdout.write("\n--- [1/5] Production Time-Series (Milk, Meat, Eggs, Wool) ---")
+        self.stdout.write("\n--- [1/6] Production Time-Series (Milk, Meat, Eggs, Wool) ---")
         call_command("seed_productions", months=months, production_type="ALL")
 
-        self.stdout.write("\n--- [2/5] Calving & Reproduction Records ---")
+        self.stdout.write("\n--- [2/6] Slaughterhouse Records (Heads & Carcass Weight) ---")
+        call_command("seed_slaughters", months=months)
+
+        self.stdout.write("\n--- [3/6] Calving & Reproduction Records ---")
         call_command("seed_calving", count=24)
 
-        self.stdout.write("\n--- [3/5] Disease Surveillance Cases ---")
+        self.stdout.write("\n--- [4/6] Disease Surveillance Cases ---")
         call_command("seed_diseases", count=25)
 
-        self.stdout.write("\n--- [4/5] Livestock Mortality Records ---")
+        self.stdout.write("\n--- [5/6] Livestock Mortality Records ---")
         call_command("seed_mortality", count=20)
 
-        self.stdout.write("\n--- [5/5] Pre-Movement Inspections & Clearances ---")
+        self.stdout.write("\n--- [6/6] Pre-Movement Inspections & Clearances ---")
         call_command("seed_inspections", count=24)
 
         self.stdout.write(

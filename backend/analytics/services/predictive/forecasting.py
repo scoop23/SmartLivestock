@@ -21,7 +21,11 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 
-from .data import extract_monthly_production_series, prepare_tabular_features
+from .data import (
+    extract_monthly_series,
+    extract_monthly_production_series,
+    prepare_tabular_features,
+)
 from .models import (
     NaiveBaselineModel,
     TabularLinearRegression,
@@ -33,24 +37,40 @@ from .evaluation import evaluate_all_models
 
 
 def generate_future_forecast(
-    production_type: str = "MILK",
+    domain: str = "production",
+    target: str = "MILK",
     unit: str = "LITERS",
     horizon_months: int = 6,
     preferred_model: Optional[str] = None,
     user=None,
+    production_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Produces out-of-sample future forecasts using the best evaluated model (or specified model).
+    Produces out-of-sample future forecasts using the best evaluated model (or specified model)
+    across any supported domain (production, disease, mortality, slaughter, auction).
     """
+    # Backward compatibility with callers passing production_type
+    effective_target = production_type if production_type is not None else target
+
     # Step 1: Run model evaluation to discover the best performing model
-    eval_res = evaluate_all_models(production_type=production_type, unit=unit, user=user)
+    eval_res = evaluate_all_models(
+        domain=domain,
+        target=effective_target,
+        unit=unit,
+        user=user,
+    )
     if eval_res.get("status") == "insufficient_data":
         return eval_res
 
     selected_model_name = preferred_model or eval_res["selection"]["selected_model"] or "Linear Regression"
 
     # Step 2: Extract the full historical dataset
-    df, meta = extract_monthly_production_series(production_type=production_type, unit=unit, user=user)
+    df, meta = extract_monthly_series(
+        domain=domain,
+        target=effective_target,
+        unit=unit,
+        user=user,
+    )
     if df is None:
         return eval_res
 
@@ -149,9 +169,13 @@ def generate_future_forecast(
 
     return {
         "status": "ready",
+        "forecast_available": True,
+        "domain": domain,
         "model": selected_model_name,
         "target": {
-            "production_type": production_type,
+            "domain": domain,
+            "target": effective_target,
+            "production_type": effective_target,
             "unit": unit,
             "frequency": "MONTHLY",
         },

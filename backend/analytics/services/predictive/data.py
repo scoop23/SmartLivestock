@@ -2,31 +2,39 @@
 Data Extraction, Cleaning, and Feature Engineering for Time-Series Forecasting.
 
 =============================================================================
-EDUCATIONAL OVERVIEW: FROM DATABASE TO MACHINE LEARNING DATASET
+EDUCATIONAL OVERVIEW: MULTI-DOMAIN TIME-SERIES EXTRACTION & DATA INTEGRITY
 =============================================================================
-In traditional software, we query a database and display the rows.
-In Machine Learning (ML), algorithms cannot understand raw database rows.
-They require structured numerical arrays:
-  - X (Input Features): The predictors or independent variables (e.g. past production, month number).
-  - y (Target Variable): The quantity we want to predict (e.g. current month's milk production).
+In municipal livestock analytics, we process five core time-series domains:
+  1. Production: Milk (Liters), Farmer-reported Meat (kg), Eggs (pcs), Wool (kg)
+  2. Disease Surveillance: Outbreak frequency (Cases) and Affected Animals (Heads)
+  3. Mortality: Livestock Deaths (Heads) across disease-linked and independent causes
+  4. Slaughter: Abattoir Throughput (Heads) vs Meat Biomass (Carcass Weight kg)
+  5. Auction / Live Animal Sales: Market throughput (Heads) and trading volume (PHP)
 
-KEY DATA SCIENCE PRINCIPLES IMPLEMENTED HERE:
+KEY DATA SCIENCE & CAPSTONE PRINCIPLES:
 1. Approved Records Only:
-   Only MAO-approved records represent official, verified production output.
+   Only MAO-approved records represent official, verified municipal observations.
    Pending or revised records may contain unverified estimates or data entry typos.
 
-2. Never Mix Units (Unit Purity):
-   Milk is measured in LITERS, meat in KILOGRAMS, eggs in PIECES.
-   Mixing 100 liters of milk with 100 kilograms of meat into one series creates
-   meaningless numbers. Every model targets a single (production_type, unit) pair.
+2. Unit Purity Rule:
+   Different production yields have incompatible physical units:
+     - Milk: LITERS
+     - Meat: KILOGRAMS
+     - Eggs: PIECES
+   Mixing liters, kilograms, and pieces into a single time series corrupts the data.
+   Every model strictly targets a single (domain, target, unit) tuple.
 
-3. Missing Data != Zero:
-   If a farmer did not report in March 2025, that does NOT mean the cows produced 0 Liters.
-   It means an observation was not recorded. In real data science, treating missing values
-   as zero falsely pulls the trend line down. We aggregate available observations and
-   distinguish observed months from missing periods.
+3. Farmer-Reported Meat vs. Slaughterhouse Meat (Preventing Double Counting):
+   Farmer meat (ProductionRecord with production_type='MEAT' and slaughter=None)
+   is kept strictly separate from municipal slaughterhouse records (SlaughterRecord).
+   Counting both in the same meat metric would double-count the same livestock.
 
-4. Chronological Train/Test Split (Preventing Data Leakage):
+4. Data Sufficiency vs. Fake Forecasts:
+   If a domain has fewer than 12 monthly observations, we NEVER fabricate fake forecast
+   curves or random numbers. We return `status: "insufficient_data"` with the historical
+   trend line and an educational explanation of minimum observation thresholds.
+
+5. Chronological Train/Test Split (Preventing Data Leakage):
    Standard ML often splits data randomly (e.g. train_test_split(..., shuffle=True)).
    In TIME SERIES, random splitting is a fatal error called DATA LEAKAGE:
    if the model sees May 2026 during training, it can "cheat" when predicting April 2026.
@@ -39,84 +47,257 @@ from typing import Dict, Any, Tuple, Optional
 import pandas as pd
 import numpy as np
 
-from django.db.models import Sum
+from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth
 
-from production.models import ProductionRecord
+from production.models import ProductionRecord, SlaughterRecord, LiveAnimalSale
+from diseases.models import DiseaseCase, MortalityRecord
+from smartlivestock.workflows import scope_reviewer_queryset
+from analytics.seed_markers import (
+    SEED_MARKER_PRODUCTION_V2,
+    SEED_MARKER_PRODUCTION_LEGACY,
+    SEED_MARKER_DISEASE,
+    SEED_MARKER_MORTALITY,
+    SEED_MARKER_SLAUGHTER,
+    SEED_MARKER_AUCTION,
+)
 
-SEED_MARKER_V2 = "AI_SEED::ANALYTICS_TEST::PRODUCTION::V2"
-SEED_MARKER_LEGACY = "AI_SEED::PREDICTIVE_ANALYTICS::V1"
+SEED_MARKER_V2 = SEED_MARKER_PRODUCTION_V2
+SEED_MARKER_LEGACY = SEED_MARKER_PRODUCTION_LEGACY
 SEED_MARKER = SEED_MARKER_V2
 MIN_OBSERVATIONS_REQUIRED = 12  # Minimum monthly points to perform a meaningful train/test comparison
 
 
-def extract_monthly_production_series(
-    production_type: str = "MILK",
+def extract_monthly_series(
+    domain: str = "production",
+    target: str = "MILK",
     unit: str = "LITERS",
     user=None,
 ) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
     """
-    Extracts approved ProductionRecords grouped by month for a specific commodity and unit.
+    Extracts approved municipal records grouped by calendar month for any supported domain.
+
+    Supported domains:
+      - 'production': Target is commodity (MILK, MEAT, EGGS, WOOL). Unit is LITERS, KILOGRAMS, PIECES.
+                      Farmer meat enforces slaughter=None to prevent double counting.
+      - 'disease': Target is disease name or 'ALL'. Unit is 'CASES' or 'HEADS'.
+      - 'mortality': Target is cause or 'ALL'. Unit is 'HEADS'.
+      - 'slaughter': Target is species or 'ALL'. Unit is 'HEADS' (throughput) or 'KILOGRAMS' (carcass weight).
+      - 'auction': Target is purpose/method or 'ALL'. Unit is 'HEADS' or 'PHP'.
 
     Returns:
         (df, metadata)
         - df: A pandas DataFrame with columns ['month', 'quantity'], indexed by DatetimeIndex,
-              or None if insufficient data.
-        - metadata: Dictionary containing observation counts, seed status, and messages.
+              or None if insufficient data (< 12 observations).
+        - metadata: Dictionary containing observation counts, seed status, historical points,
+                    and sufficiency explanation.
     """
-    # Step 1: Filter strictly for APPROVED records of the exact requested type & unit
-    base_qs = ProductionRecord.objects.filter(
-        status=ProductionRecord.ProductionStatus.APPROVED,
-        production_type=production_type,
-        unit=unit,
-    )
+    domain = (domain or "production").lower()
+    target_clean = (target or "MILK").upper()
+    unit_clean = (unit or "LITERS").upper()
 
-    # Step 2: Check for test seed marker
-    # This allows the API/UI to honestly disclose whether the data is seeded test data
-    seeded_record = base_qs.filter(notes__contains="AI_SEED").first()
-    has_seed = seeded_record is not None
     active_marker = None
-    if has_seed:
-        if SEED_MARKER_V2 in seeded_record.notes:
-            active_marker = SEED_MARKER_V2
-        elif SEED_MARKER_LEGACY in seeded_record.notes:
-            active_marker = SEED_MARKER_LEGACY
+    has_seed = False
+    base_qs = None
+    records = []
+
+    if domain == "production":
+        # ---------------------------------------------------------------------
+        # DOMAIN: PRODUCTION (Milk, Meat, Eggs, Wool)
+        # ---------------------------------------------------------------------
+        base_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+            status=ProductionRecord.ProductionStatus.APPROVED,
+            production_type=target_clean,
+            unit=unit_clean,
+        )
+        # Crucial: Farmer-reported meat must NOT double-count slaughter records!
+        if target_clean == "MEAT":
+            base_qs = base_qs.filter(slaughter__isnull=True)
+
+        seeded_record = base_qs.filter(notes__contains="AI_SEED").first()
+        if seeded_record:
+            has_seed = True
+            active_marker = (
+                SEED_MARKER_PRODUCTION_V2
+                if SEED_MARKER_PRODUCTION_V2 in seeded_record.notes
+                else SEED_MARKER_PRODUCTION_LEGACY
+            )
+
+        monthly_data = (
+            base_qs.annotate(month=TruncMonth("record_date"))
+            .values("month")
+            .annotate(total_quantity=Sum("quantity"))
+            .order_by("month")
+        )
+        records = list(monthly_data)
+
+    elif domain == "disease":
+        # ---------------------------------------------------------------------
+        # DOMAIN: DISEASE SURVEILLANCE
+        # ---------------------------------------------------------------------
+        base_qs = scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(
+            status=DiseaseCase.DiseaseStatus.APPROVED
+        )
+        if target_clean not in ("ALL", "CASES", "HEADS", ""):
+            base_qs = base_qs.filter(name__icontains=target_clean)
+
+        seeded_record = base_qs.filter(review_remarks__contains="AI_SEED").first()
+        if seeded_record:
+            has_seed = True
+            active_marker = SEED_MARKER_DISEASE
+
+        if unit_clean == "HEADS":
+            # Track affected animals count
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("record_date"))
+                .values("month")
+                .annotate(total_quantity=Sum("affected_count"))
+                .order_by("month")
+            )
         else:
-            active_marker = SEED_MARKER_V2
+            # Track distinct clinical case events (default: CASES)
+            unit_clean = "CASES"
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("record_date"))
+                .values("month")
+                .annotate(total_quantity=Count("id"))
+                .order_by("month")
+            )
+        records = list(monthly_data)
 
-    # Step 3: Aggregate by calendar month
-    # Multiple daily or weekly entries within the same month are summed to produce
-    # the total monthly recorded output.
-    monthly_data = (
-        base_qs.annotate(month=TruncMonth("record_date"))
-        .values("month")
-        .annotate(total_quantity=Sum("quantity"))
-        .order_by("month")
-    )
+    elif domain == "mortality":
+        # ---------------------------------------------------------------------
+        # DOMAIN: LIVESTOCK MORTALITY
+        # ---------------------------------------------------------------------
+        base_qs = scope_reviewer_queryset(MortalityRecord.objects.all(), user).filter(
+            status=MortalityRecord.MortalityRecordStatus.APPROVED
+        )
+        if target_clean not in ("ALL", "DEATHS", "HEADS", ""):
+            base_qs = base_qs.filter(cause__icontains=target_clean)
 
-    records = list(monthly_data)
+        seeded_record = base_qs.filter(review_remarks__contains="AI_SEED").first()
+        if seeded_record:
+            has_seed = True
+            active_marker = SEED_MARKER_MORTALITY
+
+        unit_clean = "HEADS"
+        monthly_data = (
+            base_qs.annotate(month=TruncMonth("record_date"))
+            .values("month")
+            .annotate(total_quantity=Sum("death_count"))
+            .order_by("month")
+        )
+        records = list(monthly_data)
+
+    elif domain == "slaughter":
+        # ---------------------------------------------------------------------
+        # DOMAIN: MUNICIPAL SLAUGHTERHOUSE
+        # ---------------------------------------------------------------------
+        base_qs = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
+            status=SlaughterRecord.StatusType.APPROVED
+        )
+        if target_clean not in ("ALL", "HEADS", "WEIGHT", "KILOGRAMS", ""):
+            base_qs = base_qs.filter(livestock_type__name__icontains=target_clean)
+
+        seeded_record = base_qs.filter(review_remarks__contains="AI_SEED").first()
+        if seeded_record:
+            has_seed = True
+            active_marker = SEED_MARKER_SLAUGHTER
+
+        if unit_clean in ("KILOGRAMS", "KG", "WEIGHT"):
+            unit_clean = "KILOGRAMS"
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("record_date"))
+                .values("month")
+                .annotate(total_quantity=Sum("carcass_weight"))
+                .order_by("month")
+            )
+        else:
+            unit_clean = "HEADS"
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("record_date"))
+                .values("month")
+                .annotate(total_quantity=Sum("quantity"))
+                .order_by("month")
+            )
+        records = list(monthly_data)
+
+    elif domain == "auction":
+        # ---------------------------------------------------------------------
+        # DOMAIN: AUCTION / LIVE ANIMAL SALES
+        # ---------------------------------------------------------------------
+        base_qs = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).filter(
+            status=LiveAnimalSale.StatusType.APPROVED
+        )
+        if target_clean not in ("ALL", "HEADS", "SALES", "PHP", ""):
+            base_qs = base_qs.filter(
+                Q(sale_method__icontains=target_clean) | Q(purpose__icontains=target_clean)
+            )
+
+        seeded_record = base_qs.filter(notes__contains="AI_SEED").first() if hasattr(LiveAnimalSale, 'notes') else None
+        if seeded_record:
+            has_seed = True
+            active_marker = SEED_MARKER_AUCTION
+
+        if unit_clean in ("PHP", "VALUE", "TOTAL_PRICE"):
+            unit_clean = "PHP"
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("sale_date"))
+                .values("month")
+                .annotate(total_quantity=Sum("total_price"))
+                .order_by("month")
+            )
+        else:
+            unit_clean = "HEADS"
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("sale_date"))
+                .values("month")
+                .annotate(total_quantity=Sum("quantity"))
+                .order_by("month")
+            )
+        records = list(monthly_data)
+
+    else:
+        # Fallback to empty series for unknown domain
+        records = []
+        base_qs = ProductionRecord.objects.none()
+
+    # Filter out any None months if legacy records had null dates
+    records = [r for r in records if r.get("month") is not None and r.get("total_quantity") is not None]
+
+    historical_trend_points = [
+        {
+            "date": r["month"].strftime("%Y-%m-%d"),
+            "month_label": r["month"].strftime("%b %Y"),
+            "actual": float(r["total_quantity"]),
+        }
+        for r in records
+    ]
 
     metadata = {
-        "production_type": production_type,
-        "unit": unit,
+        "domain": domain,
+        "target": target_clean,
+        "unit": unit_clean,
         "frequency": "MONTHLY",
         "is_seeded": has_seed,
         "seed_marker": active_marker,
-        "total_records": base_qs.count(),
+        "total_records": base_qs.count() if base_qs is not None else 0,
         "total_monthly_observations": len(records),
+        "historical_trend": historical_trend_points,
     }
 
+    # Data sufficiency verification: NEVER force machine learning on sparse data (< 12 points)
     if len(records) < MIN_OBSERVATIONS_REQUIRED:
         metadata["status"] = "insufficient_data"
+        metadata["forecast_available"] = False
         metadata["message"] = (
-            f"Insufficient historical data: Found {len(records)} monthly observation(s). "
-            f"At least {MIN_OBSERVATIONS_REQUIRED} monthly observations are required to train and evaluate "
-            f"predictive forecasting models reliably without fabricating scores."
+            f"Insufficient historical data for {domain.title()} ({target_clean}): Found {len(records)} "
+            f"monthly observation(s). At least {MIN_OBSERVATIONS_REQUIRED} monthly observations are required "
+            f"to train, chronologically evaluate, and benchmark predictive forecasting models reliably "
+            f"without fabricating synthetic scores."
         )
         return None, metadata
 
-    # Step 4: Construct the pandas DataFrame
-    # A DataFrame is a 2D tabular data structure with labeled axes (rows and columns).
     rows = [
         {
             "month": pd.to_datetime(r["month"]),
@@ -130,10 +311,27 @@ def extract_monthly_production_series(
     df.reset_index(drop=True, inplace=True)
 
     metadata["status"] = "ready"
+    metadata["forecast_available"] = True
     metadata["start_date"] = df["month"].min().strftime("%Y-%m-%d")
     metadata["end_date"] = df["month"].max().strftime("%Y-%m-%d")
 
     return df, metadata
+
+
+def extract_monthly_production_series(
+    production_type: str = "MILK",
+    unit: str = "LITERS",
+    user=None,
+) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
+    """
+    Backward-compatible convenience wrapper for production series extraction.
+    """
+    return extract_monthly_series(
+        domain="production",
+        target=production_type,
+        unit=unit,
+        user=user,
+    )
 
 
 def prepare_tabular_features(df: pd.DataFrame) -> pd.DataFrame:

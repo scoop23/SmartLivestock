@@ -241,3 +241,143 @@ class PredictiveAnalyticsTests(TestCase):
             self.assertIn("evidence", rec)
             self.assertIn("recommendation", rec)
             self.assertIn(rec["severity"], ["LOW", "MEDIUM", "HIGH"])
+
+    def test_multi_domain_insufficient_data_handling(self):
+        """
+        Verify that domains with fewer than 12 monthly observations return
+        status='insufficient_data' and forecast_available=False without fabricating fake predictions.
+        """
+        from analytics.services.predictive.data import extract_monthly_series
+
+        # With 0 records, auction domain must report insufficient data
+        df, meta = extract_monthly_series(domain="auction", target="ALL", unit="HEADS")
+        self.assertIsNone(df)
+        self.assertEqual(meta["status"], "insufficient_data")
+        self.assertFalse(meta["forecast_available"])
+        self.assertIn("Insufficient historical data", meta["message"])
+
+        # evaluate_all_models and generate_future_forecast must propagate this state safely
+        eval_res = evaluate_all_models(domain="auction", target="ALL", unit="HEADS")
+        self.assertEqual(eval_res["status"], "insufficient_data")
+        self.assertFalse(eval_res["forecast_available"])
+
+        fc_res = generate_future_forecast(domain="auction", target="ALL", unit="HEADS")
+        self.assertEqual(fc_res["status"], "insufficient_data")
+        self.assertFalse(fc_res["forecast_available"])
+
+    def test_slaughter_seed_forecasting_and_clean(self):
+        """
+        Verify end-to-end slaughter domain pipeline:
+        1. Seed 24 months of slaughterhouse throughput.
+        2. Evaluate all 5 candidate models on HEADS.
+        3. Generate future 6-month forecast.
+        4. Clean synthetic records safely.
+        """
+        from production.models import SlaughterRecord
+        from analytics.seed_markers import SEED_MARKER_SLAUGHTER
+
+        # Seed 24 months of synthetic slaughter records
+        call_command("seed_slaughters", months=24)
+        seeded_slaughters = SlaughterRecord.objects.filter(review_remarks__contains=SEED_MARKER_SLAUGHTER).count()
+        self.assertGreaterEqual(seeded_slaughters, 24)
+
+        # Model evaluation on HEADS
+        eval_res = evaluate_all_models(domain="slaughter", target="ALL", unit="HEADS")
+        self.assertEqual(eval_res["status"], "ready")
+        self.assertTrue(eval_res["forecast_available"])
+        self.assertEqual(len(eval_res["models"]), 5)
+        self.assertIn("selected_model", eval_res["selection"])
+
+        # Future forecast generation
+        fc = generate_future_forecast(domain="slaughter", target="ALL", unit="HEADS", horizon_months=6)
+        self.assertEqual(fc["status"], "ready")
+        self.assertEqual(len(fc["forecast"]), 6)
+        self.assertIn("chart_data", fc)
+
+        # Safe clean
+        call_command("seed_slaughters", clean=True)
+        remaining = SlaughterRecord.objects.filter(review_remarks__contains=SEED_MARKER_SLAUGHTER).count()
+        self.assertEqual(remaining, 0)
+
+    def test_farmer_meat_and_slaughter_meat_separation(self):
+        """
+        Verify that farmer-reported meat (ProductionRecord with slaughter=None)
+        is isolated and never confused with municipal slaughter records.
+        """
+        from production.models import SlaughterRecord
+        from analytics.services.predictive.data import extract_monthly_series
+
+        # 1. Create a farmer-reported meat record
+        farmer_meat = ProductionRecord.objects.create(
+            livestock=self.inventory,
+            production_type=ProductionRecord.ProductionType.MEAT,
+            quantity=Decimal("50.00"),
+            unit=ProductionRecord.UnitType.KILOGRAMS,
+            record_date=date(2026, 8, 1),
+            status=ProductionRecord.ProductionStatus.APPROVED,
+            slaughter=None,
+            notes="On-farm processed meat",
+            created_by=self.farmer_user,
+            reviewed_by=self.mao_user,
+        )
+
+        # 2. Create a slaughter record (abattoir meat)
+        slaughter_rec = SlaughterRecord.objects.create(
+            livestock_type=self.livestock_type,
+            quantity=1,
+            carcass_weight=Decimal("200.00"),
+            record_date=date(2026, 8, 1),
+            status=SlaughterRecord.StatusType.APPROVED,
+            created_by=self.mao_user,
+        )
+
+        # 3. Extract production series for MEAT (KILOGRAMS)
+        df, meta = extract_monthly_series(domain="production", target="MEAT", unit="KILOGRAMS")
+        # Since < 12 records, df is None, but meta['historical_trend'] contains the point
+        trend = meta.get("historical_trend", [])
+        self.assertEqual(len(trend), 1)
+        # Quantity should be exactly the 50.0 kg from farmer_meat, NOT including the 200.0 kg slaughterhouse meat!
+        self.assertEqual(trend[0]["actual"], 50.0)
+
+    def test_descriptive_analytics_slaughter_and_mortality_enrichment(self):
+        """
+        Verify that descriptive analytics contains the new slaughterhouse section,
+        mortality risk indicator, and mortality barangay breakdown.
+        """
+        from analytics.services.descriptive import descriptive_summary
+        from diseases.models import MortalityRecord
+
+        # Create approved mortality record
+        MortalityRecord.objects.create(
+            livestock=self.inventory,
+            death_count=2,
+            cause="Heat Stress",
+            record_date=date.today(),
+            status=MortalityRecord.MortalityRecordStatus.APPROVED,
+            created_by=self.farmer_user,
+            reviewed_by=self.mao_user,
+        )
+
+        # Create approved slaughter record
+        from production.models import SlaughterRecord
+        SlaughterRecord.objects.create(
+            livestock_type=self.livestock_type,
+            quantity=3,
+            carcass_weight=Decimal("540.00"),
+            record_date=date.today(),
+            status=SlaughterRecord.StatusType.APPROVED,
+            created_by=self.mao_user,
+        )
+
+        desc = descriptive_summary()["descriptive"]
+        self.assertIn("slaughter", desc)
+        self.assertEqual(desc["slaughter"]["total_heads"], 3)
+        self.assertEqual(desc["slaughter"]["total_carcass_weight_kg"], 540.0)
+
+        self.assertIn("mortality", desc)
+        self.assertIn("risk_indicator", desc["mortality"])
+        self.assertIn("level", desc["mortality"]["risk_indicator"])
+        self.assertIn("by_barangay", desc["mortality"])
+        self.assertIn("sales", desc)
+        self.assertIn("by_method", desc["sales"])
+

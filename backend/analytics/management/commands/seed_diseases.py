@@ -52,13 +52,19 @@ class Command(BaseCommand):
             default=25,
             help="Number of synthetic disease cases to generate (default: 25).",
         )
+        parser.add_argument(
+            "--months",
+            type=int,
+            default=12,
+            help="Number of historical months across which to distribute records (default: 12).",
+        )
 
     def handle(self, *args, **options):
         if options["clean"]:
             self._handle_clean()
             return
 
-        self._handle_seed(count=options["count"])
+        self._handle_seed(count=options["count"], months=options.get("months", 12))
 
     def _handle_clean(self):
         seed_qs = DiseaseCase.objects.filter(review_remarks__contains=SEED_MARKER_DISEASE)
@@ -76,7 +82,7 @@ class Command(BaseCommand):
             )
         )
 
-    def _handle_seed(self, count: int):
+    def _handle_seed(self, count: int, months: int = 12):
         existing_count = DiseaseCase.objects.filter(review_remarks__contains=SEED_MARKER_DISEASE).count()
         if existing_count > 0:
             self.stdout.write(
@@ -112,7 +118,7 @@ class Command(BaseCommand):
             disease_name = DISEASE_NAMES[i % len(DISEASE_NAMES)]
             affected = int(rng.choice([1, 2, 3, 5, 8]))
 
-            month_offset = i % 12
+            month_offset = i % max(1, months)
             year = today.year - (month_offset // 12)
             month = today.month - (month_offset % 12)
             if month <= 0:

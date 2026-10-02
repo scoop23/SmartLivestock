@@ -169,12 +169,161 @@ def descriptive_summary(today=None, *, user=None):
         mortality.values("cause").annotate(deaths=Sum("death_count"))
         .order_by("-deaths", "cause")
     )
+    mortality_by_barangay = list(
+        mortality.annotate(
+            barangay_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+            barangay=Coalesce("livestock__farmer__barangay__barangay_name", "batch__farmer__barangay__barangay_name"),
+        ).values("barangay_id", "barangay").annotate(records=Count("id"), deaths=Sum("death_count"))
+        .order_by("-deaths", "barangay")
+    )
 
+    # Empirical mortality risk indicator (comparing recent 3 months against 12-month baseline)
+    # Educational note: This is an empirical surveillance indicator to detect statistical anomalies,
+    # NOT a biological or epidemiological probability.
+    recent_3m_cutoff = today.replace(day=1)
+    # 3 months prior to today
+    r_month = today.year * 12 + today.month - 3
+    r_year, r_m = divmod(r_month, 12)
+    recent_3m_start = date(r_year, r_m + 1, 1)
+
+    recent_deaths = sum(
+        row["deaths"] or 0
+        for row in mortality_monthly
+        if row["month"] >= recent_3m_start
+    )
+    all_deaths = mortality_totals["deaths"] or 0
+    # Expected deaths in 3 months based on 12-month average: (all_deaths / 12) * 3
+    expected_3m_deaths = (all_deaths / 12.0) * 3.0 if all_deaths > 0 else 0.0
+
+    if expected_3m_deaths > 0:
+        death_ratio = recent_deaths / expected_3m_deaths
+        if death_ratio >= 1.25:
+            risk_level = "ELEVATED"
+            risk_trend = "INCREASING"
+        elif death_ratio <= 0.80:
+            risk_level = "LOW"
+            risk_trend = "DECREASING"
+        else:
+            risk_level = "MODERATE"
+            risk_trend = "STABLE"
+    else:
+        death_ratio = 1.0
+        risk_level = "LOW"
+        risk_trend = "STABLE"
+
+    mortality_risk_indicator = {
+        "level": risk_level,
+        "trend": risk_trend,
+        "recent_3m_deaths": recent_deaths,
+        "baseline_3m_expected": round(expected_3m_deaths, 1),
+        "ratio_vs_baseline": round(death_ratio, 2),
+        "methodology_note": (
+            "Empirical surveillance indicator comparing recent 3-month mortality against "
+            "the 12-month baseline rate. This reflects historical reporting velocity and is "
+            "NOT a biological or epidemiological probability."
+        ),
+    }
+
+    # -------------------------------------------------------------------------
+    # SLAUGHTERHOUSE ANALYTICS
+    # -------------------------------------------------------------------------
+    # Head counts (throughput) and carcass weight (meat biomass) are kept strictly separate.
+    slaughter_qs = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
+        status=SlaughterRecord.StatusType.APPROVED,
+        record_date__range=(start, today),
+    )
+    slaughter_totals = slaughter_qs.aggregate(
+        records=Count("id"),
+        total_heads=Sum("quantity"),
+        total_carcass_weight=Sum("carcass_weight"),
+    )
+    slaughter_by_species = list(
+        slaughter_qs.values("livestock_type__name")
+        .annotate(
+            records=Count("id"),
+            heads=Sum("quantity"),
+            carcass_weight=Sum("carcass_weight"),
+        )
+        .order_by("-heads")
+    )
+    sl_heads_map = {
+        row["month"]: row["heads"]
+        for row in slaughter_qs.annotate(month=TruncMonth("record_date"))
+        .values("month")
+        .annotate(heads=Sum("quantity"))
+    }
+    sl_weights_map = {
+        row["month"]: row["weight"]
+        for row in slaughter_qs.annotate(month=TruncMonth("record_date"))
+        .values("month")
+        .annotate(weight=Sum("carcass_weight"))
+    }
+    slaughter_trend = [
+        {
+            "month": m.isoformat(),
+            "label": f"{calendar.month_abbr[m.month]} {m.year}",
+            "heads": sl_heads_map.get(m, 0),
+            "carcass_weight_kg": float(sl_weights_map.get(m, 0.0) or 0.0),
+        }
+        for m in _months(start)
+    ]
+    total_heads_slaughtered = slaughter_totals["total_heads"] or 0
+    total_carcass_kg = float(slaughter_totals["total_carcass_weight"] or 0.0)
+    avg_carcass_per_head = (
+        round(total_carcass_kg / total_heads_slaughtered, 2)
+        if total_heads_slaughtered > 0
+        else 0.0
+    )
+
+    slaughter_analytics = {
+        "records": slaughter_totals["records"],
+        "total_heads": total_heads_slaughtered,
+        "total_carcass_weight_kg": total_carcass_kg,
+        "avg_carcass_weight_kg_per_head": avg_carcass_per_head,
+        "by_species": [
+            {
+                "species": row["livestock_type__name"] or "Unknown",
+                "records": row["records"],
+                "heads": row["heads"] or 0,
+                "carcass_weight_kg": float(row["carcass_weight"] or 0.0),
+            }
+            for row in slaughter_by_species
+        ],
+        "monthly_trend": slaughter_trend,
+    }
+
+    # -------------------------------------------------------------------------
+    # AUCTION / LIVE ANIMAL SALES ANALYTICS
+    # -------------------------------------------------------------------------
     sales = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).filter(status=LiveAnimalSale.StatusType.APPROVED, sale_date__range=(start, today))
     sale_totals = sales.aggregate(
         sales=Count("id"), animals=Sum("quantity"),
         recorded_value=Sum("total_price"), priced_sales=Count("id", filter=Q(total_price__isnull=False)),
     )
+    sales_by_method = list(
+        sales.values("sale_method").annotate(count=Count("id"), animals=Sum("quantity"), total_value=Sum("total_price"))
+        .order_by("-animals")
+    )
+    sales_by_purpose = list(
+        sales.values("purpose").annotate(count=Count("id"), animals=Sum("quantity"))
+        .order_by("-animals")
+    )
+    sales_monthly = list(
+        sales.annotate(month=TruncMonth("sale_date"))
+        .values("month").annotate(count=Count("id"), animals=Sum("quantity"), total_value=Sum("total_price"))
+        .order_by("month")
+    )
+    sales_trend_map = {row["month"]: row for row in sales_monthly}
+    sales_trend = [
+        {
+            "month": m.isoformat(),
+            "label": f"{calendar.month_abbr[m.month]} {m.year}",
+            "transactions": sales_trend_map.get(m, {}).get("count", 0),
+            "animals": sales_trend_map.get(m, {}).get("animals", 0),
+            "total_value_php": float(sales_trend_map.get(m, {}).get("total_value", 0.0) or 0.0),
+        }
+        for m in _months(start)
+    ]
 
     surveillance = _series(disease_monthly, "affected_heads", start)
     death_series = _series(mortality_monthly, "deaths", start)
@@ -311,15 +460,27 @@ def descriptive_summary(today=None, *, user=None):
         "disease": {"cases": disease_totals["cases"], "affected_heads": disease_totals["affected_heads"] or 0,
                     "trend": [{"month": row["month"].isoformat(), "cases": row["cases"], "affected_heads": row["affected_heads"] or 0} for row in disease_monthly],
                     "by_type": disease_by_type, "by_barangay": disease_by_barangay},
-        "mortality": {"records": mortality_totals["records"], "deaths": mortality_totals["deaths"] or 0,
-                      "trend": [{"month": row["month"].isoformat(), "deaths": row["deaths"] or 0} for row in mortality_monthly],
-                      "by_cause": mortality_by_cause},
+        "mortality": {
+            "records": mortality_totals["records"],
+            "deaths": mortality_totals["deaths"] or 0,
+            "trend": [{"month": row["month"].isoformat(), "deaths": row["deaths"] or 0} for row in mortality_monthly],
+            "by_cause": mortality_by_cause,
+            "by_barangay": mortality_by_barangay,
+            "risk_indicator": mortality_risk_indicator,
+        },
+        "slaughter": slaughter_analytics,
         "vaccination": {"vaccinated": vaccinated_heads, "total": total_heads,
                         "coverage_pct": round(vaccinated_heads / total_heads * 100, 1) if total_heads else 0,
                         "by_barangay": coverage},
-        "sales": {"sales": sale_totals["sales"], "animals": sale_totals["animals"] or 0,
-                  "recorded_value": float(sale_totals["recorded_value"]) if sale_totals["recorded_value"] is not None else None,
-                  "priced_sales": sale_totals["priced_sales"]},
+        "sales": {
+            "sales": sale_totals["sales"],
+            "animals": sale_totals["animals"] or 0,
+            "recorded_value": float(sale_totals["recorded_value"]) if sale_totals["recorded_value"] is not None else None,
+            "priced_sales": sale_totals["priced_sales"],
+            "by_method": sales_by_method,
+            "by_purpose": sales_by_purpose,
+            "trend": sales_trend,
+        },
         "inspection": inspection_analytics,
     }
     return {

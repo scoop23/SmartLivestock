@@ -34,12 +34,13 @@ Therefore, regression performance is measured by ERROR METRICS:
    same unseen test observations. We never compare Model A on 2025 with Model B on 2026.
 """
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from .data import (
+    extract_monthly_series,
     extract_monthly_production_series,
     prepare_tabular_features,
     chronological_split,
@@ -77,21 +78,39 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float
 
 
 def evaluate_all_models(
-    production_type: str = "MILK",
+    domain: str = "production",
+    target: str = "MILK",
     unit: str = "LITERS",
     user=None,
+    production_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extracts approved records, splits chronologically, trains all 5 candidate models,
-    and returns a fair evaluation comparison.
+    and returns a fair evaluation comparison across any supported domain.
     """
-    df, meta = extract_monthly_production_series(production_type=production_type, unit=unit, user=user)
+    # Backward compatibility with callers passing production_type
+    effective_target = production_type if production_type is not None else target
+
+    df, meta = extract_monthly_series(
+        domain=domain,
+        target=effective_target,
+        unit=unit,
+        user=user,
+    )
 
     if df is None:
         return {
             "status": "insufficient_data",
+            "forecast_available": False,
+            "domain": domain,
+            "target": {
+                "domain": domain,
+                "target": effective_target,
+                "production_type": effective_target,
+                "unit": unit,
+            },
             "message": meta.get("message", "Insufficient historical observations."),
-            "target": {"production_type": production_type, "unit": unit},
+            "historical_trend": meta.get("historical_trend", []),
             "data": meta,
             "models": [],
         }
@@ -265,8 +284,12 @@ def evaluate_all_models(
 
     return {
         "status": "ready",
+        "forecast_available": True,
+        "domain": domain,
         "target": {
-            "production_type": production_type,
+            "domain": domain,
+            "target": effective_target,
+            "production_type": effective_target,
             "unit": unit,
             "frequency": "MONTHLY",
         },
