@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/contexts/auth-context";
 import { useState, useMemo } from "react";
 import { PageHeader } from "@/app/components/page-header";
 import { toast } from "sonner";
@@ -42,7 +43,7 @@ import { Layers, Boxes, Milk, FileSpreadsheet, Activity, Database } from "lucide
 
 // Backend TanStack hooks & API client for live database connectivity
 import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/axios";
+import { municipalRead } from "@/lib/municipal-read";
 import {
   useAdminInventoryRecords,
   useAdminProductionRecords,
@@ -50,8 +51,8 @@ import {
   useAdminIncidentRecords,
 } from "../data-validation/validation-analytics";
 import { useGetBarangays } from "@/app/(sibat)/sibat/sibat-analytics";
-import { useAdminDashboardSummary } from "../admin/admin-charts";
-import { useUsersDirectory } from "../user-management/user-management";
+import { type OverviewSummary, overviewBarangays } from "@/lib/population-metrics";
+
 
 export default function DataOverviewPage() {
   // Navigation & View States
@@ -69,26 +70,34 @@ export default function DataOverviewPage() {
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [selectedRecordDomain, setSelectedRecordDomain] = useState<DataTab>("livestock");
 
+  const { user } = useAuth();
+
   // Backend Data Queries
   const { data: dbBarangays } = useGetBarangays();
-  const { data: dashboardAnalytics } = useAdminDashboardSummary();
-  const { data: directoryUsers } = useUsersDirectory();
-  const { data: rawInventory, isLoading: isInvLoading } = useAdminInventoryRecords();
-  const { data: rawProduction, isLoading: isProdLoading } = useAdminProductionRecords();
-  const { data: rawCensus, isLoading: isCenLoading } = useAdminCensusSubmissions();
-  const { data: rawIncidents, isLoading: isIncLoading } = useAdminIncidentRecords();
-  const { data: rawBatches, isLoading: isBatchLoading } = useQuery<any[]>({
+  const summaryQuery = useQuery<OverviewSummary>({
+    queryKey: ["admin", "analytics", "overview", user?.email, user?.accessScope, user?.assignedBarangayId],
+    queryFn: async ({ signal }) => (await municipalRead<OverviewSummary>("analytics/overview/", { signal })).data,
+    staleTime: 0, refetchOnWindowFocus: true,
+  });
+  const summary = summaryQuery.data;
+  const { data: rawInventory, isLoading: isInvLoading, isError: isInventoryError } = useAdminInventoryRecords();
+  const { data: rawProduction, isLoading: isProdLoading, isError: isProductionError } = useAdminProductionRecords();
+  const { data: rawCensus, isLoading: isCenLoading, isError: isCensusError } = useAdminCensusSubmissions();
+  const { data: rawIncidents, isLoading: isIncLoading, isError: isIncidentError } = useAdminIncidentRecords();
+  const { data: rawBatches, isLoading: isBatchLoading, isError: isBatchError } = useQuery<any[]>({
     queryKey: ["admin-batches-overview"],
-    queryFn: async () => {
-      const res = await api.get("livestock/batches/?all=true");
-      return Array.isArray(res.data) ? res.data : [];
+    queryFn: async ({ signal }) => {
+      const res = await municipalRead("livestock/batches/?all=true", { signal });
+      if (!Array.isArray(res.data)) throw new Error("Unexpected herd response.");
+      return res.data;
     },
     staleTime: 30 * 1000,
   });
 
-  const isDataLoading = isInvLoading || isProdLoading || isCenLoading || isIncLoading || isBatchLoading;
+  const isDataLoading = summaryQuery.isLoading || isInvLoading || isProdLoading || isCenLoading || isIncLoading || isBatchLoading;
 
   const isInitialLoading =
+    summaryQuery.isLoading ||
     (isInvLoading && !rawInventory) ||
     (isBatchLoading && !rawBatches) ||
     (isProdLoading && !rawProduction) ||
@@ -143,7 +152,7 @@ export default function DataOverviewPage() {
       return {
         id: `LIV-${item.id}`,
         farmerName: item.farmerName || "Registered Farmer",
-        barangay: item.barangayName || "Banaba",
+        barangay: item.barangayName || "Unknown barangay",
         cattleId: item.tagNumber || `TAG-${item.id}`,
         specie: item.livestockType || "Cattle",
         breed: item.breed || "Standard",
@@ -153,8 +162,9 @@ export default function DataOverviewPage() {
         entryType: item.entryType || (batchCode ? "BATCH" : "INDIVIDUAL"),
         quantity: Number(item.quantity) || 1,
         lastVaccinationDate: item.lastVaccinationDate || null,
+        operationalStatus: item.operationalStatus,
         status: item.status || "PENDING",
-        registrationDate: item.createdAt?.slice(0, 10) || "2026-04-20",
+        registrationDate: item.createdAt?.slice(0, 10) || "",
         notes: item.reviewRemarks || undefined,
         batchId,
         batchCode,
@@ -173,7 +183,7 @@ export default function DataOverviewPage() {
       batchCode: item.batch_code || `BAT-${item.id}`,
       batchName: item.batch_name || `Batch #${item.id}`,
       farmerName: item.farmer_name || "Registered Farmer",
-      barangay: item.barangay_name || "Banaba",
+      barangay: item.barangay_name || "Unknown barangay",
       specie: item.livestock_type_name || "Cattle",
       housingPen: item.housing_pen || "General Pen",
       feedType: item.feed_type || "—",
@@ -186,7 +196,7 @@ export default function DataOverviewPage() {
       reviewedByName: item.reviewed_by_name,
       reviewedAt: item.reviewed_at,
       notes: item.notes,
-      createdAt: item.created_at?.slice(0, 10) || "2026-04-20",
+      createdAt: item.created_at?.slice(0, 10) || "",
       animals: item.animals || [],
     }));
   }, [rawBatches]);
@@ -196,7 +206,7 @@ export default function DataOverviewPage() {
     return rawProduction.map((item) => ({
       id: `PRD-${item.id}`,
       farmerName: item.farmerName || "Registered Farmer",
-      barangay: item.barangayName || "Banaba",
+      barangay: item.barangayName || "Unknown barangay",
       cattleId: `TAG-LIV-${item.livestockId}`,
       type: (item.productionType?.toLowerCase() === "milk"
         ? "Cow Milk"
@@ -206,10 +216,10 @@ export default function DataOverviewPage() {
       quantity: `${item.quantity} ${item.unit || "L"}`,
       quantityNumber: Number(item.quantity) || 0,
       unit: item.unit || "LITERS",
-      qualityGrade: "Grade A" as const,
-      collectionCenter: `${item.barangayName || "Padre Garcia"} Dairy Hub`,
-      estValuePhp: Math.round((Number(item.quantity) || 0) * 60),
-      date: item.recordDate || "2026-04-20",
+      qualityGrade: "Not recorded",
+      collectionCenter: "Not recorded",
+      estValuePhp: item.valuationSnapshot ? Number(item.valuationSnapshot.estimated_value) : null,
+      date: item.recordDate || "",
       status: (item.status === "APPROVED" ? "Certified" : "Pending Review") as any,
     }));
   }, [rawProduction]);
@@ -257,7 +267,7 @@ export default function DataOverviewPage() {
 
       return {
         id: `CEN-${item.id}`,
-        barangay: item.barangay || "Banaba",
+        barangay: item.barangay || "Unknown barangay",
         quarter: `Q${item.reportQuarter || 1}`,
         year: item.reportYear || 2026,
         totalHeads: totalCalculated,
@@ -267,7 +277,7 @@ export default function DataOverviewPage() {
         goatCount,
         enumerator: item.submittedBy || "SIBAT Enumerator",
         verifiedByMAO: item.status === "APPROVED",
-        submissionDate: item.submissionDate?.slice(0, 10) || "2026-04-05",
+        submissionDate: item.submissionDate?.slice(0, 10) || "",
         status: (item.status === "APPROVED" ? "MAO Verified" : "Pending Audit") as any,
       };
     });
@@ -315,11 +325,11 @@ export default function DataOverviewPage() {
       symptoms: item.symptoms && item.symptoms.length > 0 ? item.symptoms : ["Clinical surveillance record"],
       affectedHeads: item.headCount || 1,
       severity: (item.sibatInspection?.severity === "CRITICAL" ? "Critical" : item.sibatInspection?.severity === "MODERATE" ? "Moderate" : "Mild") as any,
-      status: (item.status === "APPROVED" ? "Quarantined" : item.status === "VERIFIED" ? "Under Treatment" : "Under Investigation") as any,
+      status: item.status,
       veterinarian: item.reviewedBy || "Municipal Veterinary Office",
-      quarantineZone: item.status === "APPROVED",
-      dateReported: item.date || "2026-04-20",
-      lastUpdated: item.createdAt?.slice(0, 10) || item.date || "2026-04-20",
+      quarantineZone: false,
+      dateReported: item.date || "",
+      lastUpdated: item.createdAt?.slice(0, 10) || item.date || "",
     }));
   }, [rawIncidents]);
 
@@ -334,7 +344,7 @@ export default function DataOverviewPage() {
       specie: item.livestockType || "Cattle",
       breed: item.livestockBreed || "Standard Breed",
       cause: item.conditionName || "Unspecified Cause",
-      dateOfDeath: item.date || "2026-04-20",
+      dateOfDeath: item.date || "",
       necropsyPerformed: Boolean(item.reviewedBy),
       necropsyFindings: item.reviewRemarks || undefined,
       disposalMethod: "Burial with Lime",
@@ -349,41 +359,36 @@ export default function DataOverviewPage() {
     return liveSales.map((item) => ({
       id: item.id,
       farmerName: item.farmerName || "Registered Farmer",
-      buyer: "Padre Garcia Livestock Trading Center",
+      buyer: item.buyer || "Not recorded",
       barangay: item.barangayName || "Padre Garcia",
       product: `${item.livestockType || "Livestock"} Trade`,
       specie: item.livestockType || "Cattle",
       cattleId: item.tagNumber || `TAG-${item.id}`,
       quantity: `${item.headCount || 1} Head`,
-      amount: item.details.includes("₱") ? item.details.split("Total: ")[1] || "₱45,000" : "₱45,000",
-      amountNumber: 45000,
+      amount: item.saleValue == null ? "Not recorded" : `₱${item.saleValue.toLocaleString()}`,
+      amountNumber: item.saleValue ?? null,
       paymentMethod: "Cash",
-      transportPermitNumber: `TP-2026-${item.id.replace(/\D/g, "") || "001"}`,
-      date: item.date || "2026-04-20",
+      transportPermitNumber: "Not recorded",
+      date: item.date || "",
       status: (item.status === "APPROVED" ? "Completed" : "Pending Clearance") as any,
     }));
   }, [rawIncidents]);
 
+  // Linked slaughter records are projected from their production submissions.
   const slaughterList: SlaughterRecord[] = useMemo(() => {
-    const liveSlaughter = rawIncidents?.filter((i) => i.type === "slaughter");
-    if (!liveSlaughter || liveSlaughter.length === 0) return [];
-    return liveSlaughter.map((item) => ({
-      id: item.id,
-      inspectionCertNo: `SLG-${item.id}`,
-      farmerName: item.farmerName || "Registered Farmer",
-      meatInspector: item.reviewedBy || "Municipal Meat Inspector",
-      barangay: item.barangayName || "Padre Garcia",
-      cattleId: item.tagNumber || `TAG-${item.id}`,
-      specie: item.livestockType || "Cattle",
-      carcassWeightKg: item.headCount ? item.headCount * 250 : 250,
-      purpose: "Commercial Wholesale",
-      anteMortemStatus: "Passed",
-      postMortemStatus: "Fit for Human Consumption",
-      destinationMarket: "Padre Garcia Slaughterhouse",
-      date: item.date || new Date().toISOString().slice(0, 10),
-      status: item.status === "APPROVED" ? "Certified" : "Inspection Passed",
+    return (rawProduction ?? []).filter((item) => item.slaughterDetails != null).map((item) => ({
+      id: `SLG-${item.slaughterDetails!.id}`,
+      inspectionCertNo: "Not recorded", farmerName: item.farmerName || "Unknown farmer",
+      meatInspector: item.reviewedByName || "Not recorded",
+      barangay: item.barangayName || "Unknown barangay",
+      cattleId: item.slaughterDetails!.animals.map((animal) => animal.tag_number || String(animal.id)).join(", "),
+      specie: item.livestockTypeName || "Unspecified",
+      carcassWeightKg: Number(item.quantity), purpose: "Not recorded",
+      anteMortemStatus: "Not recorded", postMortemStatus: "Not recorded",
+      destinationMarket: "Not recorded", date: item.recordDate,
+      status: item.status,
     }));
-  }, [rawIncidents]);
+  }, [rawProduction]);
 
   // ── Connected Recent Municipal Activity Stream (Real-Time Multi-Domain) ──
   const recentActivityFeed: ActivityFeedItem[] = useMemo(() => {
@@ -437,7 +442,7 @@ export default function DataOverviewPage() {
             sex: inv.sex || "Female",
             weightKg: inv.weight || null,
             status: inv.status || "PENDING",
-            registrationDate: inv.createdAt?.slice(0, 10) || "2026-04-20",
+            registrationDate: inv.createdAt?.slice(0, 10) || "",
             lastVaccinationDate: inv.lastVaccinationDate || null,
             batchCode: inv.batchCode || (inv as any).batch_code,
             batchName: inv.batchName || (inv as any).batch_name,
@@ -489,10 +494,10 @@ export default function DataOverviewPage() {
             quantity: `${prod.quantity} ${prod.unit || "L"}`,
             quantityNumber: Number(prod.quantity) || 0,
             unit: prod.unit || "LITERS",
-            qualityGrade: "Grade A",
-            collectionCenter: `${prod.barangayName || "Padre Garcia"} Dairy Hub`,
-            estValuePhp: Math.round((Number(prod.quantity) || 0) * 60),
-            date: prod.recordDate || prod.createdAt?.slice(0, 10) || "2026-04-20",
+            qualityGrade: "Not recorded",
+            collectionCenter: "Not recorded",
+            estValuePhp: prod.valuationSnapshot ? Number(prod.valuationSnapshot.estimated_value) : null,
+            date: prod.recordDate || prod.createdAt?.slice(0, 10) || "",
             status: prod.status === "APPROVED" ? "Certified" : "Pending Review",
           },
         });
@@ -539,7 +544,7 @@ export default function DataOverviewPage() {
             swineCount: 0,
             goatCount: 0,
             enumerator: cen.submittedBy || "SIBAT Officer",
-            submissionDate: cen.submissionDate?.slice(0, 10) || "2026-04-05",
+            submissionDate: cen.submissionDate?.slice(0, 10) || "",
             status: (cen.status === "APPROVED" ? "MAO Verified" : "Pending Audit") as any,
           },
         });
@@ -567,7 +572,7 @@ export default function DataOverviewPage() {
             rawTimestamp: rawDate,
             badge:
               inc.status === "APPROVED"
-                ? "Quarantine Enforced"
+                ? "MAO Approved"
                 : (inc.status as string) === "SUBJECT_TO_REVISION" || (inc.status as string) === "SUBJECT_FOR_REVISION"
                 ? "Subject for Revision"
                 : "Observation Active",
@@ -587,10 +592,10 @@ export default function DataOverviewPage() {
               symptoms: [inc.conditionName || "Suspected Symptoms"],
               affectedHeads: inc.headCount || 1,
               severity: "Moderate",
-              status: inc.status === "APPROVED" ? "Quarantined" : "Under Treatment",
+              status: inc.status,
               veterinarian: inc.reviewedBy || "Municipal Veterinarian",
-              quarantineZone: true,
-              dateReported: dateStr?.slice(0, 10) || "2026-04-20",
+              quarantineZone: false,
+              dateReported: dateStr?.slice(0, 10) || "",
               notes: inc.details,
             },
           });
@@ -622,7 +627,7 @@ export default function DataOverviewPage() {
               specie: inc.livestockType || "Livestock",
               causeOfDeath: inc.conditionName || "Mortality Record",
               deathCount: inc.headCount || 1,
-              dateOfDeath: dateStr?.slice(0, 10) || "2026-04-20",
+              dateOfDeath: dateStr?.slice(0, 10) || "",
               disposalMethod: "Burial",
               investigatedBy: inc.reviewedBy || "Field Officer",
               status: inc.status === "APPROVED" ? "Verified" : "Pending Inspection",
@@ -662,7 +667,7 @@ export default function DataOverviewPage() {
               amountNumber: 0,
               paymentMethod: "Cash",
               transportPermitNumber: `TPN-${inc.id}`,
-              date: dateStr?.slice(0, 10) || "2026-04-20",
+              date: dateStr?.slice(0, 10) || "",
               status: inc.status === "APPROVED" ? "Completed" : "Pending Clearance",
               notes: inc.details,
             },
@@ -693,7 +698,7 @@ export default function DataOverviewPage() {
               ageMonths: 1,
               weightKg: 28,
               status: "APPROVED",
-              registrationDate: dateStr?.slice(0, 10) || "2026-04-20",
+              registrationDate: dateStr?.slice(0, 10) || "",
               notes: inc.details,
             },
           });
@@ -741,7 +746,7 @@ export default function DataOverviewPage() {
             feedType: batch.feed_type || "—",
             totalAnimals: batch.total_animals || 0,
             status: batch.review_status || batch.status || "PENDING",
-            createdAt: batch.created_at?.slice(0, 10) || "2026-04-20",
+            createdAt: batch.created_at?.slice(0, 10) || "",
             animals: batch.animals || [],
           },
         });
@@ -780,7 +785,7 @@ export default function DataOverviewPage() {
       const filtered = liveActivities.filter(
         (a) => a.barangay.toLowerCase() === filterBarangay.toLowerCase()
       );
-      if (filtered.length > 0) return filtered.slice(0, 30);
+      return filtered.slice(0, 30);
     }
 
     return liveActivities.slice(0, 30);
@@ -802,139 +807,9 @@ export default function DataOverviewPage() {
   ]);
 
   // ── Compute Real Master Data Matrix per Barangay across all 17 Official Barangays ──
-  const barangayMasterSummaries: BarangaySummary[] = useMemo(() => {
-    // Official 17 Barangays of Padre Garcia
-    const officialBarangays =
-      dbBarangays && dbBarangays.length > 0
-        ? dbBarangays.map((b) => b.barangayName)
-        : PADRE_GARCIA_BARANGAYS.filter((b) => b !== "All Barangays");
-
-    const uniqueBarangays = Array.from(new Set(officialBarangays));
-
-    return uniqueBarangays.map((brgyName) => {
-      // Find matching items (filtering for APPROVED / Certified records for official tallies)
-      const brgyInventories = livestockList.filter(
-        (l) =>
-          l.barangay?.toLowerCase() === brgyName.toLowerCase() &&
-          (!l.status || l.status.toUpperCase() === "APPROVED")
-      );
-      const brgyCensus = censusList.filter(
-        (c) =>
-          c.barangay?.toLowerCase() === brgyName.toLowerCase() &&
-          (c.status === "MAO Verified" || c.verifiedByMAO || c.status?.toUpperCase() === "APPROVED")
-      );
-      const brgyProduction = productionList.filter(
-        (p) =>
-          p.barangay?.toLowerCase() === brgyName.toLowerCase() &&
-          (p.status === "Certified" || p.status?.toUpperCase() === "APPROVED")
-      );
-      const brgyDiseases = diseaseList.filter(
-        (d) => d.barangay?.toLowerCase() === brgyName.toLowerCase()
-      );
-      const brgySlaughter = slaughterList.filter(
-        (s) => s.barangay?.toLowerCase() === brgyName.toLowerCase()
-      );
-      const brgyBatches = batchList.filter(
-        (b) => b.barangay?.toLowerCase() === brgyName.toLowerCase()
-      );
-      const batchCount = brgyBatches.length;
-
-      // Species count from Inventory
-      const invCattle = brgyInventories
-        .filter(
-          (i) =>
-            i.specie?.toLowerCase().includes("cattle") ||
-            i.specie?.toLowerCase().includes("baka")
-        )
-        .reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
-
-      const invCarabao = brgyInventories
-        .filter(
-          (i) =>
-            i.specie?.toLowerCase().includes("carabao") ||
-            i.specie?.toLowerCase().includes("kalabaw")
-        )
-        .reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
-
-      const invSwine = brgyInventories
-        .filter(
-          (i) =>
-            i.specie?.toLowerCase().includes("swine") ||
-            i.specie?.toLowerCase().includes("baboy") ||
-            i.specie?.toLowerCase().includes("pig")
-        )
-        .reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
-
-      const invGoat = brgyInventories
-        .filter(
-          (i) =>
-            i.specie?.toLowerCase().includes("goat") ||
-            i.specie?.toLowerCase().includes("kambing") ||
-            i.specie?.toLowerCase().includes("sheep")
-        )
-        .reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
-
-      // Canonical inventory totals
-      const cattleCount = invCattle;
-      const carabaoCount = invCarabao;
-      const swineCount = invSwine;
-      const goatCount = invGoat;
-      const totalLivestock =
-        cattleCount + carabaoCount + swineCount + goatCount ||
-        brgyInventories.reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
-
-      const monthlyMilkLiters = brgyProduction.reduce(
-        (sum, p) => sum + (p.quantityNumber || 0),
-        0
-      );
-      const monthlyMeatKg = brgySlaughter.reduce(
-        (sum, s) => sum + (s.carcassWeightKg || 0),
-        0
-      );
-      const activeIncidents = brgyDiseases.filter(
-        (d) => d.status === "Quarantined" || d.status === "Under Treatment"
-      ).length;
-
-      const brgyUsersCount = (directoryUsers || []).filter(
-        (u) =>
-          u.role === "FARMER" &&
-          u.account_status === "APPROVED" &&
-          (u.barangay?.toLowerCase() === brgyName.toLowerCase() ||
-            String(u.barangay_id) === String(dbBarangays?.find((b) => b.barangayName.toLowerCase() === brgyName.toLowerCase())?.id))
-      ).length;
-
-      const registeredFarmers = Math.max(
-        brgyUsersCount,
-        new Set([
-          ...brgyInventories.map((i) => i.farmerName),
-          ...brgyProduction.map((p) => p.farmerName),
-        ]).size
-      );
-
-      return {
-        barangay: brgyName,
-        totalLivestock,
-        cattleCount,
-        carabaoCount,
-        swineCount,
-        goatCount,
-        batchCount,
-        monthlyMilkLiters,
-        monthlyMeatKg,
-        activeIncidents,
-        registeredFarmers,
-        riskLevel: (activeIncidents > 0 ? "MEDIUM" : "LOW") as "LOW" | "MEDIUM" | "HIGH",
-      };
-    }).sort((a, b) => b.totalLivestock - a.totalLivestock);
-  }, [
-    dbBarangays,
-    directoryUsers,
-    livestockList,
-    batchList,
-    productionList,
-    diseaseList,
-    slaughterList,
-  ]);
+  const barangayMasterSummaries: BarangaySummary[] = useMemo(
+    () => overviewBarangays(summary), [summary]
+  );
 
   // Domain Counts
   const counts: Record<DataTab, number> = useMemo(
@@ -963,35 +838,11 @@ export default function DataOverviewPage() {
   );
 
   // Overall KPI aggregates (Synced directly with canonical backend analytics population)
-  const totalLivestockPopulation = useMemo(
-    () =>
-      dashboardAnalytics?.descriptive?.population.total_heads ??
-      barangayMasterSummaries.reduce((sum, b) => sum + b.totalLivestock, 0),
-    [dashboardAnalytics, barangayMasterSummaries]
-  );
-  const totalMilkVolume = useMemo(
-    () => barangayMasterSummaries.reduce((sum, b) => sum + b.monthlyMilkLiters, 0),
-    [barangayMasterSummaries]
-  );
-  const totalAuctionValue = useMemo(
-    () => salesList.reduce((sum, s) => sum + s.amountNumber, 0),
-    [salesList]
-  );
-  const activeIncidentsCount = useMemo(
-    () =>
-      diseaseList.filter(
-        (d) => d.status === "Quarantined" || d.status === "Under Treatment"
-      ).length,
-    [diseaseList]
-  );
-  const totalFarmersCount = useMemo(() => {
-    const approvedFarmers = (directoryUsers || []).filter(
-      (u) => u.role === "FARMER" && u.account_status === "APPROVED" && u.barangay_id != null
-    );
-    return approvedFarmers.length > 0
-      ? approvedFarmers.length
-      : new Set(livestockList.map((i) => i.farmerName).filter(Boolean)).size;
-  }, [directoryUsers, livestockList]);
+  const totalLivestockPopulation = summary?.population.total_heads ?? 0;
+  const totalMilkVolume = barangayMasterSummaries.reduce((sum, row) => sum + row.monthlyMilkLiters, 0);
+  const totalAuctionValue = summary?.approved_sales_value ?? null;
+  const activeIncidentsCount = barangayMasterSummaries.reduce((sum, row) => sum + row.activeIncidents, 0);
+  const totalFarmersCount = summary?.population.registered_farmers ?? 0;
 
   // Filtered dataset for active tab
   const filteredData = useMemo(() => {
@@ -1102,10 +953,11 @@ export default function DataOverviewPage() {
         "Cattle Count",
         "Carabao Count",
         "Swine Count",
-        "Goat Count",
+        "Goat & Sheep Count",
+        "Poultry & Other Count",
         "Monthly Milk (L)",
         "Monthly Meat (kg)",
-        "Active Alerts",
+        "Disease Reports Awaiting Review",
         "Registered Raisers",
       ];
       const rows = barangayMasterSummaries.map((b) => [
@@ -1115,6 +967,7 @@ export default function DataOverviewPage() {
         b.carabaoCount,
         b.swineCount,
         b.goatCount,
+        b.otherCount ?? 0,
         b.monthlyMilkLiters,
         b.monthlyMeatKg,
         b.activeIncidents,
@@ -1220,6 +1073,10 @@ export default function DataOverviewPage() {
     toast.success(`Exported ${filteredData.length} records in ${activeTab} to CSV`);
   };
 
+  if (summaryQuery.isError || isInventoryError || isProductionError || isCensusError || isIncidentError || isBatchError) {
+    return <div className="p-6" role="alert">Data Overview could not load complete data. Refresh to try again.</div>;
+  }
+
   if (isInitialLoading) {
     return (
       <>
@@ -1293,7 +1150,7 @@ export default function DataOverviewPage() {
         {/* Executive KPI Intelligence Strip */}
         <DataOverviewKpis
           totalLivestock={totalLivestockPopulation}
-          totalBatches={batchList.length}
+          totalBatches={barangayMasterSummaries.reduce((sum, row) => sum + (row.batchCount ?? 0), 0)}
           totalMilkVolume={totalMilkVolume}
           totalAuctionValue={totalAuctionValue}
           activeIncidents={activeIncidentsCount}
@@ -1301,6 +1158,8 @@ export default function DataOverviewPage() {
           totalSlaughterKg={slaughterList.reduce((sum, s) => sum + (s.carcassWeightKg || 0), 0)}
           isLoading={isDataLoading}
         />
+
+        <p className="text-xs text-slate-500">KPIs show municipal totals. Filters apply to the records and barangay matrix below. Inventory records include historical exits; current heads include only approved, active animals.</p>
 
         {/* Toolbar & Filter Suite */}
         <DataOverviewToolbar
@@ -1332,7 +1191,7 @@ export default function DataOverviewPage() {
             )}
             activityFeed={recentActivityFeed}
             batchList={batchList}
-            totalBatches={batchList.length}
+            totalBatches={barangayMasterSummaries.reduce((sum, row) => sum + (row.batchCount ?? 0), 0)}
             isLoading={isDataLoading}
             onSelectBarangay={(brgy) => {
               setFilterBarangay(brgy);

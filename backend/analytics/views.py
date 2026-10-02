@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem
 from livestock.permission import isMAO, isSibat
 from .services.descriptive import descriptive_summary
+from .services.overview import overview_summary
 from smartlivestock.workflows import scope_reviewer_queryset
 
 
@@ -25,6 +26,12 @@ def dashboard_summary(request):
     # The service owns the DB -> ORM calculations. This view only publishes
     # approved municipal aggregates to authorized dashboard users.
     return Response(descriptive_summary(user=request.user))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def data_overview_summary(request):
+    return Response(overview_summary(user=request.user))
 
 
 def _latest_census_period(submissions):

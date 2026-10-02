@@ -20,7 +20,7 @@ interface DataOverviewKpisProps {
   totalLivestock: number;
   totalBatches?: number;
   totalMilkVolume: number;
-  totalAuctionValue: number;
+  totalAuctionValue: number | null;
   activeIncidents: number;
   totalFarmers: number;
   totalSlaughterKg?: number;
@@ -133,7 +133,7 @@ export function DataOverviewKpis({
                 Auction
               </span>
               <p className="text-xs sm:text-sm font-black text-amber-950 leading-tight tabular-nums truncate">
-                ₱{(totalAuctionValue / 1000).toFixed(1)}k
+                {totalAuctionValue == null ? "Not recorded" : `₱${totalAuctionValue.toLocaleString()}`}
               </p>
             </div>
           </div>
@@ -166,7 +166,7 @@ export function DataOverviewKpis({
                   activeIncidents > 0 ? "text-rose-900" : "text-emerald-950"
                 }`}
               >
-                {activeIncidents > 0 ? `${activeIncidents} Alerts` : "All Clear"}
+                {activeIncidents > 0 ? `${activeIncidents} Alerts` : "None Pending"}
               </p>
             </div>
           </div>
@@ -222,7 +222,7 @@ export function DataOverviewKpis({
           title="Total Livestock Heads"
           value={totalLivestock.toLocaleString()}
           icon={<Icon iconNode={cowHead} className="size-5" />}
-          description="Across 17 Barangays"
+          description="Approved, active inventory"
           badge="Live Count"
           variant="emerald"
           isLoading={isLoading}
@@ -244,18 +244,18 @@ export function DataOverviewKpis({
           title="Monthly Dairy Yield"
           value={`${totalMilkVolume.toLocaleString()} L`}
           icon={<Milk className="size-5" />}
-          description="Average 18.5 L/day"
-          badge="+4.2% MoM"
+          description="Approved milk liters this month"
+          badge="This Month"
           variant="sky"
           isLoading={isLoading}
         />
 
         {/* 4. Auction & Market Value */}
         <KpiCard
-          title="Auction & Sales Value"
-          value={`₱${(totalAuctionValue / 1000).toFixed(1)}k`}
+          title="Approved Sales Value"
+          value={totalAuctionValue == null ? "Not recorded" : `₱${totalAuctionValue.toLocaleString()}`}
           icon={<TrendingUp className="size-5" />}
-          description="Trading Center volume"
+          description="Recorded approved sales, all dates"
           badge="Active Market"
           variant="amber"
           isLoading={isLoading}
@@ -263,15 +263,15 @@ export function DataOverviewKpis({
 
         {/* 5. Active Biosecurity Alerts */}
         <KpiCard
-          title="Biosecurity Alerts"
+          title="Disease Reports Awaiting Review"
           value={activeIncidents}
           icon={<AlertTriangle className="size-5" />}
           description={
             activeIncidents > 0
-              ? `${activeIncidents} under quarantine`
-              : "No active outbreaks"
+              ? `${activeIncidents} awaiting review`
+              : "No reports awaiting review"
           }
-          badge={activeIncidents > 0 ? "Needs Monitoring" : "All Clear"}
+          badge={activeIncidents > 0 ? "Needs Monitoring" : "None Pending"}
           variant={activeIncidents > 0 ? "rose" : "emerald"}
           isLoading={isLoading}
         />

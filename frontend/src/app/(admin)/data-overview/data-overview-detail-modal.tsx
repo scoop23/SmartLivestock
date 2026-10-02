@@ -462,7 +462,7 @@ export function DataOverviewDetailModal({
                     </div>
                   )}
 
-                  {record.estValuePhp !== undefined && (
+                  {record.estValuePhp != null && (
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                       <span className="text-[10px] font-bold text-slate-400 block">Est. Market Value</span>
                       <p className="text-xs font-black text-emerald-800 mt-0.5">

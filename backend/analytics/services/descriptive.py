@@ -3,13 +3,13 @@
 import calendar
 from datetime import date
 
-from django.db.models import Case, Count, DecimalField, F, IntegerField, Q, Sum, Value, When
+from django.db.models import Case, Count, DecimalField, F, Q, Sum, When
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
 
 from diseases.models import DiseaseCase, MortalityRecord
-from livestock.models import LivestockInventory
+from .population import population_summary
 from smartlivestock.workflows import scope_reviewer_queryset
 from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
 
@@ -46,51 +46,14 @@ def descriptive_summary(today=None, *, user=None):
     today = today or timezone.localdate()
     start = _window_start(today)
 
-    # A herd is a grouping of inventory rows, not another animal count. Sum the
-    # row quantity so legacy multi-head entries do not silently count as one.
-    inventory = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
-        status=LivestockInventory.StatusType.APPROVED,
-        operational_status=LivestockInventory.OperationalStatus.ACTIVE,
-        quantity__gt=0,
-    )
-    barangay_rows = list(
-        inventory.values("farmer__barangay_id", "farmer__barangay__barangay_name")
-        .annotate(
-            heads=Sum("quantity"),
-            vaccinated=Sum(
-                Case(
-                    When(last_vaccination_date__lte=today, then=F("quantity")),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                )
-            ),
-        )
-        .order_by("farmer__barangay__barangay_name")
-    )
-    population_by_barangay = [
-        {"barangay_id": row["farmer__barangay_id"],
-         "barangay": row["farmer__barangay__barangay_name"],
-         "heads": row["heads"] or 0}
-        for row in barangay_rows
-    ]
-    total_heads = sum(row["heads"] for row in population_by_barangay)
-    vaccinated_heads = sum(row["vaccinated"] or 0 for row in barangay_rows)
-    # A recorded date is only a snapshot proxy; it does not prove immunity.
+    population = population_summary(user=user, today=today)
+    total_heads = population["total_heads"]
+    vaccinated_heads = sum(row["vaccinated"] for row in population["by_barangay"])
     coverage = [
-        {"barangay_id": row["farmer__barangay_id"], "barangay": row["farmer__barangay__barangay_name"],
-         "total": row["heads"] or 0,
-         "vaccinated": row["vaccinated"] or 0,
-         "coverage_pct": round((row["vaccinated"] or 0) / row["heads"] * 100, 1) if row["heads"] else 0}
-        for row in barangay_rows
-    ]
-    species = list(
-        inventory.values("livestock_type_id", "livestock_type__name")
-        .annotate(heads=Sum("quantity"))
-        .order_by("livestock_type__name")
-    )
-    population_by_species = [
-        {"species_id": row["livestock_type_id"], "species": row["livestock_type__name"], "heads": row["heads"] or 0}
-        for row in species
+        {"barangay_id": row["barangay_id"], "barangay": row["barangay"],
+         "total": row["heads"], "vaccinated": row["vaccinated"],
+         "coverage_pct": round(row["vaccinated"] / row["heads"] * 100, 1) if row["heads"] else 0}
+        for row in population["by_barangay"]
     ]
 
     # VERIFIED means SIBAT checked the submission; APPROVED is MAO's final
@@ -216,7 +179,7 @@ def descriptive_summary(today=None, *, user=None):
 
     descriptive = {
         "period": {"start": start.isoformat(), "end": today.isoformat()},
-        "population": {"total_heads": total_heads, "by_barangay": population_by_barangay, "by_species": population_by_species},
+        "population": population,
         "production": {"records": sum(row["records"] for row in production_by_type),
                        "by_type": production_by_type, "trend": production_trend, "by_barangay": production_by_barangay, "valuation": estimated_values},
         "disease": {"cases": disease_totals["cases"], "affected_heads": disease_totals["affected_heads"] or 0,

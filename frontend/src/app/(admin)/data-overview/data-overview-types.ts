@@ -19,12 +19,12 @@ export interface BarangaySummary {
   carabaoCount: number;
   swineCount: number;
   goatCount: number;
+  otherCount?: number;
   batchCount?: number;
   monthlyMilkLiters: number;
   monthlyMeatKg: number;
   activeIncidents: number;
   registeredFarmers: number;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 
 export interface ActivityFeedItem {
@@ -56,6 +56,7 @@ export interface LivestockRecord {
   quantity: number;
   lastVaccinationDate?: string | null;
   status: 'APPROVED' | 'PENDING' | 'REJECTED' | string;
+  operationalStatus?: string;
   registrationDate: string;
   rfidTag?: string;
   notes?: string;
@@ -100,9 +101,9 @@ export interface ProductionRecord {
   quantityNumber: number;
   unit: string;
   fatContentPercentage?: number;
-  qualityGrade: 'Grade A' | 'Grade B' | 'Standard';
+  qualityGrade: string;
   collectionCenter: string;
-  estValuePhp: number;
+  estValuePhp: number | null;
   date: string;
   status: 'Certified' | 'Pending Review' | 'Subject for Revision' | 'Flagged';
 }
@@ -118,7 +119,7 @@ export interface SalesRecord {
   cattleId: string;
   quantity: string;
   amount: string;
-  amountNumber: number;
+  amountNumber: number | null;
   paymentMethod: 'Cash' | 'Bank Transfer' | 'Co-op Credit';
   transportPermitNumber: string;
   date: string;
@@ -135,7 +136,7 @@ export interface DiseaseRecord {
   symptoms: string[];
   affectedHeads: number;
   severity: 'Mild' | 'Moderate' | 'Critical';
-  status: 'Under Treatment' | 'Quarantined' | 'Recovered' | 'Under Investigation';
+  status: string;
   veterinarian: string;
   quarantineZone: boolean;
   dateReported: string;
@@ -167,9 +168,9 @@ export interface SlaughterRecord {
   specie: string;
   carcassWeightKg: number;
   inspectionCertNo: string;
-  purpose: 'Commercial Wholesale' | 'Local Retail' | 'Special Event' | 'Emergency Slaughter';
-  anteMortemStatus: 'Passed' | 'Suspect';
-  postMortemStatus: 'Fit for Human Consumption' | 'Condemned' | 'Partially Condemned';
+  purpose: string;
+  anteMortemStatus: string;
+  postMortemStatus: string;
   destinationMarket: string;
   date: string;
   status?: string;

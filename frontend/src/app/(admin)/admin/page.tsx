@@ -24,16 +24,14 @@ const CowHeadIcon = ({ className }: { className?: string }) => (
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const analytics = useAdminDashboardAnalytics();
   const {
     data,
     isLoading,
     isError,
     refetchAll,
-    inventoryQuery,
-    censusQuery,
-    productionQuery,
-    barangaysQuery,
-  } = useAdminDashboardAnalytics();
+    dashboardSummaryQuery,
+  } = analytics;
 
   if (isLoading) {
     return (
@@ -57,28 +55,28 @@ export default function AdminDashboard() {
                 label: "Livestock Inventory",
                 sublabel: "Individual tags & herd registrations",
                 icon: <Icon iconNode={cowHead} className="size-4 shrink-0 text-emerald-700" />,
-                loaded: !inventoryQuery.isLoading && inventoryQuery.data !== undefined,
+                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
               },
               {
                 id: "census",
                 label: "Barangay Census Records",
                 sublabel: "17-Barangay household surveys",
                 icon: <FileSpreadsheet className="size-4 shrink-0 text-sky-700" />,
-                loaded: !censusQuery.isLoading && censusQuery.data !== undefined,
+                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
               },
               {
                 id: "production",
                 label: "Dairy & Production Yields",
                 sublabel: "Milk output & cold chain data",
                 icon: <Milk className="size-4 shrink-0 text-blue-700" />,
-                loaded: !productionQuery.isLoading && productionQuery.data !== undefined,
+                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
               },
               {
                 id: "barangays",
                 label: "Geographic Master Directory",
                 sublabel: "17 Municipal territorial sectors",
                 icon: <Map className="size-4 shrink-0 text-purple-700" />,
-                loaded: !barangaysQuery.isLoading && barangaysQuery.data !== undefined,
+                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
               },
             ]}
           />
@@ -122,7 +120,7 @@ export default function AdminDashboard() {
         change: 'Live Registry',
         icon: <Icon iconNode={cowHead} className="size-5" />,
         variant: 'emerald',
-        description: `Across ${data.totalBarangaysCount} Barangays`
+        description: `Approved, active heads across ${data.totalBarangaysCount} barangays`
       },
       {
         label: 'Monthly Dairy Yield',
@@ -187,7 +185,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── Visualizations & Charts Matrix ── */}
-        <AdminChartsView />
+        <AdminChartsView {...analytics} />
 
         {/* ── Generate Reports ── */}
         <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">

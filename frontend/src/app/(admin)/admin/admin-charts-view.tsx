@@ -12,11 +12,10 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useAdminDashboardAnalytics } from './admin-charts';
+import type { useAdminDashboardAnalytics } from './admin-charts';
 
-export function AdminChartsView() {
+export function AdminChartsView({ data, isLoading, isFetching, isError, refetchAll }: ReturnType<typeof useAdminDashboardAnalytics>) {
   const [productionTimeframe, setProductionTimeframe] = useState<'6M' | '1Y'>('6M');
-  const { data, isLoading, isFetching, isError, refetchAll } = useAdminDashboardAnalytics();
 
   const {
     barangayHerdDistribution,
@@ -40,7 +39,7 @@ export function AdminChartsView() {
           </div>
           <div>
             <h3 className="text-xs font-black text-slate-900 tracking-tight">Municipal Analytics & Visualizations</h3>
-            <p className="text-[10px] text-slate-500 font-medium">Real-time aggregated metrics from inventory, census, and production logs</p>
+            <p className="text-[10px] text-slate-500 font-medium">Approved active inventory and approved dated events</p>
           </div>
         </div>
 
@@ -70,13 +69,13 @@ export function AdminChartsView() {
             <div>
               <h3 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                 <BarChart3 className="w-3.5 h-3.5 text-[#2D5A27]" />
-                Top Barangays Specie Distribution
+                Top 7 Barangays by Current Heads
               </h3>
               <p className="text-[11px] text-slate-500 font-medium">Herd density breakdown per leading agricultural sector</p>
             </div>
             <div className="flex items-center gap-1.5">
               <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 text-emerald-800 bg-emerald-50 border-emerald-200">
-                17 Barangays Monitored
+                {data.totalBarangaysCount} Barangays Monitored
               </Badge>
             </div>
           </div>
@@ -107,6 +106,7 @@ export function AdminChartsView() {
                 <Bar dataKey="carabao" name="Carabao (Water Buffalo)" stackId="a" fill="#0284C7" maxBarSize={44} radius={[0, 0, 0, 0]} />
                 <Bar dataKey="swine" name="Swine (Pigs)" stackId="a" fill="#F59E0B" maxBarSize={44} radius={[0, 0, 0, 0]} />
                 <Bar dataKey="goat" name="Goats & Sheep" stackId="a" fill="#8B5CF6" maxBarSize={44} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="other" name="Other species" stackId="a" fill="#64748B" maxBarSize={44} />
               </BarChart>
             </ResponsiveContainer>
           </div>

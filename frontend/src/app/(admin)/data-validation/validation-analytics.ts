@@ -1,6 +1,6 @@
 "use client";
 
-import api from "@/lib/axios";
+import { municipalRead } from "@/lib/municipal-read";
 import { useQuery } from "@tanstack/react-query";
 import {
   CensusSubmissionRecord,
@@ -122,6 +122,9 @@ export interface ValidationIncidentItem {
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
   headCount?: number;
+  saleValue?: number | null;
+  buyer?: string;
+  destination?: string;
   weight?: string;
   tagNumber?: string;
   livestockBreed?: string;
@@ -141,36 +144,43 @@ export interface ValidationIncidentItem {
 
 export async function fetchAdminCensusSubmissions(): Promise<CensusSubmissionRecord[]> {
   try {
-    const response = await api.get("livestock/census/");
+    const response = await municipalRead("livestock/census/");
     const data = response.data as ApiCensusSubmission[];
     if (Array.isArray(data)) {
       return data.map(mapCensusSubmission);
     }
   } catch (err) {
     console.warn("Failed to fetch census submissions for validation portal:", err);
+    throw err;
   }
-  return [];
+  throw new Error("Unexpected response: expected complete record array.");
 }
 
 export async function fetchAdminProductionRecords(): Promise<ProductionRecordItem[]> {
   try {
-    const response = await api.get("production/records/");
+    const response = await municipalRead("production/records/");
     const data = response.data as ApiProductionRecord[];
     if (Array.isArray(data)) {
       return data.map(mapProductionRecord) as ProductionRecordItem[];
     }
   } catch (err) {
     console.warn("Failed to fetch production records for validation portal:", err);
+    throw err;
   }
-  return [];
+  throw new Error("Unexpected response: expected complete record array.");
 }
 
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {
   try {
     const [invRes, batchRes] = await Promise.allSettled([
-      api.get("livestock/inventory/?include_inactive=true"),
-      api.get("livestock/batches/"),
+      municipalRead("livestock/inventory/?include_inactive=true"),
+      municipalRead("livestock/batches/"),
     ]);
+
+    for (const result of [invRes, batchRes]) {
+      if (result.status === "rejected") throw result.reason;
+      if (!Array.isArray(result.value.data)) throw new Error("Unexpected inventory response.");
+    }
 
     const results: ValidationInventoryItem[] = [];
 
@@ -188,7 +198,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           sex: item.sex || "Unspecified",
           weight: item.weight ? Number(item.weight) : null,
           entryType: item.entry_type || "INDIVIDUAL",
-          quantity: Number(item.quantity) || 1,
+          quantity: Number(item.quantity ?? 0),
           lastVaccinationDate: item.last_vaccination_date || null,
           operationalStatus: item.operational_status || "ACTIVE",
           status: (item.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
@@ -220,7 +230,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           sex: "Mixed / Herd",
           weight: b.average_weight ? Number(b.average_weight) : null,
           entryType: "BATCH",
-          quantity: Number(b.total_animals) || 1,
+          quantity: Number(b.total_animals ?? 0),
           lastVaccinationDate: null,
           status: (b.review_status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
           reviewRemarks: b.review_remarks || null,
@@ -240,19 +250,25 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
     return results;
   } catch (err) {
     console.warn("Failed to fetch inventory records for validation portal:", err);
+    throw err;
   }
-  return [];
+  throw new Error("Unexpected response: expected complete record array.");
 }
 
 
 export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentItem[]> {
   try {
     const [diseaseRes, mortRes, salesRes, calvingRes] = await Promise.allSettled([
-      api.get("diseases/cases/"),
-      api.get("diseases/mortality/"),
-      api.get("production/sales/"),
-      api.get("production/calving/"),
+      municipalRead("diseases/cases/"),
+      municipalRead("diseases/mortality/"),
+      municipalRead("production/sales/"),
+      municipalRead("production/calving/"),
     ]);
+
+    for (const result of [diseaseRes, mortRes, salesRes, calvingRes]) {
+      if (result.status === "rejected") throw result.reason;
+      if (!Array.isArray(result.value.data)) throw new Error("Unexpected incident response.");
+    }
 
     const diseaseCases: any[] =
       diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data)
@@ -357,6 +373,9 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
     sales.forEach((s) => {
       incidents.push({
         id: `sale-${s.id}`,
+        saleValue: s.total_price == null ? null : Number(s.total_price),
+        buyer: s.buyer_name || "Not recorded",
+        destination: s.destination || "Not recorded",
         type: "sale",
         farmerName: s.farmer_name || "Registered Farmer",
         barangayName: s.barangay_name || "Padre Garcia",
@@ -396,8 +415,9 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
     return incidents;
   } catch (err) {
     console.warn("Failed to fetch incident records for validation portal:", err);
+    throw err;
   }
-  return [];
+  throw new Error("Unexpected response: expected complete record array.");
 }
 
 // ── Query Hooks ──
@@ -422,7 +442,7 @@ export function useAdminInventoryRecords() {
   return useQuery({
     queryKey: ["admin-inventory-records"],
     queryFn: fetchAdminInventoryRecords,
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
     gcTime: 15 * 60_000,
     refetchOnWindowFocus: false,
   });

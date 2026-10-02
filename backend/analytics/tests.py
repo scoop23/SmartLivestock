@@ -5,9 +5,11 @@ from django.test import TestCase
 from rest_framework.renderers import JSONRenderer
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from analytics.views import dashboard_summary
+from analytics.views import dashboard_summary, data_overview_summary
 
 from analytics.services.descriptive import descriptive_summary
+from analytics.services.population import population_summary
+from analytics.services.overview import overview_summary
 from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
 from production.models import LiveAnimalSale, ProductionRecord
@@ -218,3 +220,109 @@ class DescriptiveSummaryTests(TestCase):
         response = dashboard_summary(request)
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(JSONRenderer().render(response.data), bytes)
+
+
+class AdminConsistencyTests(TestCase):
+    setUp = DescriptiveSummaryTests.setUp
+    animal = DescriptiveSummaryTests.animal
+    def test_mixed_population_matches_both_consumers_and_ignores_census(self):
+        from livestock.models import CensusSubmission, CensusSubmissionItem
+        self.user.account_status = "APPROVED"
+        self.user.save(update_fields=["account_status"])
+        self.animal(quantity=3)
+        poultry = LivestockType.objects.create(name="Poultry")
+        self.animal(species=poultry, quantity=7)
+        self.animal(status="PENDING", quantity=11)
+        self.animal(status="VERIFIED", quantity=13)
+        self.animal(status="SUBJECT_TO_REVISION", quantity=17)
+        for operational in ["SOLD", "DECEASED", "SLAUGHTERED", "MOVED_OUT"]:
+            self.animal(quantity=2, operational=operational)
+        herd = LivestockBatch.objects.create(farmer=self.farmer, livestock_type=self.goat,
+            batch_name="Herd", batch_code="CONSISTENT-HERD", created_by=self.user)
+        self.animal(batch=herd, species=self.goat)
+        self.animal(batch=herd, species=self.goat)
+        CensusSubmissionItem.objects.create(census_submission=CensusSubmission.objects.create(
+            barangay=self.barangay, report_year=2026, report_quarter=3,
+            status="APPROVED", submitted_by=self.user), farmer=self.farmer,
+            livestock_type=self.cattle, number_of_heads=999)
+        expected = population_summary(today=self.today)
+        self.assertEqual(expected["total_heads"], 12)
+        self.assertEqual(expected["historical_approved_heads"], 20)
+        self.assertEqual(expected["active_submitted_heads"], 53)
+        self.assertEqual(expected["registered_farmers"], 1)
+        self.assertEqual(expected["by_barangay"][0]["active_herds"], 1)
+        for result in [descriptive_summary(self.today)["descriptive"]["population"],
+                       overview_summary(today=self.today)["population"]]:
+            self.assertEqual(result["total_heads"], expected["total_heads"])
+            self.assertEqual(sum(row["heads"] for row in result["by_barangay"]), 12)
+            self.assertEqual(sum(row["heads"] for row in result["by_species"]), 12)
+
+    def test_overview_current_month_units_and_historical_production_survive_exit(self):
+        animal = self.animal(operational="SOLD")
+        for kind, unit, when, quantity, status in [
+            ("MILK", "LITERS", self.today, "2.50", "APPROVED"),
+            ("MILK", "LITERS", date(2026, 9, 30), "99", "APPROVED"),
+            ("MILK", "LITERS", self.today, "50", "VERIFIED"),
+            ("MEAT", "KILOGRAMS", self.today, "30", "APPROVED")]:
+            ProductionRecord.objects.create(livestock=animal, production_type=kind,
+                unit=unit, record_date=when, quantity=Decimal(quantity), status=status, created_by=self.user)
+        from production.models import SlaughterRecord
+        SlaughterRecord.objects.create(barangay=self.barangay, livestock_type=self.cattle,
+            quantity=1, carcass_weight=Decimal("5.25"), record_date=self.today,
+            status="APPROVED", created_by=self.user)
+        dashboard = descriptive_summary(self.today)
+        overview = overview_summary(today=self.today)
+        self.assertEqual(dashboard["monthly_dairy_yield_l"], 2.5)
+        self.assertEqual(overview["population"]["by_barangay"][0]["monthly_milk_l"], 2.5)
+        self.assertEqual(overview["population"]["total_heads"], 0)
+        self.assertEqual(overview["population"]["by_barangay"][0]["monthly_meat_kg"], 5.25)
+        self.assertEqual(dashboard["year_to_date_l"], 101.5)
+
+    def test_repeat_get_navigation_filters_are_read_only_and_scope_correct(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        self.animal(quantity=3)
+        other = Barangay.objects.create(barangay_name="Other", latitude=Decimal("13.89"), longitude=Decimal("121.22"))
+        farmer_user = User.objects.create_user(username="other", email="other@test.example", role=self.user.role)
+        farmer = Farmer.objects.create(user=farmer_user, barangay=other, address="Other")
+        LivestockInventory.objects.create(farmer=farmer, livestock_type=self.cattle,
+            entry_type="BATCH", quantity=5, status="APPROVED", created_by=farmer_user)
+        factory = APIRequestFactory()
+        for role_name, scope, assigned, heads in [
+            ("ADMIN", "ASSIGNED_ONLY", self.barangay, 8), ("MAO", "ASSIGNED_ONLY", self.barangay, 8),
+            ("SIBAT", "ASSIGNED_ONLY", self.barangay, 3), ("SIBAT", "ALL_BARANGAYS", self.barangay, 8),
+            ("SIBAT", "ASSIGNED_ONLY", None, 0)]:
+            role, _ = Role.objects.get_or_create(role_name=role_name)
+            user = User.objects.create_user(username=f"{role_name}-{scope}-{heads}",
+                email=f"{role_name}-{scope}-{heads}@test.example", role=role,
+                assigned_barangay=assigned, access_scope=scope)
+            for endpoint in [dashboard_summary, data_overview_summary]:
+                responses = []
+                with CaptureQueriesContext(connection) as queries:
+                    for params in [{}, {"page": "2", "barangay": str(other.pk), "status": "PENDING"}, {}]:
+                        request = factory.get("/api/analytics/", params)
+                        force_authenticate(request, user=user)
+                        response = endpoint(request)
+                        self.assertEqual(response.status_code, 200)
+                        responses.append(response.data)
+                self.assertEqual(responses[0], responses[1])
+                self.assertEqual(responses[0], responses[2])
+                population = responses[0].get("population") or responses[0]["descriptive"]["population"]
+                self.assertEqual(population["total_heads"], heads)
+                self.assertFalse(any(q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for q in queries))
+        for user in [self.user, None]:
+            request = factory.get("/api/analytics/overview/")
+            if user: force_authenticate(request, user=user)
+            self.assertIn(data_overview_summary(request).status_code, (401, 403))
+
+    def test_population_query_count_does_not_grow_with_inventory_rows(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as baseline:
+            population_summary(today=self.today)
+        for _ in range(30): self.animal()
+        with CaptureQueriesContext(connection) as populated:
+            result = population_summary(today=self.today)
+        self.assertEqual(len(baseline), len(populated))
+        self.assertEqual(len(populated), 5)
+        self.assertEqual(result["total_heads"], 30)

@@ -1,7 +1,8 @@
-import api from "@/lib/axios";
-import { useUsersDirectory } from "../user-management/user-management";
+import { useAuth } from "@/contexts/auth-context";
+import { municipalRead } from "@/lib/municipal-read";
+import { type PopulationSummary, speciesCategories } from "@/lib/population-metrics";
 import { useQuery } from "@tanstack/react-query";
-import { SPECIE_COLOR_PALETTE, normalizeSpeciesCategory as normalizeSpecieCategory } from "@/lib/species-colors";
+import { getSpeciesColor } from "@/lib/species-colors";
 
 // ─────────────────────────────────────────────────────────────
 // 1. DOMAIN & BACKEND MODEL ALIGNED INTERFACES
@@ -194,7 +195,7 @@ export interface BarangayHerdChartData {
   carabao: number;
   swine: number;
   goat: number;
-  poultry: number;
+  other: number;
   total: number;
 }
 
@@ -267,7 +268,7 @@ export interface VaccinationTotals {
 }
 
 export interface DashboardAnalytics {
-  descriptive?: { population: { total_heads: number } };
+  descriptive: { population: PopulationSummary };
   monthly_dairy_yield_l: number;
   year_to_date_l?: number;
   records_this_month?: number;
@@ -346,27 +347,27 @@ export const mapProductionRecord = (item: ProductionRecordApiItem): ProductionRe
 // ─────────────────────────────────────────────────────────────
 
 export async function fetchLivestockTypesList(): Promise<LivestockType[]> {
-  return (await api.get<LivestockType[]>("livestock/livestock_types/")).data;
+  return (await municipalRead<LivestockType[]>("livestock/livestock_types/")).data;
 }
 
 export async function fetchBarangaysList(): Promise<BarangayItem[]> {
-  return (await api.get<BarangayItem[]>("livestock/barangays/")).data;
+  return (await municipalRead<BarangayItem[]>("livestock/barangays/")).data;
 }
 
 export async function fetchAdminInventory(): Promise<AdminInventoryItem[]> {
-  return (await api.get<AdminInventoryApiItem[]>("livestock/inventory/")).data.map(mapAdminInventory);
+  return (await municipalRead<AdminInventoryApiItem[]>("livestock/inventory/")).data.map(mapAdminInventory);
 }
 
 export async function fetchAdminCensus(): Promise<CensusSubmissionItem[]> {
-  return (await api.get<CensusSubmissionApiItem[]>("livestock/census/")).data.map(mapCensusSubmission);
+  return (await municipalRead<CensusSubmissionApiItem[]>("livestock/census/")).data.map(mapCensusSubmission);
 }
 
 export async function fetchAdminProduction(): Promise<ProductionRecordItem[]> {
-  return (await api.get<ProductionRecordApiItem[]>("production/records/")).data.map(mapProductionRecord);
+  return (await municipalRead<ProductionRecordApiItem[]>("production/records/")).data.map(mapProductionRecord);
 }
 
-export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
-  return (await api.get<DashboardAnalytics>("analytics/dashboard/")).data;
+export async function fetchDashboardAnalytics(signal?: AbortSignal): Promise<DashboardAnalytics> {
+  return (await municipalRead<DashboardAnalytics>("analytics/dashboard/", { signal })).data;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -375,274 +376,44 @@ export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
 
 // (SPECIE_COLOR_PALETTE and normalizeSpecieCategory are imported from @/lib/species-colors)
 
-/**
- * Fallback monthly production series grouped from real production records,
- * zero-filled across the last 12 calendar months. Used only when the backend
- * analytics endpoint is unavailable, so the chart is never blank *and* never fake.
- */
-function buildMonthlyProductionFallback(records: ProductionRecordItem[]): MonthlyProductionChartData[] {
-  const now = new Date();
-  const points: MonthlyProductionChartData[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    points.push({
-      month: monthKey,
-      label: d.toLocaleString("en-US", { month: "short" }),
-      milk: 0,
-      meat: 0,
-    });
-  }
-
-  const milkByMonth = new Map<string, number>();
-  records.forEach((r) => {
-    const isMilkLiters =
-      (r.productionType || "").toUpperCase() === "MILK" &&
-      (r.unit || "").toUpperCase() === "LITERS";
-    if (isMilkLiters && r.recordDate) {
-      const key = r.recordDate.slice(0, 7);
-      milkByMonth.set(key, (milkByMonth.get(key) || 0) + (Number(r.quantity) || 0));
-    }
-  });
-
-  return points.map((point) => ({ ...point, milk: milkByMonth.get(point.month) || 0 }));
-}
-
-/**
- * Fallback monthly surveillance series (disease cases & mortalities),
- * zero-filled across the last 12 calendar months with month labels.
- */
-function buildMonthlySurveillanceFallback(): BiosecuritySurveillanceChartData[] {
-  const now = new Date();
-  const points: BiosecuritySurveillanceChartData[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    points.push({
-      month: monthKey,
-      label: d.toLocaleString("en-US", { month: "short" }),
-      reported: 0,
-      deaths: 0,
-    });
-  }
-  return points;
-}
-
-/**
- * Computes exact municipal metrics aligned with backend models & DB records
- */
-export function computeAdminAnalytics(
-  inventories: AdminInventoryItem[],
-  censusSubmissions: CensusSubmissionItem[],
-  productionRecords: ProductionRecordItem[],
-  dashboardAnalytics?: DashboardAnalytics | null,
-  registeredFarmerCount = 0,
-  barangayCount = 0
-): AdminAnalyticsMetrics {
-  // 1. Initialize Barangay Herd Map with all 17 Padre Garcia Barangays
-  const barangayHerdMap: Record<
-    string,
-    { cattle: number; carabao: number; swine: number; goat: number; poultry: number; totalVaccinated: number; totalRecords: number }
-  > = {};
-
-  PADRE_GARCIA_BARANGAYS.forEach((b) => {
-    barangayHerdMap[b] = {
-      cattle: 0,
-      carabao: 0,
-      swine: 0,
-      goat: 0,
-      poultry: 0,
-      totalVaccinated: 0,
-      totalRecords: 0,
-    };
-  });
-
-  // 2. Tally heads from Live Inventory Records (`LivestockInventory`)
-  const specieHeadCounts: Record<string, number> = {
-    Cattle: 0,
-    Swine: 0,
-    Carabao: 0,
-    Goat: 0,
-    Poultry: 0,
-  };
-
-  const uniqueFarmerIdentifiers = new Set<string>();
-
-  // Tally active registered inventory records across all barangays (excluding rejected)
-  const activeInventories = inventories.filter(
-    (inv) => inv.status === "APPROVED" && inv.operationalStatus === "ACTIVE"
-  );
-
-  activeInventories.forEach((inv) => {
-    const bName = inv.barangayName || "Unknown barangay";
-    if (!barangayHerdMap[bName]) {
-      barangayHerdMap[bName] = {
-        cattle: 0,
-        carabao: 0,
-        swine: 0,
-        goat: 0,
-        poultry: 0,
-        totalVaccinated: 0,
-        totalRecords: 0,
-      };
-    }
-
-    const qty = Number(inv.quantity) || 1;
-    const cat = normalizeSpecieCategory(inv.livestockTypeName);
-
-    const herdKey = cat === "sheep" ? "goat" : cat === "other" ? "cattle" : cat;
-    barangayHerdMap[bName][herdKey] += qty;
-    barangayHerdMap[bName].totalRecords += 1;
-
-    if (inv.lastVaccinationDate) {
-      barangayHerdMap[bName].totalVaccinated += 1;
-    }
-
-    // Specie count
-    if (cat === "swine") specieHeadCounts.Swine += qty;
-    else if (cat === "carabao") specieHeadCounts.Carabao += qty;
-    else if (cat === "goat" || cat === "sheep") specieHeadCounts.Goat += qty;
-    else if (cat === "poultry") specieHeadCounts.Poultry += qty;
-    else specieHeadCounts.Cattle += qty;
-
-    if (inv.farmerName) {
-      uniqueFarmerIdentifiers.add(`${inv.farmerName}-${bName}`);
-    }
-  });
-
-  // Census snapshots can overlap registered inventory; adding them would double-count heads.
-
-  // 4. Calculate True Total Livestock
-  const computedTotalLivestock =
-    specieHeadCounts.Cattle +
-    specieHeadCounts.Swine +
-    specieHeadCounts.Carabao +
-    specieHeadCounts.Goat +
-    specieHeadCounts.Poultry;
-
-  const totalLivestock = dashboardAnalytics?.descriptive?.population.total_heads ?? computedTotalLivestock;
-
-  // 5. Build Barangay Herd Distribution (Sorted by total heads descending, Top 7 leading agricultural barangays)
-  const allBarangayDistributions: BarangayHerdChartData[] = Object.entries(barangayHerdMap).map(
-    ([barangay, data]) => {
-      const total = data.cattle + data.carabao + data.swine + data.goat + data.poultry;
-      return {
-        barangay,
-        cattle: data.cattle,
-        carabao: data.carabao,
-        swine: data.swine,
-        goat: data.goat,
-        poultry: data.poultry,
-        total,
-      };
-    }
-  );
-
-  allBarangayDistributions.sort((a, b) => b.total - a.total);
-
-  // Take top active barangays, ensuring clean visualization
-  const activeDistributions = allBarangayDistributions.filter((b) => b.total > 0);
-  const barangayHerdDistribution = (activeDistributions.length > 0 ? activeDistributions : allBarangayDistributions).slice(0, 7);
-
-  // 6. Build Specie Composition Donut with accurate percentages
-  const activeSpecies = [
-    { name: "Cattle (Bovine)", key: "Cattle", color: SPECIE_COLOR_PALETTE.Cattle },
-    { name: "Swine (Pigs)", key: "Swine", color: SPECIE_COLOR_PALETTE.Swine },
-    { name: "Carabao (Buffalo)", key: "Carabao", color: SPECIE_COLOR_PALETTE.Carabao },
-    { name: "Goats & Sheep", key: "Goat", color: SPECIE_COLOR_PALETTE.Goat },
-  ];
-
-  const specieComposition: SpecieCompositionChartData[] = activeSpecies.map((spec) => {
-    const rawVal = specieHeadCounts[spec.key] || 0;
-    const percentage = totalLivestock > 0 ? ((rawVal / totalLivestock) * 100).toFixed(1) + "%" : "0%";
-    return {
-      name: spec.name,
-      value: rawVal,
-      color: spec.color,
-      percentage,
-    };
-  });
-
-  // 7. Production, Surveillance, Vaccination & Registered Farmers
-  // Chart series and the dairy KPI come from the backend `analytics` endpoint
-  // (single source of truth). Fallbacks use only real DB records, so the
-  // dashboard never invents numbers.
-  const totalLiveMilkLiters = productionRecords
-    .filter(
-      (p) =>
-        (p.productionType || "").toUpperCase() === "MILK" &&
-        (p.unit || "").toUpperCase() === "LITERS" &&
-        (!p.status || p.status.toUpperCase() === "APPROVED" || p.status.toUpperCase() === "VERIFIED")
-    )
-    .reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
-
-  // KPI: exact certified figure from the backend analytics endpoint;
-  // falls back to the live DB milk log sum if the endpoint is unavailable.
-  const monthlyDairyYieldL =
-    dashboardAnalytics?.monthly_dairy_yield_l ?? Math.round(totalLiveMilkLiters);
-
-  // Monthly milk output (liters) & meat (kg), zero-filled by calendar month
-  const monthlyProduction: MonthlyProductionChartData[] =
-    dashboardAnalytics?.production_series?.length
-      ? dashboardAnalytics.production_series.map((point) => ({
-          month: point.month,
-          label: point.label,
-          milk: Math.round(point.milk_l),
-          meat: Math.round(point.meat_kg),
-        }))
-      : buildMonthlyProductionFallback(productionRecords);
-
-  // Disease incidence vs mortality per month (certified records only)
-  const surveillanceTrends: BiosecuritySurveillanceChartData[] =
-    dashboardAnalytics?.surveillance_series?.length
-      ? dashboardAnalytics.surveillance_series.map((point: any) => ({
-          month: point.month,
-          label: point.label ? (point.label.includes(" ") ? point.label.split(" ")[0] : point.label) : "",
-          reported: Math.round(Number(point.reported_heads ?? point.affected_heads ?? 0)) || 0,
-          deaths: Math.round(Number(point.deaths ?? 0)) || 0,
-        }))
-      : buildMonthlySurveillanceFallback();
-
-  // Vaccination coverage: share of certified inventories with a recorded date
-  const sectorCompliance: SectorComplianceChartData[] = (
-    dashboardAnalytics?.vaccination_coverage ?? []
-  ).map((point) => ({
-    sector: point.barangay,
-    rate: Number(point.coverage_pct ?? 0) || 0,
-  }));
-
-  // Municipal totals come straight from the endpoint (full certified set),
-  // so the footer never depends on which barangays the card renders.
-  const vaccinationTotals: VaccinationTotals = dashboardAnalytics?.vaccination_totals ?? {
-    vaccinated: 0,
-    total: 0,
-  };
-
-  // Biosecurity alerts: actual pending review count (no fabricated floor)
-  const pendingReviewCount = inventories.filter((i) => i.status === "PENDING").length;
-  const biosecurityAlerts = pendingReviewCount;
-
-  // Distinct Registered Farmers
-  const registeredFarmers = registeredFarmerCount;
-
+/** Display backend aggregates; never reconstruct population from record lists. */
+export function computeAdminAnalytics(summary?: DashboardAnalytics | null): AdminAnalyticsMetrics {
+  const population = summary?.descriptive.population;
+  const totalLivestock = population?.total_heads ?? 0;
   return {
     totalLivestock,
-    monthlyDairyYieldL,
-    biosecurityAlerts,
-    registeredFarmers,
-    totalBarangaysCount: barangayCount,
-    barangayHerdDistribution,
-    specieComposition,
-    monthlyProduction,
-    surveillanceTrends,
-    sectorCompliance,
-    vaccinationTotals,
+    registeredFarmers: population?.registered_farmers ?? 0,
+    totalBarangaysCount: population?.barangay_count ?? 0,
+    biosecurityAlerts: population?.pending_inventory_records ?? 0,
+    monthlyDairyYieldL: summary?.monthly_dairy_yield_l ?? 0,
+    barangayHerdDistribution: (population?.by_barangay ?? []).map((row) => {
+      const counts = speciesCategories(row.species);
+      return {
+        barangay: row.barangay,
+        cattle: counts.cattle,
+        carabao: counts.carabao,
+        swine: counts.swine,
+        goat: counts.goat + counts.sheep,
+        // Poultry heads roll into "other" rather than getting their own stacked
+        // series, matching overviewBarangays() in @/lib/population-metrics.
+        other: counts.other + counts.poultry,
+        total: row.heads,
+      };
+    }).sort((a, b) => b.total - a.total || a.barangay.localeCompare(b.barangay)).slice(0, 7),
+    specieComposition: (population?.by_species ?? []).map((row) => ({
+      name: row.species, value: row.heads, color: getSpeciesColor(row.species),
+      percentage: totalLivestock ? `${(row.heads / totalLivestock * 100).toFixed(1)}%` : "0%",
+    })),
+    monthlyProduction: (summary?.production_series ?? []).map((row) => ({
+      month: row.month, label: row.label, milk: row.milk_l, meat: row.meat_kg,
+    })),
+    surveillanceTrends: (summary?.surveillance_series ?? []).map((row) => ({
+      month: row.month, label: row.label, reported: row.affected_heads ?? row.reported_heads ?? 0, deaths: row.deaths,
+    })),
+    sectorCompliance: (summary?.vaccination_coverage ?? []).map((row) => ({ sector: row.barangay, rate: row.coverage_pct })),
+    vaccinationTotals: summary?.vaccination_totals ?? { vaccinated: 0, total: 0 },
   };
 }
-
-// ─────────────────────────────────────────────────────────────
-// 6. REACT QUERY HOOKS
-// ─────────────────────────────────────────────────────────────
 
 export const ADMIN_CHARTS_QUERY_KEYS = {
   types: ["admin", "livestock-types"] as const,
@@ -695,10 +466,12 @@ export function useAdminProduction() {
 }
 
 export function useAdminDashboardSummary() {
-  return useQuery<DashboardAnalytics | null>({
-    queryKey: ADMIN_CHARTS_QUERY_KEYS.dashboard,
-    queryFn: fetchDashboardAnalytics,
-    staleTime: 60 * 1000,
+  const { user } = useAuth();
+  return useQuery<DashboardAnalytics>({
+    queryKey: [...ADMIN_CHARTS_QUERY_KEYS.dashboard, user?.email, user?.accessScope, user?.assignedBarangayId],
+    queryFn: ({ signal }) => fetchDashboardAnalytics(signal),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 }
@@ -707,53 +480,11 @@ export function useAdminDashboardSummary() {
  * Unified Hook for Admin Dashboard Visualizations and Executive Analytics
  */
 export function useAdminDashboardAnalytics() {
-  const inventoryQuery = useAdminInventory();
-  const censusQuery = useAdminCensus();
-  const productionQuery = useAdminProduction();
-  const typesQuery = useAdminLivestockTypes();
-  const barangaysQuery = useAdminBarangays();
   const dashboardSummaryQuery = useAdminDashboardSummary();
-  const directoryQuery = useUsersDirectory();
-
-  const isLoading =
-    inventoryQuery.isLoading || censusQuery.isLoading || productionQuery.isLoading || dashboardSummaryQuery.isLoading || directoryQuery.isLoading || barangaysQuery.isLoading;
-  const isFetching =
-    inventoryQuery.isFetching || censusQuery.isFetching || productionQuery.isFetching || dashboardSummaryQuery.isFetching || directoryQuery.isFetching || barangaysQuery.isFetching;
-  const isError =
-    inventoryQuery.isError || censusQuery.isError || productionQuery.isError || dashboardSummaryQuery.isError || directoryQuery.isError || barangaysQuery.isError;
-
-  const data: AdminAnalyticsMetrics = computeAdminAnalytics(
-    inventoryQuery.data || [],
-    censusQuery.data || [],
-    productionQuery.data || [],
-    dashboardSummaryQuery.data || undefined,
-    (directoryQuery.data || []).filter((user) => user.role === "FARMER" && user.account_status === "APPROVED" && user.barangay_id != null).length,
-    barangaysQuery.data?.length || 0
-  );
-
-  const refetchAll = async () => {
-    await Promise.all([
-      inventoryQuery.refetch(),
-      censusQuery.refetch(),
-      productionQuery.refetch(),
-      typesQuery.refetch(),
-      barangaysQuery.refetch(),
-      dashboardSummaryQuery.refetch(),
-      directoryQuery.refetch(),
-    ]);
-  };
-
   return {
-    data,
-    isLoading,
-    isFetching,
-    isError,
-    refetchAll,
-    inventoryQuery,
-    censusQuery,
-    productionQuery,
-    typesQuery,
-    barangaysQuery,
+    data: computeAdminAnalytics(dashboardSummaryQuery.data),
+    isLoading: dashboardSummaryQuery.isLoading, isFetching: dashboardSummaryQuery.isFetching,
+    isError: dashboardSummaryQuery.isError, refetchAll: () => dashboardSummaryQuery.refetch(),
     dashboardSummaryQuery,
   };
 }

@@ -379,6 +379,7 @@ export function DataOverviewTable({
                             : item.status === "VERIFIED" ? "SIBAT Verified"
                             : item.status === "APPROVED" ? "MAO Approved" : "Awaiting SIBAT"}
                         </Badge>
+                        <p className="mt-1 text-[10px] text-slate-500">{item.operationalStatus || "Unknown operational status"}</p>
                       </TableCell>
                     </>
                   )}
@@ -467,7 +468,7 @@ export function DataOverviewTable({
                         </div>
                       </TableCell>
                       <TableCell className="px-3.5 py-2.5 font-black text-xs text-slate-900">
-                        ₱{item.estValuePhp?.toLocaleString()}
+                        {item.estValuePhp == null ? "Not recorded" : `₱${item.estValuePhp.toLocaleString()}`}
                       </TableCell>
                       <TableCell className="px-3.5 py-2.5 text-xs font-medium text-slate-500">
                         {item.date}

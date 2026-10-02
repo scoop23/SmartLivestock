@@ -194,6 +194,7 @@ export function DataOverviewCards({
                   </>
                 )}
 
+                {activeTab === "livestock" && <p className="text-xs text-slate-500">Operational status: {item.operationalStatus || "Unknown"}</p>}
                 {activeTab === "production" && (
                   <>
                     <div className="flex justify-between text-slate-600">
@@ -202,7 +203,7 @@ export function DataOverviewCards({
                     </div>
                     <div className="flex justify-between text-slate-600">
                       <span>Est. Value:</span>
-                      <strong className="text-slate-900">₱{item.estValuePhp?.toLocaleString()}</strong>
+                      <strong className="text-slate-900">{item.estValuePhp == null ? "Not recorded" : `₱${item.estValuePhp.toLocaleString()}`}</strong>
                     </div>
                   </>
                 )}

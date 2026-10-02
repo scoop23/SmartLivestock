@@ -150,29 +150,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     }
   });
 
-  // Tally standalone batches if not already in inventory
-  const inventoryBatchIds = new Set(inventories.map((i) => i.batch || i.batch_id).filter(Boolean));
-  batches.forEach((b) => {
-    if (!inventoryBatchIds.has(b.id)) {
-      const bQty = Number(b.total_animals) || (Array.isArray(b.animals) ? b.animals.length : 1);
-      totalHeads += bQty;
-
-      const st = String(b.review_status || b.status || "PENDING").toUpperCase();
-      if (st === "APPROVED") approvedHeads += bQty;
-      else if (st === "VERIFIED") verifiedHeads += bQty;
-      else if (st === "SUBJECT_TO_REVISION" || st === "REJECTED") revisionHeads += bQty;
-      else pendingHeads += bQty;
-
-      const species = (b.livestock_type_name || "Herd Batch").trim();
-      speciesMap.set(species, (speciesMap.get(species) || 0) + bQty);
-
-      const dStr = String(b.created_at || "");
-      const monthKey = dStr.slice(0, 7);
-      if (monthKey) {
-        monthlyHerdMap.set(monthKey, (monthlyHerdMap.get(monthKey) || 0) + bQty);
-      }
-    }
-  });
+  // Herds group inventory children; never add their count as a second population.
 
   const status_breakdown: StatusBreakdownPoint[] = [
     { name: "MAO Certified", value: approvedHeads, color: "#10b981" },

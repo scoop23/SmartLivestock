@@ -423,6 +423,7 @@ export function DataOverviewOverallView({
                       >
                         Cattle
                       </TableHead>
+                      <TableHead className="text-right text-xs">Other Species</TableHead>
                       <TableHead
                         className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
                         onClick={() => handleSort("batchCount")}
@@ -439,7 +440,7 @@ export function DataOverviewOverallView({
                         className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
                         onClick={() => handleSort("activeIncidents")}
                       >
-                        Alerts
+                        Pending Reports
                       </TableHead>
                       <TableHead
                         className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
@@ -465,7 +466,7 @@ export function DataOverviewOverallView({
                           {b.activeIncidents > 0 && (
                             <span
                               className="size-1.5 rounded-full bg-rose-500 shrink-0 animate-ping"
-                              title="Active biosecurity alert"
+                              title="Disease report awaiting review"
                             />
                           )}
                         </TableCell>
@@ -477,6 +478,7 @@ export function DataOverviewOverallView({
                         <TableCell className="px-3 py-2 text-right font-semibold text-xs text-emerald-800">
                           {b.cattleCount.toLocaleString()}
                         </TableCell>
+                        <TableCell className="text-right text-xs">{(b.totalLivestock - b.cattleCount).toLocaleString()}</TableCell>
 
                         {/* Batches in Sector */}
                         <TableCell className="px-3 py-2 text-right">
@@ -505,7 +507,7 @@ export function DataOverviewOverallView({
                         <TableCell className="px-3 py-2 text-right">
                           {b.activeIncidents > 0 ? (
                             <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px] font-bold px-1.5 py-0.2">
-                              {b.activeIncidents} Active
+                              {b.activeIncidents} Pending
                             </Badge>
                           ) : (
                             <span className="text-slate-400 text-xs font-semibold">0</span>
@@ -642,9 +644,9 @@ export function DataOverviewOverallView({
                       Live
                     </Badge>
                   </div>
-                  <p className="text-xl font-black mt-1.5">98.4% Safe Index</p>
+                  <p className="text-xl font-black mt-1.5">{totalHeads.toLocaleString()} Current Heads</p>
                   <p className="text-[11px] text-emerald-100/80 mt-0.5">
-                    Padre Garcia Livestock Territory — Low Epidemic Risk
+                    Padre Garcia Livestock Territory — Disease reports awaiting review
                   </p>
                 </div>
 
@@ -653,21 +655,21 @@ export function DataOverviewOverallView({
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span className="text-xs font-bold text-slate-700">
-                        Vaccination Coverage
+                        Approved Raisers
                       </span>
                     </div>
-                    <span className="text-xs font-black text-slate-900">94.2%</span>
+                    <span className="text-xs font-black text-slate-900">{totalFarmers.toLocaleString()}</span>
                   </div>
 
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span className="text-xs font-bold text-slate-700">
-                        Quarantined Sectors
+                        Reports Awaiting Review
                       </span>
                     </div>
                     <span className="text-xs font-black text-amber-700">
-                      {totalIncidents > 0 ? `${totalIncidents} active` : "0 (Clear)"}
+                      {totalIncidents > 0 ? `${totalIncidents} pending` : "0 pending"}
                     </span>
                   </div>
 
@@ -675,10 +677,10 @@ export function DataOverviewOverallView({
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                       <span className="text-xs font-bold text-slate-700">
-                        Slaughter Clearances
+                        Approved Meat This Month
                       </span>
                     </div>
-                    <span className="text-xs font-black text-sky-800">100% Inspected</span>
+                    <span className="text-xs font-black text-sky-800">{totalMeat.toLocaleString()} kg</span>
                   </div>
                 </CardContent>
               </Card>
@@ -857,12 +859,12 @@ export function DataOverviewOverallView({
                     Municipal Biosecurity Status
                   </span>
                   <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/30 text-[10px] font-bold px-2 py-0.5">
-                    All Clear
+                    Review Queue
                   </Badge>
                 </div>
-                <p className="text-2xl font-black mt-2">98.4% Safe Index</p>
+                <p className="text-2xl font-black mt-2">{totalHeads.toLocaleString()} Current Heads</p>
                 <p className="text-xs text-emerald-100/80 mt-0.5">
-                  Padre Garcia Livestock Territory — Low Epidemic Risk
+                  Padre Garcia Livestock Territory — Disease reports awaiting review
                 </p>
               </div>
 
@@ -872,12 +874,12 @@ export function DataOverviewOverallView({
                     <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">
-                        Vaccination Coverage
+                        Approved Raisers
                       </span>
                       <span className="text-[10px] text-slate-400">FMD & Hemorrhagic</span>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-slate-900">94.2%</span>
+                  <span className="text-sm font-black text-slate-900">{totalFarmers.toLocaleString()}</span>
                 </div>
 
                 <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
@@ -885,13 +887,13 @@ export function DataOverviewOverallView({
                     <AlertTriangle className="size-4 text-amber-600 shrink-0" />
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">
-                        Quarantined Sectors
+                        Reports Awaiting Review
                       </span>
                       <span className="text-[10px] text-slate-400">Surveillance checkpoints</span>
                     </div>
                   </div>
                   <span className="text-sm font-black text-amber-700">
-                    {totalIncidents > 0 ? `${totalIncidents} active` : "0 (Clear)"}
+                    {totalIncidents > 0 ? `${totalIncidents} pending` : "0 pending"}
                   </span>
                 </div>
 
@@ -900,12 +902,12 @@ export function DataOverviewOverallView({
                     <ShieldCheck className="size-4 text-sky-600 shrink-0" />
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">
-                        Slaughter Clearances
+                        Approved Meat This Month
                       </span>
                       <span className="text-[10px] text-slate-400">Ante & post-mortem</span>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-sky-800">100% Inspected</span>
+                  <span className="text-sm font-black text-sky-800">{totalMeat.toLocaleString()} kg</span>
                 </div>
               </CardContent>
             </Card>
