@@ -1,40 +1,49 @@
-import axios, { InternalAxiosRequestConfig } from 'axios';
+import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
 
 declare module 'axios' {
   export interface InternalAxiosRequestConfig {
     _retry?: boolean;
     _fallbackRetried?: boolean;
+    _startTime?: number;
   }
 }
 
 export const LOCAL_API_URL =
   process.env.NEXT_PUBLIC_LOCAL_API_URL || 'http://localhost:8000';
-export const RENDER_API_URL = 'https://smartlivestock-xkx4.onrender.com';
+export const RENDER_API_URL =
+  process.env.NEXT_PUBLIC_RENDER_API_URL || 'https://smartlivestock-xkx4.onrender.com';
 
 // Primary backend (local Django by default, or Render in production)
 export const PRIMARY_API_URL =
   process.env.NEXT_PUBLIC_API_URL || LOCAL_API_URL;
 
-// Dynamic fallback backend: if primary is Render, fallback to local; if primary is local, fallback to Render
+// Dynamic fallback backend
 export const FALLBACK_API_URL =
   process.env.NEXT_PUBLIC_FALLBACK_API_URL ||
   (PRIMARY_API_URL.includes('onrender.com') ? LOCAL_API_URL : RENDER_API_URL);
 
-export const LOCAL_FALLBACK_URL = LOCAL_API_URL;
+// Check if fallback URL is allowed safely
+const isLocalhost = (hostname: string): boolean =>
+  hostname === 'localhost' || hostname === '127.0.0.1';
 
-// Check if fallback URL is allowed (safe against browser mixed-content restrictions)
-const canFallbackTo = (url: string): boolean => {
+const canFallbackTo = (targetUrl: string): boolean => {
   if (typeof window === 'undefined') return true;
-  if (url.startsWith('https://')) return true;
-  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-};
+  const currentHost = window.location.hostname;
+  
+  // In local development against local backend, avoid accidental cloud failover
+  // unless explicitly allowed by environment config
+  if (isLocalhost(currentHost) && PRIMARY_API_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_ENABLE_CLOUD_FALLBACK === 'true';
+  }
 
-const canFallbackToLocal = (): boolean => canFallbackTo(LOCAL_API_URL);
+  if (targetUrl.startsWith('https://')) return true;
+  return isLocalhost(currentHost);
+};
 
 // Axios instance pre-configured to talk to the Django backend.
 const api = axios.create({
   baseURL: PRIMARY_API_URL,
-  timeout: 30000, // 30-second timeout to handle concurrent queries, remote DB latency, or cold starts
+  timeout: 30000, // 30-second timeout
   headers: {
     'Content-Type': 'application/json',
   },
@@ -45,11 +54,13 @@ export const getActiveApiUrl = (): string => {
 };
 
 // Request interceptor: attaches the JWT access token from localStorage
-// to every outgoing request as a Bearer token header.
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem("access");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  config._startTime = Date.now();
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   // Allow browser to automatically set multipart/form-data boundary for FormData
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
@@ -76,66 +87,32 @@ const processQueue = (error: unknown, token: string | null = null) => {
 };
 
 // Intercept responses:
-// 1. Failover if the current backend is down / unreachable / timing out.
-// 2. Refresh expired access tokens on 401.
+// 1. Refresh expired access tokens on 401 with concurrent queueing.
+// 2. Request-local failover if primary backend is unreachable without mutating global baseURL.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
 
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig | undefined;
     if (!originalRequest) {
       return Promise.reject(error);
     }
 
-    // --- Automatic Failover if Backend is Down ---
-    const isNetworkOrServerError =
-      !error.response ||
-      error.code === 'ERR_NETWORK' ||
-      error.code === 'ECONNABORTED' ||
-      [502, 503, 504].includes(error.response?.status);
-
-    const currentBaseUrl = api.defaults.baseURL || PRIMARY_API_URL;
-    // Target the opposite backend: Render -> Local, or Local -> Render
-    const targetFallbackUrl = currentBaseUrl.includes('onrender.com')
-      ? LOCAL_API_URL
-      : RENDER_API_URL;
-
-    const canAttemptFallback =
-      isNetworkOrServerError &&
-      !originalRequest._fallbackRetried &&
-      targetFallbackUrl !== currentBaseUrl &&
-      canFallbackTo(targetFallbackUrl);
-
-    if (canAttemptFallback) {
-      originalRequest._fallbackRetried = true;
-      console.warn(
-        `[SmartLivestock API] Backend unreachable (${error.code || error.response?.status || 'Network Error'}). Failing over from ${currentBaseUrl} to ${targetFallbackUrl}`
-      );
-
-      // Permanently switch defaults for this tab session so upcoming calls don't lag
-      api.defaults.baseURL = targetFallbackUrl;
-      originalRequest.baseURL = targetFallbackUrl;
-
-      if (originalRequest.url && originalRequest.url.startsWith(currentBaseUrl)) {
-        originalRequest.url = originalRequest.url.replace(currentBaseUrl, targetFallbackUrl);
-      }
-
-      // Retry request on the fallback backend
-      try {
-        return await api(originalRequest);
-      } catch (fallbackErr) {
-        return Promise.reject(fallbackErr);
-      }
+    // Do not treat intentional request cancellation as a network/server failure
+    if (axios.isCancel(error) || error.code === 'ERR_CANCELED') {
+      return Promise.reject(error);
     }
 
-    // --- 401 Token Refresh Handler ---
+    // --- 1. 401 Token Refresh Handler ---
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/api/token/")
+      !originalRequest.url?.includes('/api/token/')
     ) {
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
@@ -149,28 +126,33 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       const refreshToken =
-        typeof window !== "undefined" ? localStorage.getItem("refresh") : null;
+        typeof window !== 'undefined' ? localStorage.getItem('refresh') : null;
 
       if (!refreshToken) {
         isRefreshing = false;
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("access");
-          localStorage.removeItem("refresh");
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access');
+          localStorage.removeItem('refresh');
         }
         return Promise.reject(error);
       }
 
       try {
-        const refreshUrl = `${api.defaults.baseURL || PRIMARY_API_URL}/api/token/refresh/`;
-        const response = await axios.post(refreshUrl, { refresh: refreshToken });
+        const refreshBaseUrl = api.defaults.baseURL || PRIMARY_API_URL;
+        const refreshUrl = `${refreshBaseUrl.replace(/\/+$/, '')}/api/token/refresh/`;
+        const response = await axios.post<{ access: string; refresh?: string }>(
+          refreshUrl,
+          { refresh: refreshToken },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+        );
 
         const newAccessToken = response.data.access;
         const newRefreshToken = response.data.refresh;
 
-        if (typeof window !== "undefined") {
-          localStorage.setItem("access", newAccessToken);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('access', newAccessToken);
           if (newRefreshToken) {
-            localStorage.setItem("refresh", newRefreshToken);
+            localStorage.setItem('refresh', newRefreshToken);
           }
         }
 
@@ -179,13 +161,56 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("access");
-          localStorage.removeItem("refresh");
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access');
+          localStorage.removeItem('refresh');
         }
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;
+      }
+    }
+
+    // --- 2. Request-Local Automatic Failover if Primary is Unreachable ---
+    const isNetworkOrServerError =
+      !error.response ||
+      error.code === 'ERR_NETWORK' ||
+      error.code === 'ECONNABORTED' ||
+      [502, 503, 504].includes(error.response?.status);
+
+    const currentBaseUrl = originalRequest.baseURL || api.defaults.baseURL || PRIMARY_API_URL;
+    const targetFallbackUrl = currentBaseUrl.includes('onrender.com')
+      ? LOCAL_API_URL
+      : RENDER_API_URL;
+
+    const canAttemptFallback =
+      isNetworkOrServerError &&
+      !originalRequest._fallbackRetried &&
+      targetFallbackUrl !== currentBaseUrl &&
+      canFallbackTo(targetFallbackUrl);
+
+    if (canAttemptFallback) {
+      originalRequest._fallbackRetried = true;
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          `[SmartLivestock API] Endpoint ${originalRequest.url} unreachable on ${currentBaseUrl}. Retrying on fallback: ${targetFallbackUrl}`
+        );
+      }
+
+      // Request-local retry without mutating global api.defaults.baseURL
+      const retryConfig: InternalAxiosRequestConfig = {
+        ...originalRequest,
+        baseURL: targetFallbackUrl,
+      };
+
+      if (retryConfig.url && retryConfig.url.startsWith(currentBaseUrl)) {
+        retryConfig.url = retryConfig.url.replace(currentBaseUrl, targetFallbackUrl);
+      }
+
+      try {
+        return await axios(retryConfig);
+      } catch (fallbackErr) {
+        return Promise.reject(fallbackErr);
       }
     }
 
