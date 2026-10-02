@@ -28,6 +28,7 @@ import {
   PRODUCTION_TYPE_UNITS,
   formatRecordDate,
   formatQty,
+  formatProductionStatus,
   type ProductionRecordItem,
   type ProductionStatus,
 } from "./production-analytics";
@@ -165,7 +166,7 @@ export default function ProductionApprovalCard({
                   : "bg-white text-rose-800 hover:bg-white"
               }`}
           >
-            {(record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED") ? "Subject for Revision" : record.status}
+            {formatProductionStatus(record.status)}
           </Badge>
         </div>
       </div>

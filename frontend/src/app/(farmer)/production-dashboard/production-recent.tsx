@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import {
   PRODUCTION_TYPE_LABELS,
   formatRecordDate,
+  formatProductionStatus,
   type ProductionRecordItem,
   type ProductionStatus,
 } from "./production-analytics";
@@ -171,7 +172,7 @@ export default function ProductionRecent({
                             statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
                           }`}
                         >
-                          {(record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED") ? "Subject for Revision" : record.status}
+                          {formatProductionStatus(record.status)}
                         </Badge>
                         <span className="text-xs text-slate-400">
                           • {formatRecordDate(record.recordDate)}

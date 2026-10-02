@@ -76,7 +76,9 @@ export default function ProductionStats({
       icon: <MainIcon className="size-4.5" />,
       variant: meta.variant,
       value: hasRecords ? `${formatQty(summary!.total)} ${unit}` : "—",
-      sub: meta.sub,
+      sub: (summary?.pending_total ?? 0) > 0
+        ? `${formatQty(summary!.verified_total ?? 0)} ${unit} verified · ${formatQty(summary!.pending_total ?? 0)} ${unit} awaiting`
+        : meta.sub,
     },
     {
       label: "Recorded Output Change",
@@ -96,17 +98,21 @@ export default function ProductionStats({
       icon: <ClipboardList className="size-4.5" />,
       variant: "orange",
       value: hasRecords ? (summary!.record_count ?? 0).toLocaleString() : "—",
-      sub: "Submitted entries",
+      sub: (summary?.pending_record_count ?? 0) > 0
+        ? `${summary!.verified_record_count ?? 0} verified · ${summary!.pending_record_count ?? 0} awaiting`
+        : "Submitted entries",
     },
   ];
 
   if (hasValuation) {
     allCards.push({
-      label: "Estimated Production Value",
+      label: "Estimated Reference Value",
       icon: <PhilippinePeso className="size-4.5" />,
       variant: "emerald",
       value: formatPeso(summary!.estimated_value!),
-      sub: "Official PSA benchmark; not cash sales",
+      sub: (summary?.pending_estimated_value ?? 0) > 0
+        ? `${formatPeso(summary!.verified_estimated_value ?? 0)} verified · ${formatPeso(summary!.pending_estimated_value ?? 0)} indicative`
+        : "Official PSA benchmark; not cash sales",
     });
   }
 

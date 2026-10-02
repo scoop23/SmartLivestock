@@ -83,19 +83,30 @@ export function AdminChartsView() {
 
           <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%" debounce={150}>
-              <BarChart data={barangayHerdDistribution} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart
+                data={barangayHerdDistribution}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                barCategoryGap="20%"
+                barGap={4}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="barangay" tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600 }} axisLine={{ stroke: '#E2E8F0' }} tickLine={false} />
+                <XAxis
+                  dataKey="barangay"
+                  tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600 }}
+                  axisLine={{ stroke: '#E2E8F0' }}
+                  tickLine={false}
+                  interval={0}
+                />
                 <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px', padding: '8px 12px' }}
                   itemStyle={{ color: '#fff', fontSize: '11px' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
-                <Bar dataKey="cattle" name="Cattle (Bovine)" stackId="a" fill="#2D5A27" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="carabao" name="Carabao (Water Buffalo)" stackId="a" fill="#0284C7" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="swine" name="Swine (Pigs)" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="goat" name="Goats & Sheep" stackId="a" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="cattle" name="Cattle (Bovine)" stackId="a" fill="#2D5A27" maxBarSize={44} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="carabao" name="Carabao (Water Buffalo)" stackId="a" fill="#0284C7" maxBarSize={44} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="swine" name="Swine (Pigs)" stackId="a" fill="#F59E0B" maxBarSize={44} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="goat" name="Goats & Sheep" stackId="a" fill="#8B5CF6" maxBarSize={44} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

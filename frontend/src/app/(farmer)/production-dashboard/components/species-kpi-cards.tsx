@@ -66,6 +66,18 @@ export default function SpeciesKpiCards({
     const totalEggs = eggRecords.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
     const totalWool = woolRecords.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
 
+    const verifiedMilk = milkRecords.filter((r) => r.status === "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const pendingMilk = milkRecords.filter((r) => r.status !== "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+
+    const verifiedMeat = meatRecords.filter((r) => r.status === "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const pendingMeat = meatRecords.filter((r) => r.status !== "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+
+    const verifiedEggs = eggRecords.filter((r) => r.status === "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const pendingEggs = eggRecords.filter((r) => r.status !== "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+
+    const verifiedWool = woolRecords.filter((r) => r.status === "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const pendingWool = woolRecords.filter((r) => r.status !== "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+
     // Average birth weight
     const validBirthWeights = calvingRecords
       .map((c) => Number(c.birth_weight))
@@ -98,6 +110,7 @@ export default function SpeciesKpiCards({
 
     // Approved percentage
     const approvedCount = productionRecords.filter((r) => r.status === "APPROVED").length;
+    const pendingRecordsCount = productionRecords.filter((r) => r.status === "PENDING" || r.status === "VERIFIED").length;
     const approvalRate =
       totalRecords > 0 ? Math.round((approvedCount / totalRecords) * 100) : 100;
 
@@ -110,6 +123,15 @@ export default function SpeciesKpiCards({
       totalMeat,
       totalEggs,
       totalWool,
+      verifiedMilk,
+      pendingMilk,
+      verifiedMeat,
+      pendingMeat,
+      verifiedEggs,
+      pendingEggs,
+      verifiedWool,
+      pendingWool,
+      pendingRecordsCount,
       avgBirthWeight,
       femaleOffspringCount,
       maleOffspringCount,
@@ -126,7 +148,7 @@ export default function SpeciesKpiCards({
           title="Goat Milk Yield"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
           icon={<Milk className="size-4.5" />}
-          badge="Daily dairy collection"
+          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L verified · ${metrics.pendingMilk.toLocaleString()} L awaiting` : `${metrics.totalMilk.toLocaleString()} L verified`}
           variant="sky"
         />
         <KpiCard
@@ -161,7 +183,7 @@ export default function SpeciesKpiCards({
           title="Wool & Fleece Harvest"
           value={metrics.totalWool > 0 ? `${metrics.totalWool.toLocaleString()} kg` : "0.0 kg"}
           icon={<Package className="size-4.5" />}
-          badge="Sheared fleece total"
+          badge={metrics.pendingWool > 0 ? `${metrics.verifiedWool.toLocaleString()} kg verified · ${metrics.pendingWool.toLocaleString()} kg awaiting` : `${metrics.totalWool.toLocaleString()} kg verified`}
           variant="stone"
         />
         <KpiCard
@@ -196,7 +218,7 @@ export default function SpeciesKpiCards({
           title="Pork / Carcass Yield"
           value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
           icon={<Beef className="size-4.5" />}
-          badge="Finishing liveweight / meat"
+          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
           variant="rose"
         />
         <KpiCard
@@ -236,7 +258,7 @@ export default function SpeciesKpiCards({
           title="Daily Egg Harvest"
           value={metrics.totalEggs > 0 ? `${metrics.totalEggs.toLocaleString()} pcs` : "0 pcs"}
           icon={<Egg className="size-4.5" />}
-          badge="Table eggs collected"
+          badge={metrics.pendingEggs > 0 ? `${metrics.verifiedEggs.toLocaleString()} pcs verified · ${metrics.pendingEggs.toLocaleString()} pcs awaiting` : `${metrics.totalEggs.toLocaleString()} pcs verified`}
           variant="amber"
         />
         <KpiCard
@@ -250,7 +272,7 @@ export default function SpeciesKpiCards({
           title="Broiler Meat Harvest"
           value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
           icon={<Beef className="size-4.5" />}
-          badge="Dressed poultry output"
+          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
           variant="rose"
         />
         <KpiCard
@@ -277,7 +299,7 @@ export default function SpeciesKpiCards({
           title="Dairy Milk Output"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
           icon={<Milk className="size-4.5" />}
-          badge="Liters recorded"
+          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L verified · ${metrics.pendingMilk.toLocaleString()} L awaiting` : `${metrics.totalMilk.toLocaleString()} L verified`}
           variant="sky"
         />
         <KpiCard
@@ -312,7 +334,7 @@ export default function SpeciesKpiCards({
         title="Total Output Logs"
         value={metrics.totalRecords.toString()}
         icon={<ClipboardList className="size-4.5" />}
-        badge="Submitted yield entries"
+        badge={metrics.pendingRecordsCount > 0 ? `${metrics.totalRecords - metrics.pendingRecordsCount} verified · ${metrics.pendingRecordsCount} awaiting review` : "Submitted yield entries"}
         variant="emerald"
       />
       <KpiCard

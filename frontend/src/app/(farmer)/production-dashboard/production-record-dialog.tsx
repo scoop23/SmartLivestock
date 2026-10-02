@@ -16,6 +16,7 @@ import {
   PRODUCTION_TYPE_UNITS,
   formatRecordDate,
   formatQty,
+  formatProductionStatus,
   type ProductionRecordItem,
   type ProductionStatus,
 } from "./production-analytics";
@@ -111,7 +112,7 @@ export default function ProductionRecordDialog({
                 <Badge
                   className={`shrink-0 uppercase tracking-wider bg-white text-slate-800 border-0 hover:bg-white ${(statusClasses[record.status] ?? DEFAULT_STATUS_CLASS).split(" ")[0]}`}
                 >
-                  {(record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED") ? "Subject for Revision" : record.status}
+                  {formatProductionStatus(record.status)}
                 </Badge>
               </div>
             </div>

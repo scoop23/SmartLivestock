@@ -91,14 +91,16 @@ const SPECIES_COLORS: Record<string, string> = {
 const DEFAULT_COLORS = ["#059669", "#d97706", "#ea580c", "#0284c7", "#8b5cf6", "#ec4899", "#14b8a6", "#f43f5e"];
 
 async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics> {
-  const [invRes, prodRes, diseaseRes, mortRes] = await Promise.allSettled([
+  const [invRes, batchRes, prodRes, diseaseRes, mortRes] = await Promise.allSettled([
     api.get("livestock/inventory/"),
+    api.get("livestock/batches/"),
     api.get("production/records/"),
     api.get("diseases/cases/"),
     api.get("diseases/mortality/"),
   ]);
 
   const inventories: any[] = invRes.status === "fulfilled" && Array.isArray(invRes.value.data) ? invRes.value.data : [];
+  const batches: any[] = batchRes.status === "fulfilled" && Array.isArray(batchRes.value.data) ? batchRes.value.data : [];
   const productions: any[] = prodRes.status === "fulfilled" && Array.isArray(prodRes.value.data) ? prodRes.value.data : [];
   const diseaseCases: any[] = diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data) ? diseaseRes.value.data : [];
   const mortalities: any[] = mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data) ? mortRes.value.data : [];
@@ -112,7 +114,9 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
 
   const speciesMap = new Map<string, number>();
   const breedMap = new Map<string, { category: string; count: number }>();
+  const monthlyHerdMap = new Map<string, number>();
 
+  // Tally individual inventories
   inventories.forEach((item) => {
     const qty = Number(item.quantity) || 1;
     totalHeads += qty;
@@ -138,6 +142,36 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     } else {
       breedMap.set(breed, { category: species, count: qty });
     }
+
+    const dStr = String(item.created_at || item.date_acquired || "");
+    const monthKey = dStr.slice(0, 7);
+    if (monthKey) {
+      monthlyHerdMap.set(monthKey, (monthlyHerdMap.get(monthKey) || 0) + qty);
+    }
+  });
+
+  // Tally standalone batches if not already in inventory
+  const inventoryBatchIds = new Set(inventories.map((i) => i.batch || i.batch_id).filter(Boolean));
+  batches.forEach((b) => {
+    if (!inventoryBatchIds.has(b.id)) {
+      const bQty = Number(b.total_animals) || (Array.isArray(b.animals) ? b.animals.length : 1);
+      totalHeads += bQty;
+
+      const st = String(b.review_status || b.status || "PENDING").toUpperCase();
+      if (st === "APPROVED") approvedHeads += bQty;
+      else if (st === "VERIFIED") verifiedHeads += bQty;
+      else if (st === "SUBJECT_TO_REVISION" || st === "REJECTED") revisionHeads += bQty;
+      else pendingHeads += bQty;
+
+      const species = (b.livestock_type_name || "Herd Batch").trim();
+      speciesMap.set(species, (speciesMap.get(species) || 0) + bQty);
+
+      const dStr = String(b.created_at || "");
+      const monthKey = dStr.slice(0, 7);
+      if (monthKey) {
+        monthlyHerdMap.set(monthKey, (monthlyHerdMap.get(monthKey) || 0) + bQty);
+      }
+    }
   });
 
   const status_breakdown: StatusBreakdownPoint[] = [
@@ -159,6 +193,10 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     const color = catObj ? catObj.color : DEFAULT_COLORS[i % DEFAULT_COLORS.length];
     return { name, category, value: count, color };
   });
+
+  const cattle_trend: FarmerTrendPoint[] = Array.from(monthlyHerdMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, quantity]) => ({ period, quantity }));
 
   // 2. Production calculations (Milk & Monthly Trends)
   const now = new Date();
@@ -222,6 +260,19 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       date: inv.created_at || inv.date_acquired || new Date().toISOString(),
       remarks: inv.review_remarks,
       rawItem: inv,
+    });
+  });
+
+  batches.slice(0, 5).forEach((b) => {
+    activities.push({
+      id: `batch-${b.id}`,
+      type: "INVENTORY",
+      title: `Herd Batch: ${b.batch_code || b.batch_name || "Batch Registered"}`,
+      description: `${b.livestock_type_name || "Herd"} • ${b.total_animals || b.animals?.length || 1} Head(s) • Pen: ${b.housing_pen || "General"}`,
+      status: (b.review_status || b.status || "PENDING").toUpperCase(),
+      date: b.created_at || new Date().toISOString(),
+      remarks: b.review_remarks,
+      rawItem: b,
     });
   });
 
@@ -309,7 +360,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     active_health_alerts: activeAlerts,
     milk_production_liters: hasMilkData ? currentMonthMilk : null,
     milk_growth_pct,
-    cattle_trend: [],
+    cattle_trend,
     milk_trend,
     herd_categories,
     herd_subcategories,

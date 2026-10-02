@@ -13,6 +13,7 @@ import {
 import { Icon } from 'lucide-react';
 import { cowHead } from '@lucide/lab';
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
+import { Button } from "@/components/ui/button";
 import { AdminChartsView } from './admin-charts-view';
 import { useAdminDashboardAnalytics } from './admin-charts';
 import { ValidationLoadingScreen } from '@/components/validation-loading-screen';
@@ -26,6 +27,8 @@ export default function AdminDashboard() {
   const {
     data,
     isLoading,
+    isError,
+    refetchAll,
     inventoryQuery,
     censusQuery,
     productionQuery,
@@ -84,6 +87,17 @@ export default function AdminDashboard() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="p-6 space-y-3" role="alert">
+        <p>Municipal dashboard data could not be loaded.</p>
+        <Button variant="outline" onClick={() => refetchAll()}>
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
   // --- Handlers ---
   const handleExportExcel = (reportType: string) => {
     alert(`Generating ${reportType} report in Excel format...\nThis will download the report for Department of Agriculture submission.`);
@@ -108,7 +122,7 @@ export default function AdminDashboard() {
         change: 'Live Registry',
         icon: <Icon iconNode={cowHead} className="size-5" />,
         variant: 'emerald',
-        description: 'Across 17 Barangays'
+        description: `Across ${data.totalBarangaysCount} Barangays`
       },
       {
         label: 'Monthly Dairy Yield',
@@ -121,17 +135,17 @@ export default function AdminDashboard() {
         description: 'Certified milk intake'
       },
       {
-        label: 'Biosecurity Alerts',
+        label: 'Pending Inventory Review',
         value: String(data.biosecurityAlerts || 0),
         change: 'Monitored',
         icon: <AlertTriangle className="w-5 h-5" />,
         variant: 'rose',
-        description: '1 Quarantined sector'
+        description: 'Inventory entries awaiting review'
       },
       {
         label: 'Registered Raisers',
         value: String(data.registeredFarmers || 0),
-        change: '+8 New',
+        change: 'Approved Accounts',
         icon: <Users className="w-5 h-5" />,
         variant: 'default',
         description: 'Verified MAO farmers'
@@ -190,7 +204,7 @@ export default function AdminDashboard() {
               { title: 'Livestock Inventory', desc: 'Complete cattle census', icon: CowHeadIcon, color: 'bg-emerald-50 text-emerald-800' },
               { title: 'Production Summary', desc: 'Milk & meat yield logs', icon: TrendingUp, color: 'bg-blue-50 text-blue-800' },
               { title: 'Disease & Mortality', desc: 'Surveillance & clinical reports', icon: AlertTriangle, color: 'bg-rose-50 text-rose-800' },
-              { title: 'Farmer Registry', desc: '18-Barangay raisers directory', icon: Users, color: 'bg-purple-50 text-purple-800' },
+              { title: 'Farmer Registry', desc: `${data.totalBarangaysCount}-Barangay raisers directory`, icon: Users, color: 'bg-purple-50 text-purple-800' },
               { title: 'Auction Ledger', desc: 'Trading center transactions', icon: Scale, color: 'bg-amber-50 text-amber-800' },
               { title: 'Full DA Submission', desc: 'Quarterly compliance pack', icon: Download, color: 'bg-slate-100 text-slate-800' },
             ].map(({ title, desc, icon: IconComponent, color }) => (

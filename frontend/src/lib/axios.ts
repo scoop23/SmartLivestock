@@ -34,7 +34,7 @@ const canFallbackToLocal = (): boolean => canFallbackTo(LOCAL_API_URL);
 // Axios instance pre-configured to talk to the Django backend.
 const api = axios.create({
   baseURL: PRIMARY_API_URL,
-  timeout: 15000, // 15-second timeout to handle Render cold-starts or dead connections
+  timeout: 30000, // 30-second timeout to handle concurrent queries, remote DB latency, or cold starts
   headers: {
     'Content-Type': 'application/json',
   },

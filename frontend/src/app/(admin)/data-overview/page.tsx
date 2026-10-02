@@ -50,6 +50,7 @@ import {
   useAdminIncidentRecords,
 } from "../data-validation/validation-analytics";
 import { useGetBarangays } from "@/app/(sibat)/sibat/sibat-analytics";
+import { useAdminDashboardSummary } from "../admin/admin-charts";
 
 export default function DataOverviewPage() {
   // Navigation & View States
@@ -69,6 +70,7 @@ export default function DataOverviewPage() {
 
   // Backend Data Queries
   const { data: dbBarangays } = useGetBarangays();
+  const { data: dashboardAnalytics } = useAdminDashboardSummary();
   const { data: rawInventory, isLoading: isInvLoading } = useAdminInventoryRecords();
   const { data: rawProduction, isLoading: isProdLoading } = useAdminProductionRecords();
   const { data: rawCensus, isLoading: isCenLoading } = useAdminCensusSubmissions();
@@ -94,7 +96,9 @@ export default function DataOverviewPage() {
   // Combine backend records with seed datasets
   const livestockList: LivestockRecord[] = useMemo(() => {
     if (!rawInventory || rawInventory.length === 0) return [];
-    return rawInventory.map((item) => {
+    return rawInventory
+      .filter((item) => !item.isBatch)
+      .map((item) => {
       // Find matching herd from rawBatches or item fields
       const matchingBatch = rawBatches?.find(
         (b: any) =>
@@ -868,17 +872,11 @@ export default function DataOverviewPage() {
         )
         .reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
 
-      // Census additions
-      const cenCattle = brgyCensus.reduce((sum, c) => sum + (c.cattleCount || 0), 0);
-      const cenCarabao = brgyCensus.reduce((sum, c) => sum + (c.carabaoCount || 0), 0);
-      const cenSwine = brgyCensus.reduce((sum, c) => sum + (c.swineCount || 0), 0);
-      const cenGoat = brgyCensus.reduce((sum, c) => sum + (c.goatCount || 0), 0);
-
-      // Totals
-      const cattleCount = invCattle + cenCattle;
-      const carabaoCount = invCarabao + cenCarabao;
-      const swineCount = invSwine + cenSwine;
-      const goatCount = invGoat + cenGoat;
+      // Canonical inventory totals
+      const cattleCount = invCattle;
+      const carabaoCount = invCarabao;
+      const swineCount = invSwine;
+      const goatCount = invGoat;
       const totalLivestock =
         cattleCount + carabaoCount + swineCount + goatCount ||
         brgyInventories.reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
@@ -919,7 +917,6 @@ export default function DataOverviewPage() {
     dbBarangays,
     livestockList,
     batchList,
-    censusList,
     productionList,
     diseaseList,
     slaughterList,
@@ -951,10 +948,12 @@ export default function DataOverviewPage() {
     ]
   );
 
-  // Overall KPI aggregates
+  // Overall KPI aggregates (Synced directly with canonical backend analytics population)
   const totalLivestockPopulation = useMemo(
-    () => barangayMasterSummaries.reduce((sum, b) => sum + b.totalLivestock, 0),
-    [barangayMasterSummaries]
+    () =>
+      dashboardAnalytics?.descriptive?.population.total_heads ??
+      barangayMasterSummaries.reduce((sum, b) => sum + b.totalLivestock, 0),
+    [dashboardAnalytics, barangayMasterSummaries]
   );
   const totalMilkVolume = useMemo(
     () => barangayMasterSummaries.reduce((sum, b) => sum + b.monthlyMilkLiters, 0),

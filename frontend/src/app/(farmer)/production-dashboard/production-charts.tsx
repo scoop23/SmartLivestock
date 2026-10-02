@@ -96,13 +96,18 @@ export default function ProductionCharts({
   const Icon = TYPE_ICONS[type] ?? Milk;
   const unitInfo = TYPE_CHART[type] ?? TYPE_CHART.milk;
 
-  // Merge trend & value data by period
+  // Merge trend & value data by period with verified vs pending separation
   const mergedData = trend.map((t) => {
     const valObj = valueTrend.find((v) => v.period === t.period);
     return {
       period: t.period,
       quantity: t.quantity,
+      verifiedQuantity: t.verifiedQuantity ?? 0,
+      pendingQuantity: t.pendingQuantity ?? 0,
+      revisionQuantity: t.revisionQuantity ?? 0,
       value: valObj ? valObj.value : null,
+      verifiedValue: valObj ? valObj.verifiedValue : null,
+      pendingValue: valObj ? valObj.pendingValue : null,
     };
   });
 
@@ -115,18 +120,28 @@ export default function ProductionCharts({
 
   // Dynamic chart config based on current production type color
   const dynamicChartConfig = {
-    quantity: { label: "Output Volume", color: unitInfo.color },
-    value: { label: "Estimated Production Value", color: "#059669" },
+    quantity: { label: "Total Recorded Volume", color: unitInfo.color },
+    verifiedQuantity: { label: "Verified Yield", color: unitInfo.color },
+    pendingQuantity: { label: "Awaiting Verification", color: "#f59e0b" },
+    revisionQuantity: { label: "Needs Revision", color: "#ef4444" },
+    value: { label: "Estimated Reference Value", color: "#059669" },
+    verifiedValue: { label: "Verified Value", color: "#059669" },
+    pendingValue: { label: "Awaiting Verification Value", color: "#f59e0b" },
   } satisfies ChartConfig;
 
   // Calculate quick stats
   const totalVolume = trend.reduce((sum, item) => sum + item.quantity, 0);
+  const totalVerifiedVolume = trend.reduce((sum, item) => sum + (item.verifiedQuantity ?? 0), 0);
+  const totalPendingVolume = trend.reduce((sum, item) => sum + (item.pendingQuantity ?? 0), 0);
+  const totalRevisionVolume = trend.reduce((sum, item) => sum + (item.revisionQuantity ?? 0), 0);
   const peakMonth = [...trend].sort((a, b) => b.quantity - a.quantity)[0];
   const avgMonthlyVolume =
     trend.length > 0 ? (totalVolume / trend.length).toFixed(1) : "0";
 
   // Value view statistics
   const totalEstimatedValue = valueTrend.reduce((sum, item) => sum + (item.value ?? 0), 0);
+  const totalVerifiedValue = valueTrend.reduce((sum, item) => sum + (item.verifiedValue ?? 0), 0);
+  const totalPendingValue = valueTrend.reduce((sum, item) => sum + (item.pendingValue ?? 0), 0);
   const peakValueMonth = [...valueTrend].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0];
   const avgMonthlyValue =
     valueTrend.length > 0 ? Math.round(totalEstimatedValue / valueTrend.length) : 0;
@@ -151,12 +166,12 @@ export default function ProductionCharts({
             </div>
             <div>
               <CardTitle className="text-base font-bold text-slate-900">
-                Recorded {label} Production
+                My Recorded {label} Production
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
                 {currentView === "volume"
-                  ? "Reported production volume trends across review statuses."
-                  : "Estimated production value based on official PSA benchmark farmgate rates."}
+                  ? "Your reported production output. Verified records have completed official SIBAT/MAO review."
+                  : "Estimated benchmark value based on official PSA rates. Awaiting verification values are indicative."}
               </CardDescription>
             </div>
           </div>
@@ -201,10 +216,13 @@ export default function ProductionCharts({
               <>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                   <span className="text-slate-400 text-[10px] font-semibold uppercase block">
-                    Total Output Recorded
+                    My Recorded Output
                   </span>
                   <span className="font-bold text-slate-900 text-sm mt-0.5 block">
                     {totalVolume.toLocaleString()} {unitInfo.unit}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                    {totalVerifiedVolume.toLocaleString()} {unitInfo.unit} verified · {totalPendingVolume.toLocaleString()} {unitInfo.unit} awaiting
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
@@ -214,6 +232,11 @@ export default function ProductionCharts({
                   <span className="font-bold text-slate-900 text-sm mt-0.5 block">
                     {Number(avgMonthlyVolume).toLocaleString()} {unitInfo.unit} / mo
                   </span>
+                  {totalRevisionVolume > 0 && (
+                    <span className="text-[10px] text-rose-600 font-medium block mt-0.5">
+                      {totalRevisionVolume.toLocaleString()} {unitInfo.unit} needs revision
+                    </span>
+                  )}
                 </div>
                 {peakMonth && (
                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-1">
@@ -237,6 +260,9 @@ export default function ProductionCharts({
                   </span>
                   <span className="font-black text-emerald-950 text-sm mt-0.5 block">
                     {formatPesoCompact(totalEstimatedValue)}
+                  </span>
+                  <span className="text-[10px] text-emerald-800 font-medium block mt-0.5">
+                    {formatPesoCompact(totalVerifiedValue)} verified · {formatPesoCompact(totalPendingValue)} indicative
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
@@ -323,6 +349,46 @@ export default function ProductionCharts({
           </div>
         )}
 
+        {/* Farmer Status Guidance & Legend */}
+        {mergedData.length > 0 && currentView === "volume" && (
+          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 text-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-1.5 font-bold text-slate-800">
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ backgroundColor: type === "meat" ? "#dc2626" : "#0284c7" }}
+                />
+                <span>Point A · Verified ({type === "meat" ? "Red" : "Blue"})</span>
+              </span>
+              <span className="flex items-center gap-1.5 font-semibold text-slate-600 text-[11px]">
+                <span
+                  className="h-2 w-7 rounded-full shadow-2xs inline-block"
+                  style={{
+                    background:
+                      type === "meat"
+                        ? "linear-gradient(to right, #dc2626, #f97316, #eab308)"
+                        : "linear-gradient(to right, #0284c7, #06b6d4, #eab308)",
+                  }}
+                />
+                <span>Combining in middle</span>
+              </span>
+              <span className="flex items-center gap-1.5 font-bold text-amber-800">
+                <span className="size-2.5 rounded-full bg-yellow-400 border border-yellow-500" />
+                <span>Point B · Awaiting Review (Yellow)</span>
+              </span>
+              {totalRevisionVolume > 0 && (
+                <span className="flex items-center gap-1.5 font-bold text-rose-800">
+                  <span className="size-2.5 rounded-full bg-rose-400 border border-rose-500" />
+                  <span>⚠ Needs Revision</span>
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 italic">
+              Your chart shows all your submitted records with verified records distinguished from pending reviews.
+            </p>
+          </div>
+        )}
+
         {mergedData.length === 0 ? (
           <ChartEmpty label={`No ${label.toLowerCase()} records logged yet`} />
         ) : currentView === "volume" ? (
@@ -333,9 +399,20 @@ export default function ProductionCharts({
                 margin={{ top: 12, right: 12, bottom: 0, left: -10 }}
               >
                 <defs>
-                  <linearGradient id={`volumeGradient-${type}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={unitInfo.color} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={unitInfo.color} stopOpacity={0.0} />
+                  {/* Point A (Blue or Red if meat) -> Middle (combining blend) -> Point B (Yellow) */}
+                  <linearGradient id={`strokeGradient-${type}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={type === "meat" ? "#dc2626" : "#0284c7"} />
+                    <stop offset="50%" stopColor={type === "meat" ? "#f97316" : "#06b6d4"} />
+                    <stop offset="100%" stopColor="#eab308" />
+                  </linearGradient>
+                  <linearGradient id={`areaCombinedGradient-${type}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={type === "meat" ? "#dc2626" : "#0284c7"} stopOpacity={0.4} />
+                    <stop offset="50%" stopColor={type === "meat" ? "#f97316" : "#06b6d4"} stopOpacity={0.28} />
+                    <stop offset="100%" stopColor="#eab308" stopOpacity={0.35} />
+                  </linearGradient>
+                  <linearGradient id="revisionGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -356,22 +433,116 @@ export default function ProductionCharts({
                 />
                 <ChartTooltip
                   cursor={{ stroke: "#94a3b8", strokeDasharray: "4 4" }}
-                  content={
-                    <ChartTooltipContent
-                      labelFormatter={(labelValue) => formatPeriodMonth(String(labelValue))}
-                      formatter={(value) => `${Number(value).toLocaleString()} ${unitInfo.label}`}
-                    />
-                  }
+                  content={({ active, payload, label: tooltipLabel }) => {
+                    if (!active || !payload?.length) return null;
+                    const item = payload[0]?.payload;
+                    if (!item) return null;
+                    const pointAColor = type === "meat" ? "#dc2626" : "#0284c7";
+                    return (
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-lg text-xs space-y-1.5 min-w-[200px]">
+                        <p className="font-bold text-slate-900 border-b border-slate-100 pb-1">
+                          {formatPeriodMonth(String(tooltipLabel))}
+                        </p>
+                        <div className="flex items-center justify-between text-slate-700">
+                          <span className="font-semibold">Total Recorded:</span>
+                          <span className="font-black text-slate-900">
+                            {Number(item.quantity).toLocaleString()} {unitInfo.unit}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between" style={{ color: pointAColor }}>
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="size-2 rounded-full" style={{ backgroundColor: pointAColor }} />
+                            Point A (Verified):
+                          </span>
+                          <span className="font-bold">
+                            {Number(item.verifiedQuantity || 0).toLocaleString()} {unitInfo.unit}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-amber-700">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="size-2 rounded-full bg-yellow-500" />
+                            Point B (Awaiting Review):
+                          </span>
+                          <span className="font-bold">
+                            {Number(item.pendingQuantity || 0).toLocaleString()} {unitInfo.unit}
+                          </span>
+                        </div>
+                        {Number(item.revisionQuantity || 0) > 0 && (
+                          <div className="flex items-center justify-between text-rose-800">
+                            <span className="flex items-center gap-1.5 font-medium">
+                              <span className="size-2 rounded-full bg-rose-500" />
+                              Needs Revision:
+                            </span>
+                            <span className="font-bold">
+                              {Number(item.revisionQuantity).toLocaleString()} {unitInfo.unit}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }}
                 />
                 <Area
                   type="monotone"
                   dataKey="quantity"
-                  stroke={unitInfo.color}
-                  strokeWidth={2.5}
+                  name="Recorded Output"
+                  stroke={`url(#strokeGradient-${type})`}
+                  strokeWidth={3}
                   fillOpacity={1}
-                  fill={`url(#volumeGradient-${type})`}
-                  dot={{ r: 4, fill: unitInfo.color, strokeWidth: 2, stroke: "#ffffff" }}
-                  activeDot={{ r: 6, fill: unitInfo.activeColor }}
+                  fill={`url(#areaCombinedGradient-${type})`}
+                  dot={(dotProps: any) => {
+                    const { cx, cy, payload, index } = dotProps;
+                    if (cx == null || cy == null || !payload) return null;
+                    const pointAColor = type === "meat" ? "#dc2626" : "#0284c7";
+                    const pointBColor = "#eab308";
+                    const combiningColor = type === "meat" ? "#f97316" : "#06b6d4";
+
+                    const hasVerified = (payload.verifiedQuantity ?? 0) > 0;
+                    const hasPending = (payload.pendingQuantity ?? 0) > 0;
+
+                    let dotFill = pointAColor;
+                    let isCombined = false;
+
+                    if (hasVerified && hasPending) {
+                      dotFill = combiningColor;
+                      isCombined = true;
+                    } else if (hasPending && !hasVerified) {
+                      dotFill = pointBColor;
+                    } else if (hasVerified && !hasPending) {
+                      dotFill = pointAColor;
+                    } else {
+                      const totalPoints = mergedData.length;
+                      if (totalPoints > 1) {
+                        const ratio = index / (totalPoints - 1);
+                        if (ratio < 0.33) dotFill = pointAColor;
+                        else if (ratio > 0.66) dotFill = pointBColor;
+                        else {
+                          dotFill = combiningColor;
+                          isCombined = true;
+                        }
+                      }
+                    }
+
+                    return (
+                      <g key={`custom-dot-${index}`}>
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={isCombined ? 5.5 : 4.5}
+                          fill={dotFill}
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                        />
+                        {isCombined && <circle cx={cx} cy={cy} r={2} fill="#ffffff" />}
+                      </g>
+                    );
+                  }}
+                  activeDot={{
+                    r: 7,
+                    strokeWidth: 2,
+                    stroke: "#ffffff",
+                    fill: type === "meat" ? "#f97316" : "#06b6d4",
+                  }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -401,16 +572,50 @@ export default function ProductionCharts({
                 />
                 <ChartTooltip
                   cursor={{ fill: "rgba(16, 185, 129, 0.08)" }}
-                  content={
-                    <ChartTooltipContent
-                      labelFormatter={(labelValue) => formatPeriodMonth(String(labelValue))}
-                      formatter={(value) => formatPeso(Number(value))}
-                    />
-                  }
+                  content={({ active, payload, label: tooltipLabel }) => {
+                    if (!active || !payload?.length) return null;
+                    const item = payload[0]?.payload;
+                    if (!item) return null;
+                    return (
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-lg text-xs space-y-1.5 min-w-[200px]">
+                        <p className="font-bold text-slate-900 border-b border-slate-100 pb-1">
+                          {formatPeriodMonth(String(tooltipLabel))}
+                        </p>
+                        <div className="flex items-center justify-between text-slate-700">
+                          <span className="font-semibold">Total Reference Value:</span>
+                          <span className="font-black text-slate-900">{formatPeso(Number(item.value || 0))}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-emerald-800">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="size-2 rounded-full bg-emerald-600" />
+                            Verified Value:
+                          </span>
+                          <span className="font-bold">{formatPeso(Number(item.verifiedValue || 0))}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-amber-800">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="size-2 rounded-full bg-amber-500" />
+                            Indicative (Awaiting):
+                          </span>
+                          <span className="font-bold">{formatPeso(Number(item.pendingValue || 0))}</span>
+                        </div>
+                      </div>
+                    );
+                  }}
                 />
                 <Bar
-                  dataKey="value"
+                  dataKey="verifiedValue"
+                  name="Verified Value"
+                  stackId="val"
                   fill="#059669"
+                  radius={[0, 0, 0, 0]}
+                  maxBarSize={44}
+                />
+                <Bar
+                  dataKey="pendingValue"
+                  name="Awaiting Verification (Indicative)"
+                  stackId="val"
+                  fill="#f59e0b"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={44}
                 />

@@ -33,6 +33,7 @@ import {
   PRODUCTION_TYPE_LABELS,
   fetchProductionRecords,
   deleteProductionRecord,
+  formatProductionStatus,
   type ProductionRecordItem,
   type ProductionStatus,
 } from "./production-analytics";
@@ -375,7 +376,7 @@ export default function ProductionHistory() {
                                 statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
                               }`}
                             >
-                              {(record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED") ? "Subject for Revision" : record.status}
+                              {formatProductionStatus(record.status)}
                             </Badge>
                             {isSelected && (
                               <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full">

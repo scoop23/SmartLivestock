@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { useUsersDirectory } from "../user-management/user-management";
 import { useQuery } from "@tanstack/react-query";
 import { SPECIE_COLOR_PALETTE, normalizeSpeciesCategory as normalizeSpecieCategory } from "@/lib/species-colors";
 
@@ -71,6 +72,7 @@ export interface AdminInventoryItem {
   weight: number | null;
   lastVaccinationDate: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | string;
+  operationalStatus: string;
   createdAt: string;
 }
 
@@ -90,6 +92,7 @@ export interface AdminInventoryApiItem {
   weight?: number | string | null;
   last_vaccination_date?: string | null;
   status?: string;
+  operational_status?: string;
   created_at?: string;
 }
 
@@ -264,6 +267,7 @@ export interface VaccinationTotals {
 }
 
 export interface DashboardAnalytics {
+  descriptive?: { population: { total_heads: number } };
   monthly_dairy_yield_l: number;
   year_to_date_l?: number;
   records_this_month?: number;
@@ -293,6 +297,7 @@ export const mapAdminInventory = (item: AdminInventoryApiItem): AdminInventoryIt
   sex: item.sex || "Mixed",
   weight: item.weight !== null && item.weight !== undefined && item.weight !== "" ? Number(item.weight) : null,
   lastVaccinationDate: item.last_vaccination_date || null,
+  operationalStatus: item.operational_status || "ACTIVE",
   status: item.status || "APPROVED",
   createdAt: item.created_at || new Date().toISOString(),
 });
@@ -341,69 +346,27 @@ export const mapProductionRecord = (item: ProductionRecordApiItem): ProductionRe
 // ─────────────────────────────────────────────────────────────
 
 export async function fetchLivestockTypesList(): Promise<LivestockType[]> {
-  try {
-    const res = await api.get<LivestockType[]>("livestock/livestock_types/");
-    return res.data || [];
-  } catch (error) {
-    console.warn("Failed to fetch livestock types:", error);
-    return [
-      { id: 1, name: "Cattle", description: "Bovine Cattle" },
-      { id: 2, name: "Swine", description: "Pigs / Swine" },
-    ];
-  }
+  return (await api.get<LivestockType[]>("livestock/livestock_types/")).data;
 }
 
 export async function fetchBarangaysList(): Promise<BarangayItem[]> {
-  try {
-    const res = await api.get<BarangayItem[]>("livestock/barangays/");
-    return res.data || [];
-  } catch (error) {
-    console.warn("Failed to fetch barangays:", error);
-    return PADRE_GARCIA_BARANGAYS.map((name, index) => ({
-      id: index + 1,
-      barangay_name: name,
-    }));
-  }
+  return (await api.get<BarangayItem[]>("livestock/barangays/")).data;
 }
 
 export async function fetchAdminInventory(): Promise<AdminInventoryItem[]> {
-  try {
-    const res = await api.get<AdminInventoryApiItem[]>("livestock/inventory/");
-    return (res.data || []).map(mapAdminInventory);
-  } catch (error) {
-    console.warn("Failed to fetch admin inventory:", error);
-    return [];
-  }
+  return (await api.get<AdminInventoryApiItem[]>("livestock/inventory/")).data.map(mapAdminInventory);
 }
 
 export async function fetchAdminCensus(): Promise<CensusSubmissionItem[]> {
-  try {
-    const res = await api.get<CensusSubmissionApiItem[]>("livestock/census/");
-    return (res.data || []).map(mapCensusSubmission);
-  } catch (error) {
-    console.warn("Failed to fetch admin census submissions:", error);
-    return [];
-  }
+  return (await api.get<CensusSubmissionApiItem[]>("livestock/census/")).data.map(mapCensusSubmission);
 }
 
 export async function fetchAdminProduction(): Promise<ProductionRecordItem[]> {
-  try {
-    const res = await api.get<ProductionRecordApiItem[]>("production/records/");
-    return (res.data || []).map(mapProductionRecord);
-  } catch (error) {
-    console.warn("Failed to fetch admin production records:", error);
-    return [];
-  }
+  return (await api.get<ProductionRecordApiItem[]>("production/records/")).data.map(mapProductionRecord);
 }
 
-export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics | null> {
-  try {
-    const res = await api.get<DashboardAnalytics>("analytics/dashboard/");
-    return res.data || null;
-  } catch (error) {
-    console.warn("Failed to fetch dashboard analytics:", error);
-    return null;
-  }
+export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
+  return (await api.get<DashboardAnalytics>("analytics/dashboard/")).data;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -472,7 +435,9 @@ export function computeAdminAnalytics(
   inventories: AdminInventoryItem[],
   censusSubmissions: CensusSubmissionItem[],
   productionRecords: ProductionRecordItem[],
-  dashboardAnalytics?: DashboardAnalytics | null
+  dashboardAnalytics?: DashboardAnalytics | null,
+  registeredFarmerCount = 0,
+  barangayCount = 0
 ): AdminAnalyticsMetrics {
   // 1. Initialize Barangay Herd Map with all 17 Padre Garcia Barangays
   const barangayHerdMap: Record<
@@ -503,13 +468,13 @@ export function computeAdminAnalytics(
 
   const uniqueFarmerIdentifiers = new Set<string>();
 
-  // Only tally approved inventory records into municipal totals
-  const approvedInventories = inventories.filter(
-    (inv) => !inv.status || inv.status.toUpperCase() === "APPROVED"
+  // Tally active registered inventory records across all barangays (excluding rejected)
+  const activeInventories = inventories.filter(
+    (inv) => inv.status === "APPROVED" && inv.operationalStatus === "ACTIVE"
   );
 
-  approvedInventories.forEach((inv) => {
-    const bName = inv.barangayName || "Banaba";
+  activeInventories.forEach((inv) => {
+    const bName = inv.barangayName || "Unknown barangay";
     if (!barangayHerdMap[bName]) {
       barangayHerdMap[bName] = {
         cattle: 0,
@@ -545,44 +510,7 @@ export function computeAdminAnalytics(
     }
   });
 
-  // 3. Tally heads from APPROVED Census Submissions (`CensusSubmission` & `CensusSubmissionItem`)
-  const approvedCensusSubmissions = censusSubmissions.filter(
-    (census) => !census.status || census.status.toUpperCase() === "APPROVED"
-  );
-
-  approvedCensusSubmissions.forEach((census) => {
-    const bName = census.barangayName || "Banaba";
-    if (!barangayHerdMap[bName]) {
-      barangayHerdMap[bName] = {
-        cattle: 0,
-        carabao: 0,
-        swine: 0,
-        goat: 0,
-        poultry: 0,
-        totalVaccinated: 0,
-        totalRecords: 0,
-      };
-    }
-
-    census.items.forEach((item) => {
-      const qty = Number(item.numberOfHeads) || 0;
-      const cat = normalizeSpecieCategory(item.livestockTypeName);
-
-      // Add to barangay herd if census records add further coverage
-      const herdKey = cat === "sheep" ? "goat" : cat === "other" ? "cattle" : cat;
-      barangayHerdMap[bName][herdKey] += qty;
-
-      if (cat === "swine") specieHeadCounts.Swine += qty;
-      else if (cat === "carabao") specieHeadCounts.Carabao += qty;
-      else if (cat === "goat" || cat === "sheep") specieHeadCounts.Goat += qty;
-      else if (cat === "poultry") specieHeadCounts.Poultry += qty;
-      else specieHeadCounts.Cattle += qty;
-
-      if (item.farmerName) {
-        uniqueFarmerIdentifiers.add(`${item.farmerName}-${bName}`);
-      }
-    });
-  });
+  // Census snapshots can overlap registered inventory; adding them would double-count heads.
 
   // 4. Calculate True Total Livestock
   const computedTotalLivestock =
@@ -592,7 +520,7 @@ export function computeAdminAnalytics(
     specieHeadCounts.Goat +
     specieHeadCounts.Poultry;
 
-  const totalLivestock = computedTotalLivestock > 0 ? computedTotalLivestock : 314;
+  const totalLivestock = dashboardAnalytics?.descriptive?.population.total_heads ?? computedTotalLivestock;
 
   // 5. Build Barangay Herd Distribution (Sorted by total heads descending, Top 7 leading agricultural barangays)
   const allBarangayDistributions: BarangayHerdChartData[] = Object.entries(barangayHerdMap).map(
@@ -613,7 +541,8 @@ export function computeAdminAnalytics(
   allBarangayDistributions.sort((a, b) => b.total - a.total);
 
   // Take top active barangays, ensuring clean visualization
-  const barangayHerdDistribution = allBarangayDistributions.filter((b) => b.total > 0).slice(0, 7);
+  const activeDistributions = allBarangayDistributions.filter((b) => b.total > 0);
+  const barangayHerdDistribution = (activeDistributions.length > 0 ? activeDistributions : allBarangayDistributions).slice(0, 7);
 
   // 6. Build Specie Composition Donut with accurate percentages
   const activeSpecies = [
@@ -694,14 +623,14 @@ export function computeAdminAnalytics(
   const biosecurityAlerts = pendingReviewCount;
 
   // Distinct Registered Farmers
-  const registeredFarmers = uniqueFarmerIdentifiers.size > 0 ? uniqueFarmerIdentifiers.size : 100;
+  const registeredFarmers = registeredFarmerCount;
 
   return {
     totalLivestock,
     monthlyDairyYieldL,
     biosecurityAlerts,
     registeredFarmers,
-    totalBarangaysCount: PADRE_GARCIA_BARANGAYS.length,
+    totalBarangaysCount: barangayCount,
     barangayHerdDistribution,
     specieComposition,
     monthlyProduction,
@@ -784,19 +713,22 @@ export function useAdminDashboardAnalytics() {
   const typesQuery = useAdminLivestockTypes();
   const barangaysQuery = useAdminBarangays();
   const dashboardSummaryQuery = useAdminDashboardSummary();
+  const directoryQuery = useUsersDirectory();
 
   const isLoading =
-    inventoryQuery.isLoading || censusQuery.isLoading || productionQuery.isLoading;
+    inventoryQuery.isLoading || censusQuery.isLoading || productionQuery.isLoading || dashboardSummaryQuery.isLoading || directoryQuery.isLoading || barangaysQuery.isLoading;
   const isFetching =
-    inventoryQuery.isFetching || censusQuery.isFetching || productionQuery.isFetching;
+    inventoryQuery.isFetching || censusQuery.isFetching || productionQuery.isFetching || dashboardSummaryQuery.isFetching || directoryQuery.isFetching || barangaysQuery.isFetching;
   const isError =
-    inventoryQuery.isError || censusQuery.isError || productionQuery.isError;
+    inventoryQuery.isError || censusQuery.isError || productionQuery.isError || dashboardSummaryQuery.isError || directoryQuery.isError || barangaysQuery.isError;
 
   const data: AdminAnalyticsMetrics = computeAdminAnalytics(
     inventoryQuery.data || [],
     censusQuery.data || [],
     productionQuery.data || [],
-    dashboardSummaryQuery.data || undefined
+    dashboardSummaryQuery.data || undefined,
+    (directoryQuery.data || []).filter((user) => user.role === "FARMER" && user.account_status === "APPROVED" && user.barangay_id != null).length,
+    barangaysQuery.data?.length || 0
   );
 
   const refetchAll = async () => {
@@ -807,6 +739,7 @@ export function useAdminDashboardAnalytics() {
       typesQuery.refetch(),
       barangaysQuery.refetch(),
       dashboardSummaryQuery.refetch(),
+      directoryQuery.refetch(),
     ]);
   };
 

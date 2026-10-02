@@ -27,8 +27,16 @@ export const PRODUCTION_TYPE_UNITS: Record<ProductionType, string> = {
 
 export interface ProductionAnalyticsSummary {
   total: number;
+  verified_total?: number;
+  pending_total?: number;
+  revision_total?: number;
   record_count: number;
+  verified_record_count?: number;
+  pending_record_count?: number;
+  revision_record_count?: number;
   estimated_value: number | null;
+  verified_estimated_value?: number | null;
+  pending_estimated_value?: number | null;
   valued_record_count?: number;
   unvalued_record_count?: number;
   reference_periods?: string[];
@@ -41,11 +49,16 @@ export interface ProductionAnalyticsSummary {
 export interface ProductionTrendPoint {
   period: string; // "YYYY-MM"
   quantity: number;
+  verifiedQuantity: number;
+  pendingQuantity: number;
+  revisionQuantity: number;
 }
 
 export interface ProductionValuePoint {
   period: string; // "YYYY-MM"
   value: number;
+  verifiedValue: number;
+  pendingValue: number;
 }
 
 export interface ProductionTypeAnalytics {
@@ -73,8 +86,16 @@ export interface ProductionAnalytics {
 export const EMPTY_TYPE_ANALYTICS: ProductionTypeAnalytics = {
   summary: {
     total: 0,
+    verified_total: 0,
+    pending_total: 0,
+    revision_total: 0,
     record_count: 0,
+    verified_record_count: 0,
+    pending_record_count: 0,
+    revision_record_count: 0,
     estimated_value: null,
+    verified_estimated_value: null,
+    pending_estimated_value: null,
     growth_pct: null,
     has_records: false,
   },
@@ -118,6 +139,7 @@ export interface ProductionRecordItem {
   status: ProductionStatus;
   reviewRemarks: string | null;
   reviewedByName?: string | null;
+  reviewedByRole?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
 }
@@ -138,6 +160,7 @@ export interface ApiProductionRecord {
   status: ProductionStatus;
   review_remarks?: string | null;
   reviewed_by_name?: string | null;
+  reviewed_by_role?: string | null;
   reviewed_at?: string | null;
   created_at: string;
 }
@@ -158,6 +181,7 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   status: item.status,
   reviewRemarks: item.review_remarks ?? null,
   reviewedByName: item.reviewed_by_name ?? null,
+  reviewedByRole: item.reviewed_by_role ?? null,
   reviewedAt: item.reviewed_at ?? null,
   createdAt: item.created_at,
 });
@@ -207,21 +231,48 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
     const typeRecords = groupedByType[type] || [];
 
     let totalQty = 0;
+    let verifiedQty = 0;
+    let pendingQty = 0;
+    let revisionQty = 0;
+
     let currentMonthQty = 0;
     let prevMonthQty = 0;
 
-    const monthlyMap = new Map<string, number>();
+    const monthlyMap = new Map<
+      string,
+      { total: number; verified: number; pending: number; revision: number }
+    >();
 
     typeRecords.forEach((r) => {
-      totalQty += r.quantity;
+      const qty = r.quantity;
+      totalQty += qty;
+
+      if (r.status === "APPROVED") {
+        verifiedQty += qty;
+      } else if (r.status === "SUBJECT_TO_REVISION") {
+        revisionQty += qty;
+      } else {
+        // PENDING or SIBAT-VERIFIED (awaiting final MAO approval)
+        pendingQty += qty;
+      }
+
       const mStr = (r.recordDate || "").slice(0, 7);
       if (mStr) {
-        monthlyMap.set(mStr, (monthlyMap.get(mStr) || 0) + r.quantity);
+        const cur = monthlyMap.get(mStr) || { total: 0, verified: 0, pending: 0, revision: 0 };
+        cur.total += qty;
+        if (r.status === "APPROVED") {
+          cur.verified += qty;
+        } else if (r.status === "SUBJECT_TO_REVISION") {
+          cur.revision += qty;
+        } else {
+          cur.pending += qty;
+        }
+        monthlyMap.set(mStr, cur);
       }
       if (mStr === currentMonthStr) {
-        currentMonthQty += r.quantity;
+        currentMonthQty += qty;
       } else if (mStr === prevMonthStr) {
-        prevMonthQty += r.quantity;
+        prevMonthQty += qty;
       }
     });
 
@@ -232,23 +283,69 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
 
     const trend: ProductionTrendPoint[] = Array.from(monthlyMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([period, quantity]) => ({ period, quantity }));
+      .map(([period, data]) => ({
+        period,
+        quantity: data.total,
+        verifiedQuantity: data.verified,
+        pendingQuantity: data.pending,
+        revisionQuantity: data.revision,
+      }));
 
     // Sum backend snapshots only; price matching and monetary rounding stay on the server.
     const valuedRecords = typeRecords.filter((record) => record.valuationSnapshot != null);
-    const valueMap = new Map<string, number>();
+    const valueMap = new Map<string, { total: number; verified: number; pending: number }>();
+    let totalEstimatedValue = 0;
+    let verifiedEstimatedValue = 0;
+    let pendingEstimatedValue = 0;
+
     valuedRecords.forEach((record) => {
       const month = record.recordDate.slice(0, 7);
-      valueMap.set(month, (valueMap.get(month) ?? 0) + Number(record.valuationSnapshot!.estimated_value));
+      const val = Number(record.valuationSnapshot!.estimated_value) || 0;
+      totalEstimatedValue += val;
+
+      const isApproved = record.status === "APPROVED";
+      if (isApproved) {
+        verifiedEstimatedValue += val;
+      } else {
+        pendingEstimatedValue += val;
+      }
+
+      const cur = valueMap.get(month) ?? { total: 0, verified: 0, pending: 0 };
+      cur.total += val;
+      if (isApproved) {
+        cur.verified += val;
+      } else {
+        cur.pending += val;
+      }
+      valueMap.set(month, cur);
     });
-    const value_trend: ProductionValuePoint[] = [...valueMap.entries()].sort(([a], [b]) => a.localeCompare(b))
-      .map(([period, value]) => ({ period, value }));
+
+    const value_trend: ProductionValuePoint[] = [...valueMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, valData]) => ({
+        period,
+        value: valData.total,
+        verifiedValue: valData.verified,
+        pendingValue: valData.pending,
+      }));
+
+    const verifiedRecords = typeRecords.filter((r) => r.status === "APPROVED");
+    const pendingRecords = typeRecords.filter((r) => r.status === "PENDING" || r.status === "VERIFIED");
+    const revisionRecords = typeRecords.filter((r) => r.status === "SUBJECT_TO_REVISION");
 
     by_type[type] = {
       summary: {
         total: totalQty,
+        verified_total: verifiedQty,
+        pending_total: pendingQty,
+        revision_total: revisionQty,
         record_count: typeRecords.length,
-        estimated_value: valuedRecords.length ? valuedRecords.reduce((sum, record) => sum + Number(record.valuationSnapshot!.estimated_value), 0) : null,
+        verified_record_count: verifiedRecords.length,
+        pending_record_count: pendingRecords.length,
+        revision_record_count: revisionRecords.length,
+        estimated_value: valuedRecords.length ? totalEstimatedValue : null,
+        verified_estimated_value: valuedRecords.some((r) => r.status === "APPROVED") ? verifiedEstimatedValue : null,
+        pending_estimated_value: valuedRecords.some((r) => r.status !== "APPROVED") ? pendingEstimatedValue : null,
         valued_record_count: valuedRecords.length,
         reference_periods: [...new Set(valuedRecords.map(record => record.valuationSnapshot!.reference_period))],
         // Keep distinct prices visible when reports use different commodities or periods.
@@ -330,4 +427,21 @@ export function formatRecordDate(date: string): string {
     "en-US",
     { month: "short", day: "numeric" },
   );
+}
+
+export function formatProductionStatus(status: ProductionStatus): string {
+  switch (status) {
+    case "APPROVED":
+      return "Verified";
+    case "VERIFIED":
+      return "Field Verified";
+    case "PENDING":
+      return "Awaiting Verification";
+    case "SUBJECT_TO_REVISION":
+      return "Needs Revision";
+    case "REJECTED":
+      return "Rejected";
+    default:
+      return status;
+  }
 }
