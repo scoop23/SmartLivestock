@@ -27,15 +27,28 @@ interface CensusAnalyticsChartsProps {
 export function CensusAnalyticsCharts({ data }: CensusAnalyticsChartsProps) {
   const { heads_by_barangay, status_by_barangay, coverage, period } = data;
 
-  // Only statuses that actually have submissions are charted, so the pie never
-  // shows invented "0" slices. The empty states are stated in text instead.
-  const statusSlices = status_by_barangay
-    .filter((row) => row.submissions > 0)
-    .map((row) => ({
-      name: row.status,
-      value: row.submissions,
-      color: censusStatusMeta(row.status).color,
-    }));
+  // Group by status first — status_by_barangay has one row per (barangay, status)
+  // so the same status (e.g. APPROVED) can appear for multiple barangays.
+  // Mapping directly would produce duplicate names → duplicate React keys.
+  const statusSlices = Object.values(
+    status_by_barangay
+      .filter((row) => row.submissions > 0)
+      .reduce<Record<string, { name: string; value: number; color: string }>>(
+        (acc, row) => {
+          if (acc[row.status]) {
+            acc[row.status].value += row.submissions;
+          } else {
+            acc[row.status] = {
+              name: row.status,
+              value: row.submissions,
+              color: censusStatusMeta(row.status).color,
+            };
+          }
+          return acc;
+        },
+        {}
+      )
+  );
 
   const chartHeight = Math.max(240, heads_by_barangay.length * 42);
 
