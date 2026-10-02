@@ -9,6 +9,9 @@ from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem
 from livestock.permission import isMAO, isSibat
 from .services.descriptive import descriptive_summary
 from .services.overview import overview_summary
+from .services.predictive.evaluation import evaluate_all_models
+from .services.predictive.forecasting import generate_future_forecast
+from .services.predictive.rules import generate_prescriptive_recommendations
 from smartlivestock.workflows import scope_reviewer_queryset
 
 
@@ -159,3 +162,53 @@ def census_summary(request):
             },
         }
     )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def predictive_model_comparison(request):
+    """
+    Evaluates candidate forecasting models (Naive, Linear Regression, Random Forest, ARIMA, Holt-Winters)
+    on chronological train/test split of approved production data.
+    """
+    production_type = request.query_params.get("production_type", "MILK").upper()
+    unit = request.query_params.get("unit", "LITERS").upper()
+
+    res = evaluate_all_models(production_type=production_type, unit=unit, user=request.user)
+    return Response(res)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def predictive_forecast(request):
+    """
+    Generates out-of-sample future projections using the best evaluated model.
+    """
+    production_type = request.query_params.get("production_type", "MILK").upper()
+    unit = request.query_params.get("unit", "LITERS").upper()
+    horizon = int(request.query_params.get("horizon", 6))
+    preferred_model = request.query_params.get("model")
+
+    res = generate_future_forecast(
+        production_type=production_type,
+        unit=unit,
+        horizon_months=horizon,
+        preferred_model=preferred_model,
+        user=request.user,
+    )
+    return Response(res)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def prescriptive_recommendations(request):
+    """
+    Evaluates transparent, evidence-based prescriptive rules based on forecasts
+    and real municipal observations.
+    """
+    production_type = request.query_params.get("production_type", "MILK").upper()
+    unit = request.query_params.get("unit", "LITERS").upper()
+
+    res = generate_prescriptive_recommendations(production_type=production_type, unit=unit, user=request.user)
+    return Response(res)
+
