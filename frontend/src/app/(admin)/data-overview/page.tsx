@@ -51,6 +51,7 @@ import {
 } from "../data-validation/validation-analytics";
 import { useGetBarangays } from "@/app/(sibat)/sibat/sibat-analytics";
 import { useAdminDashboardSummary } from "../admin/admin-charts";
+import { useUsersDirectory } from "../user-management/user-management";
 
 export default function DataOverviewPage() {
   // Navigation & View States
@@ -71,6 +72,7 @@ export default function DataOverviewPage() {
   // Backend Data Queries
   const { data: dbBarangays } = useGetBarangays();
   const { data: dashboardAnalytics } = useAdminDashboardSummary();
+  const { data: directoryUsers } = useUsersDirectory();
   const { data: rawInventory, isLoading: isInvLoading } = useAdminInventoryRecords();
   const { data: rawProduction, isLoading: isProdLoading } = useAdminProductionRecords();
   const { data: rawCensus, isLoading: isCenLoading } = useAdminCensusSubmissions();
@@ -893,10 +895,21 @@ export default function DataOverviewPage() {
         (d) => d.status === "Quarantined" || d.status === "Under Treatment"
       ).length;
 
-      const registeredFarmers = new Set([
-        ...brgyInventories.map((i) => i.farmerName),
-        ...brgyProduction.map((p) => p.farmerName),
-      ]).size;
+      const brgyUsersCount = (directoryUsers || []).filter(
+        (u) =>
+          u.role === "FARMER" &&
+          u.account_status === "APPROVED" &&
+          (u.barangay?.toLowerCase() === brgyName.toLowerCase() ||
+            String(u.barangay_id) === String(dbBarangays?.find((b) => b.barangayName.toLowerCase() === brgyName.toLowerCase())?.id))
+      ).length;
+
+      const registeredFarmers = Math.max(
+        brgyUsersCount,
+        new Set([
+          ...brgyInventories.map((i) => i.farmerName),
+          ...brgyProduction.map((p) => p.farmerName),
+        ]).size
+      );
 
       return {
         barangay: brgyName,
@@ -909,12 +922,13 @@ export default function DataOverviewPage() {
         monthlyMilkLiters,
         monthlyMeatKg,
         activeIncidents,
-        registeredFarmers: Math.max(registeredFarmers, brgyInventories.length),
+        registeredFarmers,
         riskLevel: (activeIncidents > 0 ? "MEDIUM" : "LOW") as "LOW" | "MEDIUM" | "HIGH",
       };
     }).sort((a, b) => b.totalLivestock - a.totalLivestock);
   }, [
     dbBarangays,
+    directoryUsers,
     livestockList,
     batchList,
     productionList,
@@ -970,10 +984,14 @@ export default function DataOverviewPage() {
       ).length,
     [diseaseList]
   );
-  const totalFarmersCount = useMemo(
-    () => new Set(livestockList.map((i) => i.farmerName).filter(Boolean)).size,
-    [livestockList]
-  );
+  const totalFarmersCount = useMemo(() => {
+    const approvedFarmers = (directoryUsers || []).filter(
+      (u) => u.role === "FARMER" && u.account_status === "APPROVED" && u.barangay_id != null
+    );
+    return approvedFarmers.length > 0
+      ? approvedFarmers.length
+      : new Set(livestockList.map((i) => i.farmerName).filter(Boolean)).size;
+  }, [directoryUsers, livestockList]);
 
   // Filtered dataset for active tab
   const filteredData = useMemo(() => {

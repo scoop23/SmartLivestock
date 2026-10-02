@@ -17,7 +17,7 @@ from livestock.serializer import (
     BarangaySerializer,
 )
 from users.models import Notification
-from users.notification_views import create_notification, notify_role
+from users.notification_views import create_notification, notify_role, notify_review_revision
 from smartlivestock.workflows import require_action, role_name, validate_review_transition
 
 
@@ -277,6 +277,10 @@ def review_inventory(request, pk):
     inventory.review_remarks = remarks
     inventory.reviewed_at = timezone.now()
     inventory.save()
+    if new_status == "SUBJECT_TO_REVISION":
+        notify_review_revision(inventory.farmer, request.user,
+            title="Revision required: inventory #" + str(inventory.pk),
+            message=remarks, link="/sibat")
 
     if new_status == LivestockInventory.StatusType.VERIFIED:
         notify_role(

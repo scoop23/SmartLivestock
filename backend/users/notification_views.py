@@ -5,6 +5,37 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from users.models import Notification, User
 from users.serializer import NotificationSerializer
+from django.db.models import Q
+
+
+def reviewer_recipients_for_barangay(barangay_id):
+    """Current authorized officers, each returned once even if scopes overlap."""
+    scope = Q(access_scope=User.AccessScope.ALL_BARANGAYS)
+    if barangay_id is not None:
+        scope |= Q(assigned_barangay_id=barangay_id)
+    return User.objects.filter(
+        scope, role__role_name="SIBAT", is_active=True,
+        account_status=User.AccountStatus.APPROVED,
+    ).distinct()
+
+
+def get_notification_recipients_for_farmer(farmer):
+    return reviewer_recipients_for_barangay(farmer.barangay_id)
+
+
+def health_notification_recipients(farmer):
+    return User.objects.filter(
+        Q(pk__in=get_notification_recipients_for_farmer(farmer).values("pk"))
+        | Q(role__role_name__in=["MAO", "ADMIN"]),
+        is_active=True, account_status=User.AccountStatus.APPROVED,
+    ).select_related("role").distinct()
+
+
+def notify_review_revision(farmer, reviewer, *, title, message, link):
+    """Inform current field officers when municipal review returns a declaration."""
+    if reviewer.role.role_name in {"MAO", "ADMIN"}:
+        notify_role("SIBAT", title=title, message=message, link=link,
+                    priority=Notification.Priority.HIGH, barangay_id=farmer.barangay_id)
 
 
 def create_notification(
@@ -37,14 +68,16 @@ def notify_role(
     priority: str = Notification.Priority.MEDIUM,
     link: str | None = None,
     barangay_id: int | None = None,
+    municipal_broadcast: bool = False,
 ) -> int:
     """Create the same in-app notification for every approved user in a role."""
     recipients = User.objects.filter(
-        role__role_name=role_name,
-        account_status=User.AccountStatus.APPROVED,
+        role__role_name__in=["MAO", "ADMIN"] if role_name == "MAO" else [role_name],
+        account_status=User.AccountStatus.APPROVED, is_active=True,
     )
-    if role_name == "SIBAT" and barangay_id is not None:
-        recipients = recipients.filter(assigned_barangay_id=barangay_id)
+    if role_name == "SIBAT" and not municipal_broadcast:
+        # Missing farmer location must never accidentally broadcast to all officers.
+        recipients = reviewer_recipients_for_barangay(barangay_id)
     notifications = [
         Notification(
             user=user,
@@ -73,7 +106,7 @@ def get_notifications(request):
     user = request.user
     unread_only = request.query_params.get("unread_only", "").lower() in ("true", "1")
     try:
-        limit = min(int(request.query_params.get("limit", 30)), 100)
+        limit = max(0, min(int(request.query_params.get("limit", 30)), 100))
     except (ValueError, TypeError):
         limit = 30
 

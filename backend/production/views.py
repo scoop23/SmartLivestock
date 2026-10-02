@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from users.models import User, Notification
-from users.notification_views import create_notification, notify_role
+from users.notification_views import create_notification, notify_role, notify_review_revision
 from .models import (
     ProductionRecord,
     LiveAnimalSale,
@@ -197,7 +197,7 @@ def review_production_record(request, pk):
     user = request.user
     role_name = getattr(getattr(user, "role", None), "role_name", "")
 
-    if role_name not in ["SIBAT", "MAO"]:
+    if role_name not in ["SIBAT", "MAO", "ADMIN"]:
         return Response(
             {"error": "Only SIBAT and MAO may review production records."},
             status=status.HTTP_403_FORBIDDEN,
@@ -216,6 +216,10 @@ def review_production_record(request, pk):
     record.review_remarks = remarks
     record.reviewed_at = timezone.now()
     record.save()
+    if new_status == "SUBJECT_TO_REVISION":
+        notify_review_revision((record.livestock or record.batch).farmer, request.user,
+            title="Revision required: record #" + str(record.pk), message=remarks, link="/sibat")
+
     if record.slaughter_id:
         slaughter = record.slaughter
         slaughter.status = new_status
@@ -408,6 +412,10 @@ def review_live_animal_sale(request, pk):
     sale.review_remarks = remarks
     sale.reviewed_at = timezone.now()
     sale.save()
+    if new_status == "SUBJECT_TO_REVISION":
+        notify_review_revision((sale.livestock or sale.batch).farmer, request.user,
+            title="Revision required: sale #" + str(sale.pk), message=remarks, link="/sibat")
+
     if new_status == LiveAnimalSale.StatusType.APPROVED:
         sale = reconcile_approved_sale(sale)
 
@@ -551,6 +559,10 @@ def review_calving_record(request, pk):
     calving.review_remarks = remarks
     calving.reviewed_at = timezone.now()
     calving.save()
+    if new_status == "SUBJECT_TO_REVISION":
+        notify_review_revision(calving.dam.farmer, request.user,
+            title="Revision required: calving #" + str(calving.pk), message=remarks, link="/sibat")
+
     if new_status == CalvingRecord.StatusType.APPROVED:
         calving = reconcile_approved_calving(calving)
 

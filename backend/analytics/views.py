@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem
 from livestock.permission import isMAO, isSibat
 from .services.descriptive import descriptive_summary
+from smartlivestock.workflows import scope_reviewer_queryset
 
 
 CENSUS_STATUSES = (
@@ -23,13 +24,13 @@ CENSUS_STATUSES = (
 def dashboard_summary(request):
     # The service owns the DB -> ORM calculations. This view only publishes
     # approved municipal aggregates to authorized dashboard users.
-    return Response(descriptive_summary())
+    return Response(descriptive_summary(user=request.user))
 
 
-def _latest_census_period():
+def _latest_census_period(submissions):
     """Most recent (year, quarter) that actually has a census submission."""
     latest = (
-        CensusSubmission.objects.order_by("-report_year", "-report_quarter")
+        submissions.order_by("-report_year", "-report_quarter")
         .values("report_year", "report_quarter")
         .first()
     )
@@ -47,7 +48,8 @@ def census_summary(request):
     Read-only municipal reporting for SIBAT/MAO. Defaults to the newest period
     that has submissions so the report never shows an empty future quarter.
     """
-    latest_year, latest_quarter = _latest_census_period()
+    submissions = scope_reviewer_queryset(CensusSubmission.objects.all(), request.user)
+    latest_year, latest_quarter = _latest_census_period(submissions)
 
     raw_year = request.query_params.get("year")
     raw_quarter = request.query_params.get("quarter")
@@ -61,14 +63,14 @@ def census_summary(request):
 
     available_periods = [
         {"year": row["report_year"], "quarter": row["report_quarter"]}
-        for row in CensusSubmission.objects.values(
+        for row in submissions.values(
             "report_year", "report_quarter"
         )
         .distinct()
         .order_by("-report_year", "-report_quarter")
     ]
 
-    period_items = CensusSubmissionItem.objects.filter(
+    period_items = scope_reviewer_queryset(CensusSubmissionItem.objects.all(), request.user).filter(
         census_submission__report_year=year,
         census_submission__report_quarter=quarter,
     )
@@ -93,7 +95,7 @@ def census_summary(request):
             "heads": row["heads"] or 0,
             "farmers": row["farmers"],
         }
-        for row in CensusSubmission.objects.filter(
+        for row in submissions.filter(
             report_year=year, report_quarter=quarter
         )
         .values("barangay__barangay_name", "status")
@@ -106,7 +108,7 @@ def census_summary(request):
     ]
 
     all_barangays = list(
-        Barangay.objects.order_by("barangay_name").values_list(
+        scope_reviewer_queryset(Barangay.objects.all(), request.user).order_by("barangay_name").values_list(
             "barangay_name", flat=True
         )
     )

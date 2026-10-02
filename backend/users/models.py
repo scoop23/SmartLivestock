@@ -29,6 +29,13 @@ class User(AbstractUser):
     # Review scope is independent of a farmer address; staff are not fake farmers.
     assigned_barangay = models.ForeignKey("livestock.Barangay", on_delete=models.PROTECT,
         null=True, blank=True, related_name="assigned_reviewers")
+    class AccessScope(models.TextChoices):
+        ASSIGNED_ONLY = "ASSIGNED_ONLY", "Assigned barangay"
+        ALL_BARANGAYS = "ALL_BARANGAYS", "All barangays"
+
+    access_scope = models.CharField(
+        max_length=20, choices=AccessScope.choices, default=AccessScope.ASSIGNED_ONLY,
+    )
     phone_number = PhoneNumberField(blank=True, null=True)
     profile_image = models.ImageField(
         upload_to="profile_photos/", blank=True, null=True

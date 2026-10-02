@@ -180,13 +180,13 @@ function SibatPortalContent() {
         maxWidthClass="w-full"
       />
 
-      {!isLoadingAccount && user?.role === "SIBAT" && !user.assignedBarangayId && (
+      {!isLoadingAccount && user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
         <div role="alert" className="mx-4 my-4 rounded-xl bg-amber-50 p-4 text-amber-950 md:mx-8">
           <p className="font-semibold">Barangay assignment required</p>
-          <p className="mt-1 text-sm">Your account has no assigned barangay, so private farmer logs and review queues are unavailable. Ask your administrator to assign your barangay in Django admin, then refresh this page. Existing farmer records have not been removed.</p>
+          <p className="mt-1 text-sm">Your account has no assigned barangay, so private farmer logs and review queues are unavailable. Ask MAO/Admin to set your barangay or access scope in User Management, then refresh this page. Existing farmer records have not been removed.</p>
         </div>
       )}
-      {user?.role === "SIBAT" && user.assignedBarangayName && (
+      {user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && user.assignedBarangayName && (
         <p className="px-4 pt-3 text-sm text-slate-600 md:px-8">Assigned barangay: <strong>{user.assignedBarangayName}</strong>. Private farmer logs are limited to this barangay.</p>
       )}
 

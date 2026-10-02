@@ -26,6 +26,7 @@ export interface ApiUser {
   barangay_id: number | null;
   assigned_barangay_id: number | null;
   assigned_barangay_name: string | null;
+  access_scope: "ASSIGNED_ONLY" | "ALL_BARANGAYS";
   documents: { id: number; document_type: string; document_file: string; verification_status: string; uploaded_at: string }[];
   farm_size: number | null;
   address: string;
@@ -124,15 +125,16 @@ export function useUpdateUserStatus() {
 export function useUpdateSibatAssignment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ userId, barangayId }: { userId: number; barangayId: number | null }) => {
+    mutationFn: async ({ userId, barangayId, accessScope }: { userId: number; barangayId: number | null; accessScope: ApiUser["access_scope"] }) => {
       const { data } = await api.patch<ApiUser>(`/api/users/${userId}/assignment/`, {
         assigned_barangay_id: barangayId,
+        access_scope: accessScope,
       });
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USER_MANAGEMENT_QUERY_KEYS.all });
-      toast.success("SIBAT barangay assignment saved.");
+      toast.success("SIBAT barangay and access scope saved.");
     },
     onError: (error: unknown) => {
       const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;

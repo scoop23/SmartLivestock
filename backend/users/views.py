@@ -182,6 +182,10 @@ def update_sibat_assignment(request, pk):
         return Response({"detail": "Barangay review assignment applies only to SIBAT accounts."}, status=400)
     serializer = SibatAssignmentSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    user.assigned_barangay = serializer.validated_data["assigned_barangay_id"]
-    user.save(update_fields=["assigned_barangay"])
+    changed_fields = []
+    for input_field, model_field in (("assigned_barangay_id", "assigned_barangay"), ("access_scope", "access_scope")):
+        if input_field in serializer.validated_data:
+            setattr(user, model_field, serializer.validated_data[input_field])
+            changed_fields.append(model_field)
+    user.save(update_fields=changed_fields)
     return Response(UserManagementSerializer(user, context={"request": request}).data)

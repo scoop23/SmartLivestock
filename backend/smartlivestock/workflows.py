@@ -99,16 +99,33 @@ def validate_batch_lifecycle(current: str, target: str) -> None:
         )
 
 
-def scope_reviewer_queryset(queryset, user):
-    """SIBAT sees private domain records only in its explicitly assigned barangay."""
-    if role_name(user) != SIBAT:
-        return queryset
+def has_all_barangay_access(user):
+    """Scope expands operational access without changing role or approval authority."""
+    return role_name(user) == SIBAT and user.access_scope == "ALL_BARANGAYS"
+
+
+def reviewer_barangay_condition(user, *paths):
     from django.db.models import Q
+    condition = Q(pk__in=[])
+    if user.assigned_barangay_id is not None:
+        for path in paths:
+            condition |= Q(**{path: user.assigned_barangay_id})
+    return condition
+
+
+def scope_reviewer_queryset(queryset, user):
+    """Apply the same SIBAT jurisdiction to lists, details, reviews and aggregates."""
+    if role_name(user) != SIBAT or has_all_barangay_access(user):
+        return queryset
     paths = {
         "LivestockInventory": ("farmer__barangay_id",),
         "LivestockBatch": ("farmer__barangay_id",),
         "Farmer": ("barangay_id",),
         "CensusSubmission": ("barangay_id",),
+        "CensusSubmissionItem": ("census_submission__barangay_id",),
+        "Barangay": ("id",),
+        "ProgramBooking": ("farmer__farmer_profile__barangay_id",),
+        "SlaughterRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "ProductionRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "LiveAnimalSale": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "DiseaseCase": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
@@ -117,10 +134,6 @@ def scope_reviewer_queryset(queryset, user):
         "WeightRecord": ("livestock__farmer__barangay_id",),
         "AnimalDisposition": ("livestock__farmer__barangay_id",),
     }
-    barangay_id = user.assigned_barangay_id
-    if not barangay_id or queryset.model.__name__ not in paths:
+    if queryset.model.__name__ not in paths:
         return queryset.none()
-    condition = Q()
-    for path in paths[queryset.model.__name__]:
-        condition |= Q(**{path: barangay_id})
-    return queryset.filter(condition)
+    return queryset.filter(reviewer_barangay_condition(user, *paths[queryset.model.__name__]))

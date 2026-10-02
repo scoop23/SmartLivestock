@@ -2,7 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import CensusSubmission, CensusSubmissionItem, Barangay
-from smartlivestock.workflows import role_name, validate_review_transition
+from smartlivestock.workflows import role_name, validate_review_transition, has_all_barangay_access
 
 
 class CensusService:
@@ -24,7 +24,7 @@ class CensusService:
         3. Create all child CensusSubmissionItem in one atomic transaction
         """
 
-        if role_name(user) != "SIBAT" or user.assigned_barangay_id != barangay.pk:
+        if role_name(user) != "SIBAT" or (not has_all_barangay_access(user) and user.assigned_barangay_id != barangay.pk):
             raise ValidationError({"barangay": "Submit census only for your assigned barangay."})
         if any(item["farmer"].barangay_id != barangay.pk for item in (items or [])):
             raise ValidationError({"items": "Every census farmer must belong to the submission barangay."})
@@ -112,7 +112,7 @@ class CensusService:
         if submission.status not in {"PENDING", "VERIFIED", "SUBJECT_TO_REVISION"}:
             raise ValidationError({"status": "An approved census snapshot is immutable."})
         barangay = validated_data.get("barangay", submission.barangay)
-        if submission.submitted_by.assigned_barangay_id != barangay.pk:
+        if not has_all_barangay_access(submission.submitted_by) and submission.submitted_by.assigned_barangay_id != barangay.pk:
             raise ValidationError({"barangay": "Census must remain in the submitting officer's assigned barangay."})
         checked_items = validated_data.get("items")
         if checked_items is None:

@@ -205,8 +205,9 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "barangay",
             "assigned_barangay_id",
             "assigned_barangay_name",
+            "access_scope",
         )
-        read_only_fields = ("id", "role", "barangay")
+        read_only_fields = ("id", "role", "barangay", "access_scope")
 
     def get_role(self, obj):
         if hasattr(obj, "role") and obj.role:
@@ -273,6 +274,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "barangay_id",
             "assigned_barangay_id",
             "assigned_barangay_name",
+            "access_scope",
             "farm_size",
             "address",
             "cattle_count",
@@ -346,13 +348,16 @@ class UserStatusUpdateSerializer(serializers.Serializer):
 
 class SibatAssignmentSerializer(serializers.Serializer):
     assigned_barangay_id = serializers.PrimaryKeyRelatedField(
-        queryset=Barangay.objects.all(), allow_null=True,
+        queryset=Barangay.objects.all(), allow_null=True, required=False,
     )
+    access_scope = serializers.ChoiceField(choices=User.AccessScope.choices, required=False)
 
     def validate(self, attrs):
-        # This endpoint edits jurisdiction only, never role or account privileges.
-        if set(self.initial_data) - {"assigned_barangay_id"}:
-            raise serializers.ValidationError("Only assigned_barangay_id can be changed here.")
+        # Scope and primary barangay are independent; role cannot be edited here.
+        if set(self.initial_data) - {"assigned_barangay_id", "access_scope"}:
+            raise serializers.ValidationError("Only assigned_barangay_id and access_scope can be changed here.")
+        if not attrs:
+            raise serializers.ValidationError("Provide a barangay assignment or access scope.")
         return attrs
 
 

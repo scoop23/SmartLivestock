@@ -21,6 +21,7 @@ export interface User {
   barangay?: string | null;
   assignedBarangayId?: number | null;
   assignedBarangayName?: string | null;
+  accessScope?: "ASSIGNED_ONLY" | "ALL_BARANGAYS";
 }
 
 interface DecodedToken {
@@ -120,6 +121,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         barangay: data.barangay || null,
         assignedBarangayId: data.assigned_barangay_id ?? null,
         assignedBarangayName: data.assigned_barangay_name ?? null,
+        accessScope: data.access_scope ?? "ASSIGNED_ONLY",
       });
       setAccessToken(latestToken);
     } catch (error: any) {

@@ -1,0 +1,326 @@
+[
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/api/users/me/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/livestock/inventory/?include_inactive=true",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/livestock/batches/?all=true",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/production/records/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/production/sales/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/production/calving/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/production/weights/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/diseases/cases/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/diseases/mortality/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/livestock/census/",
+    "status": 403
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/api/notifications/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/community/announcements/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/community/schedules/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/community/bookings/",
+    "status": 200
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/analytics/dashboard/",
+    "status": 403
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/analytics/census/",
+    "status": 403
+  },
+  {
+    "role": "FARMER",
+    "method": "GET",
+    "endpoint": "/api/users/directory/",
+    "status": 403
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/api/users/me/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/livestock/inventory/?include_inactive=true",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/livestock/batches/?all=true",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/production/records/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/production/sales/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/production/calving/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/production/weights/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/diseases/cases/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/diseases/mortality/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/livestock/census/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/api/notifications/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/community/announcements/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/community/schedules/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/community/bookings/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/analytics/dashboard/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/analytics/census/",
+    "status": 200
+  },
+  {
+    "role": "SIBAT",
+    "method": "GET",
+    "endpoint": "/api/users/directory/",
+    "status": 403
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/api/users/me/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/livestock/inventory/?include_inactive=true",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/livestock/batches/?all=true",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/production/records/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/production/sales/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/production/calving/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/production/weights/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/diseases/cases/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/diseases/mortality/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/livestock/census/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/api/notifications/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/community/announcements/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/community/schedules/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/community/bookings/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/analytics/dashboard/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/analytics/census/",
+    "status": 200
+  },
+  {
+    "role": "MAO",
+    "method": "GET",
+    "endpoint": "/api/users/directory/",
+    "status": 200
+  },
+  {
+    "role": "ANONYMOUS",
+    "method": "GET",
+    "endpoint": "/livestock/inventory/",
+    "status": 401
+  },
+  {
+    "role": "ANONYMOUS",
+    "method": "GET",
+    "endpoint": "/production/records/",
+    "status": 401
+  },
+  {
+    "role": "ANONYMOUS",
+    "method": "GET",
+    "endpoint": "/analytics/dashboard/",
+    "status": 401
+  }
+]

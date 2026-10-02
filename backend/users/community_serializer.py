@@ -1,5 +1,6 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
+from smartlivestock.workflows import scope_reviewer_queryset, role_name
 from rest_framework import serializers
 
 from .models import (
@@ -52,11 +53,12 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
         ]
 
     def _confirmed_bookings(self, obj):
-        return [
-            booking
-            for booking in obj.bookings.all()
-            if booking.status == ProgramBooking.Status.CONFIRMED
-        ]
+        request = self.context.get("request")
+        bookings = obj.bookings.all()
+        if request and role_name(request.user) == "SIBAT":
+            # Prefetched bookings are filtered by the view; no extra query per schedule.
+            bookings = obj.scoped_bookings if hasattr(obj, "scoped_bookings") else scope_reviewer_queryset(obj.bookings.all(), request.user)
+        return [booking for booking in bookings if booking.status == ProgramBooking.Status.CONFIRMED]
 
     def get_booked_times(self, obj):
         return [booking.time.strftime("%H:%M") for booking in self._confirmed_bookings(obj)]
@@ -65,7 +67,7 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
         return len(self._confirmed_bookings(obj))
 
     def get_remaining_slots(self, obj):
-        return max(0, obj.capacity - self.get_booking_count(obj))
+        return max(0, obj.capacity - sum(b.status == ProgramBooking.Status.CONFIRMED for b in obj.bookings.all()))
 
     def get_registration_status(self, obj):
         if obj.date < timezone.localdate():

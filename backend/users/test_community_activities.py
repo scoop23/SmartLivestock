@@ -18,6 +18,10 @@ class ActivitySchedulingApiTests(APITestCase):
         self.mao = self._user("activity-mao", Role.UserRoles.MAO)
         self.sibat = self._user("activity-sibat", Role.UserRoles.SIBAT)
         self.farmer = self._user("activity-farmer", Role.UserRoles.FARMER)
+        barangay = Barangay.objects.create(barangay_name="Activity Local", latitude=0, longitude=0)
+        Farmer.objects.create(user=self.farmer, barangay=barangay, address="Test")
+        self.sibat.assigned_barangay = barangay
+        self.sibat.save(update_fields=["assigned_barangay"])
 
     def _user(self, username, role_name):
         role, _ = Role.objects.get_or_create(role_name=role_name)
@@ -128,6 +132,9 @@ class FieldSchedulingPermissionApiTests(APITestCase):
             barangay_name="Poblacion", latitude=13.8821, longitude=121.2144
         )
         Farmer.objects.create(user=self.farmer, barangay=self.barangay, farm_size=1, address="Purok 1")
+        Farmer.objects.create(user=self.other_farmer, barangay=self.barangay, address="Test")
+        self.sibat.assigned_barangay = self.barangay
+        self.sibat.save(update_fields=["assigned_barangay"])
 
     def _user(self, username, role_name):
         role, _ = Role.objects.get_or_create(role_name=role_name)

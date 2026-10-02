@@ -57,6 +57,7 @@ export default function UserManagementPage() {
   const [barangayFilter, setBarangayFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [assignment, setAssignment] = useState("unassigned");
+  const [accessScope, setAccessScope] = useState<ApiUser["access_scope"]>("ASSIGNED_ONLY");
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 250);
     return () => clearTimeout(timer);
@@ -85,6 +86,7 @@ export default function UserManagementPage() {
   };
   const openProfile = (user: ApiUser) => {
     setSelectedUser(user);
+    setAccessScope(user.access_scope);
     setAssignment(user.assigned_barangay_id == null ? "unassigned" : String(user.assigned_barangay_id));
   };
 
@@ -328,7 +330,7 @@ export default function UserManagementPage() {
                               <span className="text-[9px] font-black text-slate-400 uppercase">
                                 {user.role || "User"}
                               </span>
-                              <span className="text-[9px] text-slate-400">• {user.email}</span>
+                              <span className="text-[9px] text-slate-400">â€¢ {user.email}</span>
                             </div>
                           </div>
                         </div>
@@ -337,7 +339,10 @@ export default function UserManagementPage() {
                       <TableCell className="px-3.5 py-2 text-xs font-semibold text-slate-600">
                         <div className="flex items-center gap-1.5">
                           <MapPin size={13} className="text-[#2D5A27] shrink-0" />
-                          <span>{userBarangayLabel(user)}</span>
+                          <div>
+                            <span>{userBarangayLabel(user)}</span>
+                            {user.role === "SIBAT" && <p className="text-xs text-slate-500">{user.access_scope === "ALL_BARANGAYS" ? "All Barangays access" : "Assigned scope"}</p>}
+                          </div>
                         </div>
                       </TableCell>
 
@@ -461,7 +466,7 @@ export default function UserManagementPage() {
                 {selectedUser.full_name}
               </DialogTitle>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center mt-1">
-                {selectedUser.username} • {selectedUser.role}
+                {selectedUser.username} â€¢ {selectedUser.role}
               </p>
             </DialogHeader>
 
@@ -494,9 +499,17 @@ export default function UserManagementPage() {
                       {(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-600">An unassigned SIBAT cannot access private barangay review records.</p>
-                  <Button size="sm" disabled={assignmentMutation.isPending || barangaysQuery.isError || barangaysQuery.isLoading} onClick={() => assignmentMutation.mutate({ userId: selectedUser.id, barangayId: assignment === "unassigned" ? null : Number(assignment) }, { onSuccess: setSelectedUser })}>
-                    {assignmentMutation.isPending ? "Saving..." : "Save Assignment"}
+                  <Label htmlFor="sibat-access-scope">Access scope</Label>
+                  <Select value={accessScope} onValueChange={(value) => setAccessScope(value as ApiUser["access_scope"])} disabled={assignmentMutation.isPending}>
+                    <SelectTrigger id="sibat-access-scope"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ASSIGNED_ONLY">Assigned Barangay</SelectItem>
+                      <SelectItem value="ALL_BARANGAYS">All Barangays</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-600">Assigned scope requires a barangay. All Barangays expands visibility and verification while retaining the primary barangay and SIBAT role. Final approval remains with MAO/Admin.</p>
+                  <Button size="sm" disabled={assignmentMutation.isPending || barangaysQuery.isError || barangaysQuery.isLoading} onClick={() => assignmentMutation.mutate({ userId: selectedUser.id, barangayId: assignment === "unassigned" ? null : Number(assignment), accessScope }, { onSuccess: setSelectedUser })}>
+                    {assignmentMutation.isPending ? "Saving..." : "Save Assignment & Scope"}
                   </Button>
                 </div>
               )}
@@ -504,7 +517,7 @@ export default function UserManagementPage() {
               {(selectedUser.documents || []).length > 0 && <div className="space-y-2">
                 <p className="text-xs font-semibold">Registration documents</p>
                 {selectedUser.documents.map((doc) => <a key={doc.id} href={doc.document_file} target="_blank" rel="noopener noreferrer" className="block text-xs text-emerald-800 underline">
-                  {doc.document_type.replaceAll("_", " ")} · {doc.verification_status.replaceAll("_", " ")}
+                  {doc.document_type.replaceAll("_", " ")} Â· {doc.verification_status.replaceAll("_", " ")}
                 </a>)}
               </div>}
               {selectedUser.role?.toUpperCase() === "FARMER" && (

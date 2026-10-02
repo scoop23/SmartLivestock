@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import LivestockInventory
+from smartlivestock.workflows import scope_reviewer_queryset
 from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
 
 
@@ -41,13 +42,13 @@ def _series(rows, value_field, start):
     ]
 
 
-def descriptive_summary(today=None):
+def descriptive_summary(today=None, *, user=None):
     today = today or timezone.localdate()
     start = _window_start(today)
 
     # A herd is a grouping of inventory rows, not another animal count. Sum the
     # row quantity so legacy multi-head entries do not silently count as one.
-    inventory = LivestockInventory.objects.filter(
+    inventory = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
         status=LivestockInventory.StatusType.APPROVED,
         operational_status=LivestockInventory.OperationalStatus.ACTIVE,
         quantity__gt=0,
@@ -94,7 +95,7 @@ def descriptive_summary(today=None):
 
     # VERIFIED means SIBAT checked the submission; APPROVED is MAO's final
     # decision. All dated event totals use the event date, never created_at.
-    production = ProductionRecord.objects.filter(
+    production = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
         status=ProductionRecord.ProductionStatus.APPROVED,
         record_date__range=(start, today),
     )
@@ -136,7 +137,7 @@ def descriptive_summary(today=None):
     milk_rows = [row for row in production_monthly if row["production_type"] == ProductionRecord.ProductionType.MILK and row["unit"] == ProductionRecord.UnitType.LITERS]
     milk_monthly = _series([{"month": row["month"], "milk_l": row["quantity"]} for row in milk_rows], "milk_l", start)
     slaughter_monthly = list(
-        SlaughterRecord.objects.filter(status=SlaughterRecord.StatusType.APPROVED, record_date__range=(start, today), carcass_weight__isnull=False)
+        scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(status=SlaughterRecord.StatusType.APPROVED, record_date__range=(start, today), carcass_weight__isnull=False)
         .annotate(month=TruncMonth("record_date"))
         .values("month").annotate(meat_kg=Sum("carcass_weight"))
     )
@@ -170,7 +171,7 @@ def descriptive_summary(today=None):
         row["month"] = row["month"].isoformat()
 
     # A date range excludes undated legacy events rather than inventing dates.
-    disease = DiseaseCase.objects.filter(status=DiseaseCase.DiseaseStatus.APPROVED, record_date__range=(start, today))
+    disease = scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(status=DiseaseCase.DiseaseStatus.APPROVED, record_date__range=(start, today))
     disease_totals = disease.aggregate(cases=Count("id"), affected_heads=Sum("affected_count"))
     disease_monthly = list(
         disease.annotate(month=TruncMonth("record_date"))
@@ -189,7 +190,7 @@ def descriptive_summary(today=None):
         .order_by("-affected_heads", "barangay")
     )
 
-    mortality = MortalityRecord.objects.filter(status=MortalityRecord.MortalityRecordStatus.APPROVED, record_date__range=(start, today))
+    mortality = scope_reviewer_queryset(MortalityRecord.objects.all(), user).filter(status=MortalityRecord.MortalityRecordStatus.APPROVED, record_date__range=(start, today))
     mortality_totals = mortality.aggregate(records=Count("id"), deaths=Sum("death_count"))
     mortality_monthly = list(
         mortality.annotate(month=TruncMonth("record_date"))
@@ -201,7 +202,7 @@ def descriptive_summary(today=None):
         .order_by("-deaths", "cause")
     )
 
-    sales = LiveAnimalSale.objects.filter(status=LiveAnimalSale.StatusType.APPROVED, sale_date__range=(start, today))
+    sales = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).filter(status=LiveAnimalSale.StatusType.APPROVED, sale_date__range=(start, today))
     sale_totals = sales.aggregate(
         sales=Count("id"), animals=Sum("quantity"),
         recorded_value=Sum("total_price"), priced_sales=Count("id", filter=Q(total_price__isnull=False)),

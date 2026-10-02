@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from .models import Announcement, ProgramSchedule, ProgramBooking, Role, Notification, PROGRAM_TIME_SLOTS
 from .community_serializer import AnnouncementSerializer, ProgramScheduleSerializer, ProgramBookingSerializer
 from .notification_views import notify_role, create_notification
+from smartlivestock.workflows import scope_reviewer_queryset
 
 TIMES = set(PROGRAM_TIME_SLOTS)
 
@@ -34,20 +35,20 @@ def _announcement_notification_message(announcement):
 def publish_notifications(announcement):
     roles = [Role.UserRoles.FARMER, Role.UserRoles.SIBAT] if announcement.audience == Announcement.Audience.ALL else [announcement.audience]
     for role in roles:
-        notify_role(role, Notification.NotificationType.GENERAL, "New livestock activity: " + announcement.title, _announcement_notification_message(announcement), link="/farmer-announcement" if role == Role.UserRoles.FARMER else "/sibat-announcement")
+        notify_role(role, Notification.NotificationType.GENERAL, "New livestock activity: " + announcement.title, _announcement_notification_message(announcement), link="/farmer-announcement" if role == Role.UserRoles.FARMER else "/sibat-announcement", municipal_broadcast=True)
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def announcements(request):
     role = role_of(request.user)
     if request.method == "GET":
-        if role not in (Role.UserRoles.MAO, Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
+        if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
             return Response({"detail": "Forbidden."}, status=403)
-        qs = Announcement.objects.select_related("posted_by", "schedule").prefetch_related("schedule__bookings", "photos")
-        if role not in (Role.UserRoles.MAO, Role.UserRoles.SIBAT):
+        qs = Announcement.objects.select_related("posted_by", "schedule").prefetch_related("schedule__bookings", Prefetch("schedule__bookings", queryset=scope_reviewer_queryset(ProgramBooking.objects.all(), request.user), to_attr="scoped_bookings"), "photos")
+        if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT):
             qs = qs.filter(is_published=True).filter(Q(audience="ALL") | Q(audience=role))
         return Response(AnnouncementSerializer(qs, many=True, context={"request": request}).data)
-    denied = require_role(request, Role.UserRoles.MAO, Role.UserRoles.SIBAT)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
     if denied:
         return denied
     serializer = AnnouncementSerializer(data=request.data, context={"request": request})
@@ -61,7 +62,7 @@ def announcements(request):
 @api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def announcement_detail(request, pk):
-    denied = require_role(request, Role.UserRoles.MAO, Role.UserRoles.SIBAT)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
     if denied:
         return denied
     announcement = get_object_or_404(Announcement.objects.prefetch_related("photos"), pk=pk)
@@ -81,14 +82,16 @@ def announcement_detail(request, pk):
 @permission_classes([IsAuthenticated])
 def schedules(request):
     role = role_of(request.user)
-    if role not in (Role.UserRoles.MAO, Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
+    if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
         return Response({"detail": "Forbidden."}, status=403)
     if request.method == "GET":
-        qs = ProgramSchedule.objects.prefetch_related("bookings")
+        qs = ProgramSchedule.objects.prefetch_related(
+            "bookings", Prefetch("bookings", queryset=scope_reviewer_queryset(ProgramBooking.objects.all(), request.user), to_attr="scoped_bookings")
+        )
         if role == Role.UserRoles.FARMER:
             qs = qs.filter(is_open=True, date__gte=date.today())
-        return Response(ProgramScheduleSerializer(qs, many=True).data)
-    denied = require_role(request, Role.UserRoles.MAO, Role.UserRoles.SIBAT)
+        return Response(ProgramScheduleSerializer(qs, many=True, context={"request": request}).data)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
     if denied:
         return denied
     serializer = ProgramScheduleSerializer(data=request.data)
@@ -102,13 +105,13 @@ def schedules(request):
         return Response({"detail": "This program is already scheduled on that date."}, status=400)
     if schedule.is_open:
         notify_role(Role.UserRoles.FARMER, Notification.NotificationType.GENERAL, "New program available", f"{schedule.program} on {schedule.date}. Book a time in Field Scheduling.", link="/farmer-scheduling")
-        notify_role(Role.UserRoles.SIBAT, Notification.NotificationType.GENERAL, "New field program", f"{schedule.program} on {schedule.date}.", link="/sibat-scheduling")
-    return Response(ProgramScheduleSerializer(schedule).data, status=201)
+        notify_role(Role.UserRoles.SIBAT, Notification.NotificationType.GENERAL, "New field program", f"{schedule.program} on {schedule.date}.", link="/sibat-scheduling", municipal_broadcast=True)
+    return Response(ProgramScheduleSerializer(schedule, context={"request": request}).data, status=201)
 
 @api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def schedule_detail(request, pk):
-    denied = require_role(request, Role.UserRoles.MAO, Role.UserRoles.SIBAT)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
     if denied:
         return denied
     schedule = get_object_or_404(ProgramSchedule, pk=pk)
@@ -124,18 +127,20 @@ def schedule_detail(request, pk):
         if "date" in serializer.validated_data and serializer.validated_data["date"] < date.today():
             return Response({"date": ["Choose a current or future date."]}, status=400)
         schedule = serializer.save()
-    return Response(ProgramScheduleSerializer(schedule).data)
+    return Response(ProgramScheduleSerializer(schedule, context={"request": request}).data)
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def bookings(request):
     role = role_of(request.user)
-    if role not in (Role.UserRoles.MAO, Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
+    if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
         return Response({"detail": "Forbidden."}, status=403)
     if request.method == "GET":
         qs = ProgramBooking.objects.select_related("schedule", "farmer", "farmer__farmer_profile__barangay")
         if role == Role.UserRoles.FARMER:
             qs = qs.filter(farmer=request.user)
+        else:
+            qs = scope_reviewer_queryset(qs, request.user)
         return Response(ProgramBookingSerializer(qs, many=True).data)
     denied = require_role(request, Role.UserRoles.FARMER)
     if denied:
@@ -158,6 +163,8 @@ def bookings(request):
     except IntegrityError:
         return Response({"detail": "You already have a confirmed booking for this program."}, status=400)
     create_notification(request.user, title="Booking confirmed", message=f"{schedule.program} on {schedule.date} at {chosen_time.strftime('%H:%M')}.", link="/farmer-scheduling")
+    notify_role(Role.UserRoles.SIBAT, barangay_id=getattr(getattr(request.user, "farmer_profile", None), "barangay_id", None),
+                title="New program booking", message=f"A farmer booked {schedule.program} on {schedule.date}.", link="/sibat-scheduling")
     notify_role(Role.UserRoles.MAO, title="New program booking", message=f"A farmer booked {schedule.program} on {schedule.date}.", link="/schedules")
     return Response(ProgramBookingSerializer(booking).data, status=201)
 
@@ -174,4 +181,9 @@ def booking_detail(request, pk):
         return Response({"detail": "Past bookings cannot be cancelled."}, status=400)
     booking.status = ProgramBooking.Status.CANCELLED
     booking.save(update_fields=["status"])
+    notify_role(Role.UserRoles.SIBAT,
+                barangay_id=getattr(getattr(request.user, "farmer_profile", None), "barangay_id", None),
+                title="Program booking cancelled", message=f"A farmer cancelled {booking.schedule.program} on {booking.schedule.date}.", link="/sibat-scheduling")
+    notify_role(Role.UserRoles.MAO, title="Program booking cancelled",
+                message=f"A farmer cancelled {booking.schedule.program} on {booking.schedule.date}.", link="/schedules")
     return Response(ProgramBookingSerializer(booking).data)

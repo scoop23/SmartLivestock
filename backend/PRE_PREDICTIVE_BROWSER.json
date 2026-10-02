@@ -1,0 +1,119 @@
+[
+  {
+    "role": "FARMER",
+    "path": "/farmer",
+    "http": 200,
+    "finalPath": "/farmer",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "FARMER",
+    "path": "/livestock-inventory",
+    "http": 200,
+    "finalPath": "/livestock-inventory",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "FARMER",
+    "path": "/production-dashboard",
+    "http": 200,
+    "finalPath": "/production-dashboard",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "FARMER",
+    "path": "/report-observation",
+    "http": 200,
+    "finalPath": "/report-observation",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "FARMER",
+    "path": "/farmer-scheduling",
+    "http": 200,
+    "finalPath": "/farmer-scheduling",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "SIBAT",
+    "path": "/sibat",
+    "http": 200,
+    "finalPath": "/sibat",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "SIBAT",
+    "path": "/sibat/batches",
+    "http": 200,
+    "finalPath": "/sibat/batches",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "SIBAT",
+    "path": "/sibat/census/submit",
+    "http": 200,
+    "finalPath": "/sibat/census/submit",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "SIBAT",
+    "path": "/sibat-scheduling",
+    "http": 200,
+    "finalPath": "/sibat-scheduling",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "MAO",
+    "path": "/admin",
+    "http": 200,
+    "finalPath": "/admin",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "MAO",
+    "path": "/data-validation",
+    "http": 200,
+    "finalPath": "/data-validation",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "MAO",
+    "path": "/analytics",
+    "http": 200,
+    "finalPath": "/analytics",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  },
+  {
+    "role": "MAO",
+    "path": "/schedules",
+    "http": 200,
+    "finalPath": "/schedules",
+    "rendered": true,
+    "errors": [],
+    "apiFailures": []
+  }
+]

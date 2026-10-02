@@ -185,7 +185,8 @@ class UserApprovalAndManagementAPITests(APITestCase):
         b = LivestockInventory.objects.create(farmer=farmer, livestock_type=species, created_by=farmer_user)
         url = f"/api/users/{sibat.pk}/assignment/"
         self.client.force_authenticate(user=sibat)
-        self.assertEqual({x["id"] for x in self.client.get("/livestock/inventory/", {"barangay_id": other.pk}).data}, {a.pk})
+        self.assertEqual({x["id"] for x in self.client.get("/livestock/inventory/").data}, {a.pk})
+        self.assertEqual(self.client.get("/livestock/inventory/", {"barangay_id": other.pk}).data, [])
         self.assertEqual(self.client.patch(url, {"assigned_barangay_id": other.pk}).status_code, 403)
         self.assertEqual(self.client.get("/api/users/directory/", {"barangay_id": other.pk}).status_code, 403)
         self.client.force_authenticate(user=self.mao_user)

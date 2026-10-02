@@ -13,7 +13,7 @@ from livestock.models import LivestockBatch, LivestockInventory, LivestockType
 from livestock.list_queries import LivestockListPagination, batch_list_annotations, filter_livestock_list
 from livestock.serializer import LivestockBatchListSerializer, LivestockBatchSerializer, LivestockInventorySerializer
 from users.models import Notification
-from users.notification_views import create_notification, notify_role
+from users.notification_views import create_notification, notify_role, notify_review_revision
 from smartlivestock.workflows import (
     require_action,
     role_name,
@@ -441,6 +441,10 @@ def batch_review(request, pk):
             batch.notes = (batch.notes + audit_entry).strip() # append the previous note
             batch.save(update_fields=["notes", "updated_at"]) # saves only this 2
 
+
+    if new_status == "SUBJECT_TO_REVISION":
+        notify_review_revision(batch.farmer, request.user,
+            title="Revision required: batch #" + str(batch.pk), message=remarks, link="/sibat")
     if new_status == LivestockInventory.StatusType.VERIFIED:
         notify_role(
             role_name="MAO",
@@ -536,6 +540,8 @@ def batch_add_notes(request, pk):
     audit_entry = f"\n[{timestamp_str}] {reviewer_title} - Note: {text}"
     batch.notes = (batch.notes + audit_entry).strip()
     batch.save(update_fields=["notes", "updated_at"])
+    create_notification(batch.farmer.user, title="New herd review note",
+                        message=text, link="/livestock-inventory/batches")
 
     serializer = LivestockBatchSerializer(batch, context={"request": request})
     return Response(

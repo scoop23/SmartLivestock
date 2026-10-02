@@ -11,7 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from smartlivestock.workflows import require_action, validate_review_transition
 
 from users.models import User, Notification
-from users.notification_views import create_notification
+from users.notification_views import create_notification, health_notification_recipients, notify_review_revision
 from .models import DiseaseCase, MortalityRecord
 from .serializer import DiseaseCaseSerializer, MortalityRecordSerializer
 from livestock.reconciliation import reconcile_approved_mortality
@@ -19,9 +19,10 @@ from livestock.reconciliation import reconcile_approved_mortality
 
 def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role_name):
     try:
+        if new_status == "SUBJECT_TO_REVISION":
+            notify_review_revision((record.livestock or record.batch).farmer, reviewer_user,
+                title=f"Health declaration #{record.pk} returned for revision", message=remarks, link="/sibat-alerts")
         target_farmers = set()
-        if record.created_by:
-            target_farmers.add(record.created_by)
         if record.livestock and getattr(record.livestock, "farmer", None) and getattr(record.livestock.farmer, "user", None):
             target_farmers.add(record.livestock.farmer.user)
         if record.batch and getattr(record.batch, "farmer", None) and getattr(record.batch.farmer, "user", None):
@@ -49,7 +50,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         message=f"SIBAT on-farm examination flagged {animal_desc} ({condition_name}) for emergency veterinary review and lab sampling.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
-                for mao in User.objects.filter(role__role_name="MAO"):
+                for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
                     create_notification(
                         user=mao,
                         notification_type=Notification.NotificationType.DISEASE,
@@ -68,7 +69,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         message=f"SIBAT field examination completed for {animal_desc}. Record certified and forwarded to MAO.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
-                for mao in User.objects.filter(role__role_name="MAO"):
+                for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
                     create_notification(
                         user=mao,
                         notification_type=Notification.NotificationType.SIBAT,
@@ -77,7 +78,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         message=f"SIBAT field inspection certified for {animal_desc} ({condition_name}). Awaiting MAO final approval.",
                         link="/data-validation",
                     )
-        elif role_name == "MAO":
+        elif role_name in {"MAO", "ADMIN"}:
             if new_status == DiseaseCase.DiseaseStatus.APPROVED:
                 for farmer_user in target_farmers:
                     create_notification(
@@ -106,9 +107,7 @@ def _notify_disease_case_created(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(
-            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
-        ):
+        for staff in health_notification_recipients((instance.livestock or instance.batch).farmer):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -126,9 +125,7 @@ def _notify_disease_case_resubmitted(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(
-            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
-        ):
+        for staff in health_notification_recipients((instance.livestock or instance.batch).farmer):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -144,9 +141,10 @@ def _notify_disease_case_resubmitted(instance, user):
 
 def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, role_name):
     try:
+        if new_status == "SUBJECT_TO_REVISION":
+            notify_review_revision((record.livestock or record.batch).farmer, reviewer_user,
+                title=f"Health declaration #{record.pk} returned for revision", message=remarks, link="/sibat-alerts")
         target_farmers = set()
-        if record.created_by:
-            target_farmers.add(record.created_by)
         if record.livestock and getattr(record.livestock, "farmer", None) and getattr(record.livestock.farmer, "user", None):
             target_farmers.add(record.livestock.farmer.user)
         if record.batch and getattr(record.batch, "farmer", None) and getattr(record.batch.farmer, "user", None):
@@ -172,7 +170,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         message=f"SIBAT on-site inspection flagged mortality report for {animal_desc}.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
-                for mao in User.objects.filter(role__role_name="MAO"):
+                for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
                     create_notification(
                         user=mao,
                         notification_type=Notification.NotificationType.DISEASE,
@@ -191,7 +189,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         message=f"SIBAT on-farm carcass and disposal verification completed for {animal_desc}. Forwarded to MAO.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
-                for mao in User.objects.filter(role__role_name="MAO"):
+                for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
                     create_notification(
                         user=mao,
                         notification_type=Notification.NotificationType.SIBAT,
@@ -200,7 +198,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         message=f"SIBAT field inspection certified carcass disposal for {animal_desc}. Awaiting MAO certification.",
                         link="/data-validation",
                     )
-        elif role_name == "MAO":
+        elif role_name in {"MAO", "ADMIN"}:
             if new_status == MortalityRecord.MortalityRecordStatus.APPROVED:
                 for farmer_user in target_farmers:
                     create_notification(
@@ -229,9 +227,7 @@ def _notify_mortality_record_created(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(
-            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
-        ):
+        for staff in health_notification_recipients((instance.livestock or instance.batch).farmer):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -249,9 +245,7 @@ def _notify_mortality_record_resubmitted(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
-        for staff in User.objects.filter(
-            Q(role__role_name="MAO") | Q(role__role_name="SIBAT", assigned_barangay_id=(instance.livestock or instance.batch).farmer.barangay_id)
-        ):
+        for staff in health_notification_recipients((instance.livestock or instance.batch).farmer):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
                 user=staff,
@@ -429,7 +423,7 @@ def review_disease_case(request, pk):
                 {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    elif role_name == "MAO":
+    elif role_name in {"MAO", "ADMIN"}:
         if record.status != DiseaseCase.DiseaseStatus.VERIFIED:
             return Response(
                 {"error": "MAO can review a disease case only after SIBAT verifies it."},
@@ -631,7 +625,7 @@ def review_mortality_record(request, pk):
                 {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    elif role_name == "MAO":
+    elif role_name in {"MAO", "ADMIN"}:
         if record.status != MortalityRecord.MortalityRecordStatus.VERIFIED:
             return Response(
                 {"error": "MAO can review a mortality record only after SIBAT verifies it."},
