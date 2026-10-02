@@ -140,6 +140,86 @@ class UserApprovalAndManagementAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def make_sibat(self, assigned=None):
+        return User.objects.create_user(
+            username=f"SIBAT-TEST-{User.objects.count()}",
+            email=f"sibat-{User.objects.count()}@example.com", password=None,
+            role=self.sibat_role, account_status="APPROVED", assigned_barangay=assigned,
+        )
+
+    def test_directory_displays_actual_sibat_assignment_and_missing_values(self):
+        sibat = self.make_sibat(self.barangay)
+        missing = self.make_sibat()
+        self.client.force_authenticate(user=self.mao_user)
+        data = {u["id"]: u for u in self.client.get("/api/users/directory/").data}
+        self.assertEqual(data[sibat.pk]["assigned_barangay_id"], self.barangay.pk)
+        self.assertEqual(data[sibat.pk]["barangay"], "Poblacion")
+        self.assertIsNone(data[missing.pk]["assigned_barangay_id"])
+        self.assertEqual(data[missing.pk]["barangay"], "")
+        self.assertEqual(data[self.mao_user.pk]["barangay"], "")
+        self.assertEqual(data[self.farmer_user.pk]["barangay_id"], self.barangay.pk)
+        self.assertNotIn("password", data[sibat.pk])
+
+    def test_directory_filters_use_the_correct_relationship(self):
+        sibat = self.make_sibat(self.barangay)
+        missing = self.make_sibat()
+        other = Barangay.objects.create(barangay_name="Other", latitude=13, longitude=121)
+        unrelated = self.make_sibat(other)
+        self.client.force_authenticate(user=self.mao_user)
+        data = self.client.get("/api/users/directory/", {"barangay_id": self.barangay.pk}).data
+        self.assertEqual({u["id"] for u in data}, {sibat.pk, self.farmer_user.pk, self.pending_user.pk})
+        data = self.client.get("/api/users/directory/", {"role": "SIBAT", "account_status": "APPROVED", "search": "Poblacion"}).data
+        self.assertEqual([u["id"] for u in data], [sibat.pk])
+        data = self.client.get("/api/users/directory/", {"barangay_id": "unassigned"}).data
+        self.assertEqual([u["id"] for u in data], [missing.pk])
+        self.assertEqual(self.client.get("/api/users/directory/", {"barangay_id": "bad"}).status_code, 400)
+
+    def test_assignment_endpoint_preserves_roles_and_private_scope(self):
+        from livestock.models import LivestockInventory, LivestockType
+        sibat = self.make_sibat(self.barangay)
+        other = Barangay.objects.create(barangay_name="Assignment Other", latitude=13, longitude=121)
+        farmer_user = User.objects.create_user(username="other-farmer", email="other-farmer@example.com", password=None, role=self.farmer_role, account_status="APPROVED")
+        farmer = Farmer.objects.create(user=farmer_user, barangay=other, address="Test")
+        species = LivestockType.objects.create(name="Assignment Test Cattle")
+        a = LivestockInventory.objects.create(farmer=self.farmer_profile, livestock_type=species, created_by=self.farmer_user)
+        b = LivestockInventory.objects.create(farmer=farmer, livestock_type=species, created_by=farmer_user)
+        url = f"/api/users/{sibat.pk}/assignment/"
+        self.client.force_authenticate(user=sibat)
+        self.assertEqual({x["id"] for x in self.client.get("/livestock/inventory/", {"barangay_id": other.pk}).data}, {a.pk})
+        self.assertEqual(self.client.patch(url, {"assigned_barangay_id": other.pk}).status_code, 403)
+        self.assertEqual(self.client.get("/api/users/directory/", {"barangay_id": other.pk}).status_code, 403)
+        self.client.force_authenticate(user=self.mao_user)
+        self.assertEqual(self.client.patch(url, {"assigned_barangay_id": other.pk, "role": "MAO"}).status_code, 400)
+        response = self.client.patch(url, {"assigned_barangay_id": other.pk})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["assigned_barangay_name"], "Assignment Other")
+        sibat.refresh_from_db()
+        self.assertEqual(sibat.role_id, self.sibat_role.pk)
+        self.client.force_authenticate(user=sibat)
+        self.assertEqual({x["id"] for x in self.client.get("/livestock/inventory/").data}, {b.pk})
+        self.client.force_authenticate(user=self.mao_user)
+        self.assertEqual(self.client.patch(url, {"assigned_barangay_id": None}, format="json").status_code, 200)
+        sibat.refresh_from_db()
+        self.client.force_authenticate(user=sibat)
+        self.assertEqual(self.client.get("/livestock/inventory/").data, [])
+
+    def test_farmer_cannot_assign_or_access_directory_and_invalid_targets_fail(self):
+        sibat = self.make_sibat()
+        self.client.force_authenticate(user=self.farmer_user)
+        self.assertEqual(self.client.patch(f"/api/users/{sibat.pk}/assignment/", {"assigned_barangay_id": self.barangay.pk}).status_code, 403)
+        self.assertEqual(self.client.get("/api/users/directory/").status_code, 403)
+        self.client.force_authenticate(user=self.mao_user)
+        self.assertEqual(self.client.patch(f"/api/users/{self.farmer_user.pk}/assignment/", {"assigned_barangay_id": self.barangay.pk}).status_code, 400)
+        self.assertEqual(self.client.patch(f"/api/users/{sibat.pk}/assignment/", {"assigned_barangay_id": 999999}).status_code, 400)
+
+    def test_account_status_notifications_and_document_urls(self):
+        from users.models import Notification, UserDocument
+        UserDocument.objects.create(user=self.pending_user, document_type="GOVERNMENT_ID", document_file="user_documents/test-only.pdf")
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.patch(f"/api/users/{self.pending_user.pk}/status/", {"status": "APPROVED"})
+        self.assertTrue(response.data["documents"][0]["document_file"].startswith("http://testserver/"))
+        self.assertTrue(Notification.objects.filter(user=self.pending_user, title="Account status updated").exists())
+
 from rest_framework_simplejwt.tokens import RefreshToken
 
 

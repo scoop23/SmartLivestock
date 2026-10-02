@@ -160,6 +160,10 @@ class RegisterSerializer(serializers.ModelSerializer):
                 verification_status=UserDocument.VerificationStatus.PENDING,
             )
 
+        from .notification_views import notify_role
+        notify_role("MAO", title="Farmer account awaiting approval",
+                    message="A new farmer registration is awaiting account review.", link="/user-management")
+
         return user
 
     # Auto-generates a username in format FMR-000001, FMR-000002, etc.
@@ -246,6 +250,8 @@ class UserManagementSerializer(serializers.ModelSerializer):
     farm_size = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
     cattle_count = serializers.SerializerMethodField()
+    assigned_barangay_id = serializers.IntegerField(read_only=True, allow_null=True)
+    assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
     documents = UserDocumentSerializer(many=True, read_only=True)
 
     class Meta:
@@ -265,6 +271,8 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "approved_at",
             "barangay",
             "barangay_id",
+            "assigned_barangay_id",
+            "assigned_barangay_name",
             "farm_size",
             "address",
             "cattle_count",
@@ -288,11 +296,19 @@ class UserManagementSerializer(serializers.ModelSerializer):
         return str(obj.phone_number) if obj.phone_number else ""
 
     def get_barangay(self, obj):
+        if obj.role.role_name == "SIBAT":
+            return obj.assigned_barangay.barangay_name if obj.assigned_barangay_id else ""
+        if obj.role.role_name != "FARMER":
+            return ""
         if hasattr(obj, "farmer_profile") and obj.farmer_profile.barangay:
             return obj.farmer_profile.barangay.barangay_name
         return ""
 
     def get_barangay_id(self, obj):
+        if obj.role.role_name == "SIBAT":
+            return obj.assigned_barangay_id
+        if obj.role.role_name != "FARMER":
+            return None
         if hasattr(obj, "farmer_profile") and obj.farmer_profile.barangay_id:
             return obj.farmer_profile.barangay_id
         return None
@@ -311,7 +327,9 @@ class UserManagementSerializer(serializers.ModelSerializer):
         if hasattr(obj, "farmer_profile"):
             inventories = getattr(obj.farmer_profile, "inventories", None)
             if inventories is not None:
-                return sum(inv.quantity for inv in inventories.all())
+                # Inactive or unapproved animals are not the farmer's current active population.
+                return sum(inv.quantity for inv in inventories.all()
+                           if inv.status == "APPROVED" and inv.operational_status == "ACTIVE")
         return 0
 
 
@@ -324,6 +342,18 @@ class UserStatusUpdateSerializer(serializers.Serializer):
         PATCH /api/users/management/<id>/status/ by MAO officers.
     """
     status = serializers.ChoiceField(choices=User.AccountStatus.choices)
+
+
+class SibatAssignmentSerializer(serializers.Serializer):
+    assigned_barangay_id = serializers.PrimaryKeyRelatedField(
+        queryset=Barangay.objects.all(), allow_null=True,
+    )
+
+    def validate(self, attrs):
+        # This endpoint edits jurisdiction only, never role or account privileges.
+        if set(self.initial_data) - {"assigned_barangay_id"}:
+            raise serializers.ValidationError("Only assigned_barangay_id can be changed here.")
+        return attrs
 
 
 class NotificationSerializer(serializers.ModelSerializer):

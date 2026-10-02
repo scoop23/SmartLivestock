@@ -8,6 +8,7 @@ urlpatterns = [
     path("pending/", views.pending_users_list, name="pending_users_list"),
     path("directory/", views.all_users_list, name="all_users_list"),
     path("", views.all_users_list, name="users_list"),
+    path("<int:pk>/assignment/", views.update_sibat_assignment, name="update_sibat_assignment"),
     path("<int:pk>/status/", views.update_user_status, name="update_user_status"),
 ]
 

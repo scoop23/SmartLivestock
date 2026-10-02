@@ -1,11 +1,12 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import HttpResponse
 from django.views import View
+from django.db import transaction
 from django.db.models import Q
 from rest_framework_simplejwt.views import TokenObtainPairView  # type: ignore
 from rest_framework.generics import CreateAPIView
@@ -13,12 +14,14 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from livestock.permission import IsMAO
 from users.models import User
+from .notification_views import create_notification
 from .serializer import (
     CurrentUserSerializer,
     MyTokenSerializer,
     RegisterSerializer,
     UserManagementSerializer,
     UserStatusUpdateSerializer,
+    SibatAssignmentSerializer,
 )
 
 
@@ -43,6 +46,8 @@ class MyTokenView(TokenObtainPairView):
 # POST with email, password, first_name, last_name, phone_number, barangay, farm_size, address.
 # Atomically creates both a User (with status=PENDING) and a Farmer profile.
 class RegisterView(CreateAPIView):
+    # Registration is public; the serializer always creates a pending FARMER account.
+    permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
@@ -80,11 +85,11 @@ def get_user_information(request):
 def pending_users_list(request):
     users = (
         User.objects.filter(account_status=User.AccountStatus.PENDING)
-        .select_related("role", "farmer_profile__barangay")
-        .prefetch_related("farmer_profile__inventories")
+        .select_related("role", "assigned_barangay", "farmer_profile__barangay")
+        .prefetch_related("farmer_profile__inventories", "documents")
         .order_by("-created_at")
     )
-    serializer = UserManagementSerializer(users, many=True)
+    serializer = UserManagementSerializer(users, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -94,8 +99,8 @@ def pending_users_list(request):
 def all_users_list(request):
     users = (
         User.objects.all()
-        .select_related("role", "farmer_profile__barangay")
-        .prefetch_related("farmer_profile__inventories")
+        .select_related("role", "assigned_barangay", "farmer_profile__barangay")
+        .prefetch_related("farmer_profile__inventories", "documents")
         .order_by("-created_at")
     )
 
@@ -103,9 +108,27 @@ def all_users_list(request):
     if role_filter and role_filter.upper() != "ALL":
         users = users.filter(role__role_name__iexact=role_filter)
 
-    status_filter = request.query_params.get("status")
+    status_filter = request.query_params.get("account_status") or request.query_params.get("status")
     if status_filter and status_filter.upper() != "ALL":
         users = users.filter(account_status__iexact=status_filter)
+
+    barangay_filter = request.query_params.get("barangay_id") or request.query_params.get("barangay")
+    if barangay_filter and barangay_filter.upper() != "ALL":
+        if barangay_filter == "unassigned":
+            users = users.filter(
+                Q(role__role_name="SIBAT", assigned_barangay__isnull=True)
+                | Q(role__role_name="FARMER", farmer_profile__isnull=True)
+            )
+        else:
+            try:
+                barangay_id = int(barangay_filter)
+            except ValueError:
+                return Response({"barangay_id": ["Use a barangay ID or unassigned."]}, status=400)
+            # A staff jurisdiction and a farmer's address are different relationships.
+            users = users.filter(
+                Q(role__role_name="SIBAT", assigned_barangay_id=barangay_id)
+                | Q(role__role_name="FARMER", farmer_profile__barangay_id=barangay_id)
+            )
 
     search = request.query_params.get("search")
     if search:
@@ -115,9 +138,10 @@ def all_users_list(request):
             | Q(email__icontains=search)
             | Q(username__icontains=search)
             | Q(farmer_profile__barangay__barangay_name__icontains=search)
+            | Q(assigned_barangay__barangay_name__icontains=search)
         )
 
-    serializer = UserManagementSerializer(users, many=True)
+    serializer = UserManagementSerializer(users, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -131,6 +155,7 @@ def update_user_status(request, pk):
     serializer.is_valid(raise_exception=True)
 
     new_status = serializer.validated_data["status"]
+    previous_status = user.account_status
     user.account_status = new_status
 
     if new_status == User.AccountStatus.APPROVED:
@@ -138,7 +163,25 @@ def update_user_status(request, pk):
 
     user.save()
 
-    response_serializer = UserManagementSerializer(user)
+    if previous_status != new_status:
+        create_notification(user=user, title="Account status updated",
+            message=f"Your account status is now {user.get_account_status_display()}.", link="/login")
+
+    response_serializer = UserManagementSerializer(user, context={"request": request})
     return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated, IsMAO])
+@transaction.atomic
+def update_sibat_assignment(request, pk):
+    user = get_object_or_404(User.objects.select_for_update(of=("self",)).select_related("role"), pk=pk)
+    if user.role.role_name != "SIBAT":
+        return Response({"detail": "Barangay review assignment applies only to SIBAT accounts."}, status=400)
+    serializer = SibatAssignmentSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user.assigned_barangay = serializer.validated_data["assigned_barangay_id"]
+    user.save(update_fields=["assigned_barangay"])
+    return Response(UserManagementSerializer(user, context={"request": request}).data)

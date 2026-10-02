@@ -8,8 +8,6 @@ export type UserAccountStatus =
   | "PENDING"
   | "APPROVED"
   | "SUBJECT_TO_REVISION"
-  | "SUBJECT_FOR_REVISION"
-  | "REJECTED"
   | "SUSPENDED";
 
 export interface ApiUser {
@@ -26,6 +24,9 @@ export interface ApiUser {
   approved_at: string | null;
   barangay: string;
   barangay_id: number | null;
+  assigned_barangay_id: number | null;
+  assigned_barangay_name: string | null;
+  documents: { id: number; document_type: string; document_file: string; verification_status: string; uploaded_at: string }[];
   farm_size: number | null;
   address: string;
   cattle_count: number;
@@ -46,8 +47,15 @@ export const USER_MANAGEMENT_QUERY_KEYS = {
 
 // ── API Fetchers ─────────────────────────────────────────────────────────────
 
-export async function fetchUsersDirectory(): Promise<ApiUser[]> {
-  const response = await api.get<ApiUser[]>("/api/users/directory/");
+export interface DirectoryFilters {
+  role?: string;
+  account_status?: string;
+  barangay_id?: string;
+  search?: string;
+}
+
+export async function fetchUsersDirectory(filters?: DirectoryFilters): Promise<ApiUser[]> {
+  const response = await api.get<ApiUser[]>("/api/users/directory/", { params: filters });
   return response.data;
 }
 
@@ -63,10 +71,10 @@ export async function updateUserStatus({
 
 // ── TanStack Query Hooks ─────────────────────────────────────────────────────
 
-export function useUsersDirectory(options?: { enabled?: boolean }) {
+export function useUsersDirectory(options?: { enabled?: boolean }, filters?: DirectoryFilters) {
   return useQuery<ApiUser[]>({
-    queryKey: USER_MANAGEMENT_QUERY_KEYS.all,
-    queryFn: fetchUsersDirectory,
+    queryKey: filters ? [...USER_MANAGEMENT_QUERY_KEYS.all, filters] : USER_MANAGEMENT_QUERY_KEYS.all,
+    queryFn: () => fetchUsersDirectory(filters),
     staleTime: 30 * 1000,
     ...options,
   });
@@ -94,8 +102,7 @@ export function useUpdateUserStatus() {
       const verb =
         variables.status === "APPROVED"
           ? "approved"
-          : variables.status === "REJECTED" ||
-            variables.status === "SUBJECT_TO_REVISION"
+          : variables.status === "SUBJECT_TO_REVISION"
           ? "returned for revision"
           : variables.status === "SUSPENDED"
           ? "suspended"
@@ -103,13 +110,39 @@ export function useUpdateUserStatus() {
 
       toast.success(`User account ${verb} successfully.`);
     },
-    onError: (err: any) => {
-      console.error("Status update error:", err);
-      const errMsg =
-        err.response?.data?.error ||
-        err.response?.data?.detail ||
-        "Failed to update user status.";
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
+      const errMsg = data && typeof data === "object"
+        ? Object.values(data).flat().join(" ")
+        : "Failed to update user status.";
       toast.error(errMsg);
     },
   });
+}
+
+
+export function useUpdateSibatAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, barangayId }: { userId: number; barangayId: number | null }) => {
+      const { data } = await api.patch<ApiUser>(`/api/users/${userId}/assignment/`, {
+        assigned_barangay_id: barangayId,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_MANAGEMENT_QUERY_KEYS.all });
+      toast.success("SIBAT barangay assignment saved.");
+    },
+    onError: (error: unknown) => {
+      const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;
+      toast.error(data ? Object.values(data).flat().join(" ") : "Could not save barangay assignment.");
+    },
+  });
+}
+
+export function userBarangayLabel(user: ApiUser): string {
+  if (user.role === "SIBAT") return user.assigned_barangay_name || "Unassigned";
+  if (user.role === "FARMER") return user.barangay || "Unassigned";
+  return "Municipal / no barangay assignment";
 }

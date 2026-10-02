@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/app/components/page-header";
 import {
   ApiUser,
   UserAccountStatus,
   useUsersDirectory,
   useUpdateUserStatus,
+  useUpdateSibatAssignment,
+  userBarangayLabel,
 } from "./user-management";
 
 import {
@@ -31,7 +33,6 @@ import {
   ShieldCheck,
   Users,
   MapPin,
-  Key,
   UserMinus,
   UserCheck,
   Check,
@@ -42,48 +43,50 @@ import {
   RefreshCw,
   RotateCcw,
 } from "lucide-react";
-import { toast } from "sonner";
+import { useAdminBarangays } from "../admin/admin-charts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 export type { ApiUser, UserAccountStatus };
 
 export default function UserManagementPage() {
-  const { data: users = [], isLoading, isFetching, refetch } = useUsersDirectory();
-  const updateStatusMutation = useUpdateUserStatus();
-
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "farmer" | "sibat">("all");
-
-  const handleStatusUpdate = (id: number, newStatus: UserAccountStatus) => {
-    updateStatusMutation.mutate({ userId: id, status: newStatus });
+  const [barangayFilter, setBarangayFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [assignment, setAssignment] = useState("unassigned");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  // Municipal tab counts use the complete directory, never a filtered subset.
+  const directory = useUsersDirectory();
+  const filters = {
+    role: activeFilter === "farmer" ? "FARMER" : activeFilter === "sibat" ? "SIBAT" : undefined,
+    account_status: activeFilter === "pending" ? "PENDING" : statusFilter === "ALL" ? undefined : statusFilter,
+    barangay_id: barangayFilter === "ALL" ? undefined : barangayFilter,
+    search: debouncedSearch || undefined,
   };
-
-  const handlePasswordReset = (name: string) => {
-    toast.info(`Password reset instruction triggered for ${name}`);
-  };
-
+  const hasFilters = Object.values(filters).some(Boolean);
+  const filteredDirectory = useUsersDirectory({ enabled: hasFilters }, filters);
+  const query = hasFilters ? filteredDirectory : directory;
+  const { data: filteredUsers = [], isLoading, isFetching, isError, refetch } = query;
+  const users = directory.data || [];
+  const barangaysQuery = useAdminBarangays();
+  const updateStatusMutation = useUpdateUserStatus();
+  const assignmentMutation = useUpdateSibatAssignment();
   const pendingCount = users.filter((u) => u.account_status === "PENDING").length;
-
-  const filteredUsers = users.filter((user) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch =
-      !q ||
-      user.full_name.toLowerCase().includes(q) ||
-      user.email.toLowerCase().includes(q) ||
-      user.username.toLowerCase().includes(q) ||
-      user.barangay.toLowerCase().includes(q);
-
-    let matchesFilter = true;
-    if (activeFilter === "pending") {
-      matchesFilter = user.account_status === "PENDING";
-    } else if (activeFilter === "farmer") {
-      matchesFilter = user.role?.toUpperCase() === "FARMER";
-    } else if (activeFilter === "sibat") {
-      matchesFilter = user.role?.toUpperCase() === "SIBAT";
-    }
-
-    return matchesSearch && matchesFilter;
-  });
+  const handleStatusUpdate = (id: number, newStatus: UserAccountStatus) => {
+    updateStatusMutation.mutate({ userId: id, status: newStatus }, {
+      onSuccess: (updated) => setSelectedUser((current) => current?.id === id ? updated : current),
+    });
+  };
+  const openProfile = (user: ApiUser) => {
+    setSelectedUser(user);
+    setAssignment(user.assigned_barangay_id == null ? "unassigned" : String(user.assigned_barangay_id));
+  };
 
   const getStatusBadge = (status: ApiUser["account_status"]) => {
     switch (status) {
@@ -115,14 +118,12 @@ export default function UserManagementPage() {
           </Badge>
         );
       case "SUBJECT_TO_REVISION":
-      case "SUBJECT_FOR_REVISION":
-      case "REJECTED":
         return (
           <Badge
             variant="outline"
             className="border-none text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200"
           >
-            Subject for Revision
+            Subject to Revision
           </Badge>
         );
       default:
@@ -164,7 +165,7 @@ export default function UserManagementPage() {
           <div className="flex items-center gap-2 w-full md:w-auto">
             <Tabs
               value={activeFilter}
-              onValueChange={(v) => setActiveFilter(v as any)}
+              onValueChange={(v) => setActiveFilter(v as typeof activeFilter)}
               className="w-full md:w-auto"
             >
               <TabsList className="bg-slate-100/80 p-0.5 rounded-lg h-auto border border-slate-200/60 flex flex-wrap">
@@ -172,7 +173,7 @@ export default function UserManagementPage() {
                   value="all"
                   className="px-3.5 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs text-slate-400"
                 >
-                  All ({users.length})
+                  All ({directory.isError ? "Unavailable" : users.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="pending"
@@ -213,6 +214,30 @@ export default function UserManagementPage() {
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={barangayFilter} onValueChange={setBarangayFilter} disabled={barangaysQuery.isError}>
+            <SelectTrigger className="w-full sm:w-56" aria-label="Filter by barangay"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Barangays</SelectItem>
+              <SelectItem value="unassigned">Unassigned Farmer / SIBAT</SelectItem>
+              {(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={activeFilter === "pending" ? "PENDING" : statusFilter} onValueChange={setStatusFilter} disabled={activeFilter === "pending"}>
+            <SelectTrigger className="w-full sm:w-48" aria-label="Filter by account status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Account Statuses</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="SUBJECT_TO_REVISION">Subject to Revision</SelectItem>
+              <SelectItem value="SUSPENDED">Suspended</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-slate-500">{filteredUsers.length} matching users</span>
+          {barangaysQuery.isError && <p role="alert" className="text-xs text-rose-700">Barangays could not be loaded. <button className="underline" onClick={() => barangaysQuery.refetch()}>Retry</button></p>}
+        </div>
+        {isError && <p role="alert" className="text-sm text-rose-700">Could not load the directory. Check your access or try refreshing.</p>}
+
         {/* List Table */}
         <div className="bg-white rounded-xl shadow-2xs border border-slate-200/80 overflow-hidden">
           <Table>
@@ -222,7 +247,7 @@ export default function UserManagementPage() {
                   User / Role
                 </TableHead>
                 <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                  Barangay / Address
+                  Barangay / Assignment
                 </TableHead>
                 <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                   Account Status
@@ -262,7 +287,7 @@ export default function UserManagementPage() {
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => {
-                  const isPending = user.account_status === "PENDING";
+                  const isPending = user.account_status === "PENDING" || user.account_status === "SUBJECT_TO_REVISION";
                   const isApproved = user.account_status === "APPROVED";
                   const isSuspended = user.account_status === "SUSPENDED";
                   const isActionLoading =
@@ -312,7 +337,7 @@ export default function UserManagementPage() {
                       <TableCell className="px-3.5 py-2 text-xs font-semibold text-slate-600">
                         <div className="flex items-center gap-1.5">
                           <MapPin size={13} className="text-[#2D5A27] shrink-0" />
-                          <span>{user.barangay || user.address || "Padre Garcia"}</span>
+                          <span>{userBarangayLabel(user)}</span>
                         </div>
                       </TableCell>
 
@@ -356,19 +381,6 @@ export default function UserManagementPage() {
                             </>
                           ) : (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePasswordReset(user.full_name);
-                                }}
-                                title="Reset Password"
-                                className="h-7 w-7 hover:bg-slate-100 rounded-md text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                              >
-                                <Key size={13} />
-                              </Button>
-
                               {isApproved ? (
                                 <Button
                                   variant="ghost"
@@ -405,7 +417,7 @@ export default function UserManagementPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setSelectedUser(user)}
+                          onClick={() => openProfile(user)}
                           className="h-7 px-2 text-xs font-bold text-[#2D5A27] hover:bg-emerald-50 rounded-md gap-0.5 cursor-pointer"
                         >
                           <span>Profile</span>
@@ -424,7 +436,7 @@ export default function UserManagementPage() {
       {/* PROFILE MODAL (shadcn Dialog) */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         {selectedUser && (
-          <DialogContent className="sm:max-w-md rounded-[3rem] p-10 bg-white border-none shadow-2xl [&>button]:right-8 [&>button]:top-8 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-gray-100">
+          <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl p-5 sm:p-6 bg-white border-none shadow-2xl [&>button]:right-8 [&>button]:top-8 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-gray-100">
             <DialogHeader className="text-center mb-4">
               <div
                 className={`size-20 mx-auto rounded-3xl flex items-center justify-center mb-4 overflow-hidden ${
@@ -454,11 +466,11 @@ export default function UserManagementPage() {
             </DialogHeader>
 
             <div className="space-y-3">
-              <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
+              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
                 <span className="text-[10px] font-black text-gray-400 uppercase">Email</span>
-                <span className="text-sm font-bold">{selectedUser.email}</span>
+                <span className="text-sm font-bold break-all">{selectedUser.email}</span>
               </div>
-              <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
+              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
                 <span className="text-[10px] font-black text-gray-400 uppercase">
                   Contact Phone
                 </span>
@@ -466,24 +478,47 @@ export default function UserManagementPage() {
                   {selectedUser.phone_number || "Not provided"}
                 </span>
               </div>
-              <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
-                <span className="text-[10px] font-black text-gray-400 uppercase">Barangay</span>
+              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
+                <span className="text-[10px] font-black text-gray-400 uppercase">{selectedUser.role === "SIBAT" ? "Assigned Barangay" : "Barangay"}</span>
                 <span className="text-sm font-bold">
-                  {selectedUser.barangay || "Padre Garcia"}
+                  {userBarangayLabel(selectedUser)}
                 </span>
               </div>
+              {selectedUser.role === "SIBAT" && (
+                <div className="space-y-2 rounded-xl bg-blue-50 p-3">
+                  <Label htmlFor="sibat-assignment">SIBAT review barangay</Label>
+                  <Select value={assignment} onValueChange={setAssignment} disabled={barangaysQuery.isLoading || barangaysQuery.isError || assignmentMutation.isPending}>
+                    <SelectTrigger id="sibat-assignment"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-600">An unassigned SIBAT cannot access private barangay review records.</p>
+                  <Button size="sm" disabled={assignmentMutation.isPending || barangaysQuery.isError || barangaysQuery.isLoading} onClick={() => assignmentMutation.mutate({ userId: selectedUser.id, barangayId: assignment === "unassigned" ? null : Number(assignment) }, { onSuccess: setSelectedUser })}>
+                    {assignmentMutation.isPending ? "Saving..." : "Save Assignment"}
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-slate-500">Registered: {new Date(selectedUser.created_at).toLocaleDateString()}</p>
+              {(selectedUser.documents || []).length > 0 && <div className="space-y-2">
+                <p className="text-xs font-semibold">Registration documents</p>
+                {selectedUser.documents.map((doc) => <a key={doc.id} href={doc.document_file} target="_blank" rel="noopener noreferrer" className="block text-xs text-emerald-800 underline">
+                  {doc.document_type.replaceAll("_", " ")} · {doc.verification_status.replaceAll("_", " ")}
+                </a>)}
+              </div>}
               {selectedUser.role?.toUpperCase() === "FARMER" && (
                 <>
                   <div className="p-4 bg-green-50 rounded-2xl flex justify-between">
                     <span className="text-[10px] font-black text-green-600 uppercase">
-                      Cattle Registered
+                      Active Livestock
                     </span>
                     <span className="text-sm font-black text-green-700">
                       {selectedUser.cattle_count} Heads
                     </span>
                   </div>
                   {selectedUser.farm_size !== null && (
-                    <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
+                    <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
                       <span className="text-[10px] font-black text-gray-400 uppercase">
                         Farm Size
                       </span>
@@ -492,7 +527,7 @@ export default function UserManagementPage() {
                   )}
                 </>
               )}
-              <div className="p-4 bg-gray-50 rounded-2xl flex justify-between">
+              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
                 <span className="text-[10px] font-black text-gray-400 uppercase">
                   Account Status
                 </span>
@@ -500,13 +535,12 @@ export default function UserManagementPage() {
               </div>
             </div>
 
-            {selectedUser.account_status === "PENDING" ? (
+            {selectedUser.account_status === "PENDING" || selectedUser.account_status === "SUBJECT_TO_REVISION" ? (
               <div className="flex gap-2 mt-6">
                 <Button
                   disabled={updateStatusMutation.isPending}
                   onClick={() => {
                     handleStatusUpdate(selectedUser.id, "APPROVED");
-                    setSelectedUser(null);
                   }}
                   className="flex-1 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-md cursor-pointer disabled:opacity-50"
                 >
@@ -517,7 +551,6 @@ export default function UserManagementPage() {
                   disabled={updateStatusMutation.isPending}
                   onClick={() => {
                     handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION");
-                    setSelectedUser(null);
                   }}
                   className="flex-1 py-6 border-rose-300 text-rose-900 hover:bg-rose-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 cursor-pointer disabled:opacity-50"
                 >
