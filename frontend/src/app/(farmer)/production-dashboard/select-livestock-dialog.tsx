@@ -106,25 +106,25 @@ export default function SelectLivestockDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[94vh] p-0 gap-0 overflow-hidden rounded-3xl border-0 shadow-2xl bg-slate-50">
-        <DialogHeader className="relative overflow-hidden px-5 sm:px-6 py-5 bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-left">
-          <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative flex items-start gap-3">
-            <div className="size-11 rounded-2xl bg-white/15 border border-white/15 flex items-center justify-center shrink-0">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] sm:w-full sm:max-w-4xl sm:max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl sm:rounded-3xl border-0 shadow-2xl bg-slate-50">
+        <DialogHeader className="relative overflow-hidden shrink-0 px-4 py-4 sm:px-6 sm:py-5 pr-12 sm:pr-14 md:pr-16 bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-left">
+          <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <div className="relative flex items-start gap-3 min-w-0">
+            <div className="size-10 sm:size-11 rounded-xl sm:rounded-2xl bg-white/15 border border-white/15 flex items-center justify-center shrink-0">
               <Tag className="size-5 text-white" />
             </div>
-            <div>
-              <DialogTitle className="text-xl font-black text-white">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-lg sm:text-xl font-black text-white leading-tight break-words">
                 Choose Production Livestock
               </DialogTitle>
-              <DialogDescription className="text-sm text-white/75 mt-1">
+              <DialogDescription className="text-xs sm:text-sm text-white/75 mt-1 break-words">
                 All {items.length} MAO-approved livestock records are available below.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 bg-white space-y-3">
+        <div className="shrink-0 px-3.5 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 bg-white space-y-3">
           <div className="flex flex-col sm:flex-row gap-2.5">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
@@ -186,7 +186,7 @@ export default function SelectLivestockDialog({
           </div>
         </div>
 
-        <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6">
           {items.length === 0 ? (
             <EmptyState text="No approved livestock is available for production logging." />
           ) : filtered.length === 0 ? (
@@ -259,7 +259,7 @@ export default function SelectLivestockDialog({
           )}
         </div>
 
-        <div className="px-4 sm:px-6 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="shrink-0 px-4 sm:px-6 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-[11px] text-slate-500">
             Page {safePage} of {pageCount} · {items.length} approved record{items.length === 1 ? "" : "s"} total
           </p>

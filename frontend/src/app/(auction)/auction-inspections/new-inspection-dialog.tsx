@@ -82,16 +82,14 @@ export function NewInspectionDialog({
       id: Date.now(),
       control_number: `CLR-2026-${String(nextId).padStart(4, "0")}`,
       shipper_name: shipperName,
-      shipper_address: shipperAddress || "Padre Garcia, Batangas",
-      origin: "Padre Garcia, Batangas",
+      shipper_address: shipperAddress.trim(),
+      origin: shipperAddress.trim(),
       destination: destination,
       purpose: purpose,
       inspection_date: inspectionDate,
-      date_issued: inspectionDate,
-      time_issued: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      // A request is not an issued certificate; leave issuance empty until approval.
+      date_issued: null,
+      time_issued: null,
       vehicle_plate_number: plateNumber || "N/A",
       livestock_handler_license_no: handlerLicense || "N/A",
       status: "PENDING",
@@ -125,7 +123,7 @@ export function NewInspectionDialog({
             New Livestock Inspection Clearance
           </DialogTitle>
           <DialogDescription className="text-purple-100 text-xs font-medium">
-            Record live animal transit permits, shipper credentials, and veterinary health checks.
+            Local preview only: these inspection requests are not yet saved to the database.
           </DialogDescription>
         </DialogHeader>
 

@@ -69,7 +69,7 @@ export function InspectionDetailsDialog({
             </div>
             <div>
               <span className="text-[10px] font-bold uppercase text-slate-400">Date Issued</span>
-              <p className="text-xs font-semibold text-slate-700">{inspection.date_issued}</p>
+              <p className="text-xs font-semibold text-slate-700">{inspection.status === "APPROVED" && inspection.date_issued ? inspection.date_issued : "Not issued"}</p>
             </div>
           </div>
 

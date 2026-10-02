@@ -53,7 +53,7 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
             required
             value={value.milkQty ?? ""}
             onChange={(e) => onChange("milkQty", e.target.value)}
-            className="rounded-xl border-slate-200"
+            className="h-11 min-h-[44px] rounded-xl border-slate-200"
           />
         </div>
         <div className="space-y-2">
@@ -64,7 +64,7 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
             value={String(value.milkTime ?? "Morning")}
             onValueChange={(v) => onChange("milkTime", v)}
           >
-            <SelectTrigger id="milkTime" className="rounded-xl border-slate-200">
+            <SelectTrigger id="milkTime" className="h-11 min-h-[44px] rounded-xl border-slate-200">
               <SelectValue placeholder="Select session" />
             </SelectTrigger>
             <SelectContent>
@@ -94,7 +94,7 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
             required
             value={value.meatQty ?? ""}
             onChange={(e) => onChange("meatQty", e.target.value)}
-            className="rounded-xl border-slate-200"
+            className="h-11 min-h-[44px] rounded-xl border-slate-200"
           />
         </div>
         <div className="space-y-2">
@@ -105,7 +105,7 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
             value={String(value.meatPurpose ?? "Auction / Market Sale")}
             onValueChange={(v) => onChange("meatPurpose", v)}
           >
-            <SelectTrigger id="meatPurpose" className="rounded-xl border-slate-200">
+            <SelectTrigger id="meatPurpose" className="h-11 min-h-[44px] rounded-xl border-slate-200">
               <SelectValue placeholder="Select purpose" />
             </SelectTrigger>
             <SelectContent>
@@ -135,7 +135,7 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
             required
             value={value.eggQty ?? ""}
             onChange={(e) => onChange("eggQty", e.target.value)}
-            className="rounded-xl border-slate-200"
+            className="h-11 min-h-[44px] rounded-xl border-slate-200"
           />
         </div>
 
@@ -147,7 +147,7 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
             value={String(value.collectionTime ?? "Morning")}
             onValueChange={(value) => onChange("collectionTime", value)}
           >
-            <SelectTrigger id="collectionTime" className="rounded-xl border-slate-200">
+            <SelectTrigger id="collectionTime" className="h-11 min-h-[44px] rounded-xl border-slate-200">
               <SelectValue placeholder="Select time" />
             </SelectTrigger>
 
@@ -178,7 +178,7 @@ export default function ProductionFormFields({ type, value, onChange }: Producti
             required
             value={value.woolQty ?? ""}
             onChange={(e) => onChange("woolQty", e.target.value)}
-            className="rounded-xl border-slate-200"
+            className="h-11 min-h-[44px] rounded-xl border-slate-200"
           />
         </div>
       </div>

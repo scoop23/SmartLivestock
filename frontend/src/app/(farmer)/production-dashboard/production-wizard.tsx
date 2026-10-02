@@ -68,6 +68,7 @@ interface ProductionWizardProps {
 }
 
 const STEP_LABELS = ["Livestock", "Production", "Details", "Review"];
+const STEP_SHORT_LABELS = ["Live", "Prod", "Det", "Rev"];
 
 const formatDate = (date: string | null | undefined) => {
   if (!date) return "Unknown date";
@@ -313,18 +314,18 @@ function ProductionWizardContent({
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-4xl max-h-[94vh] overflow-hidden p-0 gap-0 rounded-3xl border-0 shadow-2xl bg-slate-50">
-        <DialogHeader className="relative overflow-hidden px-5 md:px-7 py-5 md:py-6 text-left bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-white">
-          <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative flex items-start gap-3.5">
-            <div className="size-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0 border border-white/15">
-              <Sparkles className="size-5" />
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] sm:w-full sm:max-w-4xl sm:max-h-[90dvh] flex flex-col overflow-hidden p-0 gap-0 rounded-2xl sm:rounded-3xl border-0 shadow-2xl bg-slate-50">
+        <DialogHeader className="relative overflow-hidden shrink-0 px-4 py-4 sm:px-6 sm:py-5 md:px-7 md:py-6 pr-12 sm:pr-14 md:pr-16 text-left bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-white">
+          <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <div className="relative flex items-start gap-3 sm:gap-3.5 min-w-0">
+            <div className="size-9 sm:size-11 rounded-xl sm:rounded-2xl bg-white/15 flex items-center justify-center shrink-0 border border-white/15">
+              <Sparkles className="size-4 sm:size-5" />
             </div>
-            <div>
-              <DialogTitle className="text-xl md:text-2xl font-black text-white">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-lg sm:text-xl md:text-2xl font-black text-white leading-tight break-words">
                 {mode === "edit" ? "Correct Production Entry" : "New Production Entry"}
               </DialogTitle>
-              <DialogDescription className="text-sm text-white/75 mt-1">
+              <DialogDescription className="text-xs sm:text-sm text-white/80 mt-1 leading-normal break-words">
                 {mode === "edit"
                   ? "Update the returned details, review them, and resubmit to SIBAT."
                   : "Reporting is optional. Enter production information you have recorded; SIBAT and MAO will review your submission."}
@@ -333,8 +334,8 @@ function ProductionWizardContent({
           </div>
         </DialogHeader>
 
-        <div className="overflow-y-auto p-4 sm:p-5 md:p-7">
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mb-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-5 md:p-7">
+          <div className="grid grid-cols-4 gap-1 sm:gap-2.5 mb-4 sm:mb-5">
             {STEP_LABELS.map((label, i) => {
               const isActive = i === step;
               const isDone = i < step;
@@ -342,30 +343,31 @@ function ProductionWizardContent({
                 <div
                   key={label}
                   className={cn(
-                    "rounded-2xl border px-2 py-2.5 sm:px-3 transition-colors",
-                    isActive && "border-[#2D5A27] bg-white shadow-sm",
-                    isDone && "border-emerald-200 bg-emerald-50",
-                    !isDone && !isActive && "border-slate-200 bg-slate-100/70",
+                    "rounded-xl sm:rounded-2xl border px-1 py-1.5 sm:px-3 sm:py-2.5 transition-colors",
+                    isActive && "border-[#2D5A27] bg-white shadow-xs sm:shadow-sm",
+                    isDone && "border-emerald-200 bg-emerald-50/80",
+                    !isDone && !isActive && "border-slate-200 bg-slate-100/60",
                   )}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2">
                     <div
                       className={cn(
-                        "size-7 rounded-xl flex items-center justify-center text-[11px] font-black transition-colors shrink-0",
+                        "size-6 sm:size-7 rounded-lg sm:rounded-xl flex items-center justify-center text-[10px] sm:text-[11px] font-black transition-colors shrink-0",
                         isDone && "bg-emerald-600 text-white",
-                        isActive && "bg-[#2D5A27] text-white ring-4 ring-[#2D5A27]/15",
-                        !isDone && !isActive && "bg-slate-100 text-slate-400",
+                        isActive && "bg-[#2D5A27] text-white ring-2 sm:ring-4 ring-[#2D5A27]/15",
+                        !isDone && !isActive && "bg-slate-200 text-slate-500",
                       )}
                     >
-                      {isDone ? <Check className="w-4 h-4" /> : i + 1}
+                      {isDone ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" /> : i + 1}
                     </div>
                     <span
                       className={cn(
-                        "text-[10px] sm:text-xs font-bold truncate",
+                        "text-[10px] sm:text-xs font-bold leading-tight truncate max-w-full text-center sm:text-left",
                         isActive || isDone ? "text-slate-900" : "text-slate-400",
                       )}
                     >
-                      {label}
+                      <span className="sm:hidden">{STEP_SHORT_LABELS[i]}</span>
+                      <span className="hidden sm:inline">{label}</span>
                     </span>
                   </div>
                 </div>
@@ -373,10 +375,10 @@ function ProductionWizardContent({
             })}
           </div>
 
-          <div className="flex items-center gap-3 mb-4 bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs">
+          <div className="flex items-center gap-3 mb-3.5 sm:mb-4 bg-white border border-slate-200 rounded-2xl p-3 sm:p-3.5 shadow-xs">
             <div
               className={cn(
-                "p-2.5 rounded-xl",
+                "p-2 sm:p-2.5 rounded-xl shrink-0",
                 step === 0
                   ? "bg-slate-100 text-slate-700"
                   : productionType === "milk"
@@ -390,15 +392,15 @@ function ProductionWizardContent({
             >
               {step === 0 ? <Package className="w-5 h-5" /> : <TypeIcon className="w-5 h-5" />}
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 leading-tight">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug break-words">
                 {step === 0
                   ? "Select Approved Livestock"
                   : step === 1
                     ? "Select Production Type"
                     : typeTitle}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 mt-0.5 break-words">
                 Step {step + 1} of {STEP_LABELS.length} · Complete the information below
               </p>
             </div>
@@ -406,7 +408,7 @@ function ProductionWizardContent({
 
           {step === 0 && (
             <div className="space-y-3">
-              <p className="text-xs text-slate-500">Only MAO-approved, active livestock with a positive head count can be selected. Meat output is recorded in kilograms; animal deaths belong in Mortality.</p>
+              <p className="text-xs text-slate-500 leading-relaxed">Only MAO-approved, active livestock with a positive head count can be selected. Meat output is recorded in kilograms; animal deaths belong in Mortality.</p>
               {isLoading ? (
                 <p className="text-sm text-slate-500 py-4">Loading inventory...</p>
               ) : approvedInventories.length === 0 ? (
@@ -421,20 +423,20 @@ function ProductionWizardContent({
                     type="button"
                     onClick={() => setSelectOpen(true)}
                     className={cn(
-                      "w-full flex items-center justify-between gap-4 px-4 sm:px-5 py-4 rounded-2xl border-2 text-left transition-all bg-white",
+                      "w-full flex items-center justify-between gap-3 px-3.5 sm:px-5 py-3.5 sm:py-4 rounded-2xl border-2 text-left transition-all bg-white cursor-pointer",
                       clickedInventory
                         ? "border-[#2D5A27] bg-[#2D5A27]/5"
                         : "border-dashed border-slate-300 bg-white hover:border-slate-400",
                     )}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                       <div className={cn(
-                        "size-11 rounded-2xl flex items-center justify-center shrink-0",
+                        "size-10 sm:size-11 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0",
                         clickedInventory ? "bg-[#2D5A27] text-white" : "bg-slate-100 text-slate-500",
                       )}>
                         <Tag className="size-5" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                       {clickedInventory ? (
                         <>
                           <p className="text-sm font-bold text-slate-900 truncate">
@@ -449,23 +451,24 @@ function ProductionWizardContent({
                       ) : (
                         <>
                           <p className="text-sm font-semibold text-slate-700">Tap to select livestock</p>
-                          <p className="text-xs text-slate-400 mt-0.5">Link a batch or animal to this record</p>
+                          <p className="text-xs text-slate-400 mt-0.5 truncate">Link a batch or animal to this record</p>
                         </>
                       )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       {clickedInventory && (
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27]">
-                          <Check className="w-4 h-4" /> Selected
+                          <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          <span className="hidden xs:inline">Selected</span>
                         </span>
                       )}
                       <ChevronDown className="w-5 h-5 text-slate-400" />
                     </div>
                   </button>
-                  <div className="flex items-start gap-2 rounded-xl bg-sky-50 border border-sky-100 px-3.5 py-3 text-xs text-sky-900">
+                  <div className="flex items-start gap-2 rounded-xl bg-sky-50 border border-sky-100 px-3 sm:px-3.5 py-2.5 sm:py-3 text-xs text-sky-900 leading-relaxed">
                     <Info className="size-4 shrink-0 mt-0.5" />
-                    Only MAO-approved livestock can be used as the source of a production declaration.
+                    <span>Only MAO-approved livestock can be used as the source of a production declaration.</span>
                   </div>
 
                   <SelectLivestockDialog
@@ -483,7 +486,7 @@ function ProductionWizardContent({
           {step === 1 && (
             <div
               className={cn(
-                "grid gap-3.5",
+                "grid gap-3 sm:gap-3.5",
                 availableTypes.length === 1
                   ? "grid-cols-1 max-w-md mx-auto"
                   : availableTypes.length === 2
@@ -500,7 +503,7 @@ function ProductionWizardContent({
                     type="button"
                     onClick={() => handleTypePick(t)}
                     className={cn(
-                      "p-5 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer",
+                      "p-4 sm:p-5 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer min-h-[44px]",
                       isActive
                         ? "border-[#2D5A27] bg-[#2D5A27]/5 shadow-sm ring-1 ring-[#2D5A27]/30"
                         : "border-slate-200 hover:border-[#2D5A27]/40 bg-white hover:bg-slate-50/70",
@@ -508,21 +511,21 @@ function ProductionWizardContent({
                   >
                     <div
                       className={cn(
-                        "p-3 rounded-xl w-fit mb-3 transition-colors",
+                        "p-2.5 sm:p-3 rounded-xl w-fit mb-2.5 sm:mb-3 transition-colors",
                         isActive ? "bg-[#2D5A27] text-white" : "bg-slate-100 text-slate-600"
                       )}
                     >
-                      <TIcon className="w-6 h-6" />
+                      <TIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-base font-bold text-slate-900">{typeMeta[t]?.label ?? t}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm sm:text-base font-bold text-slate-900 truncate">{typeMeta[t]?.label ?? t}</p>
                       {isActive && (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27]">
-                          <Check className="w-4 h-4" /> Selected
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27] shrink-0">
+                          <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Selected
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 mt-1 leading-normal">{typeMeta[t]?.desc ?? ""}</p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed break-words">{typeMeta[t]?.desc ?? ""}</p>
                   </button>
                 );
               })}
@@ -531,14 +534,14 @@ function ProductionWizardContent({
 
           {step === 2 && (
             <form
-              className="space-y-5 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs"
+              className="space-y-4 sm:space-y-5 bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-5 shadow-xs"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (canContinue) handleNext();
               }}
             >
               <div className="space-y-2">
-                <Label htmlFor="prodDate">{productionType === "meat" ? "Slaughter date" : "Date"}</Label>
+                <Label htmlFor="prodDate" className="text-xs font-bold text-slate-700">{productionType === "meat" ? "Slaughter date" : "Date"}</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
                   <Input
@@ -546,7 +549,7 @@ function ProductionWizardContent({
                     name="prodDate"
                     type="date"
                     max={new Date().toISOString().split("T")[0]}
-                    className="pl-10 h-11 rounded-xl"
+                    className="pl-10 h-11 min-h-[44px] rounded-xl border-slate-200"
                     value={String(formState.prodDate ?? new Date().toISOString().split("T")[0])}
                     onChange={(e) => onFieldChange("prodDate", e.target.value)}
                   />
@@ -555,18 +558,18 @@ function ProductionWizardContent({
 
               {productionType === "meat" && (
                 <div className="space-y-3">
-                  <Label>Animals slaughtered ({selectedAnimalIds.length} selected)</Label>
-                  <p className="text-xs text-slate-500">Select the exact animals. Their inventory changes only after MAO approval; unselected herd members remain active.</p>
-                  <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                  <Label className="text-xs font-bold text-slate-700">Animals slaughtered ({selectedAnimalIds.length} selected)</Label>
+                  <p className="text-xs text-slate-500 leading-relaxed">Select the exact animals. Their inventory changes only after MAO approval; unselected herd members remain active.</p>
+                  <div className="max-h-56 sm:max-h-64 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
                     {slaughterCandidates.map(animal => (
-                      <label key={animal.id} className="flex min-h-12 items-center gap-3 px-3 py-2 cursor-pointer">
+                      <label key={animal.id} className="flex min-h-12 items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50/80 transition-colors">
                         <Checkbox
                           checked={selectedAnimalIds.includes(Number(animal.id))}
                           disabled={animal.id === clickedInventory?.id}
                           onCheckedChange={checked => setSelectedAnimalIds(ids => checked
                             ? [...new Set([...ids, Number(animal.id)])] : ids.filter(id => id !== Number(animal.id)))}
                         />
-                        <span className="text-sm font-medium">{animal.tagNumber || `Animal #${animal.id}`}<span className="block text-xs font-normal text-slate-500">{animal.batchCode || animal.livestockTypeName}</span></span>
+                        <span className="text-sm font-medium min-w-0 flex-1 truncate">{animal.tagNumber || `Animal #${animal.id}`}<span className="block text-xs font-normal text-slate-500 truncate">{animal.batchCode || animal.livestockTypeName}</span></span>
                       </label>
                     ))}
                   </div>
@@ -580,21 +583,22 @@ function ProductionWizardContent({
               />
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="notes" className="text-xs font-bold text-slate-700">Notes</Label>
                 <Textarea
                   id="notes"
                   name="notes"
                   rows={3}
                   maxLength={500}
                   placeholder="Optional context for SIBAT and MAO reviewers..."
+                  className="rounded-xl border-slate-200 min-h-[80px]"
                   value={String(formState.notes ?? "")}
                   onChange={(e) => onFieldChange("notes", e.target.value)}
                 />
               </div>
               {validationMessage && (
-                <div className="flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                  <Info className="size-4 shrink-0" />
-                  {validationMessage}
+                <div className="flex items-start sm:items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 break-words leading-relaxed">
+                  <Info className="size-4 shrink-0 mt-0.5 sm:mt-0" />
+                  <span>{validationMessage}</span>
                 </div>
               )}
             </form>
@@ -617,7 +621,17 @@ function ProductionWizardContent({
                   }
                 />
                 <ReviewRow label="Production Type" value={meta.label} />
-                {productionType === "meat" && <ReviewRow label={`Animals slaughtered (${selectedAnimalIds.length})`} value={slaughterCandidates.filter(animal => selectedAnimalIds.includes(Number(animal.id))).map(animal => animal.tagNumber || `Animal #${animal.id}`).join(", ")} />}
+                {productionType === "meat" && (
+                  <ReviewRow
+                    label={`Animals slaughtered (${selectedAnimalIds.length})`}
+                    value={
+                      slaughterCandidates
+                        .filter(animal => selectedAnimalIds.includes(Number(animal.id)))
+                        .map(animal => animal.tagNumber || `Animal #${animal.id}`)
+                        .join(", ") || "—"
+                    }
+                  />
+                )}
                 <ReviewRow
                   label="Date"
                   value={formatDate(String(formState.prodDate ?? new Date().toISOString().split("T")[0]))}
@@ -638,16 +652,16 @@ function ProductionWizardContent({
               </div>
 
               {/* Farmer Production Declaration Banner */}
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
+              <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50 border border-emerald-200">
                 <Checkbox
                   id="certify-production"
                   checked={isCertified}
                   onCheckedChange={(checked) => setIsCertified(checked === true)}
-                  className="mt-0.5 border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] cursor-pointer"
+                  className="mt-0.5 shrink-0 border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] cursor-pointer"
                 />
                 <label
                   htmlFor="certify-production"
-                  className="text-xs font-semibold text-slate-800 leading-snug cursor-pointer select-none"
+                  className="min-w-0 flex-1 text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed cursor-pointer select-none"
                 >
                   I confirm this report reflects the information available to me and may be reviewed first by <span className="font-extrabold text-emerald-950">SIBAT</span>, then officially approved by MAO.
                 </label>
@@ -656,7 +670,7 @@ function ProductionWizardContent({
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !isCertified}
-                className="w-full h-12 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-bold shadow-sm cursor-pointer disabled:opacity-50"
+                className="w-full h-12 min-h-[48px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-bold shadow-sm cursor-pointer disabled:opacity-50 text-sm sm:text-base"
               >
                 <Send className="w-4 h-4" />
                 {isSubmitting
@@ -665,29 +679,29 @@ function ProductionWizardContent({
                   ? "Update Record"
                   : "Submit Record"}
               </Button>
-              <p className="text-[11px] text-slate-500 text-center">
+              <p className="text-[11px] text-slate-500 text-center leading-normal">
                 Workflow: Farmer submission → SIBAT verification → MAO approval
               </p>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={handleBack}
-                className="gap-1.5 text-slate-600"
+                className="w-full sm:w-auto mx-auto min-h-[44px] gap-1.5 text-slate-600 hover:text-slate-900"
               >
-                <ChevronLeft className="w-4 h-4" /> Back
+                <ChevronLeft className="w-4 h-4" /> Back to details
               </Button>
             </div>
           )}
 
           {step < 3 && (
-            <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-200">
-              <div className="min-w-[88px]">
+            <div className="flex items-center justify-between gap-2 sm:gap-3 mt-4 sm:mt-5 pt-3.5 sm:pt-4 border-t border-slate-200">
+              <div className="min-w-[80px] sm:min-w-[88px]">
               {step > 0 && (
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={handleBack}
-                  className="gap-1.5 text-slate-600"
+                  className="h-10 sm:h-11 min-h-[40px] sm:min-h-[44px] px-2.5 sm:px-4 text-xs sm:text-sm font-semibold rounded-xl text-slate-600 hover:text-slate-900 gap-1 sm:gap-1.5"
                 >
                   <ChevronLeft className="w-4 h-4" /> Back
                 </Button>
@@ -701,7 +715,7 @@ function ProductionWizardContent({
                 type="button"
                 onClick={handleNext}
                 disabled={!canContinue}
-                className="h-10 rounded-xl bg-[#2D5A27] hover:bg-[#244a20] text-white gap-2 font-bold min-w-[112px]"
+                className="h-10 sm:h-11 min-h-[40px] sm:min-h-[44px] px-4 sm:px-6 rounded-xl bg-[#2D5A27] hover:bg-[#244a20] text-white gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm shadow-xs min-w-[96px] sm:min-w-[112px]"
               >
                 Continue <ChevronRight className="w-4 h-4" />
               </Button>
@@ -732,13 +746,17 @@ function ReviewRow({
   sub?: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-4 py-3">
-      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 shrink-0 pt-0.5">
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-4 px-3.5 sm:px-4 py-2.5 sm:py-3">
+      <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500 sm:text-slate-400 shrink-0">
         {label}
       </span>
-      <span className="text-sm font-medium text-slate-900 text-right min-w-0">
+      <span className="text-sm font-medium text-slate-900 text-left sm:text-right min-w-0 break-words whitespace-normal">
         {value}
-        {sub && <span className="block text-xs font-normal text-slate-500 mt-0.5">{sub}</span>}
+        {sub && (
+          <span className="block text-xs font-normal text-slate-500 mt-0.5 break-words whitespace-normal">
+            {sub}
+          </span>
+        )}
       </span>
     </div>
   );

@@ -45,7 +45,8 @@ import type { LivestockInventoryItem } from "../livestock-inventory/livestock-in
 
 export interface LiveSaleItem {
   id: number;
-  livestock: number;
+  livestock: number | null;
+  batch?: number | null;
   tag_number?: string;
   livestock_type_name?: string;
   farmer_name?: string;
@@ -58,7 +59,8 @@ export interface LiveSaleItem {
   destination: string;
   sale_date: string;
   purpose: "BREEDING" | "FATTENING" | "SLAUGHTER" | "UNKNOWN";
-  status: "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
+  review_remarks?: string;
   created_at: string;
 }
 
@@ -81,6 +83,7 @@ export default function ProductionSalesTab({
 }) {
   const queryClient = useQueryClient();
   const [isSaleOpen, setIsSaleOpen] = useState(false);
+  const [editingSale, setEditingSale] = useState<LiveSaleItem | null>(null);
   const [isIntentOpen, setIsIntentOpen] = useState(false);
 
   // Sale form state
@@ -120,11 +123,14 @@ export default function ProductionSalesTab({
 
   const recordSaleMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api.post("production/sales/", payload);
+      const res = editingSale
+        ? await api.patch(`production/sales/${editingSale.id}/`, payload)
+        : await api.post("production/sales/", payload);
       return res.data;
     },
     onSuccess: () => {
-      toast.success("Live animal sale record submitted!");
+      toast.success(editingSale ? "Corrected sale resubmitted to SIBAT." : "Live animal sale record submitted!");
+      setEditingSale(null);
       setIsSaleOpen(false);
       setSaleLivestockId("");
       setPricePerHead("");
@@ -154,9 +160,24 @@ export default function ProductionSalesTab({
     },
   });
 
+  const reviseSale = (sale: LiveSaleItem) => {
+    setEditingSale(sale);
+    setSaleLivestockId(sale.livestock ? String(sale.livestock) : "");
+    setSaleQty(sale.quantity);
+    setSaleMethod(sale.sale_method);
+    setTotalLiveWeight(sale.total_live_weight == null ? "" : String(sale.total_live_weight));
+    setPricePerHead(sale.price_per_head == null ? "" : String(sale.price_per_head));
+    setPricePerKg(sale.price_per_kg == null ? "" : String(sale.price_per_kg));
+    setTotalPrice(sale.total_price == null ? "" : String(sale.total_price));
+    setDestination(sale.destination);
+    setSaleDate(sale.sale_date);
+    setSalePurpose(sale.purpose);
+    setIsSaleOpen(true);
+  };
+
   const handleSaleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!saleLivestockId) {
+    if (!saleLivestockId && !editingSale) {
       toast.error("Please select an animal.");
       return;
     }
@@ -167,7 +188,8 @@ export default function ProductionSalesTab({
       (pricePerKg && totalLiveWeight ? Number(pricePerKg) * Number(totalLiveWeight) : 0);
 
     recordSaleMutation.mutate({
-      livestock: Number(saleLivestockId),
+      // Revisions keep the authoritative source; only the declaration details change.
+      ...(editingSale ? {} : { livestock: Number(saleLivestockId) }),
       quantity: Number(saleQty),
       sale_method: saleMethod,
       total_live_weight: totalLiveWeight ? Number(totalLiveWeight) : null,
@@ -255,7 +277,7 @@ export default function ProductionSalesTab({
             <Compass className="size-4 text-slate-500" /> Declare Intent / Movement
           </Button>
           <Button
-            onClick={() => setIsSaleOpen(true)}
+            onClick={() => { setEditingSale(null); setSaleLivestockId(""); setSaleQty(1); setIsSaleOpen(true); }}
             className="bg-emerald-700 hover:bg-[#2D5A27] text-white shadow-sm font-semibold gap-2"
           >
             <Plus className="size-4" /> Record Cattle Sold
@@ -321,8 +343,15 @@ export default function ProductionSalesTab({
                       </div>
                     </div>
                     <div className="text-right shrink-0">
+                      <p className="text-xs text-slate-600">{sale.status.replaceAll("_", " ")}</p>
+                      {sale.status === "SUBJECT_TO_REVISION" && (
+                        <div className="mb-2">
+                          {sale.review_remarks && <p className="text-xs text-rose-700 max-w-48">{sale.review_remarks}</p>}
+                          <Button type="button" size="sm" variant="outline" onClick={() => reviseSale(sale)}>Revise sale</Button>
+                        </div>
+                      )}
                       <span className="text-base font-black text-emerald-800">
-                        {sale.total_price ? `₱${Number(sale.total_price).toLocaleString()}` : "—"}
+                        {sale.total_price != null ? `₱${Number(sale.total_price).toLocaleString()}` : "—"}
                       </span>
                     </div>
                   </div>
@@ -390,7 +419,7 @@ export default function ProductionSalesTab({
         <DialogContent className="sm:max-w-xl p-6 rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <ShoppingBag className="size-5 text-emerald-700" /> Record Live Cattle Sale
+              <ShoppingBag className="size-5 text-emerald-700" /> {editingSale ? "Revise Sale Declaration" : "Record Live Cattle Sale"}
             </DialogTitle>
             <DialogDescription>
               Record sale details, auction proceeds, and pricing methods.
@@ -400,9 +429,9 @@ export default function ProductionSalesTab({
           <form onSubmit={handleSaleSubmit} className="space-y-4 mt-2">
             <div className="space-y-1.5">
               <Label htmlFor="sale-animal">Select Animal / Tag *</Label>
-              <Select value={saleLivestockId} onValueChange={setSaleLivestockId}>
+              <Select value={saleLivestockId} onValueChange={setSaleLivestockId} disabled={!!editingSale}>
                 <SelectTrigger id="sale-animal" className="bg-slate-50">
-                  <SelectValue placeholder="Choose livestock sold" />
+                  <SelectValue placeholder={editingSale?.batch ? "Original herd retained" : "Choose livestock sold"} />
                 </SelectTrigger>
                 <SelectContent>
                   {approvedInventories.map((item) => (
@@ -518,7 +547,7 @@ export default function ProductionSalesTab({
                 disabled={recordSaleMutation.isPending}
                 className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
               >
-                {recordSaleMutation.isPending ? "Saving..." : "Save Sale Record"}
+                {recordSaleMutation.isPending ? "Saving..." : editingSale ? "Resubmit to SIBAT" : "Save Sale Record"}
               </Button>
             </div>
           </form>

@@ -15,8 +15,8 @@ export interface InspectionRecord {
   destination: string;
   purpose: "SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER";
   inspection_date: string;
-  date_issued: string;
-  time_issued: string;
+  date_issued: string | null;
+  time_issued: string | null;
   vehicle_plate_number: string;
   livestock_handler_license_no: string;
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";

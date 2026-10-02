@@ -52,7 +52,7 @@ interface ScannedRecord {
   weightKg?: number | null;
   status: "APPROVED" | "VERIFIED" | "PENDING" | "SUBJECT_TO_REVISION";
   operationalStatus?: string;
-  biosecurity: "CLEARED" | "FLAGGED";
+  biosecurity: "CLEARED" | "FLAGGED" | "UNKNOWN";
   lastVaccination?: string;
   details: string;
   linkUrl?: string;
@@ -67,7 +67,6 @@ export function UniversalQrScannerDialog({
   const [activeResult, setActiveResult] = useState<ScannedRecord | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
-  const [isAdmitted, setIsAdmitted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Role styling & theming
@@ -146,30 +145,29 @@ export function UniversalQrScannerDialog({
           const found = batches.find(
             (b: any) =>
               b.batch_code?.toUpperCase() === trimmed ||
-              b.batch_name?.toUpperCase().includes(trimmed)
+              b.batch_name?.toUpperCase() === trimmed
           );
           if (found) {
             setActiveResult({
               code: found.batch_code,
               type: "BATCH",
               title: found.batch_name || `Batch ${found.batch_code}`,
-              specie: found.livestock_type_name || "Cattle",
+              specie: found.livestock_type_name || "Not recorded",
               owner: found.farmer_name || "Registered Raiser",
-              barangay: found.barangay_name || "Padre Garcia",
-              headCount: found.total_animals || found.animals?.length || 10,
+              barangay: found.barangay_name || "Not recorded",
+              headCount: found.total_animals ?? found.animals?.length ?? 0,
               weightKg: found.average_weight ? Number(found.average_weight) : null,
-              status: (found.review_status || "APPROVED").toUpperCase() as any,
-              biosecurity: "CLEARED",
+              status: (found.review_status || "PENDING").toUpperCase() as any,
+              biosecurity: "UNKNOWN",
               details: `Housing: ${found.housing_pen || "General Pen"} • Feeding: ${found.feed_type || "—"}`,
               linkUrl: `/data-validation/batches?batchId=${encodeURIComponent(found.id)}`,
             });
             setIsSearching(false);
-            setIsAdmitted(false);
-            toast.success(`Verified Batch: ${found.batch_code}`);
+            toast.success(`Record found: ${found.batch_code}`);
             return;
           }
         } catch {
-          // ignore API error and fallback to simulated ledger
+          throw new Error("Registry lookup failed");
         }
       }
 
@@ -180,63 +178,39 @@ export function UniversalQrScannerDialog({
         const found = items.find(
           (i: any) =>
             i.tag_number?.toUpperCase() === trimmed ||
-            String(i.id) === trimmed ||
-            trimmed.includes(i.tag_number?.toUpperCase())
+            String(i.id) === trimmed
         );
         if (found) {
           setActiveResult({
             code: found.tag_number || `TAG-${found.id}`,
             type: "INDIVIDUAL",
             title: `${found.breed || "Standard"} ${found.livestock_type_name || "Cattle"}`,
-            specie: found.livestock_type_name || "Cattle",
-            breed: found.breed || "Brahman Cross",
+            specie: found.livestock_type_name || "Not recorded",
+            breed: found.breed || "Not recorded",
             owner: found.farmer_name || "Registered Raiser",
-            barangay: found.barangay_name || "Padre Garcia",
+            barangay: found.barangay_name || "Not recorded",
             headCount: Number(found.quantity) || 1,
             weightKg: found.weight ? Number(found.weight) : null,
-            status: (found.review_status || found.status || "APPROVED").toUpperCase() as any,
+            status: (found.review_status || found.status || "PENDING").toUpperCase() as any,
             operationalStatus: found.operational_status || "ACTIVE",
-            biosecurity: "CLEARED",
+            biosecurity: "UNKNOWN",
             details: `Official Tag ID #${found.tag_number || found.id} registered under Municipal Agriculture Office`,
             linkUrl: `/data-validation`,
           });
           setIsSearching(false);
-          setIsAdmitted(false);
-          toast.success(`Verified Animal Tag: ${found.tag_number || found.id}`);
+          toast.success(`Record found: ${found.tag_number || found.id}`);
           return;
         }
       } catch {
-        // ignore
+        throw new Error("Registry lookup failed");
       }
 
-      // 3. Fallback resolution for demonstration & quick codes
-      const isBatchCode = trimmed.includes("BATCH") || trimmed.includes("HERD");
-      const isPermit = trimmed.includes("CLR") || trimmed.includes("TP");
-
-      setActiveResult({
-        code: trimmed,
-        type: isBatchCode ? "BATCH" : isPermit ? "PERMIT" : "INDIVIDUAL",
-        title: isBatchCode
-          ? "Certified Cattle Herd"
-          : isPermit
-          ? "Livestock Movement Clearance"
-          : "Registered Breeder Cattle",
-        specie: "Cattle",
-        breed: "Brahman Cross",
-        owner: "Juan Dela Cruz",
-        barangay: "Banaba, Padre Garcia",
-        headCount: isBatchCode ? 10 : 1,
-        weightKg: isBatchCode ? 445 : 480,
-        status: "APPROVED",
-        biosecurity: "CLEARED",
-        lastVaccination: "2026-Q3 (FMD & Hemorrhagic Certified)",
-        details: "Verified against Padre Garcia MAO Agricultural Ledger.",
-        linkUrl: isBatchCode ? `/data-validation/batches?batchId=${encodeURIComponent(trimmed)}` : `/data-validation`,
-      });
-      setIsAdmitted(false);
-      toast.success(`Verified: ${trimmed}`, {
-        description: "Official Padre Garcia MAO record retrieved.",
-      });
+      // A failed lookup is unknown; it must never manufacture approval or clearance.
+      setActiveResult(null);
+      toast.error("No matching accessible registry record. Transport-permit lookup is not available yet.");
+    } catch {
+      setActiveResult(null);
+      toast.error("Unable to verify this code. Check your connection and access permissions.");
     } finally {
       setIsSearching(false);
     }
@@ -245,26 +219,8 @@ export function UniversalQrScannerDialog({
   const handleReset = () => {
     setActiveResult(null);
     setScanInput("");
-    setIsAdmitted(false);
   };
 
-  const handleRoleAction = () => {
-    if (!activeResult) return;
-    setIsAdmitted(true);
-    if (isAuction) {
-      toast.success(`${activeResult.code} admitted to Auction Ingress!`, {
-        description: "Gate pass recorded for auction pen allocation.",
-      });
-    } else if (isSibat) {
-      toast.success(`Field inspection logged for ${activeResult.code}`, {
-        description: "Status verified. Animal health and ownership confirmed.",
-      });
-    } else {
-      toast.success(`Audit record verified for ${activeResult.code}`, {
-        description: "Municipal agriculture compliance validated.",
-      });
-    }
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -447,7 +403,7 @@ export function UniversalQrScannerDialog({
                   </span>
                   <p className="font-bold text-emerald-700 flex items-center gap-1">
                     <CheckCircle2 className="size-3.5" />
-                    <span>Pass Certified</span>
+                    <span>Not assessed by registry lookup</span>
                   </p>
                 </div>
               </div>
@@ -462,33 +418,7 @@ export function UniversalQrScannerDialog({
             {/* Actions */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleRoleAction}
-                  disabled={isAdmitted}
-                  className={`flex-1 ${themeColors.accent} text-white font-bold text-xs rounded-xl h-10 gap-1.5 cursor-pointer shadow-xs`}
-                >
-                  {isAdmitted ? (
-                    <>
-                      <CheckCircle2 className="size-4" />
-                      <span>Action Logged</span>
-                    </>
-                  ) : isAuction ? (
-                    <>
-                      <ClipboardCheck className="size-4" />
-                      <span>Admit to Auction Ingress</span>
-                    </>
-                  ) : isSibat ? (
-                    <>
-                      <ClipboardCheck className="size-4" />
-                      <span>Confirm Field Inspection</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="size-4" />
-                      <span>Validate Official Record</span>
-                    </>
-                  )}
-                </Button>
+
 
                 {activeResult.linkUrl && (
                   <Link href={activeResult.linkUrl} target="_blank">
