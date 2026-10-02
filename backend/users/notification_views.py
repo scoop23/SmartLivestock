@@ -162,3 +162,12 @@ def mark_all_notifications_read(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_notification(request, pk):
+    """Delete only a notification owned by the authenticated user."""
+    notification = get_object_or_404(Notification, pk=pk, user=request.user)
+    notification.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

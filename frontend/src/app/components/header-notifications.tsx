@@ -14,6 +14,7 @@ import {
   Inbox,
   ExternalLink,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import {
   Popover,
@@ -25,7 +26,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/components/ui/utils";
 import api from "@/lib/axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient, useIsMutating } from "@tanstack/react-query";
 
 export type NotificationType =
   | "disease"
@@ -96,6 +98,7 @@ export function HeaderNotifications({
 }: HeaderNotificationsProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const notificationActionsPending = useIsMutating({ mutationKey: ["notification-actions"] }) > 0;
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [isOpen, setIsOpen] = useState(false);
 
@@ -109,21 +112,23 @@ export function HeaderNotifications({
   // Fetch real notifications from Django Backend
   const { data: backendData, isLoading } = useQuery<BackendNotificationsResponse | null>({
     queryKey: ["notifications"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        const res = await api.get<BackendNotificationsResponse>("/api/notifications/");
+        const res = await api.get<BackendNotificationsResponse>("/api/notifications/", { signal });
         return res.data;
       } catch (err) {
         return null;
       }
     },
-    refetchInterval: 15000,
+    refetchInterval: () => queryClient.isMutating({ mutationKey: ["notification-actions"] }) ? false : 15000,
+    refetchOnWindowFocus: !notificationActionsPending,
     refetchOnMount: "always",
     staleTime: 5000,
   });
 
   // Mark single as read mutation
   const markReadMutation = useMutation({
+    mutationKey: ["notification-actions"],
     mutationFn: async (id: string) => {
       const numericId = parseInt(id, 10);
       if (!isNaN(numericId)) {
@@ -141,7 +146,7 @@ export function HeaderNotifications({
         const numericId = parseInt(id, 10);
         queryClient.setQueryData<BackendNotificationsResponse>(["notifications"], {
           ...previousData,
-          unread_count: Math.max(0, previousData.unread_count - 1),
+          unread_count: Math.max(0, previousData.unread_count - (previousData.notifications.some((n) => n.id === numericId && !n.is_read) ? 1 : 0)),
           notifications: previousData.notifications.map((n) =>
             n.id === numericId ? { ...n, is_read: true } : n
           )
@@ -161,6 +166,7 @@ export function HeaderNotifications({
 
   // Mark all as read mutation
   const markAllReadMutation = useMutation({
+    mutationKey: ["notification-actions"],
     mutationFn: async () => {
       await api.post("/api/notifications/mark-all-read/");
     },
@@ -187,6 +193,35 @@ export function HeaderNotifications({
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationKey: ["notification-actions"],
+    mutationFn: async (id: number) => {
+      await api.delete(`/api/notifications/${id}/`);
+    },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["notifications"] });
+      const previousData = queryClient.getQueryData<BackendNotificationsResponse | null>(["notifications"]);
+      if (previousData) {
+        const removed = previousData.notifications.find((notification) => notification.id === id);
+        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"], {
+          ...previousData,
+          notifications: previousData.notifications.filter((notification) => notification.id !== id),
+          unread_count: Math.max(0, previousData.unread_count - (removed && !removed.is_read ? 1 : 0)),
+        });
+      }
+      return { previousData };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["notifications"], context.previousData);
+      }
+      toast.error("Could not delete the notification. It has been restored.");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+
   // Real database notifications
   const notifications: HeaderNotification[] = (backendData?.notifications || []).map((n) => ({
     id: String(n.id),
@@ -203,7 +238,7 @@ export function HeaderNotifications({
   const unreadCount = backendData?.unread_count ?? notifications.filter((n) => !n.read).length;
 
   const handleMarkAsRead = (id: string, link?: string) => {
-    markReadMutation.mutate(id);
+    if (!notificationActionsPending) markReadMutation.mutate(id);
     if (link) {
       setIsOpen(false);
       router.push(link);
@@ -313,7 +348,7 @@ export function HeaderNotifications({
                 variant="ghost"
                 size="sm"
                 onClick={handleMarkAllAsRead}
-                disabled={markAllReadMutation.isPending}
+                disabled={notificationActionsPending}
                 className="h-8 px-2.5 sm:px-3 text-xs font-bold text-[#1E4D2B] hover:text-[#163b21] hover:bg-emerald-50 rounded-xl gap-1.5 cursor-pointer transition-colors active:scale-95"
                 title="Mark all notifications as read"
               >
@@ -457,6 +492,23 @@ export function HeaderNotifications({
                           View details <ExternalLink className="w-3 h-3" />
                         </span>
                       )}
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Delete notification: ${notif.title}`}
+                        title="Delete notification"
+                        disabled={notificationActionsPending}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          deleteMutation.mutate(Number(notif.id));
+                        }}
+                        className="h-8 px-2 text-xs text-slate-500 hover:bg-rose-50 hover:text-rose-700"
+                      >
+                        <Trash2 className="size-3.5" />
+                        Delete
+                      </Button>
 
                       {!notif.read && (
                         <span className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-600 ring-4 ring-emerald-100 shrink-0" />
