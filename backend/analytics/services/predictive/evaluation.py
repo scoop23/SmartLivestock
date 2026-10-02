@@ -254,6 +254,7 @@ def evaluate_all_models(
         "end_month": test_feat["month"].max().strftime("%Y-%m-%d"),
         "observations": len(test_feat),
         "actual_values": [round(float(y), 1) for y in y_test_actual],
+        "months": [d.strftime("%b %Y") for d in test_dates],
     }
 
     train_period_info = {
@@ -276,7 +277,7 @@ def evaluate_all_models(
             "train_period": train_period_info,
             "test_period": test_period_info,
             "is_seeded": meta["is_seeded"],
-            "seed_marker": SEED_MARKER if meta["is_seeded"] else None,
+            "seed_marker": meta.get("seed_marker") if meta["is_seeded"] else None,
         },
         "selection": {
             "criterion": selection_criterion,

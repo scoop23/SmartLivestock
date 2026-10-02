@@ -44,7 +44,9 @@ from django.db.models.functions import TruncMonth
 
 from production.models import ProductionRecord
 
-SEED_MARKER = "AI_SEED::PREDICTIVE_ANALYTICS::V1"
+SEED_MARKER_V2 = "AI_SEED::ANALYTICS_TEST::PRODUCTION::V2"
+SEED_MARKER_LEGACY = "AI_SEED::PREDICTIVE_ANALYTICS::V1"
+SEED_MARKER = SEED_MARKER_V2
 MIN_OBSERVATIONS_REQUIRED = 12  # Minimum monthly points to perform a meaningful train/test comparison
 
 
@@ -71,7 +73,16 @@ def extract_monthly_production_series(
 
     # Step 2: Check for test seed marker
     # This allows the API/UI to honestly disclose whether the data is seeded test data
-    has_seed = base_qs.filter(notes__contains=SEED_MARKER).exists()
+    seeded_record = base_qs.filter(notes__contains="AI_SEED").first()
+    has_seed = seeded_record is not None
+    active_marker = None
+    if has_seed:
+        if SEED_MARKER_V2 in seeded_record.notes:
+            active_marker = SEED_MARKER_V2
+        elif SEED_MARKER_LEGACY in seeded_record.notes:
+            active_marker = SEED_MARKER_LEGACY
+        else:
+            active_marker = SEED_MARKER_V2
 
     # Step 3: Aggregate by calendar month
     # Multiple daily or weekly entries within the same month are summed to produce
@@ -90,6 +101,7 @@ def extract_monthly_production_series(
         "unit": unit,
         "frequency": "MONTHLY",
         "is_seeded": has_seed,
+        "seed_marker": active_marker,
         "total_records": base_qs.count(),
         "total_monthly_observations": len(records),
     }
