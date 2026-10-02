@@ -93,7 +93,12 @@ export default function SibatReviewDialog({
   const isPending = submission.status === "PENDING";
   const isVerified = submission.status === "VERIFIED";
   const isApproved = submission.status === "APPROVED";
-  const isRejected = submission.status === "SUBJECT_TO_REVISION" || (submission.status as any) === "SUBJECT_FOR_REVISION" || submission.status === "REJECTED";
+  // Either reviewer can return a record. The farmer acts next; only resubmission
+  // makes it PENDING and actionable by SIBAT again. Status alone cannot identify the reviewer.
+  const isReturned = submission.status === "SUBJECT_TO_REVISION" || submission.status === "SUBJECT_FOR_REVISION";
+  const returnedBySibat = isReturned && submission.reviewedByRole === "SIBAT";
+  const returnedByMao = isReturned && submission.reviewedByRole === "MAO";
+  const isRejected = submission.status === "REJECTED";
   const isBatch = submission.sourceType === "BATCH" || submission.entryType === "BATCH";
 
   const handleSaveEdits = async () => {
@@ -137,7 +142,9 @@ export default function SibatReviewDialog({
         onSuccess: () => {
           if (newStatus === "VERIFIED") {
             toast.success(
-              submission.sourceType === "CALVING"
+              submission.sourceType === "SALE"
+                ? "Sale verified and forwarded to MAO!"
+                : submission.sourceType === "CALVING"
                 ? "Calving event verified and forwarded to MAO for municipal registration!"
                 : isBatch
                 ? "Herd verified and forwarded to MAO queue!"
@@ -170,7 +177,9 @@ export default function SibatReviewDialog({
               </div>
               <div>
                 <DialogTitle className="text-lg font-black text-slate-900">
-                  {submission.sourceType === "CALVING"
+                  {submission.sourceType === "SALE"
+                ? "Review Live Animal Sale"
+                : submission.sourceType === "CALVING"
                     ? "Verify Calving & Birthing Event"
                     : isBatch
                     ? "Review Herd"
@@ -179,7 +188,9 @@ export default function SibatReviewDialog({
                     : "Review Animal Submission"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 font-medium">
-                  {submission.sourceType === "CALVING"
+                  {submission.sourceType === "SALE"
+                ? "Live Animal Sale"
+                : submission.sourceType === "CALVING"
                     ? `Dam Tag #${submission.damTag || "N/A"} • Calf Tag #${submission.calfTag || "Unassigned"}`
                     : submission.sourceType === "PRODUCTION"
                     ? "Production Yield Log"
@@ -415,6 +426,14 @@ export default function SibatReviewDialog({
                 </div>
               )}
 
+              {submission.sourceType === "SALE" && (
+                <div className="space-y-2 border-t border-slate-200/50 pt-2 text-sm">
+                  <p>Destination: {submission.saleDestination || "Not recorded"}</p>
+                  <p>Purpose: {submission.salePurpose || "Not recorded"}</p>
+                  <p>Recorded sale price: {submission.saleTotalPrice == null ? "Not recorded" : new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(submission.saleTotalPrice)}</p>
+                </div>
+              )}
+
               {/* Specific Metadata for Herds */}
               {isBatch && (
                 <div className="pt-2 border-t border-slate-200/50 space-y-2.5">
@@ -567,14 +586,16 @@ export default function SibatReviewDialog({
                   ? "This submission has been field-verified by SIBAT and is queued for final municipal certification by MAO."
                   : isApproved
                   ? "This submission is officially approved by the Municipal Agriculture Office."
-                  : "This submission was returned for revision. The farmer must update the entry."}
+                  : isReturned
+                  ? "Returned for revision: awaiting farmer corrections and resubmission. SIBAT will review it again once its status returns to Pending."
+                  : "This submission is rejected. No review action is available."}
               </p>
             </div>
 
             {/* SIBAT Remarks Textarea */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                <span>SIBAT Field Verification Remarks</span>
+                <span>{isPending ? "SIBAT Field Verification Remarks" : "Reviewer Remarks"}</span>
                 {isPending && <span className="text-[10px] text-slate-400 font-normal">Optional</span>}
               </Label>
               <Textarea
@@ -604,37 +625,45 @@ export default function SibatReviewDialog({
         {/* ═══ Bottom: Workflow Step Trail ═══ */}
         <div className="border-t border-slate-100 pt-4">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-3">
-            Official Municipal Verification Trail
+            Current Verification Workflow
           </span>
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
             {/* Step 1: Farmer Submitted */}
-            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
+            <div aria-current={isReturned ? "step" : undefined} className={`p-2.5 rounded-xl border ${isReturned
+              ? "bg-amber-50 border-amber-300 text-amber-900"
+              : "bg-emerald-50 border-emerald-200 text-emerald-900"}`}>
               <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
-                <CheckCircle2 className="size-3.5 text-emerald-700" />
-                <span>1. Farmer Submitted</span>
+                {isReturned ? <RotateCcw className="size-3.5 text-amber-700" /> : <CheckCircle2 className="size-3.5 text-emerald-700" />}
+                <span>{isReturned ? "1. Farmer Revision Required" : "1. Farmer Submitted"}</span>
               </div>
-              <span className="text-[10px] text-emerald-700/80 block mt-0.5">
-                {submission.recordDate}
+              <span className="text-[10px] opacity-80 block mt-0.5">
+                {isReturned ? "Awaiting corrections & resubmission" : submission.recordDate}
               </span>
             </div>
 
             {/* Step 2: SIBAT Review */}
-            <div className={`p-2.5 rounded-xl border ${
+            <div aria-current={isPending ? "step" : undefined} className={`p-2.5 rounded-xl border ${
               isPending
                 ? "bg-amber-50 border-amber-300 text-amber-900 font-bold"
-                : "bg-emerald-50 border-emerald-200 text-emerald-900"
+                : returnedBySibat
+                ? "bg-rose-50 border-rose-300 text-rose-950"
+                : isVerified || isApproved || returnedByMao
+                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                : "bg-slate-50 border-slate-200 text-slate-400"
             }`}>
               <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
                 {isPending ? (
                   <Clock className="size-3.5 text-amber-700 animate-pulse" />
-                ) : (
+                ) : isVerified || isApproved ? (
                   <CheckCircle2 className="size-3.5 text-emerald-700" />
+                ) : (
+                  <div className="size-3 rounded-full border border-slate-300" />
                 )}
                 <span>2. SIBAT Field Check</span>
               </div>
               <span className="text-[10px] opacity-80 block mt-0.5">
-                {isPending ? "In Progress" : "Completed"}
+                {isPending ? "Pending SIBAT Review" : returnedBySibat ? "Returned by SIBAT for revision" : returnedByMao ? "Verified before MAO review" : isReturned ? "Review after resubmission" : isRejected ? "Review closed" : "Completed"}
               </span>
             </div>
 
@@ -655,30 +684,32 @@ export default function SibatReviewDialog({
                 <span>3. Forwarded to MAO</span>
               </div>
               <span className="text-[10px] opacity-80 block mt-0.5">
-                {isVerified || isApproved ? "Forwarded" : "Pending Verification"}
+                {isVerified || isApproved || returnedByMao ? "Forwarded" : returnedBySibat ? "Not forwarded — SIBAT requested revision" : isReturned ? "Requires SIBAT re-verification" : isRejected ? "Review closed" : "Pending Verification"}
               </span>
             </div>
 
             {/* Step 4: MAO Final Decision */}
-            <div className={`p-2.5 rounded-xl border ${
+            <div aria-current={isVerified ? "step" : undefined} className={`p-2.5 rounded-xl border ${
               isApproved
                 ? "bg-emerald-100 border-emerald-300 text-emerald-950 font-bold"
-                : isRejected
+                : returnedByMao
                 ? "bg-rose-50 border-rose-300 text-rose-950 font-bold"
+                : isVerified
+                ? "bg-sky-50 border-sky-300 text-sky-900 font-bold"
                 : "bg-slate-50 border-slate-200 text-slate-400"
             }`}>
               <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
                 {isApproved ? (
                   <CheckCircle2 className="size-3.5 text-emerald-700" />
-                ) : isRejected ? (
-                  <AlertCircle className="size-3.5 text-rose-700" />
+                ) : isVerified ? (
+                  <Clock className="size-3.5 text-sky-700" />
                 ) : (
                   <div className="size-3 rounded-full border border-slate-300" />
                 )}
                 <span>4. MAO Decision</span>
               </div>
               <span className="text-[10px] opacity-80 block mt-0.5">
-                {isApproved ? "Approved" : isRejected ? "Subject for Revision" : "Awaiting MAO"}
+                {isApproved ? "Approved" : returnedByMao ? "Returned by MAO for revision" : returnedBySibat ? "Not reached — awaiting SIBAT verification" : isVerified ? "Awaiting MAO Decision" : isReturned ? "Awaiting resubmission & verification" : isRejected ? "Record rejected" : "Awaiting SIBAT Verification"}
               </span>
             </div>
           </div>
@@ -718,14 +749,22 @@ export default function SibatReviewDialog({
                 <CheckCircle2 className="size-3.5" />
                 {reviewMutation.isPending
                   ? "Forwarding..."
-                  : submission.sourceType === "CALVING"
+                  : submission.sourceType === "SALE"
+                ? "Verify Sale & Forward to MAO"
+                : submission.sourceType === "CALVING"
                   ? "Verify Calving & Forward to MAO"
                   : "Verify & Forward to MAO"}
               </Button>
             </div>
           ) : (
             <span className="text-xs text-slate-500 font-medium italic">
-              Status is {submission.status.toLowerCase()} — no further SIBAT action required.
+              {isReturned
+                ? "Awaiting farmer resubmission. SIBAT review becomes available when Pending."
+                : isVerified
+                ? "Awaiting MAO decision. SIBAT verification is complete."
+                : isApproved
+                ? "MAO approved this record. Review complete."
+                : "Record rejected. No SIBAT review action available."}
             </span>
           )}
         </DialogFooter>

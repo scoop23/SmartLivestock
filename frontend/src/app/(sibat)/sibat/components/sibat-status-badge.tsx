@@ -79,11 +79,11 @@ export default function SibatStatusBadge({
             className={`bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
           >
             <AlertCircle className="size-3 text-rose-600" />
-            Subject for Revision
+            {normStatus === "REJECTED" ? "Rejected" : "Subject to Revision"}
           </Badge>
           {showSubtitle && (
             <span className="text-[10px] text-rose-700 font-medium">
-              Returned for correction or field clarification
+              {normStatus === "REJECTED" ? "Review closed" : "Returned for correction or field clarification"}
             </span>
           )}
         </div>

@@ -51,6 +51,7 @@ const STATUS_TABS: Array<{
 
 const getCommodityEmoji = (title: string = "", sourceType: string = "") => {
   if (sourceType === "CALVING") return "👶";
+  if (sourceType === "SALE") return "💰";
   const t = title.toLowerCase();
   if (t.includes("calv") || t.includes("birth") || t.includes("calf") || t.includes("dam")) return "👶";
   if (t.includes("milk") || t.includes("gatas")) return "🥛";
@@ -71,9 +72,9 @@ export default function SibatProductionQueue({
   prodTypeFilter,
   onProdTypeFilterChange,
 }: SibatProductionQueueProps) {
-  // Filter for PRODUCTION & CALVING sourceType
+  // Keep sales in the same review pipeline as production and calving.
   const prodSubmissions = useMemo(() => {
-    return submissions.filter((s) => s.sourceType === "PRODUCTION" || s.sourceType === "CALVING");
+    return submissions.filter((s) => s.sourceType === "PRODUCTION" || s.sourceType === "CALVING" || s.sourceType === "SALE");
   }, [submissions]);
 
   // Counts by status
@@ -131,10 +132,10 @@ export default function SibatProductionQueue({
           </div>
           <div>
             <h2 className="text-base font-black text-slate-900 flex items-center gap-1.5">
-              Production, Harvest & Calving Logs
+              Production, Sales & Calving Logs
             </h2>
             <p className="text-xs text-slate-600 font-medium">
-              Review and calibrate daily milk liters, egg collections, meat harvest quantities, and newborn calf birth records.
+              Review production measurements, live animal sales, and newborn calf birth records.
             </p>
           </div>
         </div>
@@ -177,6 +178,7 @@ export default function SibatProductionQueue({
                 { label: "Eggs", value: "Egg", emoji: "🥚" },
                 { label: "Meat", value: "Meat", emoji: "🥩" },
                 { label: "Calving & Births", value: "Calving", emoji: "👶" },
+                { label: "Sales", value: "Sale", emoji: "💰" },
               ].map((pill) => (
                 <button
                   key={pill.value}
@@ -375,7 +377,7 @@ export default function SibatProductionQueue({
                         {isPending ? (
                           <>
                             <ClipboardCheck className="size-4 text-amber-300" />
-                            {item.sourceType === "CALVING" ? "Verify Calving Record" : "Calibrate & Verify Yield"}
+                            {item.sourceType === "SALE" ? "Verify Sale" : item.sourceType === "CALVING" ? "Verify Calving Record" : "Calibrate & Verify Yield"}
                           </>
                         ) : (
                           <>

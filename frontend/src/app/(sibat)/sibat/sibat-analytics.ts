@@ -14,12 +14,12 @@ import { getAttachedPhoto } from "@/lib/photo-storage";
 
 export type UnifiedStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "SUBJECT_FOR_REVISION" | "REJECTED";
 
-export type UnifiedSubmissionType = "ALL" | "PRODUCTION" | "INVENTORY" | "BATCH" | "CALVING";
+export type UnifiedSubmissionType = "ALL" | "PRODUCTION" | "INVENTORY" | "BATCH" | "CALVING" | "SALE";
 
 export interface UnifiedSubmissionItem {
   id: string; // composite key e.g. "prod-1", "inv-2", "batch-3", "calving-4"
   rawId: number;
-  sourceType: "PRODUCTION" | "INVENTORY" | "BATCH" | "CALVING";
+  sourceType: "PRODUCTION" | "INVENTORY" | "BATCH" | "CALVING" | "SALE";
   submissionTypeLabel: string;
   farmerName: string;
   barangayName: string;
@@ -27,6 +27,9 @@ export interface UnifiedSubmissionItem {
   detailsTitle: string;
   quantityDisplay: string;
   slaughterDetails?: ProductionRecordItem["slaughterDetails"];
+  saleDestination?: string;
+  saleTotalPrice?: number | null;
+  salePurpose?: string;
   quantity: number;
   unit: string;
   recordDate: string;
@@ -57,6 +60,7 @@ export interface UnifiedSubmissionItem {
   reviewRemarks?: string | null;
   reviewedAt?: string | null;
   reviewedByName?: string | null;
+  reviewedByRole?: string | null;
   createdAt: string;
 }
 
@@ -83,6 +87,7 @@ export interface RawInventoryRecord {
   review_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
+  reviewed_by_role?: string | null;
   created_at: string;
 }
 
@@ -107,6 +112,7 @@ export interface RawCalvingRecord {
   status: UnifiedStatus;
   reviewed_by?: number | null;
   reviewed_by_name?: string | null;
+  reviewed_by_role?: string | null;
   reviewed_at?: string | null;
   review_remarks?: string | null;
   created_at: string;
@@ -137,6 +143,7 @@ export interface RawDiseaseCase {
   review_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
+  reviewed_by_role?: string | null;
   created_at: string;
 }
 
@@ -162,6 +169,7 @@ export interface RawMortalityRecord {
   review_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
+  reviewed_by_role?: string | null;
   created_at: string;
 }
 
@@ -199,6 +207,9 @@ export const mapProductionToUnified = (p: ProductionRecordItem): UnifiedSubmissi
     status: p.status as UnifiedStatus,
     notes: p.notes,
     reviewRemarks: p.reviewRemarks,
+    reviewedByRole: p.reviewedByRole,
+    reviewedByName: p.reviewedByName,
+    reviewedAt: p.reviewedAt,
     createdAt: p.createdAt,
   };
 };
@@ -233,6 +244,7 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     reviewRemarks: inv.review_remarks,
     reviewedAt: inv.reviewed_at,
     reviewedByName: inv.reviewed_by_name,
+    reviewedByRole: inv.reviewed_by_role,
     createdAt: inv.created_at,
   };
 };
@@ -264,6 +276,7 @@ export const mapBatchToUnified = (b: any): UnifiedSubmissionItem => {
     reviewRemarks: b.review_remarks,
     reviewedAt: b.reviewed_at,
     reviewedByName: b.reviewed_by_name,
+    reviewedByRole: b.reviewed_by_role,
     createdAt: b.created_at,
   };
 };
@@ -304,6 +317,7 @@ export const mapCalvingToUnified = (c: RawCalvingRecord): UnifiedSubmissionItem 
     reviewRemarks: c.review_remarks,
     reviewedAt: c.reviewed_at,
     reviewedByName: c.reviewed_by_name,
+    reviewedByRole: c.reviewed_by_role,
     createdAt: c.created_at,
   };
 };
@@ -527,6 +541,42 @@ export async function fetchMortalityRecords(): Promise<RawMortalityRecord[]> {
   return Array.isArray(response.data) ? response.data : [];
 }
 
+interface RawSaleRecord {
+  id: number;
+  livestock: number | null;
+  batch: number | null;
+  farmer_name: string;
+  barangay_name: string | null;
+  livestock_type_name: string | null;
+  tag_number?: string | null;
+  quantity: number;
+  sale_date: string;
+  destination: string;
+  purpose: string;
+  total_price: string | number | null;
+  status: UnifiedStatus;
+  review_remarks: string | null;
+  reviewed_by_role?: string | null;
+  created_at: string;
+}
+
+export async function fetchSalesFromFarmers(): Promise<UnifiedSubmissionItem[]> {
+  const { data } = await api.get<RawSaleRecord[]>("production/sales/");
+  return data.map((sale) => ({
+    id: `sale-${sale.id}`, rawId: sale.id, sourceType: "SALE",
+    submissionTypeLabel: "Live Animal Sale", farmerName: sale.farmer_name,
+    barangayName: sale.barangay_name || "Not recorded",
+    livestockTypeName: sale.livestock_type_name || "Not recorded",
+    detailsTitle: `${sale.livestock_type_name || "Livestock"} — Live Animal Sale`,
+    quantityDisplay: `${sale.quantity} head(s)`, quantity: sale.quantity, unit: "heads",
+    recordDate: sale.sale_date, status: sale.status, reviewRemarks: sale.review_remarks,
+    reviewedByRole: sale.reviewed_by_role,
+    createdAt: sale.created_at, tagNumber: sale.tag_number || undefined,
+    saleDestination: sale.destination, salePurpose: sale.purpose,
+    saleTotalPrice: sale.total_price == null ? null : Number(sale.total_price),
+  }));
+}
+
 // ── Hooks ──
 
 export function useCensusSubmission() {
@@ -620,17 +670,19 @@ export function useClinicalHealthRecords() {
 
 export function useSibatSubmissions() {
   const prodQuery = useProductionFromFarmers();
+  const salesQuery = useQuery({ queryKey: ["sibat-sales-records"], queryFn: fetchSalesFromFarmers, staleTime: 30_000 });
   const invQuery = useInventoryFromFarmers();
   const batchQuery = useBatchesFromFarmers();
   const calvingQuery = useCalvingFromFarmers();
 
-  const isLoading = prodQuery.isLoading || invQuery.isLoading || batchQuery.isLoading || calvingQuery.isLoading;
-  const isError = prodQuery.isError || invQuery.isError || batchQuery.isError || calvingQuery.isError;
+  const isLoading = prodQuery.isLoading || invQuery.isLoading || batchQuery.isLoading || calvingQuery.isLoading || salesQuery.isLoading;
+  const isError = prodQuery.isError || invQuery.isError || batchQuery.isError || calvingQuery.isError || salesQuery.isError;
   const refetch = () => {
     prodQuery.refetch();
     invQuery.refetch();
     batchQuery.refetch();
     calvingQuery.refetch();
+    salesQuery.refetch();
   };
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
@@ -641,6 +693,7 @@ export function useSibatSubmissions() {
   const calvingUnified = (calvingQuery.data || []).map(mapCalvingToUnified);
 
   const allSubmissions: UnifiedSubmissionItem[] = [
+    ...(salesQuery.data || []),
     ...productionUnified,
     ...calvingUnified,
     ...inventoryUnified,
@@ -676,6 +729,8 @@ export function useReviewSubmission() {
       let endpoint = `livestock/inventory/${item.rawId}/review/`;
       if (item.sourceType === "PRODUCTION") {
         endpoint = `production/records/${item.rawId}/review/`;
+      } else if (item.sourceType === "SALE") {
+        endpoint = `production/sales/${item.rawId}/review/`;
       } else if (item.sourceType === "CALVING") {
         endpoint = `production/calving/${item.rawId}/review/`;
       } else if (item.sourceType === "BATCH" || item.id.startsWith("batch-")) {
@@ -689,6 +744,8 @@ export function useReviewSubmission() {
       return response.data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sibat-sales-records"] });
+      queryClient.invalidateQueries({ queryKey: ["sales_records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-calving-records"] });
       queryClient.invalidateQueries({ queryKey: ["calving_records"] });
