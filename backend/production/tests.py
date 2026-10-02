@@ -752,3 +752,71 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(meat["quantity"], 210)
         with self.assertRaises(ProtectedError):
             animals[1].delete()
+
+    def test_farmer_own_production_records_include_pending_while_analytics_excludes_unapproved(self):
+        from analytics.services.descriptive import descriptive_summary
+
+        other_farmer_user = User.objects.create_user(
+            username="other-farmer-test", email="other-farmer-test@example.com",
+            password=None, role=self.farmer_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        other_farmer = Farmer.objects.create(
+            user=other_farmer_user, barangay=self.farmer.barangay, address="Purok 2",
+        )
+        other_animal = LivestockInventory.objects.create(
+            farmer=other_farmer, livestock_type=self.cattle, quantity=1,
+            created_by=other_farmer_user,
+            status=LivestockInventory.StatusType.APPROVED,
+        )
+
+        # Farmer A creates an approved record (quantity 25) and a pending record (quantity 15)
+        self.record.status = ProductionRecord.ProductionStatus.APPROVED
+        self.record.quantity = 25
+        self.record.record_date = date(2026, 1, 10)
+        self.record.save(update_fields=["status", "quantity", "record_date"])
+
+        pending_record = ProductionRecord.objects.create(
+            livestock=self.animal,
+            production_type=ProductionRecord.ProductionType.MILK,
+            quantity=15,
+            unit=ProductionRecord.UnitType.LITERS,
+            record_date=date(2026, 1, 15),
+            status=ProductionRecord.ProductionStatus.PENDING,
+            created_by=self.farmer_user,
+        )
+
+        # Farmer B creates a pending record (quantity 50)
+        other_record = ProductionRecord.objects.create(
+            livestock=other_animal,
+            production_type=ProductionRecord.ProductionType.MILK,
+            quantity=50,
+            unit=ProductionRecord.UnitType.LITERS,
+            record_date=date(2026, 1, 20),
+            status=ProductionRecord.ProductionStatus.PENDING,
+            created_by=other_farmer_user,
+        )
+
+        # 1. Farmer A retrieves their production records
+        self.client.force_authenticate(user=self.farmer_user)
+        response = self.client.get("/production/records/")
+        self.assertEqual(response.status_code, 200)
+        record_ids = [r["id"] for r in response.data]
+        self.assertIn(self.record.id, record_ids)
+        self.assertIn(pending_record.id, record_ids)
+        self.assertNotIn(other_record.id, record_ids)
+
+        # 2. Farmer B retrieves their production records
+        self.client.force_authenticate(user=other_farmer_user)
+        response_b = self.client.get("/production/records/")
+        self.assertEqual(response_b.status_code, 200)
+        record_ids_b = [r["id"] for r in response_b.data]
+        self.assertIn(other_record.id, record_ids_b)
+        self.assertNotIn(self.record.id, record_ids_b)
+        self.assertNotIn(pending_record.id, record_ids_b)
+
+        # 3. Descriptive municipal analytics only aggregates APPROVED records (25 L)
+        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]
+        milk_stats = [row for row in summary["production"]["by_type"] if row["type"] == "MILK"]
+        self.assertEqual(len(milk_stats), 1)
+        self.assertEqual(milk_stats[0]["quantity"], 25.0)

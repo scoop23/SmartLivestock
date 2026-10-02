@@ -67,6 +67,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     batch_code = serializers.CharField(
         source="batch.batch_code", read_only=True
     )
+    reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
 
     def get_livestock_type_name(self, obj):
@@ -129,6 +130,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "review_remarks",
             "reviewed_at",
             "reviewed_by_name",
+            "reviewed_by_role",
             "created_at",
         )
         read_only_fields = ("status", "review_remarks", "reviewed_at", "created_at", "valuation_snapshot")
@@ -314,21 +316,34 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
     """
     farmer_name = serializers.SerializerMethodField()
     tag_number = serializers.CharField(source="livestock.tag_number", read_only=True)
-    livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
+    livestock_type_name = serializers.SerializerMethodField()
+    barangay_name = serializers.SerializerMethodField()
 
     def get_farmer_name(self, obj):
         try:
-            user = obj.livestock.farmer.user
+            user = (obj.livestock or obj.batch).farmer.user
             full = user.get_full_name().strip()
             return full if full else user.username
         except Exception:
             return "Unknown Farmer"
+
+    def get_livestock_type_name(self, obj):
+        source = obj.livestock or obj.batch
+        return source.livestock_type.name if source else None
+
+    def get_barangay_name(self, obj):
+        source = obj.livestock or obj.batch
+        return source.farmer.barangay.barangay_name if source else None
+
+    reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
 
     class Meta:
         model = LiveAnimalSale
         fields = (
             "id",
             "livestock",
+            "batch",
+            "barangay_name",
             "tag_number",
             "livestock_type_name",
             "farmer_name",
@@ -343,6 +358,7 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
             "purpose",
             "status",
             "review_remarks",
+            "reviewed_by_role",
             "inventory_reconciled_at",
             "created_at",
         )
@@ -400,6 +416,11 @@ class LiveAnimalSaleSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+        # Missing prices stay unknown; a recorded zero is valid, but negative prices are not.
+        for field in ("price_per_head", "price_per_kg", "total_price"):
+            value = attrs.get(field, getattr(self.instance, field, None))
+            if value is not None and value < 0:
+                raise ValidationError({field: "Sale prices cannot be negative."})
         return attrs
 
     def update(self, instance, validated_data):
@@ -482,6 +503,7 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
     livestock_type_name = serializers.SerializerMethodField(read_only=True)
     barangay_name = serializers.SerializerMethodField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)
+    reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
 
     def get_livestock_type_name(self, obj):
@@ -537,6 +559,7 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             "status",
             "reviewed_by",
             "reviewed_by_name",
+            "reviewed_by_role",
             "reviewed_at",
             "review_remarks",
             "offspring_inventory",

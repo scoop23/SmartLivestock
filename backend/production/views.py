@@ -62,7 +62,7 @@ def production_record_list_create(request):
 
     if user_role == "FARMER":
         records = ProductionRecord.objects.filter(
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user) | Q(created_by=user)
         ).distinct()
     else:
         require_action(user, "production", "read_all")
@@ -76,7 +76,7 @@ def production_record_list_create(request):
         "batch__farmer__barangay",
         "batch__livestock_type",
         "created_by",
-        "reviewed_by",
+        "reviewed_by__role",
     ).order_by("-record_date", "-created_at")
 
     records = records.select_related("slaughter").prefetch_related("slaughter__selected_animals")
@@ -95,12 +95,12 @@ def production_record_detail(request, pk):
     DELETE /production/records/<pk>/ -> Delete record (only PENDING allowed)
     """
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", None)
+    user_role = role_name(user)
 
-    if role_name == "FARMER":
+    if user_role == "FARMER":
         record = get_object_or_404(
             ProductionRecord.objects.select_for_update(of=("self",)),
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user) | Q(created_by=user),
             pk=pk,
         )
     else:
@@ -108,7 +108,7 @@ def production_record_detail(request, pk):
         record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
     if request.method == "DELETE":
-        if role_name != "FARMER":
+        if user_role != "FARMER":
             return Response(
                 {"error": "Only the farmer may delete their production record."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -125,7 +125,7 @@ def production_record_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method in ["PUT", "PATCH"]:
-        if role_name != "FARMER":
+        if user_role != "FARMER":
             return Response(
                 {"error": "Only the farmer may edit their production record."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -325,11 +325,16 @@ def live_animal_sales_list_create(request):
         require_action(user, "sales", "read_all")
         sales = scope_reviewer_queryset(LiveAnimalSale.objects.all(), request.user)
 
+    # Sale display follows either source; load its owner and barangay in this query.
     sales = sales.select_related(
         "livestock__farmer__user",
+        "livestock__farmer__barangay",
+        "batch__farmer__user",
+        "batch__farmer__barangay",
+        "batch__livestock_type",
         "livestock__livestock_type",
         "created_by",
-        "reviewed_by",
+        "reviewed_by__role",
     ).order_by("-sale_date", "-created_at")
 
     serializer = LiveAnimalSaleSerializer(sales, many=True)
@@ -503,7 +508,7 @@ def calving_records_list_create(request):
         "dam__livestock_type",
         "dam__farmer__user",
         "dam__farmer__barangay",
-        "reviewed_by",
+        "reviewed_by__role",
         "created_by",
     ).order_by("-calving_date", "-created_at")
 
