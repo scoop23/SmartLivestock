@@ -162,16 +162,35 @@ def generate_future_forecast(
 
     combined_timeline = historical_timeline + future_timeline
 
-    # Summary metrics
+    # 4. Summary Metrics & Change Analysis:
+    # Compare the recent 3-month actual baseline with the upcoming forecast average.
+    # This provides municipal officers with a quick indicator of expected growth or decline.
     recent_baseline = float(df["quantity"].iloc[-3:].mean())
     forecast_avg = float(np.mean(predicted_values)) if predicted_values else recent_baseline
     pct_change = round(((forecast_avg - recent_baseline) / recent_baseline) * 100, 1) if recent_baseline > 0 else 0.0
 
+    # 5. Connect Active Model Evaluation Metrics:
+    # Instead of forcing the frontend to query a separate endpoint or invent fake numbers,
+    # we find the evaluated test metrics (MAE, RMSE, R²) for the exact winning model
+    # and embed them directly into this forecast response.
+    active_metrics = {"mae": None, "rmse": None, "r2": None}
+    for m in eval_res.get("models", []):
+        if m.get("name") == selected_model_name:
+            active_metrics = {
+                "mae": m.get("mae"),
+                "rmse": m.get("rmse"),
+                "r2": m.get("r2"),
+            }
+            break
+
+    # 6. Build Standardized API Response Payload:
     return {
         "status": "ready",
         "forecast_available": True,
         "domain": domain,
+        "scope": meta.get("scope", f"Municipal {domain}"),
         "model": selected_model_name,
+        "metrics": active_metrics,
         "target": {
             "domain": domain,
             "target": effective_target,

@@ -50,6 +50,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 type AnalyticsDomain = "production" | "disease" | "mortality" | "slaughter" | "auction";
 
+// ModelEvaluation:
+// Represents the benchmark score of a single ML candidate algorithm
+// (e.g. Random Forest, ARIMA, Linear Regression) tested on historical holdout data.
 interface ModelEvaluation {
   name: string;
   model_type: string;
@@ -62,16 +65,24 @@ interface ModelEvaluation {
   is_selected?: boolean;
 }
 
+// HistoricalTrendPoint:
+// A single monthly ground-truth observation recorded in PostgreSQL.
 interface HistoricalTrendPoint {
   date: string;
   month_label: string;
   actual: number;
 }
 
+// EvaluationResponse:
+// Shape of the response from GET /api/analytics/predictive/evaluate/
+// Contains model comparison benchmarks and data sufficiency status.
 interface EvaluationResponse {
   status: "ready" | "insufficient_data" | "error";
   forecast_available?: boolean;
   domain?: string;
+  scope?: string;
+  available_observations?: number;
+  required_observations?: number;
   message?: string;
   target?: {
     domain?: string;
@@ -83,6 +94,8 @@ interface EvaluationResponse {
   data?: {
     total_observations?: number;
     total_monthly_observations?: number;
+    available_observations?: number;
+    required_observations?: number;
     training_observations?: number;
     test_observations?: number;
     is_seeded: boolean;
@@ -127,7 +140,13 @@ interface ForecastResponse {
   status: "ready" | "insufficient_data" | "error";
   forecast_available?: boolean;
   domain?: string;
+  scope?: string;
   model?: string;
+  metrics?: {
+    mae: number | null;
+    rmse: number | null;
+    r2: number | null;
+  };
   target?: {
     domain?: string;
     target?: string;
@@ -143,9 +162,51 @@ interface ForecastResponse {
     forecast_period_avg: number;
     projected_change_pct: number;
   };
+  evaluation_summary?: {
+    criterion: string;
+    selected_model: string;
+    rationale: string;
+  };
   forecast?: ForecastPoint[];
   chart_data?: ChartTimelinePoint[];
   historical_trend?: HistoricalTrendPoint[];
+}
+
+// NormalizedPredictiveView:
+// The unified frontend view model. Different backend domains (milk vs mortality vs auction)
+// may structure their raw records differently, but the UI consumes this single normalized shape.
+// This decouples React rendering from backend endpoint nuances.
+interface NormalizedPredictiveView {
+  domain: AnalyticsDomain;
+  scope: string;
+  metricLabel: string;
+  unit: string;
+  unitLabel: string;
+  insufficientData: boolean;
+  availableObservations: number;
+  requiredObservations: number;
+  message?: string;
+  historical: HistoricalTrendPoint[];
+  forecast: ForecastPoint[];
+  chartData: ChartTimelinePoint[];
+  model: string;
+  metrics: {
+    mae: number | null;
+    rmse: number | null;
+    r2: number | null;
+  };
+  candidateModels: ModelEvaluation[];
+  selectionRationale?: string;
+  selectionCriterion?: string;
+  metadata?: {
+    horizon_months: number;
+    is_seeded: boolean;
+    seed_marker?: string;
+    last_historical_date: string;
+    recent_baseline_avg: number;
+    forecast_period_avg: number;
+    projected_change_pct: number;
+  };
 }
 
 interface DescriptiveData {
@@ -488,6 +549,112 @@ export default function PredictiveAnalyticsView() {
     }));
   }, [evalData]);
 
+  // Standardized frontend normalization layer:
+  // Instead of scattering domain-specific if/else checks across all JSX cards and charts,
+  // this memo hook transforms backend API data from any of the 5 domains (production, disease,
+  // mortality, slaughter, auction) into a consistent, predictable view object.
+  const normalized = useMemo<NormalizedPredictiveView>(() => {
+    // 1. Check data sufficiency status returned by Django backend
+    const isInsufficient = evalData?.status === "insufficient_data";
+    
+    // 2. Extract available vs required observations (12 months required for 1-year seasonality & holdout testing)
+    const availableObs =
+      evalData?.available_observations ??
+      evalData?.data?.available_observations ??
+      evalData?.data?.total_monthly_observations ??
+      evalData?.historical_trend?.length ??
+      evalData?.data?.historical_trend?.length ??
+      0;
+    const requiredObs =
+      evalData?.required_observations ??
+      evalData?.data?.required_observations ??
+      12;
+
+    const historicalList: HistoricalTrendPoint[] =
+      evalData?.historical_trend || evalData?.data?.historical_trend || [];
+
+    const forecastList: ForecastPoint[] = forecastData?.forecast || [];
+
+    // 3. Prepare timeline chart data:
+    // When a forecast is available, use the pre-stitched continuous timeline from backend.
+    // If in insufficient_data mode, fall back to historical points with null forecast values.
+    const timelineData: ChartTimelinePoint[] =
+      forecastData?.chart_data && forecastData.chart_data.length > 0
+        ? forecastData.chart_data
+        : historicalList.map((h) => ({
+            date: h.date,
+            month_label: h.month_label,
+            actual: h.actual,
+            forecast: null,
+          }));
+
+    // 4. Identify the active model (user selection or lowest-MAE holdout winner chosen by backend)
+    const activeModelName =
+      selectedModel ||
+      forecastData?.model ||
+      evalData?.selection?.selected_model ||
+      "Best Evaluated Model";
+
+    // 5. Connect holdout test metrics (MAE, RMSE, R²) for the active model
+    const evaluatedModelObj = evalData?.models?.find((m) => m.name === activeModelName);
+    const metrics = {
+      mae: evaluatedModelObj?.mae ?? forecastData?.metrics?.mae ?? null,
+      rmse: evaluatedModelObj?.rmse ?? forecastData?.metrics?.rmse ?? null,
+      r2: evaluatedModelObj?.r2 ?? forecastData?.metrics?.r2 ?? null,
+    };
+
+    // 6. Map domain-specific display titles
+    let metricName = "";
+    if (activeDomain === "production") {
+      const prod = PRODUCTION_COMMODITIES.find((c) => c.type === productionType);
+      metricName = prod ? `${prod.label} Production` : "Livestock Production";
+    } else if (activeDomain === "disease") {
+      metricName = unit === "CASES" ? "Municipal Outbreak Reports" : "Affected Animals (Heads)";
+    } else if (activeDomain === "mortality") {
+      metricName = "Total Livestock Deaths";
+    } else if (activeDomain === "slaughter") {
+      metricName = unit === "KILOGRAMS" ? "Carcass Dressing Meat Yield" : "Abattoir Slaughter Throughput";
+    } else if (activeDomain === "auction") {
+      metricName = unit === "PHP" ? "Commercial Trading Volume (PHP)" : "Live Animals Sold (Heads)";
+    }
+
+    // 7. Explicit Scope Labeling:
+    // Clearly informs municipal users whether predictions are municipal aggregates or specific to facilities.
+    const defaultScope =
+      activeDomain === "disease"
+        ? "Municipal-level disease forecast"
+        : activeDomain === "mortality"
+        ? "Municipality-wide mortality totals"
+        : activeDomain === "slaughter"
+        ? "Municipal slaughterhouse (abattoir) throughput"
+        : activeDomain === "auction"
+        ? "Municipal live animal commercial trade"
+        : "Municipal-level production output";
+
+    const scopeStr = evalData?.scope || forecastData?.scope || defaultScope;
+
+    return {
+      domain: activeDomain,
+      scope: scopeStr,
+      metricLabel: metricName,
+      unit,
+      unitLabel,
+      insufficientData: isInsufficient,
+      availableObservations: availableObs,
+      requiredObservations: requiredObs,
+      message: evalData?.message,
+      historical: historicalList,
+      forecast: forecastList,
+      chartData: timelineData,
+      model: activeModelName,
+      metrics,
+      candidateModels: evalData?.models || [],
+      selectionRationale: evalData?.selection?.rationale,
+      selectionCriterion: evalData?.selection?.criterion,
+      metadata: forecastData?.metadata,
+    };
+  }, [evalData, forecastData, selectedModel, activeDomain, productionType, unit, unitLabel]);
+
   // Rationale text from backend
   const winningModel = evalData?.models?.find((m) => m.is_selected);
 
@@ -811,27 +978,54 @@ export default function PredictiveAnalyticsView() {
       {/* ------------------------------------------------------------------ */}
       {/* 4. INSUFFICIENT DATA STATE (ACADEMIC INTEGRITY GUARANTEE) */}
       {/* ------------------------------------------------------------------ */}
-      {!loading && !error && evalData?.status === "insufficient_data" && (
+      {/* 4. INSUFFICIENT DATA STATE:                                        */}
+      {/* Displays when PostgreSQL contains < 12 monthly observations.       */}
+      {/* Protects system integrity by refusing to manufacture fake forecast */}
+      {/* numbers or pretend to train ML on insufficient sample sizes.       */}
+      {/* ------------------------------------------------------------------ */}
+      {!loading && !error && normalized.insufficientData && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-amber-200 p-6 shadow-xs">
             <div className="flex items-start gap-3.5">
               <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                 <Info className="size-6" />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-slate-900 text-base">
-                    Predictive Forecasting Unavailable: Insufficient Historical Observations
-                  </h3>
+              <div className="space-y-4 w-full">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-lg">
+                      Insufficient historical data
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Scope: <span className="font-semibold text-slate-700">{normalized.scope}</span>
+                    </p>
+                  </div>
                   <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 font-semibold text-xs">
                     Academic Integrity Protection
                   </Badge>
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {evalData.message ||
-                    `At least 12 monthly observations are required to chronologically train, evaluate, and benchmark machine learning models reliably.`}
+
+                <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                  There are currently not enough observations to generate a reliable forecast.
                 </p>
-                <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/60 text-xs text-amber-900 space-y-1">
+
+                {/* Available observations vs Required observations (12 required for 1-year annual seasonality) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
+                  <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/80 flex items-center justify-between">
+                    <span className="text-xs text-amber-900 font-semibold">Available observations:</span>
+                    <span className="text-base font-extrabold text-amber-950 font-mono">
+                      {normalized.availableObservations}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <span className="text-xs text-slate-700 font-semibold">Required observations:</span>
+                    <span className="text-base font-extrabold text-slate-950 font-mono">
+                      {normalized.requiredObservations}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200/60 text-xs text-amber-900 space-y-1.5">
                   <p className="font-semibold">Why is machine learning disabled?</p>
                   <p>
                     Training regression models on sparse data (&lt; 12 points) leads to severe overfitting, high variance, and fabricated accuracy scores.
@@ -853,7 +1047,7 @@ export default function PredictiveAnalyticsView() {
                       <span className="font-bold">python manage.py seed_slaughters --months 36</span>
                     )}
                     {activeDomain === "auction" && (
-                      <span className="font-bold">python manage.py seed_analytics_test_data</span>
+                      <span className="font-bold">python manage.py seed_auction --months 36</span>
                     )}
                   </p>
                 </div>
@@ -861,7 +1055,10 @@ export default function PredictiveAnalyticsView() {
             </div>
           </div>
 
-          {/* HISTORICAL TREND LINE (EVEN WHEN FORECAST IS UNAVAILABLE) */}
+          {/* HISTORICAL FALLBACK CHART:                                         */}
+          {/* Even though future projections are disabled due to insufficient  */}
+          {/* points, we still graph whatever real data exists so the user is  */}
+          {/* never left with a blank or unresponsive screen.                   */}
           {fallbackHistoricalData.length > 0 && (
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardHeader className="pb-3 border-b border-slate-100">
@@ -1183,23 +1380,113 @@ export default function PredictiveAnalyticsView() {
             </div>
           )}
 
+          {/* ------------------------------------------------------------------ */}
+          {/* ACTIVE MODEL EVALUATION & SCOPE PANEL:                              */}
+          {/* Displays the benchmark evaluation metrics (MAE, RMSE, R²) achieved   */}
+          {/* by the active model on the chronological holdout test dataset.       */}
+          {/* Shows MAO officers the quantitative reliability of the model.       */}
+          {/* ------------------------------------------------------------------ */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-2xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                  <Award className="size-4 text-emerald-700" />
+                  Active Model Evaluation: <span className="text-emerald-800 font-extrabold">{normalized.model}</span>
+                </span>
+                {winningModel?.name === normalized.model && (
+                  <Badge className="bg-emerald-700 text-white text-[10px] py-0 px-2 font-bold">
+                    ★ Best Holdout MAE
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">Prediction Scope:</span>
+                <Badge variant="outline" className="bg-white text-slate-800 border-slate-300 font-semibold text-xs">
+                  {normalized.scope}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+              <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    MAE (Mean Absolute Error)
+                    <span title="Average absolute difference between predictions and actual values (in target unit)." className="cursor-help text-slate-400">ℹ️</span>
+                  </span>
+                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 font-mono">
+                    {normalized.unit}
+                  </Badge>
+                </div>
+                <div className="text-xl font-extrabold text-slate-900 mt-2 font-mono">
+                  {normalized.metrics.mae !== null ? Number(normalized.metrics.mae).toFixed(2) : "N/A"}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">Average absolute difference between predictions and actual values.</p>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    RMSE (Root Mean Squared Error)
+                    <span title="Root Mean Squared Error: Penalizes larger deviations more severely than smaller ones." className="cursor-help text-slate-400">ℹ️</span>
+                  </span>
+                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 font-mono">
+                    {normalized.unit}
+                  </Badge>
+                </div>
+                <div className="text-xl font-extrabold text-slate-900 mt-2 font-mono">
+                  {normalized.metrics.rmse !== null ? Number(normalized.metrics.rmse).toFixed(2) : "N/A"}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">Penalizes large error spikes more severely than small ones.</p>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    R² Score (Variance Explained)
+                    <span title="Coefficient of determination: Proportion of target variance captured by the model (closer to 1.0 is better; negative means worse than naive average)." className="cursor-help text-slate-400">ℹ️</span>
+                  </span>
+                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 font-mono">
+                    Ratio
+                  </Badge>
+                </div>
+                <div className="text-xl font-extrabold text-slate-900 mt-2 font-mono">
+                  {normalized.metrics.r2 !== null ? (
+                    <span className={normalized.metrics.r2 < 0 ? "text-red-600" : "text-slate-900"}>
+                      {Number(normalized.metrics.r2).toFixed(3)}
+                      {normalized.metrics.r2 < 0 ? " (!)" : ""}
+                    </span>
+                  ) : "N/A"}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {normalized.metrics.r2 !== null && normalized.metrics.r2 < 0
+                    ? "Negative R² indicates worse than naive mean."
+                    : "Proportion of target variance captured (closer to 1.0 is better)."}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* CHART 1: HISTORICAL VS FORECAST CONTINUOUS TIMELINE */}
           <Card className="rounded-2xl border-slate-200 shadow-xs">
             <CardHeader className="pb-3 border-b border-slate-100">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <CardTitle className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-2">
                     <LineChartIcon className="size-5 text-emerald-700" />
-                    Historical vs. Forecast Continuous Timeline ({unitLabel})
+                    <span>{normalized.metricLabel} Forecast</span>
+                    <Badge variant="outline" className="bg-slate-50 text-slate-700 text-xs font-semibold">
+                      {normalized.scope}
+                    </Badge>
                   </CardTitle>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Solid line depicts recorded municipal observations up to {forecastData?.metadata?.last_historical_date}.
-                    Dashed line depicts the +{horizon}-month projection from{" "}
-                    <span className="font-semibold text-slate-800">{forecastData?.model || winningModel?.name}</span>.
+                    Solid green line depicts recorded municipal observations up to {normalized.metadata?.last_historical_date || "present"}.
+                    Dashed purple line depicts the +{horizon}-month projection from{" "}
+                    <span className="font-semibold text-slate-800">{normalized.model}</span> ({normalized.unitLabel}).
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">Forecaster:</span>
+                  <span className="text-xs text-slate-500 font-medium">Model:</span>
                   <select
                     value={selectedModel || winningModel?.name || ""}
                     onChange={(e) => setSelectedModel(e.target.value)}
@@ -1222,7 +1509,7 @@ export default function PredictiveAnalyticsView() {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={forecastData?.chart_data || []} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
+                    <LineChart data={normalized.chartData} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
                         dataKey="month_label"
@@ -1235,7 +1522,7 @@ export default function PredictiveAnalyticsView() {
                         tick={{ fill: "#64748b", fontSize: 11 }}
                         stroke="#cbd5e1"
                         domain={[0, "auto"]}
-                        unit={` ${unit === "PHP" ? "₱" : ""}`}
+                        unit={` ${normalized.unit === "PHP" ? "₱" : ""}`}
                       />
                       <Tooltip
                         contentStyle={{
@@ -1245,30 +1532,32 @@ export default function PredictiveAnalyticsView() {
                           color: "#fff",
                           fontSize: "12px",
                         }}
-                        formatter={(val: any, name: any) => [`${val} ${unitLabel}`, name]}
+                        formatter={(val: any, name: any) => [`${val} ${normalized.unitLabel}`, name]}
                       />
                       <Legend
                         verticalAlign="top"
                         align="right"
                         wrapperStyle={{ fontSize: "12px", paddingBottom: "10px" }}
                       />
+                      {/* GROUND TRUTH ACTUALS: Solid emerald line representing real records stored in PostgreSQL */}
                       <Line
                         type="monotone"
                         dataKey="actual"
-                        name="Historical Actual"
+                        name="Historical Actual (Observed Ground Truth)"
                         stroke="#059669"
                         strokeWidth={2.5}
-                        dot={{ r: 3, fill: "#059669" }}
+                        dot={{ r: 3.5, fill: "#059669", strokeWidth: 1, stroke: "#fff" }}
                         connectNulls={false}
                       />
+                      {/* MACHINE LEARNING PROJECTION: Dashed violet line representing future model estimates */}
                       <Line
                         type="monotone"
                         dataKey="forecast"
-                        name="Projected Forecast"
+                        name="Projected Forecast (Model-Generated Estimate)"
                         stroke="#7c3aed"
                         strokeWidth={2.5}
                         strokeDasharray="5 5"
-                        dot={{ r: 4, fill: "#7c3aed", strokeWidth: 1.5, stroke: "#fff" }}
+                        dot={{ r: 4.5, fill: "#7c3aed", strokeWidth: 1.5, stroke: "#fff" }}
                         connectNulls={true}
                       />
                     </LineChart>
@@ -1516,9 +1805,24 @@ export default function PredictiveAnalyticsView() {
                     <TableRow className="text-xs bg-slate-50/80">
                       <TableHead className="font-bold">Candidate Model</TableHead>
                       <TableHead className="font-bold">Model Family</TableHead>
-                      <TableHead className="font-bold text-right">MAE ({unit})</TableHead>
-                      <TableHead className="font-bold text-right">RMSE ({unit})</TableHead>
-                      <TableHead className="font-bold text-right">R² Score</TableHead>
+                      <TableHead className="font-bold text-right">
+                        <span className="flex items-center justify-end gap-1 cursor-help" title="Mean Absolute Error (in target unit): Average absolute prediction deviation.">
+                          MAE ({normalized.unit})
+                          <span className="text-[10px] text-slate-400">ℹ️</span>
+                        </span>
+                      </TableHead>
+                      <TableHead className="font-bold text-right">
+                        <span className="flex items-center justify-end gap-1 cursor-help" title="Root Mean Squared Error (in target unit): Square root of mean squared errors. Penalizes large deviations heavily.">
+                          RMSE ({normalized.unit})
+                          <span className="text-[10px] text-slate-400">ℹ️</span>
+                        </span>
+                      </TableHead>
+                      <TableHead className="font-bold text-right">
+                        <span className="flex items-center justify-end gap-1 cursor-help" title="Coefficient of Determination: Proportion of variation explained relative to simple mean (1.0 is ideal, negative is worse than mean).">
+                          R² Score
+                          <span className="text-[10px] text-slate-400">ℹ️</span>
+                        </span>
+                      </TableHead>
                       <TableHead className="font-bold text-center">Status</TableHead>
                     </TableRow>
                   </TableHeader>

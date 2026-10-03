@@ -99,29 +99,40 @@ def evaluate_all_models(
     )
 
     if df is None:
+        # INSUFFICIENT DATA FLOW:
+        # When len(records) < 12, data extraction returns df=None and metadata with status='insufficient_data'.
+        # We pass available_observations and required_observations (12) directly to the API response.
+        # This allows the React UI to explain clearly to the user why forecasting cannot run yet.
         return {
             "status": "insufficient_data",
             "forecast_available": False,
             "domain": domain,
+            "scope": meta.get("scope", f"Municipal {domain}"),
             "target": {
                 "domain": domain,
                 "target": effective_target,
                 "production_type": effective_target,
                 "unit": unit,
             },
+            "available_observations": meta.get("available_observations", 0),
+            "required_observations": meta.get("required_observations", 12),
             "message": meta.get("message", "Insufficient historical observations."),
             "historical_trend": meta.get("historical_trend", []),
             "data": meta,
             "models": [],
         }
 
-    # Prepare tabular features for ML models
+    # TIME-SERIES EVALUATION FLOW:
+    # 1. Feature Engineering: extracts lag_1, lag_2, rolling means, month cyclical features.
     df_feat = prepare_tabular_features(df)
 
-    # Perform chronological train/test split on tabular dataset
+    # 2. Chronological Split (Train vs Test Holdout):
+    # Unlike general machine learning where random train_test_split is used, time-series data
+    # MUST be split chronologically. Shuffling time-series leaks future knowledge into past predictions.
+    # We train on earlier months (e.g., first 75%) and evaluate on recent holdout months (last 25%).
     train_feat, test_feat = chronological_split(df_feat)
 
-    # Also prepare univariate series aligned with the test dates
+    # 3. Univariate Series Alignment:
     test_dates = test_feat["month"].tolist()
     y_test_actual = test_feat["quantity"].values
 
@@ -286,6 +297,8 @@ def evaluate_all_models(
         "status": "ready",
         "forecast_available": True,
         "domain": domain,
+        "scope": meta.get("scope", f"Municipal {domain}"),
+        "available_observations": len(df),
         "target": {
             "domain": domain,
             "target": effective_target,

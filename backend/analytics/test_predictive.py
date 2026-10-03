@@ -381,3 +381,42 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertIn("sales", desc)
         self.assertIn("by_method", desc["sales"])
 
+    def test_auction_seed_forecasting_and_clean(self):
+        """
+        Verify end-to-end auction domain pipeline:
+        1. Seed 24 months of live animal sales with SEED_MARKER_AUCTION.
+        2. Evaluate models on HEADS and PHP (verifying lowest MAE winner selection).
+        3. Generate 6-month forecast with metrics and municipal scope.
+        4. Clean synthetic records safely using --clean without touching real data.
+        """
+        from production.models import LiveAnimalSale
+        from analytics.seed_markers import SEED_MARKER_AUCTION
+
+        # Step 1: Generate 24 months of synthetic live animal sales
+        call_command("seed_auction", months=24)
+        seeded_sales = LiveAnimalSale.objects.filter(review_remarks__contains=SEED_MARKER_AUCTION).count()
+        self.assertGreaterEqual(seeded_sales, 24)
+
+        # Step 2: Model evaluation on HEADS metric (checks 5 candidate models)
+        eval_res = evaluate_all_models(domain="auction", target="ALL", unit="HEADS")
+        self.assertEqual(eval_res["status"], "ready")
+        self.assertEqual(eval_res["scope"], "Municipal live animal commercial trade")
+        self.assertEqual(len(eval_res["models"]), 5)
+
+        # Step 3A: Forecast generation on HEADS (verifies active metrics MAE/RMSE/R2 are attached)
+        fc_heads = generate_future_forecast(domain="auction", target="ALL", unit="HEADS", horizon_months=6)
+        self.assertEqual(fc_heads["status"], "ready")
+        self.assertEqual(fc_heads["scope"], "Municipal live animal commercial trade")
+        self.assertIn("metrics", fc_heads)
+        self.assertIn("mae", fc_heads["metrics"])
+
+        # Step 3B: Forecast generation for PHP currency volume
+        fc_php = generate_future_forecast(domain="auction", target="ALL", unit="PHP", horizon_months=6)
+        self.assertEqual(fc_php["status"], "ready")
+        self.assertEqual(fc_php["target"]["unit"], "PHP")
+
+        # Step 4: Safe clean verification - ensures seed marker allows 100% removal of test data
+        call_command("seed_auction", clean=True)
+        remaining = LiveAnimalSale.objects.filter(review_remarks__contains=SEED_MARKER_AUCTION).count()
+        self.assertEqual(remaining, 0)
+

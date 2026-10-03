@@ -49,23 +49,28 @@ class Command(BaseCommand):
         if clean_mode:
             self.stdout.write(self.style.NOTICE("Initiating clean across all synthetic analytics datasets..."))
             
-            # Clean in reverse dependency order
+            # Clean in reverse dependency order:
+            # Child/transaction records (sales, slaughters, mortality) must be deleted
+            # before upstream inventory or parent records to avoid database foreign key constraint errors.
             self.stdout.write("1. Cleaning synthetic livestock inspections & clearances...")
             call_command("seed_inspections", clean=True)
 
-            self.stdout.write("2. Cleaning synthetic slaughter records...")
+            self.stdout.write("2. Cleaning synthetic auction & live animal sale records...")
+            call_command("seed_auction", clean=True)
+
+            self.stdout.write("3. Cleaning synthetic slaughter records...")
             call_command("seed_slaughters", clean=True)
 
-            self.stdout.write("3. Cleaning synthetic mortality records...")
+            self.stdout.write("4. Cleaning synthetic mortality records...")
             call_command("seed_mortality", clean=True)
 
-            self.stdout.write("4. Cleaning synthetic disease cases...")
+            self.stdout.write("5. Cleaning synthetic disease cases...")
             call_command("seed_diseases", clean=True)
 
-            self.stdout.write("5. Cleaning synthetic calving records...")
+            self.stdout.write("6. Cleaning synthetic calving records...")
             call_command("seed_calving", clean=True)
 
-            self.stdout.write("6. Cleaning synthetic production records...")
+            self.stdout.write("7. Cleaning synthetic production records...")
             call_command("seed_productions", clean=True)
 
             self.stdout.write(
@@ -76,24 +81,32 @@ class Command(BaseCommand):
             )
             return
 
-        self.stdout.write(self.style.NOTICE(f"Seeding synthetic analytics test datasets (Production & Slaughter: {months} months)..."))
+        # MULTI-DOMAIN SEEDING FLOW:
+        # Generates >= 12 months (default: 36 months) of approved records across all 5 predictive domains.
+        # This provides the minimum time-series observations needed for:
+        # 1. Capturing annual 12-month agricultural seasonality.
+        # 2. Chronological holdout splitting (training on earlier months, testing on recent months).
+        self.stdout.write(self.style.NOTICE(f"Seeding synthetic analytics test datasets across all domains ({months} months)..."))
 
-        self.stdout.write("\n--- [1/6] Production Time-Series (Milk, Meat, Eggs, Wool) ---")
+        self.stdout.write("\n--- [1/7] Production Time-Series (Milk, Meat, Eggs, Wool) ---")
         call_command("seed_productions", months=months, production_type="ALL")
 
-        self.stdout.write("\n--- [2/6] Slaughterhouse Records (Heads & Carcass Weight) ---")
+        self.stdout.write("\n--- [2/7] Slaughterhouse Records (Heads & Carcass Weight) ---")
         call_command("seed_slaughters", months=months)
 
-        self.stdout.write("\n--- [3/6] Calving & Reproduction Records ---")
+        self.stdout.write("\n--- [3/7] Auction & Live Animal Sales (Heads & PHP Volume) ---")
+        call_command("seed_auction", months=months)
+
+        self.stdout.write("\n--- [4/7] Calving & Reproduction Records ---")
         call_command("seed_calving", count=24)
 
-        self.stdout.write("\n--- [4/6] Disease Surveillance Cases ---")
-        call_command("seed_diseases", count=25)
+        self.stdout.write("\n--- [5/7] Disease Surveillance Cases ---")
+        call_command("seed_diseases", count=max(40, months), months=months)
 
-        self.stdout.write("\n--- [5/6] Livestock Mortality Records ---")
-        call_command("seed_mortality", count=20)
+        self.stdout.write("\n--- [6/7] Livestock Mortality Records ---")
+        call_command("seed_mortality", count=max(40, months), months=months)
 
-        self.stdout.write("\n--- [6/6] Pre-Movement Inspections & Clearances ---")
+        self.stdout.write("\n--- [7/7] Pre-Movement Inspections & Clearances ---")
         call_command("seed_inspections", count=24)
 
         self.stdout.write(

@@ -234,7 +234,12 @@ def extract_monthly_series(
                 Q(sale_method__icontains=target_clean) | Q(purpose__icontains=target_clean)
             )
 
-        seeded_record = base_qs.filter(notes__contains="AI_SEED").first() if hasattr(LiveAnimalSale, 'notes') else None
+        # Check for synthetic test seed markers so test datasets are clearly flagged
+        # (This allows safe cleaning via python manage.py seed_auction --clean without touching real records)
+        seeded_record = (
+            base_qs.filter(review_remarks__contains="AI_SEED").first()
+            or (base_qs.filter(notes__contains="AI_SEED").first() if hasattr(LiveAnimalSale, "notes") else None)
+        )
         if seeded_record:
             has_seed = True
             active_marker = SEED_MARKER_AUCTION
@@ -265,6 +270,7 @@ def extract_monthly_series(
     # Filter out any None months if legacy records had null dates
     records = [r for r in records if r.get("month") is not None and r.get("total_quantity") is not None]
 
+    # Convert the raw database query results into a list of chronological data points
     historical_trend_points = [
         {
             "date": r["month"].strftime("%Y-%m-%d"),
@@ -274,8 +280,23 @@ def extract_monthly_series(
         for r in records
     ]
 
+    # Explicit Domain Scopes:
+    # We explicitly define the geographic and administrative scope of the forecast here.
+    # For example, disease and mortality are municipal-level aggregates (overall totals),
+    # NOT spatial GIS barangay risk predictions.
+    domain_scopes = {
+        "production": "Municipal-level production output",
+        "disease": "Municipal-level disease forecast",
+        "mortality": "Municipality-wide mortality totals",
+        "slaughter": "Municipal slaughterhouse (abattoir) throughput",
+        "auction": "Municipal live animal commercial trade",
+    }
+    domain_scope = domain_scopes.get(domain, f"Municipal {domain} aggregate")
+
+    # Build standardized metadata dictionary passed downstream to evaluation and forecasting
     metadata = {
         "domain": domain,
+        "scope": domain_scope,
         "target": target_clean,
         "unit": unit_clean,
         "frequency": "MONTHLY",
@@ -283,10 +304,16 @@ def extract_monthly_series(
         "seed_marker": active_marker,
         "total_records": base_qs.count() if base_qs is not None else 0,
         "total_monthly_observations": len(records),
+        # Observation counters consumed by frontend to display available vs required points:
+        "available_observations": len(records),
+        "required_observations": MIN_OBSERVATIONS_REQUIRED,
+        "min_observations_required": MIN_OBSERVATIONS_REQUIRED,
         "historical_trend": historical_trend_points,
     }
 
-    # Data sufficiency verification: NEVER force machine learning on sparse data (< 12 points)
+    # Data sufficiency verification: NEVER force machine learning on sparse data (< 12 points).
+    # If the user does not have 12 months yet, we return status="insufficient_data"
+    # along with the historical points so the frontend can display honest ground truth without guessing.
     if len(records) < MIN_OBSERVATIONS_REQUIRED:
         metadata["status"] = "insufficient_data"
         metadata["forecast_available"] = False
