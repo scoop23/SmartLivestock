@@ -13,6 +13,13 @@ from .datasets import BaseDatasetConfig, get_dataset_config
 from .validation import ValidationEngine
 
 
+# =============================================================
+# BATCH CHUNK SIZE
+# =============================================================
+# bulk_create() inserts many rows in a single SQL INSERT statement
+# instead of one INSERT per row. This is much faster for large uploads.
+# We chunk at 500 to avoid hitting database statement size limits.
+# =============================================================
 BATCH_CHUNK_SIZE = 500
 
 
@@ -31,11 +38,13 @@ def execute_batch_import(
     - If a fatal database or constraint exception occurs, the entire transaction rolls back.
     - Audited in DataImportBatch with full duration, counts, and error log.
     """
+    # Track total wall-clock time so we can store duration_seconds in the audit record.
     start_time = time.time()
     config = get_dataset_config(dataset_type)
     now = timezone.now()
     today = timezone.localdate()
 
+    # Count row statuses so we know up front how many errors we're dealing with.
     total_rows = len(normalized_records)
     valid_rows = sum(1 for r in normalized_records if r.get("_status") == "VALID")
     warning_rows = sum(1 for r in normalized_records if r.get("_status") == "WARNING")
@@ -43,15 +52,25 @@ def execute_batch_import(
 
     imported_count = 0
     skipped_count = 0
+    # All ERROR rows are always rejected — we count them as rejected immediately.
     rejected_count = error_rows
 
     instances_to_create: List[Any] = []
+    # Start the error_log with pre-existing validation issues found during validate_batch().
     error_log: List[Dict[str, Any]] = list(all_issues) if all_issues else []
 
-    # Safe transactional execution
+    # =============================================================
+    # transaction.atomic()
+    # =============================================================
+    # Everything inside this block is a single database transaction.
+    # If any line raises an exception, the ENTIRE import rolls back —
+    # no partial data will be written. This is critical for data integrity:
+    # you never want 50 out of 100 records inserted and 50 missing.
+    # =============================================================
     try:
         with transaction.atomic():
-            # Create the audit batch record first
+            # Create the audit batch record FIRST, before inserting any domain records.
+            # This gives us a batch.id we can reference in review_remarks below.
             batch = DataImportBatch.objects.create(
                 dataset_type=dataset_type,
                 file_name=file_name,
@@ -63,21 +82,36 @@ def execute_batch_import(
                 error_rows=error_rows,
             )
 
-            # Build model instances
+            # =============================================================
+            # Build model instances for each row
+            # =============================================================
+            # We do NOT call .save() here — that would be one SQL INSERT per row (N+1 problem).
+            # Instead, we collect all instances in a list and bulk_create them at the end.
+            # =============================================================
             for rec in normalized_records:
                 status = rec.get("_status")
                 row_num = rec.get("_row_number", 0)
 
-                # Skip invalid rows
+                # Skip rows that failed validation (missing required fields, bad foreign key, etc.)
                 if status == "ERROR":
                     continue
 
-                # Skip warnings if duplicate skipping is enabled
+                # Skip WARNING rows if the user chose "skip duplicates".
+                # WARNING rows are usually duplicate ear tags or location mismatches.
                 if status == "WARNING" and skip_duplicates:
                     skipped_count += 1
                     continue
 
-                # Prepare common audit fields
+                # =============================================================
+                # common_kwargs: Fields applied to EVERY domain record.
+                # =============================================================
+                # created_by: Who triggered the import (the MAO officer).
+                # status: Whether records enter as APPROVED or PENDING.
+                #
+                # If target_status is APPROVED, we also fill in the review fields
+                # so the record looks like it has already passed SIBAT/MAO review.
+                # This is used for bulk-importing HISTORICAL official data.
+                # =============================================================
                 common_kwargs = {
                     "created_by": user,
                     "status": target_status,
@@ -86,6 +120,15 @@ def execute_batch_import(
                     common_kwargs["reviewed_by"] = user
                     common_kwargs["reviewed_at"] = now
                     common_kwargs["review_remarks"] = f"Historical bulk import by MAO (Batch #{batch.id})"
+
+                # =============================================================
+                # Per-domain model construction
+                # =============================================================
+                # Each elif branch constructs a Django model instance for the right table.
+                # The validation engine already resolved foreign keys (Farmer, Barangay,
+                # LivestockType) into Python objects stored in rec["farmer"] etc.
+                # We just pass them directly to the model constructor.
+                # =============================================================
 
                 if dataset_type == "livestock_inventory":
                     farmer = rec["farmer"]
@@ -110,6 +153,8 @@ def execute_batch_import(
                     tag = rec.get("tag_number")
                     animal_fk = None
                     if tag:
+                        # Try to find the individual livestock record by ear tag.
+                        # If not found, animal_fk stays None (production is still recorded).
                         animal_fk = LivestockInventory.objects.filter(
                             farmer=farmer, tag_number=tag, operational_status="ACTIVE"
                         ).first()
@@ -148,6 +193,8 @@ def execute_batch_import(
                     tag = rec.get("tag_number")
                     animal_fk = None
                     if tag:
+                        # For mortality, we don't filter by operational_status=ACTIVE
+                        # because the animal may already be marked as dead/removed.
                         animal_fk = LivestockInventory.objects.filter(
                             farmer=farmer, tag_number=tag
                         ).first()
@@ -163,6 +210,8 @@ def execute_batch_import(
 
                 elif dataset_type == "slaughter":
                     barangay = rec["barangay"]
+                    # Slaughter records are linked to a barangay (not a specific farmer),
+                    # because slaughter often happens at a municipal abattoir.
                     inst = SlaughterRecord(
                         barangay=barangay,
                         livestock_type=rec["livestock_type"],
@@ -188,7 +237,13 @@ def execute_batch_import(
                     )
                     instances_to_create.append(inst)
 
-            # Insert in chunks using bulk_create for maximum throughput
+            # =============================================================
+            # Bulk Insert — single efficient SQL statement per 500-row chunk
+            # =============================================================
+            # bulk_create() sends all instances to the database in one go.
+            # Django handles chunking into groups of BATCH_CHUNK_SIZE=500.
+            # This is orders of magnitude faster than a loop with .save().
+            # =============================================================
             if instances_to_create:
                 config.model_class.objects.bulk_create(
                     instances_to_create,
@@ -196,7 +251,13 @@ def execute_batch_import(
                 )
                 imported_count = len(instances_to_create)
 
-            # Finalize batch audit record
+            # =============================================================
+            # Finalize the audit record
+            # =============================================================
+            # Now that the import is done, update the DataImportBatch row
+            # with the final counts and status. We use update_fields to issue
+            # a targeted SQL UPDATE instead of re-saving all columns.
+            # =============================================================
             duration = round(Decimal(str(time.time() - start_time)), 2)
             batch.status = (
                 DataImportBatch.ImportStatus.COMPLETED
@@ -229,6 +290,14 @@ def execute_batch_import(
             }
 
     except Exception as e:
+        # =============================================================
+        # Fatal failure path
+        # =============================================================
+        # If the transaction.atomic() block raises ANY exception, Django
+        # automatically rolls back all database writes made inside it.
+        # We then create a FAILED batch record OUTSIDE the (already-rolled-back)
+        # transaction so the audit trail still shows the failed attempt.
+        # =============================================================
         duration = round(Decimal(str(time.time() - start_time)), 2)
         # Attempt to record failed batch outside atomic block
         DataImportBatch.objects.create(

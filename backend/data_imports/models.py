@@ -2,6 +2,19 @@ from django.db import models
 from django.conf import settings
 
 
+# =============================================================
+# DataImportBatch — Audit Log for Bulk Municipal Data Uploads
+# =============================================================
+# Every time MAO staff uploads a CSV or XLSX file to bulk-import
+# livestock records, one DataImportBatch row is created.
+#
+# This model acts as an audit trail, so administrators can always
+# answer: Who uploaded this? When? How many rows succeeded or failed?
+#
+# The actual livestock records are written to their own domain tables
+# (LivestockInventory, ProductionRecord, DiseaseCase, etc.).
+# This model stores ONLY the metadata and counts — not the raw file.
+# =============================================================
 class DataImportBatch(models.Model):
     """
     Auditable log of bulk data imports executed by authorized MAO / Admin users.
@@ -9,6 +22,8 @@ class DataImportBatch(models.Model):
     without duplicating the entire imported raw file.
     """
 
+    # DatasetType: Which municipal data domain was imported?
+    # Each value corresponds to one Django model in the domain apps.
     class DatasetType(models.TextChoices):
         LIVESTOCK_INVENTORY = "livestock_inventory", "Livestock Inventory"
         PRODUCTION = "production", "Production Records"
@@ -17,6 +32,8 @@ class DataImportBatch(models.Model):
         SLAUGHTER = "slaughter", "Slaughter Records"
         AUCTION = "auction", "Auction / Live Animal Sales"
 
+    # ImportStatus: Tracks which stage of the pipeline the batch is in.
+    # PENDING → VALIDATED → COMPLETED (or PARTIAL / FAILED on error)
     class ImportStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         VALIDATED = "VALIDATED", "Validated (Previewed)"
@@ -24,6 +41,9 @@ class DataImportBatch(models.Model):
         PARTIAL = "PARTIAL", "Partially Completed"
         FAILED = "FAILED", "Failed"
 
+    # TargetStatus: Should imported records enter as already APPROVED, or as PENDING?
+    # APPROVED = historical official data that skips the SIBAT/MAO review workflow.
+    # PENDING  = records that still need field verification before they are official.
     class TargetStatus(models.TextChoices):
         APPROVED = "APPROVED", "Approved (Official Historical Data)"
         PENDING = "PENDING", "Pending (Requires SIBAT/MAO Field Verification)"
@@ -37,6 +57,8 @@ class DataImportBatch(models.Model):
         max_length=255,
         help_text="Original uploaded filename (CSV or XLSX).",
     )
+    # uploaded_by: Who performed the upload?
+    # PROTECT prevents deleting a user account that has import history.
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -58,6 +80,7 @@ class DataImportBatch(models.Model):
         default=TargetStatus.APPROVED,
         help_text="Workflow status assigned to imported records.",
     )
+    # Row counters — computed during import and saved to the audit record.
     total_rows = models.PositiveIntegerField(
         default=0,
         help_text="Total rows found in the uploaded spreadsheet (excluding header).",
@@ -78,6 +101,8 @@ class DataImportBatch(models.Model):
         default=0,
         help_text="Number of rows rejected due to schema or validation errors.",
     )
+    # error_log: Structured JSON list of per-row errors.
+    # Stored here so it can be downloaded later as a CSV error report.
     error_log = models.JSONField(
         default=list,
         blank=True,
@@ -88,6 +113,8 @@ class DataImportBatch(models.Model):
         blank=True,
         help_text="Timestamp when the batch transaction completed.",
     )
+    # duration_seconds: How long the transaction took (in seconds).
+    # Useful for performance monitoring on large municipal uploads.
     duration_seconds = models.DecimalField(
         max_digits=8,
         decimal_places=2,

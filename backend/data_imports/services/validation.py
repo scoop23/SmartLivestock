@@ -16,6 +16,29 @@ from .normalizer import (
 )
 
 
+# =============================================================
+# VALIDATION ENGINE
+# =============================================================
+# The ValidationEngine checks every row of the uploaded spreadsheet
+# against the business rules for each dataset domain.
+#
+# KEY CONCEPT — Pre-cached lookups to avoid N+1 queries:
+# Instead of hitting the database for every row (which would be
+# extremely slow for hundreds of rows), __init__ loads ALL barangays,
+# species, and farmers once into Python dictionaries.
+#
+# Then for each row we do an O(1) dictionary lookup instead of a SQL query.
+# This is why large imports stay fast regardless of file size.
+#
+# Each row is returned with one of three statuses:
+#   VALID   — all required fields pass, no issues
+#   WARNING — optional issues like duplicate ear tags (importable but flagged)
+#   ERROR   — required field missing, invalid foreign key, bad date, etc.
+#
+# Only VALID and WARNING rows can be imported.
+# ERROR rows are always rejected and logged.
+# =============================================================
+
 class ValidationEngine:
     """
     High-performance validation engine for municipal livestock datasets.

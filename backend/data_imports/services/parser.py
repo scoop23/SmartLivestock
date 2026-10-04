@@ -4,8 +4,29 @@ import os
 from typing import Any, Tuple, List, Dict, Optional
 import openpyxl
 
+# =============================================================
+# PARSER — CSV and XLSX File Reader
+# =============================================================
+# This module is responsible for reading the uploaded file and
+# returning a flat list of row dictionaries that the ValidationEngine can process.
+#
+# Responsibilities:
+#   - Detect file format from extension (.csv or .xlsx)
+#   - Read and decode the file bytes safely (UTF-8 BOM, latin-1 fallback)
+#   - Sanitize cell values (strip whitespace, defuse formula injection)
+#   - Return a list of {column_name: value} dicts with _row_number tracking
+#   - Return a human-readable error string if the file cannot be parsed
+#
+# This module does NOT validate business rules — that is done by ValidationEngine.
+# It only cares about reading the file correctly.
+# =============================================================
 
+# Maximum number of data rows per upload (excluding header).
+# 25,000 rows is more than enough for a municipal livestock import.
 MAX_IMPORT_ROWS = 25000
+
+# Maximum file size accepted (25 MB).
+# Prevents abuse or accidental upload of large files that would overload the server.
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB
 
 
