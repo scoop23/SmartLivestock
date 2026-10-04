@@ -1,558 +1,220 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { PageHeader } from '@/app/components/page-header';
+/**
+ * SmartLivestock GIS — God's-Eye View Command Center
+ * Municipality of Padre Garcia, Batangas
+ * 
+ * Educational Architecture Note for Student Developer:
+ * ====================================================
+ * This module implements a full-screen, map-first GIS command center inspired
+ * by modern spatial data dashboards (e.g. dynasty-tracker.bettergov.ph).
+ * 
+ * Architecture Flow:
+ * 1. Geometry Layer (padre-garcia-barangays.json):
+ *    Contains authentic administrative polygons for all 18 barangays of Padre Garcia.
+ *    This file is the single source of truth for geographic shapes and centroids.
+ * 
+ * 2. Data Layer (PostgreSQL -> Django API -> Next.js):
+ *    Instead of hardcoding statistical values, real livestock inventories,
+ *    disease cases, milk production, and inspection movements are queried
+ *    directly from PostgreSQL via the `/api/analytics/gis/` endpoint.
+ * 
+ * 3. Spatial Joining:
+ *    The Leaflet GeoJSON layer iterates through each polygon and matches its
+ *    `feature.properties.name` to `barangaysByName[name]`.
+ * 
+ * 4. Dual-Mode Surveillance (Reported vs. Simulated):
+ *    - REPORTED: Live ground-truth observations verified in the database.
+ *    - SIMULATED: Epidemiological projection calculating spatial pathogen
+ *      spread using the Haversine formula and herd density weights.
+ */
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import api from '@/lib/axios';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Map as MapIcon, Layers, AlertTriangle, TrendingUp } from 'lucide-react';
-import dynamic from 'next/dynamic';
-import type { FeatureCollection } from 'geojson';
-import PadreGarciaForecaster from '@/app/components/analytics/haversine';
-import padreGarciaGeojson from '@/data/padre-garcia-barangays.json';
-import 'leaflet/dist/leaflet.css';
+  GISTelemetryResponse,
+  BarangayGISData,
+  MapLayer,
+  MunicipalSummary,
+  MovementRecord,
+} from '@/components/gis/types';
+import { computeSimulatedSpread } from '@/components/gis/simulation';
+import { GISMap } from '@/components/gis/GISMap';
+import { GISControls } from '@/components/gis/GISControls';
+import { GISLegend } from '@/components/gis/GISLegend';
+import { GISSidebar } from '@/components/gis/GISSidebar';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
-
-// Dynamically import all react-leaflet components to avoid SSR issues
-const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
-const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
-
-const Polyline = dynamic(() => import('react-leaflet').then(m => m.Polyline), { ssr: false });
-const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false });
-const CircleMarker = dynamic(() => import('react-leaflet').then(m => m.CircleMarker), { ssr: false });
-const Tooltip = dynamic(() => import('react-leaflet').then(m => m.Tooltip), { ssr: false });
-
-interface BarangayData {
-  name: string;
-  position: [number, number];
-  cattle: number;
-  diseaseRisk: 'low' | 'medium' | 'high';
-  activeCases: number;
-  milk: number;
-  meat: number;
-  cheese: number;
-}
-
-const BARANGAY_DATA: Record<string, BarangayData> = {
-  'Banaba': { name: 'Banaba', position: [13.885149, 121.221731], cattle: 245, diseaseRisk: 'low', activeCases: 0, milk: 3675, meat: 1225, cheese: 245 },
-  'Banaybanay': { name: 'Banaybanay', position: [13.893419, 121.216281], cattle: 112, diseaseRisk: 'low', activeCases: 0, milk: 1680, meat: 560, cheese: 112 },
-  'Bawi': { name: 'Bawi', position: [13.886475, 121.232434], cattle: 198, diseaseRisk: 'high', activeCases: 5, milk: 2970, meat: 990, cheese: 198 },
-  'Bukal': { name: 'Bukal', position: [13.863402, 121.258598], cattle: 134, diseaseRisk: 'low', activeCases: 0, milk: 2010, meat: 670, cheese: 134 },
-  'Castillo': { name: 'Castillo', position: [13.875098, 121.266738], cattle: 143, diseaseRisk: 'medium', activeCases: 1, milk: 2145, meat: 715, cheese: 143 },
-  'Cawongan': { name: 'Cawongan', position: [13.873038, 121.220908], cattle: 167, diseaseRisk: 'low', activeCases: 0, milk: 2505, meat: 835, cheese: 167 },
-  'Manggas': { name: 'Manggas', position: [13.871999, 121.246593], cattle: 76, diseaseRisk: 'low', activeCases: 0, milk: 1140, meat: 380, cheese: 76 },
-  'Maugat East': { name: 'Maugat East', position: [13.864823, 121.302085], cattle: 88, diseaseRisk: 'low', activeCases: 0, milk: 1320, meat: 440, cheese: 88 },
-  'Maugat West': { name: 'Maugat West', position: [13.864623, 121.281764], cattle: 121, diseaseRisk: 'low', activeCases: 0, milk: 1815, meat: 605, cheese: 121 },
-  'Pansol': { name: 'Pansol', position: [13.882793, 121.247123], cattle: 156, diseaseRisk: 'medium', activeCases: 2, milk: 2340, meat: 780, cheese: 156 },
-  'Payapa': { name: 'Payapa', position: [13.859442, 121.246674], cattle: 99, diseaseRisk: 'low', activeCases: 0, milk: 1485, meat: 495, cheese: 99 },
-  'Poblacion': { name: 'Poblacion', position: [13.87908, 121.212894], cattle: 87, diseaseRisk: 'low', activeCases: 0, milk: 1305, meat: 435, cheese: 87 },
-  'Quilo-quilo North': { name: 'Quilo-quilo North', position: [13.862076, 121.223498], cattle: 73, diseaseRisk: 'low', activeCases: 0, milk: 1095, meat: 365, cheese: 73 },
-  'Quilo-quilo South': { name: 'Quilo-quilo South', position: [13.851806, 121.243495], cattle: 59, diseaseRisk: 'low', activeCases: 0, milk: 885, meat: 295, cheese: 59 },
-  'San Felipe': { name: 'San Felipe', position: [13.887528, 121.201211], cattle: 182, diseaseRisk: 'medium', activeCases: 1, milk: 2730, meat: 910, cheese: 182 },
-  'San Miguel': { name: 'San Miguel', position: [13.873635, 121.199939], cattle: 95, diseaseRisk: 'low', activeCases: 0, milk: 1425, meat: 475, cheese: 95 },
-  'Tamak': { name: 'Tamak', position: [13.876635, 121.229178], cattle: 44, diseaseRisk: 'low', activeCases: 0, milk: 660, meat: 220, cheese: 44 },
-  'Tangob': { name: 'Tangob', position: [13.881157, 121.259591], cattle: 62, diseaseRisk: 'low', activeCases: 0, milk: 930, meat: 310, cheese: 62 },
+// Default empty municipal summary to avoid undefined rendering while loading
+const DEFAULT_SUMMARY: MunicipalSummary = {
+  total_livestock: 0,
+  total_cattle: 0,
+  total_milk: 0,
+  total_meat: 0,
+  total_disease_cases: 0,
+  active_disease_cases: 0,
+  total_mortality: 0,
+  total_farmers: 0,
+  total_movements: 0,
+  top_cattle: [],
+  top_milk: [],
+  alert_barangays: [],
 };
-
-const MOVEMENT_DATA = [
-  // EXPORTS (Outbound from Padre Garcia)
-  { id: 1, type: 'export', to: 'Manila (NCR)', from: [13.8777, 121.2116], coords: [14.5995, 120.9842], heads: 45, date: '2026-04-20' },
-  { id: 2, type: 'export', to: 'Bulacan', from: [13.8777, 121.2116], coords: [14.8527, 120.8160], heads: 30, date: '2026-04-22' },
-
-  // IMPORTS (Inbound to Padre Garcia)
-  { id: 3, type: 'import', fromName: 'Pampanga', to: [13.8777, 121.2116], coords: [15.0333, 120.6833], heads: 25, date: '2026-04-25' },
-  { id: 4, type: 'import', fromName: 'Masbate', to: [13.8777, 121.2116], coords: [12.3667, 123.6167], heads: 60, date: '2026-04-18' },
-];
-
-type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'movement';
-
-
-const LAYER_CONFIG: Record<MapLayer, { label: string; icon: string; unit: string }> = {
-  cattle: { label: 'Cattle Distribution', icon: '🐄', unit: 'heads' },
-  disease: { label: 'Disease Heat Map', icon: '🩺', unit: '' },
-  milk: { label: 'Milk Production', icon: '🥛', unit: 'L/mo' },
-  meat: { label: 'Katay (Meat)', icon: '🥩', unit: 'kg/mo' },
-  movement: { label: 'Live Cow Movement', icon: '🚛', unit: 'heads' }, // New Layer
-};
-
-function getCattleColor(cattle: number): string {
-  if (cattle > 200) return '#1a3d15';
-  if (cattle > 150) return '#2D5A27';
-  if (cattle > 100) return '#5A8F4F';
-  if (cattle > 60) return '#8AB877';
-  return '#C5E0A8';
-}
-
-function getDiseaseColor(risk: 'low' | 'medium' | 'high'): string {
-  if (risk === 'high') return '#D32F2F';
-  if (risk === 'medium') return '#FFA726';
-  return '#66BB6A';
-}
-
-function getMilkColor(milk: number): string {
-  if (milk > 3000) return '#0c4a6e';
-  if (milk > 2000) return '#075985';
-  if (milk > 1500) return '#0284c7';
-  if (milk > 1000) return '#38bdf8';
-  return '#bae6fd';
-}
-
-function getMeatColor(meat: number): string {
-  if (meat > 1000) return '#7c1d00';
-  if (meat > 750) return '#b91c1c';
-  if (meat > 500) return '#dc2626';
-  if (meat > 300) return '#f87171';
-  return '#fecaca';
-}
-
-function getCheeseColor(cheese: number): string {
-  if (cheese > 200) return '#713f12';
-  if (cheese > 150) return '#92400e';
-  if (cheese > 100) return '#d97706';
-  if (cheese > 60) return '#fbbf24';
-  return '#fde68a';
-}
-
-// FitBounds must be a separate client component loaded dynamically
-const FitBoundsComponent = dynamic(
-  () => import('react-leaflet').then(m => {
-    const FitBounds = () => {
-      const { useMap } = m;
-      const map = useMap();
-      useEffect(() => {
-        import('leaflet').then(L => {
-          const geoJsonLayer = L.geoJSON(padreGarciaGeojson as any);
-          const bounds = geoJsonLayer.getBounds();
-          if (bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [20, 20] });
-          }
-        });
-      }, [map]);
-      return null;
-    };
-    return FitBounds;
-  }),
-  { ssr: false }
-);
 
 export default function GISMapPage() {
-  const [mapLayer, setMapLayer] = useState<MapLayer>('cattle');
-  const [selectedBarangay, setSelectedBarangay] = useState<BarangayData | null>(null);
+  // Telemetry state from real Django backend
+  const [gisData, setGisData] = useState<GISTelemetryResponse | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const centerPosition: [number, number] = [13.8741, 121.2529];
+  // Active map layer & user selections
+  const [activeLayer, setActiveLayer] = useState<MapLayer>('cattle');
+  const [selectedBarangay, setSelectedBarangay] = useState<BarangayGISData | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [resetTrigger, setResetTrigger] = useState<number>(0);
 
-  const getLayerColor = (data: BarangayData): string => {
-    switch (mapLayer) {
-      case 'cattle': return getCattleColor(data.cattle);
-      case 'disease': return getDiseaseColor(data.diseaseRisk);
-      case 'milk': return getMilkColor(data.milk);
-      case 'meat': return getMeatColor(data.meat);
-      // case 'cheese': return getCheeseColor(data.cheese);
-      // case 'movement': return getMovementColor(data); // Placeholder for movement layer color logic
-      default: return '#ccc';
+  // Simulation mode (Haversine epidemic projection)
+  const [simulationMode, setSimulationMode] = useState<boolean>(false);
+  const [simulationStep, setSimulationStep] = useState<number>(7);
+
+  /**
+   * Fetches municipal GIS telemetry from PostgreSQL via Django REST Framework
+   */
+  const fetchGISTelemetry = useCallback(async (isRefresh = false) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<GISTelemetryResponse>('/api/analytics/gis/');
+      setGisData(response.data);
+      if (isRefresh) {
+        toast.success('GIS Telemetry updated from database');
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch GIS telemetry:', err);
+      setError('Unable to load real-time municipal telemetry from backend.');
+      toast.error('Could not connect to GIS aggregation service');
+    } finally {
+      setIsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchGISTelemetry();
+  }, [fetchGISTelemetry]);
+
+  // Fast dictionary lookup for joining GeoJSON features: name -> BarangayGISData
+  const barangaysByName = useMemo(() => {
+    if (gisData?.barangays_dict) {
+      return gisData.barangays_dict;
+    }
+    const map: Record<string, BarangayGISData> = {};
+    if (gisData?.barangays) {
+      for (const b of gisData.barangays) {
+        map[b.name] = b;
+      }
+    }
+    return map;
+  }, [gisData]);
+
+  // Compute simulated spread when simulation mode is toggled ON
+  const simulatedStates = useMemo(() => {
+    if (!simulationMode || !gisData?.barangays) return undefined;
+    return computeSimulatedSpread(gisData.barangays, simulationStep);
+  }, [simulationMode, gisData?.barangays, simulationStep]);
+
+  // Keep selectedBarangay reference synchronized with fresh data
+  useEffect(() => {
+    if (selectedBarangay && barangaysByName[selectedBarangay.name]) {
+      setSelectedBarangay(barangaysByName[selectedBarangay.name]);
+    }
+  }, [barangaysByName, selectedBarangay]);
+
+  // Handlers
+  const handleSelectBarangay = (b: BarangayGISData) => {
+    setSelectedBarangay(b);
+    setSidebarOpen(true);
   };
 
-  const getGeoJSONStyle = (feature: GeoJSON.Feature | undefined) => {
-    if (!feature?.properties?.name) return {};
-    const data = BARANGAY_DATA[feature.properties.name];
-    if (!data) return { fillColor: '#ccc', color: '#666', weight: 1.5, fillOpacity: 0.5 };
-    return {
-      fillColor: getLayerColor(data),
-      fillOpacity: 0.70,
-      color: '#1a3d15',
-      weight: 1.8,
-      opacity: 1,
-    };
+  const handleClearSelectedBarangay = () => {
+    setSelectedBarangay(null);
   };
 
-  const onEachFeature = (feature: GeoJSON.Feature, layer: any) => {
-    const name = feature.properties?.name as string;
-    const data = BARANGAY_DATA[name];
-    if (!data) return;
-
-    const riskColor = data.diseaseRisk === 'high' ? '#D32F2F' : data.diseaseRisk === 'medium' ? '#e67e22' : '#27ae60';
-
-    layer.bindTooltip(`<strong>${name}</strong>`, {
-      permanent: false,
-      direction: 'center',
-      className: 'barangay-tooltip',
+  const handleToggleSimulation = () => {
+    setSimulationMode((prev) => {
+      const next = !prev;
+      if (next) {
+        toast.info('⚡ Simulation Mode Activated', {
+          description: 'Showing Haversine distance-decay pathogen spread projections.',
+        });
+        setActiveLayer('disease');
+      } else {
+        toast.success('Real Reported Data Restored');
+      }
+      return next;
     });
-
-    layer.bindPopup(`
-      <div style="font-family: sans-serif; min-width: 185px; padding: 4px;">
-        <div style="font-size: 14px; font-weight: 700; color: #1a3d15; margin-bottom: 8px; border-bottom: 2px solid #2D5A27; padding-bottom: 4px;">
-          Brgy. ${name}
-        </div>
-        <div style="font-size: 12px; line-height: 2;">
-          <div>🐄 <strong>Cattle:</strong> ${data.cattle.toLocaleString()} heads</div>
-          <div>🩺 <strong>Disease Risk:</strong> <span style="color:${riskColor}; font-weight:600">${data.diseaseRisk.toUpperCase()}</span></div>
-          ${data.activeCases > 0 ? `<div style="color:#D32F2F;">⚠️ <strong>Active Cases:</strong> ${data.activeCases}</div>` : ''}
-          <hr style="border:none; border-top:1px solid #e5e7eb; margin:6px 0;" />
-          <div style="font-weight:600; color:#555; margin-bottom:2px;">Monthly Production</div>
-          <div>🥛 <strong>Milk:</strong> ${data.milk.toLocaleString()} L</div>
-          <div>🥩 <strong>Katay (Meat):</strong> ${data.meat.toLocaleString()} kg</div>
-        </div>
-      </div>
-    `);
-
-    layer.on({
-      mouseover: (e: any) => {
-        e.target.setStyle({ weight: 3, fillOpacity: 0.88, color: '<div id="fff"></div>' });
-        e.target.bringToFront();
-      },
-      mouseout: (e: any) => {
-        e.target.setStyle(getGeoJSONStyle(feature));
-      },
-      click: () => setSelectedBarangay(data),
-    });
   };
 
-  const allData = Object.values(BARANGAY_DATA);
-  const sortedBarangays = [...allData].sort((a, b) => b.cattle - a.cattle);
-  const totalCattle = allData.reduce((s, b) => s + b.cattle, 0);
-  const totalMilk = allData.reduce((s, b) => s + b.milk, 0);
-  const totalMeat = allData.reduce((s, b) => s + b.meat, 0);
-  const activeAlerts = allData.filter(b => b.activeCases > 0).length;
-
-  const LEGENDS: Record<MapLayer, { color: string; label: string }[]> = {
-    cattle: [
-      { color: '#1a3d15', label: '200+ heads' },
-      { color: '#2D5A27', label: '150–200 heads' },
-      { color: '#5A8F4F', label: '100–150 heads' },
-      { color: '#8AB877', label: '60–100 heads' },
-      { color: '#C5E0A8', label: 'Under 60 heads' },
-    ],
-    disease: [
-      { color: '#D32F2F', label: 'High — Active outbreak' },
-      { color: '#FFA726', label: 'Medium — Suspected cases' },
-      { color: '#66BB6A', label: 'Low — No active cases' },
-    ],
-    milk: [
-      { color: '#0c4a6e', label: '3,000+ L/mo' },
-      { color: '#075985', label: '2,000–3,000 L/mo' },
-      { color: '#0284c7', label: '1,500–2,000 L/mo' },
-      { color: '#38bdf8', label: '1,000–1,500 L/mo' },
-      { color: '#bae6fd', label: 'Under 1,000 L/mo' },
-    ],
-    meat: [
-      { color: '#7c1d00', label: '1,000+ kg/mo' },
-      { color: '#b91c1c', label: '750–1,000 kg/mo' },
-      { color: '#dc2626', label: '500–750 kg/mo' },
-      { color: '#f87171', label: '300–500 kg/mo' },
-      { color: '#fecaca', label: 'Under 300 kg/mo' },
-    ],
-    movement: [
-      { color: '#dc2626', label: 'Cattle Export (Labas)' },
-      { color: '#2563eb', label: 'Cattle Import (Pasok)' },
-      { color: '#2D5A27', label: 'Padre Garcia (Hub)' },
-    ],
+  const handleResetBounds = () => {
+    setResetTrigger((prev) => prev + 1);
+    toast.info('Camera reset to Padre Garcia municipal extent');
   };
 
   return (
-    <>
-      <PageHeader
-        title="GIS Mapping & Territorial Telemetry"
-        subtitle="Barangay-level livestock demographics, dairy production & disease heat map — Padre Garcia"
-        icon={<MapIcon className="size-5 text-slate-800" />}
-        variant="admin"
-        maxWidthClass="w-full"
-        action={
-          <div className="hidden sm:flex items-center gap-2">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-center shadow-2xs">
-              <div className="text-base font-black text-[#1E4D2B] font-mono leading-tight">{totalCattle.toLocaleString()}</div>
-              <div className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Cattle Heads</div>
-            </div>
-            <div className="rounded-xl border border-sky-200 bg-sky-50/80 px-3 py-1.5 text-center shadow-2xs">
-              <div className="text-base font-black text-sky-800 font-mono leading-tight">{(totalMilk / 1000).toFixed(1)}k L</div>
-              <div className="text-[10px] font-black uppercase text-sky-800 tracking-wider">Dairy Yield</div>
-            </div>
-            <div className="rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-1.5 text-center shadow-2xs">
-              <div className="text-base font-black text-rose-800 font-mono leading-tight">{activeAlerts}</div>
-              <div className="text-[10px] font-black uppercase text-rose-800 tracking-wider">Active Alerts</div>
-            </div>
-          </div>
-        }
+    <div className="relative w-full h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 font-sans select-none">
+      {/* 1. Full-Screen Interactive GIS Map */}
+      <GISMap
+        barangaysByName={barangaysByName}
+        movements={gisData?.movements || []}
+        activeLayer={activeLayer}
+        selectedBarangay={selectedBarangay}
+        onSelectBarangay={handleSelectBarangay}
+        resetTrigger={resetTrigger}
+        simulationMode={simulationMode}
+        simulatedStates={simulatedStates}
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
-        {/* Layer Controls */}
-        <div className="bg-white p-3 rounded-xl shadow-2xs border border-gray-200">
-          <div className="flex flex-col md:flex-row gap-2.5 items-start md:items-center justify-between">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Layers className="w-4 h-4 text-[#2D5A27]" />
-              <span className="font-bold text-xs text-gray-700 mr-1">Map Layer:</span>
-              {(Object.keys(LAYER_CONFIG) as MapLayer[]).map(layer => (
-                <button
-                  key={layer}
-                  onClick={() => setMapLayer(layer)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${mapLayer === layer
-                    ? 'bg-[#2D5A27] text-white shadow-2xs'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  {LAYER_CONFIG[layer].icon} {LAYER_CONFIG[layer].label}
-                </button>
-              ))}
-            </div>
-            {activeAlerts > 0 && (
-              <div className="flex items-center gap-1.5 text-xs bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg">
-                <AlertTriangle className="w-3.5 h-3.5 text-[#D32F2F]" />
-                <span className="text-red-700 font-bold">{activeAlerts} Barangay{activeAlerts > 1 ? 's' : ''} with Active Cases</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Map */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200 overflow-hidden">
-          <div className="bg-[#2D5A27] px-3.5 py-2 flex items-center justify-between">
-            <span className="text-white text-xs font-bold">
-              Municipality of Padre Garcia, Batangas — {LAYER_CONFIG[mapLayer].icon} {LAYER_CONFIG[mapLayer].label}
-            </span>
-            <span className="text-green-200 text-[11px] font-medium">Click a barangay for details</span>
-          </div>
-          <div className="h-[520px]">
-            <style>{`
-                .barangay-tooltip { background: rgba(45, 90, 39, 0.92); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; padding: 3px 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-                .barangay-tooltip::before { display: none; }
-                .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
-              `}</style>
-            <MapContainer center={centerPosition} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={true}>
-
-              <FitBoundsComponent />
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <GeoJSON
-                key={`geojson-${mapLayer}`}
-                data={padreGarciaGeojson as unknown as GeoJSON.FeatureCollection}
-                style={getGeoJSONStyle}
-                onEachFeature={onEachFeature}
-              />
-              {mapLayer === 'movement' && (
-                <>
-                  {MOVEMENT_DATA.map((move) => (
-                    <div key={move.id}>
-                      {/* Connection Line */}
-                      <Polyline
-                        positions={[move.coords as [number, number], [13.8777, 121.2116]]}
-                        pathOptions={{
-                          color: move.type === 'export' ? '#dc2626' : '#2563eb',
-                          weight: 3,
-                          dashArray: '10, 10',
-                          opacity: 0.6
-                        }}
-                      >
-                        <Popup>
-                          <div className="p-2">
-                            <p className="font-bold text-[#1a3d15]">
-                              {move.type === 'export' ? '📤 Export Outbound' : '📥 Import Inbound'}
-                            </p>
-                            <p className="text-sm font-bold text-blue-600">{move.heads} Live Cows</p>
-                          </div>
-                        </Popup>
-                      </Polyline>
-
-                      {/* External Location Marker */}
-                      <CircleMarker
-                        center={move.coords as [number, number]}
-                        radius={6}
-                        pathOptions={{
-                          fillColor: move.type === 'export' ? '#ef4444' : '#3b82f6',
-                          color: '#fff',
-                          fillOpacity: 1,
-                          weight: 2
-                        }}
-                      >
-                        <Tooltip permanent direction="top" className="barangay-tooltip">
-                          {move.type === 'export' ? move.to : move.fromName}
-                        </Tooltip>
-                      </CircleMarker>
-                    </div>
-                  ))}
-                </>
-              )}
-            </MapContainer>
-          </div>
-        </div>
-
-        {/* Bottom panels */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-          {/* Legend */}
-          <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
-            <h3 className="text-xs font-bold text-gray-800 mb-2.5 flex items-center gap-2">
-              <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
-              Legend — {LAYER_CONFIG[mapLayer].icon} {LAYER_CONFIG[mapLayer].label}
-            </h3>
-            <div className="space-y-1.5">
-              {LEGENDS[mapLayer].map(item => (
-                <div key={item.label} className="flex items-center gap-2 text-xs text-gray-700">
-                  <div className="w-4 h-4 rounded border border-gray-300 shrink-0" style={{ backgroundColor: item.color }}></div>
-                  {item.label}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Top barangays */}
-          <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
-            <h3 className="text-xs font-bold text-gray-800 mb-2.5 flex items-center gap-2">
-              <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
-              Top 5 by Cattle Population
-            </h3>
-            <div className="space-y-2">
-              {sortedBarangays.slice(0, 5).map((b, i) => (
-                <div key={b.name} className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-[#2D5A27] text-white text-[10px] flex items-center justify-center font-bold shrink-0">{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-semibold text-gray-800 truncate">{b.name}</span>
-                      <span className="text-xs font-bold text-[#2D5A27] ml-2">{b.cattle}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1 mt-0.5">
-                      <div className="h-1 rounded-full bg-[#2D5A27]" style={{ width: `${(b.cattle / sortedBarangays[0].cattle) * 100}%` }}></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Selected barangay detail OR disease alerts */}
-          <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
-            {selectedBarangay ? (
-              <>
-                <h3 className="text-xs font-bold text-gray-800 mb-2 flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
-                    Brgy. {selectedBarangay.name}
-                  </span>
-                  <button onClick={() => setSelectedBarangay(null)} className="text-gray-400 hover:text-gray-600 text-xs cursor-pointer">✕ close</button>
-                </h3>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-[#f0f7ee] rounded-lg p-2 text-center">
-                    <div className="text-base font-bold text-[#2D5A27]">{selectedBarangay.cattle}</div>
-                    <div className="text-[10px] text-gray-600">🐄 cattle heads</div>
-                  </div>
-                  <div className={`rounded-lg p-2 text-center ${selectedBarangay.diseaseRisk === 'high' ? 'bg-red-50' : selectedBarangay.diseaseRisk === 'medium' ? 'bg-orange-50' : 'bg-green-50'}`}>
-                    <div className={`text-xs font-bold ${selectedBarangay.diseaseRisk === 'high' ? 'text-red-700' : selectedBarangay.diseaseRisk === 'medium' ? 'text-orange-700' : 'text-green-700'}`}>
-                      {selectedBarangay.diseaseRisk.toUpperCase()}
-                    </div>
-                    <div className="text-[10px] text-gray-600">
-                      {selectedBarangay.activeCases > 0
-                        ? `⚠️ ${selectedBarangay.activeCases} active case${selectedBarangay.activeCases > 1 ? 's' : ''}`
-                        : '✅ No active cases'}
-                    </div>
-                  </div>
-                </div>
-                <div className="border-t border-gray-100 pt-2">
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Monthly Production</p>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between bg-blue-50 rounded-lg px-2.5 py-1">
-                      <span className="text-xs font-medium text-blue-800">🥛 Milk</span>
-                      <span className="text-xs font-bold text-blue-700">{selectedBarangay.milk.toLocaleString()} L</span>
-                    </div>
-                    <div className="flex items-center justify-between bg-red-50 rounded-lg px-2.5 py-1">
-                      <span className="text-xs font-medium text-red-800">🥩 Katay (Meat)</span>
-                      <span className="text-xs font-bold text-red-700">{selectedBarangay.meat.toLocaleString()} kg</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-2">
-                  <span className="w-1.5 h-3.5 bg-red-500 rounded-xs inline-block"></span>
-                  Disease Alerts
-                </h3>
-                <div className="space-y-1.5">
-                  {allData.filter(b => b.activeCases > 0).map(b => (
-                    <div
-                      key={b.name}
-                      className="flex items-center justify-between text-xs border border-red-100 bg-red-50 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-100 transition-colors"
-                      onClick={() => setSelectedBarangay(b)}
-                    >
-                      <span className="font-semibold text-gray-800">{b.name}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${b.diseaseRisk === 'high' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}`}>
-                        {b.activeCases} case{b.activeCases > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  ))}
-                  {allData.filter(b => b.activeCases > 0).length === 0 && (
-                    <p className="text-xs font-medium text-green-600">✅ No active disease cases</p>
-                  )}
-                  <p className="text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t">Click any barangay on the map to inspect details.</p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <PadreGarciaForecaster />
-
-        {/* Production Summary Table */}
-        <div className="bg-white rounded-xl shadow-2xs border border-gray-200 mt-3.5 overflow-hidden">
-          <div className="px-3.5 py-2.5 border-b border-gray-100 flex items-center gap-2 bg-gray-50/70">
-            <TrendingUp className="w-3.5 h-3.5 text-[#2D5A27]" />
-            <h3 className="text-xs font-black text-gray-800 tracking-tight">Production Summary — All Barangays (Monthly)</h3>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
-                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest">Barangay</TableHead>
-                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🐄 Cattle</TableHead>
-                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🥛 Milk (L)</TableHead>
-                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🥩 Katay (kg)</TableHead>
-                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Risk</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-gray-50">
-              {sortedBarangays.map((b) => (
-                <TableRow
-                  key={b.name}
-                  className="hover:bg-gray-50/80 cursor-pointer transition-colors border-none group"
-                  onClick={() => setSelectedBarangay(b)}
-                >
-                  <TableCell className="px-3.5 py-2 text-xs font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">{b.name}</TableCell>
-                  <TableCell className="px-3.5 py-2 text-xs text-right font-semibold text-gray-700">{b.cattle}</TableCell>
-                  <TableCell className="px-3.5 py-2 text-xs text-right text-blue-700 font-bold">{b.milk.toLocaleString()}</TableCell>
-                  <TableCell className="px-3.5 py-2 text-xs text-right text-red-700 font-bold">{b.meat.toLocaleString()}</TableCell>
-                  <TableCell className="px-3.5 py-2 text-center">
-                    <Badge
-                      variant="outline"
-                      className={`border-none text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${b.diseaseRisk === 'high' ? 'bg-red-100 text-red-700' :
-                          b.diseaseRisk === 'medium' ? 'bg-amber-100 text-amber-800' :
-                            'bg-green-100 text-green-700'
-                        }`}
-                    >
-                      {b.diseaseRisk}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter className="bg-[#f0f7ee] border-t border-[#c3dbb8]">
-              <TableRow className="hover:bg-transparent font-bold">
-                <TableCell className="px-3.5 py-2 text-xs text-[#2D5A27] font-black">TOTAL</TableCell>
-                <TableCell className="px-3.5 py-2 text-xs text-right text-[#2D5A27] font-black">{totalCattle.toLocaleString()}</TableCell>
-                <TableCell className="px-3.5 py-2 text-xs text-right text-blue-700 font-black">{totalMilk.toLocaleString()}</TableCell>
-                <TableCell className="px-3.5 py-2 text-xs text-right text-red-700 font-black">{totalMeat.toLocaleString()}</TableCell>
-                <TableCell className="px-3.5 py-2"></TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
-        </div>
+      {/* 2. Floating Top-Left Controls & Layer Switcher */}
+      <div className="absolute top-4 left-4 z-[900]">
+        <GISControls
+          currentLayer={activeLayer}
+          onLayerChange={setActiveLayer}
+          simulationMode={simulationMode}
+          onToggleSimulation={handleToggleSimulation}
+          onResetBounds={handleResetBounds}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+        />
       </div>
-    </>
+
+      {/* 3. Floating Bottom-Left Dynamic Legend */}
+      <div className="absolute bottom-4 left-4 z-[900]">
+        <GISLegend layer={activeLayer} simulationMode={simulationMode} />
+      </div>
+
+      {/* 4. Floating Right Sidebar (Desktop Overlay + Mobile Sheet) */}
+      <GISSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        selectedBarangay={selectedBarangay}
+        onClearSelectedBarangay={handleClearSelectedBarangay}
+        onSelectBarangay={handleSelectBarangay}
+        summary={gisData?.summary || DEFAULT_SUMMARY}
+        movements={gisData?.movements || []}
+        allBarangays={gisData?.barangays || []}
+        onRefresh={() => fetchGISTelemetry(true)}
+        isLoading={isLoading}
+        simulationMode={simulationMode}
+        simulatedStates={simulatedStates}
+      />
+
+      {/* 5. Loading Pill Indicator */}
+      {isLoading && (
+        <div className="absolute top-4 right-1/2 translate-x-1/2 z-[1100] bg-emerald-950/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/30 text-xs flex items-center gap-2 shadow-xl animate-in fade-in">
+          <Loader2 className="size-3.5 animate-spin text-emerald-400" />
+          <span className="font-semibold tracking-wide">Syncing Telemetry...</span>
+        </div>
+      )}
+    </div>
   );
 }

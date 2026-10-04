@@ -9,4 +9,5 @@ urlpatterns = [
     path("predictive/", views.predictive_model_comparison, name="predictive-model-comparison"),
     path("predictive/forecast/", views.predictive_forecast, name="predictive-forecast"),
     path("prescriptive/", views.prescriptive_recommendations, name="prescriptive-recommendations"),
+    path("gis/", views.gis_summary, name="gis-summary"),
 ]

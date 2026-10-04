@@ -238,3 +238,18 @@ def prescriptive_recommendations(request):
     res = generate_prescriptive_recommendations(production_type=production_type, unit=unit, user=request.user)
     return Response(res)
 
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def gis_summary(request):
+    """
+    Municipal GIS Telemetry Endpoint:
+    Returns real-time aggregated territorial demographics, cattle distribution,
+    disease surveillance heat maps, milk/meat production, mortality rates, and
+    live livestock movement flows across all 18 barangays of Padre Garcia, Batangas.
+    """
+    from .services.gis import get_gis_aggregated_data
+
+    return Response(get_gis_aggregated_data(user=request.user))
+
+

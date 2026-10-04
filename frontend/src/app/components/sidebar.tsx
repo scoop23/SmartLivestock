@@ -303,9 +303,9 @@ function SidebarNav({
           const isDropdownOpen = Boolean(openDropdowns[link.path]);
 
           const isExactActive = pathname === link.path;
-const isChildActive = Boolean(
-    hasSubLinks && link.subLinks?.some((s) => pathname === s.path || pathname.startsWith(s.path + "/"))
-  );
+          const isChildActive = Boolean(
+            hasSubLinks && link.subLinks?.some((s) => pathname === s.path || pathname.startsWith(s.path + "/"))
+          );
           const isActive = isExactActive || isChildActive || (
             !hasSubLinks &&
             link.path !== '/admin' &&
