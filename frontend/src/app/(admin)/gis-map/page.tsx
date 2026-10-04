@@ -16,6 +16,7 @@ import { Map as MapIcon, Layers, AlertTriangle, TrendingUp } from 'lucide-react'
 import dynamic from 'next/dynamic';
 import type { FeatureCollection } from 'geojson';
 import PadreGarciaForecaster from '@/app/components/analytics/haversine';
+import padreGarciaGeojson from '@/data/padre-garcia-barangays.json';
 import 'leaflet/dist/leaflet.css';
 
 
@@ -40,49 +41,25 @@ interface BarangayData {
   cheese: number;
 }
 
-const PADRE_GARCIA_GEOJSON: GeoJSON.FeatureCollection = {
-  type: 'FeatureCollection',
-  features: [
-    { type: 'Feature', properties: { name: 'Banaba' }, geometry: { type: 'Polygon', coordinates: [[[121.2310, 13.8920], [121.2480, 13.8950], [121.2500, 13.8830], [121.2380, 13.8780], [121.2280, 13.8800], [121.2260, 13.8870], [121.2310, 13.8920]]] } },
-    { type: 'Feature', properties: { name: 'Banaybanay' }, geometry: { type: 'Polygon', coordinates: [[[121.2160, 13.8950], [121.2260, 13.8960], [121.2310, 13.8920], [121.2260, 13.8870], [121.2180, 13.8850], [121.2120, 13.8880], [121.2100, 13.8930], [121.2160, 13.8950]]] } },
-    { type: 'Feature', properties: { name: 'Bawi' }, geometry: { type: 'Polygon', coordinates: [[[121.2480, 13.8950], [121.2600, 13.8940], [121.2620, 13.8800], [121.2520, 13.8750], [121.2430, 13.8760], [121.2380, 13.8780], [121.2500, 13.8830], [121.2480, 13.8950]]] } },
-    { type: 'Feature', properties: { name: 'Bukal' }, geometry: { type: 'Polygon', coordinates: [[[121.2600, 13.8940], [121.2720, 13.8920], [121.2740, 13.8780], [121.2620, 13.8750], [121.2520, 13.8750], [121.2620, 13.8800], [121.2600, 13.8940]]] } },
-    { type: 'Feature', properties: { name: 'Castillo' }, geometry: { type: 'Polygon', coordinates: [[[121.2180, 13.8850], [121.2260, 13.8870], [121.2280, 13.8800], [121.2220, 13.8740], [121.2140, 13.8750], [121.2120, 13.8800], [121.2180, 13.8850]]] } },
-    { type: 'Feature', properties: { name: 'Cawongan' }, geometry: { type: 'Polygon', coordinates: [[[121.1900, 13.9050], [121.2100, 13.9060], [121.2120, 13.8930], [121.2100, 13.8930], [121.2120, 13.8880], [121.2000, 13.8850], [121.1880, 13.8870], [121.1900, 13.9050]]] } },
-    { type: 'Feature', properties: { name: 'Manggas' }, geometry: { type: 'Polygon', coordinates: [[[121.2100, 13.9060], [121.2260, 13.9060], [121.2260, 13.8960], [121.2160, 13.8950], [121.2100, 13.8930], [121.2120, 13.8930], [121.2100, 13.9060]]] } },
-    { type: 'Feature', properties: { name: 'Maugat East' }, geometry: { type: 'Polygon', coordinates: [[[121.2220, 13.8600], [121.2340, 13.8620], [121.2380, 13.8560], [121.2300, 13.8490], [121.2200, 13.8500], [121.2160, 13.8560], [121.2220, 13.8600]]] } },
-    { type: 'Feature', properties: { name: 'Maugat West' }, geometry: { type: 'Polygon', coordinates: [[[121.2020, 13.8650], [121.2140, 13.8660], [121.2180, 13.8600], [121.2120, 13.8540], [121.2020, 13.8530], [121.1940, 13.8570], [121.1960, 13.8640], [121.2020, 13.8650]]] } },
-    { type: 'Feature', properties: { name: 'Pansol' }, geometry: { type: 'Polygon', coordinates: [[[121.2380, 13.8780], [121.2520, 13.8750], [121.2540, 13.8640], [121.2440, 13.8580], [121.2340, 13.8620], [121.2260, 13.8680], [121.2280, 13.8800], [121.2380, 13.8780]]] } },
-    { type: 'Feature', properties: { name: 'Payapa' }, geometry: { type: 'Polygon', coordinates: [[[121.2140, 13.8750], [121.2220, 13.8740], [121.2260, 13.8680], [121.2180, 13.8600], [121.2140, 13.8660], [121.2060, 13.8660], [121.2060, 13.8720], [121.2140, 13.8750]]] } },
-    { type: 'Feature', properties: { name: 'Poblacion' }, geometry: { type: 'Polygon', coordinates: [[[121.2060, 13.8720], [121.2060, 13.8660], [121.1960, 13.8640], [121.1940, 13.8700], [121.1960, 13.8760], [121.2040, 13.8770], [121.2060, 13.8720]]] } },
-    { type: 'Feature', properties: { name: 'Quilo-quilo North' }, geometry: { type: 'Polygon', coordinates: [[[121.1880, 13.8870], [121.2000, 13.8850], [121.2000, 13.8770], [121.1960, 13.8760], [121.1940, 13.8700], [121.1860, 13.8720], [121.1840, 13.8800], [121.1880, 13.8870]]] } },
-    { type: 'Feature', properties: { name: 'Quilo-quilo South' }, geometry: { type: 'Polygon', coordinates: [[[121.1840, 13.8800], [121.1860, 13.8720], [121.1780, 13.8700], [121.1760, 13.8780], [121.1800, 13.8840], [121.1840, 13.8800]]] } },
-    { type: 'Feature', properties: { name: 'San Felipe' }, geometry: { type: 'Polygon', coordinates: [[[121.2440, 13.8580], [121.2540, 13.8640], [121.2620, 13.8620], [121.2620, 13.8500], [121.2520, 13.8430], [121.2360, 13.8430], [121.2300, 13.8490], [121.2380, 13.8560], [121.2440, 13.8580]]] } },
-    { type: 'Feature', properties: { name: 'San Miguel' }, geometry: { type: 'Polygon', coordinates: [[[121.2300, 13.8490], [121.2360, 13.8430], [121.2260, 13.8390], [121.2160, 13.8420], [121.2120, 13.8490], [121.2160, 13.8540], [121.2200, 13.8500], [121.2300, 13.8490]]] } },
-    { type: 'Feature', properties: { name: 'Tamak' }, geometry: { type: 'Polygon', coordinates: [[[121.1940, 13.8570], [121.2020, 13.8530], [121.2020, 13.8460], [121.1940, 13.8440], [121.1860, 13.8460], [121.1840, 13.8540], [121.1880, 13.8580], [121.1940, 13.8570]]] } },
-    { type: 'Feature', properties: { name: 'Tangob' }, geometry: { type: 'Polygon', coordinates: [[[121.1760, 13.8780], [121.1780, 13.8700], [121.1760, 13.8620], [121.1680, 13.8620], [121.1660, 13.8720], [121.1700, 13.8800], [121.1760, 13.8780]]] } },
-  ],
-};
-
 const BARANGAY_DATA: Record<string, BarangayData> = {
-  'Banaba': { name: 'Banaba', position: [13.8870, 121.2395], cattle: 245, diseaseRisk: 'low', activeCases: 0, milk: 3675, meat: 1225, cheese: 245 },
-  'Banaybanay': { name: 'Banaybanay', position: [13.8910, 121.2220], cattle: 112, diseaseRisk: 'low', activeCases: 0, milk: 1680, meat: 560, cheese: 112 },
-  'Bawi': { name: 'Bawi', position: [13.8860, 121.2510], cattle: 198, diseaseRisk: 'high', activeCases: 5, milk: 2970, meat: 990, cheese: 198 },
-  'Bukal': { name: 'Bukal', position: [13.8850, 121.2640], cattle: 134, diseaseRisk: 'low', activeCases: 0, milk: 2010, meat: 670, cheese: 134 },
-  'Castillo': { name: 'Castillo', position: [13.8810, 121.2210], cattle: 143, diseaseRisk: 'medium', activeCases: 1, milk: 2145, meat: 715, cheese: 143 },
-  'Cawongan': { name: 'Cawongan', position: [13.8960, 121.2000], cattle: 167, diseaseRisk: 'low', activeCases: 0, milk: 2505, meat: 835, cheese: 167 },
-  'Manggas': { name: 'Manggas', position: [13.9010, 121.2180], cattle: 76, diseaseRisk: 'low', activeCases: 0, milk: 1140, meat: 380, cheese: 76 },
-  'Maugat East': { name: 'Maugat East', position: [13.8560, 121.2280], cattle: 88, diseaseRisk: 'low', activeCases: 0, milk: 1320, meat: 440, cheese: 88 },
-  'Maugat West': { name: 'Maugat West', position: [13.8590, 121.2060], cattle: 121, diseaseRisk: 'low', activeCases: 0, milk: 1815, meat: 605, cheese: 121 },
-  'Pansol': { name: 'Pansol', position: [13.8785, 121.2438], cattle: 156, diseaseRisk: 'medium', activeCases: 2, milk: 2340, meat: 780, cheese: 156 },
-  'Payapa': { name: 'Payapa', position: [13.8700, 121.2190], cattle: 99, diseaseRisk: 'low', activeCases: 0, milk: 1485, meat: 495, cheese: 99 },
-  'Poblacion': { name: 'Poblacion', position: [13.8720, 121.2010], cattle: 87, diseaseRisk: 'low', activeCases: 0, milk: 1305, meat: 435, cheese: 87 },
-  'Quilo-quilo North': { name: 'Quilo-quilo North', position: [13.8800, 121.1930], cattle: 73, diseaseRisk: 'low', activeCases: 0, milk: 1095, meat: 365, cheese: 73 },
-  'Quilo-quilo South': { name: 'Quilo-quilo South', position: [13.8760, 121.1810], cattle: 59, diseaseRisk: 'low', activeCases: 0, milk: 885, meat: 295, cheese: 59 },
-  'San Felipe': { name: 'San Felipe', position: [13.8530, 121.2510], cattle: 182, diseaseRisk: 'medium', activeCases: 1, milk: 2730, meat: 910, cheese: 182 },
-  'San Miguel': { name: 'San Miguel', position: [13.8460, 121.2260], cattle: 95, diseaseRisk: 'low', activeCases: 0, milk: 1425, meat: 475, cheese: 95 },
-  'Tamak': { name: 'Tamak', position: [13.8510, 121.1940], cattle: 44, diseaseRisk: 'low', activeCases: 0, milk: 660, meat: 220, cheese: 44 },
-  'Tangob': { name: 'Tangob', position: [13.8710, 121.1720], cattle: 62, diseaseRisk: 'low', activeCases: 0, milk: 930, meat: 310, cheese: 62 },
+  'Banaba': { name: 'Banaba', position: [13.885149, 121.221731], cattle: 245, diseaseRisk: 'low', activeCases: 0, milk: 3675, meat: 1225, cheese: 245 },
+  'Banaybanay': { name: 'Banaybanay', position: [13.893419, 121.216281], cattle: 112, diseaseRisk: 'low', activeCases: 0, milk: 1680, meat: 560, cheese: 112 },
+  'Bawi': { name: 'Bawi', position: [13.886475, 121.232434], cattle: 198, diseaseRisk: 'high', activeCases: 5, milk: 2970, meat: 990, cheese: 198 },
+  'Bukal': { name: 'Bukal', position: [13.863402, 121.258598], cattle: 134, diseaseRisk: 'low', activeCases: 0, milk: 2010, meat: 670, cheese: 134 },
+  'Castillo': { name: 'Castillo', position: [13.875098, 121.266738], cattle: 143, diseaseRisk: 'medium', activeCases: 1, milk: 2145, meat: 715, cheese: 143 },
+  'Cawongan': { name: 'Cawongan', position: [13.873038, 121.220908], cattle: 167, diseaseRisk: 'low', activeCases: 0, milk: 2505, meat: 835, cheese: 167 },
+  'Manggas': { name: 'Manggas', position: [13.871999, 121.246593], cattle: 76, diseaseRisk: 'low', activeCases: 0, milk: 1140, meat: 380, cheese: 76 },
+  'Maugat East': { name: 'Maugat East', position: [13.864823, 121.302085], cattle: 88, diseaseRisk: 'low', activeCases: 0, milk: 1320, meat: 440, cheese: 88 },
+  'Maugat West': { name: 'Maugat West', position: [13.864623, 121.281764], cattle: 121, diseaseRisk: 'low', activeCases: 0, milk: 1815, meat: 605, cheese: 121 },
+  'Pansol': { name: 'Pansol', position: [13.882793, 121.247123], cattle: 156, diseaseRisk: 'medium', activeCases: 2, milk: 2340, meat: 780, cheese: 156 },
+  'Payapa': { name: 'Payapa', position: [13.859442, 121.246674], cattle: 99, diseaseRisk: 'low', activeCases: 0, milk: 1485, meat: 495, cheese: 99 },
+  'Poblacion': { name: 'Poblacion', position: [13.87908, 121.212894], cattle: 87, diseaseRisk: 'low', activeCases: 0, milk: 1305, meat: 435, cheese: 87 },
+  'Quilo-quilo North': { name: 'Quilo-quilo North', position: [13.862076, 121.223498], cattle: 73, diseaseRisk: 'low', activeCases: 0, milk: 1095, meat: 365, cheese: 73 },
+  'Quilo-quilo South': { name: 'Quilo-quilo South', position: [13.851806, 121.243495], cattle: 59, diseaseRisk: 'low', activeCases: 0, milk: 885, meat: 295, cheese: 59 },
+  'San Felipe': { name: 'San Felipe', position: [13.887528, 121.201211], cattle: 182, diseaseRisk: 'medium', activeCases: 1, milk: 2730, meat: 910, cheese: 182 },
+  'San Miguel': { name: 'San Miguel', position: [13.873635, 121.199939], cattle: 95, diseaseRisk: 'low', activeCases: 0, milk: 1425, meat: 475, cheese: 95 },
+  'Tamak': { name: 'Tamak', position: [13.876635, 121.229178], cattle: 44, diseaseRisk: 'low', activeCases: 0, milk: 660, meat: 220, cheese: 44 },
+  'Tangob': { name: 'Tangob', position: [13.881157, 121.259591], cattle: 62, diseaseRisk: 'low', activeCases: 0, milk: 930, meat: 310, cheese: 62 },
 };
 
 const MOVEMENT_DATA = [
@@ -152,8 +129,11 @@ const FitBoundsComponent = dynamic(
       const map = useMap();
       useEffect(() => {
         import('leaflet').then(L => {
-          const bounds = L.latLngBounds(L.latLng(13.844, 121.166), L.latLng(13.910, 121.278));
-          map.fitBounds(bounds, { padding: [20, 20] });
+          const geoJsonLayer = L.geoJSON(padreGarciaGeojson as any);
+          const bounds = geoJsonLayer.getBounds();
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [20, 20] });
+          }
         });
       }, [map]);
       return null;
@@ -167,7 +147,7 @@ export default function GISMapPage() {
   const [mapLayer, setMapLayer] = useState<MapLayer>('cattle');
   const [selectedBarangay, setSelectedBarangay] = useState<BarangayData | null>(null);
 
-  const centerPosition: [number, number] = [13.8777, 121.2116];
+  const centerPosition: [number, number] = [13.8741, 121.2529];
 
   const getLayerColor = (data: BarangayData): string => {
     switch (mapLayer) {
@@ -304,276 +284,275 @@ export default function GISMapPage() {
       />
 
       <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
-          {/* Layer Controls */}
-          <div className="bg-white p-3 rounded-xl shadow-2xs border border-gray-200">
-            <div className="flex flex-col md:flex-row gap-2.5 items-start md:items-center justify-between">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Layers className="w-4 h-4 text-[#2D5A27]" />
-                <span className="font-bold text-xs text-gray-700 mr-1">Map Layer:</span>
-                {(Object.keys(LAYER_CONFIG) as MapLayer[]).map(layer => (
-                  <button
-                    key={layer}
-                    onClick={() => setMapLayer(layer)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${mapLayer === layer
-                      ? 'bg-[#2D5A27] text-white shadow-2xs'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    {LAYER_CONFIG[layer].icon} {LAYER_CONFIG[layer].label}
-                  </button>
-                ))}
+        {/* Layer Controls */}
+        <div className="bg-white p-3 rounded-xl shadow-2xs border border-gray-200">
+          <div className="flex flex-col md:flex-row gap-2.5 items-start md:items-center justify-between">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Layers className="w-4 h-4 text-[#2D5A27]" />
+              <span className="font-bold text-xs text-gray-700 mr-1">Map Layer:</span>
+              {(Object.keys(LAYER_CONFIG) as MapLayer[]).map(layer => (
+                <button
+                  key={layer}
+                  onClick={() => setMapLayer(layer)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${mapLayer === layer
+                    ? 'bg-[#2D5A27] text-white shadow-2xs'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                  {LAYER_CONFIG[layer].icon} {LAYER_CONFIG[layer].label}
+                </button>
+              ))}
+            </div>
+            {activeAlerts > 0 && (
+              <div className="flex items-center gap-1.5 text-xs bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg">
+                <AlertTriangle className="w-3.5 h-3.5 text-[#D32F2F]" />
+                <span className="text-red-700 font-bold">{activeAlerts} Barangay{activeAlerts > 1 ? 's' : ''} with Active Cases</span>
               </div>
-              {activeAlerts > 0 && (
-                <div className="flex items-center gap-1.5 text-xs bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg">
-                  <AlertTriangle className="w-3.5 h-3.5 text-[#D32F2F]" />
-                  <span className="text-red-700 font-bold">{activeAlerts} Barangay{activeAlerts > 1 ? 's' : ''} with Active Cases</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
+        </div>
 
-          {/* Map */}
-          <div className="bg-white rounded-xl shadow-2xs border border-gray-200 overflow-hidden">
-            <div className="bg-[#2D5A27] px-3.5 py-2 flex items-center justify-between">
-              <span className="text-white text-xs font-bold">
-                Municipality of Padre Garcia, Batangas — {LAYER_CONFIG[mapLayer].icon} {LAYER_CONFIG[mapLayer].label}
-              </span>
-              <span className="text-green-200 text-[11px] font-medium">Click a barangay for details</span>
-            </div>
-            <div className="h-[520px]">
-              <style>{`
+        {/* Map */}
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200 overflow-hidden">
+          <div className="bg-[#2D5A27] px-3.5 py-2 flex items-center justify-between">
+            <span className="text-white text-xs font-bold">
+              Municipality of Padre Garcia, Batangas — {LAYER_CONFIG[mapLayer].icon} {LAYER_CONFIG[mapLayer].label}
+            </span>
+            <span className="text-green-200 text-[11px] font-medium">Click a barangay for details</span>
+          </div>
+          <div className="h-[520px]">
+            <style>{`
                 .barangay-tooltip { background: rgba(45, 90, 39, 0.92); border: none; border-radius: 4px; color: white; font-size: 11px; font-weight: 600; padding: 3px 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
                 .barangay-tooltip::before { display: none; }
                 .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
               `}</style>
-              <MapContainer center={centerPosition} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={true}>
+            <MapContainer center={centerPosition} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={true}>
 
-                <FitBoundsComponent />
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <GeoJSON
-                  key={`geojson-${mapLayer}`}
-                  data={PADRE_GARCIA_GEOJSON}
-                  style={getGeoJSONStyle}
-                  onEachFeature={onEachFeature}
-                />
-                {mapLayer === 'movement' && (
-                  <>
-                    {MOVEMENT_DATA.map((move) => (
-                      <div key={move.id}>
-                        {/* Connection Line */}
-                        <Polyline
-                          positions={[move.coords as [number, number], [13.8777, 121.2116]]}
-                          pathOptions={{
-                            color: move.type === 'export' ? '#dc2626' : '#2563eb',
-                            weight: 3,
-                            dashArray: '10, 10',
-                            opacity: 0.6
-                          }}
-                        >
-                          <Popup>
-                            <div className="p-2">
-                              <p className="font-bold text-[#1a3d15]">
-                                {move.type === 'export' ? '📤 Export Outbound' : '📥 Import Inbound'}
-                              </p>
-                              <p className="text-sm font-bold text-blue-600">{move.heads} Live Cows</p>
-                            </div>
-                          </Popup>
-                        </Polyline>
-
-                        {/* External Location Marker */}
-                        <CircleMarker
-                          center={move.coords as [number, number]}
-                          radius={6}
-                          pathOptions={{
-                            fillColor: move.type === 'export' ? '#ef4444' : '#3b82f6',
-                            color: '#fff',
-                            fillOpacity: 1,
-                            weight: 2
-                          }}
-                        >
-                          <Tooltip permanent direction="top" className="barangay-tooltip">
-                            {move.type === 'export' ? move.to : move.fromName}
-                          </Tooltip>
-                        </CircleMarker>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </MapContainer>
-            </div>
-          </div>
-
-          {/* Bottom panels */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-            {/* Legend */}
-            <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
-              <h3 className="text-xs font-bold text-gray-800 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
-                Legend — {LAYER_CONFIG[mapLayer].icon} {LAYER_CONFIG[mapLayer].label}
-              </h3>
-              <div className="space-y-1.5">
-                {LEGENDS[mapLayer].map(item => (
-                  <div key={item.label} className="flex items-center gap-2 text-xs text-gray-700">
-                    <div className="w-4 h-4 rounded border border-gray-300 shrink-0" style={{ backgroundColor: item.color }}></div>
-                    {item.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Top barangays */}
-            <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
-              <h3 className="text-xs font-bold text-gray-800 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
-                Top 5 by Cattle Population
-              </h3>
-              <div className="space-y-2">
-                {sortedBarangays.slice(0, 5).map((b, i) => (
-                  <div key={b.name} className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-[#2D5A27] text-white text-[10px] flex items-center justify-center font-bold shrink-0">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-semibold text-gray-800 truncate">{b.name}</span>
-                        <span className="text-xs font-bold text-[#2D5A27] ml-2">{b.cattle}</span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-1 mt-0.5">
-                        <div className="h-1 rounded-full bg-[#2D5A27]" style={{ width: `${(b.cattle / sortedBarangays[0].cattle) * 100}%` }}></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Selected barangay detail OR disease alerts */}
-            <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
-              {selectedBarangay ? (
+              <FitBoundsComponent />
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <GeoJSON
+                key={`geojson-${mapLayer}`}
+                data={padreGarciaGeojson as unknown as GeoJSON.FeatureCollection}
+                style={getGeoJSONStyle}
+                onEachFeature={onEachFeature}
+              />
+              {mapLayer === 'movement' && (
                 <>
-                  <h3 className="text-xs font-bold text-gray-800 mb-2 flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
-                      Brgy. {selectedBarangay.name}
-                    </span>
-                    <button onClick={() => setSelectedBarangay(null)} className="text-gray-400 hover:text-gray-600 text-xs cursor-pointer">✕ close</button>
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div className="bg-[#f0f7ee] rounded-lg p-2 text-center">
-                      <div className="text-base font-bold text-[#2D5A27]">{selectedBarangay.cattle}</div>
-                      <div className="text-[10px] text-gray-600">🐄 cattle heads</div>
-                    </div>
-                    <div className={`rounded-lg p-2 text-center ${selectedBarangay.diseaseRisk === 'high' ? 'bg-red-50' : selectedBarangay.diseaseRisk === 'medium' ? 'bg-orange-50' : 'bg-green-50'}`}>
-                      <div className={`text-xs font-bold ${selectedBarangay.diseaseRisk === 'high' ? 'text-red-700' : selectedBarangay.diseaseRisk === 'medium' ? 'text-orange-700' : 'text-green-700'}`}>
-                        {selectedBarangay.diseaseRisk.toUpperCase()}
-                      </div>
-                      <div className="text-[10px] text-gray-600">
-                        {selectedBarangay.activeCases > 0
-                          ? `⚠️ ${selectedBarangay.activeCases} active case${selectedBarangay.activeCases > 1 ? 's' : ''}`
-                          : '✅ No active cases'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="border-t border-gray-100 pt-2">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Monthly Production</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between bg-blue-50 rounded-lg px-2.5 py-1">
-                        <span className="text-xs font-medium text-blue-800">🥛 Milk</span>
-                        <span className="text-xs font-bold text-blue-700">{selectedBarangay.milk.toLocaleString()} L</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-red-50 rounded-lg px-2.5 py-1">
-                        <span className="text-xs font-medium text-red-800">🥩 Katay (Meat)</span>
-                        <span className="text-xs font-bold text-red-700">{selectedBarangay.meat.toLocaleString()} kg</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-2">
-                    <span className="w-1.5 h-3.5 bg-red-500 rounded-xs inline-block"></span>
-                    Disease Alerts
-                  </h3>
-                  <div className="space-y-1.5">
-                    {allData.filter(b => b.activeCases > 0).map(b => (
-                      <div
-                        key={b.name}
-                        className="flex items-center justify-between text-xs border border-red-100 bg-red-50 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-100 transition-colors"
-                        onClick={() => setSelectedBarangay(b)}
+                  {MOVEMENT_DATA.map((move) => (
+                    <div key={move.id}>
+                      {/* Connection Line */}
+                      <Polyline
+                        positions={[move.coords as [number, number], [13.8777, 121.2116]]}
+                        pathOptions={{
+                          color: move.type === 'export' ? '#dc2626' : '#2563eb',
+                          weight: 3,
+                          dashArray: '10, 10',
+                          opacity: 0.6
+                        }}
                       >
-                        <span className="font-semibold text-gray-800">{b.name}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${b.diseaseRisk === 'high' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}`}>
-                          {b.activeCases} case{b.activeCases > 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    ))}
-                    {allData.filter(b => b.activeCases > 0).length === 0 && (
-                      <p className="text-xs font-medium text-green-600">✅ No active disease cases</p>
-                    )}
-                    <p className="text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t">Click any barangay on the map to inspect details.</p>
-                  </div>
+                        <Popup>
+                          <div className="p-2">
+                            <p className="font-bold text-[#1a3d15]">
+                              {move.type === 'export' ? '📤 Export Outbound' : '📥 Import Inbound'}
+                            </p>
+                            <p className="text-sm font-bold text-blue-600">{move.heads} Live Cows</p>
+                          </div>
+                        </Popup>
+                      </Polyline>
+
+                      {/* External Location Marker */}
+                      <CircleMarker
+                        center={move.coords as [number, number]}
+                        radius={6}
+                        pathOptions={{
+                          fillColor: move.type === 'export' ? '#ef4444' : '#3b82f6',
+                          color: '#fff',
+                          fillOpacity: 1,
+                          weight: 2
+                        }}
+                      >
+                        <Tooltip permanent direction="top" className="barangay-tooltip">
+                          {move.type === 'export' ? move.to : move.fromName}
+                        </Tooltip>
+                      </CircleMarker>
+                    </div>
+                  ))}
                 </>
               )}
-            </div>
-          </div>
-
-          <PadreGarciaForecaster />
-
-          {/* Production Summary Table */}
-          <div className="bg-white rounded-xl shadow-2xs border border-gray-200 mt-3.5 overflow-hidden">
-            <div className="px-3.5 py-2.5 border-b border-gray-100 flex items-center gap-2 bg-gray-50/70">
-              <TrendingUp className="w-3.5 h-3.5 text-[#2D5A27]" />
-              <h3 className="text-xs font-black text-gray-800 tracking-tight">Production Summary — All Barangays (Monthly)</h3>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
-                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest">Barangay</TableHead>
-                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🐄 Cattle</TableHead>
-                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🥛 Milk (L)</TableHead>
-                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🥩 Katay (kg)</TableHead>
-                  <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Risk</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-gray-50">
-                {sortedBarangays.map((b) => (
-                  <TableRow
-                    key={b.name}
-                    className="hover:bg-gray-50/80 cursor-pointer transition-colors border-none group"
-                    onClick={() => setSelectedBarangay(b)}
-                  >
-                    <TableCell className="px-3.5 py-2 text-xs font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">{b.name}</TableCell>
-                    <TableCell className="px-3.5 py-2 text-xs text-right font-semibold text-gray-700">{b.cattle}</TableCell>
-                    <TableCell className="px-3.5 py-2 text-xs text-right text-blue-700 font-bold">{b.milk.toLocaleString()}</TableCell>
-                    <TableCell className="px-3.5 py-2 text-xs text-right text-red-700 font-bold">{b.meat.toLocaleString()}</TableCell>
-                    <TableCell className="px-3.5 py-2 text-center">
-                      <Badge
-                        variant="outline"
-                        className={`border-none text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                          b.diseaseRisk === 'high' ? 'bg-red-100 text-red-700' :
-                          b.diseaseRisk === 'medium' ? 'bg-amber-100 text-amber-800' :
-                          'bg-green-100 text-green-700'
-                        }`}
-                      >
-                        {b.diseaseRisk}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter className="bg-[#f0f7ee] border-t border-[#c3dbb8]">
-                <TableRow className="hover:bg-transparent font-bold">
-                  <TableCell className="px-3.5 py-2 text-xs text-[#2D5A27] font-black">TOTAL</TableCell>
-                  <TableCell className="px-3.5 py-2 text-xs text-right text-[#2D5A27] font-black">{totalCattle.toLocaleString()}</TableCell>
-                  <TableCell className="px-3.5 py-2 text-xs text-right text-blue-700 font-black">{totalMilk.toLocaleString()}</TableCell>
-                  <TableCell className="px-3.5 py-2 text-xs text-right text-red-700 font-black">{totalMeat.toLocaleString()}</TableCell>
-                  <TableCell className="px-3.5 py-2"></TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
+            </MapContainer>
           </div>
         </div>
+
+        {/* Bottom panels */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
+          {/* Legend */}
+          <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
+            <h3 className="text-xs font-bold text-gray-800 mb-2.5 flex items-center gap-2">
+              <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
+              Legend — {LAYER_CONFIG[mapLayer].icon} {LAYER_CONFIG[mapLayer].label}
+            </h3>
+            <div className="space-y-1.5">
+              {LEGENDS[mapLayer].map(item => (
+                <div key={item.label} className="flex items-center gap-2 text-xs text-gray-700">
+                  <div className="w-4 h-4 rounded border border-gray-300 shrink-0" style={{ backgroundColor: item.color }}></div>
+                  {item.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top barangays */}
+          <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
+            <h3 className="text-xs font-bold text-gray-800 mb-2.5 flex items-center gap-2">
+              <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
+              Top 5 by Cattle Population
+            </h3>
+            <div className="space-y-2">
+              {sortedBarangays.slice(0, 5).map((b, i) => (
+                <div key={b.name} className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#2D5A27] text-white text-[10px] flex items-center justify-center font-bold shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-semibold text-gray-800 truncate">{b.name}</span>
+                      <span className="text-xs font-bold text-[#2D5A27] ml-2">{b.cattle}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1 mt-0.5">
+                      <div className="h-1 rounded-full bg-[#2D5A27]" style={{ width: `${(b.cattle / sortedBarangays[0].cattle) * 100}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Selected barangay detail OR disease alerts */}
+          <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-gray-200">
+            {selectedBarangay ? (
+              <>
+                <h3 className="text-xs font-bold text-gray-800 mb-2 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="w-1.5 h-3.5 bg-[#2D5A27] rounded-xs inline-block"></span>
+                    Brgy. {selectedBarangay.name}
+                  </span>
+                  <button onClick={() => setSelectedBarangay(null)} className="text-gray-400 hover:text-gray-600 text-xs cursor-pointer">✕ close</button>
+                </h3>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="bg-[#f0f7ee] rounded-lg p-2 text-center">
+                    <div className="text-base font-bold text-[#2D5A27]">{selectedBarangay.cattle}</div>
+                    <div className="text-[10px] text-gray-600">🐄 cattle heads</div>
+                  </div>
+                  <div className={`rounded-lg p-2 text-center ${selectedBarangay.diseaseRisk === 'high' ? 'bg-red-50' : selectedBarangay.diseaseRisk === 'medium' ? 'bg-orange-50' : 'bg-green-50'}`}>
+                    <div className={`text-xs font-bold ${selectedBarangay.diseaseRisk === 'high' ? 'text-red-700' : selectedBarangay.diseaseRisk === 'medium' ? 'text-orange-700' : 'text-green-700'}`}>
+                      {selectedBarangay.diseaseRisk.toUpperCase()}
+                    </div>
+                    <div className="text-[10px] text-gray-600">
+                      {selectedBarangay.activeCases > 0
+                        ? `⚠️ ${selectedBarangay.activeCases} active case${selectedBarangay.activeCases > 1 ? 's' : ''}`
+                        : '✅ No active cases'}
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t border-gray-100 pt-2">
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Monthly Production</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between bg-blue-50 rounded-lg px-2.5 py-1">
+                      <span className="text-xs font-medium text-blue-800">🥛 Milk</span>
+                      <span className="text-xs font-bold text-blue-700">{selectedBarangay.milk.toLocaleString()} L</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-red-50 rounded-lg px-2.5 py-1">
+                      <span className="text-xs font-medium text-red-800">🥩 Katay (Meat)</span>
+                      <span className="text-xs font-bold text-red-700">{selectedBarangay.meat.toLocaleString()} kg</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-2">
+                  <span className="w-1.5 h-3.5 bg-red-500 rounded-xs inline-block"></span>
+                  Disease Alerts
+                </h3>
+                <div className="space-y-1.5">
+                  {allData.filter(b => b.activeCases > 0).map(b => (
+                    <div
+                      key={b.name}
+                      className="flex items-center justify-between text-xs border border-red-100 bg-red-50 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-100 transition-colors"
+                      onClick={() => setSelectedBarangay(b)}
+                    >
+                      <span className="font-semibold text-gray-800">{b.name}</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${b.diseaseRisk === 'high' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}`}>
+                        {b.activeCases} case{b.activeCases > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  ))}
+                  {allData.filter(b => b.activeCases > 0).length === 0 && (
+                    <p className="text-xs font-medium text-green-600">✅ No active disease cases</p>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t">Click any barangay on the map to inspect details.</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <PadreGarciaForecaster />
+
+        {/* Production Summary Table */}
+        <div className="bg-white rounded-xl shadow-2xs border border-gray-200 mt-3.5 overflow-hidden">
+          <div className="px-3.5 py-2.5 border-b border-gray-100 flex items-center gap-2 bg-gray-50/70">
+            <TrendingUp className="w-3.5 h-3.5 text-[#2D5A27]" />
+            <h3 className="text-xs font-black text-gray-800 tracking-tight">Production Summary — All Barangays (Monthly)</h3>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
+                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest">Barangay</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🐄 Cattle</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🥛 Milk (L)</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-right">🥩 Katay (kg)</TableHead>
+                <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Risk</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-50">
+              {sortedBarangays.map((b) => (
+                <TableRow
+                  key={b.name}
+                  className="hover:bg-gray-50/80 cursor-pointer transition-colors border-none group"
+                  onClick={() => setSelectedBarangay(b)}
+                >
+                  <TableCell className="px-3.5 py-2 text-xs font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">{b.name}</TableCell>
+                  <TableCell className="px-3.5 py-2 text-xs text-right font-semibold text-gray-700">{b.cattle}</TableCell>
+                  <TableCell className="px-3.5 py-2 text-xs text-right text-blue-700 font-bold">{b.milk.toLocaleString()}</TableCell>
+                  <TableCell className="px-3.5 py-2 text-xs text-right text-red-700 font-bold">{b.meat.toLocaleString()}</TableCell>
+                  <TableCell className="px-3.5 py-2 text-center">
+                    <Badge
+                      variant="outline"
+                      className={`border-none text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${b.diseaseRisk === 'high' ? 'bg-red-100 text-red-700' :
+                          b.diseaseRisk === 'medium' ? 'bg-amber-100 text-amber-800' :
+                            'bg-green-100 text-green-700'
+                        }`}
+                    >
+                      {b.diseaseRisk}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter className="bg-[#f0f7ee] border-t border-[#c3dbb8]">
+              <TableRow className="hover:bg-transparent font-bold">
+                <TableCell className="px-3.5 py-2 text-xs text-[#2D5A27] font-black">TOTAL</TableCell>
+                <TableCell className="px-3.5 py-2 text-xs text-right text-[#2D5A27] font-black">{totalCattle.toLocaleString()}</TableCell>
+                <TableCell className="px-3.5 py-2 text-xs text-right text-blue-700 font-black">{totalMilk.toLocaleString()}</TableCell>
+                <TableCell className="px-3.5 py-2 text-xs text-right text-red-700 font-black">{totalMeat.toLocaleString()}</TableCell>
+                <TableCell className="px-3.5 py-2"></TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </div>
+      </div>
     </>
   );
 }
