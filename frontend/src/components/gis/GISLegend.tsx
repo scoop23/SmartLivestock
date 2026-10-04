@@ -1,23 +1,38 @@
 'use client';
 
 import React from 'react';
-import { MapLayer } from './types';
+import { MapLayer, ViewMode, DiseaseSubMode } from './types';
 import { Badge } from '@/components/ui/badge';
-import { Zap } from 'lucide-react';
+import { Zap, Box, TrendingUp, Activity } from 'lucide-react';
 
 interface GISLegendProps {
   layer: MapLayer;
-  simulationMode: boolean;
+  viewMode: ViewMode;
+  diseaseSubMode: DiseaseSubMode;
 }
 
-export function GISLegend({ layer, simulationMode }: GISLegendProps) {
+export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
   const getLegendItems = () => {
-    if (simulationMode && layer === 'disease') {
+    if (layer === 'disease') {
+      if (diseaseSubMode === 'simulation') {
+        return [
+          { color: '#991b1b', label: 'Critical (18+ projected pressure)' },
+          { color: '#dc2626', label: 'High (8–17 projected pressure)' },
+          { color: '#f59e0b', label: 'Medium (2–7 projected pressure)' },
+          { color: '#10b981', label: 'Low (0–1 projected pressure)' },
+        ];
+      }
+      if (diseaseSubMode === 'forecast') {
+        return [
+          { color: '#9333ea', label: 'Surveillance Alert (Elevated Velocity)' },
+          { color: '#0284c7', label: 'Projected Normal Trajectory' },
+          { color: '#10b981', label: 'Low Baseline Risk' },
+        ];
+      }
       return [
-        { color: '#991b1b', label: 'Critical (20+ projected cases)' },
-        { color: '#dc2626', label: 'High (8–19 projected cases)' },
-        { color: '#f59e0b', label: 'Medium (2–7 projected cases)' },
-        { color: '#10b981', label: 'Low (0–1 projected cases)' },
+        { color: '#D32F2F', label: 'High — Active Confirmed Cases' },
+        { color: '#FFA726', label: 'Medium — Reported / Suspected' },
+        { color: '#66BB6A', label: 'Low — Healthy / No Active Cases' },
       ];
     }
 
@@ -31,31 +46,25 @@ export function GISLegend({ layer, simulationMode }: GISLegendProps) {
           { color: '#C5E0A8', label: '1–5 heads' },
           { color: '#EAF3E4', label: '0 heads' },
         ];
-      case 'disease':
-        return [
-          { color: '#D32F2F', label: 'High — Active Outbreak' },
-          { color: '#FFA726', label: 'Medium — Reported / Flagged' },
-          { color: '#66BB6A', label: 'Low — Healthy / No cases' },
-        ];
       case 'milk':
         return [
-          { color: '#0c4a6e', label: '10,000+ L' },
-          { color: '#0284c7', label: '1,000–10,000 L' },
-          { color: '#38bdf8', label: '1–1,000 L' },
-          { color: '#e0f2fe', label: '0 L' },
+          { color: '#0c4a6e', label: '10,000+ L/mo' },
+          { color: '#0284c7', label: '1,000–10,000 L/mo' },
+          { color: '#38bdf8', label: '1–1,000 L/mo' },
+          { color: '#e0f2fe', label: '0 L (No records)' },
         ];
       case 'meat':
         return [
-          { color: '#7c1d00', label: '500+ kg' },
-          { color: '#dc2626', label: '100–500 kg' },
-          { color: '#f87171', label: '1–100 kg' },
-          { color: '#fecaca', label: 'No records available' },
+          { color: '#7c1d00', label: '500+ kg yield' },
+          { color: '#dc2626', label: '100–500 kg yield' },
+          { color: '#f87171', label: '1–100 kg yield' },
+          { color: '#fecaca', label: 'No slaughter data available' },
         ];
       case 'movement':
         return [
           { color: '#dc2626', label: '📤 Outbound Inspection Transport' },
           { color: '#2563eb', label: '📥 Inbound Transport' },
-          { color: '#1E4D2B', label: '📍 Padre Garcia Hub / Centroid' },
+          { color: '#1E4D2B', label: '📍 Padre Garcia Origin / Hub' },
         ];
       default:
         return [];
@@ -64,7 +73,15 @@ export function GISLegend({ layer, simulationMode }: GISLegendProps) {
 
   const titles: Record<MapLayer, { title: string; icon: string }> = {
     cattle: { title: 'Cattle Distribution', icon: '🐄' },
-    disease: { title: simulationMode ? 'Simulated Disease Risk' : 'Disease Heat Map', icon: '🩺' },
+    disease: {
+      title:
+        diseaseSubMode === 'simulation'
+          ? 'Simulated Disease Pressure'
+          : diseaseSubMode === 'forecast'
+          ? 'Predictive Disease Forecast'
+          : 'Reported Disease Heat Map',
+      icon: '🩺',
+    },
     milk: { title: 'Dairy Milk Production', icon: '🥛' },
     meat: { title: 'Katay (Meat Yield)', icon: '🥩' },
     movement: { title: 'Live Cow Movement', icon: '🚛' },
@@ -74,17 +91,21 @@ export function GISLegend({ layer, simulationMode }: GISLegendProps) {
   const items = getLegendItems();
 
   return (
-    <div className="bg-white/95 backdrop-blur-md p-3 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto max-w-[260px]">
+    <div className="bg-white/95 backdrop-blur-md p-3 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto max-w-[270px]">
       <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
         <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5 truncate">
           <span>{icon}</span>
           <span className="truncate">{title}</span>
         </h4>
-        {simulationMode && layer === 'disease' && (
+        {viewMode === '3D' ? (
+          <Badge className="bg-emerald-800 text-white text-[9px] px-1 py-0 font-mono flex items-center gap-0.5">
+            <Box className="size-2.5" /> 3D
+          </Badge>
+        ) : layer === 'disease' && diseaseSubMode === 'simulation' ? (
           <Badge className="bg-amber-500 text-white text-[9px] px-1 py-0 font-mono">
             <Zap className="size-2 mr-0.5 inline" /> SIM
           </Badge>
-        )}
+        ) : null}
       </div>
 
       <div className="space-y-1.5 text-xs">
@@ -100,6 +121,13 @@ export function GISLegend({ layer, simulationMode }: GISLegendProps) {
           </div>
         ))}
       </div>
+
+      {viewMode === '3D' && (
+        <div className="mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500 flex items-center gap-1">
+          <Box className="size-3 text-emerald-700" />
+          <span>Barangay column height shows density</span>
+        </div>
+      )}
     </div>
   );
 }

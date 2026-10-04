@@ -1,13 +1,19 @@
 /**
- * TypeScript Interfaces for SmartLivestock GIS Telemetry
+ * TypeScript Interfaces for SmartLivestock GIS Telemetry (V2)
  * 
- * Educational Note:
- * Defining strict types for API contracts ensures frontend-backend contract
- * synchronization, prevents runtime undefined errors, and provides full IDE
- * autocompletion for real municipal data fields.
+ * Educational Note for Student Developer:
+ * This schema defines data structures for:
+ *   1. Real PostgreSQL database aggregates (livestock, disease, production, movement).
+ *   2. Spatial epidemic simulation states (Haversine distance decay + PAGASA wind drift).
+ *   3. 2D / 3D perspective rendering modes and polygon extrusion parameters.
+ *   4. Disease surveillance sub-modes: Reported vs. Simulation vs. Forecast.
  */
 
 export type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'movement';
+
+export type ViewMode = '2D' | '3D';
+
+export type DiseaseSubMode = 'reported' | 'simulation' | 'forecast';
 
 export interface SpeciesCount {
   species: string;
@@ -85,8 +91,33 @@ export interface GISTelemetryResponse {
   period: string;
 }
 
+export interface EnvironmentalWindInput {
+  speedKmH: number;           // Average wind velocity (e.g. 14 km/h)
+  directionDegrees: number;   // Heading direction (45 deg = Southwest to Northeast)
+  cardinalDirection: string;  // e.g. "SW → NE"
+  sourceAttribution: string;  // e.g. "PAGASA Climatological Data (Batangas Station)"
+}
+
 export interface SimulatedBarangayState {
-  cases: number;
+  cases: number;              // Simulated active cases at this time step
   risk: 'low' | 'medium' | 'high' | 'critical';
+  transmissionPressure: number; // Raw transmission pressure score
+  windExposureFactor: number; // Downwind influence multiplier
   projectedPeak: number;
+}
+
+export interface ForecastBarangayState {
+  projectedCases: number;
+  lowerBound: number;
+  upperBound: number;
+  trend: 'increasing' | 'stable' | 'decreasing';
+  confidence: number;
+  model: string;
+}
+
+export interface TimelineMonth {
+  index: number;
+  monthName: string;
+  label: string;
+  year: number;
 }

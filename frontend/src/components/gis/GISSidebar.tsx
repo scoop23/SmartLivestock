@@ -6,6 +6,8 @@ import {
   MunicipalSummary,
   MovementRecord,
   SimulatedBarangayState,
+  DiseaseSubMode,
+  ViewMode,
 } from './types';
 import { BarangayDetails } from './BarangayDetails';
 import { MunicipalOverview } from './MunicipalOverview';
@@ -28,7 +30,8 @@ interface GISSidebarProps {
   allBarangays: BarangayGISData[];
   onRefresh: () => void;
   isLoading: boolean;
-  simulationMode: boolean;
+  diseaseSubMode: DiseaseSubMode;
+  viewMode: ViewMode;
   simulatedStates?: Record<string, SimulatedBarangayState>;
 }
 
@@ -43,7 +46,8 @@ export function GISSidebar({
   allBarangays,
   onRefresh,
   isLoading,
-  simulationMode,
+  diseaseSubMode,
+  viewMode,
   simulatedStates,
 }: GISSidebarProps) {
   const isMobile = useIsMobile();
@@ -52,7 +56,8 @@ export function GISSidebar({
     <BarangayDetails
       data={selectedBarangay}
       simulatedState={simulatedStates?.[selectedBarangay.name]}
-      simulationMode={simulationMode}
+      diseaseSubMode={diseaseSubMode}
+      viewMode={viewMode}
       onClose={onClearSelectedBarangay}
     />
   ) : (
@@ -63,7 +68,7 @@ export function GISSidebar({
       onSelectBarangay={onSelectBarangay}
       onRefresh={onRefresh}
       isLoading={isLoading}
-      simulationMode={simulationMode}
+      simulationMode={diseaseSubMode === 'simulation'}
     />
   );
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { BarangayGISData, SimulatedBarangayState } from './types';
+import { BarangayGISData, SimulatedBarangayState, DiseaseSubMode, ViewMode } from './types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,36 +16,52 @@ import {
   CheckCircle2,
   TrendingUp,
   Zap,
+  Wind,
+  Box,
 } from 'lucide-react';
 
 interface BarangayDetailsProps {
   data: BarangayGISData;
   simulatedState?: SimulatedBarangayState;
-  simulationMode: boolean;
+  diseaseSubMode: DiseaseSubMode;
+  viewMode: ViewMode;
   onClose: () => void;
 }
 
 export function BarangayDetails({
   data,
   simulatedState,
-  simulationMode,
+  diseaseSubMode,
+  viewMode,
   onClose,
 }: BarangayDetailsProps) {
   const isHighRisk = data.disease_risk === 'high';
   const isMedRisk = data.disease_risk === 'medium';
+  const isSim = diseaseSubMode === 'simulation';
+  const isForecast = diseaseSubMode === 'forecast';
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-slate-100 bg-emerald-900 text-white flex items-center justify-between shrink-0">
+      <div className="p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold tracking-wider uppercase text-emerald-300">
               Barangay Telemetry
             </span>
-            {simulationMode && (
+            {isSim && (
               <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-1">
                 <Zap className="size-2.5" /> Simulated
+              </Badge>
+            )}
+            {isForecast && (
+              <Badge className="bg-sky-600 hover:bg-sky-700 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-1">
+                <TrendingUp className="size-2.5" /> Forecast
+              </Badge>
+            )}
+            {viewMode === '3D' && (
+              <Badge className="bg-emerald-700 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-0.5">
+                <Box className="size-2.5" /> 3D
               </Badge>
             )}
           </div>
@@ -57,7 +73,7 @@ export function BarangayDetails({
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="text-white/80 hover:text-white hover:bg-white/10 rounded-full size-8"
+          className="text-white/80 hover:text-white hover:bg-white/10 rounded-full size-8 cursor-pointer"
         >
           <X className="size-4" />
         </Button>
@@ -78,10 +94,12 @@ export function BarangayDetails({
 
           <div
             className={`rounded-xl p-2.5 text-center border ${
-              simulationMode
+              isSim
                 ? simulatedState?.risk === 'critical' || simulatedState?.risk === 'high'
                   ? 'bg-rose-50 border-rose-200 text-rose-800'
                   : 'bg-amber-50 border-amber-200 text-amber-800'
+                : isForecast
+                ? 'bg-sky-50 border-sky-200 text-sky-800'
                 : isHighRisk
                 ? 'bg-rose-50 border-rose-200 text-rose-800'
                 : isMedRisk
@@ -90,12 +108,18 @@ export function BarangayDetails({
             }`}
           >
             <div className="text-xl font-black uppercase tracking-tight font-mono">
-              {simulationMode
+              {isSim
                 ? (simulatedState?.risk || 'LOW').toUpperCase()
+                : isForecast
+                ? data.active_cases > 0 ? 'ALERT' : 'STABLE'
                 : data.disease_risk.toUpperCase()}
             </div>
             <div className="text-[11px] font-bold uppercase tracking-wide">
-              {simulationMode ? '⚡ Simulated Risk' : '🩺 Disease Risk'}
+              {isSim
+                ? '⚡ Simulated Risk'
+                : isForecast
+                ? '📈 Forecast Status'
+                : '🩺 Reported Risk'}
             </div>
           </div>
         </div>
@@ -152,7 +176,7 @@ export function BarangayDetails({
               Disease Surveillance
             </span>
             {data.active_cases > 0 ? (
-              <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-200 text-[10px] font-black px-1.5 py-0">
+              <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px] font-black px-1.5 py-0">
                 {data.active_cases} Active Outbreak{data.active_cases > 1 ? 's' : ''}
               </Badge>
             ) : (
@@ -162,16 +186,40 @@ export function BarangayDetails({
             )}
           </div>
 
-          {simulationMode && simulatedState && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs space-y-1">
-              <div className="flex justify-between font-bold text-amber-900">
-                <span>⚡ Projected Cases (Day 7):</span>
-                <span>{simulatedState.cases} head{simulatedState.cases > 1 ? 's' : ''}</span>
+          {/* If Simulation Mode is Active */}
+          {isSim && simulatedState && (
+            <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5">
+              <div className="flex justify-between font-bold text-amber-950">
+                <span>⚡ Simulated Transmission Pressure:</span>
+                <span className="font-mono">{simulatedState.transmissionPressure}</span>
               </div>
-              <div className="flex justify-between text-amber-800 text-[11px]">
-                <span>Projected Outbreak Peak:</span>
-                <span>~{simulatedState.projectedPeak} heads</span>
+              <div className="flex justify-between text-amber-900 text-[11px]">
+                <span className="flex items-center gap-1">
+                  <Wind className="size-3 text-sky-600" /> Wind Exposure Factor:
+                </span>
+                <span className="font-mono font-bold">
+                  {simulatedState.windExposureFactor > 0
+                    ? `+${simulatedState.windExposureFactor} (Downwind)`
+                    : 'Neutral / Shielded'}
+                </span>
               </div>
+              <div className="flex justify-between text-amber-900 text-[11px] pt-1 border-t border-amber-200/60">
+                <span>Projected Case Load:</span>
+                <span className="font-bold">{simulatedState.cases} head{simulatedState.cases !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          )}
+
+          {/* If Forecast Mode is Active */}
+          {isForecast && (
+            <div className="bg-sky-50/90 border border-sky-200 rounded-lg p-2.5 text-xs space-y-1">
+              <div className="flex justify-between font-bold text-sky-950">
+                <span>📈 Surveillance Velocity:</span>
+                <span className="font-mono">{data.active_cases > 0 ? 'ELEVATED' : 'STABLE'}</span>
+              </div>
+              <p className="text-[10px] text-sky-700 leading-relaxed">
+                Projected 6-month risk trajectory based on municipal baseline velocity.
+              </p>
             </div>
           )}
 

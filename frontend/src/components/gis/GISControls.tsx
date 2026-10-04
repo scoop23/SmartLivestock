@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MapLayer } from './types';
+import { MapLayer, ViewMode, DiseaseSubMode } from './types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -11,14 +11,18 @@ import {
   RotateCcw,
   PanelRightClose,
   PanelRightOpen,
-  MapPin,
+  Activity,
+  TrendingUp,
+  Box,
 } from 'lucide-react';
 
 interface GISControlsProps {
   currentLayer: MapLayer;
   onLayerChange: (layer: MapLayer) => void;
-  simulationMode: boolean;
-  onToggleSimulation: () => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  diseaseSubMode: DiseaseSubMode;
+  onDiseaseSubModeChange: (subMode: DiseaseSubMode) => void;
   onResetBounds: () => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
@@ -27,8 +31,10 @@ interface GISControlsProps {
 export function GISControls({
   currentLayer,
   onLayerChange,
-  simulationMode,
-  onToggleSimulation,
+  viewMode,
+  onViewModeChange,
+  diseaseSubMode,
+  onDiseaseSubModeChange,
   onResetBounds,
   sidebarOpen,
   onToggleSidebar,
@@ -43,7 +49,7 @@ export function GISControls({
 
   return (
     <div className="flex flex-col gap-2 pointer-events-auto">
-      {/* Title & Metadata Badge */}
+      {/* Title & Metadata Top Banner */}
       <div className="bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-200/90 shadow-lg flex items-center justify-between gap-3 max-w-fit">
         <div className="flex items-center gap-2.5">
           <div className="size-7 rounded-lg bg-emerald-800 text-white flex items-center justify-center font-black shadow-2xs">
@@ -67,14 +73,41 @@ export function GISControls({
           </div>
         </div>
 
-        {/* Reset & Sidebar Toggle */}
-        <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
+        {/* 2D / 3D Switcher & Controls */}
+        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+          {/* 2D / 3D Segmented Control */}
+          <div className="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200">
+            <button
+              type="button"
+              onClick={() => onViewModeChange('2D')}
+              className={`px-2 py-0.5 rounded-md text-xs font-black transition-all cursor-pointer ${
+                viewMode === '2D'
+                  ? 'bg-white text-emerald-950 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              2D
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange('3D')}
+              className={`px-2 py-0.5 rounded-md text-xs font-black transition-all cursor-pointer flex items-center gap-0.5 ${
+                viewMode === '3D'
+                  ? 'bg-emerald-800 text-white shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Box className="size-2.5 inline" />
+              <span>3D</span>
+            </button>
+          </div>
+
           <Button
             variant="ghost"
             size="icon"
             onClick={onResetBounds}
             title="Reset to Full Extent"
-            className="size-7 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-emerald-50"
+            className="size-7 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer"
           >
             <RotateCcw className="size-3.5" />
           </Button>
@@ -84,7 +117,7 @@ export function GISControls({
             size="icon"
             onClick={onToggleSidebar}
             title={sidebarOpen ? 'Hide Sidebar' : 'Show Sidebar'}
-            className="size-7 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-emerald-50"
+            className="size-7 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer"
           >
             {sidebarOpen ? (
               <PanelRightClose className="size-3.5" />
@@ -95,7 +128,7 @@ export function GISControls({
         </div>
       </div>
 
-      {/* Layer Controls & Simulation Toggle */}
+      {/* Layer Controls Pill Rail */}
       <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/90 shadow-lg flex flex-wrap items-center gap-1 max-w-fit">
         <div className="flex items-center gap-1 px-1 text-slate-500">
           <Layers className="size-3.5 text-emerald-700" />
@@ -122,23 +155,55 @@ export function GISControls({
             </button>
           );
         })}
+      </div>
 
-        {/* Simulation Toggle Button */}
-        <div className="pl-1 border-l border-slate-200 ml-0.5">
+      {/* Disease Sub-Modes Rail: [ Reported ] [ Simulation ] [ Forecast ] */}
+      {currentLayer === 'disease' && (
+        <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/90 shadow-lg flex items-center gap-1 max-w-fit animate-in fade-in duration-150">
+          <span className="text-[10px] font-black uppercase text-slate-500 px-1.5 tracking-wider">
+            Mode:
+          </span>
+
           <button
             type="button"
-            onClick={onToggleSimulation}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              simulationMode
-                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400 ring-offset-1 animate-pulse'
+            onClick={() => onDiseaseSubModeChange('reported')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+              diseaseSubMode === 'reported'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <Activity className="size-3" />
+            <span>Reported Cases</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDiseaseSubModeChange('simulation')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+              diseaseSubMode === 'simulation'
+                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/50'
                 : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-800'
             }`}
           >
-            <Zap className={`size-3 ${simulationMode ? 'fill-white text-white' : 'text-amber-600'}`} />
-            <span>Simulation: {simulationMode ? 'ON' : 'OFF'}</span>
+            <Zap className="size-3" />
+            <span>Epidemic Simulation</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDiseaseSubModeChange('forecast')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+              diseaseSubMode === 'forecast'
+                ? 'bg-sky-700 text-white shadow-xs ring-2 ring-sky-400/50'
+                : 'bg-slate-100 text-slate-600 hover:bg-sky-50 hover:text-sky-800'
+            }`}
+          >
+            <TrendingUp className="size-3" />
+            <span>Predictive Forecast</span>
           </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
