@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
     "livestock",
     "diseases",
     "analytics",
+    "data_imports",
 ]
 
 # DRF config: JWT is the only authentication method used
@@ -182,6 +184,12 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+
+if "test" in sys.argv:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

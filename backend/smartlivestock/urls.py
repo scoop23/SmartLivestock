@@ -48,6 +48,8 @@ urlpatterns = [
     path("api/notifications/", include("users.notification_urls")),
     path("analytics/", include("analytics.urls"), name="analytics"),
     path("api/analytics/", include("analytics.urls")),
+    path("data-imports/", include("data_imports.urls")),
+    path("api/data-imports/", include("data_imports.urls")),
 ]
 
 if settings.DEBUG:

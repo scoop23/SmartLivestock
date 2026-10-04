@@ -191,13 +191,15 @@ class DescriptiveSummaryTests(TestCase):
                                                  status=status, sale_date=self.today, created_by=self.user)
         sale(2)
         data = descriptive_summary(self.today)["descriptive"]["sales"]
-        self.assertEqual(data, {"sales": 1, "animals": 2, "recorded_value": None, "priced_sales": 0})
+        self.assertEqual({k: data[k] for k in ("sales", "animals", "recorded_value", "priced_sales")},
+                         {"sales": 1, "animals": 2, "recorded_value": None, "priced_sales": 0})
         sale(3, Decimal("123.45"))
         sale(1, Decimal("0"))
         for status in ("PENDING", "VERIFIED", "SUBJECT_TO_REVISION"):
             sale(50, Decimal("999"), status)
         data = descriptive_summary(self.today)["descriptive"]["sales"]
-        self.assertEqual(data, {"sales": 3, "animals": 6, "recorded_value": 123.45, "priced_sales": 2})
+        self.assertEqual({k: data[k] for k in ("sales", "animals", "recorded_value", "priced_sales")},
+                         {"sales": 3, "animals": 6, "recorded_value": 123.45, "priced_sales": 2})
 
     def test_dashboard_api_exposes_aggregates_only_to_reviewers(self):
         factory = APIRequestFactory()

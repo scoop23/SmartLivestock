@@ -40,3 +40,5 @@ interface-meta==2.0.1
 narwhals==2.26.0
 wrapt==2.5.0
 cloudpickle==3.1.2
+openpyxl==3.1.5
+et-xmlfile==2.0.0
