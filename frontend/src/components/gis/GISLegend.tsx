@@ -43,9 +43,15 @@ interface GISLegendProps {
   layer: MapLayer;
   viewMode: ViewMode;
   diseaseSubMode: DiseaseSubMode;
+  selectedLivestockType?: string;
 }
 
-export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
+export function GISLegend({
+  layer,
+  viewMode,
+  diseaseSubMode,
+  selectedLivestockType = 'Cattle',
+}: GISLegendProps) {
   const getLegendItems = () => {
     if (layer === 'disease') {
       if (diseaseSubMode === 'simulation') {
@@ -105,8 +111,24 @@ export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
     }
   };
 
+  const livestockIcon =
+    selectedLivestockType?.toLowerCase() === 'sheep'
+      ? '🐑'
+      : selectedLivestockType?.toLowerCase() === 'swine'
+      ? '🐖'
+      : selectedLivestockType?.toLowerCase() === 'goat'
+      ? '🐐'
+      : selectedLivestockType === 'ALL'
+      ? '🐾'
+      : '🐄';
+
+  const livestockTitle =
+    selectedLivestockType === 'ALL'
+      ? 'All Livestock Distribution'
+      : `${selectedLivestockType || 'Cattle'} Distribution`;
+
   const titles: Record<MapLayer, { title: string; icon: string }> = {
-    cattle: { title: 'Cattle Distribution', icon: '🐄' },
+    cattle: { title: livestockTitle, icon: livestockIcon },
     disease: {
       title:
         diseaseSubMode === 'simulation'
@@ -142,6 +164,10 @@ export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
         ) : layer === 'disease' && diseaseSubMode === 'trend' ? (
           <Badge className="bg-purple-600 text-white text-[9px] px-1 py-0 font-mono">
             <TrendingUp className="size-2 mr-0.5 inline" /> TREND
+          </Badge>
+        ) : layer === 'cattle' ? (
+          <Badge className="bg-emerald-800 text-white text-[9px] px-1 py-0 font-mono">
+            {selectedLivestockType === 'ALL' ? 'ALL' : (selectedLivestockType || 'CATTLE').toUpperCase()}
           </Badge>
         ) : null}
       </div>

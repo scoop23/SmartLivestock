@@ -426,6 +426,15 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     top_milk = sorted(all_b, key=lambda x: x["milk"], reverse=True)[:5]
     alert_barangays = [b for b in all_b if b["active_cases"] > 0 or b["disease_cases"] > 0]
 
+    # Distinct livestock types present in approved active inventory
+    available_types = list(
+        inventory_qs.values_list("livestock_type__name", flat=True)
+        .distinct()
+        .order_by("livestock_type__name")
+    )
+    if not available_types:
+        available_types = ["Cattle"]
+
     return {
         "barangays": all_b,
         "barangays_dict": barangays_data,
@@ -433,6 +442,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         "summary": {
             "total_livestock": total_livestock,
             "total_cattle": total_cattle,
+            "available_livestock_types": available_types,
             "total_milk": round(total_milk, 1),
             "total_meat": round(total_meat, 1),
             "total_disease_cases": total_disease,

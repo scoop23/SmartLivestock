@@ -96,11 +96,27 @@ export default function GISMapPage() {
 
   // Active layer & perspective states (default active layer 'cattle' on mount for immediate chloropleth color)
   const [activeLayer, setActiveLayer] = useState<MapLayer>('cattle');
+  const [selectedLivestockType, setSelectedLivestockType] = useState<string>('Cattle');
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [diseaseSubMode, setDiseaseSubMode] = useState<DiseaseSubMode>('reported');
   const [selectedBarangay, setSelectedBarangay] = useState<BarangayGISData | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [resetTrigger, setResetTrigger] = useState<number>(0);
+
+  // Extract distinct livestock types genuinely available in backend data
+  const availableLivestockTypes: string[] = useMemo(() => {
+    if (gisData?.summary?.available_livestock_types && gisData.summary.available_livestock_types.length > 0) {
+      return gisData.summary.available_livestock_types;
+    }
+    const typesSet = new Set<string>();
+    gisData?.barangays?.forEach((b) => {
+      b.species_breakdown?.forEach((s) => {
+        if (s.species && s.heads > 0) typesSet.add(s.species);
+      });
+    });
+    const list = Array.from(typesSet);
+    return list.length > 0 ? list : ['Cattle'];
+  }, [gisData]);
 
   // Simulation timeline & environmental states (12-month Jan-Dec 2026 player)
   const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(3); // April 2026 baseline
@@ -343,6 +359,7 @@ export default function GISMapPage() {
           onSelectBarangay={handleSelectBarangay}
           resetTrigger={resetTrigger}
           simulatedStates={activeSimulatedStates}
+          selectedLivestockType={selectedLivestockType}
         />
 
         {/* 2. Floating Controls: Desktop top-left; Mobile positioned below back button */}
@@ -357,6 +374,9 @@ export default function GISMapPage() {
             onResetBounds={handleResetBounds}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+            availableLivestockTypes={availableLivestockTypes}
+            selectedLivestockType={selectedLivestockType}
+            onLivestockTypeChange={setSelectedLivestockType}
           />
         </div>
 
@@ -366,6 +386,7 @@ export default function GISMapPage() {
             layer={activeLayer}
             viewMode={viewMode}
             diseaseSubMode={diseaseSubMode}
+            selectedLivestockType={selectedLivestockType}
           />
         </div>
 
@@ -403,6 +424,7 @@ export default function GISMapPage() {
           diseaseSubMode={diseaseSubMode}
           viewMode={viewMode}
           simulatedStates={activeSimulatedStates}
+          selectedLivestockType={selectedLivestockType}
         />
 
         {/* 6. Live Syncing Indicator */}

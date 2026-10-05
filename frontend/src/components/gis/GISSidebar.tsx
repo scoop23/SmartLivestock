@@ -53,6 +53,7 @@ interface GISSidebarProps {
   diseaseSubMode: DiseaseSubMode;
   viewMode: ViewMode;
   simulatedStates?: Record<string, SimulatedBarangayState>;
+  selectedLivestockType?: string;
 }
 
 export function GISSidebar({
@@ -69,6 +70,7 @@ export function GISSidebar({
   diseaseSubMode,
   viewMode,
   simulatedStates,
+  selectedLivestockType,
 }: GISSidebarProps) {
   const isMobile = useIsMobile();
 
@@ -80,6 +82,7 @@ export function GISSidebar({
       diseaseSubMode={diseaseSubMode}
       viewMode={viewMode}
       onClose={onClearSelectedBarangay}
+      selectedLivestockType={selectedLivestockType}
     />
   ) : (
     <MunicipalOverview

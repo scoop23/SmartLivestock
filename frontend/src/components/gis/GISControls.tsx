@@ -72,6 +72,9 @@ interface GISControlsProps {
   onResetBounds: () => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  availableLivestockTypes?: string[];
+  selectedLivestockType?: string;
+  onLivestockTypeChange?: (type: string) => void;
 }
 
 export function GISControls({
@@ -84,9 +87,17 @@ export function GISControls({
   onResetBounds,
   sidebarOpen,
   onToggleSidebar,
+  availableLivestockTypes = ['Cattle'],
+  selectedLivestockType = 'Cattle',
+  onLivestockTypeChange,
 }: GISControlsProps) {
+  const hasMultipleTypes = availableLivestockTypes.length > 1;
+  const livestockLabel = hasMultipleTypes
+    ? (selectedLivestockType === 'ALL' ? 'All Livestock' : selectedLivestockType || 'Livestock')
+    : 'Cattle';
+
   const layerOptions: { id: MapLayer; label: string; icon: string }[] = [
-    { id: 'cattle', label: 'Cattle', icon: '🐄' },
+    { id: 'cattle', label: livestockLabel, icon: '🐄' },
     { id: 'disease', label: 'Disease', icon: '🩺' },
     { id: 'milk', label: 'Dairy Milk', icon: '🥛' },
     { id: 'meat', label: 'Meat Yield', icon: '🥩' },
@@ -202,6 +213,58 @@ export function GISControls({
           );
         })}
       </div>
+
+      {/* Livestock Type Sub-Rail (Active only when multiple livestock types genuinely exist in backend data) */}
+      {currentLayer === 'cattle' && hasMultipleTypes && (
+        <div className="flex flex-col gap-1.5 animate-in fade-in duration-150">
+          <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/90 shadow-lg flex items-center gap-1 max-w-fit flex-wrap">
+            <span className="text-[10px] font-black uppercase text-slate-500 px-1.5 tracking-wider">
+              Livestock Type:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => onLivestockTypeChange?.('ALL')}
+              className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                selectedLivestockType === 'ALL'
+                  ? 'bg-emerald-800 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <span>🐾 All Livestock</span>
+            </button>
+
+            {availableLivestockTypes.map((type) => {
+              const isSelected = selectedLivestockType?.toLowerCase() === type.toLowerCase();
+              const icon =
+                type.toLowerCase() === 'cattle'
+                  ? '🐄'
+                  : type.toLowerCase() === 'sheep'
+                  ? '🐑'
+                  : type.toLowerCase() === 'swine'
+                  ? '🐖'
+                  : type.toLowerCase() === 'goat'
+                  ? '🐐'
+                  : '🐾';
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onLivestockTypeChange?.(type)}
+                  className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    isSelected
+                      ? 'bg-emerald-800 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>{icon}</span>
+                  <span>{type}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Disease Sub-Modes Rail: [ Reported ] [ Simulation ] [ Surveillance Trend ] */}
       {currentLayer === 'disease' && (

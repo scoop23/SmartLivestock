@@ -164,6 +164,7 @@ interface GISMapProps {
   onSelectBarangay: (b: BarangayGISData) => void;
   resetTrigger: number;
   simulatedStates?: Record<string, SimulatedBarangayState>;
+  selectedLivestockType?: string;
 }
 
 export function GISMap({
@@ -176,6 +177,7 @@ export function GISMap({
   onSelectBarangay,
   resetTrigger,
   simulatedStates,
+  selectedLivestockType = 'Cattle',
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<any>(null);
@@ -189,6 +191,7 @@ export function GISMap({
   const simulatedStatesRef = useRef(simulatedStates);
   const onSelectBarangayRef = useRef(onSelectBarangay);
   const viewModeRef = useRef(viewMode);
+  const selectedLivestockTypeRef = useRef(selectedLivestockType);
 
   barangaysByNameRef.current = barangaysByName;
   activeLayerRef.current = activeLayer;
@@ -197,6 +200,17 @@ export function GISMap({
   simulatedStatesRef.current = simulatedStates;
   onSelectBarangayRef.current = onSelectBarangay;
   viewModeRef.current = viewMode;
+  selectedLivestockTypeRef.current = selectedLivestockType;
+
+  const getLivestockHeads = (data: BarangayGISData, type?: string): number => {
+    if (!data) return 0;
+    if (!type || type.toLowerCase() === 'cattle') return data.cattle;
+    if (type.toUpperCase() === 'ALL') return data.total_livestock;
+    const match = data.species_breakdown?.find(
+      (s) => s.species.toLowerCase() === type.toLowerCase()
+    );
+    return match?.heads || 0;
+  };
 
   // Lazy load leaflet instance on client for divIcons
   useEffect(() => {
@@ -209,7 +223,8 @@ export function GISMap({
     if (!data) return 4;
 
     if (activeLayer === 'cattle') {
-      return Math.min(48, Math.max(4, Math.round(data.cattle * 1.15)));
+      const heads = getLivestockHeads(data, selectedLivestockTypeRef.current);
+      return Math.min(48, Math.max(4, Math.round(heads * 1.15)));
     }
     if (activeLayer === 'disease') {
       if (diseaseSubMode === 'simulation' && simulatedStates?.[bName]) {
@@ -287,7 +302,7 @@ export function GISMap({
   const getLayerColor = (data: BarangayGISData): string => {
     switch (activeLayer) {
       case 'cattle':
-        return getCattleColor(data.cattle);
+        return getCattleColor(getLivestockHeads(data, selectedLivestockTypeRef.current));
       case 'disease':
         return getDiseaseColor(data.name, data.disease_risk);
       case 'milk':
@@ -337,7 +352,14 @@ export function GISMap({
       return `<strong>Brgy. ${name}</strong><br/><span style="font-size: 10px; opacity: 0.8">Padre Garcia</span>`;
     }
 
-    let tooltipMetric = `${data.cattle} cattle`;
+    const lType = selectedLivestockTypeRef.current;
+    const lHeads = getLivestockHeads(data, lType);
+    let tooltipMetric =
+      !lType || lType.toLowerCase() === 'cattle'
+        ? `${lHeads} cattle`
+        : lType.toUpperCase() === 'ALL'
+        ? `${lHeads} total livestock`
+        : `${lHeads} ${lType.toLowerCase()}`;
     if (layer === 'disease') {
       if (subMode === 'simulation' && simState) {
         tooltipMetric = `Pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% • ${simState.cases} cases (${simState.risk.toUpperCase()})`;
@@ -460,7 +482,18 @@ export function GISMap({
           }, {} as Record<string, BarangayGISData>));
 
     return Object.values(sourceMap).map((b) => {
-      let statText = `${b.cattle}🐄`;
+      const lHeads = getLivestockHeads(b, selectedLivestockType);
+      const lIcon =
+        selectedLivestockType?.toLowerCase() === 'sheep'
+          ? '🐑'
+          : selectedLivestockType?.toLowerCase() === 'swine'
+          ? '🐖'
+          : selectedLivestockType?.toLowerCase() === 'goat'
+          ? '🐐'
+          : selectedLivestockType === 'ALL'
+          ? '🐾'
+          : '🐄';
+      let statText = `${lHeads}${lIcon}`;
       if (activeLayer === 'disease') {
         if (diseaseSubMode === 'simulation' && simulatedStates?.[b.name]) {
           statText = `⚡${(simulatedStates[b.name].transmissionPressure * 100).toFixed(0)}%`;
@@ -613,7 +646,7 @@ export function GISMap({
 
           {/* Choropleth Polygon Boundaries: Key includes dataCount so layer remounts immediately when data arrives */}
           <GeoJSON
-            key={`geojson-${activeLayer}-${diseaseSubMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}`}
+            key={`geojson-${activeLayer}-${selectedLivestockType || 'all'}-${diseaseSubMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}`}
             data={padreGarciaGeojson as unknown as FeatureCollection}
             style={getGeoJSONStyle}
             onEachFeature={onEachFeature}

@@ -83,6 +83,7 @@ export interface MovementRecord {
 export interface MunicipalSummary {
   total_livestock: number;
   total_cattle: number;
+  available_livestock_types?: string[];
   total_milk: number;
   total_meat: number;
   total_disease_cases: number;

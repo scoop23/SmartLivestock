@@ -61,6 +61,7 @@ interface BarangayDetailsProps {
   diseaseSubMode: DiseaseSubMode;
   viewMode: ViewMode;
   onClose: () => void;
+  selectedLivestockType?: string;
 }
 
 export function BarangayDetails({
@@ -69,11 +70,41 @@ export function BarangayDetails({
   diseaseSubMode,
   viewMode,
   onClose,
+  selectedLivestockType = 'Cattle',
 }: BarangayDetailsProps) {
   const isHighRisk = data.disease_risk === 'high';
   const isMedRisk = data.disease_risk === 'medium';
   const isSim = diseaseSubMode === 'simulation';
   const isTrend = diseaseSubMode === 'trend';
+
+  const displayHeads = React.useMemo(() => {
+    if (!selectedLivestockType || selectedLivestockType.toLowerCase() === 'cattle') {
+      return data.cattle;
+    }
+    if (selectedLivestockType === 'ALL') {
+      return data.total_livestock;
+    }
+    const match = data.species_breakdown?.find(
+      (s) => s.species.toLowerCase() === selectedLivestockType.toLowerCase()
+    );
+    return match?.heads || 0;
+  }, [data, selectedLivestockType]);
+
+  const displayIcon =
+    selectedLivestockType?.toLowerCase() === 'sheep'
+      ? '🐑'
+      : selectedLivestockType?.toLowerCase() === 'swine'
+      ? '🐖'
+      : selectedLivestockType?.toLowerCase() === 'goat'
+      ? '🐐'
+      : selectedLivestockType === 'ALL'
+      ? '🐾'
+      : '🐄';
+
+  const displayLabel =
+    selectedLivestockType === 'ALL'
+      ? 'All Livestock'
+      : `${selectedLivestockType || 'Cattle'} Heads`;
 
   return (
     <div className="flex flex-col h-full">
@@ -120,10 +151,10 @@ export function BarangayDetails({
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-2.5 text-center">
             <div className="text-2xl font-black text-emerald-900 font-mono">
-              {data.cattle}
+              {displayHeads}
             </div>
             <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide flex items-center justify-center gap-1">
-              🐄 Cattle Heads
+              {displayIcon} {displayLabel}
             </div>
           </div>
 
