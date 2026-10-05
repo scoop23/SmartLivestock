@@ -53,6 +53,7 @@ import {
   Zap,
   Wind,
   Box,
+  ChevronLeft,
 } from 'lucide-react';
 
 interface BarangayDetailsProps {
@@ -61,6 +62,7 @@ interface BarangayDetailsProps {
   diseaseSubMode: DiseaseSubMode;
   viewMode: ViewMode;
   onClose: () => void;
+  onBack?: () => void;
   selectedLivestockType?: string;
 }
 
@@ -70,6 +72,7 @@ export function BarangayDetails({
   diseaseSubMode,
   viewMode,
   onClose,
+  onBack,
   selectedLivestockType = 'Cattle',
 }: BarangayDetailsProps) {
   const isHighRisk = data.disease_risk === 'high';
@@ -107,31 +110,41 @@ export function BarangayDetails({
       : `${selectedLivestockType || 'Cattle'} Heads`;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold tracking-wider uppercase text-emerald-300">
-              Barangay Telemetry
+      <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
+        <div className="min-w-0 pr-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="text-[10px] font-bold text-emerald-300 hover:text-white flex items-center gap-0.5 cursor-pointer mr-1 transition-colors"
+                aria-label="Back to Municipal Overview"
+              >
+                <ChevronLeft className="size-3" /> Overview
+              </button>
+            )}
+            <span className="text-[10px] font-semibold tracking-wider uppercase text-emerald-400">
+              Barangay
             </span>
             {isSim && (
-              <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-1">
-                <Zap className="size-2.5" /> Simulated
+              <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] uppercase font-mono px-1.5 py-0 flex items-center gap-0.5">
+                <Zap className="size-2.5" /> Sim
               </Badge>
             )}
             {isTrend && (
-              <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-1">
+              <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-[9px] uppercase font-mono px-1.5 py-0 flex items-center gap-0.5">
                 <TrendingUp className="size-2.5" /> Trend
               </Badge>
             )}
             {viewMode === '3D' && (
-              <Badge className="bg-emerald-700 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-0.5">
+              <Badge className="bg-emerald-700 text-white text-[9px] uppercase font-mono px-1.5 py-0 flex items-center gap-0.5">
                 <Box className="size-2.5" /> 3D
               </Badge>
             )}
           </div>
-          <h2 className="text-xl font-black tracking-tight text-white mt-0.5">
+          <h2 className="text-lg sm:text-xl font-black tracking-tight text-white mt-0.5 truncate">
             Brgy. {data.name}
           </h2>
         </div>
@@ -139,14 +152,15 @@ export function BarangayDetails({
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="text-white/80 hover:text-white hover:bg-white/10 rounded-full size-8 cursor-pointer"
+          aria-label="Close sidebar"
+          className="text-white/80 hover:text-white hover:bg-white/10 rounded-full size-7 sm:size-8 cursor-pointer shrink-0"
         >
           <X className="size-4" />
         </Button>
       </div>
 
       {/* Content scroll area */}
-      <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800">
+      <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
         {/* Quick Highlights Grid */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-2.5 text-center">

@@ -49,6 +49,7 @@ import {
   MapPin,
   ChevronRight,
   ShieldAlert,
+  X,
 } from 'lucide-react';
 
 interface MunicipalOverviewProps {
@@ -59,6 +60,7 @@ interface MunicipalOverviewProps {
   onRefresh: () => void;
   isLoading: boolean;
   simulationMode: boolean;
+  onClose?: () => void;
 }
 
 export function MunicipalOverview({
@@ -69,6 +71,7 @@ export function MunicipalOverview({
   onRefresh,
   isLoading,
   simulationMode,
+  onClose,
 }: MunicipalOverviewProps) {
   const maxCattle = summary.top_cattle[0]?.cattle || 1;
   const maxMilk = summary.top_milk[0]?.milk || 1;
@@ -79,31 +82,46 @@ export function MunicipalOverview({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
-        <div>
-          <span className="text-[10px] font-black tracking-widest uppercase text-emerald-400">
+      <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
+        <div className="min-w-0 pr-2">
+          <span className="text-[10px] font-black tracking-widest uppercase text-emerald-400 block truncate">
             God&apos;s-Eye Telemetry
           </span>
-          <h2 className="text-lg font-black tracking-tight text-white mt-0.5">
+          <h2 className="text-base sm:text-lg font-black tracking-tight text-white mt-0.5 truncate">
             Padre Garcia Overview
           </h2>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs h-7 px-2.5 rounded-lg flex items-center gap-1.5"
-        >
-          <RefreshCw className={`size-3 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Sync</span>
-        </Button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs h-7 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
+            aria-label="Refresh telemetry data"
+          >
+            <RefreshCw className={`size-3 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden xs:inline sm:inline">Sync</span>
+          </Button>
+
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white/80 hover:text-white hover:bg-white/10 rounded-full size-7 sm:size-8 cursor-pointer"
+              aria-label="Close overview"
+            >
+              <X className="size-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Scrollable Content */}
-      <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800">
+      <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
         {/* KPI Mini Grid */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-xl p-2.5">

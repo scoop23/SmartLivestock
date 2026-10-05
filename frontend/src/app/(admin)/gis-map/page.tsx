@@ -63,7 +63,7 @@ import { GISTimeline } from '@/components/gis/GISTimeline';
 import { GISSidebar } from '@/components/gis/GISSidebar';
 import { GISFooter } from '@/components/gis/GISFooter';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Info } from 'lucide-react';
 import { useIsMobile } from '@/components/ui/use-mobile';
 
 const DEFAULT_SUMMARY: MunicipalSummary = {
@@ -100,8 +100,15 @@ export default function GISMapPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [diseaseSubMode, setDiseaseSubMode] = useState<DiseaseSubMode>('reported');
   const [selectedBarangay, setSelectedBarangay] = useState<BarangayGISData | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [resetTrigger, setResetTrigger] = useState<number>(0);
+
+  // Open sidebar by default on desktop screens (>= 1024px) for side-by-side telemetry
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setSidebarOpen(true);
+    }
+  }, []);
 
   // Extract distinct livestock types genuinely available in backend data
   const availableLivestockTypes: string[] = useMemo(() => {
@@ -334,8 +341,8 @@ export default function GISMapPage() {
   };
 
   return (
-    // Bug B Fix: Full-height flex column layout (min-h-dvh flex flex-col) with no gap and no scrollbar
-    <div className="relative w-full h-dvh min-h-dvh max-h-dvh flex flex-col overflow-hidden bg-slate-950 font-sans select-none">
+    // Responsive Layout: Full-height fixed on desktop (lg:h-dvh), naturally scrollable on mobile
+    <div className="relative w-full min-h-screen lg:h-dvh lg:max-h-dvh lg:overflow-hidden flex flex-col bg-slate-950 font-sans select-none">
       {/* Mobile Floating Back Button (Bug C Fix: Always visible on mobile, safe-area offset) */}
       <button
         type="button"
@@ -347,8 +354,8 @@ export default function GISMapPage() {
         <span>Back</span>
       </button>
 
-      {/* 1. Full-Screen Interactive GIS Map Container (flex-1 min-h-0) */}
-      <div className="relative flex-1 min-h-0 w-full overflow-hidden">
+      {/* 1. Interactive GIS Map Container (Fixed height on mobile, flex-1 full-screen on desktop) */}
+      <div className="relative w-full h-[54dvh] sm:h-[60dvh] min-h-[380px] lg:h-full lg:flex-1 lg:min-h-0 shrink-0 overflow-hidden">
         <GISMap
           barangaysByName={barangaysByName}
           movements={gisData?.movements || []}
@@ -409,8 +416,27 @@ export default function GISMapPage() {
           </div>
         )}
 
-        {/* 5. Floating Right Sidebar (Desktop Overlay + Mobile Bottom Sheet) */}
+        {/* 5. Mobile Quick Jump Button to Telemetry Section */}
+        <button
+          type="button"
+          onClick={() => {
+            document.getElementById('mobile-gis-sidebar')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          aria-label="Scroll to GIS telemetry under map"
+          className="lg:hidden absolute top-16 right-3 z-[900] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-lg text-emerald-900 hover:bg-emerald-50 hover:border-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer pointer-events-auto min-h-[36px]"
+        >
+          <Info className="size-3.5 text-emerald-800 shrink-0" />
+          <span className="font-black tracking-tight">Telemetry ↓</span>
+          {selectedBarangay && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 max-w-[70px] truncate">
+              {selectedBarangay.name}
+            </span>
+          )}
+        </button>
+
+        {/* 6. Desktop Floating Right Sidebar (hidden on mobile, visible on desktop) */}
         <GISSidebar
+          renderMode="desktop"
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           selectedBarangay={selectedBarangay}
@@ -427,7 +453,7 @@ export default function GISMapPage() {
           selectedLivestockType={selectedLivestockType}
         />
 
-        {/* 6. Live Syncing Indicator */}
+        {/* 7. Live Syncing Indicator */}
         {isLoading && (
           <div className="absolute top-4 right-1/2 translate-x-1/2 z-[1100] bg-emerald-950/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/30 text-xs flex items-center gap-2 shadow-xl animate-in fade-in">
             <Loader2 className="size-3.5 animate-spin text-emerald-400" />
@@ -436,7 +462,26 @@ export default function GISMapPage() {
         )}
       </div>
 
-      {/* 7. Collapsible Metadata Footer inside flex column (Bug B Fix: No gap) */}
+      {/* 8. Mobile GIS Sidebar Section: Appears directly in the footer area under the map for 100% mobile visibility */}
+      <GISSidebar
+        renderMode="mobile-inline"
+        isOpen={true}
+        onClose={handleClearSelectedBarangay}
+        selectedBarangay={selectedBarangay}
+        onClearSelectedBarangay={handleClearSelectedBarangay}
+        onSelectBarangay={handleSelectBarangay}
+        summary={gisData?.summary || DEFAULT_SUMMARY}
+        movements={gisData?.movements || []}
+        allBarangays={gisData?.barangays || []}
+        onRefresh={() => fetchGISTelemetry(true)}
+        isLoading={isLoading}
+        diseaseSubMode={diseaseSubMode}
+        viewMode={viewMode}
+        simulatedStates={activeSimulatedStates}
+        selectedLivestockType={selectedLivestockType}
+      />
+
+      {/* 9. Metadata Footer */}
       <GISFooter />
     </div>
   );
