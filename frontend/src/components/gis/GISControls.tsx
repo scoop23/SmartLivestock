@@ -101,6 +101,7 @@ export function GISControls({
     { id: 'disease', label: 'Disease', icon: '🩺' },
     { id: 'milk', label: 'Dairy Milk', icon: '🥛' },
     { id: 'meat', label: 'Meat Yield', icon: '🥩' },
+    { id: 'mortality', label: 'Mortality', icon: '☠️' },
     { id: 'movement', label: 'Movement', icon: '🚛' },
   ];
 
@@ -214,8 +215,8 @@ export function GISControls({
         })}
       </div>
 
-      {/* Livestock Type Sub-Rail (Active only when multiple livestock types genuinely exist in backend data) */}
-      {currentLayer === 'cattle' && hasMultipleTypes && (
+      {/* Livestock Type Sub-Rail (Active for Cattle & Mortality layers when multiple livestock types genuinely exist in backend data) */}
+      {(currentLayer === 'cattle' || currentLayer === 'mortality') && hasMultipleTypes && (
         <div className="flex flex-col gap-1.5 animate-in fade-in duration-150">
           <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/90 shadow-lg flex items-center gap-1 max-w-fit flex-wrap">
             <span className="text-[10px] font-black uppercase text-slate-500 px-1.5 tracking-wider">

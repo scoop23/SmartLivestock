@@ -16,10 +16,11 @@ This avoids N+1 database queries on the server and avoids dozens of parallel HTT
 requests from the browser.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from django.db.models import Count, Q, Sum
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory
@@ -205,6 +206,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "cheese": 0.0,  # Reserved for dairy cheese production
             "mortality": 0,
             "mortality_causes": [],
+            "mortality_by_species": [],
+            "recent_mortality": 0,
             "movement_out": 0,
             "movement_in": 0,
             "inspections_count": 0,
@@ -339,27 +342,60 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             barangays_data[c_name]["slaughter_heads"] = row["total_heads"] or 0
 
     # 9. Aggregate Mortality Records
-    # DATA TRUST POLICY: Only approved mortality records
+    # DATA TRUST POLICY & EDUCATIONAL CONCEPT:
+    # -------------------------------------------------------------------------
+    # Spatial Aggregation vs. Individual-Animal Prediction:
+    # The GIS Mortality Layer answers "Where have recorded livestock deaths occurred?"
+    # by aggregating verified deaths from PostgreSQL by farmer barangay centroid.
+    # It does NOT predict which individual animal will die next (which would be
+    # methodologically invalid). Predictive time-series forecasting (ARIMA / Holt-Winters)
+    # is handled strictly at the municipality level in the Analytics module.
+    #
+    # DATA TRUST: In accordance with the capstone validation workflow:
+    # Farmer -> SIBAT / CBAT field inspection -> MAO official approval.
+    # Only APPROVED records are mapped to prevent unvetted declarations from distorting
+    # municipal public health statistics.
+    recent_cutoff = timezone.localdate() - timedelta(days=90)
     mortality_qs = scope_reviewer_queryset(MortalityRecord.objects.all(), user).filter(
         status=MortalityRecord.MortalityRecordStatus.APPROVED,
     )
-    mortality_grouped = (
-        mortality_qs.annotate(
-            b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
-        )
-        .values("b_id", "cause")
-        .annotate(deaths_cnt=Sum("death_count"))
+    mortality_annotated = mortality_qs.annotate(
+        b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+        species_name=Coalesce("livestock__livestock_type__name", "batch__livestock_type__name"),
+        effective_date=Coalesce("record_date", TruncDate("created_at")),
     )
-    for row in mortality_grouped:
+
+    recent_mortality_total = 0
+    mortality_species_map: Dict[str, int] = {}
+
+    for row in mortality_annotated.values("b_id", "species_name", "cause", "effective_date", "death_count"):
         c_name = pk_to_canonical.get(row["b_id"])
         if not c_name or c_name not in barangays_data:
             continue
-        deaths = row["deaths_cnt"] or 0
+        deaths = row["death_count"] or 0
         cause = row["cause"]
+        species = row["species_name"] or "Livestock"
+        rec_date = row["effective_date"]
+
         b_entry = barangays_data[c_name]
         b_entry["mortality"] += deaths
         if cause and cause not in b_entry["mortality_causes"]:
             b_entry["mortality_causes"].append(cause)
+
+        # Track per-barangay species breakdown
+        sp_item = next((s for s in b_entry["mortality_by_species"] if s["species"] == species), None)
+        if sp_item:
+            sp_item["heads"] += deaths
+        else:
+            b_entry["mortality_by_species"].append({"species": species, "heads": deaths})
+
+        # Global species count
+        mortality_species_map[species] = mortality_species_map.get(species, 0) + deaths
+
+        # Recent deaths (within 90-day surveillance window)
+        if rec_date and rec_date >= recent_cutoff:
+            b_entry["recent_mortality"] += deaths
+            recent_mortality_total += deaths
 
     # 10. Real Livestock Movement Inspections
     # Inbound / Outbound flows
@@ -426,6 +462,23 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     top_milk = sorted(all_b, key=lambda x: x["milk"], reverse=True)[:5]
     alert_barangays = [b for b in all_b if b["active_cases"] > 0 or b["disease_cases"] > 0]
 
+    # Structure Mortality Summary for GIS telemetry & Dashboard consumption
+    mortality_by_species_summary = [
+        {"species": sp, "deaths": cnt}
+        for sp, cnt in sorted(mortality_species_map.items(), key=lambda x: -x[1])
+    ]
+    top_mortality_barangays = [
+        {"name": b["name"], "deaths": b["mortality"]}
+        for b in sorted([b for b in all_b if b["mortality"] > 0], key=lambda x: x["mortality"], reverse=True)[:5]
+    ]
+    mortality_summary = {
+        "total_deaths": total_mortality,
+        "affected_barangays": len([b for b in all_b if b["mortality"] > 0]),
+        "recent_deaths": recent_mortality_total,
+        "by_species": mortality_by_species_summary,
+        "top_barangays": top_mortality_barangays,
+    }
+
     # Distinct livestock types present in approved active inventory
     available_types = list(
         inventory_qs.values_list("livestock_type__name", flat=True)
@@ -448,6 +501,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "total_disease_cases": total_disease,
             "active_disease_cases": total_active_disease,
             "total_mortality": total_mortality,
+            "mortality": mortality_summary,
             "total_farmers": total_farmers,
             "total_movements": len(movements_list),
             "top_cattle": [

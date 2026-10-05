@@ -212,6 +212,27 @@ export function GISMap({
     return match?.heads || 0;
   };
 
+  /**
+   * Resolves recorded deaths for the selected livestock filter.
+   * If 'ALL', returns total municipal recorded mortality for that barangay.
+   * If a specific species (e.g. 'Cattle'), checks mortality_by_species.
+   */
+  const getMortalityDeaths = (data: BarangayGISData, type?: string): number => {
+    if (!data) return 0;
+    if (type?.toUpperCase() === 'ALL') return data.mortality;
+    if (data.mortality_by_species && data.mortality_by_species.length > 0) {
+      const targetSpecies = (!type || type.toLowerCase() === 'cattle') ? 'cattle' : type.toLowerCase();
+      const match = data.mortality_by_species.find(
+        (s) => s.species.toLowerCase() === targetSpecies
+      );
+      if (match) return match.heads;
+      return 0;
+    }
+    // Fallback: Default all existing recorded mortality to Cattle focus if species breakdown is not yet split
+    if (!type || type.toLowerCase() === 'cattle') return data.mortality;
+    return 0;
+  };
+
   // Lazy load leaflet instance on client for divIcons
   useEffect(() => {
     import('leaflet').then((L) => setLeafletLib(L));
@@ -239,6 +260,10 @@ export function GISMap({
     }
     if (activeLayer === 'meat') {
       return data.meat > 0 ? Math.min(45, Math.max(6, Math.round(data.meat * 0.15))) : 4;
+    }
+    if (activeLayer === 'mortality') {
+      const deaths = getMortalityDeaths(data, selectedLivestockTypeRef.current);
+      return deaths > 0 ? Math.min(48, Math.max(6, Math.round(deaths * 6) + 4)) : 4;
     }
     if (activeLayer === 'movement') {
       return data.movement_out > 0 ? Math.min(45, Math.max(6, data.movement_out * 4)) : 4;
@@ -299,6 +324,17 @@ export function GISMap({
     return '#fecaca';
   };
 
+  /**
+   * Thematic Mortality Choropleth Fill Colors (Slate / Charcoal Palette)
+   * Visually distinct from green cattle, traffic-light disease, and blue dairy.
+   */
+  const getMortalityColor = (deaths: number): string => {
+    if (deaths >= 6) return '#0f172a'; // High mortality (slate-900 / dark charcoal)
+    if (deaths >= 3) return '#475569'; // Moderate mortality (slate-600)
+    if (deaths >= 1) return '#94a3b8'; // Low mortality (slate-400)
+    return '#f8fafc'; // No recorded deaths (slate-50 clean background)
+  };
+
   const getLayerColor = (data: BarangayGISData): string => {
     switch (activeLayer) {
       case 'cattle':
@@ -309,6 +345,8 @@ export function GISMap({
         return getMilkColor(data.milk);
       case 'meat':
         return getMeatColor(data.meat);
+      case 'mortality':
+        return getMortalityColor(getMortalityDeaths(data, selectedLivestockTypeRef.current));
       case 'movement':
         return data.movement_out > 0 ? '#fee2e2' : '#f1f5f9';
       default:
@@ -332,12 +370,13 @@ export function GISMap({
     }
 
     const extrusion = viewMode === '3D' ? getExtrusionHeight(name) : 0;
+    const isMortality = activeLayer === 'mortality';
 
     return {
       fillColor: getLayerColor(data),
-      fillOpacity: isSelected ? 0.95 : viewMode === '3D' ? 0.85 : 0.75,
-      color: isSelected ? '#ffffff' : viewMode === '3D' ? '#0f290f' : '#1e3a1e',
-      weight: isSelected ? 3.5 : viewMode === '3D' ? 2.5 : 1.8,
+      fillOpacity: isSelected ? 0.95 : viewMode === '3D' ? 0.85 : isMortality ? 0.82 : 0.75,
+      color: isSelected ? '#ffffff' : isMortality ? '#334155' : viewMode === '3D' ? '#0f290f' : '#1e3a1e',
+      weight: isSelected ? 3.5 : isMortality ? 2.0 : viewMode === '3D' ? 2.5 : 1.8,
       className: viewMode === '3D' ? `extruded-polygon-h${Math.min(48, Math.round(extrusion / 8) * 8)}` : '',
     };
   };
@@ -378,6 +417,15 @@ export function GISMap({
       tooltipMetric = `${data.milk.toLocaleString()} L milk`;
     } else if (layer === 'meat') {
       tooltipMetric = data.meat > 0 ? `${data.meat} kg meat` : 'No slaughter data';
+    } else if (layer === 'mortality') {
+      const deaths = getMortalityDeaths(data, lType);
+      const typeLabel = !lType || lType.toLowerCase() === 'cattle' ? 'Cattle' : lType === 'ALL' ? 'Livestock' : lType;
+      const causes = data.mortality_causes && data.mortality_causes.length > 0
+        ? `Causes: ${data.mortality_causes.slice(0, 2).join(', ')}`
+        : 'No specific causes flagged';
+      tooltipMetric = deaths > 0
+        ? `Recorded Mortality: ${deaths} ${typeLabel} deaths<br/><span style="font-size: 9.5px; opacity: 0.85">${causes}</span>`
+        : `No recorded ${typeLabel.toLowerCase()} deaths`;
     } else if (layer === 'movement') {
       tooltipMetric = `${data.movement_out} heads moved`;
     }
@@ -504,6 +552,9 @@ export function GISMap({
         statText = b.milk > 0 ? `${(b.milk / 1000).toFixed(1)}k🥛` : '0🥛';
       } else if (activeLayer === 'meat') {
         statText = b.meat > 0 ? `${b.meat}🥩` : '—';
+      } else if (activeLayer === 'mortality') {
+        const deaths = getMortalityDeaths(b, selectedLivestockType);
+        statText = deaths > 0 ? `${deaths}☠️` : '0☠️';
       } else if (activeLayer === 'movement') {
         statText = b.movement_out > 0 ? `${b.movement_out}🚛` : '—';
       }
@@ -528,7 +579,7 @@ export function GISMap({
         icon: customIcon,
       };
     });
-  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, viewMode]);
+  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, viewMode, selectedLivestockType]);
 
   const dataCount = Object.keys(barangaysByName).length;
 

@@ -362,29 +362,56 @@ export function BarangayDetails({
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
               <Skull className="size-3.5 text-slate-700" />
-              Mortality Records
+              Recorded Mortality
             </span>
             <span className="font-mono font-bold text-xs text-slate-900">
               {data.mortality} head{data.mortality !== 1 ? 's' : ''}
             </span>
           </div>
 
-          {data.mortality_causes.length > 0 ? (
-            <div className="text-xs text-slate-600 pt-1 border-t border-slate-100">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
-                Recorded Causes:
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {data.mortality_causes.map((c, i) => (
-                  <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0 border-slate-300">
-                    {c}
-                  </Badge>
-                ))}
-              </div>
+          {data.mortality > 0 ? (
+            <div className="text-xs space-y-1.5 pt-1 border-t border-slate-100">
+              {/* Species Breakdown if multi-species data exists */}
+              {data.mortality_by_species && data.mortality_by_species.length > 0 && (
+                <div className="flex items-center justify-between text-[11px] text-slate-600">
+                  <span>Species Breakdown:</span>
+                  <div className="flex gap-1">
+                    {data.mortality_by_species.map((sp, idx) => (
+                      <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0 border-slate-200 bg-slate-50 font-mono">
+                        {sp.species}: {sp.heads}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Deaths in Surveillance Window */}
+              {data.recent_mortality !== undefined && data.recent_mortality > 0 && (
+                <div className="flex items-center justify-between text-[11px] text-slate-600">
+                  <span>Recent Deaths (90-day window):</span>
+                  <span className="font-bold font-mono text-slate-900">{data.recent_mortality}</span>
+                </div>
+              )}
+
+              {/* Recorded Causes */}
+              {data.mortality_causes.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                    Recorded Causes:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {data.mortality_causes.map((c, i) => (
+                      <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0 border-slate-300">
+                        {c}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
-            <p className="text-[11px] text-emerald-700 flex items-center gap-1">
-              <CheckCircle2 className="size-3 text-emerald-600" /> No livestock deaths reported
+            <p className="text-[11px] text-emerald-700 flex items-center gap-1 pt-1 border-t border-slate-100">
+              <CheckCircle2 className="size-3 text-emerald-600" /> No recorded livestock deaths
             </p>
           )}
         </div>

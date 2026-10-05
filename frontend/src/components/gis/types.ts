@@ -27,7 +27,7 @@
  *    - `SimulationParameters`: User-tunable epidemic thresholds (contact scale, wind scale, alert threshold).
  */
 
-export type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'movement';
+export type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'mortality' | 'movement';
 
 export type ViewMode = '2D' | '3D';
 
@@ -59,6 +59,8 @@ export interface BarangayGISData {
   cheese?: number;
   mortality: number;          // Total deaths recorded
   mortality_causes: string[]; // Reported causes of mortality
+  mortality_by_species?: SpeciesCount[]; // Species-specific deaths in this barangay
+  recent_mortality?: number;  // Deaths reported within recent surveillance window
   movement_out: number;       // Outbound inspected livestock heads
   movement_in: number;        // Inbound inspected livestock heads
   inspections_count: number;  // Movement inspection events
@@ -80,6 +82,20 @@ export interface MovementRecord {
   control_number: string;
 }
 
+export interface MortalitySummary {
+  total_deaths: number;
+  affected_barangays: number;
+  recent_deaths: number;
+  by_species: SpeciesCount[];
+  top_barangays: { name: string; deaths: number }[];
+  by_barangay?: {
+    barangay: string;
+    deaths: number;
+    causes?: string[];
+    species?: string[];
+  }[];
+}
+
 export interface MunicipalSummary {
   total_livestock: number;
   total_cattle: number;
@@ -89,6 +105,7 @@ export interface MunicipalSummary {
   total_disease_cases: number;
   active_disease_cases: number;
   total_mortality: number;
+  mortality?: MortalitySummary;
   total_farmers: number;
   total_movements: number;
   top_cattle: { name: string; cattle: number }[];

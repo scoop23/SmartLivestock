@@ -100,6 +100,13 @@ export function GISLegend({
           { color: '#f87171', label: '1–100 kg yield' },
           { color: '#fecaca', label: 'No slaughter data available' },
         ];
+      case 'mortality':
+        return [
+          { color: '#0f172a', label: 'High (6+ recorded deaths)' },
+          { color: '#475569', label: 'Moderate (3–5 recorded deaths)' },
+          { color: '#94a3b8', label: 'Low (1–2 recorded deaths)' },
+          { color: '#f8fafc', label: 'No recorded deaths' },
+        ];
       case 'movement':
         return [
           { color: '#dc2626', label: '📤 Outbound Inspection Transport' },
@@ -127,6 +134,11 @@ export function GISLegend({
       ? 'All Livestock Distribution'
       : `${selectedLivestockType || 'Cattle'} Distribution`;
 
+  const mortalityTitle =
+    selectedLivestockType === 'ALL'
+      ? 'All Livestock Mortality'
+      : `${selectedLivestockType || 'Cattle'} Mortality Distribution`;
+
   const titles: Record<MapLayer, { title: string; icon: string }> = {
     cattle: { title: livestockTitle, icon: livestockIcon },
     disease: {
@@ -140,6 +152,7 @@ export function GISLegend({
     },
     milk: { title: 'Dairy Milk Production', icon: '🥛' },
     meat: { title: 'Katay (Meat Yield)', icon: '🥩' },
+    mortality: { title: mortalityTitle, icon: '☠️' },
     movement: { title: 'Live Cow Movement', icon: '🚛' },
   };
 
@@ -165,8 +178,8 @@ export function GISLegend({
           <Badge className="bg-purple-600 text-white text-[9px] px-1 py-0 font-mono">
             <TrendingUp className="size-2 mr-0.5 inline" /> TREND
           </Badge>
-        ) : layer === 'cattle' ? (
-          <Badge className="bg-emerald-800 text-white text-[9px] px-1 py-0 font-mono">
+        ) : layer === 'cattle' || layer === 'mortality' ? (
+          <Badge className="bg-slate-900 text-white text-[9px] px-1 py-0 font-mono">
             {selectedLivestockType === 'ALL' ? 'ALL' : (selectedLivestockType || 'CATTLE').toUpperCase()}
           </Badge>
         ) : null}
