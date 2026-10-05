@@ -22,7 +22,7 @@
  *    - 1x (1.2s per month), 2x (0.6s per month), and 4x (0.3s per month).
  *    - Auto-pause when reaching December 2026, with an instant Reset button.
  * 3. Live Environmental Conditions Badge:
- *    - Shows the active month's wind speed (m/s), compass direction (e.g. ENE, WSW),
+ *    - Shows the active month's wind speed (km/h), compass direction (e.g. ENE, WSW),
  *      and meteorological drift vector toward Padre Garcia's neighbors.
  * 4. Collapsible Epidemiological Parameter Sliders:
  *    - Direct Contact Spread Scale (L_contact, default 2.5 km).
@@ -119,11 +119,16 @@ export function GISTimeline({
     <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xl text-slate-800 pointer-events-auto w-full max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
       {/* Top Header & Environmental Status */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase px-2 py-0.5 flex items-center gap-1 shadow-2xs">
             <Zap className="size-3 fill-white" />
             Epidemic Player
           </Badge>
+          {trajectory[0]?.isDemoScenario && (
+            <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-bold">
+              Hypothetical Demo Scenario
+            </Badge>
+          )}
           <span className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1">
             <Calendar className="size-3.5 text-emerald-700" />
             {currentMonth.monthName} {currentMonth.year}

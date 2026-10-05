@@ -15,8 +15,9 @@
  * 
  * - Normalized pressure: 0 to 1 across barangays for coloring and alert tiering.
  * - Infection progression: infected_j(t+1) updates when normalized pressure crosses threshold.
- * - Environmental wind: Mean monthly wind speed & vector direction from Open-Meteo
+ * - Environmental wind: Historical monthly wind baseline (km/h) from Open-Meteo
  *   archive API with vector averaging (u,v components) and static offline fallback.
+ *   Used for spatial scenario simulation, not future weather forecasting.
  */
 
 import {
@@ -82,9 +83,10 @@ export function degreesToCardinal(degrees: number): string {
   return directions[index];
 }
 
-// Static Monthly Wind Baseline for Padre Garcia (13.88N, 121.22E)
+// Historical Monthly Wind Baseline for Padre Garcia (13.88N, 121.22E)
+// Climatological baseline used for spatial scenario simulation.
 // Pre-calculated from Open-Meteo archive using vector (u, v) component averaging.
-// Direction indicates "blowing toward" (windTo).
+// Direction indicates "blowing toward" (windTo). Speeds in km/h.
 export const STATIC_MONTHLY_WIND: MonthlyWindData[] = [
   { month: 1, monthName: 'January', speedKmH: 18.1, windToDegrees: 247.9, cardinal: 'WSW' },
   { month: 2, monthName: 'February', speedKmH: 21.4, windToDegrees: 266.8, cardinal: 'W' },
@@ -322,9 +324,14 @@ export function computeAnnualSimulationTrajectory(
     currentInfected[b.name] = liveCases;
   }
 
-  // Ensure demonstration epicenter if active outbreaks are 0 in DB
+  // DATA TRUST AUDIT: Check if real verified disease outbreaks exist in the database
   const totalSeeds = Object.values(currentInfected).reduce((sum, v) => sum + v, 0);
-  if (totalSeeds === 0) {
+  const isDemoScenario = totalSeeds === 0;
+
+  if (isDemoScenario) {
+    // Explicit Demonstration Scenario: When the municipality has 0 active reported outbreaks,
+    // we activate an explicitly labeled hypothetical scenario (Manggas = 2, Bawi = 1).
+    // This is explicitly tagged so the UI never misrepresents synthetic seeds as actual field outbreaks.
     currentInfected['Manggas'] = 2;
     currentInfected['Bawi'] = 1;
   }
@@ -423,6 +430,7 @@ export function computeAnnualSimulationTrajectory(
       states,
       totalPressure: Number(monthTotalPressure.toFixed(2)),
       totalInfected: monthTotalInfected,
+      isDemoScenario,
     });
 
     // Update infected_i(t+1) when pressure crosses threshold
