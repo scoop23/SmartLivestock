@@ -211,10 +211,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         }
 
     # 4. Aggregate Livestock Inventory (by farmer's barangay)
-    # Filter active and approved livestock
+    # DATA TRUST POLICY: Only MAO-approved active livestock are counted in official municipal GIS inventory
     inventory_qs = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
-        status__in=["APPROVED", "VERIFIED", "PENDING"],
-        operational_status="ACTIVE",
+        status=LivestockInventory.StatusType.APPROVED,
+        operational_status=LivestockInventory.OperationalStatus.ACTIVE,
     )
     
     species_by_barangay = (
@@ -251,7 +251,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
 
     batches_by_b = (
         scope_reviewer_queryset(LivestockBatch.objects.all(), user)
-        .filter(status="ACTIVE")
+        .filter(status=LivestockBatch.StatusType.ACTIVE)
         .values("farmer__barangay_id")
         .annotate(cnt=Count("id"))
     )
@@ -261,12 +261,15 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             barangays_data[c_name]["batches_count"] = row["cnt"]
 
     # 6. Aggregate Disease Cases (Active & Total)
-    disease_qs = scope_reviewer_queryset(DiseaseCase.objects.all(), user)
+    # DATA TRUST POLICY: Only MAO-approved verified disease cases are mapped to prevent unvetted submissions from distorting municipal surveillance
+    disease_qs = scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(
+        status=DiseaseCase.DiseaseStatus.APPROVED
+    )
     disease_grouped = (
         disease_qs.annotate(
             b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
         )
-        .values("b_id", "name", "status")
+        .values("b_id", "name")
         .annotate(cases_cnt=Count("id"), affected_cnt=Sum("affected_count"))
     )
 
@@ -276,14 +279,12 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             continue
         cases = row["cases_cnt"] or 0
         affected = row["affected_cnt"] or 0
-        status = row["status"]
         d_name = row["name"]
 
         b_entry = barangays_data[c_name]
         b_entry["disease_cases"] += cases
         b_entry["affected_heads"] += affected
-        if status in ("PENDING", "VERIFIED"):
-            b_entry["active_cases"] += cases
+        b_entry["active_cases"] += cases
         if d_name and d_name not in b_entry["recent_diseases"]:
             b_entry["recent_diseases"].append(d_name)
 
@@ -299,8 +300,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["disease_risk"] = "low"
 
     # 7. Aggregate Production (Milk in Liters)
+    # DATA TRUST POLICY: Only MAO-approved production logs are summarized
     production_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        production_type=ProductionRecord.ProductionType.MILK
+        status=ProductionRecord.ProductionStatus.APPROVED,
+        production_type=ProductionRecord.ProductionType.MILK,
     )
     milk_grouped = (
         production_qs.annotate(
@@ -315,7 +318,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             barangays_data[c_name]["milk"] = round(float(row["total_milk"] or 0.0), 2)
 
     # 8. Aggregate Slaughter / Meat (Katay)
-    slaughter_qs = scope_reviewer_queryset(SlaughterRecord.objects.all(), user)
+    # DATA TRUST POLICY: Only officially approved slaughterhouse records
+    slaughter_qs = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
+        status=SlaughterRecord.StatusType.APPROVED,
+    )
     meat_grouped = (
         slaughter_qs.annotate(
             b_id=Coalesce("barangay_id", "batch__farmer__barangay_id", "livestock__farmer__barangay_id")
@@ -333,7 +339,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             barangays_data[c_name]["slaughter_heads"] = row["total_heads"] or 0
 
     # 9. Aggregate Mortality Records
-    mortality_qs = scope_reviewer_queryset(MortalityRecord.objects.all(), user)
+    # DATA TRUST POLICY: Only approved mortality records
+    mortality_qs = scope_reviewer_queryset(MortalityRecord.objects.all(), user).filter(
+        status=MortalityRecord.MortalityRecordStatus.APPROVED,
+    )
     mortality_grouped = (
         mortality_qs.annotate(
             b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
