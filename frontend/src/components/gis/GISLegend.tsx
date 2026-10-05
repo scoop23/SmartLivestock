@@ -18,7 +18,7 @@
  * - layer = 'disease'  -> 
  *     * SubMode = 'reported'   -> Standard traffic-light triage (Red: Outbreak, Orange: Suspect, Green: Clear).
  *     * SubMode = 'simulation' -> Normalized Haversine/wind epidemic pressure (Critical 70%+, High 40-69%, Moderate, Low).
- *     * SubMode = 'forecast'   -> Statistical predictive trajectory tiers (Purple: Elevated velocity, Sky: Normal, Green: Low).
+ *     * SubMode = 'trend'      -> Current surveillance status (Purple: Elevated activity, Blue: Reported activity, Green: No reported activity).
  * - layer = 'milk'     -> Blue graduated scale in Liters/month.
  * - layer = 'meat'     -> Red/Crimson scale in kg yield from slaughter records.
  * - layer = 'movement' -> Transport vector guide (Origin, Inter-barangay route, Destination).
@@ -56,11 +56,11 @@ export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
           { color: '#10b981', label: 'Low (<20% Baseline)' },
         ];
       }
-      if (diseaseSubMode === 'forecast') {
+      if (diseaseSubMode === 'trend') {
         return [
-          { color: '#9333ea', label: 'Surveillance Alert (Elevated Velocity)' },
-          { color: '#0284c7', label: 'Projected Normal Trajectory' },
-          { color: '#10b981', label: 'Low Baseline Risk' },
+          { color: '#9333ea', label: 'Elevated Activity (Active Cases)' },
+          { color: '#0284c7', label: 'Reported Activity (Past Records)' },
+          { color: '#10b981', label: 'No Reported Disease Activity' },
         ];
       }
       return [
@@ -111,8 +111,8 @@ export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
       title:
         diseaseSubMode === 'simulation'
           ? 'Simulated Disease Pressure'
-          : diseaseSubMode === 'forecast'
-          ? 'Predictive Disease Forecast'
+          : diseaseSubMode === 'trend'
+          ? 'Disease Surveillance Trend'
           : 'Reported Disease Heat Map',
       icon: '🩺',
     },
@@ -138,6 +138,10 @@ export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
         ) : layer === 'disease' && diseaseSubMode === 'simulation' ? (
           <Badge className="bg-amber-500 text-white text-[9px] px-1 py-0 font-mono">
             <Zap className="size-2 mr-0.5 inline" /> SIM
+          </Badge>
+        ) : layer === 'disease' && diseaseSubMode === 'trend' ? (
+          <Badge className="bg-purple-600 text-white text-[9px] px-1 py-0 font-mono">
+            <TrendingUp className="size-2 mr-0.5 inline" /> TREND
           </Badge>
         ) : null}
       </div>

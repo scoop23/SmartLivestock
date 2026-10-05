@@ -18,16 +18,21 @@
  *      displaying both its name and live micro-metric (e.g. "BANABA 5🐄").
  *    - Non-interactive (pointer-events: none) so it never blocks polygon click/hover.
  * 
- * 3. THREE DISEASE SURVEILLANCE STATES:
- *    - REPORTED: Verified live outbreak cases from PostgreSQL database.
- *    - SIMULATION: Spatial Haversine distance-decay epidemic spread with Open-Meteo/PAGASA
- *      directional wind drift, vector averaging, and timeline scrub/playback.
- *    - FORECAST: Statistical surveillance trajectory distinguishing empirical
- *      modeling from scenario simulation.
+ * 3. THREE DISEASE SURVEILLANCE MODES:
+ *    - REPORTED: Actual confirmed disease records currently in PostgreSQL ("What has been reported?").
+ *    - SURVEILLANCE TREND: Current disease activity status derived from verified records
+ *      ("Where is disease activity currently elevated?"). NOT a machine-learning future forecast.
+ *    - SIMULATION: Spatial scenario modeling using Haversine distance, host livestock density,
+ *      and historical environmental wind baseline ("What could spatial pressure look like?").
  * 
- * 4. REAL BACKEND INTEGRATION:
- *    - Zero hardcoded statistical values. Telemetry is queried via `/api/analytics/gis/`
- *      and joined to GeoJSON polygons via `feature.properties.name`.
+ * 4. SEPARATION OF CONCERNS: GIS vs. PREDICTIVE ANALYTICS:
+ *    - GIS owns spatial visualization and spatial scenario simulation.
+ *    - Predictive Analytics (`/analytics` & `/api/analytics/predictive/forecast/`) owns temporal
+ *      statistical forecasting (Holt-Winters, ARIMA, Random Forest, Linear Regression).
+ *    - GIS does NOT perform ML forecasting to avoid unvalidated barangay-level spatiotemporal claims.
+ * 
+ * 5. REAL BACKEND INTEGRATION:
+ *    - Telemetry is queried via `/api/analytics/gis/` and joined to GeoJSON polygons via `feature.properties.name`.
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -288,9 +293,9 @@ export default function GISMapPage() {
       toast.info('⚡ Epidemic Simulation Activated', {
         description: 'Showing Haversine distance-decay & Open-Meteo wind drift timeline.',
       });
-    } else if (subMode === 'forecast') {
-      toast.info('📈 Predictive Forecast Activated', {
-        description: 'Showing surveillance risk velocity based on historical trend.',
+    } else if (subMode === 'trend') {
+      toast.info('🩺 Surveillance Trend Activated', {
+        description: 'Highlights current disease activity and surveillance status based on reported records.',
       });
     } else {
       toast.success('Reported Database Records Restored');

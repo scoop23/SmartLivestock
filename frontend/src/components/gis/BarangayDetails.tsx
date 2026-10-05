@@ -73,7 +73,7 @@ export function BarangayDetails({
   const isHighRisk = data.disease_risk === 'high';
   const isMedRisk = data.disease_risk === 'medium';
   const isSim = diseaseSubMode === 'simulation';
-  const isForecast = diseaseSubMode === 'forecast';
+  const isTrend = diseaseSubMode === 'trend';
 
   return (
     <div className="flex flex-col h-full">
@@ -89,9 +89,9 @@ export function BarangayDetails({
                 <Zap className="size-2.5" /> Simulated
               </Badge>
             )}
-            {isForecast && (
-              <Badge className="bg-sky-600 hover:bg-sky-700 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-1">
-                <TrendingUp className="size-2.5" /> Forecast
+            {isTrend && (
+              <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-[10px] uppercase font-mono px-1.5 py-0 flex items-center gap-1">
+                <TrendingUp className="size-2.5" /> Trend
               </Badge>
             )}
             {viewMode === '3D' && (
@@ -133,8 +133,12 @@ export function BarangayDetails({
                 ? simulatedState?.risk === 'critical' || simulatedState?.risk === 'high'
                   ? 'bg-rose-50 border-rose-200 text-rose-800'
                   : 'bg-amber-50 border-amber-200 text-amber-800'
-                : isForecast
-                ? 'bg-sky-50 border-sky-200 text-sky-800'
+                : isTrend
+                ? data.active_cases > 0
+                  ? 'bg-purple-50 border-purple-200 text-purple-800'
+                  : data.disease_cases > 0
+                  ? 'bg-sky-50 border-sky-200 text-sky-800'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : isHighRisk
                 ? 'bg-rose-50 border-rose-200 text-rose-800'
                 : isMedRisk
@@ -145,15 +149,19 @@ export function BarangayDetails({
             <div className="text-xl font-black uppercase tracking-tight font-mono">
               {isSim
                 ? (simulatedState?.risk || 'LOW').toUpperCase()
-                : isForecast
-                ? data.active_cases > 0 ? 'ALERT' : 'STABLE'
+                : isTrend
+                ? data.active_cases > 0
+                  ? 'ELEVATED'
+                  : data.disease_cases > 0
+                  ? 'REPORTED'
+                  : 'STABLE'
                 : data.disease_risk.toUpperCase()}
             </div>
             <div className="text-[11px] font-bold uppercase tracking-wide">
               {isSim
                 ? '⚡ Simulated Risk'
-                : isForecast
-                ? '📈 Forecast Status'
+                : isTrend
+                ? '🩺 Surveillance Status'
                 : '🩺 Reported Risk'}
             </div>
           </div>
@@ -245,15 +253,21 @@ export function BarangayDetails({
             </div>
           )}
 
-          {/* If Forecast Mode is Active */}
-          {isForecast && (
-            <div className="bg-sky-50/90 border border-sky-200 rounded-lg p-2.5 text-xs space-y-1">
-              <div className="flex justify-between font-bold text-sky-950">
-                <span>📈 Surveillance Velocity:</span>
-                <span className="font-mono">{data.active_cases > 0 ? 'ELEVATED' : 'STABLE'}</span>
+          {/* If Surveillance Trend Mode is Active */}
+          {isTrend && (
+            <div className="bg-purple-50/90 border border-purple-200 rounded-lg p-2.5 text-xs space-y-1">
+              <div className="flex justify-between font-bold text-purple-950">
+                <span>🩺 Current Surveillance Status:</span>
+                <span className="font-mono">
+                  {data.active_cases > 0
+                    ? 'ELEVATED'
+                    : data.disease_cases > 0
+                    ? 'REPORTED'
+                    : 'STABLE'}
+                </span>
               </div>
-              <p className="text-[10px] text-sky-700 leading-relaxed">
-                Projected 6-month risk trajectory based on municipal baseline velocity.
+              <p className="text-[10.5px] text-purple-800 leading-relaxed">
+                Reflects verified active and past outbreak records in this barangay. For temporal 3/6/12-month statistical forecasts, visit Predictive Analytics.
               </p>
             </div>
           )}

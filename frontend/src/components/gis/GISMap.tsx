@@ -255,9 +255,13 @@ export function GISMap({
     if (diseaseSubMode === 'simulation' && simulatedStates?.[bName]) {
       return getPressureColor(simulatedStates[bName].transmissionPressure);
     }
-    if (diseaseSubMode === 'forecast') {
+    if (diseaseSubMode === 'trend') {
       const data = barangaysByName[bName];
-      if (data?.active_cases > 0 || (simulatedStates?.[bName]?.cases || 0) > 10) return '#9333ea';
+      // Surveillance Trend classification:
+      // - Active confirmed cases -> Purple (Elevated Activity)
+      // - Historical reported cases -> Blue (Reported Activity)
+      // - Zero records -> Green (No Reported Activity)
+      if (data?.active_cases > 0) return '#9333ea';
       if (data?.disease_cases > 0) return '#0284c7';
       return '#10b981';
     }
@@ -337,8 +341,14 @@ export function GISMap({
     if (layer === 'disease') {
       if (subMode === 'simulation' && simState) {
         tooltipMetric = `Pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% • ${simState.cases} cases (${simState.risk.toUpperCase()})`;
-      } else if (subMode === 'forecast') {
-        tooltipMetric = `Surveillance Velocity (${data.active_cases > 0 ? 'ELEVATED' : 'STABLE'})`;
+      } else if (subMode === 'trend') {
+        const trendStatus =
+          data.active_cases > 0
+            ? 'ELEVATED ACTIVITY'
+            : data.disease_cases > 0
+            ? 'REPORTED ACTIVITY'
+            : 'NO REPORTED ACTIVITY';
+        tooltipMetric = `Surveillance: ${trendStatus} (${data.active_cases} active, ${data.disease_cases} total)`;
       } else {
         tooltipMetric = `${data.active_cases} active cases (${data.disease_risk.toUpperCase()})`;
       }

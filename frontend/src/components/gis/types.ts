@@ -19,11 +19,11 @@
  * 2. Visual & Architectural State Types:
  *    - `MapLayer`: Cattle (🐄), Disease (🩺), Dairy Milk (🥛), Meat Yield (🥩), Movement (🚛).
  *    - `ViewMode`: 2D Orthogonal Map vs. 3D Volumetric Extrusion.
- *    - `DiseaseSubMode`: 'reported' (PostgreSQL data) vs. 'simulation' (Haversine/wind) vs. 'forecast' (predictive).
+ *    - `DiseaseSubMode`: 'reported' (PostgreSQL data) vs. 'simulation' (Haversine/wind) vs. 'trend' (current surveillance status).
  * 
  * 3. Spatial Epidemiological Simulation Types:
  *    - `SimulatedBarangayState`: Dynamic pressure (0-1), infected status, and infection source per barangay.
- *    - `MonthlyWindData`: Meteorological wind speed (m/s) and vector direction for atmospheric plume drift.
+ *    - `MonthlyWindData`: Climatological environmental wind speed (km/h) and vector direction baseline used for scenario simulation.
  *    - `SimulationParameters`: User-tunable epidemic thresholds (contact scale, wind scale, alert threshold).
  */
 
@@ -31,7 +31,7 @@ export type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'movement';
 
 export type ViewMode = '2D' | '3D';
 
-export type DiseaseSubMode = 'reported' | 'simulation' | 'forecast';
+export type DiseaseSubMode = 'reported' | 'simulation' | 'trend';
 
 export interface SpeciesCount {
   species: string;
@@ -146,15 +146,7 @@ export interface MonthlySimulationResult {
   states: Record<string, SimulatedBarangayState>;
   totalPressure: number;
   totalInfected: number;
-}
-
-export interface ForecastBarangayState {
-  projectedCases: number;
-  lowerBound: number;
-  upperBound: number;
-  trend: 'increasing' | 'stable' | 'decreasing';
-  confidence: number;
-  model: string;
+  isDemoScenario?: boolean; // True when baseline DB cases are 0 and explicit demonstration seeds are activated
 }
 
 export interface TimelineMonth {

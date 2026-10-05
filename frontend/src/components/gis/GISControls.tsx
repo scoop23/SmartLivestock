@@ -14,8 +14,8 @@
  *   2. Viewing Perspective: 2D Orthogonal Map vs. 3D Volumetric Extrusion.
  *   3. Disease Surveillance Sub-modes:
  *      - "Reported": Verified field cases from PostgreSQL database.
- *      - "Simulation": Spatial Haversine distance-decay epidemic model with wind drift.
- *      - "Forecast": Statistical predictive trajectory.
+ *      - "Simulation": Spatial Haversine distance-decay epidemic model with environmental wind drift.
+ *      - "Surveillance Trend": Current disease activity status derived from verified records (not ML forecast).
  *   4. Camera Reset: Instantly refits the map viewport to Padre Garcia's geographic bounds.
  *   5. Telemetry Sidebar Toggle: Opens/collapses the right-hand inspection drawer.
  * 
@@ -28,7 +28,7 @@
  *         ▼ (Invokes Callbacks)                             ▼ (Propagates to Parent)
  *   onLayerChange() ──────────────────────────────► page.tsx (Active Layer State)
  *   onViewModeChange() ───────────────────────────► page.tsx (Perspective 2D / 3D)
- *   onDiseaseSubModeChange() ─────────────────────► page.tsx (Reported / Simulation / Forecast)
+ *   onDiseaseSubModeChange() ─────────────────────► page.tsx (Reported / Simulation / Trend)
  *   onResetBounds() ──────────────────────────────► page.tsx (Increments resetTrigger counter)
  *                                                           │
  *                                                           ├─► Updates GISMap.tsx (re-renders shaders & bounds)
@@ -203,51 +203,68 @@ export function GISControls({
         })}
       </div>
 
-      {/* Disease Sub-Modes Rail: [ Reported ] [ Simulation ] [ Forecast ] */}
+      {/* Disease Sub-Modes Rail: [ Reported ] [ Simulation ] [ Surveillance Trend ] */}
       {currentLayer === 'disease' && (
-        <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/90 shadow-lg flex items-center gap-1 max-w-fit animate-in fade-in duration-150">
-          <span className="text-[10px] font-black uppercase text-slate-500 px-1.5 tracking-wider">
-            Mode:
-          </span>
+        <div className="flex flex-col gap-1.5 animate-in fade-in duration-150">
+          <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/90 shadow-lg flex items-center gap-1 max-w-fit">
+            <span className="text-[10px] font-black uppercase text-slate-500 px-1.5 tracking-wider">
+              Mode:
+            </span>
 
-          <button
-            type="button"
-            onClick={() => onDiseaseSubModeChange('reported')}
-            className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-              diseaseSubMode === 'reported'
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <Activity className="size-3" />
-            <span>Reported Cases</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onDiseaseSubModeChange('reported')}
+              className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                diseaseSubMode === 'reported'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Activity className="size-3" />
+              <span>Reported Cases</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => onDiseaseSubModeChange('simulation')}
-            className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-              diseaseSubMode === 'simulation'
-                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/50'
-                : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-800'
-            }`}
-          >
-            <Zap className="size-3" />
-            <span>Epidemic Simulation</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onDiseaseSubModeChange('simulation')}
+              className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                diseaseSubMode === 'simulation'
+                  ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-400/50'
+                  : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-800'
+              }`}
+            >
+              <Zap className="size-3" />
+              <span>Epidemic Simulation</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => onDiseaseSubModeChange('forecast')}
-            className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-              diseaseSubMode === 'forecast'
-                ? 'bg-sky-700 text-white shadow-xs ring-2 ring-sky-400/50'
-                : 'bg-slate-100 text-slate-600 hover:bg-sky-50 hover:text-sky-800'
-            }`}
-          >
-            <TrendingUp className="size-3" />
-            <span>Predictive Forecast</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onDiseaseSubModeChange('trend')}
+              className={`min-h-[44px] sm:min-h-[28px] px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                diseaseSubMode === 'trend'
+                  ? 'bg-purple-700 text-white shadow-xs ring-2 ring-purple-400/50'
+                  : 'bg-slate-100 text-slate-600 hover:bg-purple-50 hover:text-purple-800'
+              }`}
+            >
+              <TrendingUp className="size-3" />
+              <span>Surveillance Trend</span>
+            </button>
+          </div>
+
+          {/* Clarification note for users seeking future statistical forecasts */}
+          {diseaseSubMode === 'trend' && (
+            <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-200 shadow-md max-w-sm text-[10.5px] text-slate-700 flex items-center justify-between gap-2">
+              <span>
+                Surveillance Trend displays current active disease status from reported records. For statistical 3/6/12-month future forecasts, open{' '}
+                <a
+                  href="/analytics"
+                  className="font-bold text-purple-700 hover:text-purple-900 underline underline-offset-2"
+                >
+                  Predictive Analytics &rarr;
+                </a>
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
