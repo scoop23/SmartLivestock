@@ -55,6 +55,7 @@ import {
   SimulatedBarangayState,
   ViewMode,
   DiseaseSubMode,
+  GISUserScope,
 } from './types';
 import 'leaflet/dist/leaflet.css';
 
@@ -89,70 +90,77 @@ const Marker = dynamic(() => import('react-leaflet').then((m) => m.Marker), {
   ssr: false,
 });
 
+import { useMap } from 'react-leaflet';
+
 interface FitBoundsProps {
   resetTrigger: number;
+  userScope?: GISUserScope;
+  selectedBarangay?: BarangayGISData | null;
 }
 
-// Client-only component to control Leaflet camera bounds dynamically
-const FitBoundsComponent = dynamic(
-  () =>
-    import('react-leaflet').then((m) => {
-      const FitBounds = ({ resetTrigger }: FitBoundsProps) => {
-        const { useMap } = m;
-        const map = useMap();
+// Client component to control Leaflet camera bounds dynamically
+function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps) {
+  const map = useMap();
 
-        useEffect(() => {
-          import('leaflet').then((L) => {
-            const geoJsonLayer = L.geoJSON(padreGarciaGeojson as any);
-            const bounds = geoJsonLayer.getBounds();
-            if (bounds.isValid()) {
-              map.fitBounds(bounds, { padding: [24, 24] });
-            }
-          });
-        }, [map, resetTrigger]);
+  useEffect(() => {
+    import('leaflet').then((L) => {
+      // If the user is restricted to a single own/assigned barangay (Farmer or assigned SIBAT),
+      // zoom directly to their barangay polygon so they see their farm area immediately
+      const isRestricted = userScope && !userScope.can_view_all_barangays && userScope.allowed_barangays?.length === 1;
+      const targetBName = isRestricted ? userScope.allowed_barangays[0] : (selectedBarangay?.name ?? null);
 
-        return null;
-      };
-      return FitBounds;
-    }),
-  { ssr: false }
-);
+      if (isRestricted && targetBName && resetTrigger === 0) {
+        const feature = (padreGarciaGeojson as any).features?.find(
+          (f: any) => f.properties?.name?.toLowerCase() === targetBName.toLowerCase()
+        );
+        if (feature) {
+          const featureLayer = L.geoJSON(feature);
+          const fBounds = featureLayer.getBounds();
+          if (fBounds.isValid()) {
+            map.fitBounds(fBounds, { padding: [50, 50], maxZoom: 15 });
+            return;
+          }
+        }
+      }
 
-// Client-only resize handler to eliminate layout gaps and handle orientation change
-const MapResizeHandler = dynamic(
-  () =>
-    import('react-leaflet').then((m) => {
-      const ResizeHandler = () => {
-        const { useMap } = m;
-        const map = useMap();
+      // Default: fit municipal boundary of Padre Garcia
+      const geoJsonLayer = L.geoJSON(padreGarciaGeojson as any);
+      const bounds = geoJsonLayer.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [24, 24] });
+      }
+    });
+  }, [map, resetTrigger, userScope, selectedBarangay]);
 
-        useEffect(() => {
-          // Immediately invalidate and after layout settles
-          map.invalidateSize();
-          const t1 = setTimeout(() => map.invalidateSize(), 150);
-          const t2 = setTimeout(() => map.invalidateSize(), 500);
+  return null;
+}
 
-          const onResize = () => {
-            map.invalidateSize();
-          };
+// Client resize handler to eliminate layout gaps and handle orientation change
+function MapResizeHandler() {
+  const map = useMap();
 
-          window.addEventListener('resize', onResize);
-          window.addEventListener('orientationchange', onResize);
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 500);
 
-          return () => {
-            clearTimeout(t1);
-            clearTimeout(t2);
-            window.removeEventListener('resize', onResize);
-            window.removeEventListener('orientationchange', onResize);
-          };
-        }, [map]);
+    const onResize = () => {
+      map.invalidateSize();
+    };
 
-        return null;
-      };
-      return ResizeHandler;
-    }),
-  { ssr: false }
-);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, [map]);
+
+  return null;
+}
 
 interface GISMapProps {
   barangaysByName: Record<string, BarangayGISData>;
@@ -165,6 +173,7 @@ interface GISMapProps {
   resetTrigger: number;
   simulatedStates?: Record<string, SimulatedBarangayState>;
   selectedLivestockType?: string;
+  userScope?: GISUserScope;
 }
 
 export function GISMap({
@@ -178,6 +187,7 @@ export function GISMap({
   resetTrigger,
   simulatedStates,
   selectedLivestockType = 'Cattle',
+  userScope,
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<any>(null);
@@ -192,6 +202,7 @@ export function GISMap({
   const onSelectBarangayRef = useRef(onSelectBarangay);
   const viewModeRef = useRef(viewMode);
   const selectedLivestockTypeRef = useRef(selectedLivestockType);
+  const userScopeRef = useRef(userScope);
 
   barangaysByNameRef.current = barangaysByName;
   activeLayerRef.current = activeLayer;
@@ -201,6 +212,7 @@ export function GISMap({
   onSelectBarangayRef.current = onSelectBarangay;
   viewModeRef.current = viewMode;
   selectedLivestockTypeRef.current = selectedLivestockType;
+  userScopeRef.current = userScope;
 
   const getLivestockHeads = (data: BarangayGISData, type?: string): number => {
     if (!data) return 0;
@@ -358,6 +370,8 @@ export function GISMap({
     const name = feature?.properties?.name;
     const data = name ? barangaysByName[name] : null;
     const isSelected = selectedBarangay?.name === name;
+    const scope = userScopeRef.current;
+    const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
 
     if (!data) {
       // Baseline placeholder styling before API response resolves
@@ -369,15 +383,29 @@ export function GISMap({
       };
     }
 
+    // Out-of-scope barangays for restricted roles (e.g., Farmer or assigned SIBAT):
+    // Rendered with muted subtle outline to indicate territorial context without exposing private data
+    if (!isInScope) {
+      return {
+        fillColor: '#1e293b',
+        fillOpacity: 0.25,
+        color: '#475569',
+        weight: 1.0,
+        dashArray: '4, 4',
+        className: 'out-of-scope-barangay',
+      };
+    }
+
     const extrusion = viewMode === '3D' ? getExtrusionHeight(name) : 0;
     const isMortality = activeLayer === 'mortality';
+    const isFarmerRole = scope?.role === 'FARMER';
 
     return {
       fillColor: getLayerColor(data),
-      fillOpacity: isSelected ? 0.95 : viewMode === '3D' ? 0.85 : isMortality ? 0.82 : 0.75,
-      color: isSelected ? '#ffffff' : isMortality ? '#334155' : viewMode === '3D' ? '#0f290f' : '#1e3a1e',
-      weight: isSelected ? 3.5 : isMortality ? 2.0 : viewMode === '3D' ? 2.5 : 1.8,
-      className: viewMode === '3D' ? `extruded-polygon-h${Math.min(48, Math.round(extrusion / 8) * 8)}` : '',
+      fillOpacity: isSelected ? 0.95 : viewMode === '3D' ? 0.85 : isMortality ? 0.82 : 0.80,
+      color: isSelected ? '#ffffff' : isFarmerRole ? '#4ade80' : isMortality ? '#334155' : viewMode === '3D' ? '#0f290f' : '#1e3a1e',
+      weight: isSelected ? 3.5 : isFarmerRole ? 3.0 : isMortality ? 2.0 : viewMode === '3D' ? 2.5 : 1.8,
+      className: viewMode === '3D' ? `extruded-polygon-h${Math.min(48, Math.round(extrusion / 8) * 8)}` : isFarmerRole ? 'farmer-own-barangay' : '',
     };
   };
 
@@ -386,6 +414,12 @@ export function GISMap({
     const layer = activeLayerRef.current;
     const subMode = diseaseSubModeRef.current;
     const simState = simulatedStatesRef.current?.[name];
+    const scope = userScopeRef.current;
+    const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
+
+    if (!isInScope) {
+      return `<strong>Brgy. ${name}</strong><br/><span style="font-size: 10px; opacity: 0.7">Outside your assigned jurisdiction</span>`;
+    }
 
     if (!data) {
       return `<strong>Brgy. ${name}</strong><br/><span style="font-size: 10px; opacity: 0.8">Padre Garcia</span>`;
@@ -461,6 +495,14 @@ export function GISMap({
       },
       click: () => {
         const data = barangaysByNameRef.current[name];
+        const scope = userScopeRef.current;
+        const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
+
+        // If user is restricted to own/assigned barangays, ignore clicks on out-of-scope polygons
+        if (!isInScope) {
+          return;
+        }
+
         if (data) {
           onSelectBarangayRef.current(data);
         } else {
@@ -530,6 +572,9 @@ export function GISMap({
           }, {} as Record<string, BarangayGISData>));
 
     return Object.values(sourceMap).map((b) => {
+      const scope = userScopeRef.current;
+      const isInScope = b.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(b.name));
+
       const lHeads = getLivestockHeads(b, selectedLivestockType);
       const lIcon =
         selectedLivestockType?.toLowerCase() === 'sheep'
@@ -541,8 +586,10 @@ export function GISMap({
           : selectedLivestockType === 'ALL'
           ? '🐾'
           : '🐄';
-      let statText = `${lHeads}${lIcon}`;
-      if (activeLayer === 'disease') {
+      let statText = isInScope ? `${lHeads}${lIcon}` : '—';
+      if (!isInScope) {
+        statText = '—';
+      } else if (activeLayer === 'disease') {
         if (diseaseSubMode === 'simulation' && simulatedStates?.[b.name]) {
           statText = `⚡${(simulatedStates[b.name].transmissionPressure * 100).toFixed(0)}%`;
         } else {
@@ -561,12 +608,28 @@ export function GISMap({
 
       const h = viewMode === '3D' ? getExtrusionHeight(b.name) : 0;
 
+      const isFarmerRole = userScopeRef.current?.role === 'FARMER';
+      const isHighlightedFarm = isFarmerRole && isInScope;
+      const isSubtleOut = isFarmerRole && !isInScope;
+
+      const pillClass = isHighlightedFarm
+        ? 'permanent-centroid-pill highlight-own-farm'
+        : isSubtleOut
+        ? 'permanent-centroid-pill subtle-out-of-scope'
+        : 'permanent-centroid-pill';
+
+      const pillContent = isSubtleOut
+        ? `<span class="pill-name text-slate-400 font-bold">${b.name}</span>`
+        : `
+          <span class="pill-name">${isHighlightedFarm ? `★ ${b.name}` : b.name}</span>
+          <span class="pill-stat">${statText}</span>
+        `;
+
       const customIcon = leafletLib.divIcon({
         className: 'permanent-centroid-label-container',
         html: `
-          <div class="permanent-centroid-pill" style="transform: translateY(-${h}px)">
-            <span class="pill-name">${b.name}</span>
-            <span class="pill-stat">${statText}</span>
+          <div class="${pillClass}" style="transform: translateY(-${h}px)">
+            ${pillContent}
           </div>
         `,
         iconSize: [68, 24],
@@ -584,11 +647,11 @@ export function GISMap({
   const dataCount = Object.keys(barangaysByName).length;
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-slate-950">
+    <div className="relative w-full h-full min-h-[380px] overflow-hidden bg-slate-900">
       <style>{`
         /* Hover tooltip */
         .barangay-hover-tooltip {
-          background: rgba(15, 41, 15, 0.95) !important;
+          background: rgba(15, 23, 42, 0.95) !important;
           border: 1px solid rgba(74, 222, 128, 0.4) !important;
           border-radius: 8px !important;
           color: white !important;
@@ -609,7 +672,7 @@ export function GISMap({
         }
         .permanent-centroid-pill {
           pointer-events: none !important;
-          background: rgba(10, 26, 12, 0.88);
+          background: rgba(15, 23, 42, 0.88);
           border: 1px solid rgba(134, 239, 172, 0.45);
           backdrop-filter: blur(4px);
           border-radius: 6px;
@@ -621,6 +684,16 @@ export function GISMap({
           justify-content: center;
           text-align: center;
           transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .permanent-centroid-pill.highlight-own-farm {
+          background: rgba(6, 78, 59, 0.95) !important;
+          border: 1.5px solid rgba(74, 222, 128, 0.9) !important;
+          box-shadow: 0 0 14px rgba(74, 222, 128, 0.45) !important;
+        }
+        .permanent-centroid-pill.subtle-out-of-scope {
+          background: rgba(15, 23, 42, 0.70) !important;
+          border: 1px dashed rgba(148, 163, 184, 0.35) !important;
+          opacity: 0.8;
         }
         .permanent-centroid-pill .pill-name {
           font-size: 9px;
@@ -659,10 +732,11 @@ export function GISMap({
         .extruded-polygon-h0  { filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.20)); }
 
         .leaflet-container {
-          background-color: #0b1710 !important;
+          background-color: #0f172a !important;
           font-family: inherit !important;
           height: 100% !important;
           width: 100% !important;
+          min-height: 380px !important;
         }
       `}</style>
 
@@ -684,10 +758,10 @@ export function GISMap({
         <MapContainer
           center={centerPosition}
           zoom={13}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', minHeight: '380px' }}
           zoomControl={false}
         >
-          <FitBoundsComponent resetTrigger={resetTrigger} />
+          <FitBounds resetTrigger={resetTrigger} userScope={userScope} selectedBarangay={selectedBarangay} />
           <MapResizeHandler />
 
           <TileLayer

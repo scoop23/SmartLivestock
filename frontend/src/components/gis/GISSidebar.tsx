@@ -57,6 +57,8 @@ interface GISSidebarProps {
   simulatedStates?: Record<string, SimulatedBarangayState>;
   selectedLivestockType?: string;
   renderMode?: 'desktop' | 'mobile-inline' | 'auto';
+  userScope?: any;
+  farmerStats?: any;
 }
 
 export function GISSidebar({
@@ -75,6 +77,8 @@ export function GISSidebar({
   simulatedStates,
   selectedLivestockType,
   renderMode = 'auto',
+  userScope,
+  farmerStats,
 }: GISSidebarProps) {
   // Choose content based on selection
   const content = selectedBarangay ? (
@@ -97,6 +101,8 @@ export function GISSidebar({
       isLoading={isLoading}
       simulationMode={diseaseSubMode === 'simulation'}
       onClose={onClose}
+      userScope={userScope}
+      farmerStats={farmerStats}
     />
   );
 

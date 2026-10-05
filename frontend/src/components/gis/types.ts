@@ -64,6 +64,34 @@ export interface BarangayGISData {
   movement_out: number;       // Outbound inspected livestock heads
   movement_in: number;        // Inbound inspected livestock heads
   inspections_count: number;  // Movement inspection events
+  is_in_scope?: boolean;      // True if user is authorized to inspect this barangay's detailed data
+}
+
+export type GISScope =
+  | 'MUNICIPAL'
+  | 'ASSIGNED_BARANGAYS'
+  | 'OWN_BARANGAY'
+  | 'OPERATIONAL_MOVEMENT'
+  | 'OPERATIONAL_SLAUGHTER'
+  | 'RESTRICTED';
+
+export interface GISUserScope {
+  role: string;
+  scope: GISScope;
+  allowed_barangays: string[];
+  can_view_all_barangays: boolean;
+  allowed_layers: MapLayer[];
+  allowed_modes: ViewMode[];
+  can_use_simulation: boolean;
+  can_use_advanced_analytics: boolean;
+  title: string;
+}
+
+export interface FarmerPersonalStats {
+  my_cattle: number;
+  my_total_livestock: number;
+  my_milk: number;
+  my_barangay: string;
 }
 
 export interface MovementRecord {
@@ -125,6 +153,8 @@ export interface GISTelemetryResponse {
   movements: MovementRecord[];
   summary: MunicipalSummary;
   period: string;
+  user_scope?: GISUserScope;
+  farmer_stats?: FarmerPersonalStats | null;
 }
 
 export interface EnvironmentalWindInput {

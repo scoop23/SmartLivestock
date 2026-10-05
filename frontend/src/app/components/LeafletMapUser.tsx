@@ -5,7 +5,7 @@ const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), 
 const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapLayer } from '@/app/(farmer)/gis-user-map/page';
+import { MapLayer } from '@/components/gis/types';
 
 interface LeafletMapUserTypes {
   mapLayer: MapLayer;

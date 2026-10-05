@@ -34,7 +34,13 @@
  */
 
 import React from 'react';
-import { MunicipalSummary, MovementRecord, BarangayGISData } from './types';
+import {
+  MunicipalSummary,
+  MovementRecord,
+  BarangayGISData,
+  GISUserScope,
+  FarmerPersonalStats,
+} from './types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +56,7 @@ import {
   ChevronRight,
   ShieldAlert,
   X,
+  UserCheck,
 } from 'lucide-react';
 
 interface MunicipalOverviewProps {
@@ -61,6 +68,8 @@ interface MunicipalOverviewProps {
   isLoading: boolean;
   simulationMode: boolean;
   onClose?: () => void;
+  userScope?: GISUserScope;
+  farmerStats?: FarmerPersonalStats | null;
 }
 
 export function MunicipalOverview({
@@ -72,9 +81,28 @@ export function MunicipalOverview({
   isLoading,
   simulationMode,
   onClose,
+  userScope,
+  farmerStats,
 }: MunicipalOverviewProps) {
   const maxCattle = summary.top_cattle[0]?.cattle || 1;
   const maxMilk = summary.top_milk[0]?.milk || 1;
+
+  const isFarmer = userScope?.role === 'FARMER';
+  const isAuction = userScope?.role === 'AUCTION';
+  const isSlaughter = userScope?.role === 'SLAUGHTERHOUSESTAFF';
+  const isSibat = userScope?.role === 'SIBAT';
+
+  const overviewTitle =
+    userScope?.title ||
+    (isFarmer
+      ? 'My Barangay Overview'
+      : isSibat
+      ? 'Field Monitoring Overview'
+      : isAuction
+      ? 'Movement & Trade Overview'
+      : isSlaughter
+      ? 'Origin & Slaughter Overview'
+      : 'Padre Garcia Overview');
 
   const handleBarangayClick = (bName: string) => {
     const found = allBarangays.find((b) => b.name === bName);
@@ -87,10 +115,10 @@ export function MunicipalOverview({
       <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
         <div className="min-w-0 pr-2">
           <span className="text-[10px] font-black tracking-widest uppercase text-emerald-400 block truncate">
-            God&apos;s-Eye Telemetry
+            {isFarmer ? 'Local Barangay Context' : isSibat ? 'Jurisdiction Telemetry' : "God's-Eye Telemetry"}
           </span>
           <h2 className="text-base sm:text-lg font-black tracking-tight text-white mt-0.5 truncate">
-            Padre Garcia Overview
+            {overviewTitle}
           </h2>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -122,6 +150,43 @@ export function MunicipalOverview({
 
       {/* Scrollable Content */}
       <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
+        {/* FARMER LOCAL CONTEXT CARD (Shows Farmer's Own Heads vs. Community Aggregate) */}
+        {isFarmer && farmerStats && (
+          <div className="bg-emerald-900 text-white rounded-2xl p-4 shadow-md space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                <UserCheck className="size-4 text-emerald-300" />
+                My Verified Farm Records
+              </span>
+              <Badge variant="outline" className="text-[10px] font-bold border-emerald-400 text-emerald-200 bg-emerald-800/60">
+                {farmerStats.my_barangay}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="bg-emerald-950/70 border border-emerald-700/50 rounded-xl p-2.5">
+                <div className="text-2xl font-black font-mono text-emerald-200">
+                  {farmerStats.my_cattle}
+                </div>
+                <div className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">
+                  🐄 My Cattle Heads
+                </div>
+              </div>
+              <div className="bg-emerald-950/70 border border-emerald-700/50 rounded-xl p-2.5">
+                <div className="text-2xl font-black font-mono text-sky-200">
+                  {farmerStats.my_milk.toLocaleString()} L
+                </div>
+                <div className="text-[10px] font-bold text-sky-300 uppercase tracking-wider">
+                  🥛 My Dairy Yield
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-emerald-200/90 leading-tight">
+              Below are the total community aggregates for <strong>Brgy. {farmerStats.my_barangay}</strong>. Individual neighbor records are kept private.
+            </p>
+          </div>
+        )}
         {/* KPI Mini Grid */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-xl p-2.5">

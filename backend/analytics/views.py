@@ -240,13 +240,15 @@ def prescriptive_recommendations(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, isMAO | isSibat])
+@permission_classes([IsAuthenticated])
 def gis_summary(request):
     """
-    Municipal GIS Telemetry Endpoint:
+    Role-Aware GIS Telemetry Endpoint:
     Returns real-time aggregated territorial demographics, cattle distribution,
-    disease surveillance heat maps, milk/meat production, mortality rates, and
-    live livestock movement flows across all 18 barangays of Padre Garcia, Batangas.
+    disease surveillance, milk/meat production, mortality rates, and movement flows.
+    
+    Data isolation and geographic boundaries are strictly enforced on the server
+    via `get_gis_aggregated_data(user=request.user)`.
     """
     from .services.gis import get_gis_aggregated_data
 

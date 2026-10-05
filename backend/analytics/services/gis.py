@@ -32,7 +32,16 @@ from movements.models import (
     MeatMovementRecord,
 )
 from production.models import ProductionRecord, SlaughterRecord
-from smartlivestock.workflows import scope_reviewer_queryset
+from smartlivestock.workflows import (
+    scope_reviewer_queryset,
+    role_name,
+    has_all_barangay_access,
+    FARMER,
+    SIBAT,
+    MAO,
+    AUCTION,
+    ADMIN,
+)
 
 
 # 18 official barangays of Padre Garcia matching frontend/src/data/padre-garcia-barangays.json
@@ -156,6 +165,158 @@ def ensure_poblacion_exists() -> Barangay:
     return b
 
 
+def get_user_gis_scope(user) -> Dict[str, Any]:
+    """
+    Computes the authoritative Geographic Scope and Allowed Layers for a given user.
+    
+    EDUCATIONAL & ARCHITECTURAL NOTE:
+    ---------------------------------
+    In a multi-role information system, data access boundaries MUST be determined
+    server-side. The frontend is merely a presentation layer; hiding a button or a tab
+    in React does NOT secure records.
+    
+    This function evaluates:
+      1. User's Role (ADMIN, MAO, SIBAT, FARMER, AUCTION, SLAUGHTERHOUSESTAFF)
+      2. Assigned Jurisdiction (assigned_barangay, farmer_profile.barangay)
+      3. Access Scope (e.g. ALL_BARANGAYS vs. ASSIGNED_ONLY)
+      
+    Returns a structured dictionary:
+      - role: Normalized role string
+      - scope: 'MUNICIPAL' | 'ASSIGNED_BARANGAYS' | 'OWN_BARANGAY' | 'OPERATIONAL_MOVEMENT' | 'OPERATIONAL_SLAUGHTER'
+      - allowed_barangays: Set of canonical barangay names the user is authorized to inspect
+      - can_view_all_barangays: Boolean
+      - allowed_layers: List of permitted map layers (e.g. ['cattle', 'disease', 'movement'])
+      - allowed_modes: List of permitted view modes (['2D'] or ['2D', '3D'])
+      - can_use_simulation: Boolean (strictly Admin/MAO only)
+      - can_use_advanced_analytics: Boolean
+      - title: User-friendly role-specific map title (e.g. "My Barangay Livestock")
+    """
+    if not user or not user.is_authenticated:
+        return {
+            "role": "ANONYMOUS",
+            "scope": "RESTRICTED",
+            "allowed_barangays": set(),
+            "can_view_all_barangays": False,
+            "allowed_layers": [],
+            "allowed_modes": ["2D"],
+            "can_use_simulation": False,
+            "can_use_advanced_analytics": False,
+            "title": "Restricted Access",
+        }
+
+    # Extract role string from User.role FK or is_superuser flag
+    u_role = role_name(user)
+    if user.is_superuser or u_role == ADMIN:
+        u_role = ADMIN
+
+    # 1. ADMIN / MAO — Municipal God's-Eye Scope
+    if u_role in (ADMIN, MAO):
+        return {
+            "role": u_role,
+            "scope": "MUNICIPAL",
+            "allowed_barangays": set(OFFICIAL_BARANGAYS),
+            "can_view_all_barangays": True,
+            "allowed_layers": ["cattle", "disease", "milk", "meat", "mortality", "movement"],
+            "allowed_modes": ["2D", "3D"],
+            "can_use_simulation": True,
+            "can_use_advanced_analytics": True,
+            "title": "Municipal GIS — God's-Eye View",
+        }
+
+    # 2. SIBAT / CBAT — Field Monitoring Scope
+    if u_role == SIBAT:
+        can_view_all = has_all_barangay_access(user)
+        if can_view_all:
+            allowed_b = set(OFFICIAL_BARANGAYS)
+        else:
+            allowed_b = set()
+            if user.assigned_barangay:
+                c_name = normalize_barangay_name(user.assigned_barangay.barangay_name)
+                if c_name:
+                    allowed_b.add(c_name)
+
+        return {
+            "role": SIBAT,
+            "scope": "MUNICIPAL" if can_view_all else "ASSIGNED_BARANGAYS",
+            "allowed_barangays": allowed_b,
+            "can_view_all_barangays": can_view_all,
+            # SIBAT monitors field inventory, disease reports, production, mortality, and movement
+            # But CANNOT use predictive/scenario simulation or municipal decision-support tools
+            "allowed_layers": ["cattle", "disease", "milk", "meat", "mortality", "movement"],
+            "allowed_modes": ["2D"],
+            "can_use_simulation": False,
+            "can_use_advanced_analytics": False,
+            "title": "Field Monitoring GIS — Assigned Barangays" if not can_view_all else "Field Monitoring GIS — All Barangays",
+        }
+
+    # 3. FARMER — Own Barangay Local-Context Scope
+    if u_role == FARMER:
+        allowed_b = set()
+        farmer_b_name = None
+        if hasattr(user, "farmer_profile") and user.farmer_profile and user.farmer_profile.barangay:
+            farmer_b_name = normalize_barangay_name(user.farmer_profile.barangay.barangay_name)
+            if farmer_b_name:
+                allowed_b.add(farmer_b_name)
+
+        return {
+            "role": FARMER,
+            "scope": "OWN_BARANGAY",
+            "allowed_barangays": allowed_b,
+            "can_view_all_barangays": False,
+            # Farmers see their community's aggregate livestock & milk production (safe aggregates)
+            # Strictly NO disease simulation, administrative surveillance, or out-of-barangay browsing
+            "allowed_layers": ["cattle", "milk"],
+            "allowed_modes": ["2D"],
+            "can_use_simulation": False,
+            "can_use_advanced_analytics": False,
+            "title": f"My Barangay Livestock — Brgy. {farmer_b_name}" if farmer_b_name else "My Barangay Livestock",
+        }
+
+    # 4. AUCTION PERSONNEL — Operational Movement & Trade Tracking Scope
+    if u_role == AUCTION:
+        return {
+            "role": AUCTION,
+            "scope": "OPERATIONAL_MOVEMENT",
+            "allowed_barangays": set(OFFICIAL_BARANGAYS),
+            "can_view_all_barangays": True,
+            # Auction team needs transport origin/destination, inspection volume, and cattle counts
+            "allowed_layers": ["movement", "cattle"],
+            "allowed_modes": ["2D"],
+            "can_use_simulation": False,
+            "can_use_advanced_analytics": False,
+            "title": "Livestock Movement & Trade GIS",
+        }
+
+    # 5. SLAUGHTERHOUSE PERSONNEL — Slaughter Operational & Origin Traceability Scope
+    if u_role == "SLAUGHTERHOUSESTAFF":
+        return {
+            "role": "SLAUGHTERHOUSESTAFF",
+            "scope": "OPERATIONAL_SLAUGHTER",
+            "allowed_barangays": set(OFFICIAL_BARANGAYS),
+            "can_view_all_barangays": True,
+            # Slaughterhouse staff tracks animal origin movements, carcass meat yield, and cattle counts
+            "allowed_layers": ["meat", "movement", "cattle"],
+            "allowed_modes": ["2D"],
+            "can_use_simulation": False,
+            "can_use_advanced_analytics": False,
+            "title": "Livestock Origin & Slaughter GIS",
+        }
+
+    # Fallback for unrecognized roles: safe restricted defaults
+    return {
+        "role": u_role or "RESTRICTED",
+        "scope": "RESTRICTED",
+        "allowed_barangays": set(),
+        "can_view_all_barangays": False,
+        "allowed_layers": ["cattle"],
+        "allowed_modes": ["2D"],
+        "can_use_simulation": False,
+        "can_use_advanced_analytics": False,
+        "title": "SmartLivestock GIS Map",
+    }
+
+
+
 def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     """
     Computes real-time municipal GIS telemetry directly from PostgreSQL.
@@ -169,8 +330,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # 1. Ensure all 18 barangays exist in DB
     ensure_poblacion_exists()
 
-    # 2. Fetch all barangays from DB scoped by reviewer permissions
-    db_barangays = list(scope_reviewer_queryset(Barangay.objects.all(), user))
+    # 2. Fetch all barangays from DB for canonical name-to-PK spatial mapping
+    db_barangays = list(Barangay.objects.all())
     
     # Map DB Barangay PK to normalized canonical name and vice-versa
     pk_to_canonical: Dict[int, str] = {}
@@ -447,34 +608,151 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             barangays_data[origin_b_name]["movement_out"] += total_heads
             barangays_data[origin_b_name]["inspections_count"] += 1
 
-    # 11. Compute Municipal Totals and Top Rankings
-    all_b = list(barangays_data.values())
-    total_livestock = sum(b["total_livestock"] for b in all_b)
-    total_cattle = sum(b["cattle"] for b in all_b)
-    total_milk = sum(b["milk"] for b in all_b)
-    total_meat = sum(b["meat"] for b in all_b)
-    total_disease = sum(b["disease_cases"] for b in all_b)
-    total_active_disease = sum(b["active_cases"] for b in all_b)
-    total_mortality = sum(b["mortality"] for b in all_b)
-    total_farmers = sum(b["farmers_count"] for b in all_b)
+    # 11. Security Scoping & Data Masking
+    # =========================================================================
+    # CRITICAL BACKEND DATA INTEGRITY & PRIVACY POLICY:
+    # -------------------------------------------------------------------------
+    # Frontend filtering is INSUFFICIENT. If an unauthorized client inspects the
+    # browser network tab, private metrics from other barangays or farmers must NOT
+    # be present in the JSON payload.
+    #
+    # We resolve the user's role-aware GIS scope:
+    user_scope = get_user_gis_scope(user)
+    allowed_barangays_set = user_scope["allowed_barangays"]
+    allowed_layers = user_scope["allowed_layers"]
+    u_role = user_scope["role"]
 
-    top_cattle = sorted(all_b, key=lambda x: x["cattle"], reverse=True)[:5]
-    top_milk = sorted(all_b, key=lambda x: x["milk"], reverse=True)[:5]
-    alert_barangays = [b for b in all_b if b["active_cases"] > 0 or b["disease_cases"] > 0]
+    # Filter movement records based on role scope
+    # Farmers only see movements involving their own registered barangay as origin
+    # SIBAT only sees movements originating from their assigned barangays (unless ALL_BARANGAYS)
+    if u_role == FARMER:
+        movements_list = [
+            m for m in movements_list
+            if any(f"Brgy. {b}" in m["origin"] for b in allowed_barangays_set)
+        ]
+    elif u_role == SIBAT and not user_scope["can_view_all_barangays"]:
+        movements_list = [
+            m for m in movements_list
+            if any(f"Brgy. {b}" in m["origin"] for b in allowed_barangays_set)
+        ]
+    # For roles that do not have "movement" in allowed_layers, clear movement array completely
+    if "movement" not in allowed_layers:
+        movements_list = []
+
+    # Calculate Farmer's personal metrics (my_stats) safely without leaking other farmers
+    farmer_stats = None
+    if u_role == FARMER and hasattr(user, "farmer_profile") and user.farmer_profile:
+        fp = user.farmer_profile
+        my_inv = LivestockInventory.objects.filter(
+            farmer=fp,
+            status=LivestockInventory.StatusType.APPROVED,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+        )
+        my_cattle = my_inv.filter(livestock_type__name__icontains="cattle").aggregate(s=Sum("quantity"))["s"] or 0
+        my_total_livestock = my_inv.aggregate(s=Sum("quantity"))["s"] or 0
+        my_milk = ProductionRecord.objects.filter(
+            Q(livestock__farmer=fp) | Q(batch__farmer=fp),
+            status=ProductionRecord.ProductionStatus.APPROVED,
+            production_type=ProductionRecord.ProductionType.MILK,
+        ).aggregate(s=Sum("quantity"))["s"] or 0.0
+
+        farmer_stats = {
+            "my_cattle": my_cattle,
+            "my_total_livestock": my_total_livestock,
+            "my_milk": round(float(my_milk), 2),
+            "my_barangay": list(allowed_barangays_set)[0] if allowed_barangays_set else "Registered Barangay",
+        }
+
+    # Mask out-of-scope and unauthorized layer data across all 18 barangays
+    for b_name, b_entry in barangays_data.items():
+        is_in_scope = (b_name in allowed_barangays_set) or user_scope["can_view_all_barangays"]
+        b_entry["is_in_scope"] = is_in_scope
+
+        # If a barangay is out-of-scope for a geographically restricted user (e.g. SIBAT or Farmer):
+        # Zero out private statistics so they cannot be inspected over the wire
+        if not is_in_scope:
+            b_entry["cattle"] = 0
+            b_entry["total_livestock"] = 0
+            b_entry["species_breakdown"] = []
+            b_entry["farmers_count"] = 0
+            b_entry["batches_count"] = 0
+            b_entry["disease_cases"] = 0
+            b_entry["active_cases"] = 0
+            b_entry["affected_heads"] = 0
+            b_entry["disease_risk"] = "low"
+            b_entry["recent_diseases"] = []
+            b_entry["milk"] = 0.0
+            b_entry["meat"] = 0.0
+            b_entry["slaughter_heads"] = 0
+            b_entry["cheese"] = 0.0
+            b_entry["mortality"] = 0
+            b_entry["mortality_causes"] = []
+            b_entry["mortality_by_species"] = []
+            b_entry["recent_mortality"] = 0
+            b_entry["movement_out"] = 0
+            b_entry["movement_in"] = 0
+            b_entry["inspections_count"] = 0
+            continue
+
+        # If layer is not permitted for the role, zero out that specific layer's data
+        if "cattle" not in allowed_layers:
+            b_entry["cattle"] = 0
+            b_entry["total_livestock"] = 0
+            b_entry["species_breakdown"] = []
+        if "disease" not in allowed_layers:
+            b_entry["disease_cases"] = 0
+            b_entry["active_cases"] = 0
+            b_entry["affected_heads"] = 0
+            b_entry["disease_risk"] = "low"
+            b_entry["recent_diseases"] = []
+        if "milk" not in allowed_layers:
+            b_entry["milk"] = 0.0
+            b_entry["cheese"] = 0.0
+        if "meat" not in allowed_layers:
+            b_entry["meat"] = 0.0
+            b_entry["slaughter_heads"] = 0
+        if "mortality" not in allowed_layers:
+            b_entry["mortality"] = 0
+            b_entry["mortality_causes"] = []
+            b_entry["mortality_by_species"] = []
+            b_entry["recent_mortality"] = 0
+        if "movement" not in allowed_layers:
+            b_entry["movement_out"] = 0
+            b_entry["movement_in"] = 0
+            b_entry["inspections_count"] = 0
+
+    # 12. Compute Scope-Appropriate Totals and Top Rankings
+    all_b = list(barangays_data.values())
+    scoped_b = [b for b in all_b if b.get("is_in_scope", True)]
+
+    total_livestock = sum(b["total_livestock"] for b in scoped_b)
+    total_cattle = sum(b["cattle"] for b in scoped_b)
+    total_milk = sum(b["milk"] for b in scoped_b)
+    total_meat = sum(b["meat"] for b in scoped_b)
+    total_disease = sum(b["disease_cases"] for b in scoped_b)
+    total_active_disease = sum(b["active_cases"] for b in scoped_b)
+    total_mortality = sum(b["mortality"] for b in scoped_b)
+    total_farmers = sum(b["farmers_count"] for b in scoped_b)
+
+    top_cattle = sorted(scoped_b, key=lambda x: x["cattle"], reverse=True)[:5]
+    top_milk = sorted(scoped_b, key=lambda x: x["milk"], reverse=True)[:5]
+    alert_barangays = [b for b in scoped_b if b["active_cases"] > 0 or b["disease_cases"] > 0]
 
     # Structure Mortality Summary for GIS telemetry & Dashboard consumption
     mortality_by_species_summary = [
         {"species": sp, "deaths": cnt}
         for sp, cnt in sorted(mortality_species_map.items(), key=lambda x: -x[1])
-    ]
+    ] if "mortality" in allowed_layers else []
+
     top_mortality_barangays = [
         {"name": b["name"], "deaths": b["mortality"]}
-        for b in sorted([b for b in all_b if b["mortality"] > 0], key=lambda x: x["mortality"], reverse=True)[:5]
-    ]
+        for b in sorted([b for b in scoped_b if b["mortality"] > 0], key=lambda x: x["mortality"], reverse=True)[:5]
+    ] if "mortality" in allowed_layers else []
+
     mortality_summary = {
-        "total_deaths": total_mortality,
-        "affected_barangays": len([b for b in all_b if b["mortality"] > 0]),
-        "recent_deaths": recent_mortality_total,
+        "total_deaths": total_mortality if "mortality" in allowed_layers else 0,
+        "affected_barangays": len([b for b in scoped_b if b["mortality"] > 0]) if "mortality" in allowed_layers else 0,
+        "recent_deaths": recent_mortality_total if "mortality" in allowed_layers else 0,
         "by_species": mortality_by_species_summary,
         "top_barangays": top_mortality_barangays,
     }
@@ -488,10 +766,16 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     if not available_types:
         available_types = ["Cattle"]
 
+    # Convert user_scope allowed_barangays set to sorted list for JSON serialization
+    serialized_scope = dict(user_scope)
+    serialized_scope["allowed_barangays"] = sorted(list(user_scope["allowed_barangays"]))
+
     return {
         "barangays": all_b,
         "barangays_dict": barangays_data,
         "movements": movements_list,
+        "user_scope": serialized_scope,
+        "farmer_stats": farmer_stats,
         "summary": {
             "total_livestock": total_livestock,
             "total_cattle": total_cattle,

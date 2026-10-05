@@ -47,7 +47,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MapLayer, ViewMode, DiseaseSubMode } from './types';
+import { MapLayer, ViewMode, DiseaseSubMode, GISUserScope } from './types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -78,6 +78,7 @@ interface GISControlsProps {
   selectedLivestockType?: string;
   onLivestockTypeChange?: (type: string) => void;
   defaultExpanded?: boolean;
+  userScope?: GISUserScope;
 }
 
 export function GISControls({
@@ -94,6 +95,7 @@ export function GISControls({
   selectedLivestockType = 'Cattle',
   onLivestockTypeChange,
   defaultExpanded = false,
+  userScope,
 }: GISControlsProps) {
   // Collapsible control panel state (collapsed by default for map-first view)
   const [isExpanded, setIsExpanded] = useState<boolean>(defaultExpanded);
@@ -136,7 +138,7 @@ export function GISControls({
     ? (selectedLivestockType === 'ALL' ? 'All Livestock' : selectedLivestockType || 'Livestock')
     : 'Cattle';
 
-  const layerOptions: { id: MapLayer; label: string; icon: string }[] = [
+  const allLayerOptions: { id: MapLayer; label: string; icon: string }[] = [
     { id: 'cattle', label: livestockLabel, icon: '🐄' },
     { id: 'disease', label: 'Disease', icon: '🩺' },
     { id: 'milk', label: 'Dairy Milk', icon: '🥛' },
@@ -145,7 +147,14 @@ export function GISControls({
     { id: 'movement', label: 'Movement', icon: '🚛' },
   ];
 
-  const activeOption = layerOptions.find((opt) => opt.id === currentLayer) || layerOptions[0];
+  // Filter layers according to user's authorized role scope
+  const layerOptions = userScope?.allowed_layers
+    ? allLayerOptions.filter((opt) => userScope.allowed_layers.includes(opt.id))
+    : allLayerOptions;
+
+  const activeOption = layerOptions.find((opt) => opt.id === currentLayer) || layerOptions[0] || allLayerOptions[0];
+  const canUse3D = !userScope || userScope.allowed_modes?.includes('3D');
+  const canUseSim = !userScope || userScope.can_use_simulation;
 
   return (
     <div ref={containerRef} className="flex flex-col gap-2 pointer-events-auto">
@@ -169,7 +178,7 @@ export function GISControls({
               </Badge>
             </div>
             <span className="text-[9.5px] text-slate-500 font-semibold block -mt-0.5 whitespace-nowrap">
-              Padre Garcia • MAO Telemetry
+              {userScope?.title || 'Padre Garcia • GIS Telemetry'}
             </span>
           </div>
         </div>
@@ -207,34 +216,40 @@ export function GISControls({
 
         {/* Quick Map Tools: 2D/3D Switcher, Camera Reset, Sidebar Toggle */}
         <div className="flex items-center gap-1 sm:gap-1.5 pl-1 sm:pl-2 border-l border-slate-200">
-          {/* 2D / 3D Segmented Control */}
-          <div className="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200">
-            <button
-              type="button"
-              onClick={() => onViewModeChange('2D')}
-              aria-label="Switch to 2D orthogonal map"
-              className={`min-h-[30px] sm:min-h-[26px] px-2 sm:px-2 py-1 sm:py-0.5 rounded-md text-xs font-black transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                viewMode === '2D'
-                  ? 'bg-white text-emerald-950 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
+          {/* 2D / 3D Segmented Control (3D enabled only for authorized roles like Admin/MAO) */}
+          {canUse3D ? (
+            <div className="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200">
+              <button
+                type="button"
+                onClick={() => onViewModeChange('2D')}
+                aria-label="Switch to 2D orthogonal map"
+                className={`min-h-[30px] sm:min-h-[26px] px-2 sm:px-2 py-1 sm:py-0.5 rounded-md text-xs font-black transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                  viewMode === '2D'
+                    ? 'bg-white text-emerald-950 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                2D
+              </button>
+              <button
+                type="button"
+                onClick={() => onViewModeChange('3D')}
+                aria-label="Switch to 3D extruded perspective"
+                className={`min-h-[30px] sm:min-h-[26px] px-2 sm:px-2 py-1 sm:py-0.5 rounded-md text-xs font-black transition-all cursor-pointer flex items-center gap-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                  viewMode === '3D'
+                    ? 'bg-emerald-800 text-white shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Box className="size-2.5 inline" />
+                <span>3D</span>
+              </button>
+            </div>
+          ) : (
+            <div className="bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-600">
               2D
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange('3D')}
-              aria-label="Switch to 3D extruded perspective"
-              className={`min-h-[30px] sm:min-h-[26px] px-2 sm:px-2 py-1 sm:py-0.5 rounded-md text-xs font-black transition-all cursor-pointer flex items-center gap-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                viewMode === '3D'
-                  ? 'bg-emerald-800 text-white shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Box className="size-2.5 inline" />
-              <span>3D</span>
-            </button>
-          </div>
+            </div>
+          )}
 
           <Button
             variant="ghost"
@@ -443,18 +458,20 @@ export function GISControls({
                       <span>Reported Cases</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onDiseaseSubModeChange('simulation')}
-                      className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                        diseaseSubMode === 'simulation'
-                          ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/50'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-800'
-                      }`}
-                    >
-                      <Zap className="size-3" />
-                      <span>Simulation</span>
-                    </button>
+                    {canUseSim && (
+                      <button
+                        type="button"
+                        onClick={() => onDiseaseSubModeChange('simulation')}
+                        className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                          diseaseSubMode === 'simulation'
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/50'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-800'
+                        }`}
+                      >
+                        <Zap className="size-3" />
+                        <span>Simulation</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
