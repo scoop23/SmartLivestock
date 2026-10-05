@@ -336,19 +336,21 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
       const inspUrl = (m as any).inspector_photo_url || (m as any).inspector_photo || undefined;
       const isSibatDone = !!(m.reviewed_by_name || m.review_remarks || inspUrl || (m.status || "").toUpperCase() === "VERIFIED");
 
+      const targetIdentifier = m.tag_number || (m.batch_code ? `Batch ${m.batch_code}` : "N/A");
+
       incidents.push({
         id: `mor-${m.id}`,
         type: "mortality",
         farmerName: m.farmer_name || "Registered Farmer",
         barangayName: m.barangay_name || "Padre Garcia",
-        details: `Mortality cause: ${m.cause || "Unspecified"}. Death count: ${m.death_count || 1} head(s). Tag: ${m.tag_number || "N/A"}`,
+        details: `Mortality cause: ${m.cause || "Unspecified"}. Death count: ${m.death_count || 1} head(s). Target: ${targetIdentifier}`,
         date: m.record_date || (m.created_at ? m.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
         createdAt: m.created_at || m.record_date,
         status: (m.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
         reviewRemarks: m.review_remarks || null,
         headCount: m.death_count || 1,
-        tagNumber: m.tag_number || undefined,
-        livestockBreed: m.breed || undefined,
+        tagNumber: m.tag_number || (m.batch_code ? `Batch ${m.batch_code}` : undefined),
+        livestockBreed: m.breed || (m.batch_code ? "Herd / Batch" : undefined),
         livestockType: m.livestock_type_name || "Livestock",
         conditionName: m.cause || "Mortality Record",
         photoUrl: pUrl,

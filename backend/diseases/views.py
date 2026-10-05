@@ -155,7 +155,8 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
             species_str = getattr(record.livestock.livestock_type, "name", "Livestock")
             animal_desc = f"{species_str} [{tag_str}]"
         elif record.batch:
-            animal_desc = f"Batch [{record.batch.batch_code}]"
+            species_str = getattr(record.batch.livestock_type, "name", "Livestock")
+            animal_desc = f"{species_str} Batch [{record.batch.batch_code}]"
         else:
             animal_desc = "Livestock"
 
@@ -226,7 +227,16 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
 def _notify_mortality_record_created(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
-        animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
+        if instance.livestock:
+            species_str = getattr(instance.livestock.livestock_type, "name", "Livestock")
+            tag_str = instance.livestock.tag_number or f"Animal #{instance.livestock.id}"
+            animal_tag = f"{species_str} [{tag_str}]"
+        elif instance.batch:
+            species_str = getattr(instance.batch.livestock_type, "name", "Livestock")
+            animal_tag = f"{species_str} Batch [{instance.batch.batch_code}]"
+        else:
+            animal_tag = "Livestock"
+
         for staff in health_notification_recipients((instance.livestock or instance.batch).farmer):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
@@ -244,7 +254,16 @@ def _notify_mortality_record_created(instance, user):
 def _notify_mortality_record_resubmitted(instance, user):
     try:
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
-        animal_tag = instance.livestock.tag_number if instance.livestock else (instance.batch.batch_code if instance.batch else "Livestock")
+        if instance.livestock:
+            species_str = getattr(instance.livestock.livestock_type, "name", "Livestock")
+            tag_str = instance.livestock.tag_number or f"Animal #{instance.livestock.id}"
+            animal_tag = f"{species_str} [{tag_str}]"
+        elif instance.batch:
+            species_str = getattr(instance.batch.livestock_type, "name", "Livestock")
+            animal_tag = f"{species_str} Batch [{instance.batch.batch_code}]"
+        else:
+            animal_tag = "Livestock"
+
         for staff in health_notification_recipients((instance.livestock or instance.batch).farmer):
             role_val = getattr(getattr(staff, "role", None), "role_name", "")
             create_notification(
