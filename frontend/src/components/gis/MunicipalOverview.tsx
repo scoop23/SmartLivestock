@@ -1,5 +1,38 @@
 'use client';
 
+/**
+ * ============================================================================
+ * SmartLivestock GIS — Municipal Aggregate Overview (`MunicipalOverview.tsx`)
+ * ============================================================================
+ * 
+ * WHAT THIS COMPONENT DOES:
+ * ----------------------------------------------------------------------------
+ * When no individual barangay polygon is selected on the map, the right telemetry
+ * sidebar (`GISSidebar.tsx`) displays this municipal-wide executive summary.
+ * It provides the MAO leadership with a single-pane-of-glass perspective:
+ *   1. Key Municipal Aggregate Metrics:
+ *      Total Livestock count, Registered Raisers/Farmers, Active Disease Outbreaks,
+ *      Total Milk Yield (L), Total Slaughter Meat (kg), and Recorded Mortality.
+ *   2. Disease Outbreak Priority Queue:
+ *      Alert list highlighting high-risk and medium-risk barangays with symptom tags.
+ *      Clicking an alert navigates directly to that barangay's detailed profile.
+ *   3. Leaderboards & Rankings:
+ *      Top 5 Cattle Producer Barangays & Top 5 Dairy Yield Barangays with proportional progress bars.
+ *   4. Inter-Barangay Livestock Movement Shipments:
+ *      Live feed of animal transport events (Origin -> Destination, species count, clearance status).
+ * 
+ * CAPSTONE PRESENTATION / DEFENSE TALKING POINTS:
+ * ----------------------------------------------------------------------------
+ * - "Where do these aggregated metrics come from?"
+ *   The backend `backend/analytics/services/gis.py` performs database aggregations
+ *   (`Count()`, `Sum()`, `Q(status='APPROVED')`) across all records in PostgreSQL
+ *   and returns a unified `summary` payload alongside the GeoJSON features.
+ * - "How does clicking a leaderboard entry work?"
+ *   Clicking any barangay in the Top 5 list invokes `handleBarangayClick(name)`,
+ *   which finds the barangay object and calls `onSelectBarangay(found)`. This switches
+ *   the sidebar from MunicipalOverview to BarangayDetails and highlights the polygon on the map.
+ */
+
 import React from 'react';
 import { MunicipalSummary, MovementRecord, BarangayGISData } from './types';
 import { Badge } from '@/components/ui/badge';

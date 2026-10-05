@@ -24,6 +24,7 @@ pandas = "*"
 numpy = "*"
 scikit-learn = "*"
 statsmodels = "*"
+openpyxl = "*"
 
 [dev-packages]
 mypy = "*"

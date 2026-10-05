@@ -1,5 +1,39 @@
 'use client';
 
+/**
+ * ============================================================================
+ * SmartLivestock GIS — Dynamic Chloropleth Legend (`GISLegend.tsx`)
+ * ============================================================================
+ * 
+ * WHAT THIS COMPONENT DOES:
+ * ----------------------------------------------------------------------------
+ * This component provides an immediate visual interpretation guide for the map.
+ * Positioned at the bottom-left (`absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-[900]`),
+ * it dynamically re-renders its color swatches, thresholds, and metric units
+ * whenever the user changes the active layer or disease sub-mode.
+ * 
+ * DATA & BEHAVIOR:
+ * ----------------------------------------------------------------------------
+ * - layer = 'cattle'   -> Shows green stepped scale (0 to 35+ heads).
+ * - layer = 'disease'  -> 
+ *     * SubMode = 'reported'   -> Standard traffic-light triage (Red: Outbreak, Orange: Suspect, Green: Clear).
+ *     * SubMode = 'simulation' -> Normalized Haversine/wind epidemic pressure (Critical 70%+, High 40-69%, Moderate, Low).
+ *     * SubMode = 'forecast'   -> Statistical predictive trajectory tiers (Purple: Elevated velocity, Sky: Normal, Green: Low).
+ * - layer = 'milk'     -> Blue graduated scale in Liters/month.
+ * - layer = 'meat'     -> Red/Crimson scale in kg yield from slaughter records.
+ * - layer = 'movement' -> Transport vector guide (Origin, Inter-barangay route, Destination).
+ * 
+ * CAPSTONE PRESENTATION / DEFENSE TALKING POINTS:
+ * ----------------------------------------------------------------------------
+ * - "What is a Chloropleth map?"
+ *   A chloropleth map is a thematic map where geographic areas (barangays) are
+ *   shaded in proportion to an aggregated statistical variable (e.g. cattle count or disease incidence).
+ * - "Why must the legend be dynamic?"
+ *   Because multiple layers share the same map canvas, a static legend would mislead
+ *   officials. Recomputing the color bins dynamically ensures that a green polygon
+ *   is understood as 'Low Disease' in disease mode, but 'Healthy Herd Concentration' in cattle mode.
+ */
+
 import React from 'react';
 import { MapLayer, ViewMode, DiseaseSubMode } from './types';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +50,10 @@ export function GISLegend({ layer, viewMode, diseaseSubMode }: GISLegendProps) {
     if (layer === 'disease') {
       if (diseaseSubMode === 'simulation') {
         return [
-          { color: '#991b1b', label: 'Critical (18+ projected pressure)' },
-          { color: '#dc2626', label: 'High (8–17 projected pressure)' },
-          { color: '#f59e0b', label: 'Medium (2–7 projected pressure)' },
-          { color: '#10b981', label: 'Low (0–1 projected pressure)' },
+          { color: '#991b1b', label: 'Critical (70%+ Epidemic Pressure)' },
+          { color: '#ea580c', label: 'High (40%–69% Pressure)' },
+          { color: '#f59e0b', label: 'Moderate (20%–39% Pressure)' },
+          { color: '#10b981', label: 'Low (<20% Baseline)' },
         ];
       }
       if (diseaseSubMode === 'forecast') {

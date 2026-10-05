@@ -1,12 +1,30 @@
 /**
- * TypeScript Interfaces for SmartLivestock GIS Telemetry (V2)
+ * ============================================================================
+ * SmartLivestock GIS — TypeScript Domain Models & Contracts (`types.ts`)
+ * ============================================================================
  * 
- * Educational Note for Student Developer:
- * This schema defines data structures for:
- *   1. Real PostgreSQL database aggregates (livestock, disease, production, movement).
- *   2. Spatial epidemic simulation states (Haversine distance decay + PAGASA wind drift).
- *   3. 2D / 3D perspective rendering modes and polygon extrusion parameters.
- *   4. Disease surveillance sub-modes: Reported vs. Simulation vs. Forecast.
+ * ARCHITECTURAL PURPOSE & LEARNING GUIDE:
+ * ----------------------------------------------------------------------------
+ * In modern full-stack development (Django REST Framework + Next.js TypeScript),
+ * the TypeScript contract ensures strict type safety between backend database
+ * queries and client-side UI components:
+ * 
+ * 1. Backend REST Payload Contracts:
+ *    - `GISTelemetryResponse`: The root JSON object returned by `GET /api/analytics/gis/`.
+ *    - `BarangayGISData`: Granular statistics per barangay (herds, species breakdown,
+ *      disease cases, dairy milk, slaughter meat, and mortality).
+ *    - `MovementRecord`: Live shipment clearances with [latitude, longitude] origin/destination.
+ *    - `MunicipalSummary`: High-level municipal totals and Top 5 leaderboards.
+ * 
+ * 2. Visual & Architectural State Types:
+ *    - `MapLayer`: Cattle (🐄), Disease (🩺), Dairy Milk (🥛), Meat Yield (🥩), Movement (🚛).
+ *    - `ViewMode`: 2D Orthogonal Map vs. 3D Volumetric Extrusion.
+ *    - `DiseaseSubMode`: 'reported' (PostgreSQL data) vs. 'simulation' (Haversine/wind) vs. 'forecast' (predictive).
+ * 
+ * 3. Spatial Epidemiological Simulation Types:
+ *    - `SimulatedBarangayState`: Dynamic pressure (0-1), infected status, and infection source per barangay.
+ *    - `MonthlyWindData`: Meteorological wind speed (m/s) and vector direction for atmospheric plume drift.
+ *    - `SimulationParameters`: User-tunable epidemic thresholds (contact scale, wind scale, alert threshold).
  */
 
 export type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'movement';
@@ -98,12 +116,36 @@ export interface EnvironmentalWindInput {
   sourceAttribution: string;  // e.g. "PAGASA Climatological Data (Batangas Station)"
 }
 
+export interface MonthlyWindData {
+  month: number;
+  monthName: string;
+  speedKmH: number;
+  windToDegrees: number;
+  cardinal: string;
+}
+
+export interface SimulationParameters {
+  L_contact: number; // Transmission decay distance (km), e.g. 3.5
+  L_wind: number;    // Wind drift decay distance (km), e.g. 5.0
+  threshold: number; // Pressure threshold [0, 1] to trigger new infections, e.g. 0.35
+}
+
 export interface SimulatedBarangayState {
   cases: number;              // Simulated active cases at this time step
   risk: 'low' | 'medium' | 'high' | 'critical';
-  transmissionPressure: number; // Raw transmission pressure score
+  transmissionPressure: number; // Normalized pressure score [0, 1]
+  rawPressure: number;        // Unnormalized pressure
   windExposureFactor: number; // Downwind influence multiplier
   projectedPeak: number;
+}
+
+export interface MonthlySimulationResult {
+  monthIndex: number;
+  month: TimelineMonth;
+  wind: MonthlyWindData;
+  states: Record<string, SimulatedBarangayState>;
+  totalPressure: number;
+  totalInfected: number;
 }
 
 export interface ForecastBarangayState {
@@ -121,3 +163,4 @@ export interface TimelineMonth {
   label: string;
   year: number;
 }
+

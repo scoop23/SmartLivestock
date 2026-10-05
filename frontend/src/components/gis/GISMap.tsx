@@ -1,6 +1,50 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+/**
+ * ============================================================================
+ * SmartLivestock GIS — Interactive Map Canvas (`GISMap.tsx`)
+ * ============================================================================
+ * 
+ * ARCHITECTURAL CONCEPTS & LEARNING GUIDE (For Student Defense / Presentation):
+ * ----------------------------------------------------------------------------
+ * 
+ * 1. WHY DYNAMIC SSR-SAFE IMPORTS (`{ ssr: false }`) ARE MANDATORY:
+ *    - Next.js uses Server-Side Rendering (SSR) in the App Router.
+ *    - Leaflet directly accesses browser window globals (`window`, `document`, `navigator`).
+ *    - If Leaflet or `react-leaflet` is imported at the top-level during SSR, Next.js
+ *      will crash with `ReferenceError: window is not defined`.
+ *    - Solution: We wrap all Leaflet components in `next/dynamic(..., { ssr: false })`
+ *      so they only load on the client browser after HTML hydration.
+ * 
+ * 2. ROOT CAUSE & SOLUTION FOR BUG A (Polygon Click & Hover Inactivity):
+ *    - Root Cause 1 (Stale Closures): Leaflet attaches DOM event listeners (`mouseover`,
+ *      `click`) inside `onEachFeature`. In React, if these listeners capture state from
+ *      the initial render, they get trapped in a stale closure and fail to read updated state.
+ *      Fix: We mirror all reactive props (`activeLayer`, `selectedBarangay`, `diseaseSubMode`)
+ *      into mutable React `useRef` containers (`activeLayerRef.current = activeLayer`).
+ *      When an event fires, it reads `.current`, always accessing real-time state.
+ *    - Root Cause 2 (Missing Remount Trigger): When the initial GeoJSON renders with empty
+ *      data before the API finishes, Leaflet caches the uncolored features.
+ *      Fix: We dynamically compute `<GeoJSON key={`${activeLayer}-${viewMode}-${dataCount}`} />`.
+ *      As soon as PostgreSQL telemetry loads, the key changes, forcing React to remount
+ *      the GeoJSON layer with fully-colored polygons immediately on first load.
+ * 
+ * 3. ROOT CAUSE & SOLUTION FOR BUG B (Empty Viewport Gap Below the Map):
+ *    - Root Cause: Leaflet calculates pixel dimensions when first mounted. When the browser
+ *      finishes flexing the layout or when mobile address bars hide/show, Leaflet's internal
+ *      canvas buffer doesn't know the container grew.
+ *    - Fix: `<MapResizeHandler>` listens to `window.resize` and `orientationchange` and calls
+ *      `map.invalidateSize()`. Combined with `min-h-dvh flex flex-col` in `page.tsx`, this
+ *      completely eliminates blank gaps on all desktop and mobile devices.
+ * 
+ * 4. 2D vs. 3D VOLUMETRIC EXTRUSION:
+ *    - 2D: Orthogonal top-down map view.
+ *    - 3D: Tilted perspective (`rotateX(42deg) rotateZ(-10deg)`) where polygon border depth
+ *      and shadow elevation (`box-shadow`, `border-bottom-width`) extrude upwards based on
+ *      the concentration of the active metric (cattle head count or epidemic pressure).
+ */
+
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import type { FeatureCollection } from 'geojson';
 import padreGarciaGeojson from '@/data/padre-garcia-barangays.json';
@@ -74,6 +118,42 @@ const FitBoundsComponent = dynamic(
   { ssr: false }
 );
 
+// Client-only resize handler to eliminate layout gaps and handle orientation change
+const MapResizeHandler = dynamic(
+  () =>
+    import('react-leaflet').then((m) => {
+      const ResizeHandler = () => {
+        const { useMap } = m;
+        const map = useMap();
+
+        useEffect(() => {
+          // Immediately invalidate and after layout settles
+          map.invalidateSize();
+          const t1 = setTimeout(() => map.invalidateSize(), 150);
+          const t2 = setTimeout(() => map.invalidateSize(), 500);
+
+          const onResize = () => {
+            map.invalidateSize();
+          };
+
+          window.addEventListener('resize', onResize);
+          window.addEventListener('orientationchange', onResize);
+
+          return () => {
+            clearTimeout(t1);
+            clearTimeout(t2);
+            window.removeEventListener('resize', onResize);
+            window.removeEventListener('orientationchange', onResize);
+          };
+        }, [map]);
+
+        return null;
+      };
+      return ResizeHandler;
+    }),
+  { ssr: false }
+);
+
 interface GISMapProps {
   barangaysByName: Record<string, BarangayGISData>;
   movements: MovementRecord[];
@@ -101,6 +181,23 @@ export function GISMap({
   const [leafletLib, setLeafletLib] = useState<any>(null);
   const [tiltAngle, setTiltAngle] = useState<number>(42);
 
+  // Sync refs so callbacks in Leaflet layers never suffer from stale closures (Bug A fix)
+  const barangaysByNameRef = useRef(barangaysByName);
+  const activeLayerRef = useRef(activeLayer);
+  const diseaseSubModeRef = useRef(diseaseSubMode);
+  const selectedBarangayRef = useRef(selectedBarangay);
+  const simulatedStatesRef = useRef(simulatedStates);
+  const onSelectBarangayRef = useRef(onSelectBarangay);
+  const viewModeRef = useRef(viewMode);
+
+  barangaysByNameRef.current = barangaysByName;
+  activeLayerRef.current = activeLayer;
+  diseaseSubModeRef.current = diseaseSubMode;
+  selectedBarangayRef.current = selectedBarangay;
+  simulatedStatesRef.current = simulatedStates;
+  onSelectBarangayRef.current = onSelectBarangay;
+  viewModeRef.current = viewMode;
+
   // Lazy load leaflet instance on client for divIcons
   useEffect(() => {
     import('leaflet').then((L) => setLeafletLib(L));
@@ -116,7 +213,8 @@ export function GISMap({
     }
     if (activeLayer === 'disease') {
       if (diseaseSubMode === 'simulation' && simulatedStates?.[bName]) {
-        return Math.min(52, Math.max(6, Math.round(simulatedStates[bName].cases * 2.5) + 6));
+        const pressure = simulatedStates[bName].transmissionPressure;
+        return Math.min(52, Math.max(6, Math.round(pressure * 46) + 4));
       }
       return Math.min(50, Math.max(4, data.active_cases * 16 + (data.disease_cases > 0 ? 8 : 4)));
     }
@@ -143,19 +241,21 @@ export function GISMap({
     return '#EAF3E4';
   };
 
+  const getPressureColor = (pressure: number): string => {
+    if (pressure >= 0.70) return '#991b1b'; // Critical
+    if (pressure >= 0.40) return '#ea580c'; // High
+    if (pressure >= 0.20) return '#f59e0b'; // Moderate
+    return '#10b981'; // Low baseline
+  };
+
   const getDiseaseColor = (
     bName: string,
     risk: 'low' | 'medium' | 'high'
   ): string => {
     if (diseaseSubMode === 'simulation' && simulatedStates?.[bName]) {
-      const simRisk = simulatedStates[bName].risk;
-      if (simRisk === 'critical') return '#991b1b';
-      if (simRisk === 'high') return '#dc2626';
-      if (simRisk === 'medium') return '#f59e0b';
-      return '#10b981';
+      return getPressureColor(simulatedStates[bName].transmissionPressure);
     }
     if (diseaseSubMode === 'forecast') {
-      // Historical trend trajectory
       const data = barangaysByName[bName];
       if (data?.active_cases > 0 || (simulatedStates?.[bName]?.cases || 0) > 10) return '#9333ea';
       if (data?.disease_cases > 0) return '#0284c7';
@@ -203,11 +303,12 @@ export function GISMap({
     const isSelected = selectedBarangay?.name === name;
 
     if (!data) {
+      // Baseline placeholder styling before API response resolves
       return {
-        fillColor: '#cbd5e1',
-        color: '#94a3b8',
+        fillColor: '#C5E0A8',
+        color: '#2D5A27',
         weight: 1.5,
-        fillOpacity: 0.5,
+        fillOpacity: 0.6,
       };
     }
 
@@ -222,39 +323,52 @@ export function GISMap({
     };
   };
 
-  const onEachFeature = (feature: any, layer: any) => {
-    const name = feature.properties?.name;
-    const data = barangaysByName[name];
-    if (!data) return;
+  const buildTooltipText = (name: string): string => {
+    const data = barangaysByNameRef.current[name];
+    const layer = activeLayerRef.current;
+    const subMode = diseaseSubModeRef.current;
+    const simState = simulatedStatesRef.current?.[name];
+
+    if (!data) {
+      return `<strong>Brgy. ${name}</strong><br/><span style="font-size: 10px; opacity: 0.8">Padre Garcia</span>`;
+    }
 
     let tooltipMetric = `${data.cattle} cattle`;
-    if (activeLayer === 'disease') {
-      if (diseaseSubMode === 'simulation' && simulatedStates?.[name]) {
-        tooltipMetric = `${simulatedStates[name].cases} sim cases (${simulatedStates[name].risk.toUpperCase()})`;
-      } else if (diseaseSubMode === 'forecast') {
+    if (layer === 'disease') {
+      if (subMode === 'simulation' && simState) {
+        tooltipMetric = `Pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% • ${simState.cases} cases (${simState.risk.toUpperCase()})`;
+      } else if (subMode === 'forecast') {
         tooltipMetric = `Surveillance Velocity (${data.active_cases > 0 ? 'ELEVATED' : 'STABLE'})`;
       } else {
         tooltipMetric = `${data.active_cases} active cases (${data.disease_risk.toUpperCase()})`;
       }
-    } else if (activeLayer === 'milk') {
+    } else if (layer === 'milk') {
       tooltipMetric = `${data.milk.toLocaleString()} L milk`;
-    } else if (activeLayer === 'meat') {
+    } else if (layer === 'meat') {
       tooltipMetric = data.meat > 0 ? `${data.meat} kg meat` : 'No slaughter data';
-    } else if (activeLayer === 'movement') {
+    } else if (layer === 'movement') {
       tooltipMetric = `${data.movement_out} heads moved`;
     }
 
-    layer.bindTooltip(
-      `<strong>${name}</strong><br/><span style="font-size: 10px; opacity: 0.9">${tooltipMetric}</span>`,
-      {
-        permanent: false,
-        direction: 'center',
-        className: 'barangay-hover-tooltip',
-      }
-    );
+    return `<strong>${name}</strong><br/><span style="font-size: 10px; opacity: 0.9">${tooltipMetric}</span>`;
+  };
+
+  // Bug A Fix: Attach hover and click listeners immediately on mount regardless of telemetry readiness.
+  // Dynamic reads through refs ensure latest data is always accessible.
+  const onEachFeature = (feature: any, layer: any) => {
+    const name = feature.properties?.name;
+    if (!name) return;
+
+    layer.bindTooltip(buildTooltipText(name), {
+      permanent: false,
+      direction: 'center',
+      className: 'barangay-hover-tooltip',
+    });
 
     layer.on({
       mouseover: (e: any) => {
+        // Dynamically update tooltip content on hover
+        layer.setTooltipContent(buildTooltipText(name));
         e.target.setStyle({
           weight: 3.5,
           fillOpacity: 0.95,
@@ -266,19 +380,80 @@ export function GISMap({
         e.target.setStyle(getGeoJSONStyle(feature));
       },
       click: () => {
-        onSelectBarangay(data);
+        const data = barangaysByNameRef.current[name];
+        if (data) {
+          onSelectBarangayRef.current(data);
+        } else {
+          // Fallback baseline object if clicked before API responds
+          onSelectBarangayRef.current({
+            name,
+            db_name: name,
+            barangay_id: null,
+            position: [13.8741, 121.2529],
+            cattle: 0,
+            total_livestock: 0,
+            species_breakdown: [],
+            farmers_count: 0,
+            batches_count: 0,
+            disease_cases: 0,
+            active_cases: 0,
+            affected_heads: 0,
+            disease_risk: 'low',
+            recent_diseases: [],
+            milk: 0,
+            meat: 0,
+            slaughter_heads: 0,
+            mortality: 0,
+            mortality_causes: [],
+            movement_out: 0,
+            movement_in: 0,
+            inspections_count: 0,
+          });
+        }
       },
     });
   };
 
-  // Permanent Centroid Labels for all 18 barangays
+  // Permanent Centroid Labels for all 18 barangays (responsive for mobile)
   const permanentLabels = useMemo(() => {
     if (!leafletLib) return [];
-    return Object.values(barangaysByName).map((b) => {
+    const sourceMap =
+      Object.keys(barangaysByName).length > 0
+        ? barangaysByName
+        : (padreGarciaGeojson.features.reduce((acc, f) => {
+            const n = f.properties.name;
+            acc[n] = {
+              name: n,
+              db_name: n,
+              barangay_id: null,
+              position: [13.8741, 121.2529],
+              cattle: 0,
+              total_livestock: 0,
+              species_breakdown: [],
+              farmers_count: 0,
+              batches_count: 0,
+              disease_cases: 0,
+              active_cases: 0,
+              affected_heads: 0,
+              disease_risk: 'low',
+              recent_diseases: [],
+              milk: 0,
+              meat: 0,
+              slaughter_heads: 0,
+              mortality: 0,
+              mortality_causes: [],
+              movement_out: 0,
+              movement_in: 0,
+              inspections_count: 0,
+            };
+            return acc;
+          }, {} as Record<string, BarangayGISData>));
+
+    return Object.values(sourceMap).map((b) => {
       let statText = `${b.cattle}🐄`;
       if (activeLayer === 'disease') {
         if (diseaseSubMode === 'simulation' && simulatedStates?.[b.name]) {
-          statText = `⚡${simulatedStates[b.name].cases}`;
+          statText = `⚡${(simulatedStates[b.name].transmissionPressure * 100).toFixed(0)}%`;
         } else {
           statText = b.active_cases > 0 ? `⚠️${b.active_cases}` : '✅';
         }
@@ -300,8 +475,8 @@ export function GISMap({
             <span class="pill-stat">${statText}</span>
           </div>
         `,
-        iconSize: [70, 24],
-        iconAnchor: [35, 12],
+        iconSize: [68, 24],
+        iconAnchor: [34, 12],
       });
 
       return {
@@ -311,6 +486,8 @@ export function GISMap({
       };
     });
   }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, viewMode]);
+
+  const dataCount = Object.keys(barangaysByName).length;
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-slate-950">
@@ -330,7 +507,7 @@ export function GISMap({
         }
         .barangay-hover-tooltip::before { display: none !important; }
 
-        /* Permanent Centroid Labels (Requirement 5) */
+        /* Permanent Centroid Labels */
         .permanent-centroid-label-container {
           background: transparent !important;
           border: none !important;
@@ -366,6 +543,18 @@ export function GISMap({
           line-height: 1;
         }
 
+        @media (max-width: 640px) {
+          .permanent-centroid-pill {
+            padding: 1px 3px;
+          }
+          .permanent-centroid-pill .pill-name {
+            font-size: 7.5px;
+          }
+          .permanent-centroid-pill .pill-stat {
+            font-size: 6.5px;
+          }
+        }
+
         /* 3D Extruded Polygon Drop Shadows & Volumetric Depth */
         .extruded-polygon-h48 { filter: drop-shadow(0px 24px 8px rgba(0,0,0,0.55)); }
         .extruded-polygon-h40 { filter: drop-shadow(0px 20px 7px rgba(0,0,0,0.50)); }
@@ -378,6 +567,8 @@ export function GISMap({
         .leaflet-container {
           background-color: #0b1710 !important;
           font-family: inherit !important;
+          height: 100% !important;
+          width: 100% !important;
         }
       `}</style>
 
@@ -403,21 +594,22 @@ export function GISMap({
           zoomControl={false}
         >
           <FitBoundsComponent resetTrigger={resetTrigger} />
+          <MapResizeHandler />
 
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Choropleth Polygon Boundaries */}
+          {/* Choropleth Polygon Boundaries: Key includes dataCount so layer remounts immediately when data arrives */}
           <GeoJSON
-            key={`geojson-${activeLayer}-${diseaseSubMode}-${viewMode}-${selectedBarangay?.name || 'none'}`}
+            key={`geojson-${activeLayer}-${diseaseSubMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}`}
             data={padreGarciaGeojson as unknown as FeatureCollection}
             style={getGeoJSONStyle}
             onEachFeature={onEachFeature}
           />
 
-          {/* Permanent Centroid Labels for all 18 Barangays (Requirement 5) */}
+          {/* Permanent Centroid Labels for all 18 Barangays */}
           {permanentLabels.map((lbl) => (
             <Marker
               key={`label-${lbl.name}`}

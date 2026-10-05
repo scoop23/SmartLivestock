@@ -37,11 +37,22 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
+      {/* 
+        MAIN NAVIGATION SIDEBAR (Elevated Component):
+        - Contains municipal administration links (Dashboard, Census, GIS Map, etc.).
+        - Fixed desktop rail with high elevation (z-[1200] / z-[1300] on hover) so that
+          full-screen canvas views (like Leaflet GIS Map) never obscure navigation links.
+      */}
       <Sidebar
         role="lgu"
         onLogout={logout}
       />
 
+      {/* 
+        MAIN CONTENT REGION:
+        - flex-1 min-w-0: Expands to fill available horizontal space next to the sidebar rail.
+        - For /gis-map, the page fills 100dvh with zero margin/padding gaps.
+      */}
       <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
 
       <Toaster

@@ -1,5 +1,40 @@
 'use client';
 
+/**
+ * ============================================================================
+ * SmartLivestock GIS — Barangay Deep-Dive Panel (`BarangayDetails.tsx`)
+ * ============================================================================
+ * 
+ * WHAT THIS COMPONENT DOES:
+ * ----------------------------------------------------------------------------
+ * When a user clicks or taps on any of Padre Garcia's 18 barangay polygons on
+ * the GIS map, this component loads inside the right telemetry sidebar (`GISSidebar.tsx`).
+ * It presents granular, verified agricultural statistics for that specific barangay:
+ *   1. Livestock Population Breakdown:
+ *      Cattle (Baka), Carabao (Kalabaw), Swine (Baboy), Goat (Kambing), Sheep (Tupa), and Poultry (Manok).
+ *   2. Disease Surveillance & Epidemiology:
+ *      Reported field cases, affected heads, illness symptoms, or live simulation risk scores.
+ *   3. Production & Yield:
+ *      Dairy milk production (Liters/month) and slaughterhouse meat yield (kg).
+ *   4. Mortality & Cause Breakdown:
+ *      Recorded fatalities and verified cause tags (e.g., Pneumonia, Heat Stress, Bloat).
+ *   5. Transport Inspections & Outgoing Cattle:
+ *      Movement clearance events leaving this barangay.
+ * 
+ * DATA SOURCE:
+ * ----------------------------------------------------------------------------
+ * Data comes from PostgreSQL database tables (`Livestock`, `DiseaseRecord`,
+ * `ProductionRecord`, `MortalityRecord`, `InspectionRecord`) aggregated by Django
+ * in `backend/analytics/services/gis.py` and passed down via `props.data`.
+ * 
+ * CAPSTONE PRESENTATION / DEFENSE TALKING POINTS:
+ * ----------------------------------------------------------------------------
+ * - "How does the map select a barangay?"
+ *   When Leaflet triggers a click event on a GeoJSON polygon, `GISMap.tsx` matches
+ *   the feature's `properties.name` against the backend data dictionary and calls
+ *   `onSelectBarangay(data)`. This conditionally mounts `<BarangayDetails>` in the sidebar.
+ */
+
 import React from 'react';
 import { BarangayGISData, SimulatedBarangayState, DiseaseSubMode, ViewMode } from './types';
 import { Badge } from '@/components/ui/badge';
