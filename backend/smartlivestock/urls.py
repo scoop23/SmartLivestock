@@ -48,6 +48,10 @@ urlpatterns = [
     path("api/notifications/", include("users.notification_urls")),
     path("analytics/", include("analytics.urls"), name="analytics"),
     path("api/analytics/", include("analytics.urls")),
+    path("inspections/", include("movements.urls"), name="inspections"),
+    path("api/inspections/", include("movements.urls")),
+    path("movements/", include("movements.urls"), name="movements"),
+    path("api/movements/", include("movements.urls")),
     path("data-imports/", include("data_imports.urls")),
     path("api/data-imports/", include("data_imports.urls")),
 ]

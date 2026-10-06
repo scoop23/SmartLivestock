@@ -21,6 +21,7 @@ ROLE_MATRIX = {
     "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
     "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
+    "inspections": {"create": {AUCTION, MAO, ADMIN}, "read_all": {AUCTION, MAO, ADMIN, SIBAT}, "edit_own": {AUCTION, MAO, ADMIN}, "review": {AUCTION, MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
 }
 
 
@@ -46,6 +47,16 @@ REVIEW_TRANSITIONS["production"] = REVIEW_TRANSITIONS["inventory"]
 # Census has a single transition rule (SIBAT is the source, so a census is born
 # VERIFIED when submitted and only awaits MAO certification).
 REVIEW_TRANSITIONS["census"] = (
+    TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+)
+
+# Livestock inspections created at the Auction trade checkpoint:
+# AUCTION officers encode and verify details (PENDING -> VERIFIED / SUBJECT_TO_REVISION -> VERIFIED),
+# but MAO is the authoritative municipal clearing body (VERIFIED -> APPROVED or SUBJECT_TO_REVISION).
+REVIEW_TRANSITIONS["inspections"] = (
+    TransitionRule(AUCTION, "PENDING", frozenset({"VERIFIED"})),
+    TransitionRule(AUCTION, "SUBJECT_TO_REVISION", frozenset({"VERIFIED"})),
     TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )
@@ -133,6 +144,8 @@ def scope_reviewer_queryset(queryset, user):
         "CalvingRecord": ("dam__farmer__barangay_id",),
         "WeightRecord": ("livestock__farmer__barangay_id",),
         "AnimalDisposition": ("livestock__farmer__barangay_id",),
+        "LivestockInspection": ("shipper__barangay_id",),
+        "LivestockInspectionClearance": ("inspection__shipper__barangay_id",),
     }
     if queryset.model.__name__ not in paths:
         return queryset.none()
