@@ -597,6 +597,10 @@ function AdminDataValidationContent() {
               const cleanId = strId.replace("birth-", "");
               return api.post("production/calving/" + cleanId + "/review/", { status: action, remarks });
             }
+            if (strId.startsWith("insp-")) {
+              const cleanId = strId.replace("insp-", "");
+              return api.post(`inspections/${cleanId}/review/`, { status: action, remarks });
+            }
             return Promise.resolve();
           })
         );

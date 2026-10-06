@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getIncidentTypeBadge } from "./validation-analytics";
+import { getIncidentTypeBadge, IncidentType } from "./validation-analytics";
 import { CensusItemEntry } from "@/app/(sibat)/sibat/sibat-analytics";
 import {
   FileSpreadsheet,
@@ -124,7 +124,7 @@ export type DetailRecordData =
     kind: "incident";
 
     id: string | number;
-    type: "disease" | "slaughter" | "mortality" | "birth" | "sale";
+    type: IncidentType;
     farmerName: string;
     barangayName: string;
     details: string;

@@ -95,7 +95,7 @@ export interface ValidationInventoryItem {
 
 // ── Types: Incident / Declaration Item ──
 
-export type IncidentType = "disease" | "mortality" | "slaughter" | "birth" | "sale";
+export type IncidentType = "disease" | "mortality" | "slaughter" | "birth" | "sale" | "inspection";
 
 export interface SibatInspectionData {
   verifiedBy: string;
@@ -258,14 +258,15 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
 
 export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentItem[]> {
   try {
-    const [diseaseRes, mortRes, salesRes, calvingRes] = await Promise.allSettled([
+    const [diseaseRes, mortRes, salesRes, calvingRes, inspRes] = await Promise.allSettled([
       municipalRead("diseases/cases/"),
       municipalRead("diseases/mortality/"),
       municipalRead("production/sales/"),
       municipalRead("production/calving/"),
+      municipalRead("inspections/"),
     ]);
 
-    for (const result of [diseaseRes, mortRes, salesRes, calvingRes]) {
+    for (const result of [diseaseRes, mortRes, salesRes, calvingRes, inspRes]) {
       if (result.status === "rejected") throw result.reason;
       if (!Array.isArray(result.value.data)) throw new Error("Unexpected incident response.");
     }
@@ -414,6 +415,41 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
       });
     });
 
+    const inspections: any[] =
+      inspRes.status === "fulfilled" && Array.isArray(inspRes.value.data)
+        ? inspRes.value.data
+        : [];
+
+    inspections.forEach((insp) => {
+      const totalHeads = insp.items ? insp.items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0), 0) : 1;
+      const isVerified = (insp.status || "").toUpperCase() === "VERIFIED";
+      incidents.push({
+        id: `insp-${insp.id}`,
+        type: "inspection",
+        farmerName: insp.shipper_name || "Commercial / Raiser Shipper",
+        barangayName: insp.origin || "Padre Garcia",
+        details: `Permit ${insp.control_number || `#${insp.id}`}. Dest: ${insp.destination}. Purpose: ${insp.purpose}. Heads: ${totalHeads}`,
+        date: insp.inspection_date || (insp.created_at ? insp.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        createdAt: insp.created_at || insp.inspection_date,
+        status: (insp.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
+        reviewRemarks: insp.review_remarks || null,
+        headCount: totalHeads,
+        reviewedBy: insp.clearance?.reviewed_by_name || null,
+        reviewedAt: insp.clearance?.reviewed_at || null,
+        conditionName: `Transport Clearance (${insp.purpose || "Trade"})`,
+        sibatInspection: isVerified ? {
+          verifiedBy: insp.created_by_name || "Auction Officer",
+          verifiedAt: insp.inspection_date || "Recently",
+          tagConfirmed: true,
+          confirmedCount: totalHeads,
+          confirmedSymptoms: [],
+          severity: "Antemortem Cleared",
+          biosecurityAction: "Verified for transport by Auction checkpoint",
+          remarks: insp.review_remarks || "Auction field inspection passed. Transport clearance awaiting MAO approval.",
+        } : undefined,
+      });
+    });
+
     return incidents;
   } catch (err) {
     console.warn("Failed to fetch incident records for validation portal:", err);
@@ -524,6 +560,11 @@ export function getIncidentTypeBadge(type: IncidentType) {
       return {
         label: "Livestock Sale / Transfer",
         color: "bg-blue-100 text-blue-800 border-blue-200",
+      };
+    case "inspection":
+      return {
+        label: "Transport Clearance",
+        color: "bg-purple-100 text-purple-800 border-purple-200",
       };
     default:
       return {
