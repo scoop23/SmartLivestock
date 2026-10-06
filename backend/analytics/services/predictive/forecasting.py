@@ -48,11 +48,18 @@ def generate_future_forecast(
     """
     Produces out-of-sample future forecasts using the best evaluated model (or specified model)
     across any supported domain (production, disease, mortality, slaughter, auction).
+
+    Production Hardening & Reliability:
+    - Automatically discovers the best evaluated model on the chronological holdout.
+    - If user requests a specific preferred_model, tracks is_user_override explicitly without
+      misrepresenting the true evaluated winner.
+    - Wraps full-dataset model fitting in a safe try-catch hierarchy, falling back to the evaluated
+      winner or Naive Baseline if an advanced model encounters numerical issues.
     """
     # Backward compatibility with callers passing production_type
     effective_target = production_type if production_type is not None else target
 
-    # Step 1: Run model evaluation to discover the best performing model
+    # Step 1: Run model evaluation to discover the benchmark winner
     eval_res = evaluate_all_models(
         domain=domain,
         target=effective_target,
@@ -62,8 +69,15 @@ def generate_future_forecast(
     if eval_res.get("status") == "insufficient_data":
         return eval_res
 
-    # Select the winning model (or honor user's explicit preference if requested)
-    selected_model_name = preferred_model or eval_res.get("selection", {}).get("selected_model") or "Naive Baseline"
+    best_evaluated_model = eval_res.get("selection", {}).get("selected_model") or "Naive Baseline"
+
+    # Distinguish user override from automatic objective winner
+    if preferred_model and preferred_model.strip():
+        operational_model_name = preferred_model.strip()
+        is_user_override = (operational_model_name != best_evaluated_model)
+    else:
+        operational_model_name = best_evaluated_model
+        is_user_override = False
 
     # Step 2: Extract the full historical dataset
     df, meta = extract_monthly_series(
@@ -72,7 +86,7 @@ def generate_future_forecast(
         unit=unit,
         user=user,
     )
-    if df is None:
+    if df is None or len(df) == 0:
         return eval_res
 
     # Bound horizon: between 1 and 12 months
@@ -83,57 +97,67 @@ def generate_future_forecast(
     future_dates = [last_date + relativedelta(months=i) for i in range(1, horizon + 1)]
 
     predicted_values: List[float] = []
+    fallback_used = False
+    fallback_reason = None
 
-    # Step 3: Train and project based on chosen model architecture
-    if selected_model_name == "ARIMA":
-        arima = ARIMAForecaster(order=(1, 1, 1)).fit(df["quantity"])
-        raw_preds = arima.predict_steps(steps=horizon)
-        predicted_values = [round(max(0.0, float(v)), 1) for v in raw_preds]
+    # Step 3: Train and project based on chosen model architecture with safe fallbacks
+    try:
+        if operational_model_name == "ARIMA":
+            arima = ARIMAForecaster(order=(1, 1, 1)).fit(df["quantity"])
+            raw_preds = arima.predict_steps(steps=horizon)
+            predicted_values = [round(max(0.0, float(v)), 1) for v in raw_preds]
 
-    elif selected_model_name == "Holt-Winters":
-        hw = HoltWintersForecaster(seasonal_periods=12).fit(df["quantity"])
-        raw_preds = hw.predict_steps(steps=horizon)
-        predicted_values = [round(max(0.0, float(v)), 1) for v in raw_preds]
+        elif operational_model_name == "Holt-Winters":
+            hw = HoltWintersForecaster(seasonal_periods=12).fit(df["quantity"])
+            raw_preds = hw.predict_steps(steps=horizon)
+            predicted_values = [round(max(0.0, float(v)), 1) for v in raw_preds]
 
-    elif selected_model_name in ("Random Forest", "Linear Regression"):
-        # Tabular models require recursive multi-step forecasting
-        df_feat = prepare_tabular_features(df)
-        if selected_model_name == "Random Forest":
-            model = TabularRandomForest(random_state=42).fit(df_feat, df_feat["quantity"])
+        elif operational_model_name in ("Random Forest", "Linear Regression"):
+            df_feat = prepare_tabular_features(df)
+            if operational_model_name == "Random Forest":
+                model = TabularRandomForest(random_state=42).fit(df_feat, df_feat["quantity"])
+            else:
+                model = TabularLinearRegression().fit(df_feat, df_feat["quantity"])
+
+            # Recursive step-by-step projection
+            cur_history = list(df["quantity"].values)
+            cur_time_step = len(df)
+
+            for f_date in future_dates:
+                lag1 = cur_history[-1]
+                lag2 = cur_history[-2] if len(cur_history) >= 2 else lag1
+                lag3 = cur_history[-3] if len(cur_history) >= 3 else lag2
+                roll3 = float(np.mean(cur_history[-3:]))
+
+                row_dict = {
+                    "time_step": cur_time_step,
+                    "month_num": f_date.month,
+                    "lag_1": lag1,
+                    "lag_2": lag2,
+                    "lag_3": lag3,
+                    "rolling_mean_3": roll3,
+                }
+                X_future = pd.DataFrame([row_dict])
+                pred_val = float(model.predict(X_future)[0])
+                pred_val = round(max(0.0, pred_val), 1)
+
+                predicted_values.append(pred_val)
+                cur_history.append(pred_val)
+                cur_time_step += 1
+
         else:
-            model = TabularLinearRegression().fit(df_feat, df_feat["quantity"])
+            # Default Naive Persistence
+            last_val = float(df["quantity"].iloc[-1])
+            predicted_values = [round(last_val, 1)] * horizon
+            operational_model_name = "Naive Baseline"
 
-        # Recursive step-by-step projection
-        cur_history = list(df["quantity"].values)
-        cur_time_step = len(df)
-
-        for f_date in future_dates:
-            lag1 = cur_history[-1]
-            lag2 = cur_history[-2] if len(cur_history) >= 2 else lag1
-            lag3 = cur_history[-3] if len(cur_history) >= 3 else lag2
-            roll3 = np.mean(cur_history[-3:])
-
-            row_dict = {
-                "time_step": cur_time_step,
-                "month_num": f_date.month,
-                "lag_1": lag1,
-                "lag_2": lag2,
-                "lag_3": lag3,
-                "rolling_mean_3": roll3,
-            }
-            X_future = pd.DataFrame([row_dict])
-            pred_val = float(model.predict(X_future)[0])
-            pred_val = round(max(0.0, pred_val), 1)
-
-            predicted_values.append(pred_val)
-            cur_history.append(pred_val)
-            cur_time_step += 1
-
-    else:
-        # Default fallback: Naive Persistence (last observed value)
+    except Exception as e:
+        # Graceful fallback to Naive Baseline if full-series fitting failed
+        fallback_used = True
+        fallback_reason = f"Model '{operational_model_name}' failed during out-of-sample projection: {str(e)}"
         last_val = float(df["quantity"].iloc[-1])
         predicted_values = [round(last_val, 1)] * horizon
-        selected_model_name = "Naive Baseline"
+        operational_model_name = "Naive Baseline"
 
     # Step 4: Assemble historical timeline
     historical_timeline = [
@@ -163,15 +187,15 @@ def generate_future_forecast(
 
     combined_timeline = historical_timeline + future_timeline
 
-    # 4. Summary Metrics & Change Analysis:
+    # Step 5: Summary Metrics & Change Analysis
     recent_baseline = float(df["quantity"].iloc[-3:].mean())
     forecast_avg = float(np.mean(predicted_values)) if predicted_values else recent_baseline
     pct_change = round(((forecast_avg - recent_baseline) / recent_baseline) * 100, 1) if recent_baseline > 0 else 0.0
 
-    # 5. Connect Active Model Evaluation Metrics:
+    # Step 6: Connect Operational Model Evaluation Metrics
     active_metrics = {"mae": None, "rmse": None, "r2": None}
     for m in eval_res.get("models", []):
-        if m.get("name") == selected_model_name:
+        if m.get("name") == operational_model_name:
             active_metrics = {
                 "mae": m.get("mae"),
                 "rmse": m.get("rmse"),
@@ -182,15 +206,23 @@ def generate_future_forecast(
     # Determine forecast source and baseline comparison metadata
     forecast_source = (
         "NAIVE_BASELINE"
-        if selected_model_name == "Naive Baseline"
+        if operational_model_name == "Naive Baseline"
         else "MACHINE_LEARNING"
     )
-    baseline_comparison = eval_res.get("selection", {}).get(
-        "baseline_comparison",
-        "BASELINE_BEST" if selected_model_name == "Naive Baseline" else "MODEL_BEATS_BASELINE"
-    )
 
-    # 6. Build Standardized API Response Payload:
+    naive_mae = eval_res.get("selection", {}).get("baseline_mae")
+    if operational_model_name == "Naive Baseline":
+        baseline_comparison = "BASELINE_BEST"
+    elif active_metrics.get("mae") is not None and naive_mae is not None:
+        baseline_comparison = (
+            "MODEL_BEATS_BASELINE"
+            if active_metrics["mae"] < naive_mae
+            else "BASELINE_BEST"
+        )
+    else:
+        baseline_comparison = eval_res.get("selection", {}).get("baseline_comparison", "MODEL_BEATS_BASELINE")
+
+    # Step 7: Build Standardized API Response Payload
     return {
         "status": "ready",
         "forecast_available": True,
@@ -198,11 +230,15 @@ def generate_future_forecast(
         "readiness_details": eval_res.get("readiness_details", ""),
         "domain": domain,
         "scope": meta.get("scope", f"Municipal {domain}"),
-        "model": selected_model_name,
+        "model": operational_model_name,
+        "best_evaluated_model": best_evaluated_model,
+        "is_user_override": is_user_override,
+        "fallback_used": fallback_used,
+        "fallback_reason": fallback_reason,
         "forecast_source": forecast_source,
         "baseline_comparison": baseline_comparison,
         "baseline_model": "Naive Baseline",
-        "baseline_mae": eval_res.get("selection", {}).get("baseline_mae"),
+        "baseline_mae": naive_mae,
         "selected_model_mae": active_metrics.get("mae"),
         "metrics": active_metrics,
         "target": {

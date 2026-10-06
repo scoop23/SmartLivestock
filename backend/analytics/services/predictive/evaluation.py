@@ -175,7 +175,9 @@ def evaluate_all_models(
             "name": "Naive Baseline",
             "model_type": "Baseline (Persistence)",
             "status": f"FAILED: {str(e)}",
+            "description": "Predicts next month will equal the most recently observed month.",
             "mae": None, "rmse": None, "r2": None,
+            "test_predictions": [],
         })
 
     # ---------------------------------------------------------
@@ -198,7 +200,9 @@ def evaluate_all_models(
             "name": "Linear Regression",
             "model_type": "Parametric Linear (OLS)",
             "status": f"FAILED: {str(e)}",
+            "description": "Learns linear relationship over time index, month seasonality, and past lags.",
             "mae": None, "rmse": None, "r2": None,
+            "test_predictions": [],
         })
 
     # ---------------------------------------------------------
@@ -221,11 +225,13 @@ def evaluate_all_models(
             "name": "Random Forest",
             "model_type": "Nonlinear Ensemble (50 Trees)",
             "status": f"FAILED: {str(e)}",
+            "description": "Ensemble of 50 decision trees capturing non-linear interactions without overfitting.",
             "mae": None, "rmse": None, "r2": None,
+            "test_predictions": [],
         })
 
     # ---------------------------------------------------------
-    # 4. ARIMA(1,1,1) (statsmodels)
+    # 4. ARIMA (statsmodels)
     # ---------------------------------------------------------
     try:
         arima = ARIMAForecaster(order=(1, 1, 1)).fit(pd.Series(univariate_train))
@@ -233,7 +239,7 @@ def evaluate_all_models(
         metrics = calculate_metrics(y_test_actual, arima_preds)
         models_results.append({
             "name": "ARIMA",
-            "model_type": "Time Series (1,1,1)",
+            "model_type": f"Time Series {arima.order}",
             "status": "EVALUATED",
             "description": "Classical time-series model combining autoregression, differencing, and moving average errors.",
             **metrics,
@@ -244,7 +250,9 @@ def evaluate_all_models(
             "name": "ARIMA",
             "model_type": "Time Series (1,1,1)",
             "status": f"FAILED: {str(e)}",
+            "description": "Classical time-series model combining autoregression, differencing, and moving average errors.",
             "mae": None, "rmse": None, "r2": None,
+            "test_predictions": [],
         })
 
     # ---------------------------------------------------------
@@ -254,11 +262,7 @@ def evaluate_all_models(
         hw = HoltWintersForecaster(seasonal_periods=12).fit(pd.Series(univariate_train))
         hw_preds = hw.predict_steps(steps=len(test_dates))
         metrics = calculate_metrics(y_test_actual, hw_preds)
-        status_note = (
-            "EVALUATED (Additive Trend + 12-Month Seasonality)"
-            if hw.has_seasonality
-            else "EVALUATED (Additive Trend, Insufficient data for 2 full seasonal cycles)"
-        )
+        status_note = f"EVALUATED ({hw.model_variant})"
         models_results.append({
             "name": "Holt-Winters",
             "model_type": "Exponential Smoothing",
@@ -272,7 +276,9 @@ def evaluate_all_models(
             "name": "Holt-Winters",
             "model_type": "Exponential Smoothing",
             "status": f"FAILED: {str(e)}",
+            "description": "Models level, additive trend, and seasonal cyclical components with exponential decay weights.",
             "mae": None, "rmse": None, "r2": None,
+            "test_predictions": [],
         })
 
     # ---------------------------------------------------------
@@ -291,7 +297,10 @@ def evaluate_all_models(
     # 2. The operational selected model is set to the winning ML model.
     # 3. forecast_source is marked 'MACHINE_LEARNING'.
 
-    valid_models = [m for m in models_results if m.get("mae") is not None]
+    valid_models = [
+        m for m in models_results
+        if m.get("mae") is not None and str(m.get("status", "")).startswith("EVALUATED")
+    ]
     naive_model = next((m for m in valid_models if m["name"] == "Naive Baseline"), None)
     naive_mae = naive_model["mae"] if naive_model else None
 
@@ -334,7 +343,7 @@ def evaluate_all_models(
         selected_model_mae = naive_mae
         baseline_comparison = "BASELINE_BEST"
         forecast_source = "NAIVE_BASELINE"
-        rationale = "Only Naive Baseline evaluated successfully."
+        rationale = "Only Naive Baseline evaluated successfully among candidate models."
     elif ml_models:
         best_ml = min(ml_models, key=lambda m: m["mae"])
         selected_model_name = best_ml["name"]
@@ -343,7 +352,7 @@ def evaluate_all_models(
         forecast_source = "MACHINE_LEARNING"
         rationale = f"Selected '{selected_model_name}' with test MAE {selected_model_mae} {unit}."
     else:
-        rationale = "No model evaluated successfully."
+        rationale = "No candidate model evaluated successfully on the test holdout."
 
     for m in models_results:
         m["is_selected"] = (m["name"] == selected_model_name)

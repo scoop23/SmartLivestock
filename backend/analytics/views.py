@@ -182,13 +182,29 @@ def predictive_model_comparison(request):
     )
     unit = request.query_params.get("unit", default_unit).upper()
 
-    res = evaluate_all_models(
-        domain=domain,
-        target=target,
-        unit=unit,
-        user=request.user,
-    )
-    return Response(res)
+    try:
+        res = evaluate_all_models(
+            domain=domain,
+            target=target,
+            unit=unit,
+            user=request.user,
+        )
+        return Response(res)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("Predictive model comparison evaluation failed")
+        return Response(
+            {
+                "status": "error",
+                "forecast_available": False,
+                "readiness_status": "NOT_READY",
+                "message": f"Predictive model comparison failed: {str(e)}",
+                "domain": domain,
+                "target": {"domain": domain, "target": target, "unit": unit},
+                "models": [],
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR if not settings.DEBUG else status.HTTP_200_OK,
+        )
 
 
 @api_view(["GET"])
@@ -212,15 +228,32 @@ def predictive_forecast(request):
     horizon = int(request.query_params.get("horizon", 6))
     preferred_model = request.query_params.get("model")
 
-    res = generate_future_forecast(
-        domain=domain,
-        target=target,
-        unit=unit,
-        horizon_months=horizon,
-        preferred_model=preferred_model,
-        user=request.user,
-    )
-    return Response(res)
+    try:
+        res = generate_future_forecast(
+            domain=domain,
+            target=target,
+            unit=unit,
+            horizon_months=horizon,
+            preferred_model=preferred_model,
+            user=request.user,
+        )
+        return Response(res)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("Predictive forecast generation failed")
+        return Response(
+            {
+                "status": "error",
+                "forecast_available": False,
+                "readiness_status": "NOT_READY",
+                "message": f"Predictive forecast generation failed: {str(e)}",
+                "domain": domain,
+                "target": {"domain": domain, "target": target, "unit": unit},
+                "forecast": [],
+                "chart_data": [],
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR if not settings.DEBUG else status.HTTP_200_OK,
+        )
 
 
 @api_view(["GET"])

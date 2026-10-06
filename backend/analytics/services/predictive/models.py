@@ -151,19 +151,69 @@ class ARIMAForecaster:
       error from a moving average model applied to lagged observations.
 
     Order: (p=1, d=1, q=1) — a standard, defensible time-series configuration.
+
+    Production Hardening & Reliability:
+    - enforce_stationarity=False and enforce_invertibility=False avoid unnecessary
+      SciPy optimization crashes and warning noise on short agricultural series.
+    - Limits MLE iterations (maxiter=50) to prevent unbounded loops.
+    - Fallback ladder: If ARIMA(1, 1, 1) encounters numerical singular matrices on flat
+      or short series, automatically attempts AR(1) or MA(1) before failing cleanly.
     """
     def __init__(self, order=(1, 1, 1)):
         self.order = order
         self.fitted_model = None
 
     def fit(self, train_series: pd.Series):
-        model = ARIMA(train_series, order=self.order)
-        self.fitted_model = model.fit()
-        return self
+        s = pd.Series(train_series).astype(float).dropna()
+        if len(s) < 3:
+            raise ValueError(f"ARIMA requires at least 3 historical observations, got {len(s)}.")
+
+        # Primary fit: Standard ARIMA(1, 1, 1)
+        try:
+            model = ARIMA(
+                s,
+                order=self.order,
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
+            self.fitted_model = model.fit(method_kwargs={"maxiter": 50, "warn_convergence": False})
+            return self
+        except Exception:
+            pass
+
+        # Fallback 1: AR(1) without differencing
+        try:
+            model = ARIMA(
+                s,
+                order=(1, 0, 0),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
+            self.fitted_model = model.fit(method_kwargs={"maxiter": 50, "warn_convergence": False})
+            self.order = (1, 0, 0)
+            return self
+        except Exception:
+            pass
+
+        # Fallback 2: Differenced MA(1)
+        try:
+            model = ARIMA(
+                s,
+                order=(0, 1, 1),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
+            self.fitted_model = model.fit(method_kwargs={"maxiter": 50, "warn_convergence": False})
+            self.order = (0, 1, 1)
+            return self
+        except Exception as e:
+            raise RuntimeError(f"ARIMA failed to fit across all fallback configurations: {str(e)}")
 
     def predict_steps(self, steps: int) -> np.ndarray:
+        if self.fitted_model is None:
+            raise RuntimeError("ARIMAForecaster must be fitted before generating predictions.")
         forecast_res = self.fitted_model.forecast(steps=steps)
-        return np.array(forecast_res)
+        return np.array(forecast_res, dtype=float)
 
 
 class HoltWintersForecaster:
@@ -177,41 +227,94 @@ class HoltWintersForecaster:
     2. Trend (additive rate of increase/decrease)
     3. Seasonality (cyclical patterns repeating every S periods, e.g. 12 months)
 
-    Data Requirement:
-    Seasonality with period=12 requires at least 2 full cycles (24 monthly observations).
-    If fewer than 24 observations exist in the training window, we fall back to Holt's
-    Linear Trend (level + trend, no seasonal), rather than raising an error or fabricating values.
+    Production Hardening & Reliability:
+    - use_brute=False: Prevents statsmodels from executing an exhaustive, CPU-saturating
+      grid search across 15+ parameter dimensions, which previously triggered Gunicorn worker
+      timeouts on Render.
+    - minimize_kwargs={'options': {'maxiter': 50}}: Bounds SciPy L-BFGS-B optimization so it
+      cannot hang or block server worker processes.
+    - Resilient Fallback Hierarchy:
+      1. If observations >= 24 (2 full 12-month cycles):
+         Attempts additive trend + additive 12-month seasonality.
+      2. If seasonal optimization fails or observations < 24:
+         Falls back to Holt's Linear Trend (level + trend, no seasonality).
+      3. If linear trend optimization fails:
+         Falls back to Simple Exponential Smoothing (SES) (level only).
     """
     def __init__(self, seasonal_periods: int = 12):
         self.seasonal_periods = seasonal_periods
         self.fitted_model = None
         self.has_seasonality = False
+        self.model_variant = "Holt-Winters (Seasonal)"
 
     def fit(self, train_series: pd.Series):
-        n_obs = len(train_series)
+        s = pd.Series(train_series).astype(float).dropna()
+        n_obs = len(s)
+        if n_obs < 3:
+            raise ValueError(f"Exponential Smoothing requires at least 3 historical observations, got {n_obs}.")
+
+        # 1. Attempt Full Seasonal Holt-Winters if n_obs >= 24 (2 full annual cycles)
         if n_obs >= 2 * self.seasonal_periods:
-            # Full Holt-Winters with additive trend and additive seasonality
+            try:
+                model = ExponentialSmoothing(
+                    s,
+                    trend="add",
+                    seasonal="add",
+                    seasonal_periods=self.seasonal_periods,
+                    initialization_method="estimated",
+                )
+                self.fitted_model = model.fit(
+                    optimized=True,
+                    use_brute=False,
+                    minimize_kwargs={"options": {"maxiter": 50}},
+                )
+                self.has_seasonality = True
+                self.model_variant = "Additive Trend + 12-Month Seasonality"
+                return self
+            except Exception:
+                # If seasonal optimization fails to converge, fall through to Holt Linear Trend
+                pass
+
+        # 2. Attempt Holt's Linear Trend (additive trend, no seasonality)
+        try:
             model = ExponentialSmoothing(
-                train_series,
-                trend="add",
-                seasonal="add",
-                seasonal_periods=self.seasonal_periods,
-                initialization_method="estimated",
-            )
-            self.has_seasonality = True
-        else:
-            # Fallback: Holt's linear trend without seasonal (insufficient data for full cycle)
-            model = ExponentialSmoothing(
-                train_series,
+                s,
                 trend="add",
                 seasonal=None,
                 initialization_method="estimated",
             )
+            self.fitted_model = model.fit(
+                optimized=True,
+                use_brute=False,
+                minimize_kwargs={"options": {"maxiter": 50}},
+            )
             self.has_seasonality = False
+            self.model_variant = "Additive Trend (No Seasonality)"
+            return self
+        except Exception:
+            pass
 
-        self.fitted_model = model.fit()
-        return self
+        # 3. Final Fallback: Simple Exponential Smoothing (level only)
+        try:
+            model = ExponentialSmoothing(
+                s,
+                trend=None,
+                seasonal=None,
+                initialization_method="estimated",
+            )
+            self.fitted_model = model.fit(
+                optimized=True,
+                use_brute=False,
+                minimize_kwargs={"options": {"maxiter": 50}},
+            )
+            self.has_seasonality = False
+            self.model_variant = "Simple Exponential Smoothing (Level Only)"
+            return self
+        except Exception as e:
+            raise RuntimeError(f"Exponential Smoothing failed across all fallback variants: {str(e)}")
 
     def predict_steps(self, steps: int) -> np.ndarray:
+        if self.fitted_model is None:
+            raise RuntimeError("HoltWintersForecaster must be fitted before generating predictions.")
         forecast_res = self.fitted_model.forecast(steps=steps)
-        return np.array(forecast_res)
+        return np.array(forecast_res, dtype=float)

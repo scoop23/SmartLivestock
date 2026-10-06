@@ -521,4 +521,149 @@ class PredictiveAnalyticsTests(TestCase):
         for pt in fc_res["forecast"]:
             self.assertEqual(pt["predicted"], 100.0)
 
+    def test_failed_statistical_model_tolerance(self):
+        """
+        Verify that if Holt-Winters or ARIMA throws a mathematical or convergence error:
+        1. evaluate_all_models does NOT crash or raise 500.
+        2. The failed model is marked status='FAILED: ...' with mae=None.
+        3. The remaining valid candidate models participate normally in evaluation and selection.
+        """
+        from unittest.mock import patch
+
+        call_command("seed_productions", months=24)
+
+        # Simulate Holt-Winters throwing an optimization exception
+        with patch.object(HoltWintersForecaster, "fit", side_effect=RuntimeError("L-BFGS-B numerical divergence simulation")):
+            eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
+            self.assertEqual(eval_res["status"], "ready")
+            self.assertTrue(eval_res["forecast_available"])
+
+            # Find the Holt-Winters result
+            hw_model = next((m for m in eval_res["models"] if m["name"] == "Holt-Winters"), None)
+            self.assertIsNotNone(hw_model)
+            self.assertTrue(hw_model["status"].startswith("FAILED"))
+            self.assertIn("L-BFGS-B numerical divergence simulation", hw_model["status"])
+            self.assertIsNone(hw_model["mae"])
+            self.assertIsNone(hw_model["rmse"])
+            self.assertIsNone(hw_model["r2"])
+            self.assertFalse(hw_model["is_selected"])
+
+            # The other 4 models must still be evaluated
+            other_models = [m for m in eval_res["models"] if m["name"] != "Holt-Winters"]
+            self.assertEqual(len(other_models), 4)
+            for m in other_models:
+                self.assertTrue(m["status"].startswith("EVALUATED"))
+                self.assertIsNotNone(m["mae"])
+
+            # Selection must have chosen one of the valid models
+            self.assertIn(eval_res["selection"]["selected_model"], [m["name"] for m in other_models])
+            self.assertNotEqual(eval_res["selection"]["selected_model"], "Holt-Winters")
+
+        call_command("seed_productions", clean=True)
+
+    def test_disease_surveillance_pipeline_cases_and_heads(self):
+        """
+        Verify disease domain evaluation and forecasting for both CASES and HEADS metrics.
+        """
+        from diseases.models import DiseaseCase
+        from analytics.seed_markers import SEED_MARKER_DISEASE
+
+        call_command("seed_diseases", months=24)
+        seeded_diseases = DiseaseCase.objects.filter(review_remarks__contains=SEED_MARKER_DISEASE).count()
+        self.assertGreaterEqual(seeded_diseases, 24)
+
+        # 1. Evaluate on CASES
+        eval_cases = evaluate_all_models(domain="disease", target="ALL", unit="CASES")
+        self.assertEqual(eval_cases["status"], "ready")
+        self.assertEqual(eval_cases["target"]["unit"], "CASES")
+        self.assertEqual(len(eval_cases["models"]), 5)
+
+        # 2. Forecast on CASES
+        fc_cases = generate_future_forecast(domain="disease", target="ALL", unit="CASES", horizon_months=6)
+        self.assertEqual(fc_cases["status"], "ready")
+        self.assertEqual(len(fc_cases["forecast"]), 6)
+
+        # 3. Evaluate on HEADS
+        eval_heads = evaluate_all_models(domain="disease", target="ALL", unit="HEADS")
+        self.assertEqual(eval_heads["status"], "ready")
+        self.assertEqual(eval_heads["target"]["unit"], "HEADS")
+
+        call_command("seed_diseases", clean=True)
+        remaining = DiseaseCase.objects.filter(review_remarks__contains=SEED_MARKER_DISEASE).count()
+        self.assertEqual(remaining, 0)
+
+    def test_mortality_surveillance_pipeline(self):
+        """
+        Verify mortality domain evaluation and forecasting.
+        """
+        from diseases.models import MortalityRecord
+        from analytics.seed_markers import SEED_MARKER_MORTALITY
+
+        call_command("seed_mortality", count=48, months=24)
+        seeded_mortality = MortalityRecord.objects.filter(review_remarks__contains=SEED_MARKER_MORTALITY).count()
+        self.assertGreaterEqual(seeded_mortality, 24)
+
+        eval_res = evaluate_all_models(domain="mortality", target="ALL", unit="HEADS")
+        self.assertEqual(eval_res["status"], "ready")
+        self.assertEqual(len(eval_res["models"]), 5)
+
+        fc_res = generate_future_forecast(domain="mortality", target="ALL", unit="HEADS", horizon_months=3)
+        self.assertEqual(fc_res["status"], "ready")
+        self.assertEqual(len(fc_res["forecast"]), 3)
+
+        call_command("seed_mortality", clean=True)
+        remaining = MortalityRecord.objects.filter(review_remarks__contains=SEED_MARKER_MORTALITY).count()
+        self.assertEqual(remaining, 0)
+
+    def test_preferred_model_explicit_user_override(self):
+        """
+        Verify that manual preferred_model does NOT overwrite the benchmark winner in evaluation_summary
+        and sets is_user_override=True appropriately.
+        """
+        call_command("seed_productions", months=36)
+
+        eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
+        benchmark_winner = eval_res["selection"]["selected_model"]
+
+        # Pick a different model to request
+        alternative_model = "Linear Regression" if benchmark_winner != "Linear Regression" else "Naive Baseline"
+
+        fc_override = generate_future_forecast(
+            production_type="MILK",
+            unit="LITERS",
+            horizon_months=6,
+            preferred_model=alternative_model,
+        )
+
+        self.assertEqual(fc_override["model"], alternative_model)
+        self.assertEqual(fc_override["best_evaluated_model"], benchmark_winner)
+        self.assertTrue(fc_override["is_user_override"])
+        self.assertEqual(fc_override["evaluation_summary"]["selected_model"], benchmark_winner)
+
+        call_command("seed_productions", clean=True)
+
+    def test_forecasting_fallback_when_operational_model_fails(self):
+        """
+        Verify that if an operational model fails during out-of-sample projection,
+        it cleanly falls back to Naive Baseline with fallback_used=True.
+        """
+        from unittest.mock import patch
+
+        call_command("seed_productions", months=24)
+
+        with patch.object(HoltWintersForecaster, "predict_steps", side_effect=RuntimeError("Prediction matrix singularity")):
+            fc_res = generate_future_forecast(
+                production_type="MILK",
+                unit="LITERS",
+                horizon_months=6,
+                preferred_model="Holt-Winters",
+            )
+            self.assertEqual(fc_res["status"], "ready")
+            self.assertEqual(fc_res["model"], "Naive Baseline")
+            self.assertTrue(fc_res["fallback_used"])
+            self.assertIn("Prediction matrix singularity", fc_res["fallback_reason"])
+            self.assertEqual(len(fc_res["forecast"]), 6)
+
+        call_command("seed_productions", clean=True)
+
 
