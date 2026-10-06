@@ -25,6 +25,9 @@ numpy = "*"
 scikit-learn = "*"
 statsmodels = "*"
 openpyxl = "*"
+django-storages = "*"
+boto3 = "*"
+
 
 [dev-packages]
 mypy = "*"

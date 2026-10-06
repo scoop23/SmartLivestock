@@ -90,13 +90,13 @@ class UserDocument(models.Model):
         default=VerificationStatus.PENDING,
     )
 
-    # Tracks which admin/MAO approved the document (self-referential FK — actually should point to User)
+    # Tracks which admin/MAO reviewed the document
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="approved_users",
+        related_name="reviewed_documents",
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="documents")
@@ -105,6 +105,10 @@ class UserDocument(models.Model):
     )
     document_file = models.FileField(upload_to="user_documents/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_remarks = models.TextField(
+        blank=True, default="", help_text="Reason or remarks if returned for revision"
+    )
 
     def __str__(self):
         return f"{self.user.email} - {self.document_type}"

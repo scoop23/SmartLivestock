@@ -5,9 +5,11 @@ import { PageHeader } from "@/app/components/page-header";
 import {
   ApiUser,
   UserAccountStatus,
+  UserDocumentItem,
   useUsersDirectory,
   useUpdateUserStatus,
   useUpdateSibatAssignment,
+  useVerifyUserDocument,
   userBarangayLabel,
 } from "./user-management";
 
@@ -42,17 +44,26 @@ import {
   Clock,
   RefreshCw,
   RotateCcw,
+  Eye,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { useAdminBarangays } from "../admin/admin-charts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
-export type { ApiUser, UserAccountStatus };
+export type { ApiUser, UserAccountStatus, UserDocumentItem };
 
 export default function UserManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<UserDocumentItem | null>(null);
+  const [revisionDoc, setRevisionDoc] = useState<UserDocumentItem | null>(null);
+  const [revisionReason, setRevisionReason] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "farmer" | "sibat">("all");
   const [barangayFilter, setBarangayFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -62,6 +73,7 @@ export default function UserManagementPage() {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 250);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
   // Municipal tab counts use the complete directory, never a filtered subset.
   const directory = useUsersDirectory();
   const filters = {
@@ -78,17 +90,83 @@ export default function UserManagementPage() {
   const barangaysQuery = useAdminBarangays();
   const updateStatusMutation = useUpdateUserStatus();
   const assignmentMutation = useUpdateSibatAssignment();
+  const verifyDocMutation = useVerifyUserDocument();
   const pendingCount = users.filter((u) => u.account_status === "PENDING").length;
+
   const handleStatusUpdate = (id: number, newStatus: UserAccountStatus) => {
     updateStatusMutation.mutate({ userId: id, status: newStatus }, {
       onSuccess: (updated) => setSelectedUser((current) => current?.id === id ? updated : current),
     });
   };
+
+  const handleVerifyDocument = (docId: number, newStatus: "APPROVED" | "SUBJECT_TO_REVISION", reason?: string) => {
+    verifyDocMutation.mutate(
+      { documentId: docId, status: newStatus, reason },
+      {
+        onSuccess: (updatedDoc) => {
+          setSelectedUser((current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              documents: current.documents.map((d) => (d.id === docId ? updatedDoc : d)),
+            };
+          });
+          setRevisionDoc(null);
+          setRevisionReason("");
+        },
+      }
+    );
+  };
+
+  const getDocTypeLabel = (doc: UserDocumentItem) => {
+    if (doc.document_type_display) return doc.document_type_display;
+    switch (doc.document_type) {
+      case "GOVERNMENT_ID":
+        return "Government ID";
+      case "RSBSA":
+        return "RSBSA Certificate";
+      case "BARANGAY_CLEARANCE":
+        return "Barangay Clearance";
+      default:
+        return doc.document_type.replaceAll("_", " ");
+    }
+  };
+
+  const getDocStatusBadge = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+        return (
+          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] font-bold border-0">
+            Approved
+          </Badge>
+        );
+      case "SUBJECT_TO_REVISION":
+        return (
+          <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 text-[10px] font-bold border-0">
+            Needs Revision
+          </Badge>
+        );
+      case "PENDING":
+      default:
+        return (
+          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px] font-bold border-0">
+            Pending Review
+          </Badge>
+        );
+    }
+  };
+
+  const isPdf = (urlOrName?: string) => {
+    if (!urlOrName) return false;
+    return urlOrName.toLowerCase().endsWith(".pdf") || urlOrName.toLowerCase().includes(".pdf");
+  };
+
   const openProfile = (user: ApiUser) => {
     setSelectedUser(user);
     setAccessScope(user.access_scope);
     setAssignment(user.assigned_barangay_id == null ? "unassigned" : String(user.assigned_barangay_id));
   };
+
 
   const getStatusBadge = (status: ApiUser["account_status"]) => {
     switch (status) {
@@ -514,14 +592,135 @@ export default function UserManagementPage() {
                 </div>
               )}
               <p className="text-xs text-slate-500">Registered: {new Date(selectedUser.created_at).toLocaleDateString()}</p>
-              {(selectedUser.documents || []).length > 0 && <div className="space-y-2">
-                <p className="text-xs font-semibold">Registration documents</p>
-                {selectedUser.documents.map((doc) => <a key={doc.id} href={doc.document_file} target="_blank" rel="noopener noreferrer" className="block text-xs text-emerald-800 underline">
-                  {doc.document_type.replaceAll("_", " ")} Â· {doc.verification_status.replaceAll("_", " ")}
-                </a>)}
-              </div>}
+
+              {/* Registration Documents Section */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <FileText className="size-3.5 text-slate-500" />
+                    Submitted Registration Documents
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-semibold">
+                    {(selectedUser.documents || []).length} attached
+                  </Badge>
+                </div>
+
+                {(selectedUser.documents || []).length === 0 ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500">
+                    No documents uploaded during registration.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedUser.documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2.5 transition-all hover:border-slate-300"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                              {getDocTypeLabel(doc)}
+                            </div>
+                            <p className="text-[11px] text-slate-500 break-all mt-0.5">
+                              {doc.file_name || "Attachment"} • {new Date(doc.uploaded_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div>{getDocStatusBadge(doc.verification_status)}</div>
+                        </div>
+
+                        {doc.review_remarks && (
+                          <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-800 space-y-0.5">
+                            <span className="font-bold flex items-center gap-1">
+                              <AlertTriangle className="size-3 text-rose-600" /> Review Remarks:
+                            </span>
+                            <p className="pl-4">{doc.review_remarks}</p>
+                          </div>
+                        )}
+
+                        {doc.approved_by_name && doc.verification_status === "APPROVED" && (
+                          <p className="text-[10px] text-emerald-700 font-medium">
+                            ✓ Verified by: {doc.approved_by_name}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPreviewDoc(doc)}
+                            className="h-7 text-xs px-2.5 gap-1 text-slate-700 hover:text-slate-900"
+                          >
+                            <Eye className="size-3.5" /> Preview
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            asChild
+                            className="h-7 text-xs px-2 gap-1 text-slate-500 hover:text-slate-800"
+                          >
+                            <a
+                              href={doc.file_url || doc.document_file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="size-3" /> Direct Open
+                            </a>
+                          </Button>
+
+                          <div className="ml-auto flex items-center gap-1">
+                            {doc.verification_status !== "APPROVED" && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={verifyDocMutation.isPending}
+                                onClick={() => handleVerifyDocument(doc.id, "APPROVED")}
+                                className="h-7 text-xs px-2.5 bg-emerald-700 hover:bg-emerald-800 text-white gap-1"
+                              >
+                                <Check className="size-3" /> Approve
+                              </Button>
+                            )}
+
+                            {doc.verification_status !== "SUBJECT_TO_REVISION" && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={verifyDocMutation.isPending}
+                                onClick={() => {
+                                  setRevisionDoc(doc);
+                                  setRevisionReason(doc.review_remarks || "");
+                                }}
+                                className="h-7 text-xs px-2.5 border-rose-200 text-rose-700 hover:bg-rose-50 gap-1"
+                              >
+                                <RotateCcw className="size-3" /> Revise
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-slate-400 italic">
+                  Note: Documents are manually verified by MAO officers. The system records administrative verification decisions.
+                </p>
+              </div>
+
               {selectedUser.role?.toUpperCase() === "FARMER" && (
                 <>
+                  {selectedUser.rsbsa_number && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-wrap justify-between gap-2">
+                      <span className="text-[10px] font-black text-emerald-700 uppercase">
+                        RSBSA Number
+                      </span>
+                      <span className="text-sm font-bold text-emerald-900 font-mono">
+                        {selectedUser.rsbsa_number}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="p-4 bg-green-50 rounded-2xl flex justify-between">
                     <span className="text-[10px] font-black text-green-600 uppercase">
                       Active Livestock
@@ -538,6 +737,14 @@ export default function UserManagementPage() {
                       <span className="text-sm font-bold">{selectedUser.farm_size} ha</span>
                     </div>
                   )}
+                  {selectedUser.address && (
+                    <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
+                      <span className="text-[10px] font-black text-gray-400 uppercase">
+                        Farm Address
+                      </span>
+                      <span className="text-sm font-bold">{selectedUser.address}</span>
+                    </div>
+                  )}
                 </>
               )}
               <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
@@ -549,27 +756,44 @@ export default function UserManagementPage() {
             </div>
 
             {selectedUser.account_status === "PENDING" || selectedUser.account_status === "SUBJECT_TO_REVISION" ? (
-              <div className="flex gap-2 mt-6">
-                <Button
-                  disabled={updateStatusMutation.isPending}
-                  onClick={() => {
-                    handleStatusUpdate(selectedUser.id, "APPROVED");
-                  }}
-                  className="flex-1 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-md cursor-pointer disabled:opacity-50"
-                >
-                  Approve Account
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={updateStatusMutation.isPending}
-                  onClick={() => {
-                    handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION");
-                  }}
-                  className="flex-1 py-6 border-rose-300 text-rose-900 hover:bg-rose-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  <RotateCcw className="size-4 text-rose-700" />
-                  Return for Revision
-                </Button>
+              <div className="space-y-2 mt-6">
+                {(selectedUser.documents || []).some((d) => d.verification_status === "SUBJECT_TO_REVISION") && (
+                  <p className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                    ⚠ Note: One or more documents require revision. Resolve or update document status before approving the account.
+                  </p>
+                )}
+                {(selectedUser.documents || []).some((d) => d.verification_status === "PENDING") && (
+                  <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                    ℹ Note: Registration documents are still pending review. Please verify documents above.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    disabled={
+                      updateStatusMutation.isPending ||
+                      (selectedUser.documents || []).some(
+                        (d) => d.verification_status === "SUBJECT_TO_REVISION" || d.verification_status === "PENDING"
+                      )
+                    }
+                    onClick={() => {
+                      handleStatusUpdate(selectedUser.id, "APPROVED");
+                    }}
+                    className="flex-1 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    Approve Account
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={updateStatusMutation.isPending}
+                    onClick={() => {
+                      handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION");
+                    }}
+                    className="flex-1 py-6 border-rose-300 text-rose-900 hover:bg-rose-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <RotateCcw className="size-4 text-rose-700" />
+                    Return for Revision
+                  </Button>
+                </div>
               </div>
             ) : (
               <Button
@@ -582,6 +806,125 @@ export default function UserManagementPage() {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>
+        {previewDoc && (
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
+            <DialogHeader>
+              <div className="flex items-center justify-between gap-2 pr-6">
+                <DialogTitle className="text-lg font-bold text-slate-900">
+                  {getDocTypeLabel(previewDoc)}
+                </DialogTitle>
+                {getDocStatusBadge(previewDoc.verification_status)}
+              </div>
+              <p className="text-xs text-slate-500">
+                {previewDoc.file_name || "Attachment"} • Uploaded: {new Date(previewDoc.uploaded_at).toLocaleString()}
+              </p>
+            </DialogHeader>
+
+            <div className="mt-4 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 flex items-center justify-center min-h-[300px]">
+              {isPdf(previewDoc.file_url || previewDoc.document_file || previewDoc.file_name) ? (
+                <iframe
+                  src={previewDoc.file_url || previewDoc.document_file}
+                  className="w-full h-[65vh] border-0"
+                  title="Document PDF Viewer"
+                />
+              ) : (
+                <img
+                  src={previewDoc.file_url || previewDoc.document_file}
+                  alt={getDocTypeLabel(previewDoc)}
+                  className="max-h-[65vh] w-auto object-contain rounded-lg shadow-xs"
+                />
+              )}
+            </div>
+
+            {previewDoc.review_remarks && (
+              <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+                <p className="font-bold flex items-center gap-1">
+                  <AlertTriangle className="size-3.5 text-rose-600" /> Review Remarks:
+                </p>
+                <p className="mt-0.5 pl-4.5">{previewDoc.review_remarks}</p>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-2 justify-end">
+              <Button variant="outline" asChild size="sm">
+                <a
+                  href={previewDoc.file_url || previewDoc.document_file}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="gap-1.5"
+                >
+                  <ExternalLink className="size-3.5" /> Open in New Tab
+                </a>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setPreviewDoc(null)}
+                className="bg-slate-900 text-white hover:bg-slate-800"
+              >
+                Close Preview
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* Document Return for Revision Dialog */}
+      <Dialog open={!!revisionDoc} onOpenChange={(open) => !open && setRevisionDoc(null)}>
+        {revisionDoc && (
+          <DialogContent className="max-w-md p-4 sm:p-6 rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-rose-900 flex items-center gap-2">
+                <RotateCcw className="size-5 text-rose-600" />
+                Return Document for Revision
+              </DialogTitle>
+              <p className="text-xs text-slate-500">
+                {getDocTypeLabel(revisionDoc)} • Explain clearly what needs correction
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-3 mt-3">
+              <Label htmlFor="revision-reason" className="text-xs font-semibold">
+                Reason for Revision <span className="text-rose-500">*</span>
+              </Label>
+              <Textarea
+                id="revision-reason"
+                placeholder="e.g. The submitted ID is blurry. Please upload a clearer copy with readable name and ID number."
+                value={revisionReason}
+                onChange={(e) => setRevisionReason(e.target.value)}
+                className="min-h-[100px] text-sm"
+              />
+              <p className="text-[11px] text-slate-500">
+                This feedback will be notified directly to the farmer so they can re-upload their document.
+              </p>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRevisionDoc(null);
+                  setRevisionReason("");
+                }}
+                className="flex-1"
+                disabled={verifyDocMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleVerifyDocument(revisionDoc.id, "SUBJECT_TO_REVISION", revisionReason)}
+                disabled={!revisionReason.trim() || verifyDocMutation.isPending}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                {verifyDocMutation.isPending ? "Submitting..." : "Return for Revision"}
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
     </>
   );
 }

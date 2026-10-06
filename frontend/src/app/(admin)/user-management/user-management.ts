@@ -10,6 +10,22 @@ export type UserAccountStatus =
   | "SUBJECT_TO_REVISION"
   | "SUSPENDED";
 
+export interface UserDocumentItem {
+  id: number;
+  document_type: string;
+  document_type_display?: string;
+  document_file: string;
+  file_url?: string;
+  file_name?: string;
+  verification_status: "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION";
+  verification_status_display?: string;
+  uploaded_at: string;
+  reviewed_at?: string | null;
+  review_remarks?: string;
+  approved_by?: number | null;
+  approved_by_name?: string;
+}
+
 export interface ApiUser {
   id: number;
   username: string;
@@ -27,12 +43,14 @@ export interface ApiUser {
   assigned_barangay_id: number | null;
   assigned_barangay_name: string | null;
   access_scope: "ASSIGNED_ONLY" | "ALL_BARANGAYS";
-  documents: { id: number; document_type: string; document_file: string; verification_status: string; uploaded_at: string }[];
+  documents: UserDocumentItem[];
   farm_size: number | null;
   address: string;
+  rsbsa_number?: string;
   cattle_count: number;
   profile_image?: string | null;
 }
+
 
 export interface UpdateUserStatusPayload {
   userId: number;
@@ -120,6 +138,56 @@ export function useUpdateUserStatus() {
     },
   });
 }
+
+export interface VerifyUserDocumentPayload {
+
+  documentId: number;
+  status: "APPROVED" | "SUBJECT_TO_REVISION" | "PENDING";
+  reason?: string;
+}
+
+export async function verifyUserDocument({
+  documentId,
+  status,
+  reason,
+}: VerifyUserDocumentPayload): Promise<UserDocumentItem> {
+  const response = await api.patch<UserDocumentItem>(
+    `/api/users/documents/${documentId}/verification/`,
+    { status, reason }
+  );
+  return response.data;
+}
+
+export function useVerifyUserDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: verifyUserDocument,
+    onSuccess: (updatedDoc) => {
+      queryClient.invalidateQueries({
+        queryKey: USER_MANAGEMENT_QUERY_KEYS.all,
+      });
+
+      const label =
+        updatedDoc.verification_status === "APPROVED"
+          ? "Document manually approved."
+          : updatedDoc.verification_status === "SUBJECT_TO_REVISION"
+          ? "Document returned for revision."
+          : "Document verification status updated.";
+
+      toast.success(label);
+    },
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
+      const errMsg =
+        data && typeof data === "object"
+          ? Object.values(data).flat().join(" ")
+          : "Failed to update document verification status.";
+      toast.error(errMsg);
+    },
+  });
+}
+
 
 
 export function useUpdateSibatAssignment() {

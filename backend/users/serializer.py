@@ -55,22 +55,72 @@ class UserDocumentSerializer(serializers.ModelSerializer):
     Returns:
         Farmer identity or RSBSA accreditation verification document:
         - id: Document primary key
-        - document_type: GOVERNMENT_ID or RSBSA
-        - document_file: Media upload URL / path
-        - verification_status: PENDING, VERIFIED, or REJECTED
+        - document_type: GOVERNMENT_ID, RSBSA, etc.
+        - document_type_display: Human-readable document type label
+        - document_file: Stored file path
+        - file_url: Authenticated view URL
+        - file_name: File basename
+        - verification_status: PENDING, APPROVED, or SUBJECT_TO_REVISION
+        - verification_status_display: Human-readable status label
         - uploaded_at: Timestamp of submission
+        - reviewed_at: Timestamp of administrative review
+        - review_remarks: Remarks or reason when returned for revision
+        - approved_by: Reviewer ID
+        - approved_by_name: Reviewer full name
     Used in:
         Nested `documents` array inside UserManagementSerializer for MAO review.
     """
+    document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
+    verification_status_display = serializers.CharField(source="get_verification_status_display", read_only=True)
+    file_name = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
+    approved_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = UserDocument
         fields = (
             "id",
             "document_type",
+            "document_type_display",
             "document_file",
+            "file_url",
+            "file_name",
             "verification_status",
+            "verification_status_display",
             "uploaded_at",
+            "reviewed_at",
+            "review_remarks",
+            "approved_by",
+            "approved_by_name",
         )
+        read_only_fields = fields
+
+    def get_file_name(self, obj):
+        if obj.document_file:
+            import os
+            return os.path.basename(obj.document_file.name)
+        return ""
+
+    def get_file_url(self, obj):
+        if obj.document_file:
+            request = self.context.get("request")
+            from django.urls import reverse
+            try:
+                view_path = reverse("user_document_view", kwargs={"pk": obj.pk})
+                if request:
+                    return request.build_absolute_uri(view_path)
+                return view_path
+            except Exception:
+                if request:
+                    return request.build_absolute_uri(obj.document_file.url)
+                return obj.document_file.url
+        return ""
+
+    def get_approved_by_name(self, obj):
+        if obj.approved_by:
+            name = f"{obj.approved_by.first_name} {obj.approved_by.last_name}".strip()
+            return name if name else obj.approved_by.username
+        return ""
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -95,6 +145,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "barangay",
             "farm_size",
             "address",
+            "rsbsa_number",
             "government_id",
             "rsbsa_document",
         )
@@ -110,6 +161,9 @@ class RegisterSerializer(serializers.ModelSerializer):
     address = serializers.CharField(
         max_length=255, required=True, allow_blank=False, write_only=True
     )
+    rsbsa_number = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, write_only=True
+    )
     government_id = serializers.FileField(
         required=False, allow_null=True, write_only=True
     )
@@ -117,10 +171,32 @@ class RegisterSerializer(serializers.ModelSerializer):
         required=False, allow_null=True, write_only=True
     )
 
+    def _validate_upload(self, file_obj, label: str):
+        if not file_obj:
+            return file_obj
+        max_size = 10 * 1024 * 1024  # 10 MB limit
+        if file_obj.size > max_size:
+            raise serializers.ValidationError(f"{label} file size must be 10MB or less.")
+        import os
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        allowed = [".pdf", ".jpg", ".jpeg", ".png", ".webp"]
+        if ext not in allowed:
+            raise serializers.ValidationError(
+                f"Unsupported file format for {label}. Allowed formats: PDF, JPG, PNG, WEBP."
+            )
+        return file_obj
+
+    def validate_government_id(self, value):
+        return self._validate_upload(value, "Government ID")
+
+    def validate_rsbsa_document(self, value):
+        return self._validate_upload(value, "RSBSA document")
+
     @transaction.atomic
     def create(self, validated_data):
         gov_id_file = validated_data.pop("government_id", None)
         rsbsa_file = validated_data.pop("rsbsa_document", None)
+        rsbsa_number = validated_data.pop("rsbsa_number", "")
 
         farmer_role, _ = Role.objects.get_or_create(role_name=Role.UserRoles.FARMER)
 
@@ -142,6 +218,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             barangay=validated_data["barangay"],
             farm_size=validated_data["farm_size"],
             address=validated_data["address"],
+            rsbsa_number=rsbsa_number or "",
         )
 
         if gov_id_file:
@@ -165,6 +242,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                     message="A new farmer registration is awaiting account review.", link="/user-management")
 
         return user
+
 
     # Auto-generates a username in format FMR-000001, FMR-000002, etc.
     # Since email is the login identifier, the username is just an internal identifier.
@@ -251,6 +329,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
     farm_size = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
     cattle_count = serializers.SerializerMethodField()
+    rsbsa_number = serializers.SerializerMethodField()
     assigned_barangay_id = serializers.IntegerField(read_only=True, allow_null=True)
     assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
     documents = UserDocumentSerializer(many=True, read_only=True)
@@ -277,6 +356,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "access_scope",
             "farm_size",
             "address",
+            "rsbsa_number",
             "cattle_count",
             "documents",
         )
@@ -333,6 +413,11 @@ class UserManagementSerializer(serializers.ModelSerializer):
                 return sum(inv.quantity for inv in inventories.all()
                            if inv.status == "APPROVED" and inv.operational_status == "ACTIVE")
         return 0
+
+    def get_rsbsa_number(self, obj):
+        if hasattr(obj, "farmer_profile") and obj.farmer_profile.rsbsa_number:
+            return obj.farmer_profile.rsbsa_number
+        return ""
 
 
 class UserStatusUpdateSerializer(serializers.Serializer):

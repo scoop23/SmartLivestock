@@ -29,6 +29,12 @@ class Farmer(models.Model):
     farm_size = models.DecimalField(
         max_digits=6, decimal_places=2, null=True, blank=True
     )
+    rsbsa_number = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="Registry System for Basic Sectors in Agriculture (RSBSA) registration number",
+    )
     address = models.TextField()
     registered_at = models.DateTimeField(auto_now_add=True)
 

@@ -215,9 +215,15 @@ class UserApprovalAndManagementAPITests(APITestCase):
 
     def test_account_status_notifications_and_document_urls(self):
         from users.models import Notification, UserDocument
-        UserDocument.objects.create(user=self.pending_user, document_type="GOVERNMENT_ID", document_file="user_documents/test-only.pdf")
+        UserDocument.objects.create(
+            user=self.pending_user,
+            document_type="GOVERNMENT_ID",
+            document_file="user_documents/test-only.pdf",
+            verification_status=UserDocument.VerificationStatus.APPROVED,
+        )
         self.client.force_authenticate(user=self.mao_user)
         response = self.client.patch(f"/api/users/{self.pending_user.pk}/status/", {"status": "APPROVED"})
+
         self.assertTrue(response.data["documents"][0]["document_file"].startswith("http://testserver/"))
         self.assertTrue(Notification.objects.filter(user=self.pending_user, title="Account status updated").exists())
 
@@ -238,3 +244,248 @@ class SuspendedTokenTests(APITestCase):
         user.account_status = User.AccountStatus.SUSPENDED
         user.save(update_fields=["account_status"])
         self.assertEqual(self.client.get("/api/users/me/").status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from users.models import UserDocument, Notification
+
+
+class FarmerRegistrationAndValidationTests(APITestCase):
+    def setUp(self):
+        self.farmer_role, _ = Role.objects.get_or_create(role_name=Role.UserRoles.FARMER)
+        self.mao_role, _ = Role.objects.get_or_create(role_name=Role.UserRoles.MAO)
+        self.barangay = Barangay.objects.create(
+            barangay_name="San Felipe",
+            latitude=13.88,
+            longitude=121.22,
+        )
+
+
+    def test_anonymous_can_register_with_synthetic_documents_and_rsbsa(self):
+        gov_id = SimpleUploadedFile("synthetic-government-id.pdf", b"%PDF-1.4 synthetic gov id", content_type="application/pdf")
+        rsbsa_doc = SimpleUploadedFile("synthetic-rsbsa.pdf", b"%PDF-1.4 synthetic rsbsa doc", content_type="application/pdf")
+
+        payload = {
+            "first_name": "Test",
+            "last_name": "Farmer",
+            "email": "registration-test@example.com",
+            "password": "SecurePassword123!",
+            "phone_number": "+639123456789",
+            "barangay": self.barangay.pk,
+            "farm_size": "2.50",
+            "address": "Synthetic Test Farm Sitio 1",
+            "rsbsa_number": "RSBSA-2026-0042",
+            "government_id": gov_id,
+            "rsbsa_document": rsbsa_doc,
+        }
+
+        response = self.client.post("/api/users/register/", payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        user = User.objects.get(email="registration-test@example.com")
+        self.assertEqual(user.account_status, User.AccountStatus.PENDING)
+        self.assertEqual(user.role.role_name, "FARMER")
+
+        farmer = Farmer.objects.get(user=user)
+        self.assertEqual(farmer.rsbsa_number, "RSBSA-2026-0042")
+        self.assertEqual(float(farmer.farm_size), 2.50)
+
+        docs = UserDocument.objects.filter(user=user)
+        self.assertEqual(docs.count(), 2)
+        for doc in docs:
+            self.assertEqual(doc.verification_status, UserDocument.VerificationStatus.PENDING)
+
+    def test_invalid_file_extension_rejected(self):
+        bad_file = SimpleUploadedFile("malicious.exe", b"executable bytes", content_type="application/octet-stream")
+        payload = {
+            "first_name": "Test",
+            "last_name": "Farmer",
+            "email": "badfile-test@example.com",
+            "password": "SecurePassword123!",
+            "barangay": self.barangay.pk,
+            "farm_size": "1.00",
+            "address": "Farm 1",
+            "government_id": bad_file,
+        }
+        response = self.client.post("/api/users/register/", payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("government_id", response.data)
+
+    def test_oversized_file_rejected(self):
+        huge_file = SimpleUploadedFile("huge.pdf", b"0" * (11 * 1024 * 1024), content_type="application/pdf")
+        payload = {
+            "first_name": "Test",
+            "last_name": "Farmer",
+            "email": "hugefile-test@example.com",
+            "password": "SecurePassword123!",
+            "barangay": self.barangay.pk,
+            "farm_size": "1.00",
+            "address": "Farm 1",
+            "government_id": huge_file,
+        }
+        response = self.client.post("/api/users/register/", payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_duplicate_email_rejected(self):
+        User.objects.create_user(
+            username="existing-farmer",
+            email="duplicate@example.com",
+            password="password123",
+            role=self.farmer_role,
+        )
+
+        payload = {
+            "first_name": "Test",
+            "last_name": "Farmer",
+            "email": "duplicate@example.com",
+            "password": "SecurePassword123!",
+            "barangay": self.barangay.pk,
+            "farm_size": "1.00",
+            "address": "Farm 1",
+        }
+        response = self.client.post("/api/users/register/", payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class UserDocumentVerificationAndSecurityTests(APITestCase):
+    def setUp(self):
+        self.mao_role = Role.objects.create(role_name=Role.UserRoles.MAO)
+        self.farmer_role = Role.objects.create(role_name=Role.UserRoles.FARMER)
+        self.sibat_role = Role.objects.create(role_name=Role.UserRoles.SIBAT)
+
+        self.barangay = Barangay.objects.create(
+            barangay_name="Poblacion", latitude=13.88, longitude=121.21
+        )
+
+        self.mao_user = User.objects.create_user(
+            username="MAO-VERIFY", email="mao.verify@example.com", password="password123",
+            role=self.mao_role, account_status=User.AccountStatus.APPROVED,
+        )
+
+        self.farmer1 = User.objects.create_user(
+            username="FMR-000010", email="farmer1.verify@example.com", password="password123",
+            role=self.farmer_role, account_status=User.AccountStatus.PENDING,
+        )
+        self.farmer1_profile = Farmer.objects.create(
+            user=self.farmer1, barangay=self.barangay, farm_size=1.5, address="Sitio 1",
+            rsbsa_number="RSBSA-1001",
+        )
+
+        self.farmer2 = User.objects.create_user(
+            username="FMR-000011", email="farmer2.verify@example.com", password="password123",
+            role=self.farmer_role, account_status=User.AccountStatus.APPROVED,
+        )
+
+        self.sibat_user = User.objects.create_user(
+            username="SBT-000001", email="sibat.verify@example.com", password="password123",
+            role=self.sibat_role, account_status=User.AccountStatus.APPROVED,
+        )
+
+        gov_file = SimpleUploadedFile("id.pdf", b"%PDF-1.4 test id content", content_type="application/pdf")
+        self.doc1 = UserDocument.objects.create(
+            user=self.farmer1,
+            document_type=UserDocument.DocumentType.GOVERNMENT_ID,
+            document_file=gov_file,
+            verification_status=UserDocument.VerificationStatus.PENDING,
+        )
+
+    def test_mao_can_approve_document(self):
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.patch(
+            f"/api/users/documents/{self.doc1.pk}/verification/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.doc1.refresh_from_db()
+        self.assertEqual(self.doc1.verification_status, UserDocument.VerificationStatus.APPROVED)
+        self.assertEqual(self.doc1.approved_by, self.mao_user)
+        self.assertIsNotNone(self.doc1.reviewed_at)
+        self.assertTrue(Notification.objects.filter(user=self.farmer1, title="Document Verified").exists())
+
+    def test_mao_can_return_document_for_revision_with_reason(self):
+        self.client.force_authenticate(user=self.mao_user)
+        reason = "The submitted ID is unreadable. Please upload a clearer copy."
+        response = self.client.patch(
+            f"/api/users/documents/{self.doc1.pk}/verification/",
+            {"status": "SUBJECT_TO_REVISION", "reason": reason},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.doc1.refresh_from_db()
+        self.assertEqual(self.doc1.verification_status, UserDocument.VerificationStatus.SUBJECT_TO_REVISION)
+        self.assertEqual(self.doc1.review_remarks, reason)
+        self.assertTrue(Notification.objects.filter(user=self.farmer1, title="Document Requires Revision").exists())
+
+    def test_return_for_revision_requires_reason(self):
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.patch(
+            f"/api/users/documents/{self.doc1.pk}/verification/",
+            {"status": "SUBJECT_TO_REVISION", "reason": ""},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unauthorized_users_cannot_verify_documents(self):
+        # Anonymous
+        response = self.client.patch(
+            f"/api/users/documents/{self.doc1.pk}/verification/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Farmer
+        self.client.force_authenticate(user=self.farmer1)
+        response = self.client.patch(
+            f"/api/users/documents/{self.doc1.pk}/verification/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # SIBAT
+        self.client.force_authenticate(user=self.sibat_user)
+        response = self.client.patch(
+            f"/api/users/documents/{self.doc1.pk}/verification/",
+            {"status": "APPROVED"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_document_secure_view_authorization(self):
+        url = f"/api/users/documents/{self.doc1.pk}/view/"
+
+        # Anonymous -> 401
+        self.assertEqual(self.client.get(url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Other farmer -> 403 (IDOR prevention)
+        self.client.force_authenticate(user=self.farmer2)
+        self.assertEqual(self.client.get(url).status_code, status.HTTP_403_FORBIDDEN)
+
+        # Owner farmer -> 200
+        self.client.force_authenticate(user=self.farmer1)
+        resp_owner = self.client.get(url)
+        self.assertEqual(resp_owner.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp_owner["Content-Type"], "application/pdf")
+
+        # MAO -> 200
+        self.client.force_authenticate(user=self.mao_user)
+        resp_mao = self.client.get(url)
+        self.assertEqual(resp_mao.status_code, status.HTTP_200_OK)
+
+    def test_cannot_approve_account_while_documents_pending_or_in_revision(self):
+        self.client.force_authenticate(user=self.mao_user)
+
+        # 1. Blocked while document is PENDING
+        resp = self.client.patch(f"/api/users/{self.farmer1.pk}/status/", {"status": "APPROVED"})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 2. Blocked while document is SUBJECT_TO_REVISION
+        self.doc1.verification_status = UserDocument.VerificationStatus.SUBJECT_TO_REVISION
+        self.doc1.save()
+        resp = self.client.patch(f"/api/users/{self.farmer1.pk}/status/", {"status": "APPROVED"})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 3. Allowed once document is APPROVED
+        self.doc1.verification_status = UserDocument.VerificationStatus.APPROVED
+        self.doc1.save()
+        resp = self.client.patch(f"/api/users/{self.farmer1.pk}/status/", {"status": "APPROVED"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.farmer1.refresh_from_db()
+        self.assertEqual(self.farmer1.account_status, User.AccountStatus.APPROVED)
+
