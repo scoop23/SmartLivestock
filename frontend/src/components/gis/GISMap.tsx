@@ -270,8 +270,13 @@ export function GISMap({
       if (data.milk <= 0) return 4;
       return Math.min(48, Math.max(6, Math.round(Math.log10(data.milk + 1) * 10)));
     }
-    if (activeLayer === 'meat') {
-      return data.meat > 0 ? Math.min(45, Math.max(6, Math.round(data.meat * 0.15))) : 4;
+    if (activeLayer === 'farmer_meat') {
+      const fm = data.farmer_meat || 0;
+      return fm > 0 ? Math.min(45, Math.max(6, Math.round(fm * 0.15))) : 4;
+    }
+    if (activeLayer === 'slaughter_yield' || activeLayer === 'meat') {
+      const sy = data.slaughter_yield ?? data.meat ?? 0;
+      return sy > 0 ? Math.min(45, Math.max(6, Math.round(sy * 0.15))) : 4;
     }
     if (activeLayer === 'mortality') {
       const deaths = getMortalityDeaths(data, selectedLivestockTypeRef.current);
@@ -329,10 +334,17 @@ export function GISMap({
     return '#e0f2fe';
   };
 
-  const getMeatColor = (meat: number): string => {
-    if (meat > 500) return '#7c1d00';
-    if (meat > 100) return '#dc2626';
-    if (meat > 0) return '#f87171';
+  const getFarmerMeatColor = (meat: number): string => {
+    if (meat > 500) return '#9a3412';
+    if (meat > 100) return '#c2410c';
+    if (meat > 0) return '#fb923c';
+    return '#fff7ed';
+  };
+
+  const getSlaughterYieldColor = (yieldVal: number): string => {
+    if (yieldVal > 500) return '#7c1d00';
+    if (yieldVal > 100) return '#dc2626';
+    if (yieldVal > 0) return '#f87171';
     return '#fecaca';
   };
 
@@ -355,8 +367,11 @@ export function GISMap({
         return getDiseaseColor(data.name, data.disease_risk);
       case 'milk':
         return getMilkColor(data.milk);
+      case 'farmer_meat':
+        return getFarmerMeatColor(data.farmer_meat || 0);
+      case 'slaughter_yield':
       case 'meat':
-        return getMeatColor(data.meat);
+        return getSlaughterYieldColor(data.slaughter_yield ?? data.meat ?? 0);
       case 'mortality':
         return getMortalityColor(getMortalityDeaths(data, selectedLivestockTypeRef.current));
       case 'movement':
@@ -449,8 +464,15 @@ export function GISMap({
       }
     } else if (layer === 'milk') {
       tooltipMetric = `${data.milk.toLocaleString()} L milk`;
-    } else if (layer === 'meat') {
-      tooltipMetric = data.meat > 0 ? `${data.meat} kg meat` : 'No slaughter data';
+    } else if (layer === 'farmer_meat') {
+      const fMeat = data.farmer_meat ?? 0;
+      tooltipMetric = fMeat > 0 ? `${fMeat.toLocaleString()} kg farm meat` : 'No farm meat reported';
+    } else if (layer === 'slaughter_yield' || layer === 'meat') {
+      const sYield = data.slaughter_yield ?? data.meat ?? 0;
+      const sHeads = data.slaughter_heads ?? 0;
+      tooltipMetric = sYield > 0
+        ? `${sYield.toLocaleString()} kg carcass yield (${sHeads} heads)`
+        : 'No slaughter data';
     } else if (layer === 'mortality') {
       const deaths = getMortalityDeaths(data, lType);
       const typeLabel = !lType || lType.toLowerCase() === 'cattle' ? 'Cattle' : lType === 'ALL' ? 'Livestock' : lType;
@@ -524,6 +546,8 @@ export function GISMap({
             recent_diseases: [],
             milk: 0,
             meat: 0,
+            farmer_meat: 0,
+            slaughter_yield: 0,
             slaughter_heads: 0,
             mortality: 0,
             mortality_causes: [],
@@ -561,6 +585,8 @@ export function GISMap({
               recent_diseases: [],
               milk: 0,
               meat: 0,
+              farmer_meat: 0,
+              slaughter_yield: 0,
               slaughter_heads: 0,
               mortality: 0,
               mortality_causes: [],
@@ -597,8 +623,12 @@ export function GISMap({
         }
       } else if (activeLayer === 'milk') {
         statText = b.milk > 0 ? `${(b.milk / 1000).toFixed(1)}k🥛` : '0🥛';
-      } else if (activeLayer === 'meat') {
-        statText = b.meat > 0 ? `${b.meat}🥩` : '—';
+      } else if (activeLayer === 'farmer_meat') {
+        const fm = b.farmer_meat ?? 0;
+        statText = fm > 0 ? `${fm >= 1000 ? (fm / 1000).toFixed(1) + 'k' : fm}🥩` : '—';
+      } else if (activeLayer === 'slaughter_yield' || activeLayer === 'meat') {
+        const sy = b.slaughter_yield ?? b.meat ?? 0;
+        statText = sy > 0 ? `${sy >= 1000 ? (sy / 1000).toFixed(1) + 'k' : sy}🔪` : '—';
       } else if (activeLayer === 'mortality') {
         const deaths = getMortalityDeaths(b, selectedLivestockType);
         statText = deaths > 0 ? `${deaths}☠️` : '0☠️';

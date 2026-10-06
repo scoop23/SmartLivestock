@@ -216,7 +216,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "scope": "MUNICIPAL",
             "allowed_barangays": set(OFFICIAL_BARANGAYS),
             "can_view_all_barangays": True,
-            "allowed_layers": ["cattle", "disease", "milk", "meat", "mortality", "movement"],
+            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D", "3D"],
             "can_use_simulation": True,
             "can_use_advanced_analytics": True,
@@ -242,7 +242,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "can_view_all_barangays": can_view_all,
             # SIBAT monitors field inventory, disease reports, production, mortality, and movement
             # But CANNOT use predictive/scenario simulation or municipal decision-support tools
-            "allowed_layers": ["cattle", "disease", "milk", "meat", "mortality", "movement"],
+            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,
@@ -263,9 +263,9 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "scope": "OWN_BARANGAY",
             "allowed_barangays": allowed_b,
             "can_view_all_barangays": False,
-            # Farmers see their community's aggregate livestock & milk production (safe aggregates)
-            # Strictly NO disease simulation, administrative surveillance, or out-of-barangay browsing
-            "allowed_layers": ["cattle", "milk"],
+            # Farmers see their community's aggregate livestock, milk, and farmer meat production (safe aggregates)
+            # Strictly NO slaughterhouse carcass records, disease simulation, or out-of-barangay browsing
+            "allowed_layers": ["cattle", "milk", "farmer_meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,
@@ -295,7 +295,8 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "allowed_barangays": set(OFFICIAL_BARANGAYS),
             "can_view_all_barangays": True,
             # Slaughterhouse staff tracks animal origin movements, carcass meat yield, and cattle counts
-            "allowed_layers": ["meat", "movement", "cattle"],
+            # Strictly NO on-farm farmer meat production data
+            "allowed_layers": ["slaughter_yield", "movement", "cattle", "meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,
@@ -362,8 +363,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "disease_risk": "low",
             "recent_diseases": [],
             "milk": 0.0,
-            "meat": 0.0,
+            "farmer_meat": 0.0,
+            "slaughter_yield": 0.0,
             "slaughter_heads": 0,
+            "meat": 0.0,  # Legacy alias for slaughter_yield
             "cheese": 0.0,  # Reserved for dairy cheese production
             "mortality": 0,
             "mortality_causes": [],
@@ -481,12 +484,45 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         if c_name and c_name in barangays_data:
             barangays_data[c_name]["milk"] = round(float(row["total_milk"] or 0.0), 2)
 
-    # 8. Aggregate Slaughter / Meat (Katay)
-    # DATA TRUST POLICY: Only officially approved slaughterhouse records
+    # 7b. Aggregate Farmer Meat Production (in Kilograms)
+    # DATA TRUST POLICY & SOURCE SEPARATION:
+    # -------------------------------------------------------------------------
+    # Farmer Meat Production (on-farm logs) vs. Slaughterhouse Yield (facility carcass weight).
+    # - Source: ProductionRecord with production_type = MEAT and unit = KILOGRAMS.
+    # - CRITICAL INVARIANT: slaughter__isnull=True guarantees that slaughter-projected
+    #   records are NOT included here, preventing double-counting.
+    # - Associated with farmer's registered barangay.
+    # - DATA TRUST: Only MAO-approved production records are included.
+    farmer_meat_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+        status=ProductionRecord.ProductionStatus.APPROVED,
+        production_type=ProductionRecord.ProductionType.MEAT,
+        unit=ProductionRecord.UnitType.KILOGRAMS,
+        slaughter__isnull=True,
+    )
+    farmer_meat_grouped = (
+        farmer_meat_qs.annotate(
+            b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
+        )
+        .values("b_id")
+        .annotate(total_farmer_meat=Sum("quantity"))
+    )
+    for row in farmer_meat_grouped:
+        c_name = pk_to_canonical.get(row["b_id"])
+        if c_name and c_name in barangays_data:
+            barangays_data[c_name]["farmer_meat"] = round(float(row["total_farmer_meat"] or 0.0), 2)
+
+    # 8. Aggregate Slaughterhouse Yield (Carcass Weight in Kilograms)
+    # DATA TRUST POLICY & SOURCE SEPARATION:
+    # -------------------------------------------------------------------------
+    # Represents official municipal slaughterhouse facility output (SlaughterRecord).
+    # This is NOT farmer-reported on-farm production.
+    # - carcass_weight tracks official inspected post-slaughter carcass weight.
+    # - quantity tracks slaughtered animal heads.
+    # - DATA TRUST: Only officially APPROVED slaughterhouse records.
     slaughter_qs = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
         status=SlaughterRecord.StatusType.APPROVED,
     )
-    meat_grouped = (
+    slaughter_grouped = (
         slaughter_qs.annotate(
             b_id=Coalesce("barangay_id", "batch__farmer__barangay_id", "livestock__farmer__barangay_id")
         )
@@ -496,11 +532,13 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             total_heads=Sum("quantity"),
         )
     )
-    for row in meat_grouped:
+    for row in slaughter_grouped:
         c_name = pk_to_canonical.get(row["b_id"])
         if c_name and c_name in barangays_data:
-            barangays_data[c_name]["meat"] = round(float(row["total_weight"] or 0.0), 2)
+            yield_val = round(float(row["total_weight"] or 0.0), 2)
+            barangays_data[c_name]["slaughter_yield"] = yield_val
             barangays_data[c_name]["slaughter_heads"] = row["total_heads"] or 0
+            barangays_data[c_name]["meat"] = yield_val  # Legacy alias for backward compatibility
 
     # 9. Aggregate Mortality Records
     # DATA TRUST POLICY & EDUCATIONAL CONCEPT:
@@ -655,11 +693,19 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             status=ProductionRecord.ProductionStatus.APPROVED,
             production_type=ProductionRecord.ProductionType.MILK,
         ).aggregate(s=Sum("quantity"))["s"] or 0.0
+        my_farmer_meat = ProductionRecord.objects.filter(
+            Q(livestock__farmer=fp) | Q(batch__farmer=fp),
+            status=ProductionRecord.ProductionStatus.APPROVED,
+            production_type=ProductionRecord.ProductionType.MEAT,
+            unit=ProductionRecord.UnitType.KILOGRAMS,
+            slaughter__isnull=True,
+        ).aggregate(s=Sum("quantity"))["s"] or 0.0
 
         farmer_stats = {
             "my_cattle": my_cattle,
             "my_total_livestock": my_total_livestock,
             "my_milk": round(float(my_milk), 2),
+            "my_farmer_meat": round(float(my_farmer_meat), 2),
             "my_barangay": list(allowed_barangays_set)[0] if allowed_barangays_set else "Registered Barangay",
         }
 
@@ -682,8 +728,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["disease_risk"] = "low"
             b_entry["recent_diseases"] = []
             b_entry["milk"] = 0.0
-            b_entry["meat"] = 0.0
+            b_entry["farmer_meat"] = 0.0
+            b_entry["slaughter_yield"] = 0.0
             b_entry["slaughter_heads"] = 0
+            b_entry["meat"] = 0.0
             b_entry["cheese"] = 0.0
             b_entry["mortality"] = 0
             b_entry["mortality_causes"] = []
@@ -708,9 +756,12 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         if "milk" not in allowed_layers:
             b_entry["milk"] = 0.0
             b_entry["cheese"] = 0.0
-        if "meat" not in allowed_layers:
-            b_entry["meat"] = 0.0
+        if "farmer_meat" not in allowed_layers:
+            b_entry["farmer_meat"] = 0.0
+        if "slaughter_yield" not in allowed_layers and "meat" not in allowed_layers:
+            b_entry["slaughter_yield"] = 0.0
             b_entry["slaughter_heads"] = 0
+            b_entry["meat"] = 0.0
         if "mortality" not in allowed_layers:
             b_entry["mortality"] = 0
             b_entry["mortality_causes"] = []
@@ -728,7 +779,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     total_livestock = sum(b["total_livestock"] for b in scoped_b)
     total_cattle = sum(b["cattle"] for b in scoped_b)
     total_milk = sum(b["milk"] for b in scoped_b)
-    total_meat = sum(b["meat"] for b in scoped_b)
+    total_farmer_meat = sum(b["farmer_meat"] for b in scoped_b)
+    total_slaughter_yield = sum(b["slaughter_yield"] for b in scoped_b)
+    total_slaughter_heads = sum(b["slaughter_heads"] for b in scoped_b)
+    total_meat = total_slaughter_yield  # Legacy alias for slaughterhouse yield
     total_disease = sum(b["disease_cases"] for b in scoped_b)
     total_active_disease = sum(b["active_cases"] for b in scoped_b)
     total_mortality = sum(b["mortality"] for b in scoped_b)
@@ -736,6 +790,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
 
     top_cattle = sorted(scoped_b, key=lambda x: x["cattle"], reverse=True)[:5]
     top_milk = sorted(scoped_b, key=lambda x: x["milk"], reverse=True)[:5]
+    top_farmer_meat = sorted(scoped_b, key=lambda x: x["farmer_meat"], reverse=True)[:5] if "farmer_meat" in allowed_layers else []
+    top_slaughter_yield = sorted(scoped_b, key=lambda x: x["slaughter_yield"], reverse=True)[:5] if ("slaughter_yield" in allowed_layers or "meat" in allowed_layers) else []
     alert_barangays = [b for b in scoped_b if b["active_cases"] > 0 or b["disease_cases"] > 0]
 
     # Structure Mortality Summary for GIS telemetry & Dashboard consumption
@@ -781,6 +837,9 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "total_cattle": total_cattle,
             "available_livestock_types": available_types,
             "total_milk": round(total_milk, 1),
+            "total_farmer_meat": round(total_farmer_meat, 1),
+            "total_slaughter_yield": round(total_slaughter_yield, 1),
+            "total_slaughter_heads": total_slaughter_heads,
             "total_meat": round(total_meat, 1),
             "total_disease_cases": total_disease,
             "active_disease_cases": total_active_disease,
@@ -793,6 +852,12 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             ],
             "top_milk": [
                 {"name": b["name"], "milk": b["milk"]} for b in top_milk
+            ],
+            "top_farmer_meat": [
+                {"name": b["name"], "farmer_meat": b["farmer_meat"]} for b in top_farmer_meat
+            ],
+            "top_slaughter_yield": [
+                {"name": b["name"], "slaughter_yield": b["slaughter_yield"], "slaughter_heads": b["slaughter_heads"]} for b in top_slaughter_yield
             ],
             "alert_barangays": [
                 {

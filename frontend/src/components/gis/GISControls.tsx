@@ -142,14 +142,19 @@ export function GISControls({
     { id: 'cattle', label: livestockLabel, icon: '🐄' },
     { id: 'disease', label: 'Disease', icon: '🩺' },
     { id: 'milk', label: 'Dairy Milk', icon: '🥛' },
-    { id: 'meat', label: 'Meat Yield', icon: '🥩' },
+    { id: 'farmer_meat', label: 'Farmer Meat', icon: '🥩' },
+    { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
     { id: 'mortality', label: 'Mortality', icon: '☠️' },
     { id: 'movement', label: 'Movement', icon: '🚛' },
   ];
 
   // Filter layers according to user's authorized role scope
   const layerOptions = userScope?.allowed_layers
-    ? allLayerOptions.filter((opt) => userScope.allowed_layers.includes(opt.id))
+    ? allLayerOptions.filter(
+        (opt) =>
+          userScope.allowed_layers.includes(opt.id) ||
+          (opt.id === 'slaughter_yield' && userScope.allowed_layers.includes('meat' as MapLayer))
+      )
     : allLayerOptions;
 
   const activeOption = layerOptions.find((opt) => opt.id === currentLayer) || layerOptions[0] || allLayerOptions[0];

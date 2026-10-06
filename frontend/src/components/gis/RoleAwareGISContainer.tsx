@@ -69,6 +69,9 @@ const DEFAULT_SUMMARY: MunicipalSummary = {
   total_cattle: 0,
   total_milk: 0,
   total_meat: 0,
+  total_farmer_meat: 0,
+  total_slaughter_yield: 0,
+  total_slaughter_heads: 0,
   total_disease_cases: 0,
   active_disease_cases: 0,
   total_mortality: 0,
@@ -76,6 +79,8 @@ const DEFAULT_SUMMARY: MunicipalSummary = {
   total_movements: 0,
   top_cattle: [],
   top_milk: [],
+  top_farmer_meat: [],
+  top_slaughter_yield: [],
   alert_barangays: [],
 };
 
