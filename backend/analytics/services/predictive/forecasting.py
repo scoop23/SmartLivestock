@@ -62,7 +62,8 @@ def generate_future_forecast(
     if eval_res.get("status") == "insufficient_data":
         return eval_res
 
-    selected_model_name = preferred_model or eval_res["selection"]["selected_model"] or "Linear Regression"
+    # Select the winning model (or honor user's explicit preference if requested)
+    selected_model_name = preferred_model or eval_res.get("selection", {}).get("selected_model") or "Naive Baseline"
 
     # Step 2: Extract the full historical dataset
     df, meta = extract_monthly_series(
@@ -163,16 +164,11 @@ def generate_future_forecast(
     combined_timeline = historical_timeline + future_timeline
 
     # 4. Summary Metrics & Change Analysis:
-    # Compare the recent 3-month actual baseline with the upcoming forecast average.
-    # This provides municipal officers with a quick indicator of expected growth or decline.
     recent_baseline = float(df["quantity"].iloc[-3:].mean())
     forecast_avg = float(np.mean(predicted_values)) if predicted_values else recent_baseline
     pct_change = round(((forecast_avg - recent_baseline) / recent_baseline) * 100, 1) if recent_baseline > 0 else 0.0
 
     # 5. Connect Active Model Evaluation Metrics:
-    # Instead of forcing the frontend to query a separate endpoint or invent fake numbers,
-    # we find the evaluated test metrics (MAE, RMSE, R²) for the exact winning model
-    # and embed them directly into this forecast response.
     active_metrics = {"mae": None, "rmse": None, "r2": None}
     for m in eval_res.get("models", []):
         if m.get("name") == selected_model_name:
@@ -183,13 +179,31 @@ def generate_future_forecast(
             }
             break
 
+    # Determine forecast source and baseline comparison metadata
+    forecast_source = (
+        "NAIVE_BASELINE"
+        if selected_model_name == "Naive Baseline"
+        else "MACHINE_LEARNING"
+    )
+    baseline_comparison = eval_res.get("selection", {}).get(
+        "baseline_comparison",
+        "BASELINE_BEST" if selected_model_name == "Naive Baseline" else "MODEL_BEATS_BASELINE"
+    )
+
     # 6. Build Standardized API Response Payload:
     return {
         "status": "ready",
         "forecast_available": True,
+        "readiness_status": eval_res.get("readiness_status", "READY"),
+        "readiness_details": eval_res.get("readiness_details", ""),
         "domain": domain,
         "scope": meta.get("scope", f"Municipal {domain}"),
         "model": selected_model_name,
+        "forecast_source": forecast_source,
+        "baseline_comparison": baseline_comparison,
+        "baseline_model": "Naive Baseline",
+        "baseline_mae": eval_res.get("selection", {}).get("baseline_mae"),
+        "selected_model_mae": active_metrics.get("mae"),
         "metrics": active_metrics,
         "target": {
             "domain": domain,
@@ -198,10 +212,20 @@ def generate_future_forecast(
             "unit": unit,
             "frequency": "MONTHLY",
         },
+        "data_provenance": {
+            "total_observations": len(df),
+            "historical_start_date": meta.get("start_date"),
+            "historical_end_date": meta.get("end_date"),
+            "train_period": eval_res.get("data", {}).get("train_period"),
+            "test_period": eval_res.get("data", {}).get("test_period"),
+            "is_seeded": meta["is_seeded"],
+            "seed_marker": meta.get("seed_marker"),
+        },
         "metadata": {
             "horizon_months": horizon,
             "is_seeded": meta["is_seeded"],
             "seed_marker": meta.get("seed_marker"),
+            "historical_start_date": meta.get("start_date"),
             "last_historical_date": last_date.strftime("%Y-%m-%d"),
             "recent_baseline_avg": round(recent_baseline, 1),
             "forecast_period_avg": round(forecast_avg, 1),

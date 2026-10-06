@@ -65,7 +65,51 @@ from analytics.seed_markers import (
 SEED_MARKER_V2 = SEED_MARKER_PRODUCTION_V2
 SEED_MARKER_LEGACY = SEED_MARKER_PRODUCTION_LEGACY
 SEED_MARKER = SEED_MARKER_V2
-MIN_OBSERVATIONS_REQUIRED = 12  # Minimum monthly points to perform a meaningful train/test comparison
+
+# -----------------------------------------------------------------------------
+# MODEL & DATA READINESS THRESHOLDS (Capstone Defense Concept)
+# -----------------------------------------------------------------------------
+# 1. NOT_READY (< 12 observations):
+#    Fewer than 12 historical monthly points. Cannot establish a reliable
+#    chronological train/test split without severe overfitting or fabricating data.
+# 2. READY (12 - 23 observations):
+#    Minimal data available (at least 1 full annual cycle). Allows chronological
+#    holdout evaluation and baseline comparison, but sample size is still limited.
+# 3. QUALITY_READY (>= 24 observations):
+#    Two or more full annual cycles. Supports full seasonal decomposition
+#    (e.g., Holt-Winters 12-month periodicity) and higher confidence in evaluation metrics.
+# -----------------------------------------------------------------------------
+READINESS_NOT_READY = "NOT_READY"
+READINESS_READY = "READY"
+READINESS_QUALITY_READY = "QUALITY_READY"
+
+MIN_OBSERVATIONS_REQUIRED = 12
+QUALITY_OBSERVATIONS_THRESHOLD = 24
+
+
+def get_readiness_status(observation_count: int) -> Tuple[str, str]:
+    """
+    Computes deterministic model/data readiness state:
+    - NOT_READY (< 12 observations): Insufficient data to perform chronological split and train/test evaluation.
+    - READY (12 - 23 observations): Minimal data available for baseline and model training, but sample is limited.
+    - QUALITY_READY (>= 24 observations): Two or more annual cycles available, supporting full 12-month seasonality
+      and robust out-of-sample evaluation.
+    """
+    if observation_count < MIN_OBSERVATIONS_REQUIRED:
+        return (
+            READINESS_NOT_READY,
+            f"Found {observation_count} monthly observation(s). At least {MIN_OBSERVATIONS_REQUIRED} required.",
+        )
+    elif observation_count < QUALITY_OBSERVATIONS_THRESHOLD:
+        return (
+            READINESS_READY,
+            f"Found {observation_count} monthly observations. Adequate for chronological split and initial model evaluation.",
+        )
+    else:
+        return (
+            READINESS_QUALITY_READY,
+            f"Found {observation_count} monthly observations (>= 2 full annual cycles). Supports seasonal decomposition and robust evaluation.",
+        )
 
 
 def extract_monthly_series(
@@ -293,6 +337,9 @@ def extract_monthly_series(
     }
     domain_scope = domain_scopes.get(domain, f"Municipal {domain} aggregate")
 
+    # Compute deterministic readiness status & explanatory message
+    readiness_status, readiness_message = get_readiness_status(len(records))
+
     # Build standardized metadata dictionary passed downstream to evaluation and forecasting
     metadata = {
         "domain": domain,
@@ -308,6 +355,9 @@ def extract_monthly_series(
         "available_observations": len(records),
         "required_observations": MIN_OBSERVATIONS_REQUIRED,
         "min_observations_required": MIN_OBSERVATIONS_REQUIRED,
+        "quality_observations_threshold": QUALITY_OBSERVATIONS_THRESHOLD,
+        "readiness_status": readiness_status,
+        "readiness_details": readiness_message,
         "historical_trend": historical_trend_points,
     }
 
@@ -317,6 +367,7 @@ def extract_monthly_series(
     if len(records) < MIN_OBSERVATIONS_REQUIRED:
         metadata["status"] = "insufficient_data"
         metadata["forecast_available"] = False
+        metadata["readiness_status"] = READINESS_NOT_READY
         metadata["message"] = (
             f"Insufficient historical data for {domain.title()} ({target_clean}): Found {len(records)} "
             f"monthly observation(s). At least {MIN_OBSERVATIONS_REQUIRED} monthly observations are required "

@@ -75,9 +75,19 @@ interface HistoricalTrendPoint {
 
 // EvaluationResponse:
 // Shape of the response from GET /api/analytics/predictive/evaluate/
-// Contains model comparison benchmarks and data sufficiency status.
+// Contains model comparison benchmarks, baseline superiority check, data provenance, and readiness status.
 interface EvaluationResponse {
   status: "ready" | "insufficient_data" | "error";
+  readiness_status?: "NOT_READY" | "READY" | "QUALITY_READY";
+  readiness_details?: string;
+  quality_observations_threshold?: number;
+  historical_start_date?: string;
+  historical_end_date?: string;
+  baseline_comparison?: "MODEL_BEATS_BASELINE" | "BASELINE_BEST" | "INSUFFICIENT_DATA";
+  forecast_source?: "MACHINE_LEARNING" | "NAIVE_BASELINE" | "NONE";
+  baseline_model?: string;
+  baseline_mae?: number | null;
+  selected_model_mae?: number | null;
   forecast_available?: boolean;
   domain?: string;
   scope?: string;
@@ -114,6 +124,27 @@ interface EvaluationResponse {
     };
     historical_trend?: HistoricalTrendPoint[];
   };
+  data_provenance?: {
+    domain?: string;
+    target?: string;
+    unit?: string;
+    scope?: string;
+    total_observations: number;
+    historical_start_date?: string;
+    historical_end_date?: string;
+    train_period?: {
+      start_month: string;
+      end_month: string;
+      observations: number;
+    };
+    test_period?: {
+      start_month: string;
+      end_month: string;
+      observations: number;
+    };
+    is_seeded?: boolean;
+    seed_marker?: string;
+  };
   historical_trend?: HistoricalTrendPoint[];
   selection?: {
     criterion: string;
@@ -138,6 +169,13 @@ interface ChartTimelinePoint {
 
 interface ForecastResponse {
   status: "ready" | "insufficient_data" | "error";
+  readiness_status?: "NOT_READY" | "READY" | "QUALITY_READY";
+  readiness_details?: string;
+  baseline_comparison?: "MODEL_BEATS_BASELINE" | "BASELINE_BEST" | "INSUFFICIENT_DATA";
+  forecast_source?: "MACHINE_LEARNING" | "NAIVE_BASELINE" | "NONE";
+  baseline_model?: string;
+  baseline_mae?: number | null;
+  selected_model_mae?: number | null;
   forecast_available?: boolean;
   domain?: string;
   scope?: string;
@@ -162,6 +200,27 @@ interface ForecastResponse {
     forecast_period_avg: number;
     projected_change_pct: number;
   };
+  data_provenance?: {
+    domain?: string;
+    target?: string;
+    unit?: string;
+    scope?: string;
+    total_observations: number;
+    historical_start_date?: string;
+    historical_end_date?: string;
+    train_period?: {
+      start_month: string;
+      end_month: string;
+      observations: number;
+    };
+    test_period?: {
+      start_month: string;
+      end_month: string;
+      observations: number;
+    };
+    is_seeded?: boolean;
+    seed_marker?: string;
+  };
   evaluation_summary?: {
     criterion: string;
     selected_model: string;
@@ -183,8 +242,38 @@ interface NormalizedPredictiveView {
   unit: string;
   unitLabel: string;
   insufficientData: boolean;
+  readinessStatus: "NOT_READY" | "READY" | "QUALITY_READY";
+  readinessDetails?: string;
+  baselineComparison?: "MODEL_BEATS_BASELINE" | "BASELINE_BEST" | "INSUFFICIENT_DATA";
+  forecastSource?: "MACHINE_LEARNING" | "NAIVE_BASELINE" | "NONE";
+  baselineModel?: string;
+  baselineMae?: number | null;
+  selectedModelMae?: number | null;
   availableObservations: number;
   requiredObservations: number;
+  historicalStartDate?: string;
+  historicalEndDate?: string;
+  dataProvenance?: {
+    domain?: string;
+    target?: string;
+    unit?: string;
+    scope?: string;
+    total_observations: number;
+    historical_start_date?: string;
+    historical_end_date?: string;
+    train_period?: {
+      start_month: string;
+      end_month: string;
+      observations: number;
+    };
+    test_period?: {
+      start_month: string;
+      end_month: string;
+      observations: number;
+    };
+    is_seeded?: boolean;
+    seed_marker?: string;
+  };
   message?: string;
   historical: HistoricalTrendPoint[];
   forecast: ForecastPoint[];
@@ -588,14 +677,58 @@ export default function PredictiveAnalyticsView() {
             forecast: null,
           }));
 
-    // 4. Identify the active model (user selection or lowest-MAE holdout winner chosen by backend)
+    // 4. Determine Readiness Status (3 deterministic tiers: NOT_READY, READY, QUALITY_READY)
+    const readinessStatus: "NOT_READY" | "READY" | "QUALITY_READY" =
+      evalData?.readiness_status ??
+      forecastData?.readiness_status ??
+      (isInsufficient ? "NOT_READY" : availableObs >= 24 ? "QUALITY_READY" : "READY");
+
+    const readinessDetails =
+      evalData?.readiness_details ??
+      forecastData?.readiness_details ??
+      (readinessStatus === "QUALITY_READY"
+        ? "Dataset includes 2+ annual cycles (24+ months) for seasonal decomposition."
+        : readinessStatus === "READY"
+        ? "Dataset meets the 12-month minimum for 1-year seasonality and holdout evaluation."
+        : "Insufficient historical observations (< 12 months).");
+
+    // 5. Baseline Superiority & Winning Model Metadata
+    const baselineComparison =
+      evalData?.baseline_comparison ??
+      forecastData?.baseline_comparison ??
+      (isInsufficient ? "INSUFFICIENT_DATA" : undefined);
+
+    const forecastSource =
+      evalData?.forecast_source ??
+      forecastData?.forecast_source ??
+      (isInsufficient ? "NONE" : "MACHINE_LEARNING");
+
+    const baselineModel = evalData?.baseline_model ?? forecastData?.baseline_model ?? "Naive Baseline";
+    const baselineMae = evalData?.baseline_mae ?? forecastData?.baseline_mae ?? null;
+    const selectedModelMae = evalData?.selected_model_mae ?? forecastData?.selected_model_mae ?? null;
+
+    const historicalStartDate =
+      evalData?.historical_start_date ??
+      evalData?.data_provenance?.historical_start_date ??
+      forecastData?.data_provenance?.historical_start_date ??
+      (historicalList.length > 0 ? historicalList[0].month_label : undefined);
+
+    const historicalEndDate =
+      evalData?.historical_end_date ??
+      evalData?.data_provenance?.historical_end_date ??
+      forecastData?.data_provenance?.historical_end_date ??
+      (historicalList.length > 0 ? historicalList[historicalList.length - 1].month_label : undefined);
+
+    const dataProvenance = evalData?.data_provenance ?? forecastData?.data_provenance;
+
+    // 6. Identify the active model (user selection or lowest-MAE holdout winner chosen by backend)
     const activeModelName =
       selectedModel ||
       forecastData?.model ||
       evalData?.selection?.selected_model ||
       "Best Evaluated Model";
 
-    // 5. Connect holdout test metrics (MAE, RMSE, R²) for the active model
+    // 7. Connect holdout test metrics (MAE, RMSE, R²) for the active model
     const evaluatedModelObj = evalData?.models?.find((m) => m.name === activeModelName);
     const metrics = {
       mae: evaluatedModelObj?.mae ?? forecastData?.metrics?.mae ?? null,
@@ -603,7 +736,7 @@ export default function PredictiveAnalyticsView() {
       r2: evaluatedModelObj?.r2 ?? forecastData?.metrics?.r2 ?? null,
     };
 
-    // 6. Map domain-specific display titles
+    // 8. Map domain-specific display titles
     let metricName = "";
     if (activeDomain === "production") {
       const prod = PRODUCTION_COMMODITIES.find((c) => c.type === productionType);
@@ -618,7 +751,7 @@ export default function PredictiveAnalyticsView() {
       metricName = unit === "PHP" ? "Commercial Trading Volume (PHP)" : "Live Animals Sold (Heads)";
     }
 
-    // 7. Explicit Scope Labeling:
+    // 9. Explicit Scope Labeling:
     // Clearly informs municipal users whether predictions are municipal aggregates or specific to facilities.
     const defaultScope =
       activeDomain === "disease"
@@ -640,8 +773,18 @@ export default function PredictiveAnalyticsView() {
       unit,
       unitLabel,
       insufficientData: isInsufficient,
+      readinessStatus,
+      readinessDetails,
+      baselineComparison,
+      forecastSource,
+      baselineModel,
+      baselineMae,
+      selectedModelMae,
       availableObservations: availableObs,
       requiredObservations: requiredObs,
+      historicalStartDate,
+      historicalEndDate,
+      dataProvenance,
       message: evalData?.message,
       historical: historicalList,
       forecast: forecastList,
@@ -993,9 +1136,17 @@ export default function PredictiveAnalyticsView() {
               <div className="space-y-4 w-full">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h3 className="font-bold text-slate-900 text-lg">
-                      Insufficient historical data
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-slate-900 text-lg">
+                        Insufficient historical data
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[11px]"
+                      >
+                        Status: NOT_READY (&lt;12 mos)
+                      </Badge>
+                    </div>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Scope: <span className="font-semibold text-slate-700">{normalized.scope}</span>
                     </p>
@@ -1006,7 +1157,7 @@ export default function PredictiveAnalyticsView() {
                 </div>
 
                 <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                  There are currently not enough observations to generate a reliable forecast.
+                  There are currently not enough monthly observations to generate a mathematically defensible forecast.
                 </p>
 
                 {/* Available observations vs Required observations (12 required for 1-year annual seasonality) */}
@@ -1014,13 +1165,13 @@ export default function PredictiveAnalyticsView() {
                   <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/80 flex items-center justify-between">
                     <span className="text-xs text-amber-900 font-semibold">Available observations:</span>
                     <span className="text-base font-extrabold text-amber-950 font-mono">
-                      {normalized.availableObservations}
+                      {normalized.availableObservations} months
                     </span>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                     <span className="text-xs text-slate-700 font-semibold">Required observations:</span>
                     <span className="text-base font-extrabold text-slate-950 font-mono">
-                      {normalized.requiredObservations}
+                      {normalized.requiredObservations} months
                     </span>
                   </div>
                 </div>
@@ -1028,8 +1179,7 @@ export default function PredictiveAnalyticsView() {
                 <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200/60 text-xs text-amber-900 space-y-1.5">
                   <p className="font-semibold">Why is machine learning disabled?</p>
                   <p>
-                    Training regression models on sparse data (&lt; 12 points) leads to severe overfitting, high variance, and fabricated accuracy scores.
-                    In SmartLivestock, we never manufacture fake forecast curves or invent random data.
+                    {normalized.readinessDetails || "Training regression models on sparse data (< 12 points) leads to severe overfitting, high variance, and fabricated accuracy scores. In SmartLivestock, we never manufacture fake forecast curves or invent random data."}
                   </p>
                   <p className="pt-1 font-mono text-[11px] text-amber-800">
                     To test ML models on this domain using deterministic test data:
@@ -1284,6 +1434,93 @@ export default function PredictiveAnalyticsView() {
       {/* ------------------------------------------------------------------ */}
       {!loading && !error && evalData?.status === "ready" && (
         <div className="space-y-6 animate-in fade-in duration-300">
+          {/* FORECAST READINESS & DATA PROVENANCE CARD */}
+          <Card className="rounded-2xl border-slate-200 bg-white shadow-xs overflow-hidden">
+            <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Database className="size-4 text-emerald-700" />
+                  <CardTitle className="text-sm font-bold text-slate-900">
+                    Dataset Readiness & Model Provenance
+                  </CardTitle>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    className={
+                      normalized.readinessStatus === "QUALITY_READY"
+                        ? "bg-emerald-700 text-white font-bold text-xs"
+                        : normalized.readinessStatus === "READY"
+                        ? "bg-blue-700 text-white font-bold text-xs"
+                        : "bg-amber-600 text-white font-bold text-xs"
+                    }
+                  >
+                    Readiness: {normalized.readinessStatus}
+                  </Badge>
+                  {normalized.baselineComparison === "MODEL_BEATS_BASELINE" && (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs">
+                      ★ ML Beats Baseline
+                    </Badge>
+                  )}
+                  {normalized.baselineComparison === "BASELINE_BEST" && (
+                    <Badge className="bg-slate-100 text-slate-800 border-slate-300 font-bold text-xs">
+                      ⚡ Baseline Performs Best
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                <span className="text-slate-500 font-medium">Historical Observations</span>
+                <p className="text-sm font-bold text-slate-900 font-mono">
+                  {normalized.availableObservations} months
+                </p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {normalized.historicalStartDate || "—"} to {normalized.historicalEndDate || "—"}
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                <span className="text-slate-500 font-medium">Evaluation Split</span>
+                <p className="text-sm font-bold text-slate-900 font-mono">
+                  {evalData?.data?.training_observations ?? evalData?.data_provenance?.train_period?.observations ?? "—"} train / {evalData?.data?.test_observations ?? evalData?.data_provenance?.test_period?.observations ?? "—"} test
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Chronological holdout split
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                <span className="text-slate-500 font-medium">Operational Forecast Source</span>
+                <p className="text-sm font-bold text-slate-900 truncate">
+                  {normalized.forecastSource === "NAIVE_BASELINE"
+                    ? "Naive Baseline (Persistence)"
+                    : `Machine Learning (${normalized.model})`}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Horizon: +{horizon} months projection
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                <span className="text-slate-500 font-medium">Baseline Benchmark (MAE)</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold font-mono text-slate-900">
+                    {typeof normalized.baselineMae === "number" ? `${normalized.baselineMae.toFixed(2)} ${normalized.unit}` : "—"}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    vs {typeof normalized.selectedModelMae === "number" ? `${normalized.selectedModelMae.toFixed(2)}` : "—"} ML
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {normalized.baselineComparison === "MODEL_BEATS_BASELINE"
+                    ? "ML error lower than baseline"
+                    : "Baseline error lower or equal"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* CHART 6 & SUMMARY METRICS: FORECAST CHANGE VS BASELINE CARD */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="rounded-2xl border-slate-200 shadow-xs">
@@ -1775,26 +2012,69 @@ export default function PredictiveAnalyticsView() {
           {/* 7. CANDIDATE MODEL COMPARISON TABLE */}
           <Card className="rounded-2xl border-slate-200 shadow-xs">
             <CardHeader className="pb-3 border-b border-slate-100">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <Database className="size-5 text-emerald-700" />
-                    Candidate Model Performance & Selection Rationale
+                    Candidate Model Benchmarks & Baseline Superiority Check
                   </CardTitle>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Chronological holdout split: {evalData.data?.training_observations} train months |{" "}
-                    {evalData.data?.test_observations} test months.
+                    Chronological holdout split: {evalData.data?.training_observations ?? evalData.data_provenance?.train_period?.observations} train months |{" "}
+                    {evalData.data?.test_observations ?? evalData.data_provenance?.test_period?.observations} test months.
                   </p>
                 </div>
-                {winningModel && (
-                  <Badge className="bg-emerald-700 text-white font-semibold">
-                    Winner: {winningModel.name}
+                <div className="flex items-center gap-2">
+                  {winningModel && (
+                    <Badge
+                      className={
+                        normalized.baselineComparison === "BASELINE_BEST"
+                          ? "bg-slate-800 text-white font-semibold text-xs"
+                          : "bg-emerald-700 text-white font-semibold text-xs"
+                      }
+                    >
+                      {normalized.baselineComparison === "BASELINE_BEST"
+                        ? "Best: Naive Baseline"
+                        : `Best: ${winningModel.name}`}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="bg-slate-50 text-slate-700 text-xs">
+                    Source: {normalized.forecastSource === "NAIVE_BASELINE" ? "Naive Baseline" : "Machine Learning Model"}
                   </Badge>
-                )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="pt-4">
-              <div className="p-3 bg-emerald-50/70 border border-emerald-200/60 rounded-xl text-xs text-emerald-950 mb-4">
+              {/* Baseline Superiority Summary Banner */}
+              <div
+                className={`p-3 rounded-xl border text-xs mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                  normalized.baselineComparison === "MODEL_BEATS_BASELINE"
+                    ? "bg-emerald-50/80 border-emerald-200 text-emerald-950"
+                    : "bg-slate-50 border-slate-200 text-slate-900"
+                }`}
+              >
+                <div>
+                  <span className="font-bold flex items-center gap-1.5">
+                    {normalized.baselineComparison === "MODEL_BEATS_BASELINE" ? (
+                      <>
+                        <CheckCircle2 className="size-4 text-emerald-600" />
+                        Model Beats Baseline: {winningModel?.name || normalized.model} outperforms persistence
+                      </>
+                    ) : (
+                      <>
+                        <Info className="size-4 text-slate-600" />
+                        Baseline Performs Best: Naive Baseline achieves lowest test error
+                      </>
+                    )}
+                  </span>
+                  <p className="text-[11px] mt-0.5 opacity-90">
+                    {normalized.baselineComparison === "MODEL_BEATS_BASELINE"
+                      ? `Candidate ML model achieved MAE of ${normalized.selectedModelMae?.toFixed(2)} ${normalized.unit} (vs Naive Baseline MAE of ${normalized.baselineMae?.toFixed(2)} ${normalized.unit}). ML forecast is used operationally.`
+                      : `Naive Baseline achieved MAE of ${normalized.baselineMae?.toFixed(2)} ${normalized.unit}. Since ML models did not improve upon the persistence baseline, the baseline is selected for operational forecasts to prevent overfitting.`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-800 mb-4">
                 <span className="font-semibold block mb-0.5">Selection Rationale:</span>
                 {evalData.selection?.rationale}
               </div>

@@ -101,11 +101,13 @@ def evaluate_all_models(
     if df is None:
         # INSUFFICIENT DATA FLOW:
         # When len(records) < 12, data extraction returns df=None and metadata with status='insufficient_data'.
-        # We pass available_observations and required_observations (12) directly to the API response.
+        # We pass available_observations, required_observations (12), and readiness_status ('NOT_READY').
         # This allows the React UI to explain clearly to the user why forecasting cannot run yet.
         return {
             "status": "insufficient_data",
             "forecast_available": False,
+            "readiness_status": meta.get("readiness_status", "NOT_READY"),
+            "readiness_details": meta.get("readiness_details", "Insufficient historical observations."),
             "domain": domain,
             "scope": meta.get("scope", f"Municipal {domain}"),
             "target": {
@@ -116,9 +118,20 @@ def evaluate_all_models(
             },
             "available_observations": meta.get("available_observations", 0),
             "required_observations": meta.get("required_observations", 12),
+            "quality_observations_threshold": meta.get("quality_observations_threshold", 24),
             "message": meta.get("message", "Insufficient historical observations."),
             "historical_trend": meta.get("historical_trend", []),
             "data": meta,
+            "selection": {
+                "criterion": "Lowest validation MAE on chronological test holdout (with Baseline Superiority verification)",
+                "selected_model": None,
+                "baseline_model": "Naive Baseline",
+                "baseline_mae": None,
+                "selected_model_mae": None,
+                "baseline_comparison": "INSUFFICIENT_DATA",
+                "forecast_source": "NONE",
+                "rationale": "Insufficient historical observations to train and benchmark models.",
+            },
             "models": [],
         }
 
@@ -263,21 +276,77 @@ def evaluate_all_models(
         })
 
     # ---------------------------------------------------------
-    # Model Selection: Lowest Validation MAE
+    # Baseline Superiority & Model Selection (MAE-based)
     # ---------------------------------------------------------
-    # Filter only successfully evaluated models
+    # In time-series forecasting, the Naive (Persistence) Baseline represents the
+    # foundational benchmark. If a sophisticated statistical or ML model (Linear Regression,
+    # Random Forest, ARIMA, Holt-Winters) fails to achieve a lower MAE than the Naive Baseline,
+    # claiming the ML model is superior is statistically dishonest.
+    # In that event:
+    # 1. baseline_comparison is marked 'BASELINE_BEST'.
+    # 2. The operational selected model defaults to 'Naive Baseline'.
+    # 3. forecast_source is marked 'NAIVE_BASELINE'.
+    # If an ML model beats the baseline:
+    # 1. baseline_comparison is marked 'MODEL_BEATS_BASELINE'.
+    # 2. The operational selected model is set to the winning ML model.
+    # 3. forecast_source is marked 'MACHINE_LEARNING'.
+
     valid_models = [m for m in models_results if m.get("mae") is not None]
+    naive_model = next((m for m in valid_models if m["name"] == "Naive Baseline"), None)
+    naive_mae = naive_model["mae"] if naive_model else None
+
+    ml_models = [m for m in valid_models if m["name"] != "Naive Baseline"]
 
     selected_model_name = None
-    selection_criterion = "Lowest validation MAE on unseen test period"
+    selected_model_mae = None
+    baseline_comparison = "INSUFFICIENT_DATA"
+    forecast_source = "NONE"
+    selection_criterion = "Lowest validation MAE on chronological test holdout (with Baseline Superiority verification)"
 
-    if valid_models:
-        best_model = min(valid_models, key=lambda m: m["mae"])
-        selected_model_name = best_model["name"]
-        for m in models_results:
-            m["is_selected"] = (m["name"] == selected_model_name)
+    if ml_models and naive_model:
+        best_ml = min(ml_models, key=lambda m: m["mae"])
+        best_ml_mae = best_ml["mae"]
+
+        if naive_mae is not None and naive_mae <= best_ml_mae:
+            # Baseline performs better or equal -> do not use an inferior ML model
+            selected_model_name = "Naive Baseline"
+            selected_model_mae = naive_mae
+            baseline_comparison = "BASELINE_BEST"
+            forecast_source = "NAIVE_BASELINE"
+            rationale = (
+                f"Naive Baseline achieved lower or equal validation MAE ({naive_mae} {unit}) "
+                f"compared to advanced models (best ML was {best_ml['name']} at {best_ml_mae} {unit}). "
+                f"Operational forecast defaults to Naive Baseline to prevent overconfident projections."
+            )
+        else:
+            # ML model beats baseline!
+            selected_model_name = best_ml["name"]
+            selected_model_mae = best_ml_mae
+            baseline_comparison = "MODEL_BEATS_BASELINE"
+            forecast_source = "MACHINE_LEARNING"
+            improvement_pct = round(((naive_mae - best_ml_mae) / naive_mae) * 100, 1) if (naive_mae and naive_mae > 0) else 0.0
+            rationale = (
+                f"Selected '{selected_model_name}' because it beats the Naive Baseline (MAE {selected_model_mae} vs {naive_mae} {unit}, "
+                f"{improvement_pct}% error reduction) on the chronological test holdout."
+            )
+    elif naive_model:
+        selected_model_name = "Naive Baseline"
+        selected_model_mae = naive_mae
+        baseline_comparison = "BASELINE_BEST"
+        forecast_source = "NAIVE_BASELINE"
+        rationale = "Only Naive Baseline evaluated successfully."
+    elif ml_models:
+        best_ml = min(ml_models, key=lambda m: m["mae"])
+        selected_model_name = best_ml["name"]
+        selected_model_mae = best_ml["mae"]
+        baseline_comparison = "MODEL_BEATS_BASELINE"
+        forecast_source = "MACHINE_LEARNING"
+        rationale = f"Selected '{selected_model_name}' with test MAE {selected_model_mae} {unit}."
     else:
-        best_model = None
+        rationale = "No model evaluated successfully."
+
+    for m in models_results:
+        m["is_selected"] = (m["name"] == selected_model_name)
 
     test_period_info = {
         "start_month": test_feat["month"].min().strftime("%Y-%m-%d"),
@@ -296,9 +365,13 @@ def evaluate_all_models(
     return {
         "status": "ready",
         "forecast_available": True,
+        "readiness_status": meta.get("readiness_status", "READY"),
+        "readiness_details": meta.get("readiness_details", ""),
         "domain": domain,
         "scope": meta.get("scope", f"Municipal {domain}"),
         "available_observations": len(df),
+        "required_observations": meta.get("required_observations", 12),
+        "quality_observations_threshold": meta.get("quality_observations_threshold", 24),
         "target": {
             "domain": domain,
             "target": effective_target,
@@ -310,6 +383,8 @@ def evaluate_all_models(
             "total_observations": len(df),
             "training_observations": len(train_feat),
             "test_observations": len(test_feat),
+            "start_date": meta.get("start_date"),
+            "end_date": meta.get("end_date"),
             "train_period": train_period_info,
             "test_period": test_period_info,
             "is_seeded": meta["is_seeded"],
@@ -318,12 +393,12 @@ def evaluate_all_models(
         "selection": {
             "criterion": selection_criterion,
             "selected_model": selected_model_name,
-            "rationale": (
-                f"Selected '{selected_model_name}' because it achieved the lowest test MAE "
-                f"({best_model['mae']} {unit}) on the chronological test split."
-                if best_model
-                else "No model evaluated successfully."
-            ),
+            "baseline_model": "Naive Baseline",
+            "baseline_mae": naive_mae,
+            "selected_model_mae": selected_model_mae,
+            "baseline_comparison": baseline_comparison,
+            "forecast_source": forecast_source,
+            "rationale": rationale,
         },
         "models": models_results,
     }

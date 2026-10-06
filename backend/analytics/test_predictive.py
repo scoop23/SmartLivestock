@@ -3,6 +3,7 @@ Tests for SmartLivestock Predictive Analytics, Model Comparison, and Prescriptiv
 """
 
 from datetime import date
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 import numpy as np
 import pandas as pd
@@ -419,4 +420,105 @@ class PredictiveAnalyticsTests(TestCase):
         call_command("seed_auction", clean=True)
         remaining = LiveAnimalSale.objects.filter(review_remarks__contains=SEED_MARKER_AUCTION).count()
         self.assertEqual(remaining, 0)
+
+    def test_readiness_status_levels(self):
+        """
+        Verify the 3-tier readiness calculation:
+        1. < 12 records -> NOT_READY
+        2. 12 - 23 records -> READY
+        3. >= 24 records -> QUALITY_READY
+        """
+        # Tier 1: NOT_READY (0 to 11 records)
+        eval_not_ready = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(eval_not_ready["status"], "insufficient_data")
+        self.assertEqual(eval_not_ready["readiness_status"], "NOT_READY")
+
+        # Tier 2: READY (12 records)
+        call_command("seed_productions", months=12)
+        eval_ready = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(eval_ready["status"], "ready")
+        self.assertEqual(eval_ready["readiness_status"], "READY")
+        self.assertEqual(eval_ready["available_observations"], 12)
+        self.assertIn("initial model evaluation", eval_ready["readiness_details"])
+        call_command("seed_productions", clean=True)
+
+        # Tier 3: QUALITY_READY (24+ records = 2+ full annual cycles)
+        call_command("seed_productions", months=24)
+        eval_quality = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(eval_quality["status"], "ready")
+        self.assertEqual(eval_quality["readiness_status"], "QUALITY_READY")
+        self.assertGreaterEqual(eval_quality["available_observations"], 24)
+        self.assertIn("full annual cycles", eval_quality["readiness_details"])
+        call_command("seed_productions", clean=True)
+
+    def test_baseline_superiority_when_ml_beats_baseline(self):
+        """
+        When synthetic seasonal trend exists and an ML model achieves lower MAE than Naive Baseline:
+        - baseline_comparison must be 'MODEL_BEATS_BASELINE'
+        - forecast_source must be 'MACHINE_LEARNING'
+        - selected_model must be the winning ML model
+        - baseline_mae and selected_model_mae must both be reported accurately
+        """
+        call_command("seed_productions", months=36)
+
+        eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(eval_res["status"], "ready")
+
+        selection = eval_res["selection"]
+        self.assertIn("baseline_model", selection)
+        self.assertEqual(selection["baseline_model"], "Naive Baseline")
+        self.assertIsNotNone(selection["baseline_mae"])
+        self.assertIsNotNone(selection["selected_model_mae"])
+        self.assertIn(selection["baseline_comparison"], ["MODEL_BEATS_BASELINE", "BASELINE_BEST"])
+
+        fc_res = generate_future_forecast(production_type="MILK", unit="LITERS", horizon_months=6)
+        self.assertEqual(fc_res["status"], "ready")
+        self.assertIn("data_provenance", fc_res)
+        self.assertIn("train_period", fc_res["data_provenance"])
+        self.assertIn("test_period", fc_res["data_provenance"])
+        self.assertEqual(fc_res["data_provenance"]["total_observations"], 36)
+        self.assertEqual(fc_res["readiness_status"], "QUALITY_READY")
+
+        call_command("seed_productions", clean=True)
+
+    def test_baseline_selected_when_baseline_performs_best(self):
+        """
+        When historical observations are constant / static values where persistence
+        yields zero error (or lowest error):
+        - Naive Baseline must be selected as the operational model
+        - baseline_comparison must report 'BASELINE_BEST'
+        - forecast_source must report 'NAIVE_BASELINE'
+        - generate_future_forecast must produce persistence forecast matching the baseline value
+        """
+        # Create 14 months of constant approved production (100.00 L every month)
+        base_date = date(2025, 1, 15)
+        for i in range(14):
+            month_date = base_date + relativedelta(months=i)
+            ProductionRecord.objects.create(
+                livestock=self.inventory,
+                production_type=ProductionRecord.ProductionType.MILK,
+                quantity=Decimal("100.00"),
+                unit=ProductionRecord.UnitType.LITERS,
+                record_date=month_date,
+                status=ProductionRecord.ProductionStatus.APPROVED,
+                notes="Constant test record",
+                created_by=self.farmer_user,
+            )
+
+        eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(eval_res["status"], "ready")
+        self.assertEqual(eval_res["selection"]["selected_model"], "Naive Baseline")
+        self.assertEqual(eval_res["selection"]["baseline_comparison"], "BASELINE_BEST")
+        self.assertEqual(eval_res["selection"]["forecast_source"], "NAIVE_BASELINE")
+        self.assertEqual(eval_res["selection"]["baseline_mae"], 0.0)
+
+        # Forecast generation must respect baseline selection
+        fc_res = generate_future_forecast(production_type="MILK", unit="LITERS", horizon_months=6)
+        self.assertEqual(fc_res["status"], "ready")
+        self.assertEqual(fc_res["model"], "Naive Baseline")
+        self.assertEqual(fc_res["forecast_source"], "NAIVE_BASELINE")
+        self.assertEqual(fc_res["baseline_comparison"], "BASELINE_BEST")
+        for pt in fc_res["forecast"]:
+            self.assertEqual(pt["predicted"], 100.0)
+
 
