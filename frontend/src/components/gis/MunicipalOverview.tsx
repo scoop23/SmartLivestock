@@ -86,11 +86,19 @@ export function MunicipalOverview({
 }: MunicipalOverviewProps) {
   const maxCattle = summary.top_cattle[0]?.cattle || 1;
   const maxMilk = summary.top_milk[0]?.milk || 1;
+  const maxFarmerMeat = summary.top_farmer_meat?.[0]?.farmer_meat || 1;
+  const maxSlaughterYield = summary.top_slaughter_yield?.[0]?.slaughter_yield || 1;
 
   const isFarmer = userScope?.role === 'FARMER';
   const isAuction = userScope?.role === 'AUCTION';
   const isSlaughter = userScope?.role === 'SLAUGHTERHOUSESTAFF';
   const isSibat = userScope?.role === 'SIBAT';
+
+  const showFarmerMeat = !userScope || userScope.allowed_layers.includes('farmer_meat');
+  const showSlaughterYield =
+    !userScope ||
+    userScope.allowed_layers.includes('slaughter_yield') ||
+    userScope.allowed_layers.includes('meat');
 
   const overviewTitle =
     userScope?.title ||
@@ -180,6 +188,16 @@ export function MunicipalOverview({
                   🥛 My Dairy Yield
                 </div>
               </div>
+              {farmerStats.my_farmer_meat !== undefined && farmerStats.my_farmer_meat > 0 && (
+                <div className="col-span-2 bg-emerald-950/70 border border-emerald-700/50 rounded-xl p-2.5">
+                  <div className="text-2xl font-black font-mono text-amber-200">
+                    {farmerStats.my_farmer_meat.toLocaleString()} kg
+                  </div>
+                  <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">
+                    🥩 My Meat Production
+                  </div>
+                </div>
+              )}
             </div>
 
             <p className="text-[11px] text-emerald-200/90 leading-tight">
@@ -231,14 +249,31 @@ export function MunicipalOverview({
             </div>
           </div>
 
-          <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-2.5">
-            <div className="text-xl font-black text-rose-950 font-mono">
-              {summary.total_meat > 0 ? `${Math.round(summary.total_meat).toLocaleString()} kg` : '0 kg'}
+          {showFarmerMeat && (
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5">
+              <div className="text-xl font-black text-amber-950 font-mono">
+                {(summary.total_farmer_meat ?? 0) > 0
+                  ? `${Math.round(summary.total_farmer_meat!).toLocaleString()} kg`
+                  : '0 kg'}
+              </div>
+              <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+                🥩 Farmer Meat
+              </div>
             </div>
-            <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">
-              🥩 Katay Yield
+          )}
+
+          {showSlaughterYield && (
+            <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-2.5">
+              <div className="text-xl font-black text-rose-950 font-mono">
+                {(summary.total_slaughter_yield ?? summary.total_meat ?? 0) > 0
+                  ? `${Math.round(summary.total_slaughter_yield ?? summary.total_meat ?? 0).toLocaleString()} kg`
+                  : '0 kg'}
+              </div>
+              <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">
+                🔪 Slaughter Yield
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="bg-slate-100/90 border border-slate-200/80 rounded-xl p-2.5">
             <div className="text-xl font-black text-slate-950 font-mono">
@@ -462,6 +497,93 @@ export function MunicipalOverview({
             )}
           </div>
         </div>
+
+        {/* Top 5 Barangays by Farmer Meat */}
+        {showFarmerMeat && summary.top_farmer_meat && summary.top_farmer_meat.filter((b) => b.farmer_meat > 0).length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                <span className="text-sm">🥩</span>
+                Top Barangays by Farmer Meat
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">kg</span>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              {summary.top_farmer_meat.filter((b) => b.farmer_meat > 0).map((b, i) => (
+                <button
+                  key={b.name}
+                  type="button"
+                  onClick={() => handleBarangayClick(b.name)}
+                  className="w-full text-left group cursor-pointer"
+                >
+                  <div className="flex justify-between items-center text-xs mb-1">
+                    <span className="font-semibold text-slate-700 group-hover:text-amber-800 transition-colors flex items-center gap-1.5">
+                      <span className="size-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      {b.name}
+                    </span>
+                    <span className="font-bold font-mono text-amber-950">
+                      {b.farmer_meat.toLocaleString()} kg
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-amber-600 h-full rounded-full transition-all"
+                      style={{ width: `${Math.max(5, (b.farmer_meat / maxFarmerMeat) * 100)}%` }}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top 5 Barangays by Slaughter Yield */}
+        {showSlaughterYield && summary.top_slaughter_yield && summary.top_slaughter_yield.filter((b) => b.slaughter_yield > 0).length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                <Beef className="size-3.5 text-rose-700" />
+                Top Barangays by Slaughter Yield
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">kg</span>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              {summary.top_slaughter_yield.filter((b) => b.slaughter_yield > 0).map((b, i) => (
+                <button
+                  key={b.name}
+                  type="button"
+                  onClick={() => handleBarangayClick(b.name)}
+                  className="w-full text-left group cursor-pointer"
+                >
+                  <div className="flex justify-between items-center text-xs mb-1">
+                    <span className="font-semibold text-slate-700 group-hover:text-rose-800 transition-colors flex items-center gap-1.5">
+                      <span className="size-4 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      {b.name}
+                    </span>
+                    <span className="font-bold font-mono text-rose-950">
+                      {b.slaughter_yield.toLocaleString()} kg
+                      {(b.slaughter_heads ?? b.heads) !== undefined && (b.slaughter_heads ?? b.heads)! > 0 && (
+                        <span className="text-[10px] font-normal text-rose-700 ml-1">({b.slaughter_heads ?? b.heads} heads)</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-rose-600 h-full rounded-full transition-all"
+                      style={{ width: `${Math.max(5, (b.slaughter_yield / maxSlaughterYield) * 100)}%` }}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Live Cow Movement Flows */}
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">

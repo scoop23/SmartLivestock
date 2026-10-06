@@ -27,7 +27,15 @@
  *    - `SimulationParameters`: User-tunable epidemic thresholds (contact scale, wind scale, alert threshold).
  */
 
-export type MapLayer = 'cattle' | 'disease' | 'milk' | 'meat' | 'mortality' | 'movement';
+export type MapLayer =
+  | 'cattle'
+  | 'disease'
+  | 'milk'
+  | 'farmer_meat'
+  | 'slaughter_yield'
+  | 'mortality'
+  | 'movement'
+  | 'meat'; // Legacy alias for slaughter_yield
 
 export type ViewMode = '2D' | '3D';
 
@@ -54,8 +62,10 @@ export interface BarangayGISData {
   disease_risk: 'low' | 'medium' | 'high'; // Derived from active outbreaks
   recent_diseases: string[];  // Symptoms / disease names reported
   milk: number;               // Total milk production in Liters
-  meat: number;               // Total carcass weight from slaughter in kg
+  farmer_meat: number;        // Farmer-reported on-farm meat production in kg (ProductionRecord)
+  slaughter_yield: number;    // Inspected carcass meat yield in kg (SlaughterRecord)
   slaughter_heads: number;    // Heads slaughtered
+  meat: number;               // Legacy alias for slaughter_yield
   cheese?: number;
   mortality: number;          // Total deaths recorded
   mortality_causes: string[]; // Reported causes of mortality
@@ -91,6 +101,7 @@ export interface FarmerPersonalStats {
   my_cattle: number;
   my_total_livestock: number;
   my_milk: number;
+  my_farmer_meat?: number;
   my_barangay: string;
 }
 
@@ -129,7 +140,10 @@ export interface MunicipalSummary {
   total_cattle: number;
   available_livestock_types?: string[];
   total_milk: number;
-  total_meat: number;
+  total_farmer_meat?: number;
+  total_slaughter_yield?: number;
+  total_slaughter_heads?: number;
+  total_meat: number;         // Legacy alias for total_slaughter_yield
   total_disease_cases: number;
   active_disease_cases: number;
   total_mortality: number;
@@ -138,6 +152,8 @@ export interface MunicipalSummary {
   total_movements: number;
   top_cattle: { name: string; cattle: number }[];
   top_milk: { name: string; milk: number }[];
+  top_farmer_meat?: { name: string; farmer_meat: number }[];
+  top_slaughter_yield?: { name: string; slaughter_yield: number; slaughter_heads?: number; heads?: number }[];
   alert_barangays: {
     name: string;
     active_cases: number;

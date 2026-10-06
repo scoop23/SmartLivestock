@@ -93,12 +93,20 @@ export function GISLegend({
           { color: '#38bdf8', label: '1–1,000 L/mo' },
           { color: '#e0f2fe', label: '0 L (No records)' },
         ];
+      case 'farmer_meat':
+        return [
+          { color: '#9a3412', label: '500+ kg production' },
+          { color: '#c2410c', label: '100–500 kg production' },
+          { color: '#fb923c', label: '1–100 kg production' },
+          { color: '#fff7ed', label: '0 kg (No farmer production)' },
+        ];
+      case 'slaughter_yield':
       case 'meat':
         return [
-          { color: '#7c1d00', label: '500+ kg yield' },
-          { color: '#dc2626', label: '100–500 kg yield' },
-          { color: '#f87171', label: '1–100 kg yield' },
-          { color: '#fecaca', label: 'No slaughter data available' },
+          { color: '#7c1d00', label: '500+ kg carcass yield' },
+          { color: '#dc2626', label: '100–500 kg carcass yield' },
+          { color: '#f87171', label: '1–100 kg carcass yield' },
+          { color: '#fecaca', label: 'No slaughterhouse data' },
         ];
       case 'mortality':
         return [
@@ -151,7 +159,9 @@ export function GISLegend({
       icon: '🩺',
     },
     milk: { title: 'Dairy Milk Production', icon: '🥛' },
-    meat: { title: 'Katay (Meat Yield)', icon: '🥩' },
+    farmer_meat: { title: 'Farmer Meat Production', icon: '🥩' },
+    slaughter_yield: { title: 'Slaughterhouse Carcass Yield', icon: '🔪' },
+    meat: { title: 'Slaughterhouse Carcass Yield', icon: '🔪' },
     mortality: { title: mortalityTitle, icon: '☠️' },
     movement: { title: 'Live Cow Movement', icon: '🚛' },
   };
