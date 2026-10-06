@@ -51,6 +51,8 @@ def inventory_list_create(request):
                 title="New Livestock Entry Awaiting Verification",
                 message=f"{farmer_name} registered {animal_name}. Review the entry and schedule field verification.",
                 link="/sibat-validation",
+                related_entity_type="livestock_inventory",
+                related_entity_id=inventory.id,
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -185,7 +187,12 @@ def inventory_detail(request, pk):
                 status=status.HTTP_409_CONFLICT,
             )
         try:
-            inventory.delete()
+            with transaction.atomic():
+                Notification.objects.filter(
+                    related_entity_type="livestock_inventory",
+                    related_entity_id=inventory.id,
+                ).delete()
+                inventory.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except IntegrityError:
             return Response(

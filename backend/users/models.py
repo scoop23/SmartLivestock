@@ -123,6 +123,7 @@ class Notification(models.Model):
         PRODUCTION = "production", "Production Milestone"
         WEATHER = "weather", "Weather Advisory"
         GENERAL = "general", "General Notice"
+        INSPECTION = "inspection", "Livestock Inspection"
 
     class Priority(models.TextChoices):
         HIGH = "high", "High"
@@ -148,6 +149,19 @@ class Notification(models.Model):
     message = models.TextField()
     is_read = models.BooleanField(default=False)
     link = models.CharField(max_length=255, blank=True, null=True)
+    related_entity_type = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Entity category for notification lifecycle tracking (e.g. livestock_inventory, inspection)",
+    )
+    related_entity_id = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Primary key of the related model record",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

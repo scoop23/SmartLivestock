@@ -478,6 +478,8 @@ class NotificationSerializer(serializers.ModelSerializer):
             "message",
             "is_read",
             "link",
+            "related_entity_type",
+            "related_entity_id",
             "created_at",
             "time_ago",
         )

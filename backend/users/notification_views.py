@@ -45,10 +45,12 @@ def create_notification(
     message: str = "",
     priority: str = Notification.Priority.MEDIUM,
     link: str | None = None,
+    related_entity_type: str | None = None,
+    related_entity_id: int | None = None,
 ) -> Notification:
     """
     Utility helper to trigger an in-app notification for a given user.
-    Can be imported across views (livestock, diseases, production, etc.).
+    Can be imported across views (livestock, movements, diseases, production, etc.).
     """
     return Notification.objects.create(
         user=user,
@@ -57,6 +59,8 @@ def create_notification(
         title=title,
         message=message,
         link=link,
+        related_entity_type=related_entity_type,
+        related_entity_id=related_entity_id,
     )
 
 
@@ -69,6 +73,8 @@ def notify_role(
     link: str | None = None,
     barangay_id: int | None = None,
     municipal_broadcast: bool = False,
+    related_entity_type: str | None = None,
+    related_entity_id: int | None = None,
 ) -> int:
     """Create the same in-app notification for every approved user in a role."""
     recipients = User.objects.filter(
@@ -86,6 +92,8 @@ def notify_role(
             title=title,
             message=message,
             link=link,
+            related_entity_type=related_entity_type,
+            related_entity_id=related_entity_id,
         )
         for user in recipients
     ]
