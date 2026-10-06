@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from .models import Announcement, ProgramSchedule, ProgramBooking, Role, Notification, PROGRAM_TIME_SLOTS
 from .community_serializer import AnnouncementSerializer, ProgramScheduleSerializer, ProgramBookingSerializer
 from .notification_views import notify_role, create_notification
-from smartlivestock.workflows import scope_reviewer_queryset
+from smartlivestock.workflows import scope_reviewer_queryset, has_all_barangay_access
 
 TIMES = set(PROGRAM_TIME_SLOTS)
 
@@ -33,16 +33,58 @@ def _announcement_notification_message(announcement):
 
 
 def publish_notifications(announcement):
-    roles = [Role.UserRoles.FARMER, Role.UserRoles.SIBAT] if announcement.audience == Announcement.Audience.ALL else [announcement.audience]
-    for role in roles:
-        notify_role(role, Notification.NotificationType.GENERAL, "New livestock activity: " + announcement.title, _announcement_notification_message(announcement), link="/farmer-announcement" if role == Role.UserRoles.FARMER else "/sibat-announcement", municipal_broadcast=True)
+    audience = announcement.audience
+    if audience == Announcement.Audience.ALL:
+        roles_with_links = [
+            (Role.UserRoles.FARMER, "/farmer-announcement", True, None),
+            (Role.UserRoles.SIBAT, "/sibat-announcement", True, None),
+            (Role.UserRoles.AUCTION, "/auction-announcement", True, None),
+            (Role.UserRoles.SLAUGHTERHOUSESTAFF, "/slaughterhouse", True, None),
+        ]
+    elif audience in (Announcement.Audience.FARMER_AND_SIBAT, "FARMER_AND_SIBAT"):
+        roles_with_links = [
+            (Role.UserRoles.FARMER, "/farmer-announcement", True, None),
+            (Role.UserRoles.SIBAT, "/sibat-announcement", True, None),
+        ]
+    elif audience in (Announcement.Audience.FARMER_ONLY, "FARMER"):
+        roles_with_links = [
+            (Role.UserRoles.FARMER, "/farmer-announcement", True, None),
+        ]
+    elif audience in (Announcement.Audience.SIBAT_ONLY, "SIBAT"):
+        roles_with_links = [
+            (Role.UserRoles.SIBAT, "/sibat-announcement", True, None),
+        ]
+    elif audience == Announcement.Audience.SIBAT_BARANGAY:
+        roles_with_links = [
+            (Role.UserRoles.SIBAT, "/sibat-announcement", False, announcement.target_barangay_id),
+        ]
+    else:
+        roles_with_links = []
+
+    for role, link, broadcast, barangay_id in roles_with_links:
+        notify_role(
+            role,
+            Notification.NotificationType.GENERAL,
+            "New livestock activity: " + announcement.title,
+            _announcement_notification_message(announcement),
+            link=link,
+            municipal_broadcast=broadcast,
+            barangay_id=barangay_id,
+        )
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def announcements(request):
     role = role_of(request.user)
     if request.method == "GET":
-        if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
+        if role not in (
+            Role.UserRoles.MAO,
+            "ADMIN",
+            Role.UserRoles.FARMER,
+            Role.UserRoles.SIBAT,
+            Role.UserRoles.AUCTION,
+            Role.UserRoles.SLAUGHTERHOUSESTAFF,
+        ):
             return Response({"detail": "Forbidden."}, status=403)
         prefetch_items = ["schedule__bookings", "photos"]
         if role == Role.UserRoles.SIBAT:
@@ -53,9 +95,43 @@ def announcements(request):
                     to_attr="scoped_bookings",
                 )
             )
-        qs = Announcement.objects.select_related("posted_by", "schedule").prefetch_related(*prefetch_items)
-        if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT):
-            qs = qs.filter(is_published=True).filter(Q(audience="ALL") | Q(audience=role))
+        qs = Announcement.objects.select_related("posted_by", "schedule", "target_barangay").prefetch_related(*prefetch_items)
+        if role in (Role.UserRoles.MAO, "ADMIN"):
+            pass
+        elif role == Role.UserRoles.FARMER:
+            qs = qs.filter(
+                is_published=True,
+                audience__in=[
+                    Announcement.Audience.ALL,
+                    Announcement.Audience.FARMER_AND_SIBAT,
+                    Announcement.Audience.FARMER_ONLY,
+                    "FARMER",
+                ],
+            )
+        elif role in (Role.UserRoles.AUCTION, Role.UserRoles.SLAUGHTERHOUSESTAFF):
+            qs = qs.filter(
+                is_published=True,
+                audience=Announcement.Audience.ALL,
+            )
+        elif role == Role.UserRoles.SIBAT:
+            sibat_audience_filter = Q(
+                audience__in=[
+                    Announcement.Audience.ALL,
+                    Announcement.Audience.FARMER_AND_SIBAT,
+                    Announcement.Audience.SIBAT_ONLY,
+                    "SIBAT",
+                ]
+            )
+            if has_all_barangay_access(request.user):
+                sibat_audience_filter |= Q(audience=Announcement.Audience.SIBAT_BARANGAY)
+            elif request.user.assigned_barangay_id:
+                sibat_audience_filter |= Q(
+                    audience=Announcement.Audience.SIBAT_BARANGAY,
+                    target_barangay_id=request.user.assigned_barangay_id,
+                )
+            qs = qs.filter(
+                (Q(is_published=True) & sibat_audience_filter) | Q(posted_by=request.user)
+            )
         return Response(AnnouncementSerializer(qs, many=True, context={"request": request}).data)
     denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
     if denied:

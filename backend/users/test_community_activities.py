@@ -330,3 +330,191 @@ class FieldSchedulingPermissionApiTests(APITestCase):
             )
             self.assertEqual(removed.status_code, status.HTTP_200_OK)
             self.assertEqual(len(removed.data["photos"]), 1)
+
+
+class AnnouncementAudienceAndBarangayScopingTests(APITestCase):
+    def setUp(self):
+        self.cawongan = Barangay.objects.create(barangay_name="Cawongan", latitude=0, longitude=0)
+        self.manggas = Barangay.objects.create(barangay_name="Manggas", latitude=0, longitude=0)
+        self.pansol = Barangay.objects.create(barangay_name="Pansol", latitude=0, longitude=0)
+
+        self.mao = self._user("aud-mao", Role.UserRoles.MAO)
+        self.farmer = self._user("aud-farmer", Role.UserRoles.FARMER)
+        self.auction = self._user("aud-auction", Role.UserRoles.AUCTION)
+        self.slaughterhouse = self._user("aud-slaughter", Role.UserRoles.SLAUGHTERHOUSESTAFF)
+
+        # SIBAT users
+        self.sibat_a = self._user("sibat-cawongan", Role.UserRoles.SIBAT, assigned_barangay=self.cawongan)
+        self.sibat_b = self._user("sibat-manggas", Role.UserRoles.SIBAT, assigned_barangay=self.manggas)
+        self.sibat_c = self._user("sibat-pansol", Role.UserRoles.SIBAT, assigned_barangay=self.pansol)
+        self.sibat_d = self._user(
+            "sibat-all-barangay",
+            Role.UserRoles.SIBAT,
+            assigned_barangay=self.manggas,
+            access_scope=User.AccessScope.ALL_BARANGAYS,
+        )
+
+    def _user(self, username, role_name, assigned_barangay=None, access_scope=User.AccessScope.ASSIGNED_ONLY):
+        role, _ = Role.objects.get_or_create(role_name=role_name)
+        return User.objects.create_user(
+            username=username,
+            email=f"{username}@example.com",
+            password="test-password",
+            role=role,
+            assigned_barangay=assigned_barangay,
+            access_scope=access_scope,
+            account_status=User.AccountStatus.APPROVED,
+        )
+
+    def test_validation_requires_target_barangay_for_sibat_barangay_only(self):
+        self.client.force_authenticate(self.mao)
+        
+        # Missing target barangay should fail
+        res = self.client.post(
+            "/community/announcements/",
+            {
+                "title": "Cawongan SIBAT Notice",
+                "content": "Meeting details",
+                "category": "General",
+                "audience": Announcement.Audience.SIBAT_BARANGAY,
+                "is_published": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("target_barangay", res.data)
+
+        # With target barangay should succeed
+        res_ok = self.client.post(
+            "/community/announcements/",
+            {
+                "title": "Cawongan SIBAT Notice",
+                "content": "Meeting details",
+                "category": "General",
+                "audience": Announcement.Audience.SIBAT_BARANGAY,
+                "target_barangay": self.cawongan.id,
+                "is_published": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_ok.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_ok.data["target_barangay"], self.cawongan.id)
+        self.assertEqual(res_ok.data["target_barangay_name"], "Cawongan")
+
+    def test_audience_visibility_matrix(self):
+        self.client.force_authenticate(self.mao)
+        base = {"content": "Test content", "category": "General", "is_published": True}
+
+        # 1. Farmer and SIBAT
+        self.client.post(
+            "/community/announcements/",
+            {**base, "title": "For Farmer and SIBAT", "audience": Announcement.Audience.FARMER_AND_SIBAT},
+            format="json",
+        )
+        # 2. Farmer Only
+        self.client.post(
+            "/community/announcements/",
+            {**base, "title": "For Farmer Only", "audience": Announcement.Audience.FARMER_ONLY},
+            format="json",
+        )
+        # 3. SIBAT Only
+        self.client.post(
+            "/community/announcements/",
+            {**base, "title": "For SIBAT Only", "audience": Announcement.Audience.SIBAT_ONLY},
+            format="json",
+        )
+        # 4. ALL
+        self.client.post(
+            "/community/announcements/",
+            {**base, "title": "For ALL", "audience": Announcement.Audience.ALL},
+            format="json",
+        )
+        # 5. SIBAT Cawongan Only
+        self.client.post(
+            "/community/announcements/",
+            {
+                **base,
+                "title": "For SIBAT Cawongan Only",
+                "audience": Announcement.Audience.SIBAT_BARANGAY,
+                "target_barangay": self.cawongan.id,
+            },
+            format="json",
+        )
+
+        # Verify Farmer: sees FARMER_AND_SIBAT, FARMER_ONLY, ALL
+        self.client.force_authenticate(self.farmer)
+        titles_farmer = [a["title"] for a in self.client.get("/community/announcements/").data]
+        self.assertIn("For Farmer and SIBAT", titles_farmer)
+        self.assertIn("For Farmer Only", titles_farmer)
+        self.assertIn("For ALL", titles_farmer)
+        self.assertNotIn("For SIBAT Only", titles_farmer)
+        self.assertNotIn("For SIBAT Cawongan Only", titles_farmer)
+
+        # Verify Auction: sees only ALL
+        self.client.force_authenticate(self.auction)
+        titles_auction = [a["title"] for a in self.client.get("/community/announcements/").data]
+        self.assertEqual(titles_auction, ["For ALL"])
+
+        # Verify Slaughterhouse: sees only ALL
+        self.client.force_authenticate(self.slaughterhouse)
+        titles_slaughter = [a["title"] for a in self.client.get("/community/announcements/").data]
+        self.assertEqual(titles_slaughter, ["For ALL"])
+
+        # Verify SIBAT A (Cawongan): sees FARMER_AND_SIBAT, SIBAT_ONLY, ALL, and Cawongan-targeted
+        self.client.force_authenticate(self.sibat_a)
+        titles_sibat_a = [a["title"] for a in self.client.get("/community/announcements/").data]
+        self.assertIn("For Farmer and SIBAT", titles_sibat_a)
+        self.assertIn("For SIBAT Only", titles_sibat_a)
+        self.assertIn("For ALL", titles_sibat_a)
+        self.assertIn("For SIBAT Cawongan Only", titles_sibat_a)
+        self.assertNotIn("For Farmer Only", titles_sibat_a)
+
+        # Verify SIBAT B (Manggas): does NOT see Cawongan-targeted
+        self.client.force_authenticate(self.sibat_b)
+        titles_sibat_b = [a["title"] for a in self.client.get("/community/announcements/").data]
+        self.assertIn("For Farmer and SIBAT", titles_sibat_b)
+        self.assertIn("For SIBAT Only", titles_sibat_b)
+        self.assertIn("For ALL", titles_sibat_b)
+        self.assertNotIn("For SIBAT Cawongan Only", titles_sibat_b)
+
+        # Verify SIBAT C (Pansol): does NOT see Cawongan-targeted
+        self.client.force_authenticate(self.sibat_c)
+        titles_sibat_c = [a["title"] for a in self.client.get("/community/announcements/").data]
+        self.assertNotIn("For SIBAT Cawongan Only", titles_sibat_c)
+
+        # Verify SIBAT D (ALL_BARANGAYS): sees Cawongan-targeted even if assigned to Manggas
+        self.client.force_authenticate(self.sibat_d)
+        titles_sibat_d = [a["title"] for a in self.client.get("/community/announcements/").data]
+        self.assertIn("For SIBAT Cawongan Only", titles_sibat_d)
+
+    def test_notifications_sent_according_to_audience(self):
+        from users.models import Notification
+        Notification.objects.all().delete()
+
+        self.client.force_authenticate(self.mao)
+        
+        # SIBAT Cawongan Only announcement
+        self.client.post(
+            "/community/announcements/",
+            {
+                "title": "Cawongan Notice",
+                "content": "Cawongan SIBAT details",
+                "category": "General",
+                "audience": Announcement.Audience.SIBAT_BARANGAY,
+                "target_barangay": self.cawongan.id,
+                "is_published": True,
+            },
+            format="json",
+        )
+
+        notified_users = set(Notification.objects.values_list("user_id", flat=True))
+        # sibat_a (Cawongan) and sibat_d (ALL_BARANGAYS) must be notified
+        self.assertIn(self.sibat_a.id, notified_users)
+        self.assertIn(self.sibat_d.id, notified_users)
+        # sibat_b, sibat_c, farmer, auction, slaughterhouse must NOT be notified
+        self.assertNotIn(self.sibat_b.id, notified_users)
+        self.assertNotIn(self.sibat_c.id, notified_users)
+        self.assertNotIn(self.farmer.id, notified_users)
+        self.assertNotIn(self.auction.id, notified_users)
+        self.assertNotIn(self.slaughterhouse.id, notified_users)
+

@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** Time slots the backend accepts for a program booking (users/community_views.py TIMES). */
 export const PROGRAM_TIME_SLOTS = ["08:00", "09:30", "11:00", "13:30"] as const;
 
-export type CommunityRole = "admin" | "sibat" | "farmer";
+export type CommunityRole = "admin" | "sibat" | "farmer" | "auction";
 
 /** Per-role accent so shared community components match each dashboard's palette. */
 export const ROLE_ACCENT: Record<
@@ -35,12 +35,23 @@ export const ROLE_ACCENT: Record<
     badge: "text-[#2D5A27] bg-[#f0f7ee] border-[#2D5A27]/20",
     bar: "bg-[#2D5A27]",
   },
+  auction: {
+    icon: "text-[#7C3AED]",
+    text: "text-[#7C3AED]",
+    tint: "bg-purple-50",
+    badge: "text-purple-800 bg-purple-50 border-purple-200",
+    bar: "bg-[#7C3AED]",
+  },
 };
 
 export const AUDIENCE_LABEL: Record<string, string> = {
-  ALL: "Farmers & SIBAT",
-  FARMER: "Farmers",
-  SIBAT: "SIBAT",
+  FARMER_AND_SIBAT: "Farmer and SIBAT",
+  FARMER_ONLY: "Farmer Only",
+  SIBAT_ONLY: "SIBAT Only",
+  ALL: "All (Farmer, SIBAT, Auction, Slaughterhouse)",
+  SIBAT_BARANGAY: "SIBAT — Their Barangay Only",
+  FARMER: "Farmer Only",
+  SIBAT: "SIBAT Only",
 };
 
 /** Visual tone per activity category so the feed is scannable at a glance. */

@@ -3,6 +3,7 @@ from django.utils import timezone
 from smartlivestock.workflows import scope_reviewer_queryset, role_name
 from rest_framework import serializers
 
+from livestock.models import Barangay
 from .models import (
     Announcement,
     AnnouncementPhoto,
@@ -117,6 +118,23 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         allow_blank=True,
         allow_null=True,
     )
+    target_barangay = serializers.PrimaryKeyRelatedField(
+        queryset=Barangay.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    target_barangay_id = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    target_barangay_name = serializers.CharField(
+        source="target_barangay.barangay_name",
+        read_only=True,
+        allow_null=True,
+        default=None,
+    )
     remove_image = serializers.BooleanField(write_only=True, required=False, default=False)
 
     class Meta:
@@ -131,6 +149,9 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "remove_photo_ids",
             "category",
             "audience",
+            "target_barangay",
+            "target_barangay_id",
+            "target_barangay_name",
             "is_published",
             "is_pinned",
             "author",
@@ -141,7 +162,18 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["published_at", "created_at", "updated_at"]
+    def to_internal_value(self, data):
+        # Normalize legacy audience strings while preserving QueryDict multi-value lists
+        if hasattr(data, "copy"):
+            data = data.copy()
+
+        if "audience" in data:
+            if data["audience"] == "FARMER":
+                data["audience"] = Announcement.Audience.FARMER_ONLY
+            elif data["audience"] == "SIBAT":
+                data["audience"] = Announcement.Audience.SIBAT_ONLY
+
+        return super().to_internal_value(data)
 
     def validate_image(self, value):
         if value and value.size > 8 * 1024 * 1024:
@@ -162,11 +194,54 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         except (TypeError, ValueError, ProgramSchedule.DoesNotExist):
             raise serializers.ValidationError("Choose an existing field program.")
 
+    def validate_target_barangay_id(self, value):
+        if value in (None, ""):
+            return None
+        try:
+            return Barangay.objects.get(pk=int(value))
+        except (TypeError, ValueError, Barangay.DoesNotExist):
+            raise serializers.ValidationError("Choose an existing barangay.")
+
     def validate(self, attrs):
         if attrs.get("remove_image") and attrs.get("image"):
             raise serializers.ValidationError(
                 {"image": "Choose a new image or remove the current image, not both."}
             )
+
+        # Map target_barangay_id if provided
+        if "target_barangay_id" in attrs:
+            barangay_obj = attrs.pop("target_barangay_id")
+            if barangay_obj is not None:
+                attrs["target_barangay"] = barangay_obj
+
+        # Normalize audience & validate barangay requirement
+        audience = attrs.get("audience", getattr(self.instance, "audience", Announcement.Audience.FARMER_AND_SIBAT))
+        if audience == "FARMER":
+            attrs["audience"] = Announcement.Audience.FARMER_ONLY
+            audience = Announcement.Audience.FARMER_ONLY
+        elif audience == "SIBAT":
+            attrs["audience"] = Announcement.Audience.SIBAT_ONLY
+            audience = Announcement.Audience.SIBAT_ONLY
+
+        target_barangay = attrs.get("target_barangay")
+        if target_barangay is None and self.instance:
+            if "audience" not in attrs or attrs["audience"] == self.instance.audience:
+                target_barangay = self.instance.target_barangay
+
+        if audience == Announcement.Audience.SIBAT_BARANGAY:
+            if not target_barangay and ("target_barangay" in attrs and attrs["target_barangay"] is None):
+                raise serializers.ValidationError(
+                    {"target_barangay": "Target barangay is required when audience is SIBAT — Their Barangay Only."}
+                )
+            if not target_barangay and not (self.instance and self.instance.target_barangay):
+                raise serializers.ValidationError(
+                    {"target_barangay": "Target barangay is required when audience is SIBAT — Their Barangay Only."}
+                )
+        else:
+            # Clear target_barangay when audience is not SIBAT_BARANGAY
+            if "target_barangay" in attrs or (self.instance and audience != self.instance.audience):
+                attrs["target_barangay"] = None
+
         return attrs
 
     def _add_photos(self, announcement, uploads):

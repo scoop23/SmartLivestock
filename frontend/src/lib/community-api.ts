@@ -18,6 +18,15 @@ export type ProgramSchedule = {
 
 export type ActivityPhoto = { id: number; image: string; position: number };
 
+export type AnnouncementAudience =
+  | "FARMER_AND_SIBAT"
+  | "FARMER_ONLY"
+  | "SIBAT_ONLY"
+  | "ALL"
+  | "SIBAT_BARANGAY"
+  | "FARMER"
+  | "SIBAT";
+
 export type Activity = {
   id: number;
   title: string;
@@ -25,13 +34,21 @@ export type Activity = {
   image: string | null;
   photos: ActivityPhoto[];
   category: string;
-  audience: "ALL" | "FARMER" | "SIBAT";
+  audience: AnnouncementAudience;
+  target_barangay?: number | null;
+  target_barangay_id?: string | number | null;
+  target_barangay_name?: string | null;
   is_published: boolean;
   is_pinned: boolean;
   author: string;
   schedule: ProgramSchedule | null;
   published_at: string | null;
   created_at: string;
+};
+
+export type BarangayOption = {
+  id: number;
+  barangay_name: string;
 };
 
 export type ProgramBooking = {
@@ -52,6 +69,8 @@ export const getSchedules = async () =>
   (await api.get<ProgramSchedule[]>("/community/schedules/")).data;
 export const getBookings = async () =>
   (await api.get<ProgramBooking[]>("/community/bookings/")).data;
+export const getBarangays = async () =>
+  (await api.get<BarangayOption[]>("/livestock/barangays/")).data;
 
 export function apiError(error: unknown): string {
   if (

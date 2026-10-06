@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/app/components/page-header";
 import api from "@/lib/axios";
-import { Activity, apiError, getActivities, getSchedules, ProgramSchedule } from "@/lib/community-api";
+import { Activity, AnnouncementAudience, apiError, BarangayOption, getActivities, getBarangays, getSchedules, ProgramSchedule } from "@/lib/community-api";
 import { ACTIVITY_CATEGORIES, AUDIENCE_LABEL, activityCategory, CommunityEmptyState, CommunityErrorCard, CommunityRole, CommunitySkeleton, formatShortDate, formatTimeWindow } from "./community-ui";
 import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
@@ -27,7 +27,8 @@ const blank = {
   title: "",
   content: "",
   category: "General",
-  audience: "ALL" as Activity["audience"],
+  audience: "FARMER_AND_SIBAT" as AnnouncementAudience,
+  target_barangay_id: "",
   is_pinned: false,
   schedule_id: "",
 };
@@ -36,6 +37,7 @@ type Filter = "all" | "published" | "draft" | "pinned" | "linked" | "unlinked";
 export function ActivitiesEditor({ role }: { role: CommunityRole }) {
   const [items, setItems] = useState<Activity[]>([]);
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
+  const [barangays, setBarangays] = useState<BarangayOption[]>([]);
   const [form, setForm] = useState(blank);
   const [editing, setEditing] = useState<Activity | null>(null);
   const [selected, setSelected] = useState<Activity | null>(null);
@@ -56,9 +58,10 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
 
   const load = useCallback(async () => {
     try {
-      const [activitiesResult, schedulesResult] = await Promise.allSettled([
+      const [activitiesResult, schedulesResult, barangaysResult] = await Promise.allSettled([
         getActivities(),
         getSchedules(),
+        getBarangays(),
       ]);
 
       if (activitiesResult.status === "fulfilled") {
@@ -66,6 +69,9 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       }
       if (schedulesResult.status === "fulfilled") {
         setSchedules(schedulesResult.value);
+      }
+      if (barangaysResult.status === "fulfilled") {
+        setBarangays(barangaysResult.value);
       }
 
       if (activitiesResult.status === "rejected") {
@@ -133,6 +139,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       content: item.content,
       category: item.category,
       audience: item.audience,
+      target_barangay_id: item.target_barangay ? String(item.target_barangay) : (item.target_barangay_id ? String(item.target_barangay_id) : ""),
       is_pinned: item.is_pinned,
       schedule_id: item.schedule ? String(item.schedule.id) : "",
     });
@@ -176,6 +183,10 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       setError("Add a title and details before saving.");
       return;
     }
+    if (form.audience === "SIBAT_BARANGAY" && !form.target_barangay_id) {
+      setError("Please select a target barangay for SIBAT — Their Barangay Only.");
+      return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
@@ -183,6 +194,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       ...form,
       title: form.title.trim(),
       content: form.content.trim(),
+      target_barangay_id: form.audience === "SIBAT_BARANGAY" ? form.target_barangay_id : "",
       is_published: published,
       remove_image: removeImage,
     };
@@ -234,7 +246,15 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
     if (filter === "linked" && !item.schedule) return false;
     if (filter === "unlinked" && item.schedule) return false;
     if (categoryFilter !== "All categories" && item.category !== categoryFilter) return false;
-    return !term || [item.title, item.content, item.category, item.author, item.schedule?.program ?? "", item.schedule?.location ?? ""].some((value) => value.toLowerCase().includes(term));
+    return !term || [
+      item.title,
+      item.content,
+      item.category,
+      item.author,
+      item.target_barangay_name ?? "",
+      item.schedule?.program ?? "",
+      item.schedule?.location ?? "",
+    ].some((value) => value.toLowerCase().includes(term));
   }).sort((a, b) => {
     if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
     return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
@@ -325,7 +345,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
               </div>
               <button type="button" aria-label="Close announcement editor" onClick={close} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"><X className="size-4" /></button>
             </div>
-            <form onSubmit={(event: FormEvent) => { event.preventDefault(); void save(editing?.is_published ?? false); }} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <form onSubmit={(event: FormEvent) => { event.preventDefault(); void save(editing?.is_published ?? false); }} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <div className="space-y-4">
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Activity details</p>
@@ -360,12 +380,56 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
               <div className="space-y-5">
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Audience and visibility</p>
-                  <label htmlFor="activity-audience" className="text-xs sm:text-sm font-bold text-slate-700">Who can see this announcement?</label>
-                  <Select value={form.audience} onValueChange={(audience) => setForm({ ...form, audience: audience as Activity["audience"] })}>
-                    <SelectTrigger id="activity-audience" className="mt-1.5 h-10 w-full text-sm font-medium"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="ALL" className="text-xs sm:text-sm font-medium">Farmers and SIBAT</SelectItem><SelectItem value="FARMER" className="text-xs sm:text-sm font-medium">Farmers only</SelectItem><SelectItem value="SIBAT" className="text-xs sm:text-sm font-medium">SIBAT only</SelectItem></SelectContent>
+                  <label htmlFor="activity-audience" className="text-xs sm:text-sm font-bold text-slate-700">Audience</label>
+                  <p className="text-xs font-medium text-slate-500 mb-1.5">Choose which user groups can see this announcement.</p>
+                  <Select
+                    value={form.audience}
+                    onValueChange={(audience) =>
+                      setForm({
+                        ...form,
+                        audience: audience as AnnouncementAudience,
+                        target_barangay_id: audience === "SIBAT_BARANGAY" ? form.target_barangay_id : "",
+                      })
+                    }
+                  >
+                    <SelectTrigger id="activity-audience" className="mt-1.5 h-10 w-full text-sm font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FARMER_AND_SIBAT" className="text-xs sm:text-sm font-medium">FARMER AND SIBAT</SelectItem>
+                      <SelectItem value="FARMER_ONLY" className="text-xs sm:text-sm font-medium">FARMER ONLY</SelectItem>
+                      <SelectItem value="SIBAT_ONLY" className="text-xs sm:text-sm font-medium">SIBAT ONLY</SelectItem>
+                      <SelectItem value="ALL" className="text-xs sm:text-sm font-medium">ALL</SelectItem>
+                      <SelectItem value="SIBAT_BARANGAY" className="text-xs sm:text-sm font-medium">SIBAT — THEIR BARANGAY ONLY</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
+
+                {form.audience === "SIBAT_BARANGAY" ? (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-3.5 space-y-2">
+                    <label htmlFor="activity-target-barangay" className="text-xs sm:text-sm font-bold text-slate-800">
+                      Target Barangay <span className="text-rose-600">*</span>
+                    </label>
+                    <p className="text-xs font-medium text-slate-600">Only SIBAT assigned to this barangay (and officers with all-barangay access) will see this announcement.</p>
+                    <Select
+                      value={form.target_barangay_id || "none"}
+                      onValueChange={(val) => setForm({ ...form, target_barangay_id: val === "none" ? "" : val })}
+                    >
+                      <SelectTrigger id="activity-target-barangay" className="h-10 w-full bg-white text-sm font-medium">
+                        <SelectValue placeholder="Select target barangay…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" disabled className="text-xs sm:text-sm font-medium">Select target barangay…</SelectItem>
+                        {barangays.map((b) => (
+                          <SelectItem key={b.id} value={String(b.id)} className="text-xs sm:text-sm font-medium">
+                            {b.barangay_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Related field program</p>
                   <label htmlFor="activity-schedule" className="text-xs sm:text-sm font-bold text-slate-700">Link a program <span className="font-normal text-slate-400">(optional)</span></label>
@@ -546,7 +610,9 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                       {/* Card Footer with Audience and Actions */}
                       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                         <span className="text-xs sm:text-sm font-semibold text-slate-500">
-                          {AUDIENCE_LABEL[item.audience]}
+                          {item.audience === "SIBAT_BARANGAY" && item.target_barangay_name
+                            ? `SIBAT · ${item.target_barangay_name}`
+                            : AUDIENCE_LABEL[item.audience] || item.audience}
                         </span>
 
                         <DropdownMenu>

@@ -193,7 +193,14 @@ export function ActivityDetailDialog({
               <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-100 pt-5 text-sm text-slate-500">
                 <div className="flex items-center justify-center sm:justify-start gap-2">
                   <Users className="size-4 text-slate-400 shrink-0" />
-                  <span>Audience: <strong className="font-semibold text-slate-700">{AUDIENCE_LABEL[activity.audience]}</strong></span>
+                  <span>
+                    Audience:{" "}
+                    <strong className="font-semibold text-slate-700">
+                      {activity.audience === "SIBAT_BARANGAY" && activity.target_barangay_name
+                        ? `SIBAT — ${activity.target_barangay_name} Only`
+                        : AUDIENCE_LABEL[activity.audience] || activity.audience}
+                    </strong>
+                  </span>
                 </div>
 
                 <Button

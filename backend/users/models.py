@@ -176,9 +176,11 @@ PROGRAM_TIME_SLOTS = ("08:00", "09:30", "11:00", "13:30")
 
 class Announcement(models.Model):
     class Audience(models.TextChoices):
-        ALL = "ALL", "Farmers and SIBAT"
-        FARMER = "FARMER", "Farmers"
-        SIBAT = "SIBAT", "SIBAT"
+        FARMER_AND_SIBAT = "FARMER_AND_SIBAT", "Farmer and SIBAT"
+        FARMER_ONLY = "FARMER_ONLY", "Farmer Only"
+        SIBAT_ONLY = "SIBAT_ONLY", "SIBAT Only"
+        ALL = "ALL", "All"
+        SIBAT_BARANGAY = "SIBAT_BARANGAY", "SIBAT — Their Barangay Only"
 
     class Category(models.TextChoices):
         GENERAL = "General", "General"
@@ -207,7 +209,14 @@ class Announcement(models.Model):
     content = models.TextField()
     image = models.ImageField(upload_to="activity_images/%Y/%m/", blank=True, null=True)
     category = models.CharField(max_length=40, choices=Category.choices, default=Category.GENERAL)
-    audience = models.CharField(max_length=10, choices=Audience.choices, default=Audience.ALL)
+    audience = models.CharField(max_length=30, choices=Audience.choices, default=Audience.FARMER_AND_SIBAT)
+    target_barangay = models.ForeignKey(
+        "livestock.Barangay",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="targeted_announcements",
+    )
     is_published = models.BooleanField(default=False)
     is_pinned = models.BooleanField(default=False)
     posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="announcements")
