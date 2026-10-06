@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardCheck,
   Plus,
@@ -8,12 +9,12 @@ import {
   Search,
   CheckCircle2,
   Clock,
-  AlertCircle,
   RotateCcw,
   Send,
   TableIcon,
   LayoutGrid,
   QrCode,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import {
   InspectionRecord,
   InspectionStatusTab,
-  INITIAL_INSPECTIONS,
+  fetchInspections,
 } from "./auction-analytics";
 import { NewInspectionDialog } from "./new-inspection-dialog";
 import { InspectionDetailsDialog } from "./inspection-details-dialog";
@@ -30,7 +31,7 @@ import { InspectionsListView } from "./inspections-list-view";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 export default function AuctionInspections() {
-  const [inspections, setInspections] = useState<InspectionRecord[]>(INITIAL_INSPECTIONS);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<InspectionStatusTab>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
@@ -40,14 +41,23 @@ export default function AuctionInspections() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
-  const handleCreateSuccess = (newRecord: InspectionRecord) => {
-    setInspections((prev) => [newRecord, ...prev]);
+  const { data: inspections = [], isLoading, isError } = useQuery<InspectionRecord[]>({
+    queryKey: ["inspections"],
+    queryFn: () => fetchInspections(),
+    staleTime: 30_000,
+  });
+
+  const handleSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["inspections"] });
   };
 
   // Filter pipeline
   const query = searchQuery.toLowerCase().trim();
   const filtered = inspections.filter((rec) => {
-    const matchesTab = activeTab === "ALL" || rec.status === activeTab;
+    const matchesTab =
+      activeTab === "ALL" ||
+      rec.status === activeTab ||
+      (activeTab === "SUBJECT_TO_REVISION" && rec.status === "REJECTED");
     const matchesSearch =
       !query ||
       rec.control_number.toLowerCase().includes(query) ||
@@ -109,31 +119,33 @@ export default function AuctionInspections() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             {/* View Mode Toggle */}
             <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/80">
               <button
                 type="button"
                 onClick={() => setViewMode("card")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${viewMode === "card"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                  viewMode === "card"
                     ? "bg-white text-purple-950 shadow-xs"
                     : "text-slate-500 hover:text-slate-900"
-                  }`}
+                }`}
               >
                 <LayoutGrid className="size-3.5" />
-                <span className="hidden xs:inline">Cards</span>
+                <span>Cards</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${viewMode === "table"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                  viewMode === "table"
                     ? "bg-white text-purple-950 shadow-xs"
                     : "text-slate-500 hover:text-slate-900"
-                  }`}
+                }`}
               >
                 <TableIcon className="size-3.5" />
-                <span className="hidden xs:inline">Table</span>
+                <span>Table</span>
               </button>
             </div>
 
@@ -159,7 +171,7 @@ export default function AuctionInspections() {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-3">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 space-y-3">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -167,7 +179,7 @@ export default function AuctionInspections() {
                 placeholder="Search by Control #, Shipper Name, Destination, Purpose…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9 bg-slate-50/60 border-slate-200 rounded-xl h-10 text-sm"
+                className="pl-9 pr-9 bg-slate-50/60 border-slate-200 rounded-xl h-10 text-sm w-full"
               />
               {searchQuery && (
                 <button
@@ -186,10 +198,11 @@ export default function AuctionInspections() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${activeTab === tab
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
+                    activeTab === tab
                       ? "bg-[#7C3AED] text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                  }`}
                 >
                   {tab === "ALL" ? "All Clearances" : tab === "SUBJECT_TO_REVISION" ? "For Revision" : tab}
                 </button>
@@ -199,19 +212,26 @@ export default function AuctionInspections() {
         </div>
 
         {/* Table & Cards List View */}
-        <InspectionsListView
-          inspections={filtered}
-          viewMode={viewMode}
-          onSelectInspection={setSelectedInspection}
-          getStatusBadge={getStatusBadge}
-        />
+        {isLoading ? (
+          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
+            <Loader2 className="w-8 h-8 text-[#7C3AED] animate-spin mx-auto mb-2" />
+            <p className="text-sm font-bold text-slate-700">Loading inspection registry...</p>
+          </div>
+        ) : (
+          <InspectionsListView
+            inspections={filtered}
+            viewMode={viewMode}
+            onSelectInspection={setSelectedInspection}
+            getStatusBadge={getStatusBadge}
+          />
+        )}
       </div>
 
       {/* New Inspection Dialog */}
       <NewInspectionDialog
         isOpen={isNewDialogOpen}
         onOpenChange={setIsNewDialogOpen}
-        onSubmitSuccess={handleCreateSuccess}
+        onSubmitSuccess={handleSuccess}
         nextId={inspections.length + 1}
       />
 
@@ -220,6 +240,7 @@ export default function AuctionInspections() {
         inspection={selectedInspection}
         onClose={() => setSelectedInspection(null)}
         statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status) : null}
+        onActionSuccess={handleSuccess}
       />
 
       {/* Auction QR Gate Scanner Dialog */}

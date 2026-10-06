@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardCheck,
   CheckCircle2,
@@ -13,13 +14,10 @@ import {
   Eye,
   ChevronRight,
   ArrowRight,
-  Sparkles,
   Calendar,
   MapPin,
-  FileSpreadsheet,
-  Layers,
-  Search,
   QrCode,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,19 +35,24 @@ import {
 
 import {
   InspectionRecord,
-  INITIAL_INSPECTIONS,
+  fetchInspections,
 } from "../auction-inspections/auction-analytics";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 export default function AuctionDashboard() {
   const router = useRouter();
-  const [inspections] = useState<InspectionRecord[]>(INITIAL_INSPECTIONS);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  const { data: inspections = [], isLoading, isError } = useQuery<InspectionRecord[]>({
+    queryKey: ["inspections"],
+    queryFn: () => fetchInspections(),
+    staleTime: 30_000,
+  });
 
   const pendingCount = inspections.filter((i) => i.status === "PENDING").length;
   const verifiedCount = inspections.filter((i) => i.status === "VERIFIED").length;
   const approvedCount = inspections.filter((i) => i.status === "APPROVED").length;
-  const rejectedCount = inspections.filter((i) => i.status === "REJECTED").length;
+  const revisionCount = inspections.filter((i) => i.status === "SUBJECT_TO_REVISION" || i.status === "REJECTED").length;
 
   const getStatusBadge = (status: InspectionRecord["status"]) => {
     switch (status) {
@@ -71,6 +74,7 @@ export default function AuctionDashboard() {
             <CheckCircle2 className="w-3 h-3 mr-1" /> Approved / Cleared
           </Badge>
         );
+      case "SUBJECT_TO_REVISION":
       case "REJECTED":
         return (
           <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
@@ -159,7 +163,7 @@ export default function AuctionDashboard() {
 
       <div className="p-4 md:p-8 w-full space-y-6">
         {/* ═══ Compact KPI Cards ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             size="default"
             title="Pending Inspection"
@@ -193,7 +197,7 @@ export default function AuctionDashboard() {
           <KpiCard
             size="default"
             title="Subject to Revision"
-            value={rejectedCount}
+            value={revisionCount}
             variant="amber"
             icon={<RotateCcw className="w-4 h-4" />}
             badge="Revision"
@@ -285,7 +289,7 @@ export default function AuctionDashboard() {
           </Card>
         </div>
 
-        {/* ═══ Recent Inspections Table ═══ */}
+        {/* ═══ Recent Inspections Table / Cards ═══ */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -307,114 +311,174 @@ export default function AuctionDashboard() {
             </Button>
           </div>
 
-          <Card className="border-2 border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50/80">
-                  <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
-                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 pl-5">
-                      Control # & Shipper
-                    </TableHead>
-                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5">
-                      Destination
-                    </TableHead>
-                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
-                      Purpose
-                    </TableHead>
-                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
-                      Animals
-                    </TableHead>
-                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
-                      Date
-                    </TableHead>
-                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
-                      Status
-                    </TableHead>
-                    <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-right pr-5">
-                      Action
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {inspections.map((record) => {
-                    const totalHeads = record.items.reduce(
-                      (sum, i) => sum + (Number(i.quantity) || 0),
-                      0
-                    );
-                    return (
-                      <TableRow
-                        key={record.id}
-                        onClick={() => router.push("/auction-inspections")}
-                        className="cursor-pointer border-b border-slate-100 hover:bg-purple-50/40 transition-colors"
-                      >
-                        {/* Control Number + Shipper */}
-                        <TableCell className="py-3.5 pl-5">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-purple-50 text-[#7C3AED] border border-purple-100/60 shrink-0">
-                              <ClipboardCheck className="size-4 text-[#7C3AED]" />
-                            </div>
-                            <div>
-                              <p className="font-black text-sm text-slate-900">{record.shipper_name}</p>
-                              <p className="text-[11px] font-semibold text-slate-400 font-mono">
-                                {record.control_number}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        {/* Destination */}
-                        <TableCell className="py-3.5">
-                          <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-xs">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate max-w-[200px]">{record.destination}</span>
-                          </div>
-                        </TableCell>
-
-                        {/* Purpose */}
-                        <TableCell className="text-center py-3.5">
-                          {getPurposeBadge(record.purpose)}
-                        </TableCell>
-
-                        {/* Animals */}
-                        <TableCell className="text-center py-3.5">
-                          <span className="font-extrabold text-xs text-slate-700 font-mono bg-slate-100 px-2.5 py-1 rounded-lg">
-                            {totalHeads} heads
-                          </span>
-                        </TableCell>
-
-                        {/* Date */}
-                        <TableCell className="text-center py-3.5">
-                          <span className="text-xs font-semibold text-slate-500 font-mono">
-                            {record.inspection_date}
-                          </span>
-                        </TableCell>
-
-                        {/* Status */}
-                        <TableCell className="text-center py-3.5">
-                          {getStatusBadge(record.status)}
-                        </TableCell>
-
-                        {/* Action */}
-                        <TableCell className="text-right py-3.5 pr-5">
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push("/auction-inspections");
-                            }}
-                            className="rounded-xl h-8 px-3 text-xs font-extrabold bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-colors shadow-2xs gap-1 cursor-pointer"
-                          >
-                            View <ChevronRight className="size-3" />
-                          </Button>
-                        </TableCell>
+          {isLoading ? (
+            <Card className="border-2 border-slate-200/80 bg-white p-12 text-center rounded-2xl">
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <Loader2 className="w-8 h-8 text-[#7C3AED] animate-spin" />
+                <p className="text-sm font-bold text-slate-700">Loading livestock inspections...</p>
+              </div>
+            </Card>
+          ) : isError ? (
+            <Card className="border-2 border-rose-200 bg-rose-50 p-6 rounded-2xl text-center">
+              <p className="text-sm font-bold text-rose-800">Unable to load inspections. Please refresh.</p>
+            </Card>
+          ) : inspections.length === 0 ? (
+            <Card className="border-2 border-slate-200/80 bg-white p-12 text-center rounded-2xl">
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <ClipboardCheck className="w-8 h-8 text-slate-300" />
+                <p className="font-bold text-slate-700 text-sm">No inspection records found</p>
+                <p className="text-xs text-slate-400">Click &ldquo;New Inspection&rdquo; to issue a clearance permit.</p>
+              </div>
+            </Card>
+          ) : (
+            <>
+              {/* Desktop Table View */}
+              <Card className="hidden md:block border-2 border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-slate-50/80">
+                      <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                        <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 pl-5">
+                          Control # & Shipper
+                        </TableHead>
+                        <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5">
+                          Destination
+                        </TableHead>
+                        <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                          Purpose
+                        </TableHead>
+                        <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                          Animals
+                        </TableHead>
+                        <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                          Date
+                        </TableHead>
+                        <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                          Status
+                        </TableHead>
+                        <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-right pr-5">
+                          Action
+                        </TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+                    </TableHeader>
+
+                    <TableBody>
+                      {inspections.slice(0, 5).map((record) => {
+                        const totalHeads = record.items.reduce(
+                          (sum, i) => sum + (Number(i.quantity) || 0),
+                          0
+                        );
+                        return (
+                          <TableRow
+                            key={record.id}
+                            onClick={() => router.push("/auction-inspections")}
+                            className="cursor-pointer border-b border-slate-100 hover:bg-purple-50/40 transition-colors"
+                          >
+                            <TableCell className="py-3.5 pl-5">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-purple-50 text-[#7C3AED] border border-purple-100/60 shrink-0">
+                                  <ClipboardCheck className="size-4 text-[#7C3AED]" />
+                                </div>
+                                <div>
+                                  <p className="font-black text-sm text-slate-900">{record.shipper_name}</p>
+                                  <p className="text-[11px] font-semibold text-slate-400 font-mono">
+                                    {record.control_number}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="py-3.5">
+                              <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-xs">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="truncate max-w-[200px]">{record.destination}</span>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="text-center py-3.5">
+                              {getPurposeBadge(record.purpose)}
+                            </TableCell>
+
+                            <TableCell className="text-center py-3.5">
+                              <span className="font-extrabold text-xs text-slate-700 font-mono bg-slate-100 px-2.5 py-1 rounded-lg">
+                                {totalHeads} heads
+                              </span>
+                            </TableCell>
+
+                            <TableCell className="text-center py-3.5">
+                              <span className="text-xs font-semibold text-slate-500 font-mono">
+                                {record.inspection_date}
+                              </span>
+                            </TableCell>
+
+                            <TableCell className="text-center py-3.5">
+                              {getStatusBadge(record.status)}
+                            </TableCell>
+
+                            <TableCell className="text-right py-3.5 pr-5">
+                              <Button
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push("/auction-inspections");
+                                }}
+                                className="rounded-xl h-8 px-3 text-xs font-extrabold bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-colors shadow-2xs gap-1 cursor-pointer"
+                              >
+                                View <ChevronRight className="size-3" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+
+              {/* Mobile Responsive Cards View */}
+              <div className="md:hidden space-y-3">
+                {inspections.slice(0, 5).map((record) => {
+                  const totalHeads = record.items.reduce(
+                    (sum, i) => sum + (Number(i.quantity) || 0),
+                    0
+                  );
+                  return (
+                    <Card
+                      key={record.id}
+                      onClick={() => router.push("/auction-inspections")}
+                      className="border border-slate-200 bg-white p-4 rounded-2xl shadow-xs cursor-pointer hover:border-purple-300 transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <p className="font-black text-sm text-slate-900">{record.shipper_name}</p>
+                          <p className="text-[11px] font-mono text-purple-700 font-bold">{record.control_number}</p>
+                        </div>
+                        {getStatusBadge(record.status)}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 my-2 pt-2 border-t border-slate-100">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Destination</span>
+                          <span className="font-semibold text-slate-800 truncate block">{record.destination}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Animals / Date</span>
+                          <span className="font-semibold text-slate-800">{totalHeads} head(s) · {record.inspection_date}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100">
+                        {getPurposeBadge(record.purpose)}
+                        <span className="text-xs font-black text-[#7C3AED] flex items-center gap-1">
+                          View details <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

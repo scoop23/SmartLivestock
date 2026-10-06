@@ -205,7 +205,7 @@ export function InspectionsListView({
               <div className="flex flex-wrap gap-1.5">
                 {record.items.map((it, idx) => (
                   <Badge key={idx} variant="outline" className="text-[10px] font-bold bg-white text-slate-700">
-                    {it.livestock_type}: {it.quantity} ({it.sex})
+                    {it.livestock_type_name || it.livestock_type}: {it.quantity} ({it.sex})
                   </Badge>
                 ))}
               </div>
