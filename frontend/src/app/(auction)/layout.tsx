@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
+import MobileNavAuction from "@/app/components/mobilenavauction";
 import { Toaster } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -23,7 +24,7 @@ export default function AuctionLayout({
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
       </div>
     );
   }
@@ -39,7 +40,9 @@ export default function AuctionLayout({
         onLogout={logout}
       />
 
-      <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
+      <main className="flex-1 min-w-0 overflow-y-auto pb-16 md:pb-0">{children}</main>
+
+      <MobileNavAuction />
 
       <Toaster
         position="top-center"

@@ -19,9 +19,10 @@ export function ActivityScheduleCard({
     CLOSED: "Registration closed",
     COMPLETED: "Program completed",
   }[schedule.registration_status];
-  const canViewSchedule = role === "farmer"
-    ? schedule.registration_status === "AVAILABLE" || schedule.registration_status === "FULL"
-    : true;
+  const canViewSchedule =
+    role === "farmer"
+      ? schedule.registration_status === "AVAILABLE" || schedule.registration_status === "FULL"
+      : role === "sibat" || role === "admin";
   const href = role === "farmer"
     ? `/farmer-scheduling?schedule=${schedule.id}`
     : role === "sibat"
@@ -73,7 +74,11 @@ export function ActivityScheduleCard({
         ) : null}
       </div>
 
-      {canViewSchedule ? (
+      {role === "auction" ? (
+        <div className="pt-1.5 flex items-center gap-2 text-xs font-semibold text-purple-700 bg-purple-50/80 px-3 py-2 rounded-xl border border-purple-200">
+          <span>Municipal program bulletin · Informational operational notice for auction personnel</span>
+        </div>
+      ) : canViewSchedule ? (
         <div className="pt-1.5">
           <Button asChild size="sm" className="h-10 w-full sm:w-auto rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white transition hover:bg-emerald-900">
             <Link href={href}>{role === "farmer" && schedule.registration_status === "AVAILABLE" ? "Book a Slot" : "View Schedule"}</Link>

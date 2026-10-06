@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileDown,
   ShieldCheck,
@@ -10,6 +11,13 @@ import {
   CheckCircle2,
   Clock,
   RotateCcw,
+  MapPin,
+  Map,
+  Truck,
+  Building,
+  User,
+  Calendar,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +30,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { InspectionRecord, verifyInspection } from "./auction-analytics";
+import { cowHead } from "@lucide/lab";
+import { Icon } from "lucide-react";
+
+const CowHeadIcon = ({ className }: { className?: string }) => (
+  <Icon iconNode={cowHead} className={className} />
+);
 
 interface InspectionDetailsDialogProps {
   inspection: InspectionRecord | null;
@@ -36,6 +50,7 @@ export function InspectionDetailsDialog({
   statusBadge,
   onActionSuccess,
 }: InspectionDetailsDialogProps) {
+  const router = useRouter();
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -58,6 +73,7 @@ export function InspectionDetailsDialog({
       setErrorMsg(
         respData?.error ||
           respData?.status ||
+          respData?.detail ||
           "Failed to verify inspection. Please try again."
       );
     } finally {
@@ -65,25 +81,40 @@ export function InspectionDetailsDialog({
     }
   };
 
+  const totalAnimals = inspection.items.reduce(
+    (sum, item) => sum + (Number(item.quantity) || 0),
+    0
+  );
+
+  // Determine active step index in the verification workflow
+  // 0: Draft / Pending
+  // 1: Verified by Auction Officer
+  // 2: MAO Review & Cleared
+  let currentStep = 0;
+  if (inspection.status === "VERIFIED") currentStep = 1;
+  else if (inspection.status === "APPROVED") currentStep = 2;
+  else if (inspection.status === "SUBJECT_TO_REVISION" || inspection.status === "REJECTED") currentStep = 0;
+
   return (
     <Dialog open={!!inspection} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-0">
-        <DialogHeader className="p-5 sm:p-6 bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] text-white rounded-t-3xl">
+      <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-0 shadow-2xl">
+        {/* Header Banner */}
+        <DialogHeader className="p-5 sm:p-6 bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] text-white rounded-t-3xl">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <Badge className="bg-white/20 text-white font-mono text-xs px-2.5 py-0.5">
-              {inspection.control_number}
+            <Badge className="bg-white/20 text-white font-mono text-xs px-2.5 py-0.5 border border-white/30">
+              Control #{inspection.control_number}
             </Badge>
             {statusBadge}
           </div>
-          <DialogTitle className="text-xl font-black mt-2">
+          <DialogTitle className="text-xl sm:text-2xl font-black mt-2 tracking-tight">
             Livestock Transport Clearance Certificate
           </DialogTitle>
-          <DialogDescription className="text-purple-100 text-xs">
-            Official permit for Padre Garcia livestock movement, trade checkpoints, and market inspection.
+          <DialogDescription className="text-purple-100 text-xs sm:text-sm">
+            Padre Garcia Municipal Agriculture Office · Veterinary Inspection &amp; Movement Terminal
           </DialogDescription>
         </DialogHeader>
 
-        <div className="p-4 sm:p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-6">
           {errorMsg && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -91,95 +122,147 @@ export function InspectionDetailsDialog({
             </div>
           )}
 
-          {/* Workflow Stage Notice */}
-          {inspection.status === "SUBJECT_TO_REVISION" && inspection.review_remarks && (
-            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-900 space-y-1">
-              <p className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-amber-800">
-                <RotateCcw className="w-4 h-4" /> Returned by MAO for Correction:
-              </p>
-              <p className="text-xs font-semibold">{inspection.review_remarks}</p>
+          {/* ════ SECTION 1: VERIFICATION & WORKFLOW STEPPER ════ */}
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                Clearance Workflow Progress
+              </span>
+              <span className="text-[11px] font-bold text-slate-500 font-mono">
+                {inspection.status === "APPROVED"
+                  ? "Status: CLEARED"
+                  : inspection.status === "SUBJECT_TO_REVISION"
+                  ? "Status: REVISION REQUIRED"
+                  : inspection.status === "VERIFIED"
+                  ? "Status: AWAITING MAO"
+                  : "Status: PENDING VERIFICATION"}
+              </span>
             </div>
-          )}
 
-          {inspection.status === "VERIFIED" && (
-            <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-              <p className="text-xs font-bold">
-                Inspection findings verified by Auction. Awaiting municipal final review &amp; clearance issuance by MAO.
-              </p>
-            </div>
-          )}
+            {/* Visual Stepper */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <div
+                className={`p-2.5 rounded-xl text-center border transition-all ${
+                  currentStep >= 0
+                    ? "bg-purple-100/70 border-purple-300 text-[#7C3AED]"
+                    : "bg-white border-slate-200 text-slate-400"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1 text-[11px] font-black">
+                  <Check className="w-3.5 h-3.5" /> 1. Recorded
+                </div>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Gate Check</p>
+              </div>
 
-          {inspection.status === "APPROVED" && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <p className="text-xs font-bold">
-                Clearance officially approved and issued by MAO on {inspection.date_issued || "today"}. Valid for transport.
-              </p>
-            </div>
-          )}
+              <div
+                className={`p-2.5 rounded-xl text-center border transition-all ${
+                  currentStep >= 1
+                    ? "bg-blue-100/70 border-blue-300 text-blue-800"
+                    : "bg-white border-slate-200 text-slate-400"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1 text-[11px] font-black">
+                  {currentStep >= 1 ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />} 2. Verified
+                </div>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Auction Review</p>
+              </div>
 
-          {/* Key Details Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-400">Shipper</span>
-              <p className="text-xs font-black text-slate-900">{inspection.shipper_name}</p>
+              <div
+                className={`p-2.5 rounded-xl text-center border transition-all ${
+                  currentStep >= 2
+                    ? "bg-emerald-100/70 border-emerald-300 text-emerald-800"
+                    : inspection.status === "SUBJECT_TO_REVISION"
+                    ? "bg-amber-100 border-amber-300 text-amber-900"
+                    : "bg-white border-slate-200 text-slate-400"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1 text-[11px] font-black">
+                  {currentStep >= 2 ? (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  ) : inspection.status === "SUBJECT_TO_REVISION" ? (
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  ) : (
+                    <Clock className="w-3.5 h-3.5" />
+                  )}
+                  3. MAO Review
+                </div>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Final Permit</p>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-400">Destination</span>
-              <p className="text-xs font-black text-slate-900">{inspection.destination}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-400">Purpose</span>
-              <p className="text-xs font-black text-purple-700">{inspection.purpose}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-400">Vehicle Plate</span>
-              <p className="text-xs font-mono font-bold text-slate-700">{inspection.vehicle_plate_number || "N/A"}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-400">Handler License</span>
-              <p className="text-xs font-mono font-bold text-slate-700">{inspection.livestock_handler_license_no || "N/A"}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-400">Date Issued</span>
-              <p className="text-xs font-semibold text-slate-700">
-                {inspection.status === "APPROVED" && inspection.date_issued ? inspection.date_issued : "Pending MAO approval"}
+
+            {/* Workflow Stage Remarks / Alerts */}
+            {inspection.status === "SUBJECT_TO_REVISION" && inspection.review_remarks && (
+              <div className="p-3.5 rounded-xl bg-amber-100/80 border border-amber-300 text-amber-950 space-y-1">
+                <p className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-amber-900">
+                  <RotateCcw className="w-4 h-4" /> Returned by MAO for Revision:
+                </p>
+                <p className="text-xs font-semibold">{inspection.review_remarks}</p>
+              </div>
+            )}
+
+            {inspection.status === "VERIFIED" && (
+              <p className="text-xs font-semibold text-blue-900 bg-blue-50/80 p-2.5 rounded-xl border border-blue-200 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                Findings verified by Auction. Awaiting final review &amp; electronic signature from MAO.
               </p>
-            </div>
+            )}
+
+            {inspection.status === "APPROVED" && (
+              <p className="text-xs font-semibold text-emerald-900 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                Clearance approved and issued on {inspection.date_issued || "today"}. Officially cleared for transport.
+              </p>
+            )}
           </div>
 
-          {/* Inspected Animals List */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-              Inspected Animals Breakdown
-            </h4>
-            <div className="border border-slate-200 rounded-2xl overflow-hidden">
+          {/* ════ SECTION 2: LIVESTOCK DETAILS ════ */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                <CowHeadIcon className="w-4 h-4 text-[#7C3AED]" />
+                Inspected Livestock Breakdown ({totalAnimals} Heads Total)
+              </h4>
+              <Badge variant="outline" className="text-[11px] font-mono font-bold">
+                {inspection.items.length} Batch Record{inspection.items.length !== 1 ? "s" : ""}
+              </Badge>
+            </div>
+
+            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 font-extrabold uppercase text-[10px]">
+                <thead className="bg-slate-50 text-slate-600 font-black uppercase text-[10px] border-b border-slate-200">
                   <tr>
-                    <th className="p-3 pl-4">Animal Species</th>
+                    <th className="p-3 pl-4">Livestock / Species</th>
                     <th className="p-3 text-center">Head Count</th>
                     <th className="p-3 text-center">Sex</th>
-                    <th className="p-3 text-center">Class</th>
-                    <th className="p-3 pr-4">Health Remarks</th>
+                    <th className="p-3 text-center">Classification</th>
+                    <th className="p-3 pr-4">Health &amp; Tag Notes</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {inspection.items.map((it, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="hover:bg-purple-50/30 transition-colors">
                       <td className="p-3 pl-4 font-bold text-slate-900">
                         {it.livestock_type_name || String(it.livestock_type)}
                         {it.inventory_tag && (
-                          <span className="block text-[10px] font-mono text-purple-700 font-normal">
+                          <span className="block text-[10px] font-mono text-purple-700 font-bold">
                             Tag: {it.inventory_tag}
                           </span>
                         )}
                       </td>
-                      <td className="p-3 text-center font-black text-slate-900">{it.quantity}</td>
-                      <td className="p-3 text-center text-slate-600">{it.sex}</td>
-                      <td className="p-3 text-center text-slate-600">{it.classification}</td>
-                      <td className="p-3 pr-4 text-slate-500 italic">{it.remarks || "—"}</td>
+                      <td className="p-3 text-center font-black text-slate-900 text-sm font-mono">
+                        {it.quantity}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700">
+                          {it.sex}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center font-semibold text-slate-700">
+                        {it.classification}
+                      </td>
+                      <td className="p-3 pr-4 text-slate-600 italic">
+                        {it.remarks || "No clinical anomalies observed"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -187,105 +270,152 @@ export function InspectionDetailsDialog({
             </div>
           </div>
 
-          {/* Official Verification QR Block & Biosecurity Seal */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className="p-2 bg-white rounded-xl shadow-xs border border-slate-200 shrink-0">
-              <svg className="size-20 sm:size-24" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="10" y="10" width="30" height="30" rx="4" fill="#6D28D9" />
-                <rect x="16" y="16" width="18" height="18" rx="2" fill="white" />
-                <rect x="20" y="20" width="10" height="10" rx="1" fill="#6D28D9" />
+          {/* ════ SECTION 3: AUCTION & SHIPPER PARTICULARS ════ */}
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <Building className="w-4 h-4 text-[#7C3AED]" />
+              Auction, Shipper &amp; Transport Particulars
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Shipper / Owner</span>
+                <p className="font-black text-slate-900 mt-0.5">{inspection.shipper_name}</p>
+                {inspection.shipper_address && (
+                  <p className="text-[11px] text-slate-500 truncate">{inspection.shipper_address}</p>
+                )}
+              </div>
 
-                <rect x="80" y="10" width="30" height="30" rx="4" fill="#6D28D9" />
-                <rect x="86" y="16" width="18" height="18" rx="2" fill="white" />
-                <rect x="90" y="20" width="10" height="10" rx="1" fill="#6D28D9" />
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Inspection Date</span>
+                <p className="font-black text-slate-900 font-mono mt-0.5 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-purple-600" /> {inspection.inspection_date}
+                </p>
+              </div>
 
-                <rect x="10" y="80" width="30" height="30" rx="4" fill="#6D28D9" />
-                <rect x="16" y="86" width="18" height="18" rx="2" fill="white" />
-                <rect x="20" y="90" width="10" height="10" rx="1" fill="#6D28D9" />
-
-                <rect x="48" y="12" width="6" height="6" rx="1" fill="#6D28D9" />
-                <rect x="58" y="12" width="6" height="6" rx="1" fill="#6D28D9" />
-                <rect x="68" y="18" width="6" height="6" rx="1" fill="#6D28D9" />
-                <rect x="48" y="26" width="12" height="6" rx="1" fill="#6D28D9" />
-
-                <rect x="12" y="48" width="6" height="6" rx="1" fill="#6D28D9" />
-                <rect x="24" y="48" width="6" height="12" rx="1" fill="#6D28D9" />
-                <rect x="12" y="60" width="18" height="6" rx="1" fill="#6D28D9" />
-
-                <rect x="44" y="44" width="32" height="32" rx="6" fill="#7C3AED" />
-                <circle cx="60" cy="60" r="10" fill="white" />
-                <circle cx="60" cy="60" r="5" fill="#6D28D9" />
-
-                <rect x="82" y="48" width="14" height="6" rx="1" fill="#6D28D9" />
-                <rect x="90" y="60" width="18" height="6" rx="1" fill="#6D28D9" />
-                <rect x="82" y="70" width="6" height="14" rx="1" fill="#6D28D9" />
-
-                <rect x="48" y="84" width="8" height="8" rx="1" fill="#6D28D9" />
-                <rect x="60" y="92" width="14" height="6" rx="1" fill="#6D28D9" />
-                <rect x="48" y="102" width="20" height="6" rx="1" fill="#6D28D9" />
-                <rect x="84" y="90" width="12" height="6" rx="1" fill="#6D28D9" />
-                <rect x="98" y="98" width="10" height="10" rx="1" fill="#6D28D9" />
-              </svg>
-            </div>
-
-            <div className="space-y-1 text-center sm:text-left flex-1">
-              <div className="flex items-center gap-1.5 justify-center sm:justify-start">
-                <ShieldCheck className="size-4 text-emerald-600" />
-                <span className="text-[11px] font-black uppercase text-slate-800 tracking-wider">
-                  Padre Garcia Municipal Agriculture Office
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Purpose</span>
+                <span className="font-extrabold text-[11px] text-purple-700 bg-purple-100/70 border border-purple-200 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                  {inspection.purpose}
                 </span>
               </div>
-              <p className="text-[11px] font-bold text-slate-600">
-                Official Veterinary Biosecurity &amp; Movement Certificate
-              </p>
-              <p className="text-[10px] text-slate-400 font-medium">
-                Scan via checkpoint mobile terminal to verify permit authenticity and antemortem health status.
-              </p>
-              <p className="text-[10px] font-mono font-bold text-purple-700">
-                LGU Control Code: {inspection.control_number}
-              </p>
+
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Vehicle Plate Number</span>
+                <p className="font-mono font-bold text-slate-800 mt-0.5">
+                  {inspection.vehicle_plate_number || "Not specified"}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Handler License No.</span>
+                <p className="font-mono font-bold text-slate-800 mt-0.5">
+                  {inspection.livestock_handler_license_no || "Not specified"}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Issuing Officer</span>
+                <p className="font-bold text-slate-800 mt-0.5">
+                  {inspection.created_by_name || "Auction Officer"}
+                </p>
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2 pt-4 border-t border-slate-200 flex-col sm:flex-row justify-between items-stretch sm:items-center">
-            {inspection.status === "APPROVED" ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.print()}
-                className="rounded-xl font-bold text-xs gap-1.5 cursor-pointer w-full sm:w-auto"
-              >
-                <FileDown className="w-3.5 h-3.5" /> Export / Print Permit
-              </Button>
-            ) : canVerify ? (
-              <Button
-                onClick={handleVerify}
-                disabled={isVerifying}
-                className="rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white cursor-pointer w-full sm:w-auto gap-1.5"
-              >
-                {isVerifying ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" /> Verify &amp; Forward to MAO
-                  </>
-                )}
-              </Button>
-            ) : (
-              <div />
-            )}
+          {/* ════ SECTION 4: MOVEMENT ROUTE & GIS CONNECTION ════ */}
+          <div className="bg-gradient-to-br from-purple-50/70 via-white to-purple-50/30 p-4 rounded-2xl border-2 border-purple-200/80 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-[#7C3AED]" />
+                  Livestock Movement Route &amp; GIS Telemetry
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Trace animal origin, destination checkpoints, and municipal movement flows.
+                </p>
+              </div>
 
-            <Button
-              onClick={onClose}
-              className="rounded-xl font-bold text-xs bg-[#7C3AED] hover:bg-[#6D28D9] text-white cursor-pointer w-full sm:w-auto"
-            >
-              Close
-            </Button>
-          </DialogFooter>
+              <Button
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  router.push("/auction-gis");
+                }}
+                className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-black rounded-xl shadow-xs gap-1.5 cursor-pointer"
+              >
+                <Map className="w-3.5 h-3.5" />
+                View Movement on GIS Map
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="bg-white p-3 rounded-xl border border-purple-100 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-100 text-[#7C3AED] shrink-0">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Origin Point</span>
+                  <p className="text-xs font-black text-slate-900 truncate">
+                    {inspection.origin || "Padre Garcia Livestock Auction Terminal"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white p-3 rounded-xl border border-purple-100 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-100 text-emerald-800 shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Destination</span>
+                  <p className="text-xs font-black text-slate-900 truncate">
+                    {inspection.destination || "Batangas Municipal Slaughterhouse"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Footer Actions */}
+        <DialogFooter className="gap-2 p-4 sm:p-6 border-t border-slate-200 flex-col sm:flex-row justify-between items-stretch sm:items-center bg-slate-50/50 rounded-b-3xl">
+          {inspection.status === "APPROVED" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="rounded-xl font-bold text-xs gap-1.5 cursor-pointer w-full sm:w-auto"
+            >
+              <FileDown className="w-3.5 h-3.5" /> Export / Print Permit
+            </Button>
+          ) : canVerify ? (
+            <Button
+              onClick={handleVerify}
+              disabled={isVerifying}
+              className="rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white cursor-pointer w-full sm:w-auto gap-1.5 shadow-xs"
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying...
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" /> Verify &amp; Forward to MAO
+                </>
+              )}
+            </Button>
+          ) : (
+            <div />
+          )}
+
+          <Button
+            onClick={onClose}
+            className="rounded-xl font-bold text-xs bg-slate-900 hover:bg-slate-800 text-white cursor-pointer w-full sm:w-auto"
+          >
+            Close Details
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+

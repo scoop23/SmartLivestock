@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardCheck,
   CheckCircle2,
@@ -16,8 +16,10 @@ import {
   ArrowRight,
   Calendar,
   MapPin,
+  Map,
   QrCode,
   Loader2,
+  Megaphone,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,10 +40,15 @@ import {
   fetchInspections,
 } from "../auction-inspections/auction-analytics";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
+import { NewInspectionDialog } from "../auction-inspections/new-inspection-dialog";
+import { InspectionDetailsDialog } from "../auction-inspections/inspection-details-dialog";
 
 export default function AuctionDashboard() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+  const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
   const { data: inspections = [], isLoading, isError } = useQuery<InspectionRecord[]>({
     queryKey: ["inspections"],
@@ -49,35 +56,41 @@ export default function AuctionDashboard() {
     staleTime: 30_000,
   });
 
+  const handleSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["inspections"] });
+  };
+
   const pendingCount = inspections.filter((i) => i.status === "PENDING").length;
   const verifiedCount = inspections.filter((i) => i.status === "VERIFIED").length;
   const approvedCount = inspections.filter((i) => i.status === "APPROVED").length;
-  const revisionCount = inspections.filter((i) => i.status === "SUBJECT_TO_REVISION" || i.status === "REJECTED").length;
+  const revisionCount = inspections.filter(
+    (i) => i.status === "SUBJECT_TO_REVISION" || i.status === "REJECTED"
+  ).length;
 
   const getStatusBadge = (status: InspectionRecord["status"]) => {
     switch (status) {
       case "PENDING":
         return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-bold text-[10px] uppercase tracking-wider">
+          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
             <Clock className="w-3 h-3 mr-1" /> Pending Inspection
           </Badge>
         );
       case "VERIFIED":
         return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200 font-bold text-[10px] uppercase tracking-wider">
-            <Send className="w-3 h-3 mr-1" /> Verified Today
+          <Badge className="bg-blue-100 text-blue-900 border-blue-300 font-bold text-[10px] uppercase tracking-wider">
+            <Send className="w-3 h-3 mr-1" /> Verified by Auction
           </Badge>
         );
       case "APPROVED":
         return (
-          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-bold text-[10px] uppercase tracking-wider">
+          <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-bold text-[10px] uppercase tracking-wider">
             <CheckCircle2 className="w-3 h-3 mr-1" /> Approved / Cleared
           </Badge>
         );
       case "SUBJECT_TO_REVISION":
       case "REJECTED":
         return (
-          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
+          <Badge className="bg-amber-100 text-amber-950 border-amber-400 font-bold text-[10px] uppercase tracking-wider">
             <RotateCcw className="w-3 h-3 mr-1" /> Subject to Revision
           </Badge>
         );
@@ -123,15 +136,15 @@ export default function AuctionDashboard() {
       />
 
       {/* Market active status banner */}
-      <div className="bg-purple-600/95 text-white shadow-xs">
+      <div className="bg-purple-700 text-white shadow-xs">
         <div className="w-full px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-white/20 shrink-0">
               <ClipboardCheck className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-xs font-extrabold">
-                Auction & Meat Inspection Terminal Active — Padre Garcia Livestock Trading Center
+              <p className="text-xs font-black">
+                Auction &amp; Meat Inspection Terminal Active — Padre Garcia Livestock Trading Center
               </p>
               <p className="text-[10px] text-purple-100 font-semibold">
                 Weekly livestock clearances and transport certifications are synchronized with municipal veterinary health protocols.
@@ -151,7 +164,7 @@ export default function AuctionDashboard() {
 
             <Button
               size="sm"
-              onClick={() => router.push("/auction-inspections")}
+              onClick={() => setIsNewDialogOpen(true)}
               className="bg-white hover:bg-purple-50 text-[#7C3AED] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -162,7 +175,7 @@ export default function AuctionDashboard() {
       </div>
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        {/* ═══ Compact KPI Cards ═══ */}
+        {/* ═══ Operational KPI Cards ═══ */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             size="default"
@@ -176,12 +189,12 @@ export default function AuctionDashboard() {
           />
           <KpiCard
             size="default"
-            title="Verified Today"
+            title="Verified Records"
             value={verifiedCount}
             variant="sky"
             icon={<Send className="w-4 h-4" />}
-            badge="Today"
-            description="Clearances processed"
+            badge="Verified"
+            description="Forwarded for MAO review"
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
@@ -191,7 +204,7 @@ export default function AuctionDashboard() {
             variant="emerald"
             icon={<CheckCircle2 className="w-4 h-4" />}
             badge="Cleared"
-            description="Permits issued for transit"
+            description="Official permits issued"
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
@@ -206,8 +219,8 @@ export default function AuctionDashboard() {
           />
         </div>
 
-        {/* ═══ Quick Actions Strip ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ═══ Quick Actions Grid ═══ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card
             onClick={() => setIsScannerOpen(true)}
             className="border-2 border-purple-200 bg-gradient-to-br from-purple-100/70 via-purple-50/40 to-white hover:border-purple-400 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
@@ -219,9 +232,9 @@ export default function AuctionDashboard() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 group-hover:text-[#7C3AED] transition-colors">
-                    Scan Gate QR Pass
+                    Scan Gate Pass
                   </h3>
-                  <p className="text-xs font-medium text-slate-500">Fast gate ingress verify for lots &amp; trucks</p>
+                  <p className="text-xs font-medium text-slate-500">Fast gate ingress verify for animal lots</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] group-hover:translate-x-0.5 transition-all shrink-0" />
@@ -229,7 +242,7 @@ export default function AuctionDashboard() {
           </Card>
 
           <Card
-            onClick={() => router.push("/auction-inspections")}
+            onClick={() => setIsNewDialogOpen(true)}
             className="border-2 border-purple-100 bg-gradient-to-br from-purple-50/60 via-white to-white hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
@@ -239,9 +252,9 @@ export default function AuctionDashboard() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 group-hover:text-[#7C3AED] transition-colors">
-                    Issue New Clearance
+                    Issue Clearance
                   </h3>
-                  <p className="text-xs font-medium text-slate-500">Record transport and vet inspection</p>
+                  <p className="text-xs font-medium text-slate-500">Record transport and antemortem check</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] group-hover:translate-x-0.5 transition-all shrink-0" />
@@ -249,22 +262,22 @@ export default function AuctionDashboard() {
           </Card>
 
           <Card
-            onClick={() => router.push("/auction-inspections")}
-            className="border-2 border-slate-100 bg-gradient-to-br from-slate-50/60 via-white to-white hover:border-slate-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
+            onClick={() => router.push("/auction-gis")}
+            className="border-2 border-sky-100 bg-gradient-to-br from-sky-50/60 via-white to-white hover:border-sky-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-slate-100 text-[#1A365D] group-hover:scale-105 transition-transform shrink-0">
-                  <ClipboardCheck className="w-5 h-5" />
+                <div className="p-3 rounded-xl bg-sky-100 text-sky-800 group-hover:scale-105 transition-transform shrink-0">
+                  <Map className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 group-hover:text-[#1A365D] transition-colors">
-                    Inspection Registry
+                  <h3 className="text-sm font-black text-slate-900 group-hover:text-sky-800 transition-colors">
+                    Movement GIS Map
                   </h3>
-                  <p className="text-xs font-medium text-slate-500">Browse and filter all clearance records</p>
+                  <p className="text-xs font-medium text-slate-500">Trace animal origin &amp; destination routes</p>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#1A365D] group-hover:translate-x-0.5 transition-all shrink-0" />
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-sky-800 group-hover:translate-x-0.5 transition-all shrink-0" />
             </CardContent>
           </Card>
 
@@ -275,13 +288,13 @@ export default function AuctionDashboard() {
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3.5">
                 <div className="p-3 rounded-xl bg-emerald-100 text-emerald-800 group-hover:scale-105 transition-transform shrink-0">
-                  <Calendar className="w-5 h-5" />
+                  <Megaphone className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 group-hover:text-emerald-800 transition-colors">
-                    Auction Schedules
+                    Market Notices
                   </h3>
-                  <p className="text-xs font-medium text-slate-500">Market day schedules and protocols</p>
+                  <p className="text-xs font-medium text-slate-500">Biosecurity alerts &amp; auction bulletins</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-800 group-hover:translate-x-0.5 transition-all shrink-0" />
@@ -339,7 +352,7 @@ export default function AuctionDashboard() {
                     <TableHeader className="bg-slate-50/80">
                       <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
                         <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 pl-5">
-                          Control # & Shipper
+                          Control # &amp; Shipper
                         </TableHead>
                         <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5">
                           Destination
@@ -363,7 +376,7 @@ export default function AuctionDashboard() {
                     </TableHeader>
 
                     <TableBody>
-                      {inspections.slice(0, 5).map((record) => {
+                      {inspections.slice(0, 6).map((record) => {
                         const totalHeads = record.items.reduce(
                           (sum, i) => sum + (Number(i.quantity) || 0),
                           0
@@ -371,7 +384,7 @@ export default function AuctionDashboard() {
                         return (
                           <TableRow
                             key={record.id}
-                            onClick={() => router.push("/auction-inspections")}
+                            onClick={() => setSelectedInspection(record)}
                             className="cursor-pointer border-b border-slate-100 hover:bg-purple-50/40 transition-colors"
                           >
                             <TableCell className="py-3.5 pl-5">
@@ -420,7 +433,7 @@ export default function AuctionDashboard() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  router.push("/auction-inspections");
+                                  setSelectedInspection(record);
                                 }}
                                 className="rounded-xl h-8 px-3 text-xs font-extrabold bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-colors shadow-2xs gap-1 cursor-pointer"
                               >
@@ -437,7 +450,7 @@ export default function AuctionDashboard() {
 
               {/* Mobile Responsive Cards View */}
               <div className="md:hidden space-y-3">
-                {inspections.slice(0, 5).map((record) => {
+                {inspections.slice(0, 6).map((record) => {
                   const totalHeads = record.items.reduce(
                     (sum, i) => sum + (Number(i.quantity) || 0),
                     0
@@ -445,7 +458,7 @@ export default function AuctionDashboard() {
                   return (
                     <Card
                       key={record.id}
-                      onClick={() => router.push("/auction-inspections")}
+                      onClick={() => setSelectedInspection(record)}
                       className="border border-slate-200 bg-white p-4 rounded-2xl shadow-xs cursor-pointer hover:border-purple-300 transition-all"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
@@ -482,6 +495,23 @@ export default function AuctionDashboard() {
         </div>
       </div>
 
+      {/* New Inspection Dialog */}
+      <NewInspectionDialog
+        isOpen={isNewDialogOpen}
+        onOpenChange={setIsNewDialogOpen}
+        onSubmitSuccess={handleSuccess}
+        nextId={inspections.length + 1}
+      />
+
+      {/* Inspection Details Dialog */}
+      <InspectionDetailsDialog
+        inspection={selectedInspection}
+        onClose={() => setSelectedInspection(null)}
+        statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status) : null}
+        onActionSuccess={handleSuccess}
+      />
+
+      {/* Universal Gate Pass QR Scanner */}
       <UniversalQrScannerDialog
         isOpen={isScannerOpen}
         onOpenChange={setIsScannerOpen}
@@ -490,3 +520,4 @@ export default function AuctionDashboard() {
     </>
   );
 }
+

@@ -1,36 +1,43 @@
-import React from 'react'
-import { useRouter } from 'next/navigation';
-import { LayoutDashboard, CheckSquare, Bell } from 'lucide-react';
+'use client';
+
+import React from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { LayoutDashboard, ClipboardCheck, Map, Megaphone } from 'lucide-react';
 
 export default function MobileNavAuction() {
   const router = useRouter();
+  const pathname = usePathname();
+
+  const navItems = [
+    { label: 'Dashboard', path: '/auction', icon: LayoutDashboard },
+    { label: 'Inspections', path: '/auction-inspections', icon: ClipboardCheck },
+    { label: 'Movement GIS', path: '/auction-gis', icon: Map },
+    { label: 'Notices', path: '/auction-announcement', icon: Megaphone },
+  ];
+
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 z-30 shadow-lg">
       <div className="flex items-center justify-around max-w-lg mx-auto">
-        <button
-          onClick={() => router.push('/auction')}
-          className="flex flex-col items-center gap-1 text-[#7C3AED]"
-        >
-          <LayoutDashboard className="w-6 h-6" />
-          <span className="text-xs">Home</span>
-        </button>
-
-        <button
-          onClick={() => router.push('/auction-inspections')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#7C3AED]"
-        >
-          <CheckSquare className="w-6 h-6" />
-          <span className="text-xs">Inspections</span>
-        </button>
-
-        <button
-          onClick={() => router.push('/auction-announcement')}
-          className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#7C3AED] relative"
-        >
-          <Bell className="w-6 h-6" />
-          <span className="text-xs">Announcements</span>
-        </button>
+        {navItems.map((item) => {
+          const IconComponent = item.icon;
+          const isActive = pathname === item.path || (item.path !== '/auction' && pathname.startsWith(item.path));
+          return (
+            <button
+              key={item.path}
+              onClick={() => router.push(item.path)}
+              className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+                isActive
+                  ? 'text-[#7C3AED] font-black scale-105'
+                  : 'text-slate-500 hover:text-slate-900 font-medium'
+              }`}
+            >
+              <IconComponent className={`size-5 ${isActive ? 'text-[#7C3AED]' : 'text-slate-500'}`} />
+              <span className="text-[10px] tracking-tight">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </nav>
-  )
+  );
 }
+

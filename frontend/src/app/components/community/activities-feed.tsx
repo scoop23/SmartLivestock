@@ -132,11 +132,27 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
     return visible.filter((item) => item.id !== featuredItem.id);
   }, [visible, featuredItem]);
 
+  const isAuction = role === "auction";
+
+  const headerTitle =
+    isAuction
+      ? "Auction Announcements & Bulletins"
+      : role === "sibat"
+      ? "Field Operations & Community Advisories"
+      : role === "admin"
+      ? "Municipal Activities & Announcements"
+      : "Municipal Activities & Advisories";
+
+  const headerSubtitle =
+    isAuction
+      ? "Official livestock market schedules, biosecurity advisories, municipal notices, and program bulletins for Padre Garcia auction inspectors."
+      : "Official livestock programs, vaccination advisories, agricultural seminars, and announcements from Padre Garcia Municipal Agriculture Office.";
+
   return (
     <>
       <PageHeader
-        title="Municipal Activities & Advisories"
-        subtitle="Official livestock programs, vaccination advisories, agricultural seminars, and announcements from Padre Garcia Municipal Agriculture Office."
+        title={headerTitle}
+        subtitle={headerSubtitle}
         variant={role}
         maxWidthClass="w-full"
         action={
@@ -158,19 +174,19 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
         {/* Quick Highlights / KPIs */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <KpiCard
-            title="Total Announcements"
+            title={isAuction ? "Total Bulletins" : "Total Announcements"}
             value={items.length}
             icon={<Megaphone className="size-4" />}
             description="Official bulletins & notices"
-            variant="emerald"
+            variant={isAuction ? "sky" : "emerald"}
             size="sm"
             isLoading={loading}
           />
           <KpiCard
-            title="Field Programs & Visits"
+            title={isAuction ? "Related Programs" : "Field Programs & Visits"}
             value={fieldProgramsCount}
             icon={<CalendarDays className="size-4" />}
-            description="Programs with booking slots"
+            description={isAuction ? "Municipal programs & schedules" : "Programs with booking slots"}
             variant="sky"
             size="sm"
             isLoading={loading}
@@ -197,6 +213,9 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
             {ACTIVITY_FILTERS.map((name) => {
               const count = categoryCounts[name] ?? 0;
               const isActive = filter === name;
+              const activeClass = isAuction
+                ? "bg-[#7C3AED] text-white hover:bg-[#6D28D9] shadow-xs"
+                : "bg-emerald-800 text-white hover:bg-emerald-900 shadow-xs";
               return (
                 <Button
                   key={name}
@@ -207,7 +226,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                   aria-pressed={isActive}
                   className={`h-9 shrink-0 gap-2 rounded-full px-3.5 text-xs sm:text-sm font-bold transition-all ${
                     isActive
-                      ? "bg-emerald-800 text-white hover:bg-emerald-900 shadow-xs"
+                      ? activeClass
                       : "border-slate-200 bg-slate-50/80 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -232,7 +251,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search activities, programs…"
+              placeholder="Search bulletins, programs…"
               aria-label="Search activities"
               className="h-9 sm:h-10 rounded-xl pl-9 pr-8 text-sm font-medium"
             />
@@ -350,14 +369,20 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                               </span>
                             ) : null}
                           </div>
-                          <Link
-                            href={`/farmer-scheduling?schedule=${featuredItem.schedule.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 font-black text-emerald-800 hover:text-emerald-950 text-xs sm:text-sm"
-                          >
-                            <span>Book slot</span>
-                            <ArrowRight className="size-3.5" />
-                          </Link>
+                          {!isAuction ? (
+                            <Link
+                              href={`/farmer-scheduling?schedule=${featuredItem.schedule.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 font-black text-emerald-800 hover:text-emerald-950 text-xs sm:text-sm"
+                            >
+                              <span>Book slot</span>
+                              <ArrowRight className="size-3.5" />
+                            </Link>
+                          ) : (
+                            <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100">
+                              Related Municipal Program
+                            </span>
+                          )}
                         </div>
                       ) : null}
 
@@ -365,7 +390,11 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                         <span className="font-medium text-slate-500">
                           Issued by {featuredItem.author || "MAO Padre Garcia"}
                         </span>
-                        <span className="inline-flex items-center gap-1.5 font-bold text-emerald-800 group-hover:translate-x-0.5 transition-transform">
+                        <span
+                          className={`inline-flex items-center gap-1.5 font-bold group-hover:translate-x-0.5 transition-transform ${
+                            isAuction ? "text-[#7C3AED]" : "text-emerald-800"
+                          }`}
+                        >
                           <span>Read full advisory</span>
                           <ArrowRight className="size-4" />
                         </span>
@@ -393,7 +422,9 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                     <Card
                       key={item.id}
                       onClick={() => setSelected(item)}
-                      className={`group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 focus-within:ring-emerald-500/40 ${
+                      className={`group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 ${
+                        isAuction ? "focus-within:ring-purple-500/40 hover:border-purple-300" : "focus-within:ring-emerald-500/40 hover:border-emerald-300"
+                      } ${
                         item.is_pinned ? "border-amber-300/80" : "border-slate-200"
                       }`}
                     >
@@ -423,7 +454,11 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                             </span>
                           </div>
 
-                          <h3 className="line-clamp-2 text-base sm:text-lg font-black leading-snug tracking-tight text-slate-900 transition-colors group-hover:text-emerald-800">
+                          <h3
+                            className={`line-clamp-2 text-base sm:text-lg font-black leading-snug tracking-tight text-slate-900 transition-colors ${
+                              isAuction ? "group-hover:text-[#7C3AED]" : "group-hover:text-emerald-800"
+                            }`}
+                          >
                             {item.title}
                           </h3>
 
@@ -446,13 +481,19 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                                 ) : null}
                               </div>
 
-                              <Link
-                                href={`/farmer-scheduling?schedule=${item.schedule.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="font-bold text-emerald-700 hover:text-emerald-900 underline-offset-2 hover:underline"
-                              >
-                                Book slot →
-                              </Link>
+                              {!isAuction ? (
+                                <Link
+                                  href={`/farmer-scheduling?schedule=${item.schedule.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="font-bold text-emerald-700 hover:text-emerald-900 underline-offset-2 hover:underline"
+                                >
+                                  Book slot →
+                                </Link>
+                              ) : (
+                                <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
+                                  Related Program
+                                </span>
+                              )}
                             </div>
                           ) : null}
                         </div>
@@ -462,7 +503,11 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                           <span className="max-w-[150px] truncate font-medium text-slate-500">
                             By {item.author || "MAO Padre Garcia"}
                           </span>
-                          <span className="inline-flex items-center gap-1 font-bold text-emerald-800 group-hover:text-emerald-900">
+                          <span
+                            className={`inline-flex items-center gap-1 font-bold ${
+                              isAuction ? "text-[#7C3AED] group-hover:text-[#6D28D9]" : "text-emerald-800 group-hover:text-emerald-900"
+                            }`}
+                          >
                             <span>Read advisory</span>
                             <ArrowRight className="size-3.5" />
                           </span>
