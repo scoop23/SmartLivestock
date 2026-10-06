@@ -48,6 +48,7 @@ export default function AuctionDashboard() {
   const queryClient = useQueryClient();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+  const [inspectionToEdit, setInspectionToEdit] = useState<InspectionRecord | null>(null);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
   const { data: inspections = [], isLoading, isError } = useQuery<InspectionRecord[]>({
@@ -67,18 +68,18 @@ export default function AuctionDashboard() {
     (i) => i.status === "SUBJECT_TO_REVISION" || i.status === "REJECTED"
   ).length;
 
-  const getStatusBadge = (status: InspectionRecord["status"]) => {
+  const getStatusBadge = (status: InspectionRecord["status"], record?: InspectionRecord) => {
     switch (status) {
       case "PENDING":
         return (
           <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
-            <Clock className="w-3 h-3 mr-1" /> Pending Inspection
+            <Clock className="w-3 h-3 mr-1" /> {record?.created_by_role === "FARMER" ? "Awaiting Auction Submission" : "Pending MAO Review"}
           </Badge>
         );
       case "VERIFIED":
         return (
           <Badge className="bg-blue-100 text-blue-900 border-blue-300 font-bold text-[10px] uppercase tracking-wider">
-            <Send className="w-3 h-3 mr-1" /> Verified by Auction
+            <Send className="w-3 h-3 mr-1" /> Submitted to MAO
           </Badge>
         );
       case "APPROVED":
@@ -129,7 +130,7 @@ export default function AuctionDashboard() {
   return (
     <>
       <PageHeader
-        title="Livestock Auction & Inspection Portal"
+        title="Livestock Auction Movement Portal"
         subtitle="Padre Garcia Livestock Market & Slaughterhouse Checkpoint — Batangas"
         variant="auction"
         maxWidthClass="w-full"
@@ -144,10 +145,10 @@ export default function AuctionDashboard() {
             </div>
             <div>
               <p className="text-xs font-black">
-                Auction &amp; Meat Inspection Terminal Active — Padre Garcia Livestock Trading Center
+                Auction Livestock Intake Active — Padre Garcia Livestock Trading Center
               </p>
               <p className="text-[10px] text-purple-100 font-semibold">
-                Weekly livestock clearances and transport certifications are synchronized with municipal veterinary health protocols.
+                Auction records are submitted to MAO for official review and clearance decisions.
               </p>
             </div>
           </div>
@@ -164,11 +165,11 @@ export default function AuctionDashboard() {
 
             <Button
               size="sm"
-              onClick={() => setIsNewDialogOpen(true)}
+              onClick={() => { setInspectionToEdit(null); setIsNewDialogOpen(true); }}
               className="bg-white hover:bg-purple-50 text-[#7C3AED] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              New Inspection
+              New Movement Log
             </Button>
           </div>
         </div>
@@ -179,21 +180,21 @@ export default function AuctionDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             size="default"
-            title="Pending Inspection"
+            title="Pending Records"
             value={pendingCount}
             variant="amber"
             icon={<Clock className="w-4 h-4" />}
             badge="Queue"
-            description="Awaiting vet inspection"
+            description="Auction requests and MAO queue"
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
             size="default"
-            title="Verified Records"
+            title="Submitted Requests"
             value={verifiedCount}
             variant="sky"
             icon={<Send className="w-4 h-4" />}
-            badge="Verified"
+            badge="Submitted"
             description="Forwarded for MAO review"
             onClick={() => router.push("/auction-inspections")}
           />
@@ -242,7 +243,7 @@ export default function AuctionDashboard() {
           </Card>
 
           <Card
-            onClick={() => setIsNewDialogOpen(true)}
+            onClick={() => { setInspectionToEdit(null); setIsNewDialogOpen(true); }}
             className="border-2 border-purple-100 bg-gradient-to-br from-purple-50/60 via-white to-white hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
@@ -308,7 +309,7 @@ export default function AuctionDashboard() {
             <div>
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <ClipboardCheck className="w-5 h-5 text-[#7C3AED]" />
-                Recent Clearance Inspections
+                Recent Auction Movement Logs
               </h2>
               <p className="text-xs text-slate-500 font-medium">
                 Latest animals inspected for market trade, transport, and slaughter.
@@ -340,7 +341,7 @@ export default function AuctionDashboard() {
               <div className="flex flex-col items-center justify-center space-y-2">
                 <ClipboardCheck className="w-8 h-8 text-slate-300" />
                 <p className="font-bold text-slate-700 text-sm">No inspection records found</p>
-                <p className="text-xs text-slate-400">Click &ldquo;New Inspection&rdquo; to issue a clearance permit.</p>
+                <p className="text-xs text-slate-400">Click &ldquo;New Movement Log&rdquo; to issue a clearance permit.</p>
               </div>
             </Card>
           ) : (
@@ -425,7 +426,7 @@ export default function AuctionDashboard() {
                             </TableCell>
 
                             <TableCell className="text-center py-3.5">
-                              {getStatusBadge(record.status)}
+                              {getStatusBadge(record.status, record)}
                             </TableCell>
 
                             <TableCell className="text-right py-3.5 pr-5">
@@ -466,7 +467,7 @@ export default function AuctionDashboard() {
                           <p className="font-black text-sm text-slate-900">{record.shipper_name}</p>
                           <p className="text-[11px] font-mono text-purple-700 font-bold">{record.control_number}</p>
                         </div>
-                        {getStatusBadge(record.status)}
+                        {getStatusBadge(record.status, record)}
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 my-2 pt-2 border-t border-slate-100">
@@ -495,20 +496,22 @@ export default function AuctionDashboard() {
         </div>
       </div>
 
-      {/* New Inspection Dialog */}
-      <NewInspectionDialog
+      {/* New Movement Log Dialog */}
+      {isNewDialogOpen && <NewInspectionDialog
         isOpen={isNewDialogOpen}
         onOpenChange={setIsNewDialogOpen}
+        inspectionToEdit={inspectionToEdit}
         onSubmitSuccess={handleSuccess}
         nextId={inspections.length + 1}
-      />
+      />}
 
       {/* Inspection Details Dialog */}
       <InspectionDetailsDialog
         inspection={selectedInspection}
         onClose={() => setSelectedInspection(null)}
-        statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status) : null}
+        statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status, selectedInspection) : null}
         onActionSuccess={handleSuccess}
+        onEdit={() => { setInspectionToEdit(selectedInspection); setSelectedInspection(null); setIsNewDialogOpen(true); }}
       />
 
       {/* Universal Gate Pass QR Scanner */}

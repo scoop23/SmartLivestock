@@ -1,5 +1,19 @@
 import api from "@/lib/axios";
 
+export interface RegisteredAnimalOption {
+  id: number;
+  tag_number: string;
+  livestock_type: number;
+  livestock_type_name: string;
+}
+
+export interface RegisteredShipperOption {
+  id: number;
+  name: string;
+  address: string;
+  animals: RegisteredAnimalOption[];
+}
+
 export interface InspectionItem {
   id?: number;
   livestock_type: number | string;
@@ -49,6 +63,9 @@ export interface InspectionRecord {
   review_remarks?: string;
   created_by?: number;
   created_by_name?: string;
+  created_by_role?: string;
+  can_submit_farmer_request?: boolean;
+  can_edit?: boolean;
   created_at?: string;
   items: InspectionItem[];
   clearance?: InspectionClearance;
@@ -78,6 +95,12 @@ export interface CreateInspectionPayload {
 
 // ── API Functions ──
 
+export async function searchRegisteredShippers(search: string): Promise<RegisteredShipperOption[]> {
+  const response = await api.get<RegisteredShipperOption[]>("/inspections/shippers/", { params: { search } });
+  return response.data;
+}
+
+
 export async function fetchInspections(params?: { status?: string; search?: string }): Promise<InspectionRecord[]> {
   const query = new URLSearchParams();
   if (params?.status && params.status !== "ALL") {
@@ -106,8 +129,13 @@ export async function updateInspection(id: number, payload: Partial<CreateInspec
   return response.data;
 }
 
-export async function verifyInspection(id: number): Promise<InspectionRecord> {
-  const response = await api.post<InspectionRecord>(`/inspections/${id}/verify/`);
+export async function submitFarmerRequest(id: number): Promise<InspectionRecord> {
+  const response = await api.post<InspectionRecord>("/inspections/" + id + "/verify/");
+  return response.data;
+}
+
+export async function resubmitInspection(id: number): Promise<InspectionRecord> {
+  const response = await api.post<InspectionRecord>(`/inspections/${id}/resubmit/`);
   return response.data;
 }
 

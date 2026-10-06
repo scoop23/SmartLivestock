@@ -25,7 +25,7 @@ interface InspectionsListViewProps {
   inspections: InspectionRecord[];
   viewMode: "table" | "card";
   onSelectInspection: (inspection: InspectionRecord) => void;
-  getStatusBadge: (status: InspectionRecord["status"]) => React.ReactNode;
+  getStatusBadge: (status: InspectionRecord["status"], record?: InspectionRecord) => React.ReactNode;
 }
 
 export function InspectionsListView({
@@ -72,7 +72,7 @@ export function InspectionsListView({
                     <div className="flex flex-col items-center space-y-2">
                       <ClipboardCheck className="w-8 h-8 text-slate-300" />
                       <p className="font-bold text-slate-700 text-sm">No inspection clearances found</p>
-                      <p className="text-xs text-slate-400">Click &ldquo;New Inspection&rdquo; to issue a clearance permit.</p>
+                      <p className="text-xs text-slate-400">Create an auction movement log to submit it for MAO review.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -134,7 +134,7 @@ export function InspectionsListView({
 
                       {/* Status */}
                       <TableCell className="text-center py-3.5">
-                        {getStatusBadge(record.status)}
+                        {getStatusBadge(record.status, record)}
                       </TableCell>
 
                       {/* Action */}
@@ -186,7 +186,7 @@ export function InspectionsListView({
                     <MapPin className="w-3 h-3 text-slate-400" /> {record.destination}
                   </p>
                 </div>
-                {getStatusBadge(record.status)}
+                {getStatusBadge(record.status, record)}
               </div>
 
               {/* Quick Specs */}

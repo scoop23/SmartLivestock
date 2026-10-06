@@ -88,6 +88,7 @@ export function ValidationReviewDialog({
 
   const isBatch = items.length > 1;
   const singleItem = items[0];
+  const isAuctionReview = items.length === 1 && String(singleItem.id).startsWith("insp-");
 
   const handleAction = async (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
     setIsSubmitting(true);
@@ -176,7 +177,7 @@ export function ValidationReviewDialog({
               <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
                 <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
                   <FileCheck className="size-3 text-emerald-600" />
-                  Verified Metric
+                  Record Detail
                 </span>
                 <p className="text-xs font-black text-emerald-900 mt-1 font-mono">
                   {singleItem.keyMetric}
@@ -274,7 +275,7 @@ export function ValidationReviewDialog({
               <span className="text-[10px] text-slate-400 font-normal">Optional</span>
             </div>
             <Textarea
-              placeholder="Enter validation notes, verified ear tags, or correction guidance..."
+              placeholder={isAuctionReview ? "Enter MAO review remarks or required corrections..." : "Enter validation notes, verified ear tags, or correction guidance..."}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="text-xs bg-white border-slate-200 rounded-xl min-h-[85px] focus-visible:ring-emerald-500/20"
@@ -311,7 +312,11 @@ export function ValidationReviewDialog({
             </div>
 
             <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-0.5">
-              {(presetCategory === "approval" ? PRESET_APPROVAL_NOTES : PRESET_REVISION_NOTES).map(
+              {(isAuctionReview
+                ? presetCategory === "approval"
+                  ? ["Auction movement details reviewed and approved by MAO."]
+                  : ["Destination or origin details are incomplete. Please correct and resubmit."]
+                : presetCategory === "approval" ? PRESET_APPROVAL_NOTES : PRESET_REVISION_NOTES).map(
                 (preset, idx) => (
                   <button
                     key={idx}

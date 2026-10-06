@@ -2,10 +2,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Prefetch
+from livestock.models import Farmer, LivestockInventory
 
 from movements.models import (
     LivestockInspection,
@@ -33,6 +35,44 @@ from smartlivestock.workflows import (
 )
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def inspection_shipper_options(request):
+    if role_name(request.user) not in (AUCTION, MAO, ADMIN):
+        raise PermissionDenied("Only auction and MAO staff can search registered shippers.")
+    query = request.query_params.get("search", "").strip()
+    if len(query) < 2:
+        return Response([])
+    eligible_animals = LivestockInventory.objects.filter(
+        status=LivestockInventory.StatusType.APPROVED,
+        operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+        quantity=1,
+    ).select_related("livestock_type")
+    farmers = Farmer.objects.select_related("user").prefetch_related(
+        Prefetch("inventories", queryset=eligible_animals, to_attr="eligible_animals")
+    ).filter(
+        Q(user__first_name__icontains=query) | Q(user__last_name__icontains=query)
+        | Q(user__username__icontains=query)
+    ).order_by("user__username")[:20]
+    return Response([
+        {
+            "id": farmer.id,
+            "name": farmer.user.get_full_name() or farmer.user.username,
+            "address": farmer.address,
+            "animals": [
+                {
+                    "id": animal.id,
+                    "tag_number": animal.tag_number or str(animal.id),
+                    "livestock_type": animal.livestock_type_id,
+                    "livestock_type_name": animal.livestock_type.name,
+                }
+                for animal in farmer.eligible_animals
+            ],
+        }
+        for farmer in farmers
+    ])
+
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def inspection_list_create(request):
@@ -45,31 +85,59 @@ def inspection_list_create(request):
 
     if request.method == "POST":
         require_action(user, "inspections", "create")
+
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if user_role == FARMER:
+            farmer_profile = getattr(user, "farmer_profile", None)
+            if not farmer_profile:
+                return Response(
+                    {"detail": "Farmer profile does not exist for this account."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            data["shipper"] = farmer_profile.id
+            if not data.get("shipper_name"):
+                data["shipper_name"] = user.get_full_name() or user.username
+            if not data.get("shipper_address"):
+                data["shipper_address"] = farmer_profile.address or (farmer_profile.barangay.barangay_name if farmer_profile.barangay else "")
+            if not data.get("origin"):
+                data["origin"] = data.get("shipper_address", "")
+
         with transaction.atomic():
             serializer = LivestockInspectionSerializer(
-                data=request.data,
+                data=data,
                 context={"request": request},
             )
             serializer.is_valid(raise_exception=True)
             inspection = serializer.save()
 
-            # Trigger notification to MAO for municipal awareness
-            notify_role(
-                role_name="MAO",
-                notification_type=Notification.NotificationType.INSPECTION,
-                priority=Notification.Priority.MEDIUM,
-                title="New Livestock Inspection Awaiting Validation",
-                message=f"Inspection #{inspection.id} for {inspection.shipper_name} created by Auction Officer ({user.get_full_name() or user.username}).",
-                link="/data-validation",
-                related_entity_type="inspection",
-                related_entity_id=inspection.id,
-            )
+            if user_role == FARMER:
+                notify_role(
+                    role_name="AUCTION",
+                    notification_type=Notification.NotificationType.INSPECTION,
+                    priority=Notification.Priority.MEDIUM,
+                    title="New Livestock Inspection Request",
+                    message=f"Inspection request #{inspection.id} submitted by {inspection.shipper_name} for transport to {inspection.destination}.",
+                    link="/auction-inspections",
+                    related_entity_type="inspection",
+                    related_entity_id=inspection.id,
+                )
+            else:
+                notify_role(
+                    role_name="MAO",
+                    notification_type=Notification.NotificationType.INSPECTION,
+                    priority=Notification.Priority.MEDIUM,
+                    title="New Livestock Inspection Awaiting Validation",
+                    message=f"Inspection #{inspection.id} for {inspection.shipper_name} created by {user.get_full_name() or user.username}.",
+                    link="/data-validation",
+                    related_entity_type="inspection",
+                    related_entity_id=inspection.id,
+                )
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # GET: Apply role-based scoping
     queryset = LivestockInspection.objects.select_related(
-        "shipper", "created_by", "clearance", "clearance__issued_by", "clearance__reviewed_by"
+        "shipper", "created_by", "created_by__role", "clearance", "clearance__issued_by", "clearance__reviewed_by"
     ).prefetch_related("items", "items__livestock_type", "items__inventory").order_by("-created_at")
 
     if user_role == FARMER:
@@ -120,7 +188,7 @@ def inspection_detail(request, pk):
 
     inspection = get_object_or_404(
         LivestockInspection.objects.select_related(
-            "shipper", "created_by", "clearance", "clearance__issued_by", "clearance__reviewed_by"
+            "shipper", "created_by", "created_by__role", "clearance", "clearance__issued_by", "clearance__reviewed_by"
         ).prefetch_related("items", "items__livestock_type", "items__inventory"),
         pk=pk,
     )
@@ -133,6 +201,8 @@ def inspection_detail(request, pk):
         if not user.access_scope == "ALL_BARANGAYS":
             if not inspection.shipper or inspection.shipper.barangay_id != user.assigned_barangay_id:
                 return Response({"detail": "Not authorized to access inspections outside assigned barangay."}, status=status.HTTP_403_FORBIDDEN)
+    elif user_role not in (AUCTION, MAO, ADMIN):
+        raise PermissionDenied("This role cannot access auction movement records.")
 
     clearance = getattr(inspection, "clearance", None)
     current_status = clearance.status if clearance else "PENDING"
@@ -143,11 +213,15 @@ def inspection_detail(request, pk):
 
     if request.method in ("PUT", "PATCH"):
         require_action(user, "inspections", "edit_own")
-        if current_status == "APPROVED":
+        if inspection.created_by_id != user.id:
+            raise PermissionDenied("Only the record creator can correct this record.")
+        if current_status != "SUBJECT_TO_REVISION":
             return Response(
-                {"error": "Cannot modify an officially approved inspection clearance."},
+                {"error": "Records can be edited only after MAO requests revision."},
                 status=status.HTTP_409_CONFLICT,
             )
+        if user_role == FARMER and "shipper" in request.data:
+            raise PermissionDenied("Farmers cannot change the registered shipper.")
 
         serializer = LivestockInspectionSerializer(
             inspection,
@@ -156,11 +230,16 @@ def inspection_detail(request, pk):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        updated_inspection = serializer.save()
+        with transaction.atomic():
+            updated_inspection = serializer.save()
+
+
         return Response(LivestockInspectionSerializer(updated_inspection, context={"request": request}).data)
 
     if request.method == "DELETE":
         require_action(user, "inspections", "delete_own")
+        if inspection.created_by_id != user.id and user_role != ADMIN:
+            raise PermissionDenied("Only the record creator can delete this record.")
         if current_status == "APPROVED":
             return Response(
                 {"error": "Cannot delete an officially approved inspection certificate."},
@@ -172,6 +251,8 @@ def inspection_detail(request, pk):
                 related_entity_type="inspection",
                 related_entity_id=inspection.id,
             ).delete()
+            if hasattr(inspection, "clearance"):
+                inspection.clearance.delete()
             inspection.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -179,72 +260,90 @@ def inspection_detail(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+def inspection_resubmit(request, pk):
+    require_action(request.user, "inspections", "edit_own")
+    inspection = get_object_or_404(LivestockInspection.objects.select_related("clearance"), pk=pk)
+    if inspection.created_by_id != request.user.id:
+        raise PermissionDenied("Only the record creator can resubmit this record.")
+    clearance = inspection.clearance
+    if clearance.status != LivestockInspectionClearance.StatusType.SUBJECT_TO_REVISION:
+        return Response({"error": "Only records returned by MAO can be resubmitted."}, status=status.HTTP_409_CONFLICT)
+    if not inspection.items.exists():
+        return Response({"items": "Add at least one livestock line."}, status=status.HTTP_400_BAD_REQUEST)
+    with transaction.atomic():
+        clearance.status = LivestockInspectionClearance.StatusType.PENDING
+        clearance.save(update_fields=["status"])
+        next_role = "AUCTION" if role_name(inspection.created_by) == FARMER else "MAO"
+        notify_role(
+            role_name=next_role,
+            notification_type=Notification.NotificationType.INSPECTION,
+            priority=Notification.Priority.HIGH,
+            title=f"Auction Record #{inspection.id} Resubmitted",
+            message=f"{inspection.shipper_name}'s movement record is awaiting review again.",
+            link="/auction-inspections" if next_role == "AUCTION" else "/data-validation",
+            related_entity_type="inspection",
+            related_entity_id=inspection.id,
+        )
+    return Response(LivestockInspectionSerializer(inspection, context={"request": request}).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def inspection_verify(request, pk):
-    """
-    POST /api/inspections/<pk>/verify/
-    Auction officer validates inspection findings and forwards to MAO (PENDING / SUBJECT_TO_REVISION -> VERIFIED).
-    """
-    user = request.user
-    user_role = role_name(user)
-
+    """Forward a Farmer-created request after Auction records it at the facility."""
+    if role_name(request.user) != AUCTION:
+        raise PermissionDenied("Only Auction staff can submit Farmer requests to MAO.")
     inspection = get_object_or_404(
-        LivestockInspection.objects.select_related("clearance", "created_by"),
-        pk=pk,
+        LivestockInspection.objects.select_related("clearance", "created_by__role"), pk=pk
     )
-    clearance = getattr(inspection, "clearance", None)
-    if not clearance:
-        return Response({"error": "Clearance record not initialized."}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Validate workflow transition
-    validate_review_transition(
-        domain="inspections",
-        role=user_role,
-        current=clearance.status,
-        target="VERIFIED",
-    )
-
+    if role_name(inspection.created_by) != FARMER:
+        return Response({"error": "Auction-created records are already submitted to MAO."},
+                        status=status.HTTP_409_CONFLICT)
+    clearance = inspection.clearance
+    validate_review_transition(domain="inspections", role=AUCTION,
+                               current=clearance.status, target="VERIFIED")
     with transaction.atomic():
         clearance.status = LivestockInspectionClearance.StatusType.VERIFIED
         clearance.save(update_fields=["status"])
-
-        # Notify MAO for final municipal approval
         notify_role(
             role_name="MAO",
             notification_type=Notification.NotificationType.INSPECTION,
             priority=Notification.Priority.HIGH,
-            title="Livestock Inspection Verified by Auction",
-            message=f"Livestock inspection #{inspection.id} ({inspection.shipper_name}) has been verified by Auction and is awaiting MAO approval.",
+            title=f"Auction Record #{inspection.id} Submitted",
+            message=f"Auction submitted {inspection.shipper_name}'s movement record for MAO review.",
             link="/data-validation",
             related_entity_type="inspection",
             related_entity_id=inspection.id,
         )
-
-    serializer = LivestockInspectionSerializer(inspection, context={"request": request})
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
+    return Response(LivestockInspectionSerializer(inspection, context={"request": request}).data)
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def inspection_review(request, pk):
     """
     POST /api/inspections/<pk>/review/
-    MAO / Admin reviews verified inspection (VERIFIED -> APPROVED or SUBJECT_TO_REVISION).
+    MAO / Admin reviews submitted inspection (PENDING or legacy VERIFIED).
     Requires 'remarks' if returning for revision.
     """
     user = request.user
-    user_role = role_name(user)
+    user_role = require_action(user, "inspections", "review")
+    if user_role not in [MAO, ADMIN]:
+        raise PermissionDenied("Only MAO personnel or Administrators can review and approve livestock inspections.")
 
     target_status = request.data.get("status")
     remarks = request.data.get("remarks", "").strip()
 
     inspection = get_object_or_404(
-        LivestockInspection.objects.select_related("clearance", "created_by", "shipper", "shipper__user")
+        LivestockInspection.objects.select_related("clearance", "created_by", "created_by__role", "shipper", "shipper__user")
         .prefetch_related("items", "items__inventory"),
         pk=pk,
     )
     clearance = getattr(inspection, "clearance", None)
     if not clearance:
         return Response({"error": "Clearance record not initialized."}, status=status.HTTP_400_BAD_REQUEST)
+    if role_name(inspection.created_by) == FARMER and clearance.status == "PENDING":
+        return Response({"status": "Farmer requests must be submitted by Auction staff first."},
+                        status=status.HTTP_409_CONFLICT)
 
     validate_review_transition(
         domain="inspections",
@@ -266,7 +365,9 @@ def inspection_review(request, pk):
             # Ensure any linked registered livestock remain valid and approved
             for item in inspection.items.all():
                 if item.inventory:
-                    if item.inventory.status != "APPROVED" or item.inventory.operational_status != "ACTIVE":
+                    if (item.inventory.status != "APPROVED" or item.inventory.operational_status != "ACTIVE"
+                            or item.inventory.farmer_id != inspection.shipper_id
+                            or item.inventory.quantity != 1):
                         return Response(
                             {"error": f"Animal {item.inventory.tag_number or item.inventory.id} is no longer approved and active."},
                             status=status.HTTP_400_BAD_REQUEST,

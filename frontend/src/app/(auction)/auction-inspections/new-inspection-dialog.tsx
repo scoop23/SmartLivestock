@@ -12,14 +12,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { createInspection } from "./auction-analytics";
+import { createInspection, updateInspection, searchRegisteredShippers, InspectionRecord, RegisteredShipperOption, RegisteredAnimalOption } from "./auction-analytics";
 import api from "@/lib/axios";
+import axios from "axios";
 
 interface NewInspectionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmitSuccess: () => void;
   nextId: number;
+  inspectionToEdit?: InspectionRecord | null;
 }
 
 interface LivestockTypeOption {
@@ -31,16 +33,28 @@ export function NewInspectionDialog({
   isOpen,
   onOpenChange,
   onSubmitSuccess,
+  inspectionToEdit,
 }: NewInspectionDialogProps) {
-  const [shipperName, setShipperName] = useState("");
-  const [shipperAddress, setShipperAddress] = useState("");
-  const [destination, setDestination] = useState("");
-  const [purpose, setPurpose] = useState<"SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER">("SLAUGHTER");
-  const [inspectionDate, setInspectionDate] = useState(
-    new Date().toISOString().split("T")[0]
+  const [shipperName, setShipperName] = useState(inspectionToEdit?.shipper_name || "");
+  const [shipperId, setShipperId] = useState<number | null>(inspectionToEdit?.shipper || null);
+  const [shipperOptions, setShipperOptions] = useState<RegisteredShipperOption[]>([]);
+  const [selectedAnimals, setSelectedAnimals] = useState<RegisteredAnimalOption[]>(
+    inspectionToEdit?.items.filter((item) => item.inventory).map((item) => ({
+      id: Number(item.inventory),
+      tag_number: item.inventory_tag || String(item.inventory),
+      livestock_type: Number(item.livestock_type),
+      livestock_type_name: item.livestock_type_name || "",
+    })) || []
   );
-  const [plateNumber, setPlateNumber] = useState("");
-  const [handlerLicense, setHandlerLicense] = useState("");
+  const [shipperAddress, setShipperAddress] = useState(inspectionToEdit?.shipper_address || "");
+  const [origin, setOrigin] = useState(inspectionToEdit?.origin || "");
+  const [destination, setDestination] = useState(inspectionToEdit?.destination || "");
+  const [purpose, setPurpose] = useState<"SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER">(inspectionToEdit?.purpose === "UNKNOWN" ? "OTHER" : inspectionToEdit?.purpose || "SLAUGHTER");
+  const [inspectionDate, setInspectionDate] = useState(
+    inspectionToEdit?.inspection_date || new Date().toISOString().split("T")[0]
+  );
+  const [plateNumber, setPlateNumber] = useState(inspectionToEdit?.vehicle_plate_number || "");
+  const [handlerLicense, setHandlerLicense] = useState(inspectionToEdit?.livestock_handler_license_no || "");
   const [speciesOptions, setSpeciesOptions] = useState<LivestockTypeOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -48,14 +62,22 @@ export function NewInspectionDialog({
   const [items, setItems] = useState<
     {
       livestock_type: number;
+      inventory?: number | null;
       quantity: number;
       sex: "MALE" | "FEMALE" | "MIXED";
       classification: "SLAUGHTER" | "BREEDER" | "FATTENING" | "OTHER";
       remarks: string;
     }[]
-  >([
+  >(inspectionToEdit ? inspectionToEdit.items.map((item) => ({
+    livestock_type: Number(item.livestock_type),
+    inventory: item.inventory || null,
+    quantity: item.quantity,
+    sex: item.sex,
+    classification: item.classification,
+    remarks: item.remarks || "",
+  })) : [
     {
-      livestock_type: 1,
+      livestock_type: 0,
       quantity: 1,
       sex: "MALE",
       classification: "SLAUGHTER",
@@ -70,31 +92,54 @@ export function NewInspectionDialog({
         const res = await api.get<LivestockTypeOption[]>("/livestock/livestock_types/");
         if (Array.isArray(res.data) && res.data.length > 0) {
           setSpeciesOptions(res.data);
-          setItems((prev) =>
-            prev.map((it) => ({
-              ...it,
-              livestock_type: res.data[0].id,
-            }))
-          );
+          if (!inspectionToEdit) {
+            setItems((prev) => prev.map((it) => ({
+              ...it, livestock_type: it.livestock_type || res.data[0].id,
+            })));
+          }
         }
       } catch {
-        // Fallback default options
-        setSpeciesOptions([
-          { id: 1, name: "Cattle (Baka)" },
-          { id: 2, name: "Carabao (Kalabaw)" },
-          { id: 3, name: "Goat (Kambing)" },
-          { id: 4, name: "Sheep (Tupa)" },
-          { id: 5, name: "Swine (Baboy)" },
-        ]);
+        setErrorMsg("Livestock species could not be loaded. Please try again.");
       }
     }
     if (isOpen) {
       loadTypes();
     }
-  }, [isOpen]);
+  }, [isOpen, inspectionToEdit]);
+
+
+  useEffect(() => {
+    if (!isOpen || shipperId || shipperName.trim().length < 2) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      searchRegisteredShippers(shipperName.trim())
+        .then((matches) => { if (active) setShipperOptions(matches); })
+        .catch(() => { if (active) setShipperOptions([]); });
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [isOpen, shipperId, shipperName]);
+
+  const selectShipper = (shipper: RegisteredShipperOption) => {
+    setShipperId(shipper.id);
+    setShipperName(shipper.name);
+    setShipperAddress(shipper.address);
+    if (!origin) setOrigin(shipper.address);
+    setSelectedAnimals(shipper.animals);
+    setShipperOptions([]);
+    setItems((previous) => previous.map((item) => ({ ...item, inventory: null })));
+  };
+
+  const selectAnimal = (index: number, animalId: number | null) => {
+    const animal = selectedAnimals.find((option) => option.id === animalId);
+    setItems((previous) => previous.map((item, itemIndex) => itemIndex === index
+      ? { ...item, inventory: animal?.id || null,
+          livestock_type: animal?.livestock_type || item.livestock_type,
+          quantity: animal ? 1 : item.quantity }
+      : item));
+  };
 
   const handleAddItem = () => {
-    const defaultTypeId = speciesOptions[0]?.id || 1;
+    const defaultTypeId = speciesOptions[0]?.id || 0;
     setItems((prev) => [
       ...prev,
       {
@@ -114,12 +159,13 @@ export function NewInspectionDialog({
 
   const handleUpdateItem = (
     index: number,
-    field: string,
-    value: any
+    field: "livestock_type" | "quantity" | "sex" | "classification" | "remarks",
+    value: number | string
   ) => {
     setItems((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+      if (field === "livestock_type" || field === "quantity") updated[index].inventory = null;
       return updated;
     });
   };
@@ -130,50 +176,61 @@ export function NewInspectionDialog({
     setErrorMsg(null);
 
     try {
-      await createInspection({
+      const payload = {
+        shipper: shipperId,
         shipper_name: shipperName.trim(),
-        shipper_address: shipperAddress.trim() || "Padre Garcia, Batangas",
-        origin: shipperAddress.trim() || "Padre Garcia, Batangas",
+        shipper_address: shipperAddress.trim(),
+        origin: origin.trim(),
         destination: destination.trim(),
         purpose: purpose,
         inspection_date: inspectionDate,
-        vehicle_plate_number: plateNumber.trim() || "N/A",
-        livestock_handler_license_no: handlerLicense.trim() || "N/A",
+        vehicle_plate_number: plateNumber.trim(),
+        livestock_handler_license_no: handlerLicense.trim(),
         items: items.map((it) => ({
           livestock_type: Number(it.livestock_type),
-          quantity: Number(it.quantity) || 1,
+          inventory: it.inventory || null,
+          quantity: Number(it.quantity),
           sex: it.sex,
           classification: it.classification,
           remarks: it.remarks.trim(),
         })),
-      });
+      };
+      if (inspectionToEdit) {
+        await updateInspection(inspectionToEdit.id, payload);
+      } else {
+        await createInspection(payload);
+      }
 
       onSubmitSuccess();
       onOpenChange(false);
 
       // Reset Form
       setShipperName("");
+      setShipperId(null);
+      setShipperOptions([]);
+      setSelectedAnimals([]);
       setShipperAddress("");
+      setOrigin("");
       setDestination("");
       setPlateNumber("");
       setHandlerLicense("");
       setItems([
         {
-          livestock_type: speciesOptions[0]?.id || 1,
+          livestock_type: speciesOptions[0]?.id || 0,
           quantity: 1,
           sex: "MALE",
           classification: "SLAUGHTER",
           remarks: "",
         },
       ]);
-    } catch (err: any) {
-      const respData = err?.response?.data;
+    } catch (err: unknown) {
+      const respData = axios.isAxiosError(err) ? err.response?.data as Record<string, unknown> | undefined : undefined;
       if (typeof respData === "object" && respData !== null) {
         const firstErrorKey = Object.keys(respData)[0];
         const val = respData[firstErrorKey];
         setErrorMsg(Array.isArray(val) ? val[0] : String(val));
       } else {
-        setErrorMsg("Failed to create inspection clearance. Please check your connection.");
+        setErrorMsg("Failed to save the auction record. Please check your connection.");
       }
     } finally {
       setIsSubmitting(false);
@@ -186,10 +243,10 @@ export function NewInspectionDialog({
         <DialogHeader className="p-5 sm:p-6 bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] text-white rounded-t-3xl">
           <DialogTitle className="text-lg font-black flex items-center gap-2">
             <ClipboardCheck className="w-5 h-5 text-amber-300" />
-            New Livestock Inspection Clearance
+            {inspectionToEdit ? "Correct Auction Movement Log" : "New Auction Movement Log"}
           </DialogTitle>
           <DialogDescription className="text-purple-100 text-xs font-medium">
-            Encode pre-movement animal inspection findings for municipal veterinary review.
+            Record auction intake and movement details for official MAO review.
           </DialogDescription>
         </DialogHeader>
 
@@ -204,7 +261,7 @@ export function NewInspectionDialog({
           {/* Shipper & Transit details */}
           <div className="space-y-3">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
-              1. Shipper & Destination Information
+              1. Shipper & Movement
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -212,10 +269,34 @@ export function NewInspectionDialog({
                 <Input
                   placeholder="e.g. Juan Dela Cruz"
                   value={shipperName}
-                  onChange={(e) => setShipperName(e.target.value)}
+                  onChange={(e) => {
+                    setShipperName(e.target.value);
+                    setShipperId(null);
+                    setShipperOptions([]);
+                    setSelectedAnimals([]);
+                    setItems((previous) => previous.map((item) => ({ ...item, inventory: null })));
+                  }}
                   required
                   className="h-10 rounded-xl bg-slate-50"
                 />
+                {shipperId ? (
+                  <p className="text-[10px] text-emerald-800 font-semibold">
+                    Linked to registered farmer #{shipperId}
+                    <button type="button" className="ml-2 underline" onClick={() => {
+                      setShipperId(null); setSelectedAnimals([]);
+                      setItems((previous) => previous.map((item) => ({ ...item, inventory: null })));
+                    }}>Use unregistered shipper</button>
+                  </p>
+                ) : shipperOptions.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                    {shipperOptions.map((shipper) => (
+                      <button key={shipper.id} type="button" onClick={() => selectShipper(shipper)}
+                        className="block w-full px-3 py-2 text-left text-xs hover:bg-purple-50">
+                        {shipper.name} — {shipper.address}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -230,10 +311,10 @@ export function NewInspectionDialog({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Purpose</label>
+                <label className="text-[10px] font-bold uppercase text-slate-500">Purpose *</label>
                 <select
                   value={purpose}
-                  onChange={(e) => setPurpose(e.target.value as any)}
+                  onChange={(e) => setPurpose(e.target.value as "SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER")}
                   className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold"
                 >
                   <option value="SLAUGHTER">Slaughter (Katayan)</option>
@@ -255,13 +336,19 @@ export function NewInspectionDialog({
               </div>
 
               <div className="space-y-1 sm:col-span-2">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Shipper Origin / Address</label>
+                <label className="text-[10px] font-bold uppercase text-slate-500">Shipper Address</label>
                 <Input
                   placeholder="e.g. Purok 2, Brgy. Manggas, Padre Garcia"
                   value={shipperAddress}
                   onChange={(e) => setShipperAddress(e.target.value)}
                   className="h-10 rounded-xl bg-slate-50"
                 />
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-[10px] font-bold uppercase text-slate-500">Movement Origin *</label>
+                <Input value={origin} onChange={(e) => setOrigin(e.target.value)} required
+                  placeholder="e.g. Tanauan, Batangas" className="h-10 rounded-xl bg-slate-50" />
               </div>
 
               <div className="space-y-1">
@@ -290,7 +377,7 @@ export function NewInspectionDialog({
           <div className="space-y-3 pt-3 border-t border-slate-200">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                2. Inspected Livestock Items ({items.length})
+                2. Livestock Items ({items.length})
               </h3>
               <Button
                 type="button"
@@ -319,12 +406,27 @@ export function NewInspectionDialog({
                     )}
                   </div>
 
+                  {shipperId && selectedAnimals.length > 0 && (
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-400 uppercase">Registered Animal (optional)</label>
+                      <select value={item.inventory || ""} onChange={(e) => selectAnimal(idx, e.target.value ? Number(e.target.value) : null)}
+                        className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs">
+                        <option value="">Batch or unregistered livestock</option>
+                        {selectedAnimals.map((animal) => (
+                          <option key={animal.id} value={animal.id}>
+                            {animal.tag_number} — {animal.livestock_type_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div>
                       <label className="text-[9px] font-bold text-slate-400 uppercase">Species</label>
                       <select
                         value={item.livestock_type}
                         onChange={(e) => handleUpdateItem(idx, "livestock_type", Number(e.target.value))}
+                        disabled={!!item.inventory}
                         className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold"
                       >
                         {speciesOptions.map((opt) => (
@@ -342,6 +444,7 @@ export function NewInspectionDialog({
                         min="1"
                         value={item.quantity}
                         onChange={(e) => handleUpdateItem(idx, "quantity", Number(e.target.value))}
+                        disabled={!!item.inventory}
                         className="h-9 rounded-lg bg-white text-xs font-bold"
                         required
                       />
@@ -376,7 +479,7 @@ export function NewInspectionDialog({
                   </div>
 
                   <Input
-                    placeholder="Optional animal health remarks / ear tags"
+                    placeholder="Optional line notes / ear tags"
                     value={item.remarks}
                     onChange={(e) => handleUpdateItem(idx, "remarks", e.target.value)}
                     className="h-8 rounded-lg bg-white text-xs"
@@ -398,7 +501,7 @@ export function NewInspectionDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || speciesOptions.length === 0}
               className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-xl font-bold cursor-pointer w-full sm:w-auto gap-1.5"
             >
               {isSubmitting ? (
@@ -406,7 +509,7 @@ export function NewInspectionDialog({
                   <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
                 </>
               ) : (
-                "Submit Inspection Clearance"
+                inspectionToEdit ? "Save Corrections" : "Submit to MAO"
               )}
             </Button>
           </DialogFooter>

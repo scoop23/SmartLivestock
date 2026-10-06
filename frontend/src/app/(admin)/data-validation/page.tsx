@@ -247,7 +247,7 @@ function AdminDataValidationContent() {
     census: censusSubmissions.filter((c) => (c.status || "").toUpperCase() === "VERIFIED").length,
     production: productionRecords.filter((p) => (p.status || "").toUpperCase() === "VERIFIED").length,
     inventory: inventoryRecords.filter((i) => (i.status || "").toUpperCase() === "VERIFIED").length,
-    incidents: incidents.filter((inc) => (inc.status || "").toUpperCase() === "VERIFIED").length,
+    incidents: incidents.filter((inc) => inc.status === "VERIFIED" || (inc.type === "inspection" && inc.status === "PENDING")).length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
   const domainTotalCounts = useMemo(() => ({
@@ -382,7 +382,7 @@ function AdminDataValidationContent() {
           .map((i) => i.id);
       case "incidents":
         return paginatedIncidents
-          .filter((inc) => (inc.status || "PENDING").toUpperCase() === "VERIFIED")
+          .filter((inc) => inc.status === "VERIFIED" || (inc.type === "inspection" && inc.status === "PENDING"))
           .map((inc) => inc.id);
     }
   }, [activeDomain, paginatedCensus, paginatedProduction, paginatedInventory, paginatedIncidents]);
@@ -455,7 +455,7 @@ function AdminDataValidationContent() {
         }));
     } else {
       targets = incidents
-        .filter((inc) => selectedIds.includes(inc.id) && (inc.status || "PENDING").toUpperCase() === "VERIFIED")
+        .filter((inc) => selectedIds.includes(inc.id) && (inc.status === "VERIFIED" || (inc.type === "inspection" && inc.status === "PENDING")))
         .map((inc) => ({
           id: inc.id,
           domain: "incidents",
@@ -573,13 +573,6 @@ function AdminDataValidationContent() {
         }
         return;
       } else {
-        setLocalIncidentOverrides((prev) => {
-          const next = { ...prev };
-          itemIds.forEach((id) => {
-            next[String(id)] = { status: action, remarks };
-          });
-          return next;
-        });
         await Promise.all(
           itemIds.map((id) => {
             const strId = String(id);
@@ -604,6 +597,13 @@ function AdminDataValidationContent() {
             return Promise.resolve();
           })
         );
+        setLocalIncidentOverrides((prev) => {
+          const next = { ...prev };
+          itemIds.forEach((id) => {
+            next[String(id)] = { status: action, remarks };
+          });
+          return next;
+        });
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
       }
@@ -627,8 +627,9 @@ function AdminDataValidationContent() {
         : undefined;
       const apiMessage = responseData?.status || responseData?.remarks || responseData?.error;
       toast.error("Review action was not applied.", {
-        description: apiMessage || "The record may still require SIBAT verification or a different workflow step.",
+        description: apiMessage || "The record may have changed. Please refresh and review it again.",
       });
+      throw err;
     }
   };
 
@@ -810,7 +811,7 @@ function AdminDataValidationContent() {
         open={recordDetailModal.open}
         onOpenChange={(open) => setRecordDetailModal((prev) => ({ ...prev, open }))}
         onConfirmAction={(action, remarks, itemIds) => {
-          handleConfirmAction(action, remarks, itemIds);
+          return handleConfirmAction(action, remarks, itemIds);
         }}
         onOpenReview={(rec) => {
           let metric = "";

@@ -43,6 +43,7 @@ export default function AuctionInspections() {
 
   // Modal states
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+  const [inspectionToEdit, setInspectionToEdit] = useState<InspectionRecord | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
@@ -89,18 +90,18 @@ export default function AuctionInspections() {
     return matchesTab && matchesDate && matchesSearch;
   });
 
-  const getStatusBadge = (status: InspectionRecord["status"]) => {
+  const getStatusBadge = (status: InspectionRecord["status"], record?: InspectionRecord) => {
     switch (status) {
       case "PENDING":
         return (
           <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
-            <Clock className="w-3 h-3 mr-1" /> Pending Inspection
+            <Clock className="w-3 h-3 mr-1" /> {record?.created_by_role === "FARMER" ? "Awaiting Auction Submission" : "Pending MAO Review"}
           </Badge>
         );
       case "VERIFIED":
         return (
           <Badge className="bg-blue-100 text-blue-900 border-blue-300 font-bold text-[10px] uppercase tracking-wider">
-            <Send className="w-3 h-3 mr-1" /> Verified
+            <Send className="w-3 h-3 mr-1" /> Submitted to MAO
           </Badge>
         );
       case "APPROVED":
@@ -122,8 +123,8 @@ export default function AuctionInspections() {
   return (
     <>
       <PageHeader
-        title="Livestock Inspections & Clearances"
-        subtitle="Market trade checkpoints, veterinary clearance permits, and transport inspections"
+        title="Auction Livestock Intake & Movement Logs"
+        subtitle="Record livestock movement at the auction house and track MAO decisions"
         variant="auction"
         maxWidthClass="w-full"
       />
@@ -134,10 +135,10 @@ export default function AuctionInspections() {
           <div>
             <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
               <ClipboardCheck className="w-5 h-5 text-[#7C3AED]" />
-              Inspection Registry
+              Auction Movement Registry
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              Official livestock transport clearances issued by the Padre Garcia inspection unit.
+              Auction records submitted for MAO review. Clearances are issued only after approval.
             </p>
           </div>
 
@@ -193,11 +194,11 @@ export default function AuctionInspections() {
 
             <Button
               size="sm"
-              onClick={() => setIsNewDialogOpen(true)}
+              onClick={() => { setInspectionToEdit(null); setIsNewDialogOpen(true); }}
               className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              New Inspection
+              New Movement Log
             </Button>
           </div>
         </div>
@@ -248,9 +249,9 @@ export default function AuctionInspections() {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
               {(
                 [
-                  { id: "ALL", label: "All Clearances" },
-                  { id: "PENDING", label: "Pending" },
-                  { id: "VERIFIED", label: "Verified" },
+                  { id: "ALL", label: "All Records" },
+                  { id: "PENDING", label: "Pending Action" },
+                  { id: "VERIFIED", label: "Submitted to MAO" },
                   { id: "APPROVED", label: "Approved" },
                   { id: "SUBJECT_TO_REVISION", label: "For Revision" },
                 ] as { id: InspectionStatusTab; label: string }[]
@@ -304,20 +305,22 @@ export default function AuctionInspections() {
         )}
       </div>
 
-      {/* New Inspection Dialog */}
-      <NewInspectionDialog
+      {/* New Movement Log Dialog */}
+      {isNewDialogOpen && <NewInspectionDialog
         isOpen={isNewDialogOpen}
         onOpenChange={setIsNewDialogOpen}
+        inspectionToEdit={inspectionToEdit}
         onSubmitSuccess={handleSuccess}
         nextId={inspections.length + 1}
-      />
+      />}
 
       {/* Inspection Details Dialog */}
       <InspectionDetailsDialog
         inspection={selectedInspection}
         onClose={() => setSelectedInspection(null)}
-        statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status) : null}
+        statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status, selectedInspection) : null}
         onActionSuccess={handleSuccess}
+        onEdit={() => { setInspectionToEdit(selectedInspection); setSelectedInspection(null); setIsNewDialogOpen(true); }}
       />
 
       {/* Auction QR Gate Scanner Dialog */}

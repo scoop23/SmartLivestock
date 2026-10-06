@@ -13,6 +13,7 @@ class LivestockInspection(models.Model):
         FATTENING = "FATTENING", "Fattening"
         SLAUGHTER = "SLAUGHTER", "Slaughter"
         UNKNOWN = "UNKNOWN", "Unknown"
+        OTHER = "OTHER", "Other Purpose"
 
     shipper = models.ForeignKey(
         "livestock.Farmer",

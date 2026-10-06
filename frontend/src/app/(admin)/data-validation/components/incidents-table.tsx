@@ -55,7 +55,8 @@ export function IncidentsTable({
   onReviewHealth,
 }: IncidentsTableProps) {
   const reviewableRecords = records.filter(
-    (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED",
+    (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED" ||
+      (record.type === "inspection" && record.status === "PENDING"),
   );
   const allSelected =
     reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
@@ -73,6 +74,7 @@ export function IncidentsTable({
     reviewedByName: inc.reviewedBy,
     reviewedAt: inc.reviewedAt,
     headCount: inc.headCount,
+    auctionRecord: inc.auctionRecord,
     weight: inc.weight,
     tagNumber: inc.tagNumber,
     photoUrl: inc.photoUrl,
@@ -170,7 +172,8 @@ export function IncidentsTable({
                   const detailPayload = buildDetailPayload(inc);
                   const iconStyle = getIncidentIcon(inc.type);
                   const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";
-                  const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED";
+                  const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED" ||
+                    (inc.type === "inspection" && inc.status === "PENDING");
 
                   return (
                     <TableRow
@@ -359,7 +362,8 @@ export function IncidentsTable({
             const detailPayload = buildDetailPayload(inc);
             const iconStyle = getIncidentIcon(inc.type);
             const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";
-            const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED";
+            const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED" ||
+                    (inc.type === "inspection" && inc.status === "PENDING");
 
             return (
               <div

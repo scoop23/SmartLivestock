@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getIncidentTypeBadge, IncidentType } from "./validation-analytics";
+import type { InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { CensusItemEntry } from "@/app/(sibat)/sibat/sibat-analytics";
 import {
   FileSpreadsheet,
@@ -122,6 +123,7 @@ export type DetailRecordData =
   }
   | {
     kind: "incident";
+    auctionRecord?: InspectionRecord;
 
     id: string | number;
     type: IncidentType;
@@ -209,7 +211,8 @@ export function RecordDetailDialog({
   const statusNorm = (record.status || "PENDING").toUpperCase();
   const isPending = statusNorm === "PENDING";
   const isVerified = statusNorm === "VERIFIED";
-  const canMaoReview = isVerified;
+  const isAuctionRecord = record.kind === "incident" && record.type === "inspection";
+  const canMaoReview = isVerified || (isAuctionRecord && isPending);
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
   const isHerdInventory =
@@ -961,12 +964,39 @@ export function RecordDetailDialog({
 
               <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                  Detailed Case Description / Symptoms
+                  {isAuctionRecord ? "Auction Movement Summary" : "Detailed Case Description / Symptoms"}
                 </span>
                 <p className="text-xs text-slate-800 leading-relaxed">
                   {record.details}
                 </p>
               </div>
+
+              {record.type === "inspection" && record.auctionRecord && (
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3 text-xs">
+                  <p className="font-black text-slate-900">Auction house record submitted for official MAO review</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <p><b>Shipper:</b> {record.auctionRecord.shipper_name}</p>
+                    <p><b>Date:</b> {record.auctionRecord.inspection_date}</p>
+                    <p><b>Origin:</b> {record.auctionRecord.origin || "Not recorded"}</p>
+                    <p><b>Destination:</b> {record.auctionRecord.destination}</p>
+                    <p><b>Purpose:</b> {record.auctionRecord.purpose}</p>
+                    <p><b>Shipper address:</b> {record.auctionRecord.shipper_address || "Not provided"}</p>
+                    <p><b>Vehicle plate:</b> {record.auctionRecord.vehicle_plate_number || "Not provided"}</p>
+                    <p><b>Handler license:</b> {record.auctionRecord.livestock_handler_license_no || "Not provided"}</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead><tr className="border-b"><th>Line</th><th>Species</th><th>Heads</th><th>Sex</th><th>Class</th></tr></thead>
+                      <tbody>{record.auctionRecord.items.map((item, index) => (
+                        <tr key={item.id || index} className="border-b">
+                          <td>{index + 1}</td><td>{item.livestock_type_name || item.livestock_type}</td>
+                          <td>{item.quantity}</td><td>{item.sex}</td><td>{item.classification}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Photo Evidence in Incident Details */}
               {(record.photoUrl || record.inspectorPhotoUrl) && (
@@ -1039,7 +1069,7 @@ export function RecordDetailDialog({
           )}
 
           {/* ── SIBAT FIELD AUDIT REPORT ── */}
-          {(record.reviewedByName || isVerified) && (
+          {!isAuctionRecord && (record.reviewedByName || isVerified) && (
             <div className="p-4 bg-sky-50/80 border border-sky-200/80 rounded-2xl space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black text-sky-900 uppercase flex items-center gap-1.5 tracking-wider">
@@ -1163,7 +1193,9 @@ export function RecordDetailDialog({
                   Quick Presets (Click to insert):
                 </span>
                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-                  {[...PRESET_APPROVAL_NOTES, ...PRESET_REVISION_NOTES].map((preset, idx) => (
+                  {(isAuctionRecord
+                    ? ["Auction movement details reviewed and approved by MAO.", "Movement origin or destination is incomplete; please correct and resubmit."]
+                    : [...PRESET_APPROVAL_NOTES, ...PRESET_REVISION_NOTES]).map((preset, idx) => (
                     <button
                       key={idx}
                       type="button"

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import {
   FileDown,
-  ShieldCheck,
   Send,
   Loader2,
   AlertCircle,
@@ -15,7 +15,6 @@ import {
   Map,
   Truck,
   Building,
-  User,
   Calendar,
   Check,
 } from "lucide-react";
@@ -29,7 +28,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { InspectionRecord, verifyInspection } from "./auction-analytics";
+import { InspectionRecord, resubmitInspection, submitFarmerRequest } from "./auction-analytics";
 import { cowHead } from "@lucide/lab";
 import { Icon } from "lucide-react";
 
@@ -42,6 +41,7 @@ interface InspectionDetailsDialogProps {
   onClose: () => void;
   statusBadge: React.ReactNode;
   onActionSuccess?: () => void;
+  onEdit?: () => void;
 }
 
 export function InspectionDetailsDialog({
@@ -49,35 +49,38 @@ export function InspectionDetailsDialog({
   onClose,
   statusBadge,
   onActionSuccess,
+  onEdit,
 }: InspectionDetailsDialogProps) {
   const router = useRouter();
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!inspection) return null;
 
-  const canVerify =
-    inspection.status === "PENDING" ||
-    inspection.status === "SUBJECT_TO_REVISION" ||
-    inspection.status === "REJECTED";
+  const canResubmit = inspection.status === "SUBJECT_TO_REVISION" && inspection.can_edit;
+  const canSubmitFarmerRequest = inspection.can_submit_farmer_request;
 
-  const handleVerify = async () => {
-    setIsVerifying(true);
+  const handleResubmit = async () => {
+    setIsResubmitting(true);
     setErrorMsg(null);
     try {
-      await verifyInspection(inspection.id);
+      if (canSubmitFarmerRequest) {
+        await submitFarmerRequest(inspection.id);
+      } else {
+        await resubmitInspection(inspection.id);
+      }
       onActionSuccess?.();
       onClose();
-    } catch (err: any) {
-      const respData = err?.response?.data;
+    } catch (err: unknown) {
+      const respData = axios.isAxiosError(err) ? err.response?.data as Record<string, string> | undefined : undefined;
       setErrorMsg(
         respData?.error ||
           respData?.status ||
           respData?.detail ||
-          "Failed to verify inspection. Please try again."
+          "Failed to resubmit the record. Please try again."
       );
     } finally {
-      setIsVerifying(false);
+      setIsResubmitting(false);
     }
   };
 
@@ -88,10 +91,10 @@ export function InspectionDetailsDialog({
 
   // Determine active step index in the verification workflow
   // 0: Draft / Pending
-  // 1: Verified by Auction Officer
+  // 1: Submitted to MAO
   // 2: MAO Review & Cleared
   let currentStep = 0;
-  if (inspection.status === "VERIFIED") currentStep = 1;
+  if (inspection.status === "PENDING" || inspection.status === "VERIFIED") currentStep = 1;
   else if (inspection.status === "APPROVED") currentStep = 2;
   else if (inspection.status === "SUBJECT_TO_REVISION" || inspection.status === "REJECTED") currentStep = 0;
 
@@ -107,10 +110,10 @@ export function InspectionDetailsDialog({
             {statusBadge}
           </div>
           <DialogTitle className="text-xl sm:text-2xl font-black mt-2 tracking-tight">
-            Livestock Transport Clearance Certificate
+            {inspection.status === "APPROVED" ? "Livestock Transport Clearance" : "Auction Livestock Movement Log"}
           </DialogTitle>
           <DialogDescription className="text-purple-100 text-xs sm:text-sm">
-            Padre Garcia Municipal Agriculture Office · Veterinary Inspection &amp; Movement Terminal
+            Auction house intake record submitted for official MAO review
           </DialogDescription>
         </DialogHeader>
 
@@ -126,16 +129,14 @@ export function InspectionDetailsDialog({
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                Clearance Workflow Progress
+                Movement Log Review Progress
               </span>
               <span className="text-[11px] font-bold text-slate-500 font-mono">
                 {inspection.status === "APPROVED"
                   ? "Status: CLEARED"
                   : inspection.status === "SUBJECT_TO_REVISION"
                   ? "Status: REVISION REQUIRED"
-                  : inspection.status === "VERIFIED"
-                  ? "Status: AWAITING MAO"
-                  : "Status: PENDING VERIFICATION"}
+                  : canSubmitFarmerRequest ? "Status: AWAITING AUCTION" : "Status: AWAITING MAO"}
               </span>
             </div>
 
@@ -151,7 +152,7 @@ export function InspectionDetailsDialog({
                 <div className="flex items-center justify-center gap-1 text-[11px] font-black">
                   <Check className="w-3.5 h-3.5" /> 1. Recorded
                 </div>
-                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Gate Check</p>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Auction Entry</p>
               </div>
 
               <div
@@ -162,9 +163,9 @@ export function InspectionDetailsDialog({
                 }`}
               >
                 <div className="flex items-center justify-center gap-1 text-[11px] font-black">
-                  {currentStep >= 1 ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />} 2. Verified
+                  {currentStep >= 1 ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />} 2. Submitted
                 </div>
-                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Auction Review</p>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">MAO Queue</p>
               </div>
 
               <div
@@ -186,7 +187,7 @@ export function InspectionDetailsDialog({
                   )}
                   3. MAO Review
                 </div>
-                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Final Permit</p>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Final Decision</p>
               </div>
             </div>
 
@@ -200,10 +201,12 @@ export function InspectionDetailsDialog({
               </div>
             )}
 
-            {inspection.status === "VERIFIED" && (
+            {(inspection.status === "PENDING" || inspection.status === "VERIFIED") && (
               <p className="text-xs font-semibold text-blue-900 bg-blue-50/80 p-2.5 rounded-xl border border-blue-200 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-                Findings verified by Auction. Awaiting final review &amp; electronic signature from MAO.
+                {canSubmitFarmerRequest
+                  ? "Farmer request awaits Auction staff submission."
+                  : "Auction movement record submitted. Awaiting official MAO review."}
               </p>
             )}
 
@@ -220,7 +223,7 @@ export function InspectionDetailsDialog({
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                 <CowHeadIcon className="w-4 h-4 text-[#7C3AED]" />
-                Inspected Livestock Breakdown ({totalAnimals} Heads Total)
+                Livestock Breakdown ({totalAnimals} Heads Total)
               </h4>
               <Badge variant="outline" className="text-[11px] font-mono font-bold">
                 {inspection.items.length} Batch Record{inspection.items.length !== 1 ? "s" : ""}
@@ -235,7 +238,7 @@ export function InspectionDetailsDialog({
                     <th className="p-3 text-center">Head Count</th>
                     <th className="p-3 text-center">Sex</th>
                     <th className="p-3 text-center">Classification</th>
-                    <th className="p-3 pr-4">Health &amp; Tag Notes</th>
+                    <th className="p-3 pr-4">Line Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -261,7 +264,7 @@ export function InspectionDetailsDialog({
                         {it.classification}
                       </td>
                       <td className="p-3 pr-4 text-slate-600 italic">
-                        {it.remarks || "No clinical anomalies observed"}
+                        {it.remarks || "No notes"}
                       </td>
                     </tr>
                   ))}
@@ -356,7 +359,7 @@ export function InspectionDetailsDialog({
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Origin Point</span>
                   <p className="text-xs font-black text-slate-900 truncate">
-                    {inspection.origin || "Padre Garcia Livestock Auction Terminal"}
+                    {inspection.origin || "Not recorded"}
                   </p>
                 </div>
               </div>
@@ -368,7 +371,7 @@ export function InspectionDetailsDialog({
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Destination</span>
                   <p className="text-xs font-black text-slate-900 truncate">
-                    {inspection.destination || "Batangas Municipal Slaughterhouse"}
+                    {inspection.destination || "Not recorded"}
                   </p>
                 </div>
               </div>
@@ -387,22 +390,25 @@ export function InspectionDetailsDialog({
             >
               <FileDown className="w-3.5 h-3.5" /> Export / Print Permit
             </Button>
-          ) : canVerify ? (
+          ) : canResubmit || canSubmitFarmerRequest ? (
+            <div className="flex gap-2">
+            {canResubmit && <Button variant="outline" onClick={onEdit}>Edit Record</Button>}
             <Button
-              onClick={handleVerify}
-              disabled={isVerifying}
+              onClick={handleResubmit}
+              disabled={isResubmitting}
               className="rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white cursor-pointer w-full sm:w-auto gap-1.5 shadow-xs"
             >
-              {isVerifying ? (
+              {isResubmitting ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...
                 </>
               ) : (
                 <>
-                  <Send className="w-3.5 h-3.5" /> Verify &amp; Forward to MAO
+                  <Send className="w-3.5 h-3.5" /> {canSubmitFarmerRequest ? "Submit Farmer Request to MAO" : "Resubmit to MAO"}
                 </>
               )}
             </Button>
+            </div>
           ) : (
             <div />
           )}

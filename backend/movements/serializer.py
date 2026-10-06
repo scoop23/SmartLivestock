@@ -110,6 +110,9 @@ class LivestockInspectionSerializer(serializers.ModelSerializer):
     items = LivestockInspectionItemSerializer(many=True, required=False)
     clearance = LivestockInspectionClearanceSerializer(read_only=True)
     created_by_name = serializers.SerializerMethodField()
+    created_by_role = serializers.CharField(source="created_by.role.role_name", read_only=True)
+    can_edit = serializers.SerializerMethodField()
+    can_submit_farmer_request = serializers.SerializerMethodField()
 
     # Flat convenience fields matching frontend InspectionRecord interface
     control_number = serializers.SerializerMethodField()
@@ -143,11 +146,38 @@ class LivestockInspectionSerializer(serializers.ModelSerializer):
             "review_remarks",
             "created_by",
             "created_by_name",
+            "created_by_role",
+            "can_edit",
+            "can_submit_farmer_request",
             "created_at",
             "items",
             "clearance",
         )
         read_only_fields = ("id", "created_by", "created_by_name", "created_at", "clearance")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        clearance = getattr(instance, "clearance", None)
+        for field in ("shipper_address", "origin", "vehicle_plate_number", "livestock_handler_license_no"):
+            data[field] = getattr(clearance, field, "") if clearance else ""
+        if clearance and clearance.status != "APPROVED" and data.get("clearance"):
+            data["clearance"]["control_number"] = ""
+        return data
+
+    def get_can_submit_farmer_request(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated
+                    and getattr(getattr(request.user, "role", None), "role_name", "") == "AUCTION"
+                    and getattr(getattr(obj.created_by, "role", None), "role_name", "") == "FARMER"
+                    and getattr(obj, "clearance", None)
+                    and obj.clearance.status == "PENDING")
+
+    def get_can_edit(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated
+                    and obj.created_by_id == request.user.id
+                    and getattr(obj, "clearance", None)
+                    and obj.clearance.status == "SUBJECT_TO_REVISION")
 
     def get_created_by_name(self, obj):
         if obj.created_by:
@@ -156,7 +186,7 @@ class LivestockInspectionSerializer(serializers.ModelSerializer):
 
     def get_control_number(self, obj):
         if hasattr(obj, "clearance") and obj.clearance:
-            return obj.clearance.control_number
+            return obj.clearance.control_number if obj.clearance.status == "APPROVED" else f"INS-{obj.id}"
         return f"INS-{obj.id}"
 
     def get_status(self, obj):
@@ -189,6 +219,45 @@ class LivestockInspectionSerializer(serializers.ModelSerializer):
         if not destination or not destination.strip():
             raise serializers.ValidationError({"destination": "Destination is required."})
 
+        if not self.instance:
+            if attrs.get("purpose") in (None, "UNKNOWN"):
+                raise serializers.ValidationError({"purpose": "Select a movement purpose."})
+            if not attrs.get("items"):
+                raise serializers.ValidationError({"items": "Add at least one livestock line."})
+        if self.instance and "items" in attrs and not attrs["items"]:
+            raise serializers.ValidationError({"items": "Add at least one livestock line."})
+        if attrs.get("purpose") == "UNKNOWN":
+            raise serializers.ValidationError({"purpose": "Select a movement purpose."})
+
+        origin = attrs.get("origin")
+        if origin is None and self.instance:
+            origin = self.instance.clearance.origin
+        if not origin:
+            origin = attrs.get("shipper_address") or (shipper.address if shipper else "")
+        if not origin or not origin.strip():
+            raise serializers.ValidationError({"origin": "Movement origin is required."})
+
+        # A shipper change must validate the whole item set, including existing links.
+        if self.instance and "shipper" in attrs and "items" not in attrs:
+            if self.instance.items.filter(inventory__isnull=False).exists():
+                raise serializers.ValidationError(
+                    {"items": "Provide livestock lines when changing a shipper with registered animals."}
+                )
+
+        # Validate line items
+        items = attrs.get("items", [])
+        if items:
+            for item_data in items:
+                inv = item_data.get("inventory")
+                if inv and (not shipper or inv.farmer_id != shipper.id):
+                    raise serializers.ValidationError(
+                        {"items": f"Animal {inv.tag_number or inv.id} does not belong to shipper {shipper_name or shipper}."}
+                    )
+
+        inv_ids = [it.get("inventory").id for it in items if it.get("inventory")]
+        if len(inv_ids) != len(set(inv_ids)):
+            raise serializers.ValidationError({"items": "The same animal cannot be added more than once in an inspection."})
+
         return attrs
 
     def create(self, validated_data):
@@ -214,17 +283,17 @@ class LivestockInspectionSerializer(serializers.ModelSerializer):
 
             # Auto-determine shipper address if registered
             if not shipper_address and inspection.shipper:
-                shipper_address = inspection.shipper.address or "Padre Garcia, Batangas"
+                shipper_address = inspection.shipper.address or ""
             if not origin:
-                origin = shipper_address or "Padre Garcia, Batangas"
+                origin = shipper_address
 
             LivestockInspectionClearance.objects.create(
                 inspection=inspection,
                 control_number=control_no,
-                shipper_address=shipper_address or "Padre Garcia, Batangas",
+                shipper_address=shipper_address,
                 origin=origin,
-                vehicle_plate_number=vehicle_plate_number or "N/A",
-                livestock_handler_license_no=livestock_handler_license_no or "N/A",
+                vehicle_plate_number=vehicle_plate_number,
+                livestock_handler_license_no=livestock_handler_license_no,
                 status=LivestockInspectionClearance.StatusType.PENDING,
             )
 

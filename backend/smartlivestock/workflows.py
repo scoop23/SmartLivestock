@@ -21,7 +21,7 @@ ROLE_MATRIX = {
     "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
     "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
-    "inspections": {"create": {AUCTION, MAO, ADMIN}, "read_all": {AUCTION, MAO, ADMIN, SIBAT}, "edit_own": {AUCTION, MAO, ADMIN}, "review": {AUCTION, MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
+    "inspections": {"create": {FARMER, AUCTION, MAO, ADMIN}, "read_all": {AUCTION, MAO, ADMIN, SIBAT}, "edit_own": {FARMER, AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
 }
 
 
@@ -51,12 +51,11 @@ REVIEW_TRANSITIONS["census"] = (
     TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )
 
-# Livestock inspections created at the Auction trade checkpoint:
-# AUCTION officers encode and verify details (PENDING -> VERIFIED / SUBJECT_TO_REVISION -> VERIFIED),
-# but MAO is the authoritative municipal clearing body (VERIFIED -> APPROVED or SUBJECT_TO_REVISION).
+# Auction submissions go straight to MAO. VERIFIED remains reviewable for legacy records.
 REVIEW_TRANSITIONS["inspections"] = (
     TransitionRule(AUCTION, "PENDING", frozenset({"VERIFIED"})),
-    TransitionRule(AUCTION, "SUBJECT_TO_REVISION", frozenset({"VERIFIED"})),
+    TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )

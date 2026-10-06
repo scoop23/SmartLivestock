@@ -118,6 +118,7 @@ BARANGAY_CENTROIDS: Dict[str, List[float]] = {
 
 # Known destination coordinates for movement arcs
 DESTINATION_COORDINATES: Dict[str, List[float]] = {
+    "padre garcia": [13.87908, 121.212894],
     "lipa": [13.9419, 121.1644],
     "tanauan": [14.0864, 121.1500],
     "batangas city": [13.7565, 121.0583],
@@ -142,14 +143,13 @@ def normalize_barangay_name(raw_name: Optional[str]) -> Optional[str]:
     return NAME_CANONICAL_MAP.get(cleaned, raw_name.strip())
 
 
-def get_destination_coords(destination_text: str) -> List[float]:
-    """Finds coordinates for a movement destination string, defaulting to Lipa City if unmatched."""
+def get_destination_coords(destination_text: str) -> Optional[List[float]]:
+    """Resolve known place names without inventing coordinates for unknown places."""
     lower_text = destination_text.lower()
     for key, coords in DESTINATION_COORDINATES.items():
         if key in lower_text:
             return coords
-    # Default to neighboring Lipa City hub if external coordinates are unspecified
-    return [13.9419, 121.1644]
+    return None
 
 
 def ensure_poblacion_exists() -> Barangay:
@@ -599,49 +599,56 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # 10. Real Livestock Movement Inspections
     # Inbound / Outbound flows
     inspections_qs = (
-        scope_reviewer_queryset(LivestockInspection.objects.all(), user)
-        .select_related("shipper", "shipper__barangay")
+        scope_reviewer_queryset(
+            LivestockInspection.objects.filter(clearance__status=LivestockInspectionClearance.StatusType.APPROVED),
+            user,
+        )
+        .select_related("shipper", "shipper__barangay", "clearance")
         .prefetch_related("items", "items__livestock_type")
         .order_by("-inspection_date")
     )
 
     movements_list: List[Dict[str, Any]] = []
-    padre_garcia_hub = [13.87908, 121.212894]  # Poblacion market hub
-
     for insp in inspections_qs:
-        origin_b_name = normalize_barangay_name(
-            insp.shipper.barangay.barangay_name if insp.shipper and insp.shipper.barangay else "Poblacion"
-        ) or "Poblacion"
-        origin_coords = BARANGAY_CENTROIDS.get(origin_b_name, padre_garcia_hub)
-        dest_coords = get_destination_coords(insp.destination)
+        origin = (insp.clearance.origin or insp.clearance.shipper_address or "").strip()
+        destination = insp.destination.strip()
+        origin_coords = get_destination_coords(origin)
+        if not origin_coords:
+            for barangay_name, coords in BARANGAY_CENTROIDS.items():
+                if barangay_name.lower() in origin.lower():
+                    origin_coords = coords
+                    break
+        dest_coords = get_destination_coords(destination)
+        if not dest_coords:
+            for barangay_name, coords in BARANGAY_CENTROIDS.items():
+                if barangay_name.lower() in destination.lower():
+                    dest_coords = coords
+                    break
+        # A free-text location without known coordinates remains in the approved log,
+        # but cannot be drawn as an accurate map arc.
+        if not origin_coords or not dest_coords:
+            continue
 
-        total_heads = sum(item.quantity for item in insp.items.all()) or 1
+        total_heads = sum(item.quantity for item in insp.items.all())
         species_names = list({item.livestock_type.name for item in insp.items.all() if item.livestock_type})
-        species_label = ", ".join(species_names) if species_names else "Cattle"
-
-        # Check clearance status if exists
-        clearance_status = "PENDING"
-        control_no = ""
-        if hasattr(insp, "clearance") and insp.clearance:
-            clearance_status = insp.clearance.status
-            control_no = insp.clearance.control_number
-
+        origin_b_name = normalize_barangay_name(
+            insp.shipper.barangay.barangay_name if insp.shipper and insp.shipper.barangay else ""
+        )
         movements_list.append({
             "id": insp.pk,
-            "type": "export",  # Outbound transport
-            "origin": f"Brgy. {origin_b_name}, Padre Garcia",
-            "destination": insp.destination,
+            "type": "export",
+            "origin": origin,
+            "destination": destination,
             "from": origin_coords,
             "to": dest_coords,
             "heads": total_heads,
-            "species": species_label,
+            "species": ", ".join(species_names),
             "purpose": insp.get_purpose_display(),
-            "date": insp.inspection_date.isoformat() if insp.inspection_date else "",
+            "date": insp.inspection_date.isoformat(),
             "shipper_name": insp.shipper_name,
-            "clearance_status": clearance_status,
-            "control_number": control_no,
+            "clearance_status": insp.clearance.status,
+            "control_number": insp.clearance.control_number,
         })
-
         if origin_b_name in barangays_data:
             barangays_data[origin_b_name]["movement_out"] += total_heads
             barangays_data[origin_b_name]["inspections_count"] += 1

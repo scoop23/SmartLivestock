@@ -2,6 +2,7 @@
 
 import { municipalRead } from "@/lib/municipal-read";
 import { useQuery } from "@tanstack/react-query";
+import type { InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import {
   CensusSubmissionRecord,
   mapCensusSubmission,
@@ -136,6 +137,7 @@ export interface ValidationIncidentItem {
   inspectorPhotoUrl?: string;
   inspectorPhotoName?: string;
   sibatInspection?: SibatInspectionData;
+  auctionRecord?: InspectionRecord;
   reviewedBy?: string | null;
   reviewedAt?: string | null;
 }
@@ -420,33 +422,24 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         ? inspRes.value.data
         : [];
 
-    inspections.forEach((insp) => {
-      const totalHeads = insp.items ? insp.items.reduce((s: number, i: any) => s + (Number(i.quantity) || 0), 0) : 1;
-      const isVerified = (insp.status || "").toUpperCase() === "VERIFIED";
+    inspections.forEach((insp: InspectionRecord) => {
+      if (insp.created_by_role === "FARMER" && insp.status === "PENDING") return;
+      const totalHeads = insp.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
       incidents.push({
-        id: `insp-${insp.id}`,
+        id: "insp-" + insp.id,
         type: "inspection",
-        farmerName: insp.shipper_name || "Commercial / Raiser Shipper",
-        barangayName: insp.origin || "Padre Garcia",
-        details: `Permit ${insp.control_number || `#${insp.id}`}. Dest: ${insp.destination}. Purpose: ${insp.purpose}. Heads: ${totalHeads}`,
-        date: insp.inspection_date || (insp.created_at ? insp.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        farmerName: insp.shipper_name,
+        barangayName: insp.origin || "Origin not recorded",
+        details: "Auction movement: " + (insp.origin || "Unknown") + " to " + insp.destination + ". " + totalHeads + " head(s).",
+        date: insp.inspection_date,
         createdAt: insp.created_at || insp.inspection_date,
-        status: (insp.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
+        status: insp.status,
         reviewRemarks: insp.review_remarks || null,
         headCount: totalHeads,
         reviewedBy: insp.clearance?.reviewed_by_name || null,
         reviewedAt: insp.clearance?.reviewed_at || null,
-        conditionName: `Transport Clearance (${insp.purpose || "Trade"})`,
-        sibatInspection: isVerified ? {
-          verifiedBy: insp.created_by_name || "Auction Officer",
-          verifiedAt: insp.inspection_date || "Recently",
-          tagConfirmed: true,
-          confirmedCount: totalHeads,
-          confirmedSymptoms: [],
-          severity: "Antemortem Cleared",
-          biosecurityAction: "Verified for transport by Auction checkpoint",
-          remarks: insp.review_remarks || "Auction field inspection passed. Transport clearance awaiting MAO approval.",
-        } : undefined,
+        conditionName: "Auction Livestock Movement Log",
+        auctionRecord: insp,
       });
     });
 
@@ -548,7 +541,7 @@ export function getIncidentTypeBadge(type: IncidentType) {
       };
     case "slaughter":
       return {
-        label: "Slaughter Inspection",
+        label: "Auction Movement Log",
         color: "bg-purple-100 text-purple-800 border-purple-200",
       };
     case "birth":
