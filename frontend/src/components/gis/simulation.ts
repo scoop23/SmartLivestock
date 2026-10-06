@@ -165,12 +165,21 @@ export function calculateBearing(
  */
 export async function fetchPadreGarciaMonthlyWind(): Promise<MonthlyWindData[]> {
   const CACHE_KEY = 'smartlivestock_padre_garcia_wind_v2';
+  const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day cache expiration
+
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length === 12) {
+        // Validated envelope format: { timestamp: number, data: MonthlyWindData[] }
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.data)) {
+          const isFresh = typeof parsed.timestamp === 'number' && Date.now() - parsed.timestamp < CACHE_TTL_MS;
+          if (isFresh && parsed.data.length === 12) {
+            return parsed.data;
+          }
+        } else if (Array.isArray(parsed) && parsed.length === 12) {
+          // Backward-compatibility: allow legacy array format
           return parsed;
         }
       }
@@ -233,7 +242,13 @@ export async function fetchPadreGarciaMonthlyWind(): Promise<MonthlyWindData[]> 
 
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(result));
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            timestamp: Date.now(),
+            data: result,
+          })
+        );
       } catch {}
     }
 
