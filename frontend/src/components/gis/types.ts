@@ -152,7 +152,7 @@ export interface GISTelemetryResponse {
   barangays_dict: Record<string, BarangayGISData>;
   movements: MovementRecord[];
   summary: MunicipalSummary;
-  period: string;
+  period?: string;
   user_scope?: GISUserScope;
   farmer_stats?: FarmerPersonalStats | null;
 }
