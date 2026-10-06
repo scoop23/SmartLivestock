@@ -151,7 +151,7 @@ const sibatLinks: SidebarLink[] = [
       { path: '/sibat/batches', label: 'Herd Verification', badge: 'Herds' },
     ],
   },
-  { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Activity },
+  { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Map },
   { path: '/sibat-alerts', label: 'Outbreak Alerts & Flags', icon: Bell },
   { path: '/sibat-announcement', label: 'Activities', icon: Megaphone },
   { path: '/sibat-scheduling', label: 'Field Scheduling', icon: CalendarDays },
@@ -160,6 +160,7 @@ const sibatLinks: SidebarLink[] = [
 const auctionLinks: SidebarLink[] = [
   { path: '/auction', label: 'Market Dashboard', icon: LayoutDashboard },
   { path: '/auction-inspections', label: 'Health Inspections', icon: ClipboardCheck },
+  { path: '/auction-gis', label: 'GIS Movement Map', icon: Map },
   { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },
 ];
 
