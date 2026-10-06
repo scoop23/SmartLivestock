@@ -46,14 +46,13 @@ import {
   RotateCcw,
   Eye,
   FileText,
-  CheckCircle2,
   AlertTriangle,
-  ExternalLink,
 } from "lucide-react";
 import { useAdminBarangays } from "../admin/admin-charts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DocumentPreviewDialog } from "./document-preview-dialog";
 
 export type { ApiUser, UserAccountStatus, UserDocumentItem };
 
@@ -154,11 +153,6 @@ export default function UserManagementPage() {
           </Badge>
         );
     }
-  };
-
-  const isPdf = (urlOrName?: string) => {
-    if (!urlOrName) return false;
-    return urlOrName.toLowerCase().endsWith(".pdf") || urlOrName.toLowerCase().includes(".pdf");
   };
 
   const openProfile = (user: ApiUser) => {
@@ -649,24 +643,9 @@ export default function UserManagementPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => setPreviewDoc(doc)}
-                            className="h-7 text-xs px-2.5 gap-1 text-slate-700 hover:text-slate-900"
+                            className="h-7 text-xs px-2.5 gap-1.5 text-emerald-900 bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-950 font-semibold"
                           >
-                            <Eye className="size-3.5" /> Preview
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            asChild
-                            className="h-7 text-xs px-2 gap-1 text-slate-500 hover:text-slate-800"
-                          >
-                            <a
-                              href={doc.file_url || doc.document_file}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="size-3" /> Direct Open
-                            </a>
+                            <Eye className="size-3.5 text-emerald-700" /> Preview Attachment
                           </Button>
 
                           <div className="ml-auto flex items-center gap-1">
@@ -807,69 +786,14 @@ export default function UserManagementPage() {
         )}
       </Dialog>
 
-      {/* Document Preview Dialog */}
-      <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>
-        {previewDoc && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
-            <DialogHeader>
-              <div className="flex items-center justify-between gap-2 pr-6">
-                <DialogTitle className="text-lg font-bold text-slate-900">
-                  {getDocTypeLabel(previewDoc)}
-                </DialogTitle>
-                {getDocStatusBadge(previewDoc.verification_status)}
-              </div>
-              <p className="text-xs text-slate-500">
-                {previewDoc.file_name || "Attachment"} • Uploaded: {new Date(previewDoc.uploaded_at).toLocaleString()}
-              </p>
-            </DialogHeader>
-
-            <div className="mt-4 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 flex items-center justify-center min-h-[300px]">
-              {isPdf(previewDoc.file_url || previewDoc.document_file || previewDoc.file_name) ? (
-                <iframe
-                  src={previewDoc.file_url || previewDoc.document_file}
-                  className="w-full h-[65vh] border-0"
-                  title="Document PDF Viewer"
-                />
-              ) : (
-                <img
-                  src={previewDoc.file_url || previewDoc.document_file}
-                  alt={getDocTypeLabel(previewDoc)}
-                  className="max-h-[65vh] w-auto object-contain rounded-lg shadow-xs"
-                />
-              )}
-            </div>
-
-            {previewDoc.review_remarks && (
-              <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
-                <p className="font-bold flex items-center gap-1">
-                  <AlertTriangle className="size-3.5 text-rose-600" /> Review Remarks:
-                </p>
-                <p className="mt-0.5 pl-4.5">{previewDoc.review_remarks}</p>
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap gap-2 justify-end">
-              <Button variant="outline" asChild size="sm">
-                <a
-                  href={previewDoc.file_url || previewDoc.document_file}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="gap-1.5"
-                >
-                  <ExternalLink className="size-3.5" /> Open in New Tab
-                </a>
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setPreviewDoc(null)}
-                className="bg-slate-900 text-white hover:bg-slate-800"
-              >
-                Close Preview
-              </Button>
-            </div>
-          </DialogContent>
-        )}
-      </Dialog>
+      {/* Document Preview Dialog with authenticated file streaming */}
+      <DocumentPreviewDialog
+        document={previewDoc}
+        open={!!previewDoc}
+        onOpenChange={(open) => !open && setPreviewDoc(null)}
+        getDocTypeLabel={getDocTypeLabel}
+        getDocStatusBadge={getDocStatusBadge}
+      />
 
       {/* Document Return for Revision Dialog */}
       <Dialog open={!!revisionDoc} onOpenChange={(open) => !open && setRevisionDoc(null)}>
