@@ -473,6 +473,9 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CensusSubmission
+        # Use the period-aware message below instead of DRF's generic
+        # UniqueConstraint error; the database constraint remains authoritative.
+        validators = []
         fields = [
             "id",
             "barangay",
@@ -496,6 +499,28 @@ class CensusSubmissionSerializer(serializers.ModelSerializer):
             "review_remarks",
             "created_at",
         ]
+
+    def validate(self, attrs):
+        instance = self.instance
+        barangay = attrs.get("barangay", getattr(instance, "barangay", None))
+        report_year = attrs.get("report_year", getattr(instance, "report_year", None))
+        report_quarter = attrs.get("report_quarter", getattr(instance, "report_quarter", None))
+        if barangay is not None and report_year is not None and report_quarter is not None:
+            matching_period = CensusSubmission.objects.filter(
+                barangay=barangay,
+                report_year=report_year,
+                report_quarter=report_quarter,
+            )
+            if instance is not None:
+                matching_period = matching_period.exclude(pk=instance.pk)
+            if matching_period.exists():
+                raise serializers.ValidationError({
+                    "error": (
+                        f"A census for {barangay.barangay_name} Q{report_quarter} "
+                        f"{report_year} already exists for this census period."
+                    )
+                })
+        return attrs
 
     def get_submitted_by_name(self, obj):
         user = obj.submitted_by

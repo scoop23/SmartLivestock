@@ -277,6 +277,16 @@ class CensusSubmission(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        # Census rows are historical snapshots: one barangay may report each
+        # quarter, while accidental duplicates within that period are blocked.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["barangay", "report_year", "report_quarter"],
+                name="uniq_census_barangay_period",
+            )
+        ]
+
     def __str__(self):
         return f"{self.barangay} Q{self.report_quarter} {self.report_year}"
 

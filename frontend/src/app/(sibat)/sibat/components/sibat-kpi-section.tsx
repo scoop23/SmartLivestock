@@ -36,10 +36,23 @@ export default function SibatKpiSection({
   const invSubmissions = submissions.filter((s) => s.sourceType === "INVENTORY");
   const pendingInvCount = invSubmissions.filter((s) => s.status === "PENDING").length;
 
-  // Census counts
-  const totalCensusHeads = censuses.reduce(
-    (sum, c) => sum + (Number(c.totalHeads) || 0),
-    0
+  // Census rows are historical periods; only each barangay's latest approved
+  // period represents its current official census count.
+  const latestApprovedCensusByBarangay = new Map<number, CensusSubmissionRecord>();
+  for (const census of censuses) {
+    if (census.status !== "APPROVED") continue;
+    const current = latestApprovedCensusByBarangay.get(census.barangayId);
+    if (
+      !current ||
+      census.reportYear > current.reportYear ||
+      (census.reportYear === current.reportYear && census.reportQuarter > current.reportQuarter)
+    ) {
+      latestApprovedCensusByBarangay.set(census.barangayId, census);
+    }
+  }
+  const latestApprovedCensusHeads = [...latestApprovedCensusByBarangay.values()].reduce(
+    (sum, census) => sum + (Number(census.totalHeads) || 0),
+    0,
   );
 
   return (
@@ -205,7 +218,7 @@ export default function SibatKpiSection({
 
           <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
             <span className="inline-flex items-center gap-1 font-extrabold text-[11px] px-2 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800">
-              📊 {totalCensusHeads.toLocaleString()} Total Heads
+              📊 {latestApprovedCensusHeads.toLocaleString()} Latest Approved Heads
             </span>
             <span className="text-slate-400 font-medium group-hover:text-emerald-600 transition-colors">
               View →

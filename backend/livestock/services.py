@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import CensusSubmission, CensusSubmissionItem, Barangay
@@ -19,7 +19,7 @@ class CensusService:
     ):
         """
         Business Logic
-        1. Check if a census for this barangay already exists
+        1. Check if a census for this barangay and reporting quarter already exists
         2. Create the CensusSubmission header
         3. Create all child CensusSubmissionItem in one atomic transaction
         """
@@ -29,28 +29,39 @@ class CensusService:
         if any(item["farmer"].barangay_id != barangay.pk for item in (items or [])):
             raise ValidationError({"items": "Every census farmer must belong to the submission barangay."})
 
-        # prevent dupes
-        already_submitted = CensusSubmission.objects.filter(
-            barangay=barangay,  # checks if barangay alr exists
-            report_year=report_year,  # and so on
-            report_quarter=report_quarter,
-        ).exists()  # .exists() returns boolean
-
-        if already_submitted:
-            raise ValidationError(  # used raise because it treats it as an error and stop operations, if i put return then it treats it as data return.
-                {
-                    "error": f"Census for {barangay.barangay_name} Q{report_quarter} {report_year} has already been submitted."
-                }
-            )
-
-        submission = CensusSubmission.objects.create(
-            submitted_by=user,
+        period_censuses = CensusSubmission.objects.filter(
             barangay=barangay,
             report_year=report_year,
             report_quarter=report_quarter,
-            remarks=remarks,
-            status=CensusSubmission.StatusType.VERIFIED,
         )
+
+        def duplicate_period_error():
+            return ValidationError({
+                "error": (
+                    f"A census for {barangay.barangay_name} Q{report_quarter} "
+                    f"{report_year} already exists for this census period."
+                )
+            })
+
+        if period_censuses.exists():
+            raise duplicate_period_error()
+
+        try:
+            # The database constraint closes the race where two SIBAT users
+            # submit the same barangay-period at nearly the same time.
+            with transaction.atomic():
+                submission = CensusSubmission.objects.create(
+                    submitted_by=user,
+                    barangay=barangay,
+                    report_year=report_year,
+                    report_quarter=report_quarter,
+                    remarks=remarks,
+                    status=CensusSubmission.StatusType.VERIFIED,
+                )
+        except IntegrityError:
+            if period_censuses.exists():
+                raise duplicate_period_error()
+            raise
 
         if items:
             for item in items:  # for each item create a object submissionitem
@@ -114,6 +125,19 @@ class CensusService:
         barangay = validated_data.get("barangay", submission.barangay)
         if not has_all_barangay_access(submission.submitted_by) and submission.submitted_by.assigned_barangay_id != barangay.pk:
             raise ValidationError({"barangay": "Census must remain in the submitting officer's assigned barangay."})
+        report_year = validated_data.get("report_year", submission.report_year)
+        report_quarter = validated_data.get("report_quarter", submission.report_quarter)
+        if CensusSubmission.objects.filter(
+            barangay=barangay,
+            report_year=report_year,
+            report_quarter=report_quarter,
+        ).exclude(pk=submission.pk).exists():
+            raise ValidationError({
+                "error": (
+                    f"A census for {barangay.barangay_name} Q{report_quarter} "
+                    f"{report_year} already exists for this census period."
+                )
+            })
         checked_items = validated_data.get("items")
         if checked_items is None:
             if submission.items.exclude(farmer__barangay=barangay).exists():
@@ -139,5 +163,21 @@ class CensusService:
             submission.reviewed_by = None
             submission.reviewed_at = None
 
-        submission.save()
+        try:
+            with transaction.atomic():
+                submission.save()
+        except IntegrityError:
+            duplicate_period = CensusSubmission.objects.filter(
+                barangay=barangay,
+                report_year=report_year,
+                report_quarter=report_quarter,
+            ).exclude(pk=submission.pk).exists()
+            if duplicate_period:
+                raise ValidationError({
+                    "error": (
+                        f"A census for {barangay.barangay_name} Q{report_quarter} "
+                        f"{report_year} already exists for this census period."
+                    )
+                })
+            raise
         return submission

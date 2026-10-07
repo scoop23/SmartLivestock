@@ -16,7 +16,13 @@ from movements.models import (
     LivestockInspectionItem,
     LivestockInspectionClearance,
 )
-from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
+from livestock.models import (
+    Barangay,
+    Farmer,
+    LivestockBatch,
+    LivestockInventory,
+    LivestockType,
+)
 from production.models import LiveAnimalSale, ProductionRecord
 from users.models import Role, User
 

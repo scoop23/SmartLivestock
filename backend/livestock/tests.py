@@ -369,6 +369,91 @@ class CensusPermissionWorkflowTests(APITestCase):
         )
         self.assertEqual(notification.link, "/data-validation?domain=census")
 
+    def test_census_period_is_unique_per_barangay_but_history_is_allowed(self):
+        self.client.force_authenticate(user=self.sibat_user)
+
+        # Existing Q3 and a new Q1/Q4 are separate historical snapshots.
+        for quarter in (1, 4):
+            response = self.client.post(
+                "/livestock/census/",
+                {
+                    "barangay": self.barangay.pk,
+                    "report_year": 2026,
+                    "report_quarter": quarter,
+                    "items": [],
+                },
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        duplicate_response = self.client.post(
+            "/livestock/census/",
+            {
+                "barangay": self.barangay.pk,
+                "report_year": 2026,
+                "report_quarter": 3,
+                "items": [],
+            },
+            format="json",
+        )
+        self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already exists for this census period", str(duplicate_response.data))
+
+        # The period is unique across authorized staff, not per SIBAT account.
+        self.client.force_authenticate(user=self.other_sibat_user)
+        other_user_response = self.client.post(
+            "/livestock/census/",
+            {
+                "barangay": self.barangay.pk,
+                "report_year": 2026,
+                "report_quarter": 3,
+                "items": [],
+            },
+            format="json",
+        )
+        self.assertEqual(other_user_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_same_census_period_is_allowed_for_different_barangays(self):
+        other_barangay = Barangay.objects.create(
+            barangay_name="Cawongan",
+            latitude=13.89,
+            longitude=121.22,
+        )
+        self.sibat_user.access_scope = User.AccessScope.ALL_BARANGAYS
+        self.sibat_user.save(update_fields=["access_scope"])
+        self.client.force_authenticate(user=self.sibat_user)
+
+        response = self.client.post(
+            "/livestock/census/",
+            {
+                "barangay": other_barangay.pk,
+                "report_year": 2026,
+                "report_quarter": 3,
+                "items": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_census_revision_cannot_move_into_an_existing_period(self):
+        CensusSubmission.objects.create(
+            barangay=self.barangay,
+            report_year=2026,
+            report_quarter=1,
+            submitted_by=self.sibat_user,
+        )
+        self.submission.status = CensusSubmission.StatusType.SUBJECT_TO_REVISION
+        self.submission.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.sibat_user)
+
+        response = self.client.patch(
+            f"/livestock/census/{self.submission.pk}/",
+            {"report_year": 2026, "report_quarter": 1},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already exists for this census period", str(response.data))
+
     def test_barangay_options_follow_sibat_scope(self):
         other_barangay = Barangay.objects.create(
             barangay_name="San Felipe",
