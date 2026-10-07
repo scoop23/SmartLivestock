@@ -24,7 +24,17 @@ export default function MobileNavAuction() {
           return (
             <button
               key={item.path}
-              onClick={() => router.push(item.path)}
+              onClick={() => {
+                if (item.path !== pathname && pathname === "/auction-inspections/new") {
+                  const navigation = new CustomEvent("smartlivestock:guard-navigation", {
+                    cancelable: true,
+                    detail: { to: item.path },
+                  });
+                  window.dispatchEvent(navigation);
+                  if (navigation.defaultPrevented) return;
+                }
+                router.push(item.path);
+              }}
               className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
                 isActive
                   ? 'text-[#7C3AED] font-black scale-105'
@@ -40,4 +50,3 @@ export default function MobileNavAuction() {
     </nav>
   );
 }
-

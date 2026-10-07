@@ -49,6 +49,15 @@
 }
 
 :root {
+  /* Shared application overlay order. Sidebar stays above Leaflet's 1000 layer. */
+  --z-sidebar: 1200;
+  --z-sidebar-hover: 1210;
+  /* Share the dialog plane so popovers opened inside dialogs remain usable. */
+  --z-popover: 1400;
+  --z-dialog-overlay: 1390;
+  --z-dialog: 1400;
+  --z-critical-overlay: 1490;
+  --z-critical: 1500;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -326,5 +335,3 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-

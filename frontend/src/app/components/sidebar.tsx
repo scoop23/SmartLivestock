@@ -509,12 +509,12 @@ function SidebarNav({
             </button>
           </PopoverTrigger>
 
-          {/* Popover elevated to z-[1400] to always float cleanly above elevated sidebars and map controls */}
+          {/* Popover elevated to z-[var(--z-popover)] to always float cleanly above elevated sidebars and map controls */}
           <PopoverContent
             side={collapsed ? "right" : "top"}
             align={collapsed ? "end" : "center"}
             sideOffset={8}
-            className="w-72 p-0 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-[1400] animate-in fade-in-50 zoom-in-95"
+            className="w-72 p-0 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-[var(--z-popover)] animate-in fade-in-50 zoom-in-95"
           >
             {/* Popover Header with Avatar & Department */}
             <div className="p-3.5 bg-gradient-to-br from-emerald-800 via-[#2D5A27] to-[#1c3c18] text-white">
@@ -652,7 +652,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_pinned");
     if (saved !== null) {
-      setIsPinned(saved === "true");
+      window.requestAnimationFrame(() => setIsPinned(saved === "true"));
     }
   }, []);
 
@@ -677,7 +677,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
     <>
       {/* 
         ═════════════════════════════════════════════════════════════════════
-        DESKTOP NAVIGATION RAIL & FLOATING PANEL (High Elevation: z-[1200])
+        DESKTOP NAVIGATION RAIL & FLOATING PANEL (High Elevation: z-[var(--z-sidebar)])
         ═════════════════════════════════════════════════════════════════════
         CONCEPT: Stacking Context & Leaflet Map Integration
         - Leaflet GIS maps create deep stacking contexts:
@@ -688,12 +688,12 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             * Leaflet controls: z-index 1000
         - If the main navigation sidebar only uses z-30 or z-50, Leaflet layers
           and GIS controls will overlap or block interaction with the sidebar.
-        - By elevating the sidebar rail to z-[1200] and the expanded hover/pinned
-          panel to z-[1300], the main navigation is guaranteed to float smoothly
+        - By elevating the sidebar rail to z-[var(--z-sidebar)] and the expanded hover/pinned
+          panel to z-[var(--z-sidebar-hover)], the main navigation is guaranteed to float smoothly
           above the GIS map canvas, markers, popups, and floating overlays.
       */}
       <div
-        className="hidden lg:block relative shrink-0 z-[1200] transition-[width] duration-200 ease-out"
+        className="hidden lg:block relative shrink-0 z-[var(--z-sidebar)] transition-[width] duration-200 ease-out"
         style={{ width: isPinned ? 280 : 64 }}
       >
         {/* Sidebar Panel: Smooth floating overlay on hover, locks in place when pinned */}
@@ -703,10 +703,10 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
           className={cn(
             "fixed inset-y-0 left-0 flex flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden transform-gpu",
             isPinned
-              ? "w-[280px] z-[1200] shadow-xl"
+              ? "w-[280px] z-[var(--z-sidebar)] shadow-xl"
               : isHovered
-                ? "w-[280px] shadow-2xl z-[1300] transition-[width,box-shadow] duration-200 ease-out"
-                : "w-16 z-[1200] shadow-md transition-[width] duration-200 ease-in-out"
+                ? "w-[280px] shadow-2xl z-[var(--z-sidebar-hover)] transition-[width,box-shadow] duration-200 ease-out"
+                : "w-16 z-[var(--z-sidebar)] shadow-md transition-[width] duration-200 ease-in-out"
           )}
         >
           <SidebarNav
@@ -723,9 +723,9 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
         </aside>
       </div>
 
-      {/* Mobile — slide-over sheet drawer (Elevated to z-[1200] to sit cleanly above mobile map views) */}
+      {/* Mobile — slide-over sheet drawer (Elevated to z-[var(--z-sidebar)] to sit cleanly above mobile map views) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-72 p-0 border-0 bg-[#2D5A27] z-[1200] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
+        <SheetContent side="left" className="w-72 p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav
             collapsed={false}
@@ -747,10 +747,10 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       </Sheet>
 
       {/* ═════════════════════════════════════════════════════════════════════
-          INTERACTIVE HELP & SUPPORT MODAL DIALOG (Elevated to z-[1500])
+          INTERACTIVE HELP & SUPPORT MODAL DIALOG (Elevated to z-[var(--z-critical)])
          ═════════════════════════════════════════════════════════════════════ */}
       <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2rem] p-6 sm:p-8 bg-white border-none shadow-2xl z-[1500]">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2rem] p-6 sm:p-8 bg-white border-none shadow-2xl z-[var(--z-critical)]">
           <DialogHeader className="space-y-2">
             <div className="flex items-center gap-3">
               <div className="size-11 rounded-2xl bg-emerald-100 text-[#2D5A27] flex items-center justify-center shrink-0">
@@ -821,14 +821,14 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1">
                   <h4 className="text-xs font-bold text-slate-900">How do I register a new cow or cattle head?</h4>
                   <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    Navigate to <strong>Livestock Inventory</strong> from the sidebar and click <strong>"Add Livestock"</strong>. Enter the tag number, breed, sex, weight, and vaccination history.
+                    Navigate to <strong>Livestock Inventory</strong> from the sidebar and click <strong>&quot;Add Livestock&quot;</strong>. Enter the tag number, breed, sex, weight, and vaccination history.
                   </p>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1">
                   <h4 className="text-xs font-bold text-slate-900">How do I log dairy milk or meat production?</h4>
                   <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    Go to <strong>Production Dashboard</strong> and tap <strong>"Log Daily Milk"</strong> or <strong>"Record Meat Yield"</strong>. Entries are queued for SIBAT and MAO review.
+                    Go to <strong>Production Dashboard</strong> and tap <strong>&quot;Log Daily Milk&quot;</strong> or <strong>&quot;Record Meat Yield&quot;</strong>. Entries are queued for SIBAT and MAO review.
                   </p>
                 </div>
 

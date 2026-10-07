@@ -6,15 +6,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardCheck,
   CheckCircle2,
-  AlertCircle,
   RotateCcw,
   Clock,
   Send,
   Plus,
-  Eye,
   ChevronRight,
   ArrowRight,
-  Calendar,
   MapPin,
   Map,
   QrCode,
@@ -40,15 +37,12 @@ import {
   fetchInspections,
 } from "../auction-inspections/auction-analytics";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
-import { NewInspectionDialog } from "../auction-inspections/new-inspection-dialog";
 import { InspectionDetailsDialog } from "../auction-inspections/inspection-details-dialog";
 
 export default function AuctionDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
-  const [inspectionToEdit, setInspectionToEdit] = useState<InspectionRecord | null>(null);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
   const { data: inspections = [], isLoading, isError } = useQuery<InspectionRecord[]>({
@@ -165,7 +159,7 @@ export default function AuctionDashboard() {
 
             <Button
               size="sm"
-              onClick={() => { setInspectionToEdit(null); setIsNewDialogOpen(true); }}
+              onClick={() => router.push("/auction-inspections/new")}
               className="bg-white hover:bg-purple-50 text-[#7C3AED] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -243,7 +237,7 @@ export default function AuctionDashboard() {
           </Card>
 
           <Card
-            onClick={() => { setInspectionToEdit(null); setIsNewDialogOpen(true); }}
+            onClick={() => router.push("/auction-inspections/new")}
             className="border-2 border-purple-100 bg-gradient-to-br from-purple-50/60 via-white to-white hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
@@ -496,22 +490,16 @@ export default function AuctionDashboard() {
         </div>
       </div>
 
-      {/* New Movement Log Dialog */}
-      {isNewDialogOpen && <NewInspectionDialog
-        isOpen={isNewDialogOpen}
-        onOpenChange={setIsNewDialogOpen}
-        inspectionToEdit={inspectionToEdit}
-        onSubmitSuccess={handleSuccess}
-        nextId={inspections.length + 1}
-      />}
-
       {/* Inspection Details Dialog */}
       <InspectionDetailsDialog
         inspection={selectedInspection}
         onClose={() => setSelectedInspection(null)}
         statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status, selectedInspection) : null}
         onActionSuccess={handleSuccess}
-        onEdit={() => { setInspectionToEdit(selectedInspection); setSelectedInspection(null); setIsNewDialogOpen(true); }}
+        onEdit={() => {
+          if (selectedInspection) router.push(`/auction-inspections/new?edit=${selectedInspection.id}`);
+          setSelectedInspection(null);
+        }}
       />
 
       {/* Universal Gate Pass QR Scanner */}
@@ -523,4 +511,3 @@ export default function AuctionDashboard() {
     </>
   );
 }
-
