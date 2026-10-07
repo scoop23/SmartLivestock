@@ -326,7 +326,7 @@ export function RoleAwareGISContainer({
       </button>
 
       {/* 1. Interactive GIS Map Container */}
-      <div className="relative w-full h-[55dvh] sm:h-[60dvh] min-h-[420px] lg:h-full lg:flex-1 lg:min-h-0 shrink-0 overflow-hidden">
+      <div className="relative isolate w-full h-[55dvh] sm:h-[60dvh] min-h-[420px] lg:h-full lg:flex-1 lg:min-h-0 shrink-0 overflow-hidden">
         <GISMap
           barangaysByName={barangaysByName}
           movements={gisData?.movements || []}

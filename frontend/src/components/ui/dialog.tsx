@@ -52,6 +52,8 @@ function DialogContent({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
+    // Radix portals this layer to document.body so page overflow and local
+    // stacking contexts (including transformed KPI cards) cannot clip it.
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content

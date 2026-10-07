@@ -6,7 +6,7 @@ import { cowHead } from '@lucide/lab';
 export default function MobileNavSibat() {
   const router = useRouter();
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-100000">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-[var(--z-sidebar)]">
       <div className="flex items-center justify-around max-w-lg mx-auto">
         <button
           onClick={() => router.push('/sibat')}

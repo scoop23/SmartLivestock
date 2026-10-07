@@ -49,15 +49,16 @@
 }
 
 :root {
-  /* Shared application overlay order. Sidebar stays above Leaflet's 1000 layer. */
+  /* Shared application overlay order. GIS layers stay local to the map region. */
   --z-sidebar: 1200;
   --z-sidebar-hover: 1210;
-  /* Share the dialog plane so popovers opened inside dialogs remain usable. */
-  --z-popover: 1400;
-  --z-dialog-overlay: 1390;
-  --z-dialog: 1400;
-  --z-critical-overlay: 1490;
-  --z-critical: 1500;
+  --z-popover: 1300;
+  --z-toast: 1350;
+  --z-dialog-overlay: 1400;
+  --z-dialog: 1410;
+  /* Alert dialogs are dialogs too; they use the same application layer. */
+  --z-critical-overlay: var(--z-dialog-overlay);
+  --z-critical: var(--z-dialog);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -90,6 +91,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* Sonner defaults to an extremely high stacking level; keep notifications
+   above page content but below the shared Radix dialog layer. */
+[data-sonner-toaster] {
+  z-index: var(--z-toast) !important;
 }
 
 .dark {
