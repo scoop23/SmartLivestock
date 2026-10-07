@@ -12,7 +12,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import LivestockInventory
 from movements.models import LivestockInspection, LivestockInspectionClearance
-from production.models import ProductionRecord, SlaughterRecord
+from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
 from smartlivestock.workflows import ADMIN, MAO, role_name
 
 from .movement_direction import classify_movement_direction
@@ -91,6 +91,7 @@ def _base(report_type, start, end, filters):
             ("registration_status", "Registration"), ("operational_status", "Operational status"),
             ("record_date", "Registered date"),
         ], rows, {"records": len(rows), "total_heads": sum(row["quantity"] for row in rows),
+                 "barangays_represented": len({row["barangay"] for row in rows if row["barangay"]}),
                  "heads_by_species": by_species, "heads_by_operational_status": by_status}
 
     if report_type == "production":
@@ -143,11 +144,17 @@ def _base(report_type, start, end, filters):
                            "barangay": obj.livestock.farmer.barangay.barangay_name if obj.livestock_id and obj.livestock.farmer.barangay_id else (obj.batch.farmer.barangay.barangay_name if obj.batch_id and obj.batch.farmer.barangay_id else ""),
                            "status": obj.status} for obj in deaths.select_related("livestock__livestock_type", "livestock__farmer__barangay", "batch__livestock_type", "batch__farmer__barangay")]
         rows = sorted(disease_rows + mortality_rows, key=lambda row: row["record_date"])
+        disease_frequency = {}
+        for row in disease_rows:
+            disease_frequency[row["condition_or_cause"]] = disease_frequency.get(row["condition_or_cause"], 0) + 1
+        most_reported = max(disease_frequency, key=disease_frequency.get) if disease_frequency else "None"
         return [("record_kind", "Record type"), ("record_date", "Date"), ("condition_or_cause", "Disease / cause"),
                 ("species", "Species"), ("affected_or_dead", "Affected / deaths"), ("barangay", "Barangay"),
                 ("status", "Approval status")], rows, {"disease_cases": len(disease_rows),
                 "affected_heads": sum(row["affected_or_dead"] for row in disease_rows),
-                "mortality_records": len(mortality_rows), "deaths": sum(row["affected_or_dead"] for row in mortality_rows)}
+                "mortality_records": len(mortality_rows), "deaths": sum(row["affected_or_dead"] for row in mortality_rows),
+                "affected_species": len({row["species"] for row in rows if row["species"]}),
+                "most_reported_disease": most_reported}
 
     if report_type == "slaughter":
         query = SlaughterRecord.objects.filter(status=approved, record_date__range=(start, end))
@@ -158,11 +165,13 @@ def _base(report_type, start, end, filters):
                  "quantity": obj.quantity, "carcass_weight_kg": _number(obj.carcass_weight),
                  "barangay": obj.barangay.barangay_name if obj.barangay_id else "", "status": obj.status}
                 for obj in query]
+        weighted_rows = [row for row in rows if row["carcass_weight_kg"] is not None]
         return [("record_date", "Date"), ("species", "Species"), ("quantity", "Heads slaughtered"),
                 ("carcass_weight_kg", "Carcass weight (kg)"), ("barangay", "Barangay"),
                 ("status", "Approval status")], rows, {"records": len(rows),
                 "animals_slaughtered": sum(row["quantity"] for row in rows),
-                "carcass_weight_kg": sum(row["carcass_weight_kg"] or 0 for row in rows)}
+                "carcass_weight_kg": sum(row["carcass_weight_kg"] or 0 for row in rows),
+                "average_carcass_weight_kg": round(sum(row["carcass_weight_kg"] for row in weighted_rows) / len(weighted_rows), 2) if weighted_rows else 0}
 
     if report_type in ("movement", "inspection"):
         # GIS movement layers use the same MAO-approved clearance boundary.
@@ -192,20 +201,71 @@ def _base(report_type, start, end, filters):
                             "barangay": obj.shipper.barangay.barangay_name if obj.shipper_id and obj.shipper.barangay_id else "",
                             "clearance_status": clearance.status, "issued_date": clearance.date_issued.isoformat() if clearance.date_issued else ""}
                 if report_type == "movement":
-                    rows.append(base_row)
+                    # Inspection movements and auction sales are separate record
+                    # kinds because activity at the market is not itself proof of
+                    # geographic direction or regulatory clearance.
+                    rows.append({"record_kind": "MOVEMENT", **base_row})
                 else:
                     rows.append({key: value for key, value in base_row.items()
                                  if key in ("control_number", "record_date", "origin", "destination", "purpose", "quantity", "clearance_status", "issued_date")})
         if report_type == "movement":
-            columns = [("record_date", "Date"), ("control_number", "Control number"), ("origin", "Origin"),
+            # Seeded and user-entered sales use the same approved queryset and
+            # filters, so synthetic records never need a special frontend path.
+            auction_query = LiveAnimalSale.objects.filter(status=approved, sale_date__range=(start, end))
+            auction_query = _apply_species(auction_query, species, "livestock__livestock_type__name", "batch__livestock_type__name")
+            auction_query = _apply_barangay(auction_query, barangay, "livestock__farmer__barangay", "batch__farmer__barangay")
+            if purpose:
+                auction_query = auction_query.filter(purpose__iexact=purpose)
+            auction_query = auction_query.select_related(
+                "livestock__livestock_type", "livestock__farmer__barangay",
+                "batch__livestock_type", "batch__farmer__barangay",
+            ).order_by("sale_date", "pk")
+            auction_rows = []
+            for sale in auction_query:
+                sale_species = sale.livestock.livestock_type.name if sale.livestock_id else (sale.batch.livestock_type.name if sale.batch_id else "")
+                sale_barangay = sale.livestock.farmer.barangay.barangay_name if sale.livestock_id and sale.livestock.farmer.barangay_id else (sale.batch.farmer.barangay.barangay_name if sale.batch_id and sale.batch.farmer.barangay_id else "")
+                auction_rows.append({
+                    "record_kind": "AUCTION", "record_date": sale.sale_date.isoformat(),
+                    "control_number": f"SALE-{sale.pk}", "origin": sale_barangay,
+                    "destination": sale.destination or "", "direction": "",
+                    "purpose": sale.purpose, "species": sale_species,
+                    "quantity": sale.quantity, "vehicle": "", "handler_license": "",
+                    "barangay": sale_barangay, "clearance_status": sale.status,
+                    "issued_date": "", "sale_method": sale.sale_method,
+                })
+            rows.extend(auction_rows)
+            rows.sort(key=lambda row: (row["record_date"], row["record_kind"], row["control_number"]))
+            columns = [("record_kind", "Activity type"), ("record_date", "Date"), ("control_number", "Record / control number"), ("origin", "Origin / barangay"),
                        ("destination", "Destination"), ("direction", "Direction"), ("purpose", "Purpose"),
-                       ("species", "Species"), ("quantity", "Heads"), ("vehicle", "Vehicle plate"),
-                       ("handler_license", "Handler license"), ("clearance_status", "Status")]
+                       ("species", "Species"), ("quantity", "Heads / items"), ("vehicle", "Vehicle plate"),
+                       ("handler_license", "Handler license"), ("sale_method", "Sale method"), ("clearance_status", "Approval / clearance status")]
         else:
             columns = [("control_number", "Control number"), ("record_date", "Inspection date"), ("origin", "Origin"),
                        ("destination", "Destination"), ("purpose", "Purpose"), ("quantity", "Livestock heads"),
                        ("clearance_status", "Clearance status"), ("issued_date", "Issued date")]
-        return columns, rows, {"records": len({row["control_number"] for row in rows}),
+        if report_type == "movement":
+            auction = [row for row in rows if row["record_kind"] == "AUCTION"]
+            movements = [row for row in rows if row["record_kind"] == "MOVEMENT"]
+            summary = {
+                "records": len({row["control_number"] for row in movements}) + len(auction),
+                "movement_records": len({row["control_number"] for row in movements}),
+                "livestock_heads": sum(row["quantity"] for row in movements),
+                "movement_lines": len(movements),
+                "auction_activity": {"auction_records": len(auction),
+                                     "auction_items_processed": sum(row["quantity"] for row in auction),
+                                     "auction_species": len({row["species"] for row in auction if row["species"]})},
+                "movement_analysis": {"movement_records": len({row["control_number"] for row in movements}),
+                                      "movement_lines": len(movements),
+                                      "livestock_heads": sum(row["quantity"] for row in movements),
+                                      "inbound": sum(row["direction"] == "INBOUND" for row in movements),
+                                      "outbound": sum(row["direction"] == "OUTBOUND" for row in movements),
+                                      "internal": sum(row["direction"] == "INTERNAL" for row in movements),
+                                      "unknown": sum(row["direction"] == "UNKNOWN" for row in movements)},
+            }
+            return columns, rows, summary
+        inspection_count = len({row["control_number"] for row in rows})
+        return columns, rows, {"records": inspection_count, "approved_inspections": inspection_count,
+                               "clearance_records": inspection_count,
                                "livestock_heads": sum(row["quantity"] for row in rows),
                                "movement_lines": len(rows)}
     raise ValidationError({"report_type": "Select a supported report type."})

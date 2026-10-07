@@ -1,6 +1,8 @@
 """Printable PDF and formatted workbook renderers for the shared report dataset."""
 
+from datetime import datetime
 from io import BytesIO
+from math import ceil
 from xml.sax.saxutils import escape
 
 import openpyxl
@@ -52,6 +54,230 @@ def excel_report(report):
     return output.getvalue()
 
 
+def _chart_rows(rows, label_key, value_key, *, count=False):
+    """Aggregate only values already present in the authorized report rows."""
+    totals = {}
+    for row in rows:
+        name = str(row.get(label_key) or "Unknown")
+        totals[name] = totals.get(name, 0) + (1 if count else float(row.get(value_key) or 0))
+    return sorted(totals.items(), key=lambda pair: pair[1], reverse=True)
+
+
+def _monthly_rows(rows, value_key, *, count=False, date_key="record_date"):
+    totals = {}
+    for row in rows:
+        month = str(row.get(date_key) or "")[:7]
+        if len(month) != 7:
+            continue
+        totals[month] = totals.get(month, 0) + (1 if count else float(row.get(value_key) or 0))
+    return sorted(totals.items())
+
+
+def _monthly_distinct_rows(rows, date_key, identity_key):
+    months = {}
+    for index, row in enumerate(rows):
+        month = str(row.get(date_key) or "")[:7]
+        if len(month) == 7:
+            months.setdefault(month, set()).add(str(row.get(identity_key) or f"row-{index}"))
+    return [(month, len(identities)) for month, identities in sorted(months.items())]
+
+
+def _monthly_axis_ticks(months, max_ticks=8):
+    """Choose readable month labels while leaving every plotted observation intact."""
+    if len(months) <= max_ticks:
+        indices = range(len(months))
+    else:
+        # PDF pages have less horizontal space than the web chart. Keep every
+        # point, but label a width-based subset and always retain the final month.
+        interval = ceil((len(months) - 1) / (max_ticks - 1))
+        indices = sorted(set(range(0, len(months), interval)) | {len(months) - 1})
+
+    labels = {}
+    for index in indices:
+        try:
+            labels[index] = datetime.strptime(months[index], "%Y-%m").strftime("%b %y")
+        except ValueError:
+            labels[index] = months[index]
+    return labels
+
+
+def _distinct_count_rows(rows, label_key, identity_key):
+    groups = {}
+    for index, row in enumerate(rows):
+        name = str(row.get(label_key) or "Unknown")
+        groups.setdefault(name, set()).add(str(row.get(identity_key) or f"row-{index}"))
+    return sorted(((name, len(identities)) for name, identities in groups.items()), key=lambda pair: pair[1], reverse=True)
+
+
+def _report_chart_specs(report):
+    """Describe the preview's charts from its already-filtered rows, without another query."""
+    rows = report["rows"]
+    kind = report["report_type"]
+    specs = []
+
+    def add(title, chart_type, data, unit="", description=""):
+        specs.append({"title": title, "type": chart_type, "data": data, "unit": unit, "description": description})
+
+    def bar(title, data, unit="", description=""):
+        # Long category names are easier to read in a horizontal ranking.
+        add(title, "bar", data, unit, description)
+
+    def line(title, data, unit="", description=""):
+        add(title, "line", data, unit, description)
+
+    def pie(title, data, description=""):
+        # A pie is meaningful for a small composition; larger category sets become rankings.
+        add(title, "pie" if 2 <= len(data) <= 7 else "bar", data, "", description)
+
+    if kind == "inventory":
+        bar("Livestock by Barangay", _chart_rows(rows, "barangay", "quantity"), "heads", "Approved registered heads, ranked high to low.")
+        pie("Livestock Distribution by Species", _chart_rows(rows, "species", "quantity"), "Share of registered livestock heads.")
+        add("Historical Inventory Trend", "empty", [], description="No historical inventory trend available.")
+    elif kind == "production":
+        units = sorted({str(row.get("unit") or "Unknown") for row in rows})
+        for unit in units:
+            unit_rows = [row for row in rows if str(row.get("unit") or "Unknown") == unit]
+            line(f"Production Over Time ({unit})", _monthly_rows(unit_rows, "quantity"), unit.lower(), "Monthly approved output.")
+            distribution = _chart_rows(unit_rows, "production_type", "quantity")
+            bar(f"Production by Type ({unit})", distribution, unit.lower(), "Production types compared only within the same unit.")
+            if len(distribution) > 1:
+                pie(f"Production Distribution by Type ({unit})", distribution, f"Share of production measured in {unit.lower()}; units remain separate.")
+    elif kind == "disease_mortality":
+        diseases = [row for row in rows if row.get("record_kind") == "DISEASE"]
+        deaths = [row for row in rows if row.get("record_kind") == "MORTALITY"]
+        line("Disease Cases Over Time", _monthly_rows(diseases, "affected_or_dead", count=True), "cases", "Descriptive approved disease case count by month.")
+        pie("Disease Distribution", _chart_rows(diseases, "condition_or_cause", "affected_or_dead"), "Approved affected animals by reported condition.")
+        pie("Disease Cases by Disease Type", _chart_rows(diseases, "condition_or_cause", "", count=True), "Approved case records by reported condition.")
+        bar("Disease by Barangay", _chart_rows(diseases, "barangay", "affected_or_dead"), "affected", "Approved affected animals by barangay.")
+        line("Mortality Over Time", _monthly_rows(deaths, "affected_or_dead", count=True), "records", "Descriptive approved mortality records by month.")
+        bar("Mortality by Species", _chart_rows(deaths, "species", "affected_or_dead"), "deaths", "Approved deaths by species.")
+    elif kind == "slaughter":
+        line("Slaughter Trend", _monthly_rows(rows, "quantity"), "animals", "Animals slaughtered per month.")
+        species = _chart_rows(rows, "species", "quantity")
+        bar("Slaughter by Species", species, "animals", "Approved animals slaughtered.")
+        pie("Slaughtered Animals by Species", species, "Part-to-whole distribution of approved slaughter counts.")
+        weights = _chart_rows([row for row in rows if row.get("carcass_weight_kg") is not None], "species", "carcass_weight_kg")
+        bar("Carcass Weight by Species", weights, "kg", "Carcass kilograms are shown separately from animal counts.")
+    elif kind == "movement":
+        auction = [row for row in rows if row.get("record_kind") == "AUCTION"]
+        movement = [row for row in rows if row.get("record_kind") == "MOVEMENT"]
+        line("Auction Activity Over Time", _monthly_rows(auction, "quantity"), "heads", "Approved auction sale items processed per month.")
+        pie("Auction Livestock by Species", _chart_rows(auction, "species", "quantity"), "Approved livestock sale quantity.")
+        bar("Auction Origins", _chart_rows(auction, "origin", "quantity"), "heads", "Seller barangay from the linked farmer record.")
+        bar("Auction Destinations", _chart_rows(auction, "destination", "quantity"), "heads", "Recorded sale destination.")
+        bar("Auction Purpose", _chart_rows(auction, "purpose", "quantity"), "heads")
+        directions = [(direction, sum(row.get("direction") == direction for row in movement))
+                      for direction in ("INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN")]
+        add("Movement Direction", "pie", directions, description="Direction uses the shared classifier; UNKNOWN locations are retained rather than guessed.")
+        line("Movement Trend", _monthly_rows(movement, "quantity"), "heads", "Movement lines by inspection month.")
+        bar("Top Origins", _chart_rows(movement, "origin", "quantity"), "heads")
+        bar("Top Destinations", _chart_rows(movement, "destination", "quantity"), "heads")
+        bar("Movement Purpose", _chart_rows(movement, "purpose", "quantity"), "heads")
+        bar("Movement by Species", _chart_rows(movement, "species", "quantity"), "heads")
+    elif kind == "inspection":
+        pie("Inspection Status", _distinct_count_rows(rows, "clearance_status", "control_number"), "Only statuses present in the approved report rows are shown.")
+        line("Inspections Over Time", _monthly_distinct_rows(rows, "record_date", "control_number"), "inspections", "Distinct approved clearance records by inspection month.")
+        bar("Inspection Purpose", _chart_rows(rows, "purpose", "quantity"), "heads")
+        bar("Inspection Origins", _chart_rows(rows, "origin", "quantity"), "heads")
+        bar("Inspection Destinations", _chart_rows(rows, "destination", "quantity"), "heads")
+        clearance_rows = [row for row in rows if row.get("issued_date")]
+        line("Clearance Trend", _monthly_distinct_rows(clearance_rows, "issued_date", "control_number"), "clearances", "Distinct approved clearances by issuance month.")
+    return specs
+
+
+def _report_chart_flowable(spec, width, height, colors):
+    """Draw a lightweight vector chart so PDF charts stay sharp at any zoom."""
+    from reportlab.platypus import Flowable
+
+    class ReportChart(Flowable):
+        def __init__(self):
+            super().__init__()
+            self.width, self.height = width, height
+
+        def draw(self):
+            canvas = self.canv
+            data = [(str(name), float(value)) for name, value in spec["data"] if float(value) >= 0]
+            left, right, bottom, top = 150, self.width - 20, 28, self.height - 12
+            if not data:
+                canvas.setFont("Helvetica-Oblique", 9)
+                canvas.setFillColor(colors.HexColor("#64748B"))
+                canvas.drawCentredString(self.width / 2, self.height / 2, "No approved records are available for this chart within the selected period.")
+                return
+            if spec["type"] == "pie":
+                total = sum(value for _, value in data)
+                if total <= 0:
+                    return
+                cx, cy = self.width * 0.32, self.height * 0.51
+                radius = min(self.height * 0.39, self.width * 0.2)
+                start = 90
+                for index, (name, value) in enumerate(data):
+                    extent = 360 * value / total
+                    if extent > 0:
+                        canvas.setFillColor(colors.HexColor(("#047857", "#0EA5E9", "#F59E0B", "#8B5CF6", "#EF4444", "#14B8A6", "#64748B")[index % 7]))
+                        canvas.wedge(cx - radius, cy - radius, cx + radius, cy + radius, startAng=start, extent=extent, fill=1, stroke=0)
+                    start += extent
+                canvas.setFont("Helvetica", 8)
+                legend_x, legend_y = self.width * 0.58, self.height - 28
+                for index, (name, value) in enumerate(data):
+                    y = legend_y - index * 16
+                    canvas.setFillColor(colors.HexColor(("#047857", "#0EA5E9", "#F59E0B", "#8B5CF6", "#EF4444", "#14B8A6", "#64748B")[index % 7]))
+                    canvas.rect(legend_x, y - 2, 8, 8, fill=1, stroke=0)
+                    canvas.setFillColor(colors.HexColor("#334155"))
+                    canvas.drawString(legend_x + 13, y, f"{name[:42]} · {value:,.0f} ({value / total:.1%})")
+                return
+            max_value = max((value for _, value in data), default=0) or 1
+            canvas.setStrokeColor(colors.HexColor("#CBD5D0"))
+            canvas.setFillColor(colors.HexColor("#334155"))
+            canvas.setFont("Helvetica", 7)
+            if spec["type"] == "line":
+                points = []
+                # Leave a dedicated label band beneath the plot so selected
+                # month ticks fit without touching the next chart or description.
+                plot_bottom = 40
+                month_ticks = _monthly_axis_ticks([name for name, _ in data])
+                canvas.setFont("Helvetica", 7)
+                canvas.setFillColor(colors.HexColor("#64748B"))
+                canvas.drawString(5, top - 2, spec.get("unit", "Total"))
+                canvas.drawRightString(left - 5, plot_bottom - 2, "0")
+                canvas.drawRightString(left - 5, top - 2, f"{max_value:,.0f}")
+                canvas.setStrokeColor(colors.HexColor("#E2E8F0"))
+                canvas.line(left, plot_bottom, right, plot_bottom)
+                canvas.line(left, top, right, top)
+                for index, (name, value) in enumerate(data):
+                    x = left + (right - left) * (index / max(1, len(data) - 1))
+                    y = plot_bottom + (top - plot_bottom) * value / max_value
+                    points.append((x, y))
+                    if index in month_ticks:
+                        canvas.setStrokeColor(colors.HexColor("#94A3B8"))
+                        canvas.line(x, plot_bottom, x, plot_bottom - 3)
+                        canvas.setFillColor(colors.HexColor("#64748B"))
+                        canvas.drawCentredString(x, 13, month_ticks[index])
+                canvas.setStrokeColor(colors.HexColor("#047857")); canvas.setLineWidth(2)
+                for first, second in zip(points, points[1:]):
+                    canvas.line(first[0], first[1], second[0], second[1])
+                canvas.setFillColor(colors.HexColor("#047857"))
+                for x, y in points:
+                    canvas.circle(x, y, 2.5, fill=1, stroke=0)
+                canvas.setFillColor(colors.HexColor("#334155"))
+            else:
+                canvas.line(left, bottom - 4, left, top + 4)
+                row_height = min(18, (top - bottom) / max(1, len(data)))
+                for index, (name, value) in enumerate(data):
+                    y = top - (index + 1) * row_height + 3
+                    canvas.drawRightString(left - 8, y + 2, name[:22])
+                    canvas.setFillColor(colors.HexColor("#047857"))
+                    canvas.roundRect(left, y, (right - left) * value / max_value, max(4, row_height - 4), 2, fill=1, stroke=0)
+                    bar_end = left + (right - left) * value / max_value
+                    if bar_end > right - 34:
+                        canvas.setFillColor(colors.white)
+                        canvas.drawRightString(bar_end - 5, y + 2, f"{value:,.0f}")
+                    else:
+                        canvas.setFillColor(colors.HexColor("#334155"))
+                        canvas.drawString(bar_end + 4, y + 2, f"{value:,.0f}")
+
+    return ReportChart()
+
+
 def pdf_report(report):
     """Build a paginated, landscape PDF from report data rather than a UI screenshot."""
     from reportlab.lib import colors
@@ -59,7 +285,7 @@ def pdf_report(report):
     from reportlab.lib.pagesizes import landscape, letter
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import inch
-    from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
+    from reportlab.platypus import CondPageBreak, LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
 
     output = BytesIO()
     doc = SimpleDocTemplate(output, pagesize=landscape(letter), rightMargin=0.45 * inch,
@@ -72,6 +298,9 @@ def pdf_report(report):
              Paragraph(f"Municipality: {escape(report['municipality'])} &nbsp; | &nbsp; Reporting period: {report['period']['date_from']} to {report['period']['date_to']}", normal),
              Paragraph(f"Generated: {report['generated_at']} &nbsp; | &nbsp; Generated by: {escape(report['generated_by'])}", normal), Spacer(1, 10),
              Paragraph("Summary", ParagraphStyle("SummaryTitle", fontName="Helvetica-Bold", fontSize=10, textColor=colors.HexColor("#1E4D2B")))]
+    active_filters = [(key.replace("_", " ").title(), value) for key, value in report.get("filters", {}).items() if value]
+    if active_filters:
+        story.extend([Paragraph("Filters: " + " · ".join(f"{escape(key)}: {escape(str(value))}" for key, value in active_filters), normal), Spacer(1, 6)])
     summary_rows = []
     for key, value in report["summary"].items():
         entries = value.items() if isinstance(value, dict) else [(key, value)]
@@ -82,6 +311,32 @@ def pdf_report(report):
                                 style=TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#E8F0EA")),
                                                   ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5D0")),
                                                   ("VALIGN", (0, 0), (-1, -1), "TOP")])), Spacer(1, 12)])
+    # The exporter receives the exact backend-filtered rows used by the preview;
+    # deriving charts here avoids a second query or a frontend-supplied dataset.
+    story.extend([Paragraph("Charts &amp; Analysis", ParagraphStyle("ChartSection", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#1E4D2B"))), Spacer(1, 5)])
+    interpretations = {
+        "inventory": "This report summarizes approved livestock inventory in the selected period. Species and barangay charts show how recorded heads are distributed.",
+        "production": "This report summarizes approved production records. Each chart keeps its original unit, so liters, kilograms, and pieces are not combined.",
+        "disease_mortality": "This report describes approved disease and mortality records. Case counts and affected animals are distinct measures; the charts are descriptive, not predictive.",
+        "slaughter": "This report summarizes approved slaughter activity and recorded carcass weights. Animal counts and kilograms are charted separately.",
+        "movement": "Auction Activity describes sale operations; Movement Analysis describes geographic direction. These are separate records and measures.",
+        "inspection": "This report summarizes approved inspection and clearance records. Statuses shown are only those present in the filtered dataset.",
+    }
+    story.extend([Paragraph(escape(interpretations.get(report["report_type"], "Charts are based on approved records matching the selected filters.")), normal), Spacer(1, 6)])
+    section = None
+    for spec in _report_chart_specs(report):
+        chart_section = "Auction Activity" if spec["title"].startswith("Auction") else "Movement Analysis" if spec["title"].startswith("Movement") or spec["title"].startswith("Top ") else None
+        if chart_section and chart_section != section:
+            story.extend([Spacer(1, 5), Paragraph(escape(chart_section), ParagraphStyle("ChartSubsection", fontName="Helvetica-Bold", fontSize=9, textColor=colors.HexColor("#1E4D2B")))])
+            section = chart_section
+        title_style = ParagraphStyle("ChartTitle", fontName="Helvetica-Bold", fontSize=9, leading=11, textColor=colors.HexColor("#0F172A"))
+        story.append(Paragraph(escape(spec["title"]), title_style))
+        if spec["description"]:
+            story.append(Paragraph(escape(spec["description"]), ParagraphStyle("ChartDescription", parent=normal, fontSize=7, textColor=colors.HexColor("#64748B"))))
+        # The flowable draws vector primitives and scales to the printable width,
+        # so charts remain sharp and flow naturally before the detailed table.
+        story.extend([_report_chart_flowable(spec, doc.width, 150, colors), Spacer(1, 7)])
+    story.append(CondPageBreak(1.8 * inch))
     story.append(Paragraph("Detailed records", ParagraphStyle("DetailTitle", fontName="Helvetica-Bold", fontSize=10, textColor=colors.HexColor("#1E4D2B"))))
     table_data = [[Paragraph(escape(column["label"]), header) for column in report["columns"]]]
     for row in report["rows"]:

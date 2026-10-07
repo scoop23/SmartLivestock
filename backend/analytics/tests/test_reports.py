@@ -9,7 +9,8 @@ from rest_framework.test import APIClient
 from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
 from movements.models import LivestockInspection, LivestockInspectionClearance, LivestockInspectionItem
-from production.models import ProductionRecord, SlaughterRecord
+from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
+from analytics.services.report_exports import _monthly_axis_ticks, _report_chart_specs
 from users.models import Role, User
 
 
@@ -57,6 +58,9 @@ class OfficialReportApiTests(TestCase):
         SlaughterRecord.objects.create(livestock=self.animal, livestock_type=self.cattle, quantity=9,
                                        carcass_weight=Decimal("999"), record_date=self.today,
                                        status="PENDING", created_by=self.farmer_user)
+        LiveAnimalSale.objects.create(livestock=self.animal, quantity=4, sale_date=self.today,
+                                      destination="Padre Garcia Livestock Auction Market",
+                                      purpose="BREEDING", status="APPROVED", created_by=self.mao)
 
         self.inspection = LivestockInspection.objects.create(
             shipper=self.farmer, shipper_name="Juan Dela Cruz", destination="Padre Garcia Auction",
@@ -89,7 +93,7 @@ class OfficialReportApiTests(TestCase):
 
     def test_each_report_type_uses_approved_database_rows_and_correct_units(self):
         expected = {"inventory": (1, 1), "production": (2, 2), "disease_mortality": (2, 2),
-                    "slaughter": (1, 1), "movement": (2, 1), "inspection": (2, 1)}
+                    "slaughter": (1, 1), "movement": (3, 2), "inspection": (2, 1)}
         for report_type, (row_count, records) in expected.items():
             with self.subTest(report_type=report_type):
                 response = self.preview(report_type)
@@ -103,7 +107,10 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual((health["disease_cases"], health["affected_heads"], health["mortality_records"], health["deaths"]), (1, 2, 1, 1))
         movement = self.preview("movement").data
         self.assertEqual(movement["summary"]["livestock_heads"], 3)
-        self.assertEqual({row["direction"] for row in movement["rows"]}, {"INTERNAL"})
+        self.assertEqual(movement["summary"]["auction_activity"]["auction_items_processed"], 4)
+        self.assertEqual(sum(row["record_kind"] == "AUCTION" for row in movement["rows"]), 1)
+        self.assertEqual(sum(row["record_kind"] == "MOVEMENT" for row in movement["rows"]), 2)
+        self.assertEqual({row["direction"] for row in movement["rows"] if row["record_kind"] == "MOVEMENT"}, {"INTERNAL"})
         self.assertTrue(all(row["clearance_status"] == "APPROVED" for row in movement["rows"]))
 
     def test_filters_and_empty_date_range_are_applied_to_preview(self):
@@ -136,6 +143,51 @@ class OfficialReportApiTests(TestCase):
                 self.assertTrue(response.content.startswith(signature))
                 self.assertIn(content_type, response["Content-Type"])
                 self.assertIn("attachment; filename=", response["Content-Disposition"])
+        # Exercise the PDF chart renderer with every report's real filtered rows.
+        for report_type in ("inventory", "production", "disease_mortality", "slaughter", "movement", "inspection"):
+            with self.subTest(pdf_report_type=report_type):
+                response = self.client.get(reverse("reports-export"), self.params(report_type, file_format="pdf"))
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_chart_specs_use_filtered_rows_and_keep_production_units_separate(self):
+        report = self.preview("production", barangay="Poblacion").data
+        charts = _report_chart_specs(report)
+        titles = [chart["title"] for chart in charts]
+        self.assertIn("Production Over Time (LITERS)", titles)
+        self.assertIn("Production Over Time (PIECES)", titles)
+        milk = next(chart for chart in charts if chart["title"] == "Production by Type (LITERS)")
+        eggs = next(chart for chart in charts if chart["title"] == "Production by Type (PIECES)")
+        self.assertEqual(milk["data"], [("MILK", 12.5)])
+        self.assertEqual(eggs["data"], [("EGGS", 8.0)])
+        self.assertFalse(any("Production Distribution" in title for title in titles))
+
+    def test_pdf_chart_specs_show_empty_states_without_inventing_values(self):
+        empty_report = self.client.get(
+            reverse("reports-preview"),
+            self.params("disease_mortality", date_from="2020-01-01", date_to="2020-01-31"),
+        ).data
+        charts = _report_chart_specs(empty_report)
+        self.assertTrue(charts)
+        self.assertTrue(all(chart["data"] == [] for chart in charts))
+
+    def test_pdf_month_axis_keeps_all_points_and_adapts_visible_ticks(self):
+        short_months = ["2026-01", "2026-02", "2026-03", "2026-04"]
+        self.assertEqual(list(_monthly_axis_ticks(short_months).values()), ["Jan 26", "Feb 26", "Mar 26", "Apr 26"])
+
+        long_months = [f"{year:04d}-{month:02d}" for year in range(2022, 2026) for month in range(1, 13)]
+        visible_ticks = _monthly_axis_ticks(long_months)
+        self.assertLessEqual(len(visible_ticks), 8)
+        self.assertIn(0, visible_ticks)
+        self.assertIn(len(long_months) - 1, visible_ticks)
+        # Tick selection only changes printed labels; the chart specification
+        # still carries every month and therefore every line-chart point.
+        report = {"report_type": "production", "rows": [
+            {"record_date": f"{month}-15", "production_type": "MILK", "quantity": index + 1, "unit": "LITERS"}
+            for index, month in enumerate(long_months)
+        ]}
+        trend = next(chart for chart in _report_chart_specs(report) if chart["type"] == "line")
+        self.assertEqual(len(trend["data"]), len(long_months))
 
     def test_movement_direction_labels(self):
         from analytics.services.movement_direction import classify_movement_direction
