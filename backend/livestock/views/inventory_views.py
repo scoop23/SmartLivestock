@@ -8,7 +8,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from django.views.decorators.cache import cache_page
 
 from livestock.models import Barangay, LivestockBatch, LivestockInventory, LivestockType, Farmer
 from livestock.serializer import (
@@ -355,12 +354,16 @@ def list_livestock_types(request):
 
 
 @api_view(["GET"])
-@cache_page(60 * 5)
 def get_barangays(request):
     """
     GET /api/livestock/barangays/
     """
     barangays = Barangay.objects.all()
+    if request.user.is_authenticated:
+        # Reuse the same reviewer scope as census and farmer queries so a
+        # SIBAT only receives barangays their account is allowed to manage.
+        # This response is user-scoped, so it must not use the shared page cache.
+        barangays = scope_reviewer_queryset(barangays, request.user)
     serializer = BarangaySerializer(barangays, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 

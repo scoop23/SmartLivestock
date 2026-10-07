@@ -259,7 +259,12 @@ export default function CensusSubmissionForm({
     submitMutation.mutate(submissionPayload);
   };
 
-  const { data: barangays } = useGetBarangays();
+  const barangayQuery = useGetBarangays([
+    user?.role,
+    user?.assignedBarangayId,
+    user?.accessScope,
+  ]);
+  const barangays = barangayQuery.data ?? [];
   const { data: livestockRecords } = useLivestockTypes();
   const { data: farmersByBarangay } = useFarmersByBarangay(barangay);
 
@@ -306,18 +311,35 @@ export default function CensusSubmissionForm({
                   <Select
                     value={barangay ? String(barangay) : undefined}
                     onValueChange={(val) => setBarangay(Number(val))}
+                    disabled={barangayQuery.isLoading || barangayQuery.isError || barangays.length === 0}
                   >
                     <SelectTrigger className="h-10 rounded-xl bg-slate-50/70 border-slate-200 font-semibold text-sm">
                       <SelectValue placeholder="Select Barangay" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 rounded-xl">
-                      {barangays?.filter((brgy) => user?.role !== "SIBAT" || brgy.id === user.assignedBarangayId).map((brgy) => (
+                      {barangays.map((brgy) => (
                         <SelectItem key={brgy.id} value={String(brgy.id)} className="text-xs font-medium">
                           Brgy. {brgy.barangayName}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {barangayQuery.isLoading && (
+                    <p role="status" className="text-xs text-slate-500">Loading authorized barangays…</p>
+                  )}
+                  {barangayQuery.isError && (
+                    <p role="alert" className="text-xs text-rose-700">
+                      Barangays could not be loaded. {" "}
+                      <button type="button" className="underline" onClick={() => void barangayQuery.refetch()}>
+                        Retry
+                      </button>
+                    </p>
+                  )}
+                  {!barangayQuery.isLoading && !barangayQuery.isError && barangays.length === 0 && (
+                    <p role="status" className="text-xs text-amber-700">
+                      No barangays are currently assigned to your account.
+                    </p>
+                  )}
                 </div>
 
                 {/* Report Year */}

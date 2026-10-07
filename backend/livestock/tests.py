@@ -358,11 +358,62 @@ class CensusPermissionWorkflowTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["barangay"], self.barangay.pk)
+        self.assertEqual(
+            CensusSubmission.objects.get(pk=response.data["id"]).barangay_id,
+            self.barangay.pk,
+        )
         notification = Notification.objects.get(
             user=self.mao_user,
             title="Census Submission Awaiting MAO Approval",
         )
         self.assertEqual(notification.link, "/data-validation?domain=census")
+
+    def test_barangay_options_follow_sibat_scope(self):
+        other_barangay = Barangay.objects.create(
+            barangay_name="San Felipe",
+            latitude=13.89,
+            longitude=121.22,
+        )
+        self.client.force_authenticate(user=self.sibat_user)
+
+        assigned_response = self.client.get("/livestock/barangays/")
+        self.assertEqual(assigned_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [row["id"] for row in assigned_response.data],
+            [self.barangay.pk],
+        )
+
+        self.sibat_user.access_scope = User.AccessScope.ALL_BARANGAYS
+        self.sibat_user.save(update_fields=["access_scope"])
+        all_response = self.client.get("/livestock/barangays/")
+        self.assertEqual(
+            {row["id"] for row in all_response.data},
+            {self.barangay.pk, other_barangay.pk},
+        )
+
+        create_response = self.client.post(
+            "/livestock/census/",
+            {
+                "barangay": other_barangay.pk,
+                "report_year": 2026,
+                "report_quarter": 4,
+                "items": [],
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            CensusSubmission.objects.get(pk=create_response.data["id"]).barangay_id,
+            other_barangay.pk,
+        )
+
+        self.sibat_user.access_scope = User.AccessScope.ASSIGNED_ONLY
+        self.sibat_user.assigned_barangay = None
+        self.sibat_user.save(update_fields=["access_scope", "assigned_barangay"])
+        unassigned_response = self.client.get("/livestock/barangays/")
+        self.assertEqual(unassigned_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(unassigned_response.data, [])
 
     def test_mao_revision_request_notifies_submitting_sibat(self):
         self.client.force_authenticate(user=self.mao_user)

@@ -909,9 +909,11 @@ export async function fetchBarangays() {
   return (response.data as ApiBarangayRecord[]).map(mapBarangayRecord);
 }
 
-export function useGetBarangays() {
+export function useGetBarangays(scopeKey?: readonly unknown[]) {
   return useQuery({
-    queryKey: ["barangay-records"],
+    // The server response is scoped for SIBAT accounts; keep separate cached
+    // results when the signed-in user's assignment or access scope changes.
+    queryKey: ["barangay-records", ...(scopeKey ?? [])],
     queryFn: fetchBarangays,
     staleTime: 60_000,
   });
