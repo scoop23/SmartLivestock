@@ -1,5 +1,8 @@
 import api from "@/lib/axios";
 
+// Shared announcements/scheduling client. Auction uses getActivities() to read
+// notices; audience filtering and publishing permissions are decided by Django.
+
 export type ScheduleStatus = "AVAILABLE" | "FULL" | "CLOSED" | "COMPLETED";
 
 export type ProgramSchedule = {

@@ -45,6 +45,8 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
 
   const load = useCallback(async () => {
     try {
+      // The authenticated community API returns announcements visible to this role;
+      // category and text filtering happens locally after retrieval.
       setItems(await getActivities());
       setError("");
     } catch (e) {
