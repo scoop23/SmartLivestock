@@ -12,6 +12,8 @@ export default function AuctionLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // This client-side gate keeps Auction routes out of other roles' navigation.
+  // Django still checks authentication and role permissions on every API request.
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
 
@@ -33,6 +35,7 @@ export default function AuctionLayout({
     return null;
   }
 
+  // All Auction pages share this shell; route page components render in <main>.
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
       <Sidebar

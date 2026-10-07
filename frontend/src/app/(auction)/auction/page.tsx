@@ -45,6 +45,8 @@ export default function AuctionDashboard() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
+  // React Query loads the role-scoped inspection list; KPI cards below summarize
+  // those records and link to the full registry for filtering and review.
   const { data: inspections = [], isLoading, isError } = useQuery<InspectionRecord[]>({
     queryKey: ["inspections"],
     queryFn: () => fetchInspections(),
@@ -55,6 +57,7 @@ export default function AuctionDashboard() {
     queryClient.invalidateQueries({ queryKey: ["inspections"] });
   };
 
+  // These counts describe workflow states only. They do not approve or issue a clearance.
   const pendingCount = inspections.filter((i) => i.status === "PENDING").length;
   const verifiedCount = inspections.filter((i) => i.status === "VERIFIED").length;
   const approvedCount = inspections.filter((i) => i.status === "APPROVED").length;

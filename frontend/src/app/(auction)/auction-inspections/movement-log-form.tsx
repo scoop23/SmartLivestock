@@ -10,6 +10,7 @@ import api from "@/lib/axios";
 import axios from "axios";
 import { useAuth } from "@/contexts/auth-context";
 import { MovementLivestockQrDialog } from "./movement-livestock-qr-dialog";
+import { LivestockIdentityResult } from "@/components/livestock-identity-result";
 
 interface NewInspectionFormProps {
   onSubmitSuccess: () => void;
@@ -60,6 +61,8 @@ export function NewInspectionForm({
   onSubmitSuccess,
   inspectionToEdit,
 }: NewInspectionFormProps) {
+  // Form state represents one inspection and its many livestock lines. Browser
+  // drafts are recovery only; create/update APIs persist the actual movement.
   const router = useRouter();
   const { user } = useAuth();
   const draftKey = `${DRAFT_KEY_PREFIX}:${user?.email || "auction-user"}`;
@@ -88,6 +91,8 @@ export function NewInspectionForm({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lookupCodes, setLookupCodes] = useState<string[]>([]);
   const [lookupIndex, setLookupIndex] = useState<number | null>(null);
+  const [lookupResult, setLookupResult] = useState<{ index: number; animal: Awaited<ReturnType<typeof lookupRegisteredLivestock>> } | null>(null);
+  const [lookupAddError, setLookupAddError] = useState("");
 
   const [items, setItems] = useState<MovementItemDraft[]>(inspectionToEdit ? inspectionToEdit.items.map((item) => ({
     livestock_type: Number(item.livestock_type),
@@ -253,8 +258,10 @@ export function NewInspectionForm({
   };
 
   const addRegisteredAnimal = (animal: Awaited<ReturnType<typeof lookupRegisteredLivestock>>, index: number) => {
-    if (animal.registration_status !== "APPROVED" || animal.operational_status !== "ACTIVE") {
-      return `This animal cannot be added (registration: ${animal.registration_status}; operational status: ${animal.operational_status}). Use external intake only when the animal is genuinely unregistered.`;
+    // Treat lookup data as current identity, but enforce server-reported eligibility
+    // and keep each movement line linked to the existing inventory primary key.
+    if (!animal.eligible) {
+      return animal.ineligibility_reason || "This livestock is not eligible to be linked.";
     }
     if (shipperId && shipperId !== animal.owner_id) {
       return "This animal belongs to a different shipper. Create a separate movement log for that shipper.";
@@ -278,14 +285,11 @@ export function NewInspectionForm({
     if (!code) return;
     setLookupIndex(index);
     setErrorMsg(null);
+    setLookupResult(null);
+    setLookupAddError("");
     try {
       const animal = await lookupRegisteredLivestock(code);
-      const addError = addRegisteredAnimal(animal, index);
-      if (addError) {
-        setErrorMsg(addError);
-      } else {
-        setLookupCodes((previous) => { const next = [...previous]; next[index] = ""; return next; });
-      }
+      setLookupResult({ index, animal });
     } catch (error: unknown) {
       const responseData = axios.isAxiosError(error) ? error.response?.data as Record<string, unknown> | undefined : undefined;
       setErrorMsg(typeof responseData?.detail === "string" ? responseData.detail : "Could not find an eligible registered animal for that tag or ID.");
@@ -340,6 +344,9 @@ export function NewInspectionForm({
 
   const handleRemoveItem = (index: number) => {
     if (items.length <= 1) return;
+    setLookupResult(null);
+    setLookupAddError("");
+    setLookupCodes((previous) => previous.filter((_, i) => i !== index));
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -362,6 +369,8 @@ export function NewInspectionForm({
     setErrorMsg(null);
 
     try {
+      // Nested item lines are sent with the inspection in one request. A registered
+      // line carries inventory ID; an external line carries null and manual details.
       const payload = {
         shipper: shipperId,
         shipper_name: shipperName.trim(),
@@ -384,6 +393,8 @@ export function NewInspectionForm({
       if (inspectionToEdit) {
         await updateInspection(inspectionToEdit.id, payload);
       } else {
+        // The backend serializer creates inspection, item rows and pending clearance
+        // atomically; the Auction Officer submits it for MAO review here.
         await createInspection(payload);
         clearLocalDraft(draftKey);
       }
@@ -642,6 +653,15 @@ export function NewInspectionForm({
                       <Button type="button" variant="outline" onClick={() => { setQrItemIndex(idx); setIsQrOpen(true); }} className="h-10 flex-1 rounded-lg gap-1 text-xs sm:flex-none"><QrCode className="size-3.5" /> Scan QR</Button>
                       </div>
                     </div>
+                    {lookupResult?.index === idx && <LivestockIdentityResult record={lookupResult.animal} error={lookupAddError} onAdd={() => {
+                      const failure = addRegisteredAnimal(lookupResult.animal, idx);
+                      if (failure) setLookupAddError(failure);
+                      else {
+                        setLookupResult(null);
+                        setLookupAddError("");
+                        setLookupCodes((previous) => { const next = [...previous]; next[idx] = ""; return next; });
+                      }
+                    }} />}
                     {item.inventory && <p className="text-xs font-semibold text-emerald-800">Linked to registered animal {selectedAnimals.find((animal) => animal.id === item.inventory)?.tag_number || `#${item.inventory}`}. The database remains authoritative.</p>}
                     {!item.inventory && <p className="text-xs leading-5 text-amber-900">External livestock is recorded for this movement only and will not automatically be added to the livestock registry.</p>}
                   </div>

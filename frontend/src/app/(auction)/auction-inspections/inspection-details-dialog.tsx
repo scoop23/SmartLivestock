@@ -64,6 +64,8 @@ export function InspectionDetailsDialog({
     setIsResubmitting(true);
     setErrorMsg(null);
     try {
+      // Farmer-originated requests first go to Auction; Auction-created corrections
+      // return directly to the MAO queue. Neither action approves the movement.
       if (canSubmitFarmerRequest) {
         await submitFarmerRequest(inspection.id);
       } else {
@@ -424,4 +426,3 @@ export function InspectionDetailsDialog({
     </Dialog>
   );
 }
-

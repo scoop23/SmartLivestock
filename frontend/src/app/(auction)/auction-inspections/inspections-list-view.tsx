@@ -34,6 +34,8 @@ export function InspectionsListView({
   onSelectInspection,
   getStatusBadge,
 }: InspectionsListViewProps) {
+  // This component formats records only. Selection opens the shared detail view;
+  // status permissions and transitions are enforced by the backend API.
   if (viewMode === "table") {
     return (
       <Card className="border-2 border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">

@@ -19,6 +19,8 @@ export interface RegisteredLivestockLookup extends RegisteredAnimalOption {
   sex: string;
   registration_status: string;
   operational_status: string;
+  eligible: boolean;
+  ineligibility_reason: string;
   owner_id: number;
   owner_name: string;
   origin: string;
@@ -104,7 +106,8 @@ export interface CreateInspectionPayload {
   }[];
 }
 
-// ── API Functions ──
+// API boundary for the Auction movement pages. These functions keep endpoint paths
+// and request/response types in one place; axios attaches the user's auth session.
 
 export async function searchRegisteredShippers(search: string): Promise<RegisteredShipperOption[]> {
   const response = await api.get<RegisteredShipperOption[]>("/inspections/shippers/", { params: { search } });
@@ -112,6 +115,7 @@ export async function searchRegisteredShippers(search: string): Promise<Register
 }
 
 export async function lookupRegisteredLivestock(code: string): Promise<RegisteredLivestockLookup> {
+  // Search and QR pass identifiers to this same endpoint and receive current DB state.
   const response = await api.get<RegisteredLivestockLookup>("/inspections/livestock-lookup/", { params: { code } });
   return response.data;
 }
@@ -136,6 +140,7 @@ export async function fetchInspectionDetail(id: number): Promise<InspectionRecor
 }
 
 export async function createInspection(payload: CreateInspectionPayload): Promise<InspectionRecord> {
+  // Creates a pending intake record; this is not an approval endpoint.
   const response = await api.post<InspectionRecord>("/inspections/", payload);
   return response.data;
 }
@@ -159,6 +164,8 @@ export async function reviewInspection(
   id: number,
   data: { status: "APPROVED" | "SUBJECT_TO_REVISION"; remarks?: string }
 ): Promise<InspectionRecord> {
+  // Represents the MAO/Admin review API contract; server permissions and transition
+  // validation remain authoritative for every caller.
   const response = await api.post<InspectionRecord>(`/inspections/${id}/review/`, data);
   return response.data;
 }

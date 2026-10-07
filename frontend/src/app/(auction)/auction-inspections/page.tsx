@@ -43,6 +43,8 @@ export default function AuctionInspections() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
+  // Fetch once through the shared API client; status/date/text filters below are
+  // display filters, while the backend remains responsible for role scoping.
   const { data: inspections = [], isLoading, isError } = useQuery<InspectionRecord[]>({
     queryKey: ["inspections"],
     queryFn: () => fetchInspections(),
@@ -71,6 +73,7 @@ export default function AuctionInspections() {
 
   // Filter pipeline
   const query = searchQuery.toLowerCase().trim();
+  // Filtering changes only which rows are shown; it never changes a record's status.
   const filtered = inspections.filter((rec) => {
     const matchesTab =
       activeTab === "ALL" ||
