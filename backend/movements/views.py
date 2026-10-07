@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.db.models import Q, Prefetch
+from urllib.parse import urlparse, parse_qs
 from livestock.models import Farmer, LivestockInventory
 
 from movements.models import (
@@ -71,6 +72,49 @@ def inspection_shipper_options(request):
         }
         for farmer in farmers
     ])
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def inspection_livestock_lookup(request):
+    """Resolve a registered individual by tag or inventory ID for auction intake."""
+    if role_name(request.user) not in (AUCTION, MAO, ADMIN):
+        raise PermissionDenied("Only auction and MAO staff can look up registered livestock.")
+    code = request.query_params.get("code", "").strip()
+    if "://" in code:
+        query = parse_qs(urlparse(code).query)
+        code = (query.get("tag", [""])[0] or query.get("livestockId", [""])[0]
+                or query.get("batchId", [""])[0]).strip()
+    if not code:
+        return Response({"detail": "A livestock tag or ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    query = Q(tag_number__iexact=code)
+    if code.isdigit():
+        query |= Q(pk=int(code))
+    inventory = LivestockInventory.objects.select_related(
+        "livestock_type", "farmer", "farmer__user", "farmer__barangay"
+    ).filter(
+        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+        quantity=1,
+    ).filter(query).first()
+    if not inventory:
+        return Response({"detail": "No eligible registered animal matches that tag or ID."}, status=status.HTTP_404_NOT_FOUND)
+
+    farmer = inventory.farmer
+    return Response({
+        "id": inventory.id,
+        "tag_number": inventory.tag_number or str(inventory.id),
+        "livestock_type": inventory.livestock_type_id,
+        "livestock_type_name": inventory.livestock_type.name,
+        "breed": inventory.breed,
+        "sex": inventory.sex,
+        "registration_status": inventory.status,
+        "operational_status": inventory.operational_status,
+        "owner_id": inventory.farmer_id,
+        "owner_name": farmer.user.get_full_name() or farmer.user.username,
+        "origin": farmer.address or "",
+        "barangay": farmer.barangay.barangay_name if farmer.barangay else "",
+    })
 
 
 @api_view(["GET", "POST"])

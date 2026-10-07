@@ -135,6 +135,50 @@ class LivestockInspectionWorkflowTests(TestCase):
         forbidden = self.client.get("/api/inspections/shippers/?search=farmer_juan")
         self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_auction_livestock_lookup_returns_database_identity_by_tag_or_qr_url(self):
+        self.client.force_authenticate(user=self.auction_user)
+        by_tag = self.client.get("/api/inspections/livestock-lookup/?code=PG-COW-001")
+        self.assertEqual(by_tag.status_code, status.HTTP_200_OK)
+        self.assertEqual(by_tag.data["id"], self.inventory_cow.id)
+        self.assertEqual(by_tag.data["owner_id"], self.farmer.id)
+        self.assertNotIn("clearance", by_tag.data)
+        by_url = self.client.get(
+            "/api/inspections/livestock-lookup/",
+            {"code": "https://smartlivestock.padregarcia.gov.ph/data-validation/batches?batchId=PG-COW-001"},
+        )
+        self.assertEqual(by_url.status_code, status.HTTP_200_OK)
+        self.assertEqual(by_url.data["id"], self.inventory_cow.id)
+
+    def test_livestock_lookup_rejects_unknown_and_ineligible_animals(self):
+        self.client.force_authenticate(user=self.auction_user)
+        missing = self.client.get("/api/inspections/livestock-lookup/?code=UNKNOWN-TAG")
+        self.assertEqual(missing.status_code, status.HTTP_404_NOT_FOUND)
+        self.inventory_cow.operational_status = LivestockInventory.OperationalStatus.SOLD
+        self.inventory_cow.save(update_fields=["operational_status"])
+        inactive = self.client.get("/api/inspections/livestock-lookup/?code=PG-COW-001")
+        self.assertEqual(inactive.status_code, status.HTTP_200_OK)
+        self.assertEqual(inactive.data["operational_status"], "SOLD")
+        self.client.force_authenticate(user=self.farmer_user)
+        forbidden = self.client.get("/api/inspections/livestock-lookup/?code=PG-COW-001")
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_external_multi_item_intake_does_not_create_registry_animals(self):
+        self.client.force_authenticate(user=self.auction_user)
+        count_before = LivestockInventory.objects.count()
+        response = self.client.post("/api/inspections/", {
+            "shipper_name": "External Shipper", "origin": "Lipa, Batangas",
+            "destination": "Padre Garcia Auction", "purpose": "OTHER",
+            "inspection_date": str(timezone.now().date()),
+            "items": [
+                {"livestock_type": self.cattle_type.id, "quantity": 2, "sex": "MIXED", "classification": "OTHER"},
+                {"livestock_type": self.goat_type.id, "quantity": 3, "sex": "FEMALE", "classification": "OTHER"},
+            ],
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data["items"]), 2)
+        self.assertTrue(all(item["inventory"] is None for item in response.data["items"]))
+        self.assertEqual(LivestockInventory.objects.count(), count_before)
+
     def test_registered_animal_must_belong_to_selected_shipper(self):
         other_user = User.objects.create_user(username="other_shipper", password="password123",
                                               role=self.farmer_role, account_status=User.AccountStatus.APPROVED)
