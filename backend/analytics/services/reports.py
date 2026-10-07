@@ -177,13 +177,8 @@ def _base(report_type, start, end, filters):
                 ("carcass_weight_kg", "Carcass weight (kg)"), ("barangay", "Barangay"),
                 ("status", "Approval status")], rows, {"records": len(rows),
                 "animals_slaughtered": sum(row["quantity"] for row in rows),
-<<<<<<< HEAD
                 "carcass_weight_kg": sum(row["carcass_weight_kg"] for row in weighted_rows) if weighted_rows else None,
                 "average_carcass_weight_kg": round(sum(row["carcass_weight_kg"] for row in weighted_rows) / len(weighted_rows), 2) if weighted_rows else None}
-=======
-                "carcass_weight_kg": sum(row["carcass_weight_kg"] or 0 for row in rows),
-                "average_carcass_weight_kg": round(sum(row["carcass_weight_kg"] for row in weighted_rows) / len(weighted_rows), 2) if weighted_rows else 0}
->>>>>>> origin/feature/reports-overhaul
 
     if report_type in ("movement", "inspection"):
         # GIS movement layers use the same MAO-approved clearance boundary.
