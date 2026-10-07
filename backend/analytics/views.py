@@ -4,12 +4,15 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.http import HttpResponse
 
 from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem
 from livestock.permission import isMAO, isSibat
 from .services.descriptive import descriptive_summary
 from .services.overview import overview_summary
 from smartlivestock.workflows import scope_reviewer_queryset
+from .services.reports import build_report
+from .services.report_exports import excel_report, pdf_report
 
 
 CENSUS_STATUSES = (
@@ -18,6 +21,33 @@ CENSUS_STATUSES = (
     CensusSubmission.StatusType.APPROVED,
     CensusSubmission.StatusType.SUBJECT_TO_REVISION,
 )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO])
+def reports_preview(request):
+    """Return one authorized report dataset for the preview and requested filters."""
+    report = build_report(request.query_params.get("report_type", ""), request.query_params, request.user)
+    return Response(report)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO])
+def reports_export(request):
+    """Rebuild the same approved dataset server-side and render it as xlsx or PDF."""
+    report = build_report(request.query_params.get("report_type", ""), request.query_params, request.user)
+    # DRF reserves the query key `format` for renderer negotiation, so exports
+    # use `file_format` to select a downloadable document type.
+    file_format = request.query_params.get("file_format", "").lower()
+    if file_format == "xlsx":
+        content, content_type, extension = excel_report(report), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+    elif file_format == "pdf":
+        content, content_type, extension = pdf_report(report), "application/pdf", "pdf"
+    else:
+        raise ValidationError({"file_format": "Choose xlsx or pdf."})
+    response = HttpResponse(content, content_type=content_type)
+    response["Content-Disposition"] = f'attachment; filename="{report["report_type"]}_{report["period"]["date_from"]}_{report["period"]["date_to"]}.{extension}"'
+    return response
 
 
 @api_view(["GET"])
@@ -286,5 +316,3 @@ def gis_summary(request):
     from .services.gis import get_gis_aggregated_data
 
     return Response(get_gis_aggregated_data(user=request.user))
-
-

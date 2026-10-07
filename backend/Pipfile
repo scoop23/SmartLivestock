@@ -25,6 +25,7 @@ numpy = "*"
 scikit-learn = "*"
 statsmodels = "*"
 openpyxl = "*"
+reportlab = "==5.0.1"
 boto3 = "*"
 django-storages = "*"
 

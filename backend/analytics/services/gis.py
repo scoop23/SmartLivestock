@@ -42,6 +42,7 @@ from smartlivestock.workflows import (
     AUCTION,
     ADMIN,
 )
+from .movement_direction import classify_movement_direction
 
 
 # 18 official barangays of Padre Garcia matching frontend/src/data/padre-garcia-barangays.json
@@ -614,6 +615,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     for insp in inspections_qs:
         origin = (insp.clearance.origin or insp.clearance.shipper_address or "").strip()
         destination = insp.destination.strip()
+        # Reports call the same helper so both outputs use one municipality rule.
+        direction = classify_movement_direction(origin, destination, OFFICIAL_BARANGAYS)
         origin_coords = get_destination_coords(origin)
         if not origin_coords:
             for barangay_name, coords in BARANGAY_CENTROIDS.items():
@@ -641,6 +644,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "type": "export",
             "origin": origin,
             "destination": destination,
+            "direction": direction,
             "from": origin_coords,
             "to": dest_coords,
             "heads": total_heads,

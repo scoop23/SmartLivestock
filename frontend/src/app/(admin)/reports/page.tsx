@@ -1,209 +1,112 @@
 "use client";
 
-import { useState } from 'react';
-import { PageHeader } from '@/app/components/page-header';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useState, type FormEvent } from "react";
+import axios from "axios";
+import { CalendarDays, ClipboardList, Download, FileSpreadsheet, FileText, HeartPulse, MapPinned, PawPrint, RefreshCw, Scissors } from "lucide-react";
+import { PageHeader } from "@/app/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  FileText,
-  Calendar,
-  Download,
-  Filter,
-  FilePieChart,
-  Clock
-} from 'lucide-react';
+import { downloadOfficialReport, fetchOfficialReport, OfficialReport, ReportFilters, ReportType } from "./report-api";
 
-interface Report {
-  id: string;
-  type: string;
-  dateRange: string;
-  format: 'PDF' | 'Excel' | 'CSV';
-  generatedDate: string;
-}
+const REPORTS: { id: ReportType; title: string; description: string; icon: typeof PawPrint }[] = [
+  { id: "inventory", title: "Livestock Inventory", description: "Registered animals by species, owner, and operational status.", icon: PawPrint },
+  { id: "production", title: "Production", description: "Approved production by type and its original unit.", icon: FileSpreadsheet },
+  { id: "disease_mortality", title: "Disease & Mortality", description: "Approved disease events and mortality, shown separately.", icon: HeartPulse },
+  { id: "slaughter", title: "Slaughter", description: "Approved slaughter counts and recorded carcass weight.", icon: Scissors },
+  { id: "movement", title: "Auction & Movement", description: "Approved auction movements with municipality direction labels.", icon: MapPinned },
+  { id: "inspection", title: "Inspection & Clearance", description: "Approved inspections and issued clearance details.", icon: ClipboardList },
+];
+const EMPTY_FILTERS: ReportFilters = { species: "", barangay: "", purpose: "", direction: "" };
+const dateValue = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+const today = () => dateValue(new Date());
+const formatDate = (value: string) => new Intl.DateTimeFormat("en-PH", { dateStyle: "long" }).format(new Date(`${value}T00:00:00`));
+const humanize = (key: string) => key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 export default function ReportsPage() {
-  // State for Form
-  const [reportType, setReportType] = useState('Production Summary');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [format, setFormat] = useState('PDF');
+  const now = new Date();
+  const [reportType, setReportType] = useState<ReportType>("inventory");
+  const [dateFrom, setDateFrom] = useState(dateValue(new Date(now.getFullYear(), now.getMonth(), 1)));
+  const [dateTo, setDateTo] = useState(today());
+  const [filters, setFilters] = useState<ReportFilters>(EMPTY_FILTERS);
+  const [report, setReport] = useState<OfficialReport | null>(null);
+  const [previewConfig, setPreviewConfig] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
+  const [error, setError] = useState("");
 
-  // Mock Data for Recent Reports
-  const recentReports: Report[] = [
-    { id: '1', type: 'Milk Production Monthly', dateRange: 'Mar 01 - Mar 31, 2026', format: 'PDF', generatedDate: '2 days ago' },
-    { id: '2', type: 'Livestock Health Audit', dateRange: 'Jan 01 - Mar 31, 2026', format: 'Excel', generatedDate: '1 week ago' },
-    { id: '3', type: 'Sales & Revenue Report', dateRange: 'Feb 01 - Feb 28, 2026', format: 'CSV', generatedDate: '3 weeks ago' },
-  ];
-
-  const handleGenerate = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Logic for generation goes here
-    alert(`Generating ${reportType} in ${format} format...`);
+  // Export buttons are enabled only when the preview was generated from the exact
+  // current configuration; edits must be previewed again before they can be exported.
+  const configKey = JSON.stringify([reportType, dateFrom, dateTo, filters]);
+  const hasCurrentPreview = Boolean(report && previewConfig === configKey);
+  const presets: Record<string, [string, string]> = {
+    "This Month": [dateValue(new Date(now.getFullYear(), now.getMonth(), 1)), today()],
+    "Last Month": [dateValue(new Date(now.getFullYear(), now.getMonth() - 1, 1)), dateValue(new Date(now.getFullYear(), now.getMonth(), 0))],
+    "This Quarter": [dateValue(new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)), today()],
+    "This Year": [dateValue(new Date(now.getFullYear(), 0, 1)), today()],
   };
 
-  return (
-    <>
-      <PageHeader
-        title="Official Reports & Analytics"
-        subtitle="Generate and manage municipal livestock data exports — Padre Garcia MAO"
-        icon={<FileText className="size-5 text-slate-800" />}
-        variant="admin"
-        maxWidthClass="w-full"
-      />
+  const generatePreview = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoading(true); setError(""); setReport(null); setPreviewConfig("");
+    try {
+      const data = await fetchOfficialReport(reportType, dateFrom, dateTo, filters);
+      setReport(data); setPreviewConfig(configKey);
+    } catch (cause: unknown) {
+      const body = axios.isAxiosError(cause) ? cause.response?.data as Record<string, unknown> | undefined : undefined;
+      setError(typeof body?.date_to === "string" ? body.date_to : typeof body?.detail === "string" ? body.detail : "Unable to generate this report. Check the period and filters, then try again.");
+    } finally { setLoading(false); }
+  };
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
-        {/* Generate Reports Section */}
-        <section className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden">
-          <div className="bg-slate-50/70 border-b border-slate-100 px-4 py-3">
-            <h3 className="font-black text-slate-900 text-xs tracking-tight flex items-center gap-2">
-              <Filter className="w-3.5 h-3.5 text-[#1E4D2B]" />
-              Generate Official Report Package
-            </h3>
+  const exportReport = async (format: "xlsx" | "pdf") => {
+    if (!hasCurrentPreview) return;
+    setExporting(format); setError("");
+    try {
+      const response = await downloadOfficialReport(reportType, dateFrom, dateTo, filters, format);
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url; link.download = `${reportType}_${dateFrom}_${dateTo}.${format}`;
+      document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    } catch { setError(`Unable to generate ${format.toUpperCase()}. Please try again.`); }
+    finally { setExporting(null); }
+  };
+  const setFilter = (key: keyof ReportFilters, value: string) => setFilters((current) => ({ ...current, [key]: value }));
+
+  return <>
+    <PageHeader title="Reports & Official Records" subtitle="Generate data-backed reports for municipal monitoring, review, and decision-making." icon={<FileText className="size-5 text-emerald-800" />} variant="admin" maxWidthClass="w-full" />
+    <main className="mx-auto w-full max-w-screen-2xl space-y-7 px-4 py-6 pb-12 sm:px-6 lg:px-10 lg:py-8">
+      <section aria-labelledby="report-types-heading">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h1 id="report-types-heading" className="text-lg font-black text-slate-950">Quick report types</h1><p className="text-sm text-slate-600">Choose the official records you want to review.</p></div><Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-900">MAO / Admin workspace</Badge></div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{REPORTS.map(({ id, title, description, icon: Icon }) => <button key={id} type="button" onClick={() => setReportType(id)} aria-pressed={reportType === id} className={`min-h-28 rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${reportType === id ? "border-emerald-700 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"}`}><span className={`mb-3 inline-flex size-9 items-center justify-center rounded-xl ${reportType === id ? "bg-emerald-700 text-white" : "bg-emerald-50 text-emerald-800"}`}><Icon className="size-4" /></span><span className="block text-sm font-bold text-slate-950">{title}</span><span className="mt-1 block text-xs leading-5 text-slate-600">{description}</span></button>)}</div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="configuration-heading">
+        <div className="mb-5"><h2 id="configuration-heading" className="text-lg font-black text-slate-950">Configure report</h2><p className="text-sm text-slate-600">Django selects approved records and applies the same filters to preview and exports.</p></div>
+        <form onSubmit={generatePreview} className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <label className="space-y-1.5 text-sm font-semibold text-slate-700">Report type<select value={reportType} onChange={(event) => setReportType(event.target.value as ReportType)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">{REPORTS.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+            <label className="space-y-1.5 text-sm font-semibold text-slate-700">Date from<Input required type="date" value={dateFrom} max={dateTo} onChange={(event) => setDateFrom(event.target.value)} className="h-11" /></label>
+            <label className="space-y-1.5 text-sm font-semibold text-slate-700">Date to<Input required type="date" value={dateTo} min={dateFrom} max={today()} onChange={(event) => setDateTo(event.target.value)} className="h-11" /></label>
+            <label className="space-y-1.5 text-sm font-semibold text-slate-700">Species (optional)<Input value={filters.species} onChange={(event) => setFilter("species", event.target.value)} placeholder="All species" className="h-11" /></label>
+            <label className="space-y-1.5 text-sm font-semibold text-slate-700">Barangay (optional)<Input value={filters.barangay} onChange={(event) => setFilter("barangay", event.target.value)} placeholder="All barangays" className="h-11" /></label>
+            {(reportType === "movement" || reportType === "inspection") && <label className="space-y-1.5 text-sm font-semibold text-slate-700">Purpose (optional)<select value={filters.purpose} onChange={(event) => setFilter("purpose", event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm"><option value="">All purposes</option>{["BREEDING", "FATTENING", "SLAUGHTER", "OTHER", "UNKNOWN"].map((value) => <option key={value}>{value}</option>)}</select></label>}
+            {reportType === "movement" && <label className="space-y-1.5 text-sm font-semibold text-slate-700">Direction (optional)<select value={filters.direction} onChange={(event) => setFilter("direction", event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm"><option value="">All directions</option>{["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"].map((value) => <option key={value}>{value}</option>)}</select></label>}
           </div>
+          <div className="flex flex-wrap gap-2" aria-label="Date range presets">{Object.entries(presets).map(([label, range]) => <Button key={label} type="button" size="sm" variant="outline" onClick={() => { setDateFrom(range[0]); setDateTo(range[1]); }}>{label}</Button>)}</div>
+          <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="flex items-center gap-2 text-xs text-slate-500"><CalendarDays className="size-4" />Selected period: {dateFrom ? formatDate(dateFrom) : "Choose date"} – {dateTo ? formatDate(dateTo) : "Choose date"}</p><Button type="submit" disabled={loading || !dateFrom || !dateTo || dateFrom > dateTo} className="min-h-11 w-full gap-2 bg-emerald-800 text-white hover:bg-emerald-900 sm:w-auto">{loading ? <><RefreshCw className="size-4 animate-spin" />Generating preview…</> : <><FileText className="size-4" />Generate Preview</>}</Button></div>
+        </form>
+        {error && <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
+      </section>
 
-          <form onSubmit={handleGenerate} className="p-4 sm:p-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              {/* Report Type */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Report Domain</label>
-                <select
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
-                  className="w-full h-9 px-3 bg-slate-50/80 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#1E4D2B]/30 outline-none transition-all cursor-pointer"
-                >
-                  <option>Production Summary (Dairy & Cold Chain)</option>
-                  <option>Livestock Inventory & Tag Roster</option>
-                  <option>Health & Vaccination Surveillance Log</option>
-                  <option>Sales & Commercial Financials</option>
-                  <option>Feeding Activity & Herd Nutrition</option>
-                </select>
-              </div>
-
-              {/* Format */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Export Format</label>
-                <div className="flex gap-2">
-                  {['PDF', 'Excel', 'CSV'].map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setFormat(f)}
-                      className={`flex-1 h-9 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        format === f
-                          ? 'bg-[#1E4D2B] text-white border-[#1E4D2B] shadow-xs'
-                          : 'bg-slate-50/80 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Date From */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Date Range From</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full h-9 pl-9 pr-3 bg-slate-50/80 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#1E4D2B]/30"
-                  />
-                </div>
-              </div>
-
-              {/* Date To */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Date Range To</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full h-9 pl-9 pr-3 bg-slate-50/80 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#1E4D2B]/30"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="mt-4 w-full h-9 bg-[#1E4D2B] hover:bg-[#163b21] text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-            >
-              <FileText className="w-4 h-4" />
-              Generate Official Report Package
-            </button>
-          </form>
-        </section>
-
-        {/* Recent Reports Section */}
-        <section className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden">
-          <div className="bg-slate-50/70 border-b border-slate-100 px-4 py-3 flex justify-between items-center">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 text-xs tracking-tight">
-              <Clock className="w-3.5 h-3.5 text-[#1E4D2B]" />
-              Recent Export History
-            </h3>
-          </div>
-
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-b border-slate-100">
-                <TableHead className="px-4 py-2.5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Report Details</TableHead>
-                <TableHead className="px-4 py-2.5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Format</TableHead>
-                <TableHead className="px-4 py-2.5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-slate-100">
-              {recentReports.length > 0 ? (
-                recentReports.map((report) => (
-                  <TableRow key={report.id} className="group hover:bg-slate-50/80 transition-all border-none">
-                    <TableCell className="px-4 py-2.5">
-                      <div className="font-bold text-xs text-slate-800 group-hover:text-[#1E4D2B] transition-colors">{report.type}</div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5 font-medium">
-                        <Calendar className="w-3 h-3" /> {report.dateRange}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5">
-                      <Badge
-                        variant="outline"
-                        className={`border text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          report.format === 'PDF' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                          report.format === 'Excel' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                          'bg-sky-50 text-sky-800 border-sky-200'
-                        }`}
-                      >
-                        {report.format}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-right">
-                      <button className="inline-flex items-center gap-1 text-[#1E4D2B] font-bold text-xs hover:text-[#163b21] bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/60 px-3 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer">
-                        <Download className="w-3 h-3" />
-                        Download
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="px-4 py-8 text-center text-slate-400 text-xs italic">
-                    No recent reports found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </section>
-      </div>
-    </>
-  );
+      {hasCurrentPreview && report && <section className="space-y-4" aria-labelledby="preview-heading">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-800">Report preview</p><h2 id="preview-heading" className="text-xl font-black text-slate-950">{report.title}</h2><p className="mt-1 text-sm text-slate-600">{report.municipality} · {formatDate(report.period.date_from)} – {formatDate(report.period.date_to)}</p><p className="mt-1 text-xs text-slate-500">{report.record_count} records · Generated {new Date(report.generated_at).toLocaleString()}</p></div><div className="flex flex-col gap-2 sm:flex-row"><Button type="button" variant="outline" disabled={Boolean(exporting)} onClick={() => void exportReport("xlsx")} className="min-h-10 gap-2">{exporting === "xlsx" ? <RefreshCw className="size-4 animate-spin" /> : <FileSpreadsheet className="size-4" />}{exporting === "xlsx" ? "Generating Excel…" : "Export Excel"}</Button><Button type="button" disabled={Boolean(exporting)} onClick={() => void exportReport("pdf")} className="min-h-10 gap-2 bg-emerald-800 text-white hover:bg-emerald-900">{exporting === "pdf" ? <RefreshCw className="size-4 animate-spin" /> : <Download className="size-4" />}{exporting === "pdf" ? "Generating PDF…" : "Export PDF"}</Button></div></div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{Object.entries(report.summary).flatMap(([key, value]) => typeof value === "object" && value !== null ? Object.entries(value).map(([subKey, subValue]) => <div key={`${key}-${subKey}`} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">{humanize(subKey)}</p><p className="mt-1 break-words text-lg font-black text-slate-950">{String(subValue)}</p></div>) : [<div key={key} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">{humanize(key)}</p><p className="mt-1 break-words text-lg font-black text-slate-950">{String(value)}</p></div>])}</div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3"><h3 className="font-bold text-slate-900">Detailed records</h3><Badge variant="outline">Approved records</Badge></div>{report.rows.length === 0 ? <div className="p-10 text-center"><p className="font-bold text-slate-800">No records found for the selected period.</p><p className="mt-1 text-sm text-slate-500">Try another date range or remove a filter.</p></div> : <div className="max-h-[34rem] overflow-auto"><table className="min-w-full border-collapse text-left text-sm"><thead className="sticky top-0 bg-slate-100"><tr>{report.columns.map((column) => <th key={column.key} className="whitespace-nowrap px-3 py-3 text-xs font-bold uppercase tracking-wide text-slate-700">{column.label}</th>)}</tr></thead><tbody>{report.rows.map((row, index) => <tr key={`${index}-${String(row.control_number ?? row.tag_id ?? row.record_date ?? "row")}`} className="border-t border-slate-100 odd:bg-white even:bg-slate-50">{report.columns.map((column) => <td key={column.key} className="max-w-72 px-3 py-2.5 align-top text-slate-700">{row[column.key] == null || row[column.key] === "" ? "—" : String(row[column.key])}</td>)}</tr>)}</tbody></table></div>}</div>
+        <p className="text-xs text-slate-500">Generated by {report.generated_by}. Report history is not stored in SmartLivestock.</p>
+      </section>}
+      {!hasCurrentPreview && !loading && <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12"><FileText className="mx-auto size-8 text-slate-400" /><h2 className="mt-3 font-bold text-slate-900">{report ? "Preview needs refreshing" : "Preview appears here"}</h2><p className="mt-1 text-sm text-slate-600">{report ? "Your dates or filters changed. Generate a new preview before exporting." : "Select a report and period, then generate a preview from official records."}</p></section>}
+      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"><h2 className="font-bold text-slate-900">Recent reports</h2><p className="mt-1 text-sm text-slate-600">Generated downloads are not saved as report history.</p><p className="mt-4 rounded-xl bg-white p-4 text-center text-sm text-slate-500">No generated reports yet.</p></section>
+      <p className="text-xs leading-5 text-slate-500">Only records approved in their source workflow are included where approval applies. Exports are generated by the backend using the same authorized filters as this preview.</p>
+    </main>
+  </>;
 }
