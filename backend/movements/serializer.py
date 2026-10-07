@@ -10,6 +10,7 @@ from movements.models import (
 
 
 class LivestockInspectionItemSerializer(serializers.ModelSerializer):
+    """One movement line: inventory is optional for manual external livestock."""
     livestock_type_name = serializers.CharField(source="livestock_type.name", read_only=True)
     inventory_tag = serializers.SerializerMethodField()
 
@@ -33,6 +34,7 @@ class LivestockInspectionItemSerializer(serializers.ModelSerializer):
         return None
 
     def validate(self, attrs):
+        # Validate item-specific rules before the parent inspection is saved.
         quantity = attrs.get("quantity")
         if quantity is not None and quantity <= 0:
             raise serializers.ValidationError({"quantity": "Head count must be at least 1."})
@@ -210,6 +212,8 @@ class LivestockInspectionSerializer(serializers.ModelSerializer):
         return ""
 
     def validate(self, attrs):
+        # Parent validation checks the shipper/item relationship and keeps registered
+        # inventory distinct from external lines; it never creates registry records.
         shipper = attrs.get("shipper", self.instance.shipper if self.instance else None)
         shipper_name = attrs.get("shipper_name", self.instance.shipper_name if self.instance else None)
         if not shipper and not (shipper_name and shipper_name.strip()):
@@ -261,6 +265,8 @@ class LivestockInspectionSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        # Nested write: one inspection owns multiple item rows plus its pending clearance.
+        # The view wraps this in transaction.atomic so all children persist together.
         items_data = validated_data.pop("items", [])
         shipper_address = validated_data.pop("shipper_address", "")
         origin = validated_data.pop("origin", "")

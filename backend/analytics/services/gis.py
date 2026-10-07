@@ -319,6 +319,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
 
 
 def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
+    """Build map layers from role-scoped records; movement layer is approved-only."""
     """
     Computes real-time municipal GIS telemetry directly from PostgreSQL.
     
@@ -596,7 +597,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["recent_mortality"] += deaths
             recent_mortality_total += deaths
 
-    # 10. Real Livestock Movement Inspections
+    # 10. Official livestock movements only. Pending, returned and rejected intake
+    # stays out of GIS until MAO/Admin changes its clearance to APPROVED.
     # Inbound / Outbound flows
     inspections_qs = (
         scope_reviewer_queryset(

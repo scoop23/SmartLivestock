@@ -53,6 +53,7 @@ REVIEW_TRANSITIONS["census"] = (
 
 # Auction submissions go straight to MAO. VERIFIED remains reviewable for legacy records.
 REVIEW_TRANSITIONS["inspections"] = (
+    # Auction can record/forward intake; only MAO/Admin make the official decision.
     TransitionRule(AUCTION, "PENDING", frozenset({"VERIFIED"})),
     TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),

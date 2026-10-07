@@ -10,6 +10,8 @@ from movements.views import (
 )
 
 urlpatterns = [
+    # The Auction pages use this shared inspection API for create, lookup, list,
+    # correction, submission and MAO review; see views.py for role checks.
     path("", inspection_list_create, name="inspection_list_create"),
     path("shippers/", inspection_shipper_options, name="inspection_shipper_options"),
     path("livestock-lookup/", inspection_livestock_lookup, name="inspection_livestock_lookup"),

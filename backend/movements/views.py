@@ -39,6 +39,7 @@ from smartlivestock.workflows import (
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def inspection_shipper_options(request):
+    """Search authorized shipper identities and their approved, active animals."""
     if role_name(request.user) not in (AUCTION, MAO, ADMIN):
         raise PermissionDenied("Only auction and MAO staff can search registered shippers.")
     query = request.query_params.get("search", "").strip()
@@ -77,7 +78,7 @@ def inspection_shipper_options(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def inspection_livestock_lookup(request):
-    """Resolve a registered individual by tag or inventory ID for auction intake."""
+    """Resolve tag/ID to current inventory and owner data; lookup never mutates records."""
     if role_name(request.user) not in (AUCTION, MAO, ADMIN):
         raise PermissionDenied("Only auction and MAO staff can look up registered livestock.")
     code = request.query_params.get("code", "").strip()
@@ -98,9 +99,21 @@ def inspection_livestock_lookup(request):
         quantity=1,
     ).filter(query).first()
     if not inventory:
-        return Response({"detail": "No eligible registered animal matches that tag or ID."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Livestock record not found for that tag or ID."}, status=status.HTTP_404_NOT_FOUND)
 
     farmer = inventory.farmer
+    # Identification is read-only; eligibility comes from the current registry.
+    eligible = (
+        inventory.status == LivestockInventory.StatusType.APPROVED
+        and inventory.operational_status == LivestockInventory.OperationalStatus.ACTIVE
+    )
+    ineligibility_reason = ""
+    if not eligible:
+        ineligibility_reason = (
+            f"This livestock cannot be added as registered livestock "
+            f"(registration: {inventory.status}; operational status: {inventory.operational_status}). "
+            "Only approved, active individual livestock can be linked."
+        )
     return Response({
         "id": inventory.id,
         "tag_number": inventory.tag_number or str(inventory.id),
@@ -110,6 +123,8 @@ def inspection_livestock_lookup(request):
         "sex": inventory.sex,
         "registration_status": inventory.status,
         "operational_status": inventory.operational_status,
+        "eligible": eligible,
+        "ineligibility_reason": ineligibility_reason,
         "owner_id": inventory.farmer_id,
         "owner_name": farmer.user.get_full_name() or farmer.user.username,
         "origin": farmer.address or "",
@@ -127,6 +142,7 @@ def inspection_list_create(request):
     user = request.user
     user_role = role_name(user)
 
+    # POST validates and persists intake; GET returns records scoped to the caller's role.
     if request.method == "POST":
         require_action(user, "inspections", "create")
 
@@ -146,6 +162,8 @@ def inspection_list_create(request):
             if not data.get("origin"):
                 data["origin"] = data.get("shipper_address", "")
 
+        # Inspection, item lines and pending clearance are created as one unit:
+        # a validation failure must not leave a partial movement record.
         with transaction.atomic():
             serializer = LivestockInspectionSerializer(
                 data=data,
@@ -179,7 +197,7 @@ def inspection_list_create(request):
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    # GET: Apply role-based scoping
+    # GET: scope the database query before serialization, then apply optional UI filters.
     queryset = LivestockInspection.objects.select_related(
         "shipper", "created_by", "created_by__role", "clearance", "clearance__issued_by", "clearance__reviewed_by"
     ).prefetch_related("items", "items__livestock_type", "items__inventory").order_by("-created_at")
@@ -237,7 +255,8 @@ def inspection_detail(request, pk):
         pk=pk,
     )
 
-    # Object-level authorization
+    # Object-level authorization narrows access beyond login: a farmer can only read
+    # their own shipment and SIBAT is limited to the assigned barangay scope.
     if user_role == FARMER:
         if not inspection.shipper or inspection.shipper.user_id != user.id:
             return Response({"detail": "Not authorized to access this inspection."}, status=status.HTTP_403_FORBIDDEN)
@@ -305,6 +324,7 @@ def inspection_detail(request, pk):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def inspection_resubmit(request, pk):
+    """Return a corrected record to pending review; only its creator can resubmit."""
     require_action(request.user, "inspections", "edit_own")
     inspection = get_object_or_404(LivestockInspection.objects.select_related("clearance"), pk=pk)
     if inspection.created_by_id != request.user.id:
@@ -334,7 +354,7 @@ def inspection_resubmit(request, pk):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def inspection_verify(request, pk):
-    """Forward a Farmer-created request after Auction records it at the facility."""
+    """Auction forwards farmer-created intake; Auction-created logs bypass this step."""
     if role_name(request.user) != AUCTION:
         raise PermissionDenied("Only Auction staff can submit Farmer requests to MAO.")
     inspection = get_object_or_404(
@@ -369,6 +389,7 @@ def inspection_review(request, pk):
     MAO / Admin reviews submitted inspection (PENDING or legacy VERIFIED).
     Requires 'remarks' if returning for revision.
     """
+    # This is the final authority boundary: only MAO/Admin can approve or return.
     user = request.user
     user_role = require_action(user, "inspections", "review")
     if user_role not in [MAO, ADMIN]:
@@ -406,7 +427,8 @@ def inspection_review(request, pk):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Ensure any linked registered livestock remain valid and approved
+            # Recheck linked inventory at approval time: lookup may have happened
+            # earlier, so status, ownership and individual quantity must still match.
             for item in inspection.items.all():
                 if item.inventory:
                     if (item.inventory.status != "APPROVED" or item.inventory.operational_status != "ACTIVE"

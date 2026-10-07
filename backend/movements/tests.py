@@ -141,6 +141,12 @@ class LivestockInspectionWorkflowTests(TestCase):
         self.assertEqual(by_tag.status_code, status.HTTP_200_OK)
         self.assertEqual(by_tag.data["id"], self.inventory_cow.id)
         self.assertEqual(by_tag.data["owner_id"], self.farmer.id)
+        self.assertEqual(by_tag.data["owner_name"], self.farmer_user.username)
+        self.assertEqual(by_tag.data["barangay"], self.brgy_poblacion.barangay_name)
+        self.assertEqual(by_tag.data["origin"], self.farmer.address)
+        self.assertEqual(by_tag.data["breed"], self.inventory_cow.breed)
+        self.assertTrue(by_tag.data["eligible"])
+        self.assertEqual(by_tag.data["ineligibility_reason"], "")
         self.assertNotIn("clearance", by_tag.data)
         by_url = self.client.get(
             "/api/inspections/livestock-lookup/",
@@ -158,9 +164,71 @@ class LivestockInspectionWorkflowTests(TestCase):
         inactive = self.client.get("/api/inspections/livestock-lookup/?code=PG-COW-001")
         self.assertEqual(inactive.status_code, status.HTTP_200_OK)
         self.assertEqual(inactive.data["operational_status"], "SOLD")
+        self.assertFalse(inactive.data["eligible"])
+        self.assertIn("SOLD", inactive.data["ineligibility_reason"])
         self.client.force_authenticate(user=self.farmer_user)
         forbidden = self.client.get("/api/inspections/livestock-lookup/?code=PG-COW-001")
         self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_lookup_eligibility_requires_both_approved_and_active(self):
+        self.client.force_authenticate(user=self.auction_user)
+        for registration in ("APPROVED", "PENDING", "VERIFIED", "SUBJECT_TO_REVISION", "REJECTED", "SUSPENDED"):
+            for operational in ("ACTIVE", "SOLD", "DECEASED", "SLAUGHTERED", "MOVED_OUT", "INACTIVE", "SUSPENDED"):
+                with self.subTest(registration=registration, operational=operational):
+                    # Unknown/legacy statuses must also fail closed.
+                    self.inventory_cow.status = registration
+                    self.inventory_cow.operational_status = operational
+                    self.inventory_cow.save(update_fields=["status", "operational_status"])
+                    response = self.client.get("/api/inspections/livestock-lookup/", {"code": "PG-COW-001"})
+                    self.assertEqual(response.status_code, status.HTTP_200_OK)
+                    eligible = registration == "APPROVED" and operational == "ACTIVE"
+                    self.assertEqual(response.data["eligible"], eligible)
+                    self.assertEqual(bool(response.data["ineligibility_reason"]), not eligible)
+
+    def test_lookup_identifies_without_creating_or_approving_records(self):
+        self.client.force_authenticate(user=self.auction_user)
+        self.inventory_cow.status = "PENDING"
+        self.inventory_cow.save(update_fields=["status"])
+        counts = (LivestockInventory.objects.count(), Farmer.objects.count(),
+                  LivestockInspection.objects.count(), LivestockInspectionClearance.objects.count())
+        for code in ("PG-COW-001", str(self.inventory_cow.id), "UNKNOWN", "APPROVED", "CLEARED"):
+            response = self.client.get("/api/inspections/livestock-lookup/", {"code": code})
+            if response.status_code == status.HTTP_200_OK:
+                self.assertEqual(response.data["registration_status"], "PENDING")
+                self.assertFalse(response.data["eligible"])
+                self.assertEqual(set(response.data), {
+                    "id", "tag_number", "livestock_type", "livestock_type_name", "breed", "sex",
+                    "registration_status", "operational_status", "eligible", "ineligibility_reason",
+                    "owner_id", "owner_name", "origin", "barangay",
+                })
+            else:
+                self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.inventory_cow.refresh_from_db()
+        self.assertEqual(self.inventory_cow.status, "PENDING")
+        self.assertEqual(counts, (LivestockInventory.objects.count(), Farmer.objects.count(),
+                                  LivestockInspection.objects.count(), LivestockInspectionClearance.objects.count()))
+
+    def test_lookup_permissions_and_invalid_identifiers(self):
+        for user in (self.auction_user, self.mao_user):
+            self.client.force_authenticate(user=user)
+            for code in (str(self.inventory_cow.id), "pg-cow-001", "https://example.test/?livestockId=PG-COW-001"):
+                response = self.client.get("/api/inspections/livestock-lookup/", {"code": code})
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual(response.data["owner_id"], self.farmer.id)
+            for code in ("", "https://example.test/?owner=123"):
+                self.assertEqual(self.client.get("/api/inspections/livestock-lookup/", {"code": code}).status_code,
+                                 status.HTTP_400_BAD_REQUEST)
+        for user in (self.farmer_user, self.sibat_user, None):
+            self.client.force_authenticate(user=user)
+            self.assertIn(self.client.get("/api/inspections/livestock-lookup/", {"code": "PG-COW-001"}).status_code,
+                          (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+    def test_lookup_does_not_identify_batches_as_individual_animals(self):
+        self.client.force_authenticate(user=self.auction_user)
+        self.inventory_cow.entry_type = LivestockInventory.EntryType.BATCH
+        self.inventory_cow.save(update_fields=["entry_type"])
+        response = self.client.get("/api/inspections/livestock-lookup/", {"code": "PG-COW-001"})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_external_multi_item_intake_does_not_create_registry_animals(self):
         self.client.force_authenticate(user=self.auction_user)
