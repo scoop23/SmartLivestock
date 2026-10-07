@@ -118,20 +118,20 @@ export function QrCodePass({
           <span>How this Digital QR Pass works:</span>
         </div>
         <p className="text-[11px] text-slate-600 leading-relaxed">
-          Scan with any smartphone camera or handheld scanner at municipal biosecurity checkpoints, livestock trading centers, or abattoirs to verify real-time registration, raiser identity, and official MAO clearance.
+          This QR carries an identifier. Authorized staff must retrieve the current record from SmartLivestock. The QR itself does not prove movement approval, clearance, ownership, or biosecurity status.
         </p>
         <div className="flex items-center gap-3 pt-0.5 text-[10px] text-emerald-800 font-semibold flex-wrap">
           <span className="flex items-center gap-1">
             <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-            Biosecurity Checkpoint Ready
+            Registry identifier
           </span>
           <span className="flex items-center gap-1">
             <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-            Livestock Movement Clearance
+            Database is the source of truth
           </span>
           <span className="flex items-center gap-1">
             <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-            Official MAO Ledger
+            MAO reviews movement separately
           </span>
         </div>
       </div>
