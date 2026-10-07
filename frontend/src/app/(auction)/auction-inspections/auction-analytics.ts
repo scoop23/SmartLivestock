@@ -14,6 +14,17 @@ export interface RegisteredShipperOption {
   animals: RegisteredAnimalOption[];
 }
 
+export interface RegisteredLivestockLookup extends RegisteredAnimalOption {
+  breed: string;
+  sex: string;
+  registration_status: string;
+  operational_status: string;
+  owner_id: number;
+  owner_name: string;
+  origin: string;
+  barangay: string;
+}
+
 export interface InspectionItem {
   id?: number;
   livestock_type: number | string;
@@ -97,6 +108,11 @@ export interface CreateInspectionPayload {
 
 export async function searchRegisteredShippers(search: string): Promise<RegisteredShipperOption[]> {
   const response = await api.get<RegisteredShipperOption[]>("/inspections/shippers/", { params: { search } });
+  return response.data;
+}
+
+export async function lookupRegisteredLivestock(code: string): Promise<RegisteredLivestockLookup> {
+  const response = await api.get<RegisteredLivestockLookup>("/inspections/livestock-lookup/", { params: { code } });
   return response.data;
 }
 

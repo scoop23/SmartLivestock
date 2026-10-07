@@ -16,7 +16,6 @@ import {
   LayoutGrid,
   QrCode,
   Loader2,
-  Calendar,
   Map,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
@@ -28,7 +27,6 @@ import {
   InspectionStatusTab,
   fetchInspections,
 } from "./auction-analytics";
-import { NewInspectionDialog } from "./new-inspection-dialog";
 import { InspectionDetailsDialog } from "./inspection-details-dialog";
 import { InspectionsListView } from "./inspections-list-view";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
@@ -42,8 +40,6 @@ export default function AuctionInspections() {
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
 
   // Modal states
-  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
-  const [inspectionToEdit, setInspectionToEdit] = useState<InspectionRecord | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
 
@@ -194,7 +190,7 @@ export default function AuctionInspections() {
 
             <Button
               size="sm"
-              onClick={() => { setInspectionToEdit(null); setIsNewDialogOpen(true); }}
+              onClick={() => router.push("/auction-inspections/new")}
               className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -305,22 +301,16 @@ export default function AuctionInspections() {
         )}
       </div>
 
-      {/* New Movement Log Dialog */}
-      {isNewDialogOpen && <NewInspectionDialog
-        isOpen={isNewDialogOpen}
-        onOpenChange={setIsNewDialogOpen}
-        inspectionToEdit={inspectionToEdit}
-        onSubmitSuccess={handleSuccess}
-        nextId={inspections.length + 1}
-      />}
-
       {/* Inspection Details Dialog */}
       <InspectionDetailsDialog
         inspection={selectedInspection}
         onClose={() => setSelectedInspection(null)}
         statusBadge={selectedInspection ? getStatusBadge(selectedInspection.status, selectedInspection) : null}
         onActionSuccess={handleSuccess}
-        onEdit={() => { setInspectionToEdit(selectedInspection); setSelectedInspection(null); setIsNewDialogOpen(true); }}
+        onEdit={() => {
+          if (selectedInspection) router.push(`/auction-inspections/new?edit=${selectedInspection.id}`);
+          setSelectedInspection(null);
+        }}
       />
 
       {/* Auction QR Gate Scanner Dialog */}
@@ -332,4 +322,3 @@ export default function AuctionInspections() {
     </>
   );
 }
-
