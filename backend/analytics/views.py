@@ -18,9 +18,14 @@ from .services.report_exports import excel_report, pdf_report
 logger = logging.getLogger(__name__)
 
 
-def _report_service_error(operation, report_type):
+def _report_service_error(operation, report_type, filters=None):
     # Log the traceback for developers while returning a safe, stable message to the UI.
-    logger.exception("Official report %s failed (report_type=%s)", operation, report_type)
+    logger.exception(
+        "Official report %s failed (report_type=%s)",
+        operation,
+        report_type,
+        extra={"report_type": report_type, "filters": filters or {}},
+    )
     return Response({"detail": "The report service encountered an error."}, status=500)
 
 
@@ -42,7 +47,7 @@ def reports_preview(request):
     except APIException:
         raise
     except Exception:
-        return _report_service_error("preview", report_type)
+        return _report_service_error("preview", report_type, dict(request.query_params))
     return Response(report)
 
 
@@ -64,7 +69,7 @@ def reports_export(request):
     except APIException:
         raise
     except Exception:
-        return _report_service_error("export", report_type)
+        return _report_service_error("export", report_type, dict(request.query_params))
     response = HttpResponse(content, content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{report["report_type"]}_{report["period"]["date_from"]}_{report["period"]["date_to"]}.{extension}"'
     return response

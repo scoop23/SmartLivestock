@@ -77,6 +77,31 @@ def excel_report(report):
     sheet.append(["DATA COVERAGE", analysis["coverage_notice"]])
     sheet.append(["DATA & METHODOLOGY", analysis["methodology"]])
     sheet.append([])
+    sheet.append(["CHART DATA"])
+    sheet.cell(sheet.max_row, 1).font = Font(bold=True, color="1E4D2B")
+    for chart in _report_chart_specs(report):
+        sheet.append([chart["title"]])
+        sheet.append(["Chart type", chart["type"], "Unit", chart.get("unit", "")])
+        if chart.get("description"):
+            sheet.append(["Description", chart["description"]])
+        series = chart.get("series", [])
+        if chart["type"] in ("stacked_bar", "multi_line"):
+            labels = series
+            sheet.append(["Category", *labels])
+            for item in chart["data"]:
+                if chart["type"] == "stacked_bar":
+                    sheet.append([item["name"], *(item["values"].get(label) for label in labels)])
+                else:
+                    category, values = item
+                    sheet.append([category, *(values.get(label) for label in labels)])
+        elif chart["data"]:
+            sheet.append(["Category", "Value"])
+            for category, value in chart["data"]:
+                sheet.append([category, value])
+        else:
+            sheet.append(["No chart data available for this selection."])
+        sheet.append([])
+
     sheet.append(["DETAILED RECORDS"])
     sheet.cell(sheet.max_row, 1).font = Font(bold=True, color="1E4D2B")
     sheet.append([column["label"] for column in report["columns"]])
@@ -87,6 +112,8 @@ def excel_report(report):
         cell.alignment = Alignment(wrap_text=True)
     for row in report["rows"]:
         sheet.append([row.get(column["key"], "") for column in report["columns"]])
+    if not report["rows"]:
+        sheet.append(["No approved records match this period and filter selection."] + [""] * (total_columns - 1))
     sheet.freeze_panes = f"A{header_row + 1}"
     sheet.auto_filter.ref = f"A{header_row}:{get_column_letter(total_columns)}{sheet.max_row}"
     for index, column in enumerate(report["columns"], start=1):

@@ -16,6 +16,7 @@ export default function AdminLayout({
 
   const role = user?.role?.toUpperCase();
   const isAuthorized = role === "MAO" || role === "ADMIN";
+  console.log(role)
 
   useEffect(() => {
     if (!isLoading && (!user || !isAuthorized)) {

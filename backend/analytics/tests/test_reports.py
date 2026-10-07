@@ -202,28 +202,91 @@ class OfficialReportApiTests(TestCase):
         self.client.force_authenticate(user=None)
         self.assertEqual(self.preview("inventory").status_code, 401)
 
-    def test_excel_and_pdf_exports_are_real_downloads(self):
-        for file_format, signature, content_type in (("xlsx", b"PK", "spreadsheetml.sheet"),
-                                                       ("pdf", b"%PDF", "application/pdf")):
-            with self.subTest(file_format=file_format):
-                response = self.client.get(reverse("reports-export"), self.params("movement", file_format=file_format))
-                self.assertEqual(response.status_code, 200)
-                self.assertTrue(response.content.startswith(signature))
-                self.assertIn(content_type, response["Content-Type"])
-                self.assertIn("attachment; filename=", response["Content-Disposition"])
-                if file_format == "xlsx":
-                    workbook = load_workbook(BytesIO(response.content), read_only=True)
-                    values = {cell for row in workbook.active.iter_rows(values_only=True) for cell in row if isinstance(cell, str)}
-                    self.assertIn("EXECUTIVE SUMMARY", values)
-                    self.assertIn("KEY FINDINGS", values)
-                    self.assertIn("DATA & METHODOLOGY", values)
-                    workbook.close()
-        # Exercise the PDF chart renderer with every report's real filtered rows.
-        for report_type in ("inventory", "production", "disease_mortality", "slaughter", "movement", "inspection"):
-            with self.subTest(pdf_report_type=report_type):
-                response = self.client.get(reverse("reports-export"), self.params(report_type, file_format="pdf"))
-                self.assertEqual(response.status_code, 200)
-                self.assertTrue(response.content.startswith(b"%PDF"))
+    def test_excel_and_pdf_exports_are_complete_for_every_report(self):
+        report_types = ("inventory", "production", "disease_mortality", "slaughter", "movement", "inspection")
+        for report_type in report_types:
+            with self.subTest(report_type=report_type):
+                preview = self.preview(report_type)
+                self.assertEqual(preview.status_code, 200, preview.data)
+                report = preview.data
+
+                excel = self.client.get(reverse("reports-export"), self.params(report_type, file_format="xlsx"))
+                self.assertEqual(excel.status_code, 200)
+                self.assertTrue(excel.content.startswith(b"PK"))
+                self.assertIn("spreadsheetml.sheet", excel["Content-Type"])
+                self.assertIn("attachment; filename=", excel["Content-Disposition"])
+                workbook = load_workbook(BytesIO(excel.content), read_only=True)
+                sheet = workbook.active
+                values = [row for row in sheet.iter_rows(values_only=True)]
+                flat_values = {cell for row in values for cell in row if isinstance(cell, str)}
+                self.assertIn("EXECUTIVE SUMMARY", flat_values)
+                self.assertIn("KEY FINDINGS", flat_values)
+                self.assertIn("DATA & METHODOLOGY", flat_values)
+                self.assertIn("CHART DATA", flat_values)
+                expected_header = tuple(column["label"] for column in report["columns"])
+                header_index = next(index for index, row in enumerate(values) if row[:len(expected_header)] == expected_header)
+                self.assertEqual(len(values) - header_index - 1, len(report["rows"]))
+                for row in report["rows"]:
+                    self.assertIn(str(next(iter(row.values()))), flat_values)
+                workbook.close()
+
+                pdf = self.client.get(reverse("reports-export"), self.params(report_type, file_format="pdf"))
+                self.assertEqual(pdf.status_code, 200)
+                self.assertTrue(pdf.content.startswith(b"%PDF"))
+                self.assertGreater(len(pdf.content), 500)
+                self.assertIn("application/pdf", pdf["Content-Type"])
+
+    def test_empty_excel_export_has_headers_and_empty_state(self):
+        params = self.params("inventory", date_from="2000-01-01", date_to="2000-01-31")
+        response = self.client.get(reverse("reports-export"), {**params, "file_format": "xlsx"})
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), read_only=True)
+        values = [row for row in workbook.active.iter_rows(values_only=True)]
+        self.assertIn("No approved records match this period and filter selection.",
+                      {cell for row in values for cell in row if isinstance(cell, str)})
+        self.assertIn(tuple(column["label"] for column in self.preview("inventory", date_from="2000-01-01",
+                                                                         date_to="2000-01-31").data["columns"]), values)
+        workbook.close()
+        pdf = self.client.get(reverse("reports-export"), {**params, "file_format": "pdf"})
+        self.assertEqual(pdf.status_code, 200)
+        self.assertTrue(pdf.content.startswith(b"%PDF"))
+
+    def test_export_filters_match_preview_filters(self):
+        filters = {"species": "Goat", "direction": "INTERNAL", "purpose": "SLAUGHTER"}
+        preview = self.preview("movement", **filters)
+        response = self.client.get(reverse("reports-export"), self.params("movement", file_format="xlsx", **filters))
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), read_only=True)
+        rows = list(workbook.active.iter_rows(values_only=True))
+        columns = tuple(column["label"] for column in preview.data["columns"])
+        header_index = next(index for index, row in enumerate(rows) if row[:len(columns)] == columns)
+        self.assertEqual(len(rows) - header_index - 1, len(preview.data["rows"]))
+        workbook.close()
+
+    def test_export_ignores_preview_page_limits_and_writes_every_matching_row(self):
+        ProductionRecord.objects.bulk_create([
+            ProductionRecord(livestock=self.animal,
+                             production_type="REGRESSION-LAST-ROW" if index == 204 else "MILK",
+                             quantity=Decimal("1"),
+                             unit="LITERS", record_date=self.today, status="APPROVED", created_by=self.farmer_user)
+            for index in range(205)
+        ])
+        preview = self.preview("production")
+        self.assertEqual(len(preview.data["rows"]), 207)
+        self.assertEqual(preview.data["rows"][-1]["production_type"], "REGRESSION-LAST-ROW")
+
+        excel = self.client.get(reverse("reports-export"), self.params("production", file_format="xlsx"))
+        self.assertEqual(excel.status_code, 200)
+        workbook = load_workbook(BytesIO(excel.content), read_only=True)
+        rows = list(workbook.active.iter_rows(values_only=True))
+        header = tuple(column["label"] for column in preview.data["columns"])
+        header_index = next(index for index, row in enumerate(rows) if row[:len(header)] == header)
+        self.assertEqual(len(rows) - header_index - 1, len(preview.data["rows"]))
+        workbook.close()
+
+        pdf = self.client.get(reverse("reports-export"), self.params("production", file_format="pdf"))
+        self.assertEqual(pdf.status_code, 200)
+        self.assertTrue(pdf.content.startswith(b"%PDF"))
 
     def test_pdf_chart_specs_use_filtered_rows_and_keep_production_units_separate(self):
         report = self.preview("production", barangay="Poblacion").data
