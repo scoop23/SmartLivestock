@@ -33,6 +33,7 @@ def _announcement_notification_message(announcement):
 
 
 def publish_notifications(announcement):
+    """Fan out notices only to the roles/barangay selected by the announcement audience."""
     audience = announcement.audience
     if audience == Announcement.Audience.ALL:
         roles_with_links = [
@@ -75,8 +76,10 @@ def publish_notifications(announcement):
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def announcements(request):
+    """Role-scoped list/create API used by the shared Auction activities feed."""
     role = role_of(request.user)
     if request.method == "GET":
+        # Auction can read announcements selected for its audience; it cannot publish.
         if role not in (
             Role.UserRoles.MAO,
             "ADMIN",
