@@ -1,7 +1,8 @@
 from django.db.models import Count, F, Sum
+import logging
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
@@ -13,6 +14,14 @@ from .services.overview import overview_summary
 from smartlivestock.workflows import scope_reviewer_queryset
 from .services.reports import build_report
 from .services.report_exports import excel_report, pdf_report
+
+logger = logging.getLogger(__name__)
+
+
+def _report_service_error(operation, report_type):
+    # Log the traceback for developers while returning a safe, stable message to the UI.
+    logger.exception("Official report %s failed (report_type=%s)", operation, report_type)
+    return Response({"detail": "The report service encountered an error."}, status=500)
 
 
 CENSUS_STATUSES = (
@@ -27,7 +36,13 @@ CENSUS_STATUSES = (
 @permission_classes([IsAuthenticated, isMAO])
 def reports_preview(request):
     """Return one authorized report dataset for the preview and requested filters."""
-    report = build_report(request.query_params.get("report_type", ""), request.query_params, request.user)
+    report_type = request.query_params.get("report_type", "")
+    try:
+        report = build_report(report_type, request.query_params, request.user)
+    except APIException:
+        raise
+    except Exception:
+        return _report_service_error("preview", report_type)
     return Response(report)
 
 
@@ -35,16 +50,21 @@ def reports_preview(request):
 @permission_classes([IsAuthenticated, isMAO])
 def reports_export(request):
     """Rebuild the same approved dataset server-side and render it as xlsx or PDF."""
-    report = build_report(request.query_params.get("report_type", ""), request.query_params, request.user)
-    # DRF reserves the query key `format` for renderer negotiation, so exports
-    # use `file_format` to select a downloadable document type.
-    file_format = request.query_params.get("file_format", "").lower()
-    if file_format == "xlsx":
-        content, content_type, extension = excel_report(report), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
-    elif file_format == "pdf":
-        content, content_type, extension = pdf_report(report), "application/pdf", "pdf"
-    else:
-        raise ValidationError({"file_format": "Choose xlsx or pdf."})
+    report_type = request.query_params.get("report_type", "")
+    try:
+        report = build_report(report_type, request.query_params, request.user)
+        # DRF reserves `format` for renderer negotiation, so exports use `file_format`.
+        file_format = request.query_params.get("file_format", "").lower()
+        if file_format == "xlsx":
+            content, content_type, extension = excel_report(report), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+        elif file_format == "pdf":
+            content, content_type, extension = pdf_report(report), "application/pdf", "pdf"
+        else:
+            raise ValidationError({"file_format": "Choose xlsx or pdf."})
+    except APIException:
+        raise
+    except Exception:
+        return _report_service_error("export", report_type)
     response = HttpResponse(content, content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{report["report_type"]}_{report["period"]["date_from"]}_{report["period"]["date_to"]}.{extension}"'
     return response

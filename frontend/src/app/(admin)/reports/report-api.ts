@@ -2,15 +2,32 @@ import api from "@/lib/axios";
 
 export type ReportType = "inventory" | "production" | "disease_mortality" | "slaughter" | "movement" | "inspection";
 export type ReportFilters = { species: string; barangay: string; purpose: string; direction: string };
+export type ReportAnalysis = {
+  executive_summary: { label: string; value: string | number; detail?: string }[];
+  key_findings: string[];
+  rankings: { title: string; unit: string; items: { name: string; value: number }[] }[];
+  coverage_notice: string;
+  coverage_level: "none" | "sparse" | "adequate";
+  data_status: string;
+  methodology: string;
+  comparison: {
+    available: boolean;
+    period: { date_from: string; date_to: string };
+    unavailable_reason: string;
+    metrics: { label: string; current: number; previous: number; unit: string; change_percent: number }[];
+  };
+};
 export type OfficialReport = {
   report_type: ReportType;
   title: string;
   municipality: string;
   period: { date_from: string; date_to: string };
+  period_label: string;
   generated_at: string;
   generated_by: string;
   filters: ReportFilters;
-  summary: Record<string, number | string | Record<string, number>>;
+  summary: Record<string, number | string | null | Record<string, number | string | null>>;
+  analysis: ReportAnalysis;
   columns: { key: string; label: string }[];
   rows: Record<string, string | number | null>[];
   record_count: number;
