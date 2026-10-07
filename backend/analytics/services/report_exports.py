@@ -152,6 +152,7 @@ def _distinct_count_rows(rows, label_key, identity_key):
     return sorted(((name, len(identities)) for name, identities in groups.items()), key=lambda pair: pair[1], reverse=True)
 
 
+<<<<<<< HEAD
 def _monthly_type_rows(rows):
     """Build per-type monthly series; callers pass rows sharing one physical unit."""
     months = {}
@@ -180,6 +181,8 @@ def _stacked_rows(rows, category_key, series_key, value_key):
     return sorted(series), [{"name": name, "values": values} for name, values in sorted(categories.items())]
 
 
+=======
+>>>>>>> origin/feature/reports-overhaul
 def _report_chart_specs(report):
     """Describe the preview's charts from its already-filtered rows, without another query."""
     rows = report["rows"]
@@ -200,17 +203,23 @@ def _report_chart_specs(report):
         # A pie is meaningful for a small composition; larger category sets become rankings.
         add(title, "pie" if 2 <= len(data) <= 7 else "bar", data, "", description)
 
+<<<<<<< HEAD
     def stacked(title, series, data, unit, description=""):
         specs.append({"title": title, "type": "stacked_bar", "data": data,
                       "series": series, "unit": unit, "description": description})
 
+=======
+>>>>>>> origin/feature/reports-overhaul
     if kind == "inventory":
         bar("Livestock by Barangay", _chart_rows(rows, "barangay", "quantity"), "heads", "Approved registered heads, ranked high to low.")
         pie("Livestock Distribution by Species", _chart_rows(rows, "species", "quantity"), "Share of registered livestock heads.")
         add("Historical Inventory Trend", "empty", [], description="No historical inventory trend available.")
+<<<<<<< HEAD
         species, composition = _stacked_rows(rows, "barangay", "species", "quantity")
         stacked("Species Composition by Barangay", species, composition, "heads",
                 "Stacked approved head counts show how livestock mix differs by barangay.")
+=======
+>>>>>>> origin/feature/reports-overhaul
     elif kind == "production":
         units = sorted({str(row.get("unit") or "Unknown") for row in rows})
         for unit in units:
@@ -220,6 +229,7 @@ def _report_chart_specs(report):
             bar(f"Production by Type ({unit})", distribution, unit.lower(), "Production types compared only within the same unit.")
             if len(distribution) > 1:
                 pie(f"Production Distribution by Type ({unit})", distribution, f"Share of production measured in {unit.lower()}; units remain separate.")
+<<<<<<< HEAD
             bar(f"Production by Barangay ({unit})", _chart_rows(unit_rows, "barangay", "quantity"), unit.lower(),
                 f"Recorded production volume by barangay, measured only in {unit.lower()}.")
             types, type_months = _monthly_type_rows(unit_rows)
@@ -229,6 +239,8 @@ def _report_chart_specs(report):
                               "description": "Monthly output by type; only types recorded in this same unit share an axis."})
         bar("Number of Production Records by Barangay", _chart_rows(rows, "barangay", "", count=True), "records",
             "Counts approved submissions, not production volume.")
+=======
+>>>>>>> origin/feature/reports-overhaul
     elif kind == "disease_mortality":
         diseases = [row for row in rows if row.get("record_kind") == "DISEASE"]
         deaths = [row for row in rows if row.get("record_kind") == "MORTALITY"]
@@ -236,8 +248,11 @@ def _report_chart_specs(report):
         pie("Disease Distribution", _chart_rows(diseases, "condition_or_cause", "affected_or_dead"), "Approved affected animals by reported condition.")
         pie("Disease Cases by Disease Type", _chart_rows(diseases, "condition_or_cause", "", count=True), "Approved case records by reported condition.")
         bar("Disease by Barangay", _chart_rows(diseases, "barangay", "affected_or_dead"), "affected", "Approved affected animals by barangay.")
+<<<<<<< HEAD
         bar("Reported Disease Cases by Barangay", _chart_rows(diseases, "barangay", "", count=True), "cases",
             "Counts approved case records by barangay, distinct from affected animal totals.")
+=======
+>>>>>>> origin/feature/reports-overhaul
         line("Mortality Over Time", _monthly_rows(deaths, "affected_or_dead", count=True), "records", "Descriptive approved mortality records by month.")
         bar("Mortality by Species", _chart_rows(deaths, "species", "affected_or_dead"), "deaths", "Approved deaths by species.")
     elif kind == "slaughter":
@@ -247,6 +262,7 @@ def _report_chart_specs(report):
         pie("Slaughtered Animals by Species", species, "Part-to-whole distribution of approved slaughter counts.")
         weights = _chart_rows([row for row in rows if row.get("carcass_weight_kg") is not None], "species", "carcass_weight_kg")
         bar("Carcass Weight by Species", weights, "kg", "Carcass kilograms are shown separately from animal counts.")
+<<<<<<< HEAD
         bar("Slaughter by Barangay", _chart_rows([row for row in rows if row.get("barangay")], "barangay", "quantity"),
             "animals", "Approved slaughtered head counts grouped by the recorded slaughter barangay.")
         average_weights = {}
@@ -260,12 +276,17 @@ def _report_chart_specs(report):
                           key=lambda item: item[1], reverse=True)
         bar("Average Recorded Carcass Weight by Species", averages, "kg/head",
             "Weighted average kilograms per slaughtered head, using records with a recorded carcass weight.")
+=======
+>>>>>>> origin/feature/reports-overhaul
     elif kind == "movement":
         auction = [row for row in rows if row.get("record_kind") == "AUCTION"]
         movement = [row for row in rows if row.get("record_kind") == "MOVEMENT"]
         line("Auction Activity Over Time", _monthly_rows(auction, "quantity"), "heads", "Approved auction sale items processed per month.")
+<<<<<<< HEAD
         line("Auction Records Over Time", _monthly_rows(auction, "", count=True), "records",
              "Counts auction sale records per month, separate from the number of animals processed.")
+=======
+>>>>>>> origin/feature/reports-overhaul
         pie("Auction Livestock by Species", _chart_rows(auction, "species", "quantity"), "Approved livestock sale quantity.")
         bar("Auction Origins", _chart_rows(auction, "origin", "quantity"), "heads", "Seller barangay from the linked farmer record.")
         bar("Auction Destinations", _chart_rows(auction, "destination", "quantity"), "heads", "Recorded sale destination.")
@@ -274,8 +295,11 @@ def _report_chart_specs(report):
                       for direction in ("INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN")]
         add("Movement Direction", "pie", directions, description="Direction uses the shared classifier; UNKNOWN locations are retained rather than guessed.")
         line("Movement Trend", _monthly_rows(movement, "quantity"), "heads", "Movement lines by inspection month.")
+<<<<<<< HEAD
         line("Movement Records Over Time", _monthly_distinct_rows(movement, "record_date", "control_number"),
              "records", "Distinct approved movement control records by inspection month.")
+=======
+>>>>>>> origin/feature/reports-overhaul
         bar("Top Origins", _chart_rows(movement, "origin", "quantity"), "heads")
         bar("Top Destinations", _chart_rows(movement, "destination", "quantity"), "heads")
         bar("Movement Purpose", _chart_rows(movement, "purpose", "quantity"), "heads")
@@ -302,11 +326,15 @@ def _report_chart_flowable(spec, width, height, colors):
 
         def draw(self):
             canvas = self.canv
+<<<<<<< HEAD
             chart_type = spec["type"]
             if chart_type in ("stacked_bar", "multi_line"):
                 data = spec["data"]
             else:
                 data = [(str(name), float(value)) for name, value in spec["data"] if float(value) >= 0]
+=======
+            data = [(str(name), float(value)) for name, value in spec["data"] if float(value) >= 0]
+>>>>>>> origin/feature/reports-overhaul
             left, right, bottom, top = 150, self.width - 20, 28, self.height - 12
             if not data:
                 canvas.setFont("Helvetica-Oblique", 9)
@@ -335,6 +363,7 @@ def _report_chart_flowable(spec, width, height, colors):
                     canvas.setFillColor(colors.HexColor("#334155"))
                     canvas.drawString(legend_x + 13, y, f"{name[:42]} · {value:,.0f} ({value / total:.1%})")
                 return
+<<<<<<< HEAD
             if chart_type == "multi_line":
                 months = [str(month) for month, _ in data]
                 series = spec.get("series", [])
@@ -421,6 +450,8 @@ def _report_chart_flowable(spec, width, height, colors):
                     canvas.setFont("Helvetica", 6.5)
                     canvas.drawString(x + 10, y - 1, name[:20])
                 return
+=======
+>>>>>>> origin/feature/reports-overhaul
             max_value = max((value for _, value in data), default=0) or 1
             canvas.setStrokeColor(colors.HexColor("#CBD5D0"))
             canvas.setFillColor(colors.HexColor("#334155"))
@@ -471,11 +502,14 @@ def _report_chart_flowable(spec, width, height, colors):
                         canvas.setFillColor(colors.HexColor("#334155"))
                         canvas.drawString(bar_end + 4, y + 2, f"{value:,.0f}")
 
+<<<<<<< HEAD
     if spec["type"] == "stacked_bar":
         # Let longer barangay lists use more vertical space before pagination.
         height = max(height, min(230, 55 + len(spec["data"]) * 15))
     elif spec["type"] == "multi_line":
         height = max(height, min(220, 125 + ceil(len(spec.get("series", [])) / 3) * 11))
+=======
+>>>>>>> origin/feature/reports-overhaul
     return ReportChart()
 
 
@@ -496,6 +530,7 @@ def pdf_report(report):
     summary_label = ParagraphStyle("SummaryLabel", parent=normal, fontName="Helvetica-Bold", textColor=colors.HexColor("#1E4D2B"))
     story = [Paragraph("SMARTLIVESTOCK-BATANGAS", ParagraphStyle("Brand", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1E4D2B"))),
              Paragraph(escape(report["title"]), ParagraphStyle("Title", fontName="Helvetica-Bold", fontSize=12)),
+<<<<<<< HEAD
              Paragraph(f"Municipality: {escape(report['municipality'])} &nbsp; | &nbsp; {escape(report.get('period_label', 'Reporting period'))}: {report['period']['date_from']} to {report['period']['date_to']}", normal),
              Paragraph(f"Generated: {report['generated_at']} &nbsp; | &nbsp; Generated by: {escape(report['generated_by'])} &nbsp; | &nbsp; Data status: {escape(report['analysis']['data_status'])}", normal)]
     active_filters = [(key.replace("_", " ").title(), value) for key, value in report.get("filters", {}).items() if value]
@@ -517,6 +552,14 @@ def pdf_report(report):
     else:
         story.append(Paragraph("No summary measures are available for this selection.", normal))
     story.append(Paragraph("Report summary totals", ParagraphStyle("SummarySubTitle", fontName="Helvetica-Bold", fontSize=8, textColor=colors.HexColor("#475569"))))
+=======
+             Paragraph(f"Municipality: {escape(report['municipality'])} &nbsp; | &nbsp; Reporting period: {report['period']['date_from']} to {report['period']['date_to']}", normal),
+             Paragraph(f"Generated: {report['generated_at']} &nbsp; | &nbsp; Generated by: {escape(report['generated_by'])}", normal), Spacer(1, 10),
+             Paragraph("Summary", ParagraphStyle("SummaryTitle", fontName="Helvetica-Bold", fontSize=10, textColor=colors.HexColor("#1E4D2B")))]
+    active_filters = [(key.replace("_", " ").title(), value) for key, value in report.get("filters", {}).items() if value]
+    if active_filters:
+        story.extend([Paragraph("Filters: " + " · ".join(f"{escape(key)}: {escape(str(value))}" for key, value in active_filters), normal), Spacer(1, 6)])
+>>>>>>> origin/feature/reports-overhaul
     summary_rows = []
     for key, value in report["summary"].items():
         entries = value.items() if isinstance(value, dict) else [(key, value)]
@@ -527,6 +570,7 @@ def pdf_report(report):
                                 style=TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#E8F0EA")),
                                                   ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5D0")),
                                                   ("VALIGN", (0, 0), (-1, -1), "TOP")])), Spacer(1, 12)])
+<<<<<<< HEAD
     story.append(Paragraph("Key Findings", section_style))
     if analysis["key_findings"]:
         story.extend(Paragraph("• " + escape(finding), normal) for finding in analysis["key_findings"])
@@ -561,6 +605,8 @@ def pdf_report(report):
                                                      ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5D0")),
                                                      ("VALIGN", (0, 0), (-1, -1), "TOP")])))
     story.extend([Spacer(1, 7), Paragraph("Data Coverage", section_style), Paragraph(escape(analysis["coverage_notice"]), normal), Spacer(1, 10)])
+=======
+>>>>>>> origin/feature/reports-overhaul
     # The exporter receives the exact backend-filtered rows used by the preview;
     # deriving charts here avoids a second query or a frontend-supplied dataset.
     story.extend([Paragraph("Charts &amp; Analysis", ParagraphStyle("ChartSection", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#1E4D2B"))), Spacer(1, 5)])

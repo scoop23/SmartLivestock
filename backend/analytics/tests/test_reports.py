@@ -13,8 +13,12 @@ from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
 from movements.models import LivestockInspection, LivestockInspectionClearance, LivestockInspectionItem
 from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
+<<<<<<< HEAD
 from analytics.services.report_exports import _monthly_axis_ticks, _report_chart_flowable, _report_chart_specs
 from analytics.services.reports import _build_analysis
+=======
+from analytics.services.report_exports import _monthly_axis_ticks, _report_chart_specs
+>>>>>>> origin/feature/reports-overhaul
 from users.models import Role, User
 
 
@@ -211,6 +215,7 @@ class OfficialReportApiTests(TestCase):
                 self.assertTrue(response.content.startswith(signature))
                 self.assertIn(content_type, response["Content-Type"])
                 self.assertIn("attachment; filename=", response["Content-Disposition"])
+<<<<<<< HEAD
                 if file_format == "xlsx":
                     workbook = load_workbook(BytesIO(response.content), read_only=True)
                     values = {cell for row in workbook.active.iter_rows(values_only=True) for cell in row if isinstance(cell, str)}
@@ -218,6 +223,8 @@ class OfficialReportApiTests(TestCase):
                     self.assertIn("KEY FINDINGS", values)
                     self.assertIn("DATA & METHODOLOGY", values)
                     workbook.close()
+=======
+>>>>>>> origin/feature/reports-overhaul
         # Exercise the PDF chart renderer with every report's real filtered rows.
         for report_type in ("inventory", "production", "disease_mortality", "slaughter", "movement", "inspection"):
             with self.subTest(pdf_report_type=report_type):
@@ -237,6 +244,7 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual(eggs["data"], [("EGGS", 8.0)])
         self.assertFalse(any("Production Distribution" in title for title in titles))
 
+<<<<<<< HEAD
     def test_complementary_chart_specs_use_filtered_rows_and_distinct_measures(self):
         inventory = _report_chart_specs({"report_type": "inventory", "rows": [
             {"species": "Cattle", "quantity": 4, "barangay": "Manggas"},
@@ -311,6 +319,8 @@ class OfficialReportApiTests(TestCase):
         inventory_analysis = self.preview("inventory").data["analysis"]
         self.assertIn("Top 5 Barangays by Registered Livestock", [item["title"] for item in inventory_analysis["rankings"]])
 
+=======
+>>>>>>> origin/feature/reports-overhaul
     def test_pdf_chart_specs_show_empty_states_without_inventing_values(self):
         empty_report = self.client.get(
             reverse("reports-preview"),
@@ -320,6 +330,7 @@ class OfficialReportApiTests(TestCase):
         self.assertTrue(charts)
         self.assertTrue(all(chart["data"] == [] for chart in charts))
 
+<<<<<<< HEAD
     def test_analysis_empty_coverage_and_unavailable_comparison_are_explicit(self):
         response = self.client.get(
             reverse("reports-preview"),
@@ -355,6 +366,8 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual(len(ranking), 5)
         self.assertEqual([item["value"] for item in ranking], [6, 5, 4, 3, 2])
 
+=======
+>>>>>>> origin/feature/reports-overhaul
     def test_pdf_month_axis_keeps_all_points_and_adapts_visible_ticks(self):
         short_months = ["2026-01", "2026-02", "2026-03", "2026-04"]
         self.assertEqual(list(_monthly_axis_ticks(short_months).values()), ["Jan 26", "Feb 26", "Mar 26", "Apr 26"])

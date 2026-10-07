@@ -66,6 +66,7 @@ const groupedByTypeAndMonth = (rows: Row[]) => {
   }
   return { types: [...types].sort(), data: [...months].sort(([a], [b]) => a.localeCompare(b)).map(([month, values]) => ({ month, ...values })) };
 };
+>>>>>>> origin/feature/reports-overhaul
 
 function ChartCard({ title, note, children, empty = false, emptyMessage = "No data available for the selected filters." }: { title: string; note?: string; children: ReactNode; empty?: boolean; emptyMessage?: string }) {
   return <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -102,6 +103,7 @@ function MultiTrend({ data, series, unit }: { data: Record<string, string | numb
   </LineChart></ResponsiveContainer>;
 }
 
+>>>>>>> origin/feature/reports-overhaul
 function Donut({ data, force = false }: { data: { name: string; value: number }[]; force?: boolean }) {
   // Pie charts answer small-category composition questions; a single category
   // or a long list is clearer as a bar chart.
@@ -146,11 +148,13 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
       }
       return entry;
     }).sort((a, b) => species.reduce((total, key) => total + Number(b[key] ?? 0), 0) - species.reduce((total, key) => total + Number(a[key] ?? 0), 0));
+>>>>>>> origin/feature/reports-overhaul
     return <div className="space-y-4">{description}<div className="grid min-w-0 gap-4 lg:grid-cols-2">
       <ChartCard title="Livestock by Barangay" note="Approved registered heads, ranked high to low." empty={!rows.length}><Bars data={sumBy(rows, "barangay", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
       <ChartCard title="Livestock Distribution by Species" note="Share of registered livestock heads. Pie charts suit a small set of categories that make up a whole." empty={!rows.length}><Donut data={sumBy(rows, "species", "quantity")} /></ChartCard>
       <ChartCard title="Historical Inventory Trend" note="The current inventory records do not contain dated historical stock snapshots." empty emptyMessage="No historical inventory trend available." ><p /></ChartCard>
       <ChartCard title="Species Composition by Barangay" note="Stacked approved head counts show how livestock mix differs by barangay." empty={!rows.length}><StackedBars data={composition} series={species} unit="heads" /></ChartCard>
+>>>>>>> origin/feature/reports-overhaul
     </div></div>;
   }
   if (reportType === "production") {
@@ -175,6 +179,9 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
       <ChartCard title="Number of Production Records by Barangay" note="Counts approved submissions, not production volume." empty={!rows.length}><Bars data={barangayRecordCount} horizontal unit="records" /></ChartCard>
       {extraTypeTrends}
     </div></div>;
+    const trends = units.map((unit) => <ChartCard key={unit} title={`Production Over Time (${unit})`} note="Monthly approved output." empty={!rows.some((row) => label(row, "unit") === unit)}><Trend data={monthly(rows.filter((row) => label(row, "unit") === unit), "quantity")} unit={unit.toLowerCase()} /></ChartCard>);
+    return <div className="space-y-4">{description}<div className="grid min-w-0 gap-4 lg:grid-cols-2">{trends}{typeCharts}</div></div>;
+>>>>>>> origin/feature/reports-overhaul
   }
   if (reportType === "disease_mortality") {
     const diseases = rows.filter((row) => row.record_kind === "DISEASE");
@@ -185,6 +192,7 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
       <ChartCard title="Disease Cases by Disease Type" note="Share of approved disease case records by reported condition." empty={!diseases.length}><Donut data={countBy(diseases, "condition_or_cause", "__record")} /></ChartCard>
       <ChartCard title="Disease by Barangay" note="Approved affected animals by barangay." empty={!diseases.length}><Bars data={sumBy(diseases, "barangay", "affected_or_dead").reverse()} horizontal unit="affected" /></ChartCard>
       <ChartCard title="Reported Disease Cases by Barangay" note="Counts approved case records by barangay, distinct from affected animal totals." empty={!diseases.length}><Bars data={countBy(diseases, "barangay", "id")} horizontal unit="cases" /></ChartCard>
+>>>>>>> origin/feature/reports-overhaul
       <ChartCard title="Mortality Over Time" note="Descriptive count of approved mortality records." empty={!deaths.length}><Trend data={monthlyRecords(deaths)} unit="records" /></ChartCard>
       <ChartCard title="Mortality by Species" note="Approved deaths by species." empty={!deaths.length}><Bars data={sumBy(deaths, "species", "affected_or_dead")} unit="deaths" /></ChartCard>
     </div></div>;
@@ -196,6 +204,7 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
     <ChartCard title="Carcass Weight by Species" note="Kilograms are kept separate from animal counts." empty={!rows.some((row) => row.carcass_weight_kg != null)}><Bars data={sumBy(rows.filter((row) => row.carcass_weight_kg != null), "species", "carcass_weight_kg")} unit="kg" /></ChartCard>
     <ChartCard title="Slaughter by Barangay" note="Approved slaughtered head counts grouped by the recorded slaughter barangay." empty={!rows.some((row) => row.barangay)}><Bars data={sumBy(rows.filter((row) => row.barangay), "barangay", "quantity")} horizontal unit="animals" /></ChartCard>
     <ChartCard title="Average Recorded Carcass Weight by Species" note="Weighted average kilograms per slaughtered head, using records with a recorded carcass weight." empty={!rows.some((row) => row.carcass_weight_kg != null)}><Bars data={(() => { const totals = new Map<string, { weight: number; heads: number }>(); for (const row of rows) { if (row.carcass_weight_kg == null) continue; const key = label(row, "species"); const current = totals.get(key) ?? { weight: 0, heads: 0 }; current.weight += amount(row, "carcass_weight_kg"); current.heads += amount(row, "quantity"); totals.set(key, current); } return [...totals].map(([name, value]) => ({ name, value: value.heads ? value.weight / value.heads : 0 })).sort((a, b) => b.value - a.value); })()} unit="kg/head" /></ChartCard>
+>>>>>>> origin/feature/reports-overhaul
   </div></div>;
   if (reportType === "movement") {
     const auction = records("AUCTION");
@@ -205,6 +214,7 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <ChartCard title="Auction Activity Over Time" note="Approved auction sale items processed per month." empty={!auction.length}><Trend data={monthly(auction, "quantity")} unit="heads" /></ChartCard>
         <ChartCard title="Auction Records Over Time" note="Counts auction sale records per month, separate from the number of animals processed." empty={!auction.length}><Trend data={monthlyRecords(auction)} unit="records" /></ChartCard>
+>>>>>>> origin/feature/reports-overhaul
         <ChartCard title="Auction Livestock by Species" note="Approved livestock sale quantity." empty={!auction.length}><Donut data={sumBy(auction, "species", "quantity")} /></ChartCard>
         <ChartCard title="Auction Origins" note="Seller barangay from the linked farmer record." empty={!auction.length}><Bars data={sumBy(auction, "origin", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
         <ChartCard title="Auction Destinations" note="Recorded sale destination." empty={!auction.length}><Bars data={sumBy(auction, "destination", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
@@ -215,6 +225,7 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
         <ChartCard title="Movement Direction" note="Based on the shared municipality direction classifier; UNKNOWN stays visible." empty={!movement.length}><Donut force data={["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"].map((name) => ({ name, value: movement.filter((row) => row.direction === name).length }))} /></ChartCard>
         <ChartCard title="Movement Trend" note="Movement lines by inspection month." empty={!movement.length}><Trend data={monthly(movement, "quantity")} unit="heads" /></ChartCard>
         <ChartCard title="Movement Records Over Time" note="Distinct approved movement control records by inspection month." empty={!movement.length}><Trend data={monthlyRecords(movement, "record_date", "control_number")} unit="records" /></ChartCard>
+>>>>>>> origin/feature/reports-overhaul
         <ChartCard title="Top Origins" empty={!movement.length}><Bars data={sumBy(movement, "origin", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
         <ChartCard title="Top Destinations" empty={!movement.length}><Bars data={sumBy(movement, "destination", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
         <ChartCard title="Movement Purpose" empty={!movement.length}><Bars data={sumBy(movement, "purpose", "quantity")} unit="heads" /></ChartCard>
