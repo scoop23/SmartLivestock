@@ -224,8 +224,8 @@ export default function SelectLivestockDialog({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="font-black text-slate-900 truncate">{title}</p>
-                            <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            <p className="font-black text-slate-900 whitespace-normal break-words">{title}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 whitespace-normal break-words">
                               {item.livestockTypeName} · {item.breed || "Breed not specified"} · {item.sex || "Sex not specified"}
                             </p>
                           </div>

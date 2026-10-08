@@ -9,7 +9,7 @@ export function HeaderMenuButton({ className = "" }: { className?: string }) {
       type="button"
       onClick={openMobileNav}
       aria-label="Open menu"
-      className={`lg:hidden shrink-0 flex items-center justify-center w-10 h-10 rounded-full shadow-sm ${className}`}
+      className={`lg:hidden shrink-0 flex size-11 items-center justify-center rounded-full shadow-sm ${className}`}
     >
       <Menu className="size-5" />
     </button>

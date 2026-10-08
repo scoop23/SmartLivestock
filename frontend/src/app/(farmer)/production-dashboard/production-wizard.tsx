@@ -439,12 +439,12 @@ function ProductionWizardContent({
                       <div className="min-w-0 flex-1">
                       {clickedInventory ? (
                         <>
-                          <p className="text-sm font-bold text-slate-900 truncate">
+                          <p className="text-sm font-bold text-slate-900 whitespace-normal break-words">
                             {clickedInventory.entryType === "INDIVIDUAL"
                               ? clickedInventory.tagNumber || "Un-tagged"
                               : `Batch #${clickedInventory.id} (${clickedInventory.quantity} heads)`}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          <p className="text-xs text-slate-500 mt-0.5 whitespace-normal break-words">
                             {clickedInventory.livestockTypeName} • {clickedInventory.breed || "Standard Breed"} • {clickedInventory.sex}
                           </p>
                         </>
@@ -518,7 +518,7 @@ function ProductionWizardContent({
                       <TIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm sm:text-base font-bold text-slate-900 truncate">{typeMeta[t]?.label ?? t}</p>
+                      <p className="text-sm sm:text-base font-bold text-slate-900 whitespace-normal break-words">{typeMeta[t]?.label ?? t}</p>
                       {isActive && (
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27] shrink-0">
                           <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Selected

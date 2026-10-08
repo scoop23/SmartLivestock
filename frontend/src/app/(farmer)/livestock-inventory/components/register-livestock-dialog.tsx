@@ -509,7 +509,7 @@ export function RegisterLivestockDialog({
         </div>
 
         <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5">
             {formError && (
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -522,11 +522,11 @@ export function RegisterLivestockDialog({
               <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
                 Entry Mode
               </Label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, entryType: "INDIVIDUAL" })}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "INDIVIDUAL"
+                  className={`flex min-h-11 items-center justify-center gap-2 px-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "INDIVIDUAL"
                     ? "bg-white text-emerald-950 shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
                     }`}
@@ -537,7 +537,7 @@ export function RegisterLivestockDialog({
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, entryType: "BATCH" })}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "BATCH"
+                  className={`flex min-h-11 items-center justify-center gap-2 px-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "BATCH"
                     ? "bg-white text-emerald-950 shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
                     }`}

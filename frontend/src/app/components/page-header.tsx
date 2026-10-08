@@ -15,6 +15,7 @@ interface PageHeaderProps {
   sticky?: boolean;
   className?: string;
   showNotifications?: boolean;
+  wrapSubtitleOnMobile?: boolean;
 }
 
 const headerClasses: Record<PageHeaderVariant, string> = {
@@ -48,6 +49,7 @@ export function PageHeader({
   sticky = false,
   className = "",
   showNotifications = true,
+  wrapSubtitleOnMobile = false,
 }: PageHeaderProps) {
   return (
     <header
@@ -62,7 +64,7 @@ export function PageHeader({
         className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
       />
       <div className={`relative ${maxWidthClass} mx-auto px-4 py-5 md:px-6 md:py-7`}>
-        <div className="flex items-center justify-between gap-3">
+        <div className={`flex gap-3 ${variant === "farmer" ? "flex-col min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between" : "items-center justify-between"}`}>
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
             <HeaderMenuButton className={chipClasses[variant]} />
             {icon ? (
@@ -77,13 +79,13 @@ export function PageHeader({
                 {title}
               </h1>
               {subtitle && (
-                <p className="text-xs sm:text-sm font-medium opacity-85 mt-0.5 truncate">
+                <p className={`text-xs sm:text-sm font-medium opacity-85 mt-0.5 ${variant === "farmer" || wrapSubtitleOnMobile ? "whitespace-normal break-words" : "truncate"}`}>
                   {subtitle}
                 </p>
               )}
             </div>
           </div>
-          <div className="shrink-0 flex items-center gap-2 sm:gap-2.5 ml-2">
+          <div className={`shrink-0 flex items-center gap-2 sm:gap-2.5 ${variant === "farmer" ? "ml-0 justify-end min-[430px]:ml-2" : "ml-2"}`}>
             {showNotifications && <HeaderNotifications variant={variant} />}
             {action ? action : null}
           </div>

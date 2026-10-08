@@ -771,11 +771,93 @@ export default function LivestockRecordList({
                 key={item.id}
                 className={cn(
                   "relative overflow-hidden bg-white border border-slate-200/90 rounded-xl transition-all duration-150",
-                  "hover:border-[#1E4D2B]/50 hover:shadow-md flex flex-col justify-between h-[280px]",
+                  "hover:border-[#1E4D2B]/50 hover:shadow-md flex flex-col justify-between min-h-0 sm:min-h-[280px]",
                   item.status === "SUBJECT_TO_REVISION" && "border-rose-300/80 bg-rose-50/15"
                 )}
               >
-                <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-2.5">
+                {/* Phone cards use a summary-first stack; the denser registry view stays for wider screens. */}
+                <CardContent className="flex flex-1 flex-col gap-4 p-4 sm:hidden">
+                  <div className="flex flex-col items-start gap-3">
+                    <div className="relative shrink-0">
+                      {photoUrl ? (
+                        <img src={photoUrl} alt={item.tagNumber || item.livestockTypeName} className="size-14 rounded-xl border border-slate-200 object-cover" />
+                      ) : (
+                        <div className={`flex size-14 items-center justify-center rounded-xl border text-2xl ${avatar.bgGradient}`} aria-hidden="true">
+                          {avatar.emoji}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 w-full">
+                      <Link
+                        href={`/livestock-inventory/${item.tagNumber || item.id}`}
+                        className="block break-words text-lg font-black leading-snug text-slate-900 hover:text-emerald-800"
+                      >
+                        {item.livestockTypeName} {item.tagNumber ? `#${item.tagNumber}` : `#${item.id}`}
+                      </Link>
+                      <p className="mt-1 break-words text-sm text-slate-600">
+                        {item.breed || "Breed not recorded"}{item.sex ? ` • ${item.sex}` : ""}
+                      </p>
+                      {item.batchCode && (
+                        <Link
+                          href="/livestock-inventory/batches"
+                          className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800"
+                        >
+                          <Layers className="size-3.5 shrink-0" />
+                          <span className="break-all">Herd {item.batchCode}</span>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 border-y border-slate-100 py-3">
+                    {getStatusBadge(item.status)}
+                    <OperationalStatusBadge status={item.operationalStatus} />
+                  </div>
+
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="shrink-0 text-slate-500">Weight</dt>
+                      <dd className="min-w-0 break-words text-right font-semibold text-slate-900">{item.weight ? `${item.weight} kg` : "Not recorded"}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="shrink-0 text-slate-500">Immunization</dt>
+                      <dd className={cn("min-w-0 break-words text-right font-semibold", hasVax ? "text-emerald-700" : "text-amber-700")}>
+                        {hasVax ? item.lastVaccinationDate : "No vaccination date"}
+                      </dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="shrink-0 text-slate-500">Registered</dt>
+                      <dd className="min-w-0 break-words text-right font-semibold text-slate-900">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Date not recorded"}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {item.reviewRemarks && (
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm leading-relaxed text-rose-950 break-words">
+                      <strong className="font-bold">Officer Note:</strong> {item.reviewRemarks}
+                    </div>
+                  )}
+
+                  <div className="mt-auto space-y-2 border-t border-slate-100 pt-3">
+                    <Button type="button" onClick={() => onView(item)} className="min-h-12 w-full rounded-xl bg-emerald-700 font-bold text-white hover:bg-emerald-800">
+                      <Eye className="mr-2 size-4" /> View Livestock
+                    </Button>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button type="button" variant="outline" disabled={!item.tagNumber} onClick={() => item.tagNumber && handleCopyTag(item.tagNumber)} aria-label="Copy livestock tag" title="Copy tag" className="min-h-11 rounded-xl">
+                        <Copy className="size-4" />
+                      </Button>
+                      <Button type="button" variant="outline" disabled={isApproved} onClick={() => onEdit(item)} aria-label="Edit livestock record" title={isApproved ? "Approved entries are locked" : "Edit record"} className="min-h-11 rounded-xl">
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button type="button" variant="outline" disabled={isApproved} onClick={() => onDelete(item)} aria-label="Delete livestock record" title={isApproved ? "Approved entries cannot be deleted" : "Delete record"} className="min-h-11 rounded-xl text-rose-700 hover:bg-rose-50">
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+
+                <CardContent className="hidden flex-1 flex-col justify-between space-y-2.5 p-4 sm:flex">
                   {/* Tag Header: High-visibility pill badge alongside clean status indicator */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 group min-w-0">

@@ -478,7 +478,7 @@ export default function ReportObservationPage() {
 
                         {/* Symptoms / Diagnosis */}
                         <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100/80">
-                          <p className="text-xs font-black text-slate-900 line-clamp-1">
+                          <p className="text-xs font-black text-slate-900 whitespace-normal break-words">
                             {rep.name}
                           </p>
                           <p className="text-[10px] text-slate-500 mt-0.5">

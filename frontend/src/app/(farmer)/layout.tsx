@@ -12,7 +12,7 @@ export default function FarmerLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, isLoading, logout, accessToken } = useAuth();
+  const { user, isLoading, logout } = useAuth();
 
   useEffect(() => {
     if (!isLoading && (!user || user.role?.toUpperCase() !== "FARMER")) {

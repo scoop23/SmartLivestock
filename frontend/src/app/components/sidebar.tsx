@@ -196,6 +196,7 @@ function SidebarNav({
   onLogout,
   onOpenHelp,
   onOpenScanner,
+  popoverPortalContainer,
   role,
 }: {
   collapsed: boolean;
@@ -207,6 +208,7 @@ function SidebarNav({
   onLogout: () => void;
   onOpenHelp: () => void;
   onOpenScanner?: () => void;
+  popoverPortalContainer?: HTMLElement | null;
   role: SidebarProps['role'];
 }) {
   const { user } = useAuth();
@@ -470,7 +472,7 @@ function SidebarNav({
             <button
               type="button"
               className={cn(
-                "group w-full flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/40",
+                "group w-full min-h-11 flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/40",
                 collapsed ? "justify-center p-1.5" : "gap-2"
               )}
               title={collapsed ? `${userDisplayName} (Profile & Options)` : undefined}
@@ -486,14 +488,14 @@ function SidebarNav({
 
                 <div
                   className={cn(
-                    "flex flex-col min-w-0 whitespace-nowrap transition-all duration-200",
+                    "flex flex-col min-w-0 transition-all duration-200",
                     collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[130px]"
                   )}
                 >
-                  <span className="text-xs font-bold text-white truncate leading-tight group-hover:text-emerald-200 transition-colors">
+                  <span className="text-xs font-bold text-white whitespace-normal break-words leading-tight group-hover:text-emerald-200 transition-colors">
                     {userDisplayName}
                   </span>
-                  <span className="text-[10px] text-emerald-200/60 truncate">
+                  <span className="text-[10px] text-emerald-200/60 break-all">
                     {user?.email || 'Padre Garcia'}
                   </span>
                 </div>
@@ -512,9 +514,15 @@ function SidebarNav({
           {/* Popover elevated to z-[var(--z-popover)] to always float cleanly above elevated sidebars and map controls */}
           <PopoverContent
             side={collapsed ? "right" : "top"}
-            align={collapsed ? "end" : "center"}
+            align={collapsed ? "end" : onNavigate ? "start" : "center"}
             sideOffset={8}
-            className="w-72 p-0 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-[var(--z-popover)] animate-in fade-in-50 zoom-in-95"
+            collisionPadding={8}
+            portalContainer={onNavigate ? popoverPortalContainer : undefined}
+            className={cn(
+              "w-72 max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto p-0 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200/90 animate-in fade-in-50 zoom-in-95",
+              // The mobile profile menu is portaled outside the modal drawer, so it must sit above that drawer's overlay.
+              onNavigate ? "z-[var(--z-popover-dialog)]" : "z-[var(--z-popover)]"
+            )}
           >
             {/* Popover Header with Avatar & Department */}
             <div className="p-3.5 bg-gradient-to-br from-emerald-800 via-[#2D5A27] to-[#1c3c18] text-white">
@@ -527,10 +535,10 @@ function SidebarNav({
                   )}
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-bold text-white truncate">
+                  <span className="text-xs font-bold text-white whitespace-normal break-words">
                     {userDisplayName}
                   </span>
-                  <span className="text-[11px] text-emerald-200/80 truncate">
+                  <span className="text-[11px] text-emerald-200/80 break-all">
                     {user?.email || 'padregarcia@gov.ph'}
                   </span>
                   <div className="mt-1 flex items-center gap-1.5">
@@ -551,7 +559,7 @@ function SidebarNav({
                   setProfilePopoverOpen(false);
                   onNavigate?.();
                 }}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
+                className="flex min-h-11 items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
               >
                 <div className="size-7 rounded-lg bg-emerald-100/70 text-[#2D5A27] flex items-center justify-center shrink-0 group-hover:bg-[#2D5A27] group-hover:text-white transition-colors">
                   <UserIcon className="size-3.5" />
@@ -568,7 +576,7 @@ function SidebarNav({
                   setProfilePopoverOpen(false);
                   onNavigate?.();
                 }}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
+                className="flex min-h-11 items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
               >
                 <div className="size-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 group-hover:bg-slate-800 group-hover:text-white transition-colors">
                   <Key className="size-3.5" />
@@ -585,7 +593,7 @@ function SidebarNav({
                   setProfilePopoverOpen(false);
                   onNavigate?.();
                 }}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
+                className="flex min-h-11 items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
               >
                 <div className="size-7 rounded-lg bg-amber-100/70 text-amber-800 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
                   <Bell className="size-3.5" />
@@ -602,7 +610,7 @@ function SidebarNav({
                   setProfilePopoverOpen(false);
                   onOpenHelp();
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer text-left"
+                className="w-full min-h-11 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer text-left"
               >
                 <div className="size-7 rounded-lg bg-sky-100/70 text-sky-800 flex items-center justify-center shrink-0 group-hover:bg-sky-600 group-hover:text-white transition-colors">
                   <HelpCircle className="size-3.5" />
@@ -621,9 +629,10 @@ function SidebarNav({
                 type="button"
                 onClick={() => {
                   setProfilePopoverOpen(false);
+                  onNavigate?.();
                   onLogout();
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors group cursor-pointer text-left"
+                className="w-full min-h-11 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors group cursor-pointer text-left"
               >
                 <div className="size-7 rounded-lg bg-rose-100/70 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors">
                   <LogOut className="size-3.5" />
@@ -648,6 +657,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState<boolean>(false);
   const [scannerOpen, setScannerOpen] = useState<boolean>(false);
+  const [mobileSheetContent, setMobileSheetContent] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_pinned");
@@ -725,7 +735,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
 
       {/* Mobile — slide-over sheet drawer (Elevated to z-[var(--z-sidebar)] to sit cleanly above mobile map views) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-72 p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
+        <SheetContent ref={setMobileSheetContent} side="left" className="w-72 p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav
             collapsed={false}
@@ -741,6 +751,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
               setMobileOpen(false);
               setScannerOpen(true);
             }}
+            popoverPortalContainer={mobileSheetContent}
             role={role}
           />
         </SheetContent>

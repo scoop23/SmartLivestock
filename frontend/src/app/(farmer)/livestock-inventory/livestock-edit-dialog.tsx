@@ -153,7 +153,7 @@ export default function LivestockEditDialog({
 
   return (
     <Dialog open={open && !!item} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl border-0 shadow-2xl max-h-[90vh] overflow-y-auto [&>button]:text-white/70 [&>button]:hover:text-white">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl border-0 shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] overflow-y-auto [&>button]:text-white/70 [&>button]:hover:text-white">
         <DialogHeader className="hidden">
           <DialogTitle>Edit Livestock Entry</DialogTitle>
           <DialogDescription>Update the details of this individual animal</DialogDescription>
@@ -198,7 +198,7 @@ export default function LivestockEditDialog({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>
                   <Input
@@ -231,7 +231,7 @@ export default function LivestockEditDialog({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editBatch">Assigned Herd</Label>
                   <Select
@@ -265,7 +265,7 @@ export default function LivestockEditDialog({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editSex">Sex / Gender</Label>
                   <Select value={form.sex} onValueChange={(val) => set({ sex: val })}>

@@ -488,7 +488,7 @@ export function UserProfileView() {
             {/* Profile Identity Details with High-Contrast Bright Text */}
             <div className="space-y-2 min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none truncate drop-shadow-sm">
+                <h1 className={`text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm ${user?.role?.toUpperCase() === "FARMER" ? "whitespace-normal break-words" : "truncate"}`}>
                   {userDisplayName}
                 </h1>
                 <Badge className="text-[10px] font-black uppercase px-2.5 py-0.5 border bg-emerald-500/30 text-emerald-100 border-emerald-400/40 backdrop-blur-xs">

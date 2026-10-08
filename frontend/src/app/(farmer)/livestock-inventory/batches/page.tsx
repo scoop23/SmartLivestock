@@ -645,16 +645,16 @@ export default function BatchOverviewPage() {
             <span className="text-xs font-semibold text-slate-400">|</span>
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <Layers className="size-4 text-emerald-600" />
-              <span>{batches.length} Active Batches on Record</span>
+              <span>{batches.length} Herds on Record</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               onClick={() => setIsBatchProductionOpen(true)}
               variant="outline"
               size="sm"
-              className="rounded-xl border-emerald-600/30 text-emerald-800 hover:bg-emerald-50 font-bold text-xs gap-1.5 cursor-pointer"
+              className="min-h-11 w-full rounded-xl border-emerald-600/30 text-emerald-800 hover:bg-emerald-50 font-bold text-xs gap-1.5 cursor-pointer sm:w-auto"
             >
               <TrendingUp className="size-3.5 text-emerald-600" /> Record Herd Production
             </Button>
@@ -671,7 +671,7 @@ export default function BatchOverviewPage() {
                 setIsAddIndividualOpen(true);
               }}
               size="sm"
-              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm"
+              className="min-h-11 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm sm:w-auto"
             >
               <Plus className="size-4" /> Add Animal to Batch
             </Button>
@@ -679,22 +679,11 @@ export default function BatchOverviewPage() {
         </div>
 
         {/* ── BATCH SELECTOR CARDS ────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {batches.map((batch) => {
             const isSelected = currentBatch?.id === batch.id;
             const avatar = getDefaultAvatarForSpecies(batch.species);
             const headCount = batch.individuals?.length || batch.totalQuantity || 0;
-            const targetKg =
-              batch.targetWeightKg > 0
-                ? batch.targetWeightKg
-                : batch.averageWeightKg > 0
-                  ? Math.round(batch.averageWeightKg * 1.3)
-                  : 90;
-            const weightProgress = Math.min(
-              100,
-              Math.max(0, Math.round((batch.averageWeightKg / targetKg) * 100))
-            );
-
             return (
               <Card
                 key={batch.id}
@@ -712,123 +701,46 @@ export default function BatchOverviewPage() {
                     }`}
                 />
 
-                <CardContent className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    {/* Header Row: Species & MAO Status on left, Head count on right */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide uppercase bg-emerald-100 text-emerald-900 border border-emerald-200/80 shadow-2xs">
-                          <span>{avatar.emoji}</span>
-                          <span>{batch.species}</span>
-                        </span>
-                        {getReviewStatusBadge(batch.reviewStatus)}
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <div className="flex items-baseline justify-end gap-1">
-                          <span className="text-xl font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
-                            {headCount}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase text-slate-400">Animals</span>
-                        </div>
-                        <div className="flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-600">
-                          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span>Active</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Herd Name & Tag Subtitle */}
-                    <div className="space-y-1">
-                      <h4 className="font-black text-base text-slate-900 leading-snug group-hover:text-emerald-900 transition-colors line-clamp-1">
+                <CardContent className="flex flex-1 flex-col gap-4 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-900">
+                        <span aria-hidden="true">{avatar.emoji}</span>
+                        <span className="break-words">{batch.species}</span>
+                      </span>
+                      <h2 className="mt-3 break-words text-lg font-black leading-snug text-slate-900 group-hover:text-emerald-800">
                         {batch.batchName || `${batch.species} Herd`}
-                      </h4>
-                      <div className="flex items-center gap-1.5 text-xs flex-wrap">
-                        <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                          {batch.batchCode}
-                        </span>
-                        <span className="text-slate-300 font-bold">&bull;</span>
-                        <span className="text-slate-500 font-medium truncate max-w-[160px]">
-                          {batch.breed}
-                        </span>
-                      </div>
+                      </h2>
+                      <p className="mt-1 break-words text-sm text-slate-600">{batch.breed}</p>
+                      <p className="mt-2 inline-block break-all rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">
+                        {batch.batchCode}
+                      </p>
                     </div>
-
-                    {/* Weight & Target Progress Bar */}
-                    <div className="p-2.5 rounded-xl bg-slate-50/90 border border-slate-100/90 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                          <Scale className="size-3 text-slate-400" /> Avg Weight
-                        </span>
-                        <span className="font-bold text-slate-800 text-xs">
-                          {batch.averageWeightKg} kg{" "}
-                          <span className="text-[10px] font-medium text-slate-400">
-                            / {targetKg} kg
-                          </span>
-                          <span className="ml-1 text-[10px] font-black text-emerald-600">
-                            ({weightProgress}%)
-                          </span>
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full bg-slate-200/70 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${weightProgress >= 90
-                            ? "bg-gradient-to-r from-emerald-500 to-teal-500"
-                            : weightProgress >= 60
-                              ? "bg-gradient-to-r from-emerald-500 to-emerald-600"
-                              : "bg-gradient-to-r from-amber-500 to-emerald-500"
-                            }`}
-                          style={{ width: `${weightProgress}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Pen & Feed Quick Specs */}
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-0.5 border-t border-slate-100/80">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <MapPin className="size-3.5 text-slate-400 shrink-0" />
-                        <div className="min-w-0">
-                          <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">
-                            Housing Pen
-                          </span>
-                          <p className="font-bold text-slate-700 truncate leading-tight text-xs mt-0.5">
-                            {batch.housingPen || "Standard Pen"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Flame className="size-3.5 text-amber-500 shrink-0" />
-                        <div className="min-w-0">
-                          <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">
-                            Feed Ration
-                          </span>
-                          <p className="font-bold text-slate-700 truncate leading-tight text-xs mt-0.5">
-                            {batch.feedType || "—"}
-                          </p>
-                        </div>
-                      </div>
+                    <div className="shrink-0 rounded-2xl bg-emerald-50 px-3 py-2 text-center">
+                      <p className="text-2xl font-black leading-none text-emerald-900">{headCount}</p>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Animals</p>
                     </div>
                   </div>
 
-                  {/* Selection Status / Inspect Action */}
-                  <div className="pt-2">
-                    {isSelected ? (
-                      <div className="flex items-center justify-between text-[11px] font-black text-emerald-800 bg-emerald-100/90 py-1.5 px-2.5 rounded-lg border border-emerald-300/80 shadow-2xs">
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="size-3.5 text-emerald-700" />
-                          <span>Currently Inspecting</span>
-                        </div>
-                        <span className="text-[9px] uppercase tracking-wider font-extrabold text-emerald-700 bg-white/90 px-1.5 py-0.5 rounded shadow-2xs">
-                          Active
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 group-hover:text-emerald-700 py-1 px-2.5 rounded-lg group-hover:bg-emerald-50/70 transition-colors">
-                        <span>Click to inspect herd</span>
-                        <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
-                      </div>
-                    )}
+                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                    <Badge variant="outline" className="max-w-full whitespace-normal break-words">
+                      {batch.status || "Status not recorded"}
+                    </Badge>
+                    {getReviewStatusBadge(batch.reviewStatus)}
                   </div>
+
+                  <Button
+                    type="button"
+                    variant={isSelected ? "default" : "outline"}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedBatchId(batch.id);
+                    }}
+                    className={`mt-auto min-h-11 w-full rounded-xl font-bold ${isSelected ? "bg-emerald-700 text-white hover:bg-emerald-800" : "border-emerald-200 text-emerald-800 hover:bg-emerald-50"}`}
+                  >
+                    {isSelected ? "Viewing this herd" : "View Herd"}
+                    <ChevronRight className="ml-1 size-4" />
+                  </Button>
                 </CardContent>
               </Card>
             );

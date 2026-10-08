@@ -75,6 +75,7 @@
   --z-toast: 1350;
   --z-dialog-overlay: 1400;
   --z-dialog: 1410;
+  --z-popover-dialog: 1420;
   /* Alert dialogs are dialogs too; they use the same application layer. */
   --z-critical-overlay: var(--z-dialog-overlay);
   --z-critical: var(--z-dialog);

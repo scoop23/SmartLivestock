@@ -262,7 +262,7 @@ export default function FarmerReportsListDialog({
                           </span>
                         </div>
 
-                        <p className="text-xs font-semibold text-slate-700 truncate mt-0.5">
+                        <p className="text-xs font-semibold text-slate-700 whitespace-normal break-words mt-0.5">
                           {rep.name}
                         </p>
 

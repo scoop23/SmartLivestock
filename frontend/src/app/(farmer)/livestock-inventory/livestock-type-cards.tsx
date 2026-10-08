@@ -277,10 +277,10 @@ export default function LivestockTypeCards({
                         <Icon className={`size-4 ${config.iconColor}`} />
                       </div>
                       <div className="min-w-0 text-white drop-shadow-sm">
-                        <CardTitle className="text-lg font-black tracking-tight truncate leading-tight text-white">
+                        <CardTitle className="text-lg font-black tracking-tight leading-tight text-white whitespace-normal break-words">
                           {type.name}
                         </CardTitle>
-                        <CardDescription className="text-[11px] font-medium text-white/85 truncate">
+                        <CardDescription className="text-[11px] font-medium text-white/85 whitespace-normal break-words">
                           {type.approved} verified • {type.batches + type.individuals} entries
                         </CardDescription>
                       </div>
@@ -294,10 +294,10 @@ export default function LivestockTypeCards({
                         <Icon className={`size-5 ${config.iconColor}`} />
                       </div>
                       <div className="min-w-0">
-                        <CardTitle className="text-xl font-black text-emerald-950 tracking-tight truncate">
+                        <CardTitle className="text-xl font-black text-emerald-950 tracking-tight whitespace-normal break-words">
                           {type.name}
                         </CardTitle>
-                        <CardDescription className="text-xs font-semibold text-stone-600 truncate mt-0.5">
+                        <CardDescription className="text-xs font-semibold text-stone-600 whitespace-normal break-words mt-0.5">
                           {type.approved} verified • {type.batches + type.individuals} entries
                         </CardDescription>
                       </div>

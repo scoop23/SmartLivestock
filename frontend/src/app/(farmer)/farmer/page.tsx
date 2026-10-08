@@ -125,7 +125,7 @@ export default function FarmerDashboard() {
         }
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6 pb-28">
+      <div className="p-4 md:p-8 w-full space-y-6">
         {/* 1. KEY EXECUTIVE METRICS */}
         {isLoading ? (
           <FarmerStats isLoading />

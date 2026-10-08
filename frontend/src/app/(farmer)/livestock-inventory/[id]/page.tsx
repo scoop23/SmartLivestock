@@ -758,9 +758,9 @@ export default function LivestockDetailPage() {
 
         {/* ── HERO PASSPORT CARD ──────────────────────────────────────────── */}
         <Card className="rounded-3xl border-slate-200 shadow-md bg-white overflow-hidden">
-          <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-6 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex items-start gap-4">
+          <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-5 sm:p-6 md:p-8">
+            <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)] md:items-center">
+              <div className="flex min-w-0 items-start gap-4">
                 <div className="relative shrink-0">
                   {photoUrl ? (
                     <img
@@ -778,9 +778,9 @@ export default function LivestockDetailPage() {
                   )}
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    <span className="break-words text-xl sm:text-2xl font-black text-white tracking-tight">
                       {activeItem.tagNumber}
                     </span>
                     <Badge
@@ -812,18 +812,18 @@ export default function LivestockDetailPage() {
                     )}
                   </div>
 
-                  <h3 className="text-sm font-semibold text-emerald-100/90">
+                  <h3 className="break-words text-sm font-semibold text-emerald-100/90">
                     {activeItem.breed || "Standard Breed"} &bull; {activeItem.sex || "Female"}
                   </h3>
 
-                  <p className="text-xs text-emerald-200/70 font-medium">
+                  <p className="break-words text-xs text-emerald-200/70 font-medium">
                     Owner: <strong>{activeItem.farmerName}</strong> &bull; Registration: {activeItem.createdAt ? activeItem.createdAt.split("T")[0] : "Official Record"}
                   </p>
                 </div>
               </div>
 
               {/* Quick Biometrics Right Panel */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-black/20 p-4 rounded-2xl border border-white/10 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-black/20 p-4 rounded-2xl border border-white/10 text-center md:min-w-0">
                 <div className="space-y-0.5">
                   <span className="text-[10px] uppercase font-bold text-emerald-200/60">Live Weight</span>
                   <p className="text-lg font-black text-white">{latestWeight} kg</p>

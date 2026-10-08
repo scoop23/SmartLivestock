@@ -29,7 +29,7 @@ export default function FarmerStats({
 }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <KpiCard key={i} title="" value="" isLoading />
         ))}
@@ -43,7 +43,6 @@ export default function FarmerStats({
   const activeAlerts = data?.active_health_alerts ?? 0;
   const milkLiters = data?.milk_production_liters ?? null;
   const milkGrowth = data?.milk_growth_pct ?? null;
-  console.log(milkGrowth);
 
   const livestockSub =
     cattleCount === 0
@@ -104,7 +103,7 @@ export default function FarmerStats({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
       {allCards.map((card) => (
         <KpiCard
           key={card.label}
@@ -115,6 +114,7 @@ export default function FarmerStats({
           badgeClassName={card.subClass}
           variant={card.variant}
           description={card.description}
+          wrapText
         />
       ))}
     </div>

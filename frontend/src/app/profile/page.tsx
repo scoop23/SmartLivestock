@@ -49,6 +49,7 @@ export default function ProfilePage() {
           title="User Profile & Security Settings"
           subtitle="Manage your personal agricultural credentials, biosecurity alerts, and account access — Padre Garcia MAO"
           variant="admin"
+          wrapSubtitleOnMobile={role === "FARMER"}
           maxWidthClass="w-full"
         />
 

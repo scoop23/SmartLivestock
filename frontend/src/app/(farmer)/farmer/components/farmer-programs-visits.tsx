@@ -154,7 +154,7 @@ export default function FarmerProgramsVisits() {
                     ) : null}
                   </div>
 
-                  <h4 className="line-clamp-2 text-xs sm:text-[13px] font-bold leading-snug text-slate-900 group-hover:text-emerald-800 transition-colors">
+                  <h4 className="text-xs sm:text-[13px] font-bold leading-snug text-slate-900 group-hover:text-emerald-800 transition-colors whitespace-normal break-words">
                     {schedule.program}
                   </h4>
 

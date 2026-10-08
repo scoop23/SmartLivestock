@@ -21,6 +21,8 @@ export interface KpiCardProps {
   className?: string;
   onClick?: () => void;
   accentBarColor?: string;
+  /** Let important Farmer dashboard labels wrap in narrow two-column cards. */
+  wrapText?: boolean;
 }
 
 const variantStyles: Record<
@@ -90,6 +92,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
   className,
   onClick,
   accentBarColor,
+  wrapText = false,
 }) => {
   const styles = variantStyles[variant] || variantStyles.default;
   const isSm = size === "sm";
@@ -160,10 +163,10 @@ export const KpiCard: React.FC<KpiCardProps> = ({
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-bold text-stone-700 line-clamp-2 leading-tight">{title}</p>
+              <p className={cn("text-xs sm:text-sm font-bold text-stone-700 leading-tight", wrapText ? "whitespace-normal break-words" : "line-clamp-2")}>{title}</p>
 
               {description && (
-                <p className="text-xs text-stone-500 font-medium truncate mt-0.5">{description}</p>
+                <p className={cn("text-xs text-stone-500 font-medium mt-0.5", wrapText ? "whitespace-normal break-words" : "truncate")}>{description}</p>
               )}
             </div>
           </div>
@@ -203,7 +206,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
       <CardContent className={cn("flex flex-col justify-between h-full relative z-10", isSm ? "p-3.5 sm:p-4" : "p-4 sm:p-5")}>
         <div>
           {/* Header Row: Icon + Badge */}
-        <div className={cn("flex items-center justify-between gap-2", isSm ? "mb-2" : "mb-3")}>
+        <div className={cn("flex justify-between gap-2", wrapText ? "items-start" : "items-center", isSm ? "mb-2" : "mb-3")}>
           {icon && (
             <div
               className={cn(
@@ -216,9 +219,10 @@ export const KpiCard: React.FC<KpiCardProps> = ({
             </div>
           )}
           {badge && (
-            <span
+          <span
               className={cn(
-                "font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full whitespace-nowrap text-xs",
+                "font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full text-xs",
+                wrapText ? "min-w-0 max-w-full whitespace-normal break-words leading-tight text-right" : "whitespace-nowrap",
                 badgeClassName || styles.badgeDefault
               )}
             >
@@ -228,16 +232,16 @@ export const KpiCard: React.FC<KpiCardProps> = ({
         </div>
 
         {/* Title / Label */}
-        <p className="text-xs sm:text-sm font-bold text-stone-600 truncate">{title}</p>
+        <p className={cn("text-xs sm:text-sm font-bold text-stone-600", wrapText ? "whitespace-normal break-words" : "truncate")}>{title}</p>
 
         {/* Metric Value */}
-        <div className={cn("font-black text-slate-900 tracking-tight truncate", isSm ? "text-xl sm:text-2xl mt-0.5" : "text-2xl sm:text-3xl mt-1")}>
+        <div className={cn("font-black text-slate-900 tracking-tight", wrapText ? "whitespace-normal break-words" : "truncate", isSm ? "text-xl sm:text-2xl mt-0.5" : "text-2xl sm:text-3xl mt-1")}>
           {value}
         </div>
 
         {/* Optional extra description */}
         {description && (
-          <p className="text-xs text-stone-500 font-medium truncate mt-0.5">{description}</p>
+          <p className={cn("text-xs text-stone-500 font-medium mt-0.5", wrapText ? "whitespace-normal break-words" : "truncate")}>{description}</p>
         )}
       </div>
 

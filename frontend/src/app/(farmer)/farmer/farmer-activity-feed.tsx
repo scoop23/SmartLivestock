@@ -184,7 +184,7 @@ export default function FarmerActivityFeed({
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-xs font-black text-slate-900 group-hover:text-[#2D5A27] transition-colors truncate">
+                        <p className="text-xs font-black text-slate-900 group-hover:text-[#2D5A27] transition-colors whitespace-normal break-words">
                           {item.title}
                         </p>
                         {isHealth && (
