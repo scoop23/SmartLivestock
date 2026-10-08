@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import api from "@/lib/axios";
+import { localCalendarDateToday } from "@/lib/livestock-age";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useLivestockBatches,
@@ -176,6 +177,9 @@ export default function BatchOverviewPage() {
     tagNumber: "",
     breed: "",
     sex: "FEMALE",
+    weight: "",
+    birthDate: "",
+    lastVaccinationDate: "",
   });
 
   // Auto-select batch from ?batch=<id> query param (e.g. coming from livestock profile)
@@ -319,13 +323,23 @@ export default function BatchOverviewPage() {
           tag_number: newAnimalData.tagNumber.trim().toUpperCase(),
           breed: newAnimalData.breed.trim(),
           sex: newAnimalData.sex,
+          weight: newAnimalData.weight || null,
+          birth_date: newAnimalData.birthDate || null,
+          last_vaccination_date: newAnimalData.lastVaccinationDate || null,
         }],
       });
       await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
       await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
       toast.success(`Animal ${newAnimalData.tagNumber.trim().toUpperCase()} registered to ${currentBatch.batchCode}.`);
       setIsAddIndividualOpen(false);
-      setNewAnimalData({ tagNumber: "", breed: "", sex: "FEMALE" });
+      setNewAnimalData({
+        tagNumber: "",
+        breed: "",
+        sex: "FEMALE",
+        weight: "",
+        birthDate: "",
+        lastVaccinationDate: "",
+      });
     } catch (error: any) {
       toast.error(error.response?.data?.error || error.response?.data?.detail || "Could not add the animal to this herd.");
     } finally {
@@ -889,7 +903,7 @@ export default function BatchOverviewPage() {
 
       {/* ── DIALOG: ADD INDIVIDUAL TO BATCH ───────────────────────────────── */}
       <Dialog open={isAddIndividualOpen} onOpenChange={setIsAddIndividualOpen}>
-        <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+        <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:max-h-[90dvh] sm:max-w-lg sm:p-6">
           <form onSubmit={handleAddIndividual}>
             <DialogHeader>
               <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -935,6 +949,42 @@ export default function BatchOverviewPage() {
                   value={newAnimalData.breed}
                   onChange={(e) => setNewAnimalData({ ...newAnimalData, breed: e.target.value })}
                   className="rounded-xl border-slate-300"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="font-bold text-slate-700">Weight (kg, optional)</Label>
+                <Input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={newAnimalData.weight}
+                  onChange={(e) => setNewAnimalData({ ...newAnimalData, weight: e.target.value })}
+                  placeholder="e.g. 65"
+                  className="min-w-0 rounded-xl border-slate-300"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="font-bold text-slate-700">Birth Date (optional)</Label>
+                <Input
+                  type="date"
+                  max={localCalendarDateToday()}
+                  value={newAnimalData.birthDate}
+                  onChange={(e) => setNewAnimalData({ ...newAnimalData, birthDate: e.target.value })}
+                  className="h-11 min-w-0 w-full rounded-xl border-slate-300"
+                />
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="font-bold text-slate-700">Last Vaccination Date (optional)</Label>
+                <Input
+                  type="date"
+                  max={localCalendarDateToday()}
+                  value={newAnimalData.lastVaccinationDate}
+                  onChange={(e) => setNewAnimalData({ ...newAnimalData, lastVaccinationDate: e.target.value })}
+                  className="h-11 min-w-0 w-full rounded-xl border-slate-300"
                 />
               </div>
             </div>
