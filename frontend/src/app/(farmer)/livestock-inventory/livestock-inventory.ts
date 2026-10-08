@@ -71,6 +71,7 @@ export interface LivestockBatchItem {
   livestockTypeName: string;
   batchName: string;
   batchCode: string;
+  photoUrl?: string | null;
   housingPen: string;
   feedType: string;
   targetWeight: number | null;
@@ -462,7 +463,7 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   reviewedByName: item.reviewed_by_name,
   reviewedAt: item.reviewed_at,
   createdAt: item.created_at,
-  photoUrl: (item as any).photo || (item as any).photo_url || null,
+  photoUrl: item.photo_url || item.photo || null,
   avatarKey: (item as any).avatar_key || null,
   batchId: item.batch || null,
   batchCode: item.batch_code || null,
@@ -521,6 +522,7 @@ export async function fetchLivestockBatches(): Promise<LivestockBatchItem[]> {
     livestockTypeName: b.livestock_type_name,
     batchName: b.batch_name,
     batchCode: b.batch_code,
+    photoUrl: b.photo_url || null,
     housingPen: b.housing_pen,
     feedType: b.feed_type,
     targetWeight: b.target_weight ? Number(b.target_weight) : null,

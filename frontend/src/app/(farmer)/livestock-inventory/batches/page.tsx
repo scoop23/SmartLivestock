@@ -9,26 +9,16 @@ import {
   Plus,
   Scale,
   ShieldCheck,
-  Activity,
   AlertTriangle,
   Search,
-  Filter,
   Eye,
   CheckCircle2,
-  Calendar,
-  Sparkles,
   ChevronRight,
   ClipboardList,
   Beef,
-  Flame,
   RefreshCw,
-  QrCode,
   Tag,
   Clock,
-  HelpCircle,
-  Printer,
-  MapPin,
-  Info,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -63,91 +53,38 @@ import { toast } from "sonner";
 import api from "@/lib/axios";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useUserInventory,
-  useLivestockTypes,
   useLivestockBatches,
   getDefaultAvatarForSpecies,
-  type LivestockInventoryItem,
+  INVENTORY_QUERY_KEYS,
 } from "../livestock-inventory";
+import { LivestockPhotoManager } from "../livestock-photo-manager";
 
 // ── Types for Individual Animals inside a Batch ──────────────────────────────
 export interface BatchIndividual {
   id: string;
-  tagNumber: string;
-  name: string;
-  sex: "Male" | "Female" | "Castrated";
-  ageMonths: number;
-  weightKg: number;
-  adgKgDay: number;
-  healthStatus: "Healthy" | "Monitored" | "Vaccinated" | "Quarantined";
-  lastWeighedDate: string;
-  reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
-  notes?: string;
+  tagNumber: string | null;
+  sex: string;
+  weightKg: number | null;
+  lastVaccinationDate: string | null;
+  operationalStatus: string;
+  reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 }
 
 export interface EnrichedBatch {
   id: string;
   batchCode: string;
-  batchName?: string;
+  batchName: string;
+  photoUrl?: string | null;
   species: string;
-  breed: string;
-  totalQuantity: number;
+  breed: string | null;
   activeCount: number;
-  mortalityCount: number;
-  targetWeightKg: number;
-  averageWeightKg: number;
-  acquiredDate: string;
-  housingPen: string;
+  targetWeightKg: number | null;
+  averageWeightKg: number | null;
   status: string;
   reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
   reviewRemarks?: string;
   notes?: string;
-  feedType: string;
   individuals: BatchIndividual[];
-}
-
-// Helper to generate realistic individual animal profiles if batch has no custom DB individuals yet
-function generateInitialIndividuals(
-  batchId: string,
-  batchCode: string,
-  species: string,
-  quantity: number,
-  baseWeight: number
-): BatchIndividual[] {
-  const isSwine = species.toLowerCase().includes("swine") || species.toLowerCase().includes("pig");
-  const isPoultry = species.toLowerCase().includes("poultry") || species.toLowerCase().includes("chicken");
-  const isCattle = species.toLowerCase().includes("cattle") || species.toLowerCase().includes("cow");
-
-  const results: BatchIndividual[] = [];
-  const defaultCount = Math.min(Math.max(quantity, 4), 20);
-
-  for (let i = 1; i <= defaultCount; i++) {
-    const pad = i.toString().padStart(2, "0");
-    const tag = `${batchCode.replace("BATCH-", "")}-${pad}`;
-
-    // Slight natural variation in weight (+/- 8%)
-    const variation = (Math.sin(i * 1.7) * 0.08) * baseWeight;
-    const finalWeight = Math.round((baseWeight + variation) * 10) / 10;
-
-    const sex: "Male" | "Female" = i % 2 === 0 ? "Female" : "Male";
-
-    const age = isPoultry ? 1.8 : isSwine ? 4.5 : isCattle ? 14 : 6;
-    const adg = isPoultry ? 0.04 : isSwine ? 0.72 : isCattle ? 0.85 : 0.25;
-
-    results.push({
-      id: `${batchId}-${i}`,
-      tagNumber: tag,
-      name: `Livestock #${i}`,
-      sex: sex,
-      ageMonths: age,
-      weightKg: Math.max(finalWeight, 1),
-      adgKgDay: Math.round((adg + (Math.cos(i) * 0.05)) * 100) / 100,
-      healthStatus: i === 3 ? "Monitored" : i === 7 ? "Vaccinated" : "Healthy",
-      lastWeighedDate: "2026-09-20",
-      notes: i === 3 ? "Mild lethargy noted yesterday, normal appetite today." : undefined,
-    });
-  }
-  return results;
 }
 
 // Helper to render official regulatory review badge for herds
@@ -182,6 +119,13 @@ function getReviewStatusBadge(status?: string) {
       </Badge>
     );
   }
+  if (status === "REJECTED") {
+    return (
+      <Badge variant="outline" className="bg-rose-50 text-rose-800 border-rose-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0">
+        Rejected
+      </Badge>
+    );
+  }
   return (
     <Badge
       variant="outline"
@@ -196,35 +140,43 @@ export default function BatchOverviewPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const { data: rawInventories = [], isLoading } = useUserInventory();
-  const { data: backendBatches = [] } = useLivestockBatches();
+  const {
+    data: backendBatches = [],
+    error: batchesError,
+    isLoading: isBatchesLoading,
+    isError: isBatchesError,
+    refetch: refetchBatches,
+  } = useLivestockBatches();
+  const herdLoadStatus =
+    typeof batchesError === "object" && batchesError !== null && "response" in batchesError
+      ? (batchesError as { response?: { status?: number } }).response?.status
+      : undefined;
+  const herdLoadMessage = herdLoadStatus === 401
+    ? "Your session has expired. Sign in again to view herd records."
+    : herdLoadStatus === 403
+      ? "You don't have permission to view herd records."
+      : "Unable to load herd records. Please try again.";
 
   // Local state for interactive enhancements
   const [selectedBatchId, setSelectedBatchId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [genderFilter, setGenderFilter] = useState<string>("ALL");
-  const [healthFilter, setHealthFilter] = useState<string>("ALL");
 
   // Dialog States
   const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
-  const [isQrCardOpen, setIsQrCardOpen] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
   const [newWeightInput, setNewWeightInput] = useState<string>("");
 
   // Form for adding individual to batch
+  const [isSavingAnimal, setIsSavingAnimal] = useState(false);
+  const [isSavingWeight, setIsSavingWeight] = useState(false);
   const [newAnimalData, setNewAnimalData] = useState({
     tagNumber: "",
-    name: "",
-    sex: "Female" as "Male" | "Female",
-    ageMonths: "4",
-    weightKg: "65",
-    healthStatus: "Healthy" as "Healthy" | "Monitored" | "Vaccinated",
+    breed: "",
+    sex: "FEMALE",
   });
-
-  // Local store of custom added or updated individuals
-  const [customIndividuals, setCustomIndividuals] = useState<Record<string, BatchIndividual[]>>({});
 
   // Auto-select batch from ?batch=<id> query param (e.g. coming from livestock profile)
   useEffect(() => {
@@ -234,232 +186,33 @@ export default function BatchOverviewPage() {
     }
   }, [searchParams]);
 
-  // Hydrate custom batch individuals from localStorage (from Add Livestock batch registration)
-  useEffect(() => {
-    try {
-      const stored: Record<string, BatchIndividual[]> = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith("batch_individuals_")) {
-          const batchId = key.replace("batch_individuals_", "");
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            stored[batchId] = JSON.parse(raw);
-          }
-        }
-      }
-      if (Object.keys(stored).length > 0) {
-        setCustomIndividuals((prev) => ({ ...prev, ...stored }));
-      }
-    } catch (e) {
-      console.error("Failed to load local batch individuals:", e);
-    }
-  }, []);
-
-  // Clean up stale localStorage entries once the backend has real animal data for those batches.
-  // Without this, old registration snapshots stick around forever and may override fresh API data.
-  useEffect(() => {
-    if (!backendBatches || backendBatches.length === 0) return;
-    backendBatches.forEach((b) => {
-      if (b.animals && b.animals.length > 0) {
-        const key = `batch_individuals_${b.id}`;
-        if (localStorage.getItem(key)) {
-          localStorage.removeItem(key);
-          setCustomIndividuals((prev) => {
-            const next = { ...prev };
-            delete next[String(b.id)];
-            return next;
-          });
-        }
-      }
-    });
-  }, [backendBatches]);
-
-  // Compile Batches from Backend API + Inventory (or seed intelligent defaults if none)
+  // This page lists persisted herd records only; it never synthesizes demo herds or animals.
   const batches: EnrichedBatch[] = useMemo(() => {
-    // 1. Batches from dedicated backend LivestockBatch API
-    const apiBatches: EnrichedBatch[] = backendBatches.map((b) => {
-      const indList: BatchIndividual[] =
-        b.animals && b.animals.length > 0
-          ? b.animals.map((a, idx) => ({
-            id: String(a.id),
-            tagNumber: a.tagNumber || `${b.batchCode}-${(idx + 1).toString().padStart(2, "0")}`,
-            name: a.tagNumber ? `Animal ${a.tagNumber}` : `Animal #${idx + 1}`,
-            sex: a.sex?.toLowerCase() === "castrated"
-              ? ("Castrated" as const)
-              : a.sex?.toUpperCase() === "MALE"
-                ? ("Male" as const)
-                : ("Female" as const),
-            ageMonths: 4,
-            weightKg: a.weight ? Number(a.weight) : 65,
-            adgKgDay: 0.72,
-            healthStatus: a.lastVaccinationDate ? ("Vaccinated" as const) : ("Healthy" as const),
-            lastWeighedDate: a.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
-            reviewStatus: (a.status as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION") || "PENDING",
-          }))
-          : customIndividuals[String(b.id)] ||
-          generateInitialIndividuals(
-            String(b.id),
-            b.batchCode,
-            b.livestockTypeName,
-            b.totalAnimals || 1,
-            b.averageWeight || 65
-          );
-
-      const computedAvgWeight =
-        indList.length > 0
-          ? Math.round(
-            (indList.reduce((acc, curr) => acc + curr.weightKg, 0) / indList.length) * 10
-          ) / 10
-          : b.averageWeight || 65;
-
-      return {
+    return backendBatches.map((b) => ({
         id: String(b.id),
         batchCode: b.batchCode,
-        batchName: b.batchName || `${b.livestockTypeName} Herd`,
+        batchName: b.batchName,
+        photoUrl: b.photoUrl || null,
         species: b.livestockTypeName,
-        breed: b.animals?.[0]?.breed || "Herd Roster",
-        totalQuantity: b.totalAnimals || indList.length,
-        activeCount: indList.length,
-        mortalityCount: 0,
-        targetWeightKg: b.targetWeight || 90,
-        averageWeightKg: computedAvgWeight,
-        acquiredDate: b.createdAt ? b.createdAt.split("T")[0] : "2026-06-01",
-        housingPen: b.housingPen || "Standard Pen",
-        status: b.status || "ACTIVE",
-        reviewStatus: b.reviewStatus || "PENDING",
+        breed: b.animals?.find((animal) => animal.breed)?.breed || null,
+        activeCount: b.totalAnimals,
+        targetWeightKg: b.targetWeight,
+        averageWeightKg: b.averageWeight,
+        status: b.status,
+        reviewStatus: b.reviewStatus,
         reviewRemarks: b.reviewRemarks,
         notes: b.notes,
-        feedType: b.feedType || "—",
-        individuals: indList,
-      };
-    });
-
-    // 2. Legacy batch entries from raw inventory
-    const legacyBatchItems = rawInventories.filter(
-      (item) => item.entryType === "BATCH" && !backendBatches.some((bb) => bb.batchCode === item.tagNumber)
-    );
-
-    const legacyBatches: EnrichedBatch[] = legacyBatchItems.map((item, index) => {
-      const batchCode = item.tagNumber || `BATCH-${item.livestockTypeName.slice(0, 3).toUpperCase()}-${item.id}`;
-      const baseWeight = item.weight || (item.livestockTypeName.toLowerCase().includes("swine") ? 65 : 35);
-      const indKey = String(item.id);
-
-      const generated = customIndividuals[indKey] || generateInitialIndividuals(
-        indKey,
-        batchCode,
-        item.livestockTypeName,
-        item.quantity,
-        baseWeight
-      );
-
-      const avgWeight =
-        generated.length > 0
-          ? Math.round(
-            (generated.reduce((acc, curr) => acc + curr.weightKg, 0) / generated.length) * 10
-          ) / 10
-          : baseWeight;
-
-      return {
-        id: String(item.id),
-        batchCode: batchCode,
-        batchName: item.batchName || `${item.livestockTypeName} Herd`,
-        species: item.livestockTypeName,
-        breed: item.breed || "Standard Hybrid",
-        totalQuantity: item.quantity,
-        activeCount: generated.length || item.quantity,
-        mortalityCount: 0,
-        targetWeightKg: item.livestockTypeName.toLowerCase().includes("swine") ? 90 : 45,
-        averageWeightKg: avgWeight,
-        acquiredDate: item.createdAt ? item.createdAt.split("T")[0] : "2026-06-01",
-        housingPen: `Enclosure Pen ${index + 1}`,
-        status: "ACTIVE",
-        reviewStatus: (item.status as any) || "PENDING",
-        reviewRemarks: item.reviewRemarks || undefined,
-        feedType: "Local LGU Agri-Blend Formula",
-        individuals: generated,
-      };
-    });
-
-    const combined = [...apiBatches, ...legacyBatches];
-    if (combined.length > 0) {
-      return combined;
-    }
-
-    // Demo batches if completely empty
-    const demoBatches: EnrichedBatch[] = [
-      {
-        id: "demo-batch-1",
-        batchCode: "BATCH-SWN-2026-01",
-        species: "Swine",
-        breed: "Large White x Landrace",
-        totalQuantity: 10,
-        activeCount: 10,
-        mortalityCount: 0,
-        targetWeightKg: 90,
-        averageWeightKg: 68.4,
-        acquiredDate: "2026-06-15",
-        housingPen: "Pen 3 - Fattening Barn",
-        status: "ACTIVE",
-        reviewStatus: "APPROVED",
-        feedType: "Commercial Finisher Pellets",
-        individuals: customIndividuals["demo-batch-1"] || generateInitialIndividuals(
-          "demo-batch-1",
-          "BATCH-SWN-2026-01",
-          "Swine",
-          10,
-          68.4
-        ),
-      },
-      {
-        id: "demo-batch-2",
-        batchCode: "BATCH-PLT-2026-04",
-        species: "Poultry",
-        breed: "Lohmann Brown (Layer)",
-        totalQuantity: 30,
-        activeCount: 29,
-        mortalityCount: 1,
-        targetWeightKg: 2.2,
-        averageWeightKg: 1.95,
-        acquiredDate: "2026-07-01",
-        housingPen: "Coop B - Free Range Enclosure",
-        status: "ACTIVE",
-        reviewStatus: "VERIFIED",
-        feedType: "Layer Mash 18% Protein",
-        individuals: customIndividuals["demo-batch-2"] || generateInitialIndividuals(
-          "demo-batch-2",
-          "BATCH-PLT-2026-04",
-          "Poultry",
-          8,
-          1.95
-        ),
-      },
-      {
-        id: "demo-batch-3",
-        batchCode: "BATCH-GOAT-2026-02",
-        species: "Goat",
-        breed: "Boer x Anglo-Nubian",
-        totalQuantity: 6,
-        activeCount: 6,
-        mortalityCount: 0,
-        targetWeightKg: 45,
-        averageWeightKg: 34.2,
-        acquiredDate: "2026-05-10",
-        housingPen: "Paddock 2 - Elevated Slatted Pen",
-        status: "ACTIVE",
-        reviewStatus: "PENDING",
-        feedType: "Napier Grass & Goat Concentrate",
-        individuals: customIndividuals["demo-batch-3"] || generateInitialIndividuals(
-          "demo-batch-3",
-          "BATCH-GOAT-2026-02",
-          "Goat",
-          6,
-          34.2
-        ),
-      },
-    ];
-    return demoBatches;
-  }, [backendBatches, rawInventories, customIndividuals]);
+        individuals: (b.animals || []).map((animal) => ({
+          id: String(animal.id),
+          tagNumber: animal.tagNumber || null,
+          sex: animal.sex || "Not recorded",
+          weightKg: animal.weight == null ? null : Number(animal.weight),
+          lastVaccinationDate: animal.lastVaccinationDate,
+          operationalStatus: animal.operationalStatus,
+          reviewStatus: animal.status,
+        })),
+      }));
+  }, [backendBatches]);
 
   // Active selected batch
   const currentBatch = useMemo(() => {
@@ -473,34 +226,28 @@ export default function BatchOverviewPage() {
     if (!currentBatch) return [];
     return currentBatch.individuals.filter((animal) => {
       const matchSearch =
-        animal.tagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        animal.name.toLowerCase().includes(searchQuery.toLowerCase());
+        (animal.tagNumber || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        animal.id.toLowerCase().includes(searchQuery.toLowerCase());
       const matchGender = genderFilter === "ALL" || animal.sex.toUpperCase() === genderFilter.toUpperCase();
-      const matchHealth = healthFilter === "ALL" || animal.healthStatus.toUpperCase() === healthFilter.toUpperCase();
-      return matchSearch && matchGender && matchHealth;
+      return matchSearch && matchGender;
     });
-  }, [currentBatch, searchQuery, genderFilter, healthFilter]);
+  }, [currentBatch, searchQuery, genderFilter]);
 
   // Calculations for Batch Yield
   const yieldMetrics = useMemo(() => {
-    if (!currentBatch) return { totalBiomass: 0, dressedYieldKg: 0, dressingPct: 75, readinessPct: 0 };
-    const totalBiomass = Math.round(
-      currentBatch.individuals.reduce((acc, curr) => acc + curr.weightKg, 0) * 10
-    ) / 10;
-
-    // Standard dressing percentage by species
-    let dressingPct = 75; // Swine ~75%
-    if (currentBatch.species.toLowerCase().includes("poultry")) dressingPct = 70;
-    if (currentBatch.species.toLowerCase().includes("cattle")) dressingPct = 58;
-    if (currentBatch.species.toLowerCase().includes("goat")) dressingPct = 50;
-
-    const dressedYieldKg = Math.round((totalBiomass * (dressingPct / 100)) * 10) / 10;
-    const readinessPct = Math.min(
-      Math.round((currentBatch.averageWeightKg / currentBatch.targetWeightKg) * 100),
-      100
+    if (!currentBatch) return { totalBiomass: null, readinessPct: null, weighedAnimalCount: 0 };
+    const weighedActiveAnimals = currentBatch.individuals.filter(
+      (animal) => animal.operationalStatus === "ACTIVE" && animal.weightKg !== null,
     );
+    const totalBiomass = weighedActiveAnimals.length > 0
+      ? Math.round(weighedActiveAnimals.reduce((acc, animal) => acc + (animal.weightKg || 0), 0) * 10) / 10
+      : null;
 
-    return { totalBiomass, dressedYieldKg, dressingPct, readinessPct };
+    const readinessPct = currentBatch.averageWeightKg !== null && currentBatch.targetWeightKg
+      ? Math.min(Math.round((currentBatch.averageWeightKg / currentBatch.targetWeightKg) * 100), 100)
+      : null;
+
+    return { totalBiomass, readinessPct, weighedAnimalCount: weighedActiveAnimals.length };
   }, [currentBatch]);
 
   // Handlers
@@ -522,11 +269,11 @@ export default function BatchOverviewPage() {
 
   const handleOpenWeighModal = (animal: BatchIndividual) => {
     setWeighTarget(animal);
-    setNewWeightInput(String(animal.weightKg));
+    setNewWeightInput(animal.weightKg === null ? "" : String(animal.weightKg));
     setIsWeighModalOpen(true);
   };
 
-  const handleSaveWeight = () => {
+  const handleSaveWeight = async () => {
     if (!weighTarget || !currentBatch) return;
     const weightNum = parseFloat(newWeightInput);
     if (isNaN(weightNum) || weightNum <= 0) {
@@ -534,35 +281,26 @@ export default function BatchOverviewPage() {
       return;
     }
 
-    const updated = currentBatch.individuals.map((ind) => {
-      if (ind.id === weighTarget.id) {
-        const diff = weightNum - ind.weightKg;
-        return {
-          ...ind,
-          weightKg: weightNum,
-          adgKgDay: diff > 0 ? Math.round((ind.adgKgDay + 0.05) * 100) / 100 : ind.adgKgDay,
-          lastWeighedDate: new Date().toISOString().split("T")[0],
-        };
-      }
-      return ind;
-    });
-
-    setCustomIndividuals((prev) => ({
-      ...prev,
-      [currentBatch.id]: updated,
-    }));
-
+    setIsSavingWeight(true);
     try {
-      localStorage.setItem(`batch_individuals_${currentBatch.id}`, JSON.stringify(updated));
-    } catch (e) {
-      console.error("Local storage sync error:", e);
+      await api.post("production/weights/", {
+        livestock: Number(weighTarget.id),
+        weight: weightNum,
+        weighing_date: new Date().toISOString().split("T")[0],
+      });
+      await queryClient.invalidateQueries({ queryKey: ["weight_records"] });
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+      toast.success(`Weight recorded for ${weighTarget.tagNumber}: ${weightNum} kg`);
+      setIsWeighModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.livestock?.[0] || error.response?.data?.detail || "Could not save the weight record.");
+    } finally {
+      setIsSavingWeight(false);
     }
-
-    toast.success(`Weight updated for ${weighTarget.tagNumber}: ${weightNum} kg`);
-    setIsWeighModalOpen(false);
   };
 
-  const handleAddIndividual = (e: React.FormEvent) => {
+  const handleAddIndividual = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentBatch) return;
 
@@ -571,40 +309,25 @@ export default function BatchOverviewPage() {
       return;
     }
 
-    const newInd: BatchIndividual = {
-      id: `${currentBatch.id}-${Date.now()}`,
-      tagNumber: newAnimalData.tagNumber.trim().toUpperCase(),
-      name: newAnimalData.name.trim() || `Livestock #${currentBatch.individuals.length + 1}`,
-      sex: newAnimalData.sex,
-      ageMonths: parseFloat(newAnimalData.ageMonths) || 4,
-      weightKg: parseFloat(newAnimalData.weightKg) || currentBatch.averageWeightKg,
-      adgKgDay: 0.72,
-      healthStatus: newAnimalData.healthStatus,
-      lastWeighedDate: new Date().toISOString().split("T")[0],
-    };
-
-    const updated = [...currentBatch.individuals, newInd];
-    setCustomIndividuals((prev) => ({
-      ...prev,
-      [currentBatch.id]: updated,
-    }));
-
+    setIsSavingAnimal(true);
     try {
-      localStorage.setItem(`batch_individuals_${currentBatch.id}`, JSON.stringify(updated));
-    } catch (e) {
-      console.error("Local storage sync error:", e);
+      await api.post(`livestock/batches/${currentBatch.id}/animals/`, {
+        animals: [{
+          tag_number: newAnimalData.tagNumber.trim().toUpperCase(),
+          breed: newAnimalData.breed.trim(),
+          sex: newAnimalData.sex,
+        }],
+      });
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
+      toast.success(`Animal ${newAnimalData.tagNumber.trim().toUpperCase()} registered to ${currentBatch.batchCode}.`);
+      setIsAddIndividualOpen(false);
+      setNewAnimalData({ tagNumber: "", breed: "", sex: "FEMALE" });
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || error.response?.data?.detail || "Could not add the animal to this herd.");
+    } finally {
+      setIsSavingAnimal(false);
     }
-
-    toast.success(`Animal ${newInd.tagNumber} registered to ${currentBatch.batchCode}!`);
-    setIsAddIndividualOpen(false);
-    setNewAnimalData({
-      tagNumber: "",
-      name: "",
-      sex: "Female",
-      ageMonths: "4",
-      weightKg: "65",
-      healthStatus: "Healthy",
-    });
   };
 
   return (
@@ -636,34 +359,49 @@ export default function BatchOverviewPage() {
             </div>
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button
-              onClick={() => {
-                if (currentBatch) {
-                  const nextPad = (currentBatch.individuals.length + 1).toString().padStart(2, "0");
-                  setNewAnimalData((prev) => ({
-                    ...prev,
-                    tagNumber: `${currentBatch.batchCode.replace("BATCH-", "")}-${nextPad}`,
-                  }));
-                }
-                setIsAddIndividualOpen(true);
-              }}
-              size="sm"
-              className="min-h-11 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm sm:w-auto"
-            >
-              <Plus className="size-4" /> Add Animal to Batch
-            </Button>
-          </div>
+          {currentBatch && backendBatches.some((batch) => String(batch.id) === currentBatch.id)
+            && currentBatch.status === "ACTIVE" && currentBatch.reviewStatus === "PENDING" && (
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button
+                  onClick={() => setIsAddIndividualOpen(true)}
+                  size="sm"
+                  className="min-h-11 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm sm:w-auto"
+                >
+                  <Plus className="size-4" /> Add Animal to Batch
+                </Button>
+              </div>
+            )}
         </div>
 
         {/* On desktop, keep herd selection beside its details to use the wide page area. */}
         <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(17rem,0.8fr)_minmax(0,2fr)]">
         {/* ── BATCH SELECTOR CARDS ────────────────────────────────────────── */}
         <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
+          {isBatchesLoading && <Card className="rounded-2xl border-slate-200 p-6 text-sm text-slate-500">Loading your herd records…</Card>}
+          {!isBatchesLoading && isBatchesError && (
+            <Card className="rounded-2xl border-rose-200 p-6 text-sm text-rose-700">
+              <p role="alert">{herdLoadMessage}</p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void refetchBatches()}
+                className="mt-3 min-h-10 border-rose-200 text-rose-800 hover:bg-rose-50"
+              >
+                <RefreshCw className="mr-2 size-4" /> Try again
+              </Button>
+            </Card>
+          )}
+          {!isBatchesLoading && !isBatchesError && batches.length === 0 && (
+            <Card className="rounded-2xl border-slate-200 p-6">
+              <h2 className="font-bold text-slate-900">No herds recorded</h2>
+              <p className="mt-1 text-sm text-slate-600">Registered herds will appear here with their saved livestock records.</p>
+              <Link href="/livestock-inventory" className="mt-3 inline-flex text-sm font-semibold text-emerald-700 hover:underline">Open Livestock Inventory</Link>
+            </Card>
+          )}
           {batches.map((batch) => {
             const isSelected = currentBatch?.id === batch.id;
             const avatar = getDefaultAvatarForSpecies(batch.species);
-            const headCount = batch.individuals?.length || batch.totalQuantity || 0;
+            const headCount = batch.activeCount;
             return (
               <Card
                 key={batch.id}
@@ -683,22 +421,29 @@ export default function BatchOverviewPage() {
 
                 <CardContent className="flex flex-1 flex-col gap-4 p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 items-start gap-3">
+                      {batch.photoUrl ? (
+                        <img src={batch.photoUrl} alt={`${batch.batchName} herd`} className="size-14 shrink-0 rounded-xl border border-slate-200 object-cover" />
+                      ) : (
+                        <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-3xl" aria-hidden="true">{avatar.emoji}</div>
+                      )}
+                      <div className="min-w-0">
                       <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-900">
                         <span aria-hidden="true">{avatar.emoji}</span>
                         <span className="break-words">{batch.species}</span>
                       </span>
                       <h2 className="mt-3 break-words text-lg font-black leading-snug text-slate-900 group-hover:text-emerald-800">
-                        {batch.batchName || `${batch.species} Herd`}
+                        {batch.batchName || "Unnamed herd"}
                       </h2>
-                      <p className="mt-1 break-words text-sm text-slate-600">{batch.breed}</p>
+                      <p className="mt-1 break-words text-sm text-slate-600">{batch.breed || "Breed not recorded"}</p>
                       <p className="mt-2 inline-block break-all rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">
                         {batch.batchCode}
                       </p>
+                      </div>
                     </div>
                     <div className="shrink-0 rounded-2xl bg-emerald-50 px-3 py-2 text-center">
                       <p className="text-2xl font-black leading-none text-emerald-900">{headCount}</p>
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Animals</p>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Active</p>
                     </div>
                   </div>
 
@@ -733,16 +478,22 @@ export default function BatchOverviewPage() {
             {/* Banner Header */}
             <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-6 rounded-3xl shadow-lg border border-emerald-800/40 relative overflow-hidden">
               <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="space-y-1.5">
+                <div className="flex items-start gap-4">
+                  {currentBatch.photoUrl ? (
+                    <img src={currentBatch.photoUrl} alt={`${currentBatch.batchName} herd`} className="size-20 shrink-0 rounded-2xl border-2 border-white/30 object-cover sm:size-24" />
+                  ) : (
+                    <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl border-2 border-white/20 bg-white/10 text-5xl sm:size-24" aria-hidden="true">{getDefaultAvatarForSpecies(currentBatch.species).emoji}</div>
+                  )}
+                  <div className="min-w-0 space-y-1.5">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-200 text-xs font-bold uppercase tracking-wider backdrop-blur-xs border border-white/10">
                     <Beef className="size-3.5" />
                     <span>Herd Code: {currentBatch.batchCode}</span>
                   </div>
                   <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                    {currentBatch.batchName || `${currentBatch.species} Herd`}
+                    {currentBatch.batchName || "Unnamed herd"}
                   </h2>
                   <p className="text-xs text-emerald-100/80 font-medium">
-                    {currentBatch.batchCode} &bull; {currentBatch.species} &bull; {currentBatch.breed}
+                    {currentBatch.batchCode} &bull; {currentBatch.species} &bull; {currentBatch.breed || "Breed not recorded"}
                   </p>
                   {currentBatch.reviewRemarks && (
                     <div className="inline-block mt-1">
@@ -751,9 +502,32 @@ export default function BatchOverviewPage() {
                       </p>
                     </div>
                   )}
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">
+                  {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
+                    <LivestockPhotoManager
+                      title="Herd Photo"
+                      subject="herd"
+                      currentPhotoUrl={currentBatch.photoUrl}
+                      allowAvatar={false}
+                      fallback={<div className="flex size-36 items-center justify-center rounded-2xl bg-emerald-50 text-6xl">{getDefaultAvatarForSpecies(currentBatch.species).emoji}</div>}
+                      onSave={async ({ file, removePhoto }) => {
+                        let payload: FormData | { photo?: null };
+                        if (file) {
+                          const formData = new FormData();
+                          formData.append("photo", file);
+                          payload = formData;
+                        } else {
+                          payload = removePhoto ? { photo: null } : {};
+                        }
+                        await api.patch(`livestock/batches/${currentBatch.id}/`, payload);
+                        await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+                        toast.success("Herd photo updated.");
+                      }}
+                    />
+                  )}
                   {/* Herd Lifecycle Status (Active in pen vs harvested/sold) */}
                   <Badge className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-sm">
                     <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -792,14 +566,6 @@ export default function BatchOverviewPage() {
                       </Button>
                     )}
 
-                  {/* Printable Biosecurity QR Pass Button */}
-                  <Button
-                    onClick={() => setIsQrCardOpen(true)}
-                    variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 text-xs font-bold rounded-xl gap-1.5 cursor-pointer shadow-sm"
-                  >
-                    <QrCode className="size-3.5" /> Batch QR Card
-                  </Button>
                 </div>
               </div>
             </div>
@@ -828,13 +594,10 @@ export default function BatchOverviewPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400">Head Count</span>
                   <div className="flex items-baseline justify-between">
                     <p className="text-2xl font-black text-slate-900">
-                      {currentBatch.individuals.length}
+                      {currentBatch.activeCount}
                     </p>
-                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                      100% Alive
-                    </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">0 mortalities • 0 culled</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Active animals in the herd</p>
                 </CardContent>
               </Card>
 
@@ -843,13 +606,10 @@ export default function BatchOverviewPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400">Average Weight</span>
                   <div className="flex items-baseline justify-between">
                     <p className="text-2xl font-black text-slate-900">
-                      {currentBatch.averageWeightKg} <span className="text-sm font-semibold text-slate-400">kg</span>
+                      {currentBatch.averageWeightKg ?? "Not recorded"} {currentBatch.averageWeightKg !== null && <span className="text-sm font-semibold text-slate-400">kg</span>}
                     </p>
-                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                      +0.72 kg/d
-                    </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Target: {currentBatch.targetWeightKg} kg</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Target: {currentBatch.targetWeightKg == null ? "Not recorded" : `${currentBatch.targetWeightKg} kg`}</p>
                 </CardContent>
               </Card>
 
@@ -858,13 +618,10 @@ export default function BatchOverviewPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400">Total Live Biomass</span>
                   <div className="flex items-baseline justify-between">
                     <p className="text-2xl font-black text-emerald-700">
-                      {yieldMetrics.totalBiomass} <span className="text-sm font-semibold text-slate-400">kg</span>
+                      {yieldMetrics.totalBiomass ?? "Not recorded"} {yieldMetrics.totalBiomass !== null && <span className="text-sm font-semibold text-slate-400">kg</span>}
                     </p>
-                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                      ~{yieldMetrics.dressedYieldKg} kg meat
-                    </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">{yieldMetrics.dressingPct}% dressing yield</p>
+                  <p className="text-[11px] text-slate-500 font-medium">From {yieldMetrics.weighedAnimalCount} active animals with weight records</p>
                 </CardContent>
               </Card>
 
@@ -873,18 +630,16 @@ export default function BatchOverviewPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400">Harvest Readiness</span>
                   <div className="flex items-baseline justify-between">
                     <p className="text-2xl font-black text-slate-900">
-                      {yieldMetrics.readinessPct}%
+                      {yieldMetrics.readinessPct === null ? "Not recorded" : `${yieldMetrics.readinessPct}%`}
                     </p>
-                    <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
-                      ~22 days
-                    </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
                     <div
                       className="bg-emerald-600 h-1.5 rounded-full"
-                      style={{ width: `${yieldMetrics.readinessPct}%` }}
+                      style={{ width: `${yieldMetrics.readinessPct ?? 0}%` }}
                     />
                   </div>
+                  <p className="text-[11px] text-slate-500">Based on recorded average and target weights</p>
                 </CardContent>
               </Card>
             </div>
@@ -900,7 +655,7 @@ export default function BatchOverviewPage() {
                     </Badge>
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500 font-medium">
-                    Monitor each animal&apos;s distinct gender, age, weight, and health within this batch.
+                    Individual records linked to this herd, using saved livestock details.
                   </CardDescription>
                 </div>
 
@@ -928,17 +683,6 @@ export default function BatchOverviewPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={healthFilter} onValueChange={setHealthFilter}>
-                    <SelectTrigger className="h-8 text-xs rounded-xl border-slate-200 w-32 font-bold">
-                      <SelectValue placeholder="Health" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Health</SelectItem>
-                      <SelectItem value="HEALTHY">Healthy</SelectItem>
-                      <SelectItem value="MONITORED">Monitored</SelectItem>
-                      <SelectItem value="VACCINATED">Vaccinated</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </CardHeader>
 
@@ -948,12 +692,9 @@ export default function BatchOverviewPage() {
                     <TableHeader className="bg-slate-50/70">
                       <TableRow>
                         <TableHead className="font-bold text-xs text-slate-600">Tag / Ear ID</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Animal Label</TableHead>
                         <TableHead className="font-bold text-xs text-slate-600">Gender</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Age / Stage</TableHead>
                         <TableHead className="font-bold text-xs text-slate-600">Weight (kg)</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Daily Gain (ADG)</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Health Status</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-600">Last Vaccination</TableHead>
                         <TableHead className="font-bold text-xs text-slate-600">Review Status</TableHead>
                         <TableHead className="font-bold text-xs text-slate-600 text-right pr-6">Actions</TableHead>
                       </TableRow>
@@ -961,19 +702,25 @@ export default function BatchOverviewPage() {
                     <TableBody>
                       {filteredIndividuals.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center py-10 text-xs text-slate-400 font-medium">
-                            No individual livestock matched the current filter.
+                          <TableCell colSpan={6} className="text-center py-10 text-xs text-slate-400 font-medium">
+                            {currentBatch.individuals.length === 0
+                              ? "No individual livestock records are linked to this herd."
+                              : "No livestock records matched the current filters."}
                           </TableCell>
                         </TableRow>
                       ) : (
                         filteredIndividuals.map((animal) => {
-                          const isAboveAvg = animal.weightKg >= currentBatch.averageWeightKg;
-                          // API-backed herd children use their numeric livestock row ID; fallback herd labels are not database identities.
                           const hasInventoryRecord = /^\d+$/.test(animal.id);
                           return (
                             <TableRow
                               key={animal.id}
-                              className="transition-colors hover:bg-slate-50/60"
+                              onClick={(event) => {
+                                const target = event.target as HTMLElement;
+                                if (hasInventoryRecord && !target.closest("a, button")) {
+                                  router.push(`/livestock-inventory/${animal.id}`);
+                                }
+                              }}
+                              className={`transition-colors hover:bg-slate-50/60 ${hasInventoryRecord ? "cursor-pointer" : ""}`}
                             >
                               <TableCell className="font-black text-xs text-slate-900">
                                 {hasInventoryRecord ? <Link
@@ -981,23 +728,19 @@ export default function BatchOverviewPage() {
                                   className="text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1.5"
                                 >
                                   <Tag className="size-3 text-emerald-600" />
-                                  <span>{animal.tagNumber}</span>
-                                </Link> : <span className="flex items-center gap-1.5 text-slate-500" title="This herd row is a display placeholder without a saved animal record.">
+                                  <span>{animal.tagNumber || "No tag recorded"}</span>
+                                </Link> : <span className="flex items-center gap-1.5 text-slate-500">
                                   <Tag className="size-3 text-slate-400" />
-                                  <span>{animal.tagNumber}</span>
+                                  <span>{animal.tagNumber || "No tag recorded"}</span>
                                 </span>}
-                              </TableCell>
-
-                              <TableCell className="text-xs font-semibold text-slate-700">
-                                {animal.name}
                               </TableCell>
 
                               <TableCell>
                                 <Badge
                                   variant="secondary"
-                                  className={`text-[10px] font-black uppercase ${animal.sex === "Female"
+                                  className={`text-[10px] font-black uppercase ${animal.sex.toUpperCase() === "FEMALE"
                                     ? "bg-rose-50 text-rose-700 border-rose-200"
-                                    : animal.sex === "Male"
+                                    : animal.sex.toUpperCase() === "MALE"
                                       ? "bg-blue-50 text-blue-700 border-blue-200"
                                       : "bg-amber-50 text-amber-700 border-amber-200"
                                     }`}
@@ -1007,37 +750,11 @@ export default function BatchOverviewPage() {
                               </TableCell>
 
                               <TableCell className="text-xs text-slate-600 font-medium">
-                                {animal.ageMonths} mos
+                                {animal.weightKg === null ? "Not recorded" : `${animal.weightKg} kg`}
                               </TableCell>
 
-                              <TableCell>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-bold text-xs text-slate-900">{animal.weightKg} kg</span>
-                                  <span
-                                    className={`text-[10px] font-bold ${isAboveAvg ? "text-emerald-600" : "text-amber-600"
-                                      }`}
-                                  >
-                                    ({isAboveAvg ? "+" : ""}{(animal.weightKg - currentBatch.averageWeightKg).toFixed(1)})
-                                  </span>
-                                </div>
-                              </TableCell>
-
-                              <TableCell className="text-xs font-bold text-emerald-700">
-                                +{animal.adgKgDay} kg/d
-                              </TableCell>
-
-                              <TableCell>
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${animal.healthStatus === "Healthy"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : animal.healthStatus === "Vaccinated"
-                                      ? "bg-sky-100 text-sky-800"
-                                      : "bg-amber-100 text-amber-800"
-                                    }`}
-                                >
-                                  <span className="size-1.5 rounded-full bg-current" />
-                                  {animal.healthStatus}
-                                </span>
+                              <TableCell className="text-xs text-slate-600 font-medium">
+                                {animal.lastVaccinationDate || "Not recorded"}
                               </TableCell>
 
                               <TableCell>
@@ -1047,6 +764,8 @@ export default function BatchOverviewPage() {
                                       ? "bg-emerald-100 text-emerald-800"
                                       : animal.reviewStatus === "VERIFIED"
                                         ? "bg-blue-100 text-blue-800"
+                                      : animal.reviewStatus === "REJECTED"
+                                        ? "bg-rose-100 text-rose-800"
                                         : animal.reviewStatus === "SUBJECT_TO_REVISION"
                                           ? "bg-amber-100 text-amber-800"
                                           : "bg-slate-100 text-slate-600"
@@ -1055,27 +774,32 @@ export default function BatchOverviewPage() {
                                   <span className="size-1.5 rounded-full bg-current" />
                                   {animal.reviewStatus === "SUBJECT_TO_REVISION"
                                     ? "For Revision"
-                                    : animal.reviewStatus === "VERIFIED"
-                                      ? "Verified"
-                                      : animal.reviewStatus === "APPROVED"
-                                        ? "Approved"
-                                        : "Pending"}
+                                      : animal.reviewStatus === "REJECTED"
+                                        ? "Rejected"
+                                        : animal.reviewStatus === "VERIFIED"
+                                          ? "Verified"
+                                          : animal.reviewStatus === "APPROVED"
+                                            ? "Approved"
+                                            : "Pending"}
                                 </span>
                               </TableCell>
 
                               <TableCell className="text-right pr-6">
                                 <div className="inline-flex items-center gap-1.5">
-                                  <Button
-                                    onClick={() => handleOpenWeighModal(animal)}
+                                  {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && <Button
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleOpenWeighModal(animal);
+                                    }}
                                     size="sm"
                                     variant="outline"
                                     className="h-7 px-2 text-[11px] rounded-lg font-bold border-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
                                     title="Quick Log Weight"
                                   >
                                     <Scale className="size-3 mr-1 text-emerald-600" /> Weigh
-                                  </Button>
+                                  </Button>}
 
-                                  {hasInventoryRecord ? <Link href={`/livestock-inventory/${animal.id}`}>
+                                  {hasInventoryRecord ? <Link href={`/livestock-inventory/${animal.id}`} onClick={(event) => event.stopPropagation()}>
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -1111,14 +835,14 @@ export default function BatchOverviewPage() {
               <span>Record New Weight for {weighTarget?.tagNumber}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Update body weight to automatically calculate Average Daily Gain (ADG) and yield projection.
+              This creates a weight record and updates the animal&apos;s current weight.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-3">
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs flex justify-between items-center">
               <span className="font-bold text-slate-600">Previous Recorded Weight:</span>
-              <span className="font-black text-slate-900">{weighTarget?.weightKg} kg</span>
+              <span className="font-black text-slate-900">{weighTarget?.weightKg == null ? "Not recorded" : `${weighTarget.weightKg} kg`}</span>
             </div>
 
             <div className="space-y-1.5">
@@ -1146,9 +870,10 @@ export default function BatchOverviewPage() {
             <Button
               type="button"
               onClick={handleSaveWeight}
+              disabled={isSavingWeight}
               className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
             >
-              Save Weigh Record
+              {isSavingWeight ? "Saving…" : "Save Weigh Record"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1164,12 +889,12 @@ export default function BatchOverviewPage() {
                 <span>Add Animal to {currentBatch?.batchCode}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Register a new individual animal in this herd with its specific ear tag, gender, and starting weight.
+                Create a real individual livestock record in this herd. The animal will appear after it is saved.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-3.5 py-4 text-xs">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 gap-3.5 py-4 text-xs sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label className="font-bold text-slate-700">Ear Tag Number</Label>
                 <Input
                   value={newAnimalData.tagNumber}
@@ -1181,72 +906,28 @@ export default function BatchOverviewPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Animal Name / Identifier</Label>
-                <Input
-                  value={newAnimalData.name}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, name: e.target.value })}
-                  placeholder="e.g. Livestock #11"
-                  className="rounded-xl border-slate-300"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Gender</Label>
+                <Label className="font-bold text-slate-700">Sex</Label>
                 <Select
                   value={newAnimalData.sex}
-                  onValueChange={(val: any) => setNewAnimalData({ ...newAnimalData, sex: val })}
+                  onValueChange={(sex) => setNewAnimalData({ ...newAnimalData, sex })}
                 >
                   <SelectTrigger className="rounded-xl border-slate-300 font-bold">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Female">Female (Sow / Dam / Hen)</SelectItem>
-                    <SelectItem value="Male">Male (Boar / Bull / Rooster)</SelectItem>
-
-
+                    <SelectItem value="FEMALE">Female</SelectItem>
+                    <SelectItem value="MALE">Male</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Age (Months)</Label>
+                <Label className="font-bold text-slate-700">Breed</Label>
                 <Input
-                  type="number"
-                  step="0.1"
-                  value={newAnimalData.ageMonths}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, ageMonths: e.target.value })}
-                  className="rounded-xl border-slate-300 font-bold"
-                  required
+                  value={newAnimalData.breed}
+                  onChange={(e) => setNewAnimalData({ ...newAnimalData, breed: e.target.value })}
+                  className="rounded-xl border-slate-300"
                 />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Current Weight (kg)</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={newAnimalData.weightKg}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, weightKg: e.target.value })}
-                  className="rounded-xl border-slate-300 font-bold"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Initial Health Status</Label>
-                <Select
-                  value={newAnimalData.healthStatus}
-                  onValueChange={(val: any) => setNewAnimalData({ ...newAnimalData, healthStatus: val })}
-                >
-                  <SelectTrigger className="rounded-xl border-slate-300 font-bold">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Healthy">Healthy & Active</SelectItem>
-                    <SelectItem value="Vaccinated">Vaccinated</SelectItem>
-                    <SelectItem value="Monitored">Monitored / Under Observation</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -1261,176 +942,16 @@ export default function BatchOverviewPage() {
               </Button>
               <Button
                 type="submit"
+                disabled={isSavingAnimal}
                 className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
               >
-                Save to Herd
+                {isSavingAnimal ? "Saving…" : "Save to Herd"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* ── DIALOG: BATCH QR BIOSECURITY CARD ───────────────────────────── */}
-      <Dialog open={isQrCardOpen} onOpenChange={setIsQrCardOpen}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
-          <DialogHeader className="text-center pb-2 border-b border-slate-100">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <div className="size-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-xs shadow-xs">
-                PG
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                  Municipality of Padre Garcia • Batangas
-                </p>
-                <p className="text-xs font-black text-slate-900">
-                  Office of the Municipal Agriculturist (MAO)
-                </p>
-              </div>
-            </div>
-            <DialogTitle className="text-base font-black text-emerald-950 pt-1">
-              Herd Biosecurity &amp; Movement Clearance Pass
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Official QR clearance for auction pen entry, checkpoints, and bulk livestock transport.
-            </DialogDescription>
-          </DialogHeader>
-
-          {currentBatch && (
-            <div className="space-y-4 py-2">
-              {/* ── Guidance Note: How This QR Code Works ── */}
-              <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-slate-50 border border-emerald-200/90 shadow-2xs space-y-1 text-left">
-                <div className="flex items-center gap-1.5 font-bold text-emerald-950 text-xs">
-                  <Info className="size-3.5 text-emerald-700 shrink-0" />
-                  <span>How this Batch QR Pass works:</span>
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Scan with any mobile terminal or camera at Padre Garcia livestock checkpoints or municipal inspection stations to authenticate batch head count, housing pen, and biosecurity clearance.
-                </p>
-                <div className="flex items-center gap-3 pt-0.5 text-[10px] text-emerald-800 font-semibold flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-                    Biosecurity Checkpoint Ready
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-                    Livestock Movement Clearance
-                  </span>
-                </div>
-              </div>
-
-              {/* QR Code Card Graphic */}
-              <div className="flex flex-col items-center justify-center p-5 bg-gradient-to-b from-slate-50 to-emerald-50/40 rounded-2xl border-2 border-dashed border-emerald-300/80 text-center relative">
-                {/* SVG QR Code Simulation */}
-                <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200 mb-3">
-                  <svg className="size-40" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    {/* Corners */}
-                    <rect x="10" y="10" width="30" height="30" rx="4" fill="#064E3B" />
-                    <rect x="16" y="16" width="18" height="18" rx="2" fill="white" />
-                    <rect x="20" y="20" width="10" height="10" rx="1" fill="#064E3B" />
-
-                    <rect x="80" y="10" width="30" height="30" rx="4" fill="#064E3B" />
-                    <rect x="86" y="16" width="18" height="18" rx="2" fill="white" />
-                    <rect x="90" y="20" width="10" height="10" rx="1" fill="#064E3B" />
-
-                    <rect x="10" y="80" width="30" height="30" rx="4" fill="#064E3B" />
-                    <rect x="16" y="86" width="18" height="18" rx="2" fill="white" />
-                    <rect x="20" y="90" width="10" height="10" rx="1" fill="#064E3B" />
-
-                    {/* QR Matrix Bits */}
-                    <rect x="48" y="12" width="6" height="6" rx="1" fill="#064E3B" />
-                    <rect x="58" y="12" width="6" height="6" rx="1" fill="#064E3B" />
-                    <rect x="68" y="18" width="6" height="6" rx="1" fill="#064E3B" />
-                    <rect x="48" y="26" width="12" height="6" rx="1" fill="#064E3B" />
-
-                    <rect x="12" y="48" width="6" height="6" rx="1" fill="#064E3B" />
-                    <rect x="24" y="48" width="6" height="12" rx="1" fill="#064E3B" />
-                    <rect x="12" y="60" width="18" height="6" rx="1" fill="#064E3B" />
-
-                    {/* Center Core */}
-                    <rect x="44" y="44" width="32" height="32" rx="6" fill="#10B981" />
-                    <circle cx="60" cy="60" r="10" fill="white" />
-                    <circle cx="60" cy="60" r="5" fill="#064E3B" />
-
-                    <rect x="82" y="48" width="14" height="6" rx="1" fill="#064E3B" />
-                    <rect x="90" y="60" width="18" height="6" rx="1" fill="#064E3B" />
-                    <rect x="82" y="70" width="6" height="14" rx="1" fill="#064E3B" />
-
-                    <rect x="48" y="84" width="8" height="8" rx="1" fill="#064E3B" />
-                    <rect x="60" y="92" width="14" height="6" rx="1" fill="#064E3B" />
-                    <rect x="48" y="102" width="20" height="6" rx="1" fill="#064E3B" />
-                    <rect x="84" y="90" width="12" height="6" rx="1" fill="#064E3B" />
-                    <rect x="98" y="98" width="10" height="10" rx="1" fill="#064E3B" />
-                  </svg>
-                </div>
-
-                <p className="font-mono font-black text-sm text-slate-900 tracking-wider">
-                  {currentBatch.batchCode}
-                </p>
-                <p className="text-[10px] text-slate-500 font-medium">
-                  Scan via Padre Garcia Livestock Checkpoint Mobile Terminal
-                </p>
-              </div>
-
-              {/* Clearance Details Table */}
-              <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-2 text-xs">
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
-                  <span className="text-slate-500 font-medium">Species &amp; Breed:</span>
-                  <span className="font-bold text-slate-900">{currentBatch.species} • {currentBatch.breed}</span>
-                </div>
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
-                  <span className="text-slate-500 font-medium">Registered Animals:</span>
-                  <span className="font-bold text-emerald-700">{currentBatch.individuals.length} Animals (100% Active)</span>
-                </div>
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
-                  <span className="text-slate-500 font-medium">Housing Enclosure:</span>
-                  <span className="font-bold text-slate-900">{currentBatch.housingPen}</span>
-                </div>
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
-                  <span className="text-slate-500 font-medium">Review Status:</span>
-                  <span className="font-bold">
-                    {currentBatch.reviewStatus === "APPROVED" ? (
-                      <span className="text-emerald-700">✓ MAO Final Approved</span>
-                    ) : currentBatch.reviewStatus === "VERIFIED" ? (
-                      <span className="text-blue-700">✓ SIBAT Verified</span>
-                    ) : (
-                      <span className="text-amber-700">⏳ Verification Pending</span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Animal Health Status:</span>
-                  <span className="text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
-                    Ord. 2026-03 Compliant
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsQrCardOpen(false)}
-              className="rounded-xl font-bold text-xs flex-1"
-            >
-              Close
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                toast.success("Biosecurity Pass ready for print / PDF export.", {
-                  description: `Movement Certificate for Batch ${currentBatch?.batchCode} generated.`
-                });
-                setIsQrCardOpen(false);
-              }}
-              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Printer className="size-3.5" /> Print Biosecurity Pass
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

@@ -14,6 +14,77 @@ from .models import (
 )
 
 
+MAX_LIVESTOCK_PHOTO_BYTES = 5 * 1024 * 1024
+ALLOWED_LIVESTOCK_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+class LivestockPhotoField(serializers.ImageField):
+    """Reject oversized or unsupported uploads before Pillow decodes them."""
+
+    def to_internal_value(self, data):
+        if data is not None:
+            if getattr(data, "size", 0) <= 0:
+                raise serializers.ValidationError("Choose a non-empty image file.")
+            if data.size > MAX_LIVESTOCK_PHOTO_BYTES:
+                raise serializers.ValidationError("Livestock photos must be 5 MB or smaller.")
+            if getattr(data, "content_type", "").lower() not in ALLOWED_LIVESTOCK_PHOTO_TYPES:
+                raise serializers.ValidationError("Use a JPEG, PNG, or WebP image.")
+        return super().to_internal_value(data)
+
+    def to_representation(self, value):
+        # R2 signs private media URLs during serialization. A storage outage or
+        # bad R2 configuration should hide that image, not break the animal or
+        # herd API response that contains it.
+        try:
+            return super().to_representation(value)
+        except Exception:
+            return None
+
+
+def validate_livestock_photo_upload(photo):
+    if photo is None:
+        return photo
+    if photo.size <= 0:
+        raise serializers.ValidationError("Choose a non-empty image file.")
+    if photo.size > MAX_LIVESTOCK_PHOTO_BYTES:
+        raise serializers.ValidationError("Livestock photos must be 5 MB or smaller.")
+    if getattr(photo, "content_type", "").lower() not in ALLOWED_LIVESTOCK_PHOTO_TYPES:
+        raise serializers.ValidationError("Use a JPEG, PNG, or WebP image.")
+    # DRF ImageField decodes the image with Pillow, so a spoofed MIME type or
+    # malformed image is rejected before it reaches the configured media storage.
+    return photo
+
+
+class LivestockPhotoUpdateSerializer(serializers.Serializer):
+    """Restrict approved-record photo changes to the media fields only."""
+
+    photo = LivestockPhotoField(required=False, allow_null=True)
+    avatar_key = serializers.CharField(required=False, allow_blank=True, max_length=50)
+
+    def validate_photo(self, value):
+        return validate_livestock_photo_upload(value)
+
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save(update_fields=list(validated_data.keys()))
+        return instance
+
+
+class LivestockBatchPhotoUpdateSerializer(serializers.Serializer):
+    """Validate and update a batch's single group photo without editing herd data."""
+
+    photo = LivestockPhotoField(required=False, allow_null=True)
+
+    def validate_photo(self, value):
+        return validate_livestock_photo_upload(value)
+
+    def update(self, instance, validated_data):
+        instance.photo = validated_data["photo"]
+        instance.save(update_fields=["photo", "updated_at"])
+        return instance
+
+
 class BarangaySerializer(serializers.ModelSerializer):
     """
     Returns:
@@ -77,7 +148,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     weight = serializers.DecimalField(
         max_digits=6, decimal_places=2, required=False, allow_null=True
     )
-    photo = serializers.ImageField(required=False, allow_null=True)
+    photo = LivestockPhotoField(required=False, allow_null=True)
     photo_url = serializers.SerializerMethodField(read_only=True)
     avatar_key = serializers.CharField(
         max_length=50, required=False, allow_blank=True, default=""
@@ -119,6 +190,9 @@ class LivestockInventorySerializer(serializers.Serializer):
             except Exception:
                 return None
         return None
+
+    def validate_photo(self, value):
+        return validate_livestock_photo_upload(value)
 
     def validate(self, attrs):
         user = self.context["request"].user
@@ -203,6 +277,7 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
     Used in:
         Nested `animals` array of LivestockBatchSerializer for batch rosters and individual inspection.
     """
+    photo = LivestockPhotoField(read_only=True)
     photo_url = serializers.SerializerMethodField(read_only=True)
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
@@ -266,6 +341,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     Used in:
         Admin batch drilldown (/data-validation/batches), farmer herd management, and MAO approvals.
     """
+    photo = LivestockPhotoField(required=False, allow_null=True)
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)
     barangay_name = serializers.SerializerMethodField(read_only=True)
@@ -283,6 +359,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     reviewed_by_role = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
     reviewed_at = serializers.SerializerMethodField(read_only=True)
+    photo_url = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LivestockBatch
@@ -300,6 +377,8 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             "feed_type",
             "target_weight",
             "target_harvest_date",
+            "photo",
+            "photo_url",
             "status",
             "notes",
             "total_animals",
@@ -313,6 +392,19 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def validate_photo(self, value):
+        return validate_livestock_photo_upload(value)
+
+    def get_photo_url(self, obj):
+        if not obj.photo:
+            return None
+        try:
+            request = self.context.get("request")
+            url = obj.photo.url
+            return request.build_absolute_uri(url) if request else url
+        except Exception:
+            return None
 
     def get_farmer_name(self, obj):
         try:
@@ -406,7 +498,7 @@ class LivestockBatchListSerializer(LivestockBatchSerializer):
     review_status = serializers.CharField(source="list_review_status", read_only=True)
 
     class Meta(LivestockBatchSerializer.Meta):
-        # Rosters, review history and photos are fetched only when a detail is opened.
+        # Roster and review history are fetched only when a detail is opened.
         fields = ("enrolled_animals", "verified_animals") + tuple(f for f in LivestockBatchSerializer.Meta.fields if f not in {
             "animals", "notes", "review_remarks", "reviewed_by_name", "reviewed_by_role", "reviewed_at",
         })

@@ -82,6 +82,7 @@ class LivestockBatch(models.Model):
         blank=True,
     )
     target_harvest_date = models.DateField(null=True, blank=True)
+    photo = models.ImageField(upload_to="livestock_batches/%Y/%m/", null=True, blank=True)
     status = models.CharField(
         max_length=25, choices=StatusType.choices, default=StatusType.ACTIVE
     )

@@ -284,6 +284,35 @@ class LivestockBatchAPITests(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqual([item["id"] for item in response.json()], [own_batch.pk])
 
+    def test_farmer_can_load_owned_batches_with_real_animal_roster(self):
+        batch = LivestockBatch.objects.create(
+            farmer=self.farmer,
+            livestock_type=self.swine_type,
+            batch_name="Roster Batch",
+            batch_code="ROSTER-BATCH",
+            created_by=self.farmer_user,
+        )
+        animal = LivestockInventory.objects.create(
+            farmer=self.farmer,
+            batch=batch,
+            livestock_type=self.swine_type,
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            quantity=1,
+            tag_number="SW-ROSTER-01",
+            sex="FEMALE",
+            created_by=self.farmer_user,
+        )
+        self.client.force_authenticate(user=self.farmer_user)
+
+        response = self.client.get("/livestock/batches/?include_roster=true")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], batch.pk)
+        self.assertEqual(response.data[0]["animals"][0]["id"], animal.pk)
+        self.assertEqual(response.data[0]["animals"][0]["tag_number"], "SW-ROSTER-01")
+        self.assertIsNone(response.data[0]["photo_url"])
+
 
 class CensusPermissionWorkflowTests(APITestCase):
     def setUp(self):

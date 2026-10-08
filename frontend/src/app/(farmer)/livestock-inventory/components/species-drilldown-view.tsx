@@ -70,8 +70,7 @@ export function SpeciesDrilldownView({
         </div>
       </div>
 
-      {speciesBatches.length > 0 && (
-        <div className="space-y-3">
+      <div className="space-y-3">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-4 rounded-2xl bg-teal-50/40 border border-teal-900/10">
             <div className="flex items-center gap-3 min-w-0">
               <div className="size-9 rounded-xl bg-teal-900/10 text-teal-900 flex items-center justify-center shrink-0">
@@ -81,8 +80,10 @@ export function SpeciesDrilldownView({
                 <h3 className="text-sm font-black text-teal-950 tracking-tight">
                   {selectedType} Herds
                 </h3>
-                <p className="text-xs font-medium text-slate-500 truncate">
-                  Animals raised together as one herd
+                <p className="text-xs font-medium text-slate-500">
+                  {speciesBatches.length > 0
+                    ? "Animals raised together as one herd"
+                    : "Check the registered herds for this livestock type"}
                 </p>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-100 text-teal-900 border border-teal-200/60 shrink-0">
@@ -96,13 +97,12 @@ export function SpeciesDrilldownView({
                 className="gap-2 bg-white hover:bg-teal-50 border border-teal-900/15 hover:border-teal-300 text-teal-950 font-bold text-xs rounded-xl h-9 px-3.5 transition-colors cursor-pointer"
               >
                 <Layers className="size-3.5 text-teal-700" />
-                <span>View Herds</span>
+                <span>Check Herd</span>
                 <ChevronRight className="size-3 text-slate-400 -ml-1" />
               </Button>
             </Link>
           </div>
-        </div>
-      )}
+      </div>
 
       <LivestockRecordList
         items={items}

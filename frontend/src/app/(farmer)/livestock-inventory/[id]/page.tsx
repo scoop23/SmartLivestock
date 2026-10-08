@@ -84,6 +84,7 @@ import {
 } from "../livestock-inventory";
 import { OperationalStatusBadge } from "../operational-status-badge";
 import { OwnershipTransferPanel } from "../ownership-transfer-panel";
+import { LivestockPhotoManager } from "../livestock-photo-manager";
 import {
   getBirthingTerminology,
   type CalvingRecordItem,
@@ -780,6 +781,36 @@ export default function LivestockDetailPage() {
                     </div>
                   )}
                 </div>
+
+                <LivestockPhotoManager
+                  title="Livestock Photo"
+                  subject="livestock"
+                  currentPhotoUrl={photoUrl}
+                  currentAvatarKey={activeItem.avatarKey || localAvatar}
+                  species={activeItem.livestockTypeName}
+                  fallback={<div className={`flex size-36 items-center justify-center rounded-2xl text-6xl ${avatar.bgGradient}`}>{avatar.emoji}</div>}
+                  onSave={async ({ file, removePhoto, avatarKey }) => {
+                    let payload: FormData | { photo?: null; avatar_key?: string };
+                    if (file) {
+                      const formData = new FormData();
+                      formData.append("photo", file);
+                      if (avatarKey) formData.append("avatar_key", avatarKey);
+                      payload = formData;
+                    } else {
+                      const update = removePhoto ? { photo: null as null } : {};
+                      if (avatarKey) Object.assign(update, { avatar_key: avatarKey });
+                      payload = update;
+                    }
+                    await api.patch(`livestock/inventory/${activeItem.id}/`, payload);
+                    if (removePhoto && typeof window !== "undefined") {
+                      localStorage.removeItem(`livestock_photo_${activeItem.id}`);
+                      localStorage.removeItem(`livestock_photo_${activeItem.tagNumber}`);
+                    }
+                    await queryClient.invalidateQueries({ queryKey: ["inventory"] });
+                    await queryClient.invalidateQueries({ queryKey: ["inventory_item", String(activeItem.id)] });
+                    toast.success("Livestock photo updated.");
+                  }}
+                />
 
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">

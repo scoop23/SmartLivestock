@@ -13,6 +13,7 @@ from livestock.models import Barangay, LivestockBatch, LivestockInventory, Lives
 from livestock.serializer import (
     FarmerOptionsSerializer,
     LivestockInventorySerializer,
+    LivestockPhotoUpdateSerializer,
     BarangaySerializer,
 )
 from users.models import Notification
@@ -170,6 +171,18 @@ def inventory_detail(request, pk):
 
     if request.method in ["PUT", "PATCH", "DELETE"]:
         require_action(user, "inventory", "edit_own")
+
+        # Approved identity data is locked, but the owning farmer may update only
+        # the photo/avatar. Keep that media operation separate from registry edits.
+        media_fields = {"photo", "avatar_key"}
+        if request.method == "PATCH" and request.data and set(request.data.keys()).issubset(media_fields):
+            media_serializer = LivestockPhotoUpdateSerializer(
+                inventory, data=request.data, partial=True, context={"request": request}
+            )
+            media_serializer.is_valid(raise_exception=True)
+            inventory = media_serializer.save()
+            return Response(LivestockInventorySerializer(inventory, context={"request": request}).data)
+
         editable_statuses = {
             LivestockInventory.StatusType.PENDING,
             LivestockInventory.StatusType.SUBJECT_TO_REVISION,

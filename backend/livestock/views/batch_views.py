@@ -11,7 +11,12 @@ from rest_framework.response import Response
 
 from livestock.models import LivestockBatch, LivestockInventory, LivestockType
 from livestock.list_queries import LivestockListPagination, batch_list_annotations, filter_livestock_list
-from livestock.serializer import LivestockBatchListSerializer, LivestockBatchSerializer, LivestockInventorySerializer
+from livestock.serializer import (
+    LivestockBatchListSerializer,
+    LivestockBatchPhotoUpdateSerializer,
+    LivestockBatchSerializer,
+    LivestockInventorySerializer,
+)
 from users.models import Notification
 from users.notification_views import create_notification, notify_role, notify_review_revision
 from smartlivestock.workflows import (
@@ -203,6 +208,13 @@ def batch_detail(request, pk):
     if request.method in ["PUT", "PATCH"]:
         require_action(user, "batches", "edit_own")
         data = request.data
+        if request.method == "PATCH" and data and set(data.keys()) == {"photo"}:
+            photo_serializer = LivestockBatchPhotoUpdateSerializer(
+                batch, data=data, partial=True, context={"request": request}
+            )
+            photo_serializer.is_valid(raise_exception=True)
+            batch = photo_serializer.save()
+            return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
         states = set(batch.animals.values_list("status", flat=True))
         resubmit = str(data.get("resubmit", "")).lower() in {"true", "1"}
         if resubmit and states != {LivestockInventory.StatusType.SUBJECT_TO_REVISION}:
@@ -551,4 +563,3 @@ def batch_add_notes(request, pk):
         },
         status=status.HTTP_200_OK,
     )
-
