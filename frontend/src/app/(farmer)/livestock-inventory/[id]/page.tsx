@@ -90,6 +90,14 @@ import {
   getBirthingTerminology,
   type CalvingRecordItem,
 } from "@/app/(farmer)/production-dashboard/production-calving-tab";
+import { getProductionTypesForLivestock } from "@/app/(farmer)/production-dashboard/production-wizard";
+
+const PRODUCTION_TYPE_CODES = {
+  milk: "MILK",
+  meat: "MEAT",
+  eggs: "EGGS",
+  wool: "WOOL",
+} as const;
 
 interface WeightLog {
   id?: number;
@@ -458,6 +466,16 @@ export default function LivestockDetailPage() {
   const [prodType, setProdType] = useState<"MILK" | "MEAT" | "EGGS" | "WOOL">(
     (activeItem?.livestockTypeName || "").toLowerCase().includes("cattle") ? "MILK" : "MEAT"
   );
+  const availableProductionTypes = useMemo(
+    () => getProductionTypesForLivestock(activeItem?.livestockTypeName).map((type) => PRODUCTION_TYPE_CODES[type]),
+    [activeItem?.livestockTypeName],
+  );
+  const openProductionDialog = () => {
+    if (availableProductionTypes.length > 0) {
+      setProdType(availableProductionTypes.includes("WOOL") ? "WOOL" : availableProductionTypes[0]);
+    }
+    setIsProductionDialogOpen(true);
+  };
   const [prodQuantity, setProdQuantity] = useState("10.0");
   const [prodDate, setProdDate] = useState(new Date().toISOString().split("T")[0]);
   const [prodNotes, setProdNotes] = useState("Daily yield collection");
@@ -1138,7 +1156,7 @@ export default function LivestockDetailPage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-base font-black text-slate-900">
-                    Animal Production Records (Milk / Meat / Eggs)
+                    Animal Production Records
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500 font-medium">
                     Your production records appear here after you submit them.
@@ -1146,7 +1164,7 @@ export default function LivestockDetailPage() {
                 </div>
 
                 <Button
-                  onClick={() => setIsProductionDialogOpen(true)}
+                  onClick={openProductionDialog}
                   size="sm"
                   className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm"
                 >
@@ -1187,7 +1205,7 @@ export default function LivestockDetailPage() {
                     Log daily milk volume, egg count, or harvest yield for Tag #{activeItem.tagNumber} to track output.
                   </p>
                   <Button
-                    onClick={() => setIsProductionDialogOpen(true)}
+                    onClick={openProductionDialog}
                     variant="outline"
                     size="sm"
                     className="rounded-xl border-emerald-300 text-emerald-800 font-bold text-xs"
@@ -1621,10 +1639,13 @@ export default function LivestockDetailPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MILK">Dairy Milk (Liters)</SelectItem>
-                  <SelectItem value="MEAT">Meat / Carcass (kg)</SelectItem>
-                  <SelectItem value="EGGS">Eggs (Pieces)</SelectItem>
-                  <SelectItem value="WOOL">Wool (kg)</SelectItem>
+                  {availableProductionTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type === "MILK" ? "Dairy Milk (Liters)" :
+                        type === "MEAT" ? "Meat / Carcass (kg)" :
+                          type === "EGGS" ? "Eggs (Pieces)" : "Wool (kg)"}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
