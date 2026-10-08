@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import QRCode from "qrcode";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +17,7 @@ import {
   Stethoscope,
   QrCode,
   Printer,
+  Download,
   Plus,
   Layers,
   Sparkles,
@@ -73,6 +76,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import api from "@/lib/axios";
+import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
 import {
   useUserInventory,
   type LivestockInventoryItem,
@@ -400,6 +404,39 @@ export default function LivestockDetailPage() {
   const [isPassportDialogOpen, setIsPassportDialogOpen] = useState(false);
   const [isProductionDialogOpen, setIsProductionDialogOpen] = useState(false);
   const [isCalvingDialogOpen, setIsCalvingDialogOpen] = useState(false);
+  const [livestockQrResult, setLivestockQrResult] = useState<{
+    animalId: string;
+    dataUrl: string | null;
+    failed: boolean;
+  } | null>(null);
+  const qrAnimalId = activeItem?.id;
+  const canHaveLivestockQr = activeItem?.entryType === "INDIVIDUAL" && activeItem.quantity === 1;
+  const livestockQrDataUrl = canHaveLivestockQr && livestockQrResult?.animalId === qrAnimalId
+    ? livestockQrResult?.dataUrl || ""
+    : "";
+  const livestockQrError = canHaveLivestockQr
+    && livestockQrResult?.animalId === qrAnimalId
+    && livestockQrResult?.failed === true;
+
+  useEffect(() => {
+    if (!qrAnimalId || !canHaveLivestockQr) return;
+
+    let mounted = true;
+    // The QR carries only the stable inventory key; the authenticated lookup
+    // resolves it and applies current ownership, scope, and eligibility rules.
+    void QRCode.toDataURL(livestockIdentityQrPayload(qrAnimalId), {
+      width: 320,
+      margin: 2,
+      errorCorrectionLevel: "M",
+      color: { dark: "#064E3B", light: "#FFFFFF" },
+    }).then((dataUrl) => {
+      if (mounted) setLivestockQrResult({ animalId: qrAnimalId, dataUrl, failed: false });
+    }).catch(() => {
+      if (mounted) setLivestockQrResult({ animalId: qrAnimalId, dataUrl: null, failed: true });
+    });
+
+    return () => { mounted = false; };
+  }, [canHaveLivestockQr, qrAnimalId]);
 
   // Form States: Weight
   const [newWeight, setNewWeight] = useState(String(latestWeight || "70.0"));
@@ -1712,7 +1749,7 @@ export default function LivestockDetailPage() {
 
       {/* ── MODAL: PRINT LGU PASSPORT ─────────────────────────────────────── */}
       <Dialog open={isPassportDialogOpen} onOpenChange={setIsPassportDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <DialogContent id="livestock-identity-pass" className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader className="text-center pb-2 border-b border-slate-100">
             <div className="flex items-center justify-center gap-2 mb-1">
               <div className="size-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-xs shadow-xs">
@@ -1728,10 +1765,10 @@ export default function LivestockDetailPage() {
               </div>
             </div>
             <DialogTitle className="text-base font-black text-slate-900 pt-1">
-              Official Animal ID &amp; Biosecurity Tag
+              Official Livestock Identity Card
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Municipal Identification, Veterinary Clearance &amp; Health Record
+              Livestock registry identity; inspection and movement approvals are checked separately
             </DialogDescription>
           </DialogHeader>
 
@@ -1743,18 +1780,8 @@ export default function LivestockDetailPage() {
                 <span>How this QR Code works:</span>
               </div>
               <p className="text-[11px] text-slate-600 leading-relaxed">
-                Scan with any smartphone camera or checkpoint scanner to instantly verify official MAO livestock registration, ownership, and health clearance.
+                This real QR identifies this individual livestock record. Authorized staff scan it with SmartLivestock to retrieve current registry details; the QR itself does not prove ownership, health clearance, or movement approval.
               </p>
-              <div className="flex items-center gap-3 pt-0.5 text-[10px] text-emerald-800 font-semibold flex-wrap">
-                <span className="flex items-center gap-1">
-                  <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-                  Biosecurity Checkpoint Ready
-                </span>
-                <span className="flex items-center gap-1">
-                  <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-                  Municipal Movement Clearance
-                </span>
-              </div>
             </div>
 
             {/* Visual QR Code & Photo Card */}
@@ -1775,44 +1802,17 @@ export default function LivestockDetailPage() {
                 )}
               </div>
 
-              {/* Scannable SVG QR Code Simulation */}
+              {/* Generate a standards-compliant QR from the canonical inventory ID. */}
               <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200 mb-2">
-                <svg className="size-36" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="10" y="10" width="30" height="30" rx="4" fill="#064E3B" />
-                  <rect x="16" y="16" width="18" height="18" rx="2" fill="white" />
-                  <rect x="20" y="20" width="10" height="10" rx="1" fill="#064E3B" />
-
-                  <rect x="80" y="10" width="30" height="30" rx="4" fill="#064E3B" />
-                  <rect x="86" y="16" width="18" height="18" rx="2" fill="white" />
-                  <rect x="90" y="20" width="10" height="10" rx="1" fill="#064E3B" />
-
-                  <rect x="10" y="80" width="30" height="30" rx="4" fill="#064E3B" />
-                  <rect x="16" y="86" width="18" height="18" rx="2" fill="white" />
-                  <rect x="20" y="90" width="10" height="10" rx="1" fill="#064E3B" />
-
-                  <rect x="48" y="12" width="6" height="6" rx="1" fill="#064E3B" />
-                  <rect x="58" y="12" width="6" height="6" rx="1" fill="#064E3B" />
-                  <rect x="68" y="18" width="6" height="6" rx="1" fill="#064E3B" />
-                  <rect x="48" y="26" width="12" height="6" rx="1" fill="#064E3B" />
-
-                  <rect x="12" y="48" width="6" height="6" rx="1" fill="#064E3B" />
-                  <rect x="24" y="48" width="6" height="12" rx="1" fill="#064E3B" />
-                  <rect x="12" y="60" width="18" height="6" rx="1" fill="#064E3B" />
-
-                  <rect x="44" y="44" width="32" height="32" rx="6" fill="#10B981" />
-                  <circle cx="60" cy="60" r="10" fill="white" />
-                  <circle cx="60" cy="60" r="5" fill="#064E3B" />
-
-                  <rect x="82" y="48" width="14" height="6" rx="1" fill="#064E3B" />
-                  <rect x="90" y="60" width="18" height="6" rx="1" fill="#064E3B" />
-                  <rect x="82" y="70" width="6" height="14" rx="1" fill="#064E3B" />
-
-                  <rect x="48" y="84" width="8" height="8" rx="1" fill="#064E3B" />
-                  <rect x="60" y="92" width="14" height="6" rx="1" fill="#064E3B" />
-                  <rect x="48" y="102" width="20" height="6" rx="1" fill="#064E3B" />
-                  <rect x="84" y="90" width="12" height="6" rx="1" fill="#064E3B" />
-                  <rect x="98" y="98" width="10" height="10" rx="1" fill="#064E3B" />
-                </svg>
+                {livestockQrDataUrl ? (
+                  <Image className="size-36" src={livestockQrDataUrl} width={144} height={144} unoptimized alt={`Livestock identity QR for ${activeItem.tagNumber}`} />
+                ) : livestockQrError ? (
+                  <div role="alert" className="flex size-36 items-center justify-center text-center text-xs text-rose-700">QR generation failed. Reopen the ID card to retry.</div>
+                ) : activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1 ? (
+                  <div className="flex size-36 items-center justify-center text-xs text-slate-500">Preparing QR…</div>
+                ) : (
+                  <div className="flex size-36 items-center justify-center text-center text-xs text-slate-500">A QR identity is available for individual animals only.</div>
+                )}
               </div>
 
               <p className="font-mono font-black text-base text-slate-900 tracking-wider">
@@ -1855,7 +1855,7 @@ export default function LivestockDetailPage() {
                 <span className="font-bold text-emerald-700">{activeItem.lastVaccinationDate || "No Record"}</span>
               </div>
               <p className="text-emerald-800 font-bold text-[11px] pt-1 text-center">
-                Padre Garcia Municipal Agriculture Office &bull; Animal Biosecurity Pass
+                Padre Garcia Municipal Agriculture Office &bull; Livestock Registry Identity Card
               </p>
             </div>
           </div>
@@ -1865,21 +1865,31 @@ export default function LivestockDetailPage() {
               type="button"
               variant="outline"
               onClick={() => setIsPassportDialogOpen(false)}
-              className="rounded-xl font-bold text-xs flex-1"
+              className="livestock-id-pass-action rounded-xl font-bold text-xs flex-1"
             >
               Close
             </Button>
             <Button
               type="button"
+              disabled={!livestockQrDataUrl}
+              variant="outline"
               onClick={() => {
-                toast.success("Print command sent to local printer / PDF export.", {
-                  description: `ID Pass for ${activeItem.tagNumber} generated.`,
-                });
-                setIsPassportDialogOpen(false);
+                const link = document.createElement("a");
+                link.href = livestockQrDataUrl;
+                link.download = `livestock-qr-${activeItem.id}.png`;
+                link.click();
               }}
-              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1.5 cursor-pointer shadow-sm"
+              className="livestock-id-pass-action rounded-xl font-bold text-xs flex-1 gap-1.5"
             >
-              <Printer className="size-3.5" /> Print Animal Tag
+              <Download className="size-3.5" /> Download QR
+            </Button>
+            <Button
+              type="button"
+              disabled={!livestockQrDataUrl}
+              onClick={() => window.print()}
+              className="livestock-id-pass-action rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Printer className="size-3.5" /> Print Animal ID
             </Button>
           </DialogFooter>
         </DialogContent>

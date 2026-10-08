@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   QrCode,
   Search,
-  CheckCircle2,
+  Info,
   ShieldCheck,
   Camera,
   ExternalLink,
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import axios from "axios";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { lookupRegisteredLivestock } from "@/app/(auction)/auction-inspections/auction-analytics";
@@ -42,6 +43,8 @@ interface ScannedRecord {
   headCount: number;
   weightKg?: number | null;
   operationalStatus?: string;
+  registrationStatus?: string;
+  eligible?: boolean;
   biosecurity: "CLEARED" | "FLAGGED" | "UNKNOWN";
   lastVaccination?: string;
   details: string;
@@ -62,18 +65,6 @@ interface BatchLookupRecord {
   feed_type?: string;
 }
 
-interface InventoryLookupRecord {
-  id: number;
-  tag_number?: string;
-  breed?: string;
-  livestock_type_name?: string;
-  farmer_name?: string;
-  barangay_name?: string;
-  quantity?: number | string;
-  weight?: number | string | null;
-  operational_status?: string;
-}
-
 export function UniversalQrScannerDialog({
   isOpen,
   onOpenChange,
@@ -84,6 +75,7 @@ export function UniversalQrScannerDialog({
   const [isSearching, setIsSearching] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lookupRequestId = useRef(0);
 
   // Role styling & theming
   const isAuction = role === "auction";
@@ -96,7 +88,7 @@ export function UniversalQrScannerDialog({
         border: "border-purple-200",
         badge: "bg-purple-100 text-purple-800",
         title: "Padre Garcia Livestock Trading Center • Gate Scanner",
-        sub: "Verify incoming transport permits, batch manifests, and auction registrations.",
+        sub: "Resolve registered livestock identities and supported batch records against the registry.",
       }
     : isSibat
     ? {
@@ -105,7 +97,7 @@ export function UniversalQrScannerDialog({
         border: "border-amber-200",
         badge: "bg-amber-100 text-amber-800",
         title: "SIBAT Field Biosecurity & Checkpoint Scanner",
-        sub: "On-site verification of ear tags, vaccination records, and barangay herd movement.",
+        sub: "Resolve livestock identities within your assigned barangay scope.",
       }
     : {
         bannerBg: "bg-emerald-100 text-emerald-900",
@@ -113,49 +105,42 @@ export function UniversalQrScannerDialog({
         border: "border-emerald-200",
         badge: "bg-emerald-100 text-emerald-800",
         title: "Municipal Agriculture Office • Universal QR Scanner",
-        sub: "Rapid official audit of individual cattle passports, herds, and transport permits.",
+        sub: "Resolve current livestock registry records and review their eligibility status.",
       };
 
   const handleLookup = useCallback(async (codeToSearch: string) => {
     const trimmed = codeToSearch.trim().toUpperCase();
     if (!trimmed) {
-      toast.error("Please enter or scan a valid tag, batch, or permit code.");
+      toast.error("Please enter or scan a livestock or batch identifier.");
       return;
     }
 
+    const requestId = ++lookupRequestId.current;
     setIsSearching(true);
+    setActiveResult(null);
 
     try {
-      if (isAuction) {
-        const found = await lookupRegisteredLivestock(trimmed);
-        setActiveResult({
-          code: found.tag_number,
-          type: "INDIVIDUAL",
-          title: `${found.breed || "Registered"} ${found.livestock_type_name}`,
-          specie: found.livestock_type_name,
-          breed: found.breed || "Not recorded",
-          owner: found.owner_name,
-          barangay: found.barangay || "Not recorded",
-          headCount: 1,
-          operationalStatus: found.operational_status,
-          biosecurity: "UNKNOWN",
-          details: `Registered livestock identity retrieved from the database. Registration: ${found.registration_status}. No movement or clearance approval is implied.`,
-        });
-        toast.success(`Registered animal found: ${found.tag_number}`);
-        return;
+      let batchLookupCode: string | null = null;
+      try {
+        const scannedUrl = new URL(trimmed);
+        batchLookupCode = scannedUrl.searchParams.get("batchId")?.trim().toUpperCase() || null;
+      } catch {
+        if (trimmed.includes("BATCH")) batchLookupCode = trimmed;
       }
 
-      // 1. Try querying backend for batch code if starts with BATCH
-      if (trimmed.includes("BATCH")) {
+      // Batch passes identify a herd; they are resolved separately from individual animal IDs.
+      if (!isAuction && batchLookupCode) {
         try {
           const res = await api.get<BatchLookupRecord[]>("livestock/batches/?all=true");
           const batches = Array.isArray(res.data) ? res.data : [];
           const found = batches.find(
             (b) =>
-              b.batch_code?.toUpperCase() === trimmed ||
-              b.batch_name?.toUpperCase() === trimmed
+              b.batch_code?.toUpperCase() === batchLookupCode ||
+              b.batch_name?.toUpperCase() === batchLookupCode ||
+              String(b.id) === batchLookupCode
           );
           if (found) {
+            if (requestId !== lookupRequestId.current) return;
             setActiveResult({
               code: found.batch_code || String(found.id),
               type: "BATCH",
@@ -174,53 +159,64 @@ export function UniversalQrScannerDialog({
             return;
           }
         } catch {
-          throw new Error("Registry lookup failed");
+          throw new Error("Batch registry lookup failed");
         }
+        if (requestId === lookupRequestId.current) toast.error("No matching accessible livestock batch was found.");
+        return;
       }
 
-      // 2. Try querying backend for livestock tag
-      try {
-        const res = await api.get<InventoryLookupRecord[]>("livestock/inventory/?include_inactive=true");
-        const items = Array.isArray(res.data) ? res.data : [];
-        const found = items.find(
-          (i) =>
-            i.tag_number?.toUpperCase() === trimmed ||
-            String(i.id) === trimmed
-        );
-        if (found) {
-          setActiveResult({
-            code: found.tag_number || `TAG-${found.id}`,
-            type: "INDIVIDUAL",
-            title: `${found.breed || "Standard"} ${found.livestock_type_name || "Cattle"}`,
-            specie: found.livestock_type_name || "Not recorded",
-            breed: found.breed || "Not recorded",
-            owner: found.farmer_name || "Registered Raiser",
-            barangay: found.barangay_name || "Not recorded",
-            headCount: Number(found.quantity) || 1,
-            weightKg: found.weight ? Number(found.weight) : null,
-            operationalStatus: found.operational_status || "ACTIVE",
-            biosecurity: "UNKNOWN",
-            details: `Official Tag ID #${found.tag_number || found.id} registered under Municipal Agriculture Office`,
-            linkUrl: `/data-validation`,
-          });
-          setIsSearching(false);
-          toast.success(`Record found: ${found.tag_number || found.id}`);
-          return;
-        }
-      } catch {
-        throw new Error("Registry lookup failed");
+      // The scanner reads only an identifier. The authorized API resolves the record
+      // and supplies the current status instead of trusting a client-side list match.
+      const found = await lookupRegisteredLivestock(trimmed);
+      if (requestId !== lookupRequestId.current) return;
+      setActiveResult({
+        code: found.tag_number || String(found.id),
+        type: "INDIVIDUAL",
+        title: `${found.breed || "Registered"} ${found.livestock_type_name}`,
+        specie: found.livestock_type_name,
+        breed: found.breed || "Not recorded",
+        owner: found.owner_name,
+        barangay: found.barangay || "Not recorded",
+        headCount: 1,
+        operationalStatus: found.operational_status,
+        registrationStatus: found.registration_status,
+        eligible: found.eligible,
+        biosecurity: "UNKNOWN",
+        details: found.eligible
+          ? "Approved, active individual livestock. This identity lookup does not approve a movement or inspection."
+          : found.ineligibility_reason,
+      });
+      toast.success(`Livestock identity found: ${found.tag_number || found.id}`);
+    } catch (cause: unknown) {
+      if (requestId !== lookupRequestId.current) return;
+      setActiveResult(null);
+      if (axios.isAxiosError(cause)) {
+        const response = cause.response;
+        const detail = (response?.data as { detail?: string } | undefined)?.detail;
+        toast.error(response?.status === 404
+          ? "No matching livestock identity is available in your authorized scope."
+          : response?.status === 403
+            ? "Your role is not authorized to look up this livestock record."
+            : detail || "Unable to contact the livestock registry. Check your connection and try again.");
+      } else {
+        toast.error("Unable to verify this livestock identifier.");
       }
-
-      // A failed lookup is unknown; it must never manufacture approval or clearance.
-      setActiveResult(null);
-      toast.error("No matching accessible registry record. Transport-permit lookup is not available yet.");
-    } catch {
-      setActiveResult(null);
-      toast.error("Unable to verify this code. Check your connection and access permissions.");
     } finally {
-      setIsSearching(false);
+      if (requestId === lookupRequestId.current) setIsSearching(false);
     }
   }, [isAuction]);
+
+  const enableCamera = () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.info("Camera access is unavailable. Enter the livestock tag or use a handheld scanner.");
+      return;
+    }
+    if (!(window as unknown as { BarcodeDetector?: unknown }).BarcodeDetector) {
+      toast.info("QR camera decoding is not supported in this browser. Use a handheld scanner or enter the code.");
+      return;
+    }
+    setCameraActive(true);
+  };
 
   // Camera capture decodes on supported browsers; lookup still goes through the API.
   useEffect(() => {
@@ -228,8 +224,12 @@ export function UniversalQrScannerDialog({
     let animationFrame = 0;
     let scanning = true;
     if (isOpen && cameraActive) {
-      navigator.mediaDevices
-        ?.getUserMedia({ video: { facingMode: "environment" } })
+      const mediaDevices = navigator.mediaDevices;
+      if (!mediaDevices?.getUserMedia) {
+        toast.info("Camera access is unavailable. Enter the livestock tag or use a handheld scanner.");
+        return;
+      }
+      mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then((media) => {
           stream = media;
           if (videoRef.current) {
@@ -243,6 +243,7 @@ export function UniversalQrScannerDialog({
           }).BarcodeDetector;
           if (!Detector) {
             toast.info("QR camera decoding is not supported by this browser. Use a handheld scanner or enter the code.");
+            setCameraActive(false);
             return;
           }
           const detector = new Detector({ formats: ["qr_code"] });
@@ -282,13 +283,25 @@ export function UniversalQrScannerDialog({
   }, [isOpen, cameraActive, handleLookup]);
 
   const handleReset = () => {
+    lookupRequestId.current += 1;
+    setIsSearching(false);
     setActiveResult(null);
     setScanInput("");
   };
 
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      lookupRequestId.current += 1;
+      setCameraActive(false);
+      setIsSearching(false);
+      setActiveResult(null);
+      setScanInput("");
+    }
+    onOpenChange(open);
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-lg rounded-3xl p-5 sm:p-6 bg-white border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader className="pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2 mb-1">
@@ -320,10 +333,13 @@ export function UniversalQrScannerDialog({
               <div className="absolute bottom-3 right-3 size-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
 
               {cameraActive ? (
-                <div className="relative w-full h-44 rounded-xl overflow-hidden bg-black flex items-center justify-center">
-                  <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-                  {/* Laser scan line animation */}
-                  <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-pulse" />
+                <div className="w-full space-y-2">
+                  <div className="relative h-44 w-full overflow-hidden rounded-xl bg-black">
+                    <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
+                    {/* Laser scan line animation */}
+                    <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-pulse" />
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCameraActive(false)} className="border-white/20 bg-white/10 text-xs text-white hover:bg-white/20">Stop camera</Button>
                 </div>
               ) : (
                 <>
@@ -342,7 +358,7 @@ export function UniversalQrScannerDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setCameraActive(true)}
+                    onClick={enableCamera}
                     className="mt-3 bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold rounded-xl h-8 gap-1.5"
                   >
                     <Camera className="size-3.5" />
@@ -398,9 +414,13 @@ export function UniversalQrScannerDialog({
                 </div>
 
                 <div className="flex flex-col items-end gap-1">
-                  <Badge className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold gap-1 py-1 px-2.5">
-                    <ShieldCheck className="size-3.5 text-emerald-700" />
-                    <span>Livestock identity found</span>
+                  <Badge className={activeResult.type === "INDIVIDUAL" && !activeResult.eligible
+                    ? "bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold gap-1 py-1 px-2.5"
+                    : "bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold gap-1 py-1 px-2.5"}>
+                    <ShieldCheck className="size-3.5" />
+                    <span>{activeResult.type === "INDIVIDUAL"
+                      ? activeResult.eligible ? "Eligible to add" : "Identity found · not eligible"
+                      : "Registry record found"}</span>
                   </Badge>
                   {activeResult.type === "INDIVIDUAL" && (
                     <LivestockOperationalStatusBadge status={activeResult.operationalStatus} />
@@ -437,8 +457,8 @@ export function UniversalQrScannerDialog({
                   <span className="text-[10px] font-bold text-slate-400 block uppercase">
                     Biosecurity
                   </span>
-                  <p className="font-bold text-emerald-700 flex items-center gap-1">
-                    <CheckCircle2 className="size-3.5" />
+                  <p className="font-bold text-slate-600 flex items-center gap-1">
+                    <Info className="size-3.5" />
                     <span>Not assessed by registry lookup</span>
                   </p>
                 </div>

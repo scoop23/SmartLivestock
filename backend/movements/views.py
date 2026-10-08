@@ -78,31 +78,82 @@ def inspection_shipper_options(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def inspection_livestock_lookup(request):
-    """Resolve tag/ID to current inventory and owner data; lookup never mutates records."""
-    if role_name(request.user) not in (AUCTION, MAO, ADMIN):
-        raise PermissionDenied("Only auction and MAO staff can look up registered livestock.")
-    code = request.query_params.get("code", "").strip()
-    if "://" in code:
-        query = parse_qs(urlparse(code).query)
-        code = (query.get("tag", [""])[0] or query.get("livestockId", [""])[0]
-                or query.get("batchId", [""])[0]).strip()
-    if not code:
-        return Response({"detail": "A livestock tag or ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+    """Resolve an animal identity without changing records or approval state."""
+    user = request.user
+    user_role = role_name(user)
+    farmer_profile = getattr(user, "farmer_profile", None)
 
-    query = Q(tag_number__iexact=code)
-    if code.isdigit():
-        query |= Q(pk=int(code))
-    inventory = LivestockInventory.objects.select_related(
+    # Lookup access follows existing inventory scopes; a QR is only an identifier,
+    # so the same ownership and barangay rules still apply after it is decoded.
+    if user_role == FARMER:
+        if farmer_profile is None:
+            raise PermissionDenied("A farmer profile is required to look up livestock.")
+    elif user_role == AUCTION:
+        require_action(user, "inspections", "read_all")
+    else:
+        require_action(user, "inventory", "read_all")
+
+    code = request.query_params.get("code", "").strip()
+    if len(code) > 255:
+        return Response({"detail": "The livestock identifier is too long."}, status=status.HTTP_400_BAD_REQUEST)
+
+    canonical_id = None
+    if "://" in code:
+        try:
+            query = parse_qs(urlparse(code).query)
+        except ValueError:
+            return Response({"detail": "The livestock QR URL is invalid."}, status=status.HTTP_400_BAD_REQUEST)
+        # Batch identity links intentionally stay separate from individual animal IDs.
+        livestock_id = query.get("livestockId", [""])[0].strip()
+        if livestock_id.isdigit():
+            canonical_id = int(livestock_id)
+            code = ""
+        else:
+            code = (livestock_id or query.get("tag", [""])[0]).strip()
+    if code.upper().startswith("SL-LIVESTOCK:"):
+        candidate = code.split(":", 1)[1].strip()
+        if not candidate.isdigit():
+            return Response({"detail": "The livestock QR payload is invalid."}, status=status.HTTP_400_BAD_REQUEST)
+        canonical_id = int(candidate)
+        code = ""
+    if not code:
+        if canonical_id is None:
+            return Response({"detail": "A livestock tag or ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Build the authorized queryset before looking up the key. Returning 404 for
+    # out-of-scope records avoids revealing whether another barangay has that ID.
+    inventory_queryset = LivestockInventory.objects.select_related(
         "livestock_type", "farmer", "farmer__user", "farmer__barangay"
     ).filter(
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
         quantity=1,
-    ).filter(query).first()
+    )
+    if user_role == FARMER:
+        inventory_queryset = inventory_queryset.filter(farmer=farmer_profile)
+    elif user_role == SIBAT:
+        inventory_queryset = scope_reviewer_queryset(inventory_queryset, user)
+
+    if canonical_id is not None:
+        inventory = inventory_queryset.filter(pk=canonical_id).first()
+    else:
+        matches = inventory_queryset.filter(tag_number__iexact=code)
+        if code.isdigit():
+            # Old manual numeric IDs remain supported, but QR payloads always use
+            # the explicit prefix so a numeric tag cannot shadow the canonical PK.
+            matches = matches | inventory_queryset.filter(pk=int(code))
+        possible_matches = list(matches.order_by("pk")[:2])
+        if len(possible_matches) > 1:
+            return Response(
+                {"detail": "This tag is ambiguous. Scan the livestock QR or use its unique database ID."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        inventory = possible_matches[0] if possible_matches else None
     if not inventory:
         return Response({"detail": "Livestock record not found for that tag or ID."}, status=status.HTTP_404_NOT_FOUND)
 
     farmer = inventory.farmer
-    # Identification is read-only; eligibility comes from the current registry.
+    # Identity can still be traced when inactive; action eligibility is checked
+    # separately from existence using the current approval and lifecycle fields.
     eligible = (
         inventory.status == LivestockInventory.StatusType.APPROVED
         and inventory.operational_status == LivestockInventory.OperationalStatus.ACTIVE

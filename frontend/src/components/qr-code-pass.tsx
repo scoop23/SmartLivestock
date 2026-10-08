@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 export interface QrCodePassProps {
   code: string;
+  qrPayload?: string;
   title: string;
   subtitle?: string;
   ownerName?: string;
@@ -22,6 +23,7 @@ export interface QrCodePassProps {
 
 export function QrCodePass({
   code,
+  qrPayload,
   title,
   subtitle = "Municipal Biosecurity & Traceability Pass",
   ownerName,
@@ -39,13 +41,16 @@ export function QrCodePass({
     typeof window !== "undefined"
       ? `${window.location.origin}/data-validation/batches?batchId=${encodeURIComponent(code)}`
       : `https://smartlivestock.padregarcia.gov.ph/data-validation/batches?batchId=${encodeURIComponent(code)}`;
+  // Individual livestock QR views pass the canonical inventory ID explicitly;
+  // legacy farmer/batch passes keep their existing URLs and separate meanings.
+  const qrValue = qrPayload || verificationUrl;
 
   useEffect(() => {
     let isMounted = true;
     if (!code) return;
 
     // Generate real, camera-scannable standard QR Code Data URL
-    QRCode.toDataURL(verificationUrl, {
+    QRCode.toDataURL(qrValue, {
       width: compact ? 220 : 320,
       margin: 1,
       color: {
@@ -64,12 +69,12 @@ export function QrCodePass({
     return () => {
       isMounted = false;
     };
-  }, [code, verificationUrl, compact]);
+  }, [code, qrValue, compact]);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(verificationUrl);
+    navigator.clipboard.writeText(qrValue);
     setCopied(true);
-    toast.success("Verification link copied to clipboard");
+    toast.success(qrPayload ? "Livestock QR identifier copied" : "Verification link copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
 

@@ -40,6 +40,7 @@ import { cowHead } from "@lucide/lab";
 import { toast } from "sonner";
 import { DataTab } from "./data-overview-types";
 import { QrCodePass } from "@/components/qr-code-pass";
+import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
 
 interface DataOverviewDetailModalProps {
   open: boolean;
@@ -72,6 +73,9 @@ export function DataOverviewDetailModal({
   const identifierCode = isBatch
     ? (record.batchCode || record.id)
     : (record.cattleId || record.tagNumber || record.id);
+  const livestockQrPayload = domain === "livestock" && !isBatch && /^\d+$/.test(String(record.id ?? ""))
+    ? livestockIdentityQrPayload(record.id)
+    : undefined;
 
   const handleCopyTag = () => {
     navigator.clipboard.writeText(identifierCode);
@@ -747,13 +751,18 @@ export function DataOverviewDetailModal({
             <div className="space-y-4 animate-in fade-in-50 duration-200 flex flex-col items-center">
               <QrCodePass
                 code={identifierCode}
-                title={isBatch ? `Batch ${record.batchName || record.batchCode}` : `${record.specie || "Livestock"} Passport`}
-                subtitle="Official Municipal Biosecurity & Traceability Digital Clearance"
+                qrPayload={livestockQrPayload}
+                title={livestockQrPayload
+                  ? `${record.specie || "Livestock"} Identity QR`
+                  : isBatch ? `Batch ${record.batchName || record.batchCode}` : `${record.specie || "Livestock"} Passport`}
+                subtitle={livestockQrPayload
+                  ? "Resolves this animal through the authorized livestock registry"
+                  : "Municipal traceability pass"}
                 ownerName={record.farmerName || record.enumerator || "Registered Farmer"}
                 barangay={record.barangay}
                 specie={record.specie}
                 headCount={record.totalAnimals || record.quantity}
-                status={record.status || "APPROVED"}
+                status={record.status || (livestockQrPayload ? "RECORDED" : "APPROVED")}
                 verifiedAt={record.reviewedAt || record.createdAt || record.date}
               />
             </div>

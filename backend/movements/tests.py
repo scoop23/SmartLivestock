@@ -150,10 +150,21 @@ class LivestockInspectionWorkflowTests(TestCase):
         self.assertNotIn("clearance", by_tag.data)
         by_url = self.client.get(
             "/api/inspections/livestock-lookup/",
-            {"code": "https://smartlivestock.padregarcia.gov.ph/data-validation/batches?batchId=PG-COW-001"},
+            {"code": f"https://smartlivestock.padregarcia.gov.ph/livestock?livestockId={self.inventory_cow.id}"},
         )
         self.assertEqual(by_url.status_code, status.HTTP_200_OK)
         self.assertEqual(by_url.data["id"], self.inventory_cow.id)
+        by_qr = self.client.get(
+            "/api/inspections/livestock-lookup/",
+            {"code": f"SL-LIVESTOCK:{self.inventory_cow.id}"},
+        )
+        self.assertEqual(by_qr.status_code, status.HTTP_200_OK)
+        self.assertEqual(by_qr.data["id"], self.inventory_cow.id)
+        batch_pass_is_not_animal_identity = self.client.get(
+            "/api/inspections/livestock-lookup/",
+            {"code": "https://smartlivestock.padregarcia.gov.ph/data-validation/batches?batchId=PG-COW-001"},
+        )
+        self.assertEqual(batch_pass_is_not_animal_identity.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_livestock_lookup_rejects_unknown_and_ineligible_animals(self):
         self.client.force_authenticate(user=self.auction_user)
@@ -167,8 +178,29 @@ class LivestockInspectionWorkflowTests(TestCase):
         self.assertFalse(inactive.data["eligible"])
         self.assertIn("SOLD", inactive.data["ineligibility_reason"])
         self.client.force_authenticate(user=self.farmer_user)
-        forbidden = self.client.get("/api/inspections/livestock-lookup/?code=PG-COW-001")
-        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+        owner_can_trace_inactive_record = self.client.get("/api/inspections/livestock-lookup/?code=PG-COW-001")
+        self.assertEqual(owner_can_trace_inactive_record.status_code, status.HTTP_200_OK)
+        self.assertFalse(owner_can_trace_inactive_record.data["eligible"])
+
+    def test_canonical_qr_resolves_correct_record_even_when_manual_tag_is_duplicated(self):
+        duplicate = LivestockInventory.objects.create(
+            farmer=self.farmer,
+            livestock_type=self.cattle_type,
+            tag_number=self.inventory_cow.tag_number,
+            status=LivestockInventory.StatusType.APPROVED,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            created_by=self.farmer_user,
+        )
+        self.client.force_authenticate(user=self.auction_user)
+        ambiguous_tag = self.client.get(
+            "/api/inspections/livestock-lookup/", {"code": self.inventory_cow.tag_number}
+        )
+        self.assertEqual(ambiguous_tag.status_code, status.HTTP_409_CONFLICT)
+        canonical_qr = self.client.get(
+            "/api/inspections/livestock-lookup/", {"code": f"SL-LIVESTOCK:{duplicate.id}"}
+        )
+        self.assertEqual(canonical_qr.status_code, status.HTTP_200_OK)
+        self.assertEqual(canonical_qr.data["id"], duplicate.id)
 
     def test_lookup_eligibility_requires_both_approved_and_active(self):
         self.client.force_authenticate(user=self.auction_user)
@@ -209,19 +241,63 @@ class LivestockInspectionWorkflowTests(TestCase):
                                   LivestockInspection.objects.count(), LivestockInspectionClearance.objects.count()))
 
     def test_lookup_permissions_and_invalid_identifiers(self):
-        for user in (self.auction_user, self.mao_user):
+        admin_role, _ = Role.objects.get_or_create(role_name="ADMIN")
+        admin_user = User.objects.create_user(
+            username="admin_lookup", email="admin@example.com", password="password123",
+            role=admin_role, account_status=User.AccountStatus.APPROVED,
+        )
+        for user in (self.auction_user, self.mao_user, admin_user):
             self.client.force_authenticate(user=user)
-            for code in (str(self.inventory_cow.id), "pg-cow-001", "https://example.test/?livestockId=PG-COW-001"):
+            for code in (
+                str(self.inventory_cow.id),
+                f"SL-LIVESTOCK:{self.inventory_cow.id}",
+                "pg-cow-001",
+                "https://example.test/?livestockId=PG-COW-001",
+            ):
                 response = self.client.get("/api/inspections/livestock-lookup/", {"code": code})
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertEqual(response.data["owner_id"], self.farmer.id)
-            for code in ("", "https://example.test/?owner=123"):
+            for code in ("", "https://example.test/?owner=123", "SL-LIVESTOCK:not-a-number"):
                 self.assertEqual(self.client.get("/api/inspections/livestock-lookup/", {"code": code}).status_code,
                                  status.HTTP_400_BAD_REQUEST)
-        for user in (self.farmer_user, self.sibat_user, None):
-            self.client.force_authenticate(user=user)
-            self.assertIn(self.client.get("/api/inspections/livestock-lookup/", {"code": "PG-COW-001"}).status_code,
-                          (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.client.force_authenticate(user=self.farmer_user)
+        own_record = self.client.get("/api/inspections/livestock-lookup/", {"code": f"SL-LIVESTOCK:{self.inventory_cow.id}"})
+        self.assertEqual(own_record.status_code, status.HTTP_200_OK)
+        self.assertEqual(own_record.data["id"], self.inventory_cow.id)
+
+        other_farmer_user = User.objects.create_user(
+            username="farmer_out_of_scope", email="other@example.com", password="password123",
+            role=self.farmer_role, account_status=User.AccountStatus.APPROVED,
+        )
+        other_farmer = Farmer.objects.create(
+            user=other_farmer_user, barangay=self.brgy_san_felipe, address="San Felipe",
+        )
+        other_animal = LivestockInventory.objects.create(
+            farmer=other_farmer, livestock_type=self.cattle_type, tag_number="OTHER-COW",
+            status=LivestockInventory.StatusType.APPROVED,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            created_by=other_farmer_user,
+        )
+        other_farmer_result = self.client.get(
+            "/api/inspections/livestock-lookup/", {"code": f"SL-LIVESTOCK:{other_animal.id}"}
+        )
+        self.assertEqual(other_farmer_result.status_code, status.HTTP_404_NOT_FOUND)
+
+        self.client.force_authenticate(user=self.sibat_user)
+        assigned_barangay_result = self.client.get(
+            "/api/inspections/livestock-lookup/", {"code": f"SL-LIVESTOCK:{self.inventory_cow.id}"}
+        )
+        self.assertEqual(assigned_barangay_result.status_code, status.HTTP_200_OK)
+        out_of_scope_result = self.client.get(
+            "/api/inspections/livestock-lookup/", {"code": f"SL-LIVESTOCK:{other_animal.id}"}
+        )
+        self.assertEqual(out_of_scope_result.status_code, status.HTTP_404_NOT_FOUND)
+
+        self.client.force_authenticate(user=None)
+        unauthenticated = self.client.get(
+            "/api/inspections/livestock-lookup/", {"code": f"SL-LIVESTOCK:{self.inventory_cow.id}"}
+        )
+        self.assertEqual(unauthenticated.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_lookup_does_not_identify_batches_as_individual_animals(self):
         self.client.force_authenticate(user=self.auction_user)

@@ -2,6 +2,25 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* The livestock ID action prints just the identity card, not the app behind its dialog. */
+@media print {
+  body * { visibility: hidden !important; }
+  #livestock-identity-pass,
+  #livestock-identity-pass * { visibility: visible !important; }
+  #livestock-identity-pass {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: 28rem !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+  }
+  #livestock-identity-pass [data-slot="dialog-close"] { display: none !important; }
+  .livestock-id-pass-action { display: none !important; }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
