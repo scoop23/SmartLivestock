@@ -105,7 +105,10 @@ def review_ownership_transfer(request, pk):
         animal = LivestockInventory.objects.select_for_update().get(pk=transfer.livestock_id)
         if animal.farmer_id != transfer.previous_owner_id:
             raise ValidationError({"livestock": "The recorded previous owner no longer owns this animal."})
-        if animal.batch_id or animal.quantity != 1 or animal.status != "APPROVED" or animal.operational_status != "ACTIVE":
+        # Keep checking eligibility at approval in case ownership or animal state changed after submission.
+        if (animal.entry_type != LivestockInventory.EntryType.INDIVIDUAL or animal.quantity != 1
+                or animal.status != LivestockInventory.StatusType.APPROVED
+                or animal.operational_status != LivestockInventory.OperationalStatus.ACTIVE):
             raise ValidationError({"livestock": "The animal is no longer eligible for an ownership transfer."})
         if transfer.new_owner.user.role.role_name != "FARMER" or transfer.new_owner.user.account_status != "APPROVED":
             raise ValidationError({"new_owner": "The selected owner is no longer an approved Farmer account."})

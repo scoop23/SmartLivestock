@@ -98,10 +98,10 @@ Table livestock_batches {
 
 Table livestock_inventory {
   livestock_id integer [pk]
-  batch_id integer [note: 'Optional FK to livestock_batches.batch_id (herd group link)']
-  farmer_id integer [not null]
+  batch_id integer [note: 'Optional herd membership FK. Ownership approval preserves this link and updates farmer only; general inventory validation still expects the batch owner to match.']
+  farmer_id integer [not null, note: 'Current platform Farmer owner']
   livestock_type_id integer [not null]
-  entry_type varchar [default: 'INDIVIDUAL', note: 'INDIVIDUAL - all animals tracked as individual records']
+  entry_type varchar [default: 'INDIVIDUAL', note: 'INDIVIDUAL or BATCH; INDIVIDUAL quantity must equal 1, and a herd member must be INDIVIDUAL quantity=1.']
   quantity integer [default: 1, note: 'Always 1 for individual animal']
   tag_number varchar [note: 'Ear tag / identification code']
   breed varchar
@@ -120,6 +120,33 @@ Table livestock_inventory {
   created_at timestamp
 }
 
+// One certificate-backed ownership event for the same canonical livestock row.
+// new_owner is currently a registered Farmer profile, not a general external party.
+Table livestock_ownership_transfers {
+  transfer_id integer [pk]
+  livestock_id integer [not null, note: 'Existing canonical animal identity; transfer does not create another livestock row. At most one PENDING or VERIFIED transfer is allowed per animal.']
+  previous_owner_id integer [not null, note: 'Farmer who owned the animal before this transfer']
+  new_owner_id integer [not null, note: 'Registered Farmer who becomes current owner after final approval']
+  transfer_certificate_number varchar [unique, not null]
+  original_certificate_number varchar [not null]
+  transfer_date date [not null]
+  municipality varchar [not null]
+  province varchar [not null]
+  animal_description text [note: 'Optional certificate description']
+  sex_at_transfer varchar [note: 'Optional historical sex value']
+  age_at_transfer varchar [note: 'Optional historical age value']
+  municipality_brand varchar [note: 'Optional certificate brand detail']
+  owner_brand varchar [note: 'Optional certificate brand detail']
+  purchase_price decimal [note: 'Optional; transfer can be recorded without a price']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  reviewed_by integer [note: 'FK to users.user_id']
+  reviewed_at timestamp
+  review_remarks text
+  created_by integer [not null, note: 'FK to users.user_id']
+  created_at timestamp
+
+}
+
 // ---------------------------------------------------------------------------
 // 4. Production, Yields & Growth Tracking
 // ---------------------------------------------------------------------------
@@ -128,11 +155,14 @@ Table production_records {
   production_id integer [pk]
   livestock_id integer [note: 'Nullable if bulk yield recorded for entire batch - FK to livestock_inventory']
   batch_id integer [note: 'Nullable - FK to livestock_batches for bulk yield (e.g. egg tray, milk tank)']
+  farmer_at_record_id integer [note: 'Nullable Farmer snapshot reference for historical production attribution; does not follow later ownership changes']
   production_type varchar [not null, note: 'MILK, MEAT, EGGS, WOOL']
   quantity decimal [not null]
   unit varchar [not null, note: 'LITERS, PIECES, KILOGRAMS']
   record_date date [not null]
   status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  slaughter_id integer [unique, note: 'Nullable one-to-one FK to the authoritative slaughter record for MEAT output']
+  valuation_snapshot json
   notes text
   reviewed_by integer
   reviewed_at timestamp
@@ -210,7 +240,7 @@ Table live_animal_sales {
   price_per_head decimal
   price_per_kg decimal
   total_price decimal
-  destination varchar [note: 'Buyer or destination municipality']
+  destination varchar [note: 'Free-text buyer or destination; does not identify or assign the legal owner']
   sale_date date [not null]
   status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
   purpose varchar [default: 'UNKNOWN', note: 'BREEDING, FATTENING, SLAUGHTER, UNKNOWN']
@@ -454,8 +484,16 @@ Ref: livestock_inventory.livestock_type_id > livestock_types.livestock_type_id
 Ref: livestock_inventory.created_by > users.user_id
 Ref: livestock_inventory.reviewed_by > users.user_id
 
+Ref: livestock_ownership_transfers.livestock_id > livestock_inventory.livestock_id
+Ref: livestock_ownership_transfers.previous_owner_id > farmers.farmer_id
+Ref: livestock_ownership_transfers.new_owner_id > farmers.farmer_id
+Ref: livestock_ownership_transfers.reviewed_by > users.user_id
+Ref: livestock_ownership_transfers.created_by > users.user_id
+
 Ref: production_records.livestock_id > livestock_inventory.livestock_id
 Ref: production_records.batch_id > livestock_batches.batch_id
+Ref: production_records.farmer_at_record_id > farmers.farmer_id
+Ref: production_records.slaughter_id - slaughter_records.slaughter_id
 Ref: production_records.created_by > users.user_id
 Ref: production_records.reviewed_by > users.user_id
 

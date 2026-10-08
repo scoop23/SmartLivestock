@@ -621,8 +621,10 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"new_owner": "The new owner must be a different registered farmer."})
         if new_owner.user.role.role_name != "FARMER" or new_owner.user.account_status != User.AccountStatus.APPROVED:
             raise serializers.ValidationError({"new_owner": "Choose an approved Farmer account."})
-        if livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL or livestock.batch_id or livestock.quantity != 1:
-            raise serializers.ValidationError({"livestock": "Transfers currently require one individually registered animal that is not attached to a herd."})
+        # An individual herd member still has its own identity, quantity, and QR;
+        # batch membership groups animals but does not make this a batch record.
+        if livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL or livestock.quantity != 1:
+            raise serializers.ValidationError({"livestock": "Transfers currently require one individually registered animal."})
         if livestock.status != LivestockInventory.StatusType.APPROVED or livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
             raise serializers.ValidationError({"livestock": "Only approved, active livestock can be transferred."})
         if transfer_date > timezone.localdate():

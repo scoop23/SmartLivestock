@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from livestock.models import Barangay, Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
+from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockOwnershipTransfer, LivestockType
 from production.models import ProductionRecord
 from users.models import Role, User
 
@@ -117,6 +117,75 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.assertEqual(patched.status_code, status.HTTP_400_BAD_REQUEST)
         transfer.refresh_from_db()
         self.assertEqual(transfer.livestock_id, self.animal.pk)
+
+    def test_herd_member_transfer_changes_only_that_animal_and_preserves_batch(self):
+        herd = LivestockBatch.objects.create(
+            farmer=self.owner_a, livestock_type=self.cattle, batch_name="Herd B001",
+            batch_code="HERD-B001", created_by=self.owner_a.user,
+        )
+        self.animal.batch = herd
+        self.animal.save(update_fields=["batch"])
+        herd_mate = LivestockInventory.objects.create(
+            farmer=self.owner_a, livestock_type=self.cattle, batch=herd,
+            entry_type="INDIVIDUAL", quantity=1, tag_number="CAT-103",
+            status="APPROVED", operational_status="ACTIVE", created_by=self.owner_a.user,
+        )
+        original_id = self.animal.pk
+
+        response = self.request_transfer()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.client.force_authenticate(self.sibat)
+        verified = self.client.post(f"/livestock/ownership-transfers/{response.data['id']}/review/", {"status": "VERIFIED"})
+        self.assertEqual(verified.status_code, status.HTTP_200_OK, verified.data)
+        self.client.force_authenticate(self.mao)
+        approved = self.client.post(f"/livestock/ownership-transfers/{response.data['id']}/review/", {"status": "APPROVED"})
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
+
+        self.animal.refresh_from_db()
+        herd_mate.refresh_from_db()
+        self.assertEqual(self.animal.pk, original_id)
+        self.assertEqual(self.animal.farmer_id, self.owner_b.pk)
+        self.assertEqual(self.animal.batch_id, herd.pk)
+        self.assertEqual(herd_mate.farmer_id, self.owner_a.pk)
+        self.assertEqual(herd_mate.batch_id, herd.pk)
+        transfer = LivestockOwnershipTransfer.objects.get(pk=response.data["id"])
+        self.assertEqual(transfer.livestock_id, original_id)
+        self.assertEqual(transfer.previous_owner_id, self.owner_a.pk)
+        self.assertEqual(transfer.new_owner_id, self.owner_b.pk)
+
+    def test_batch_pending_and_inactive_animals_cannot_be_transferred(self):
+        batch_record = LivestockInventory.objects.create(
+            farmer=self.owner_a, livestock_type=self.cattle, entry_type="BATCH", quantity=3,
+            tag_number="CAT-GROUP", status="APPROVED", operational_status="ACTIVE",
+            created_by=self.owner_a.user,
+        )
+        pending_animal = LivestockInventory.objects.create(
+            farmer=self.owner_a, livestock_type=self.cattle, entry_type="INDIVIDUAL", quantity=1,
+            tag_number="CAT-PENDING", status="PENDING", operational_status="ACTIVE",
+            created_by=self.owner_a.user,
+        )
+        inactive_animal = LivestockInventory.objects.create(
+            farmer=self.owner_a, livestock_type=self.cattle, entry_type="INDIVIDUAL", quantity=1,
+            tag_number="CAT-SOLD", status="APPROVED", operational_status="SOLD",
+            created_by=self.owner_a.user,
+        )
+        self.client.force_authenticate(self.owner_a.user)
+        for animal, certificate in (
+            (batch_record, "PG-BATCH-TRANSFER"),
+            (pending_animal, "PG-PENDING-TRANSFER"),
+            (inactive_animal, "PG-INACTIVE-TRANSFER"),
+        ):
+            with self.subTest(animal=animal.tag_number):
+                response = self.client.post("/livestock/ownership-transfers/", {
+                    "livestock": animal.pk,
+                    "new_owner_identifier": self.owner_b.rsbsa_number,
+                    "transfer_certificate_number": certificate,
+                    "original_certificate_number": f"ORIGINAL-{certificate}",
+                    "transfer_date": (timezone.localdate() - timedelta(days=2)).isoformat(),
+                    "municipality": "Padre Garcia",
+                    "province": "Batangas",
+                }, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_transfer_date_cannot_precede_latest_approved_transfer(self):
         LivestockOwnershipTransfer.objects.create(

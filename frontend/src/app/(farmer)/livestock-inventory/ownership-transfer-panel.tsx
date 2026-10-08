@@ -69,7 +69,7 @@ export function OwnershipTransferPanel({
           <p className="text-sm text-slate-600">Certificate-backed ownership events stay attached to this same animal identity.</p></div>
         {eligible ? <Button onClick={() => setOpen(true)}>Record Ownership Transfer</Button> : null}
       </div>
-      {!eligible ? <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">A transfer can be recorded for an approved, active individual animal that is not attached to a herd.</p> : null}
+      {!eligible ? <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">A transfer can be recorded for an approved, active individual animal.</p> : null}
       {isLoading ? <p className="text-sm text-slate-500">Loading ownership history…</p> : null}
       {!isLoading && data.length === 0 ? <p className="rounded-xl border border-dashed p-5 text-sm text-slate-500">No ownership transfers are recorded for this animal.</p> : null}
       <ol className="space-y-3">

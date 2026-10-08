@@ -907,7 +907,7 @@ export default function LivestockDetailPage() {
           <Button
             type="button"
             variant="outline"
-            disabled={!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1 && !activeItem.batchId)}
+            disabled={!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1)}
             onClick={() => {
               setActiveProfileTab("ownership");
               setIsOwnershipFormOpen(true);
@@ -917,8 +917,8 @@ export default function LivestockDetailPage() {
             Record Ownership Transfer
           </Button>
         </div>
-        {!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1 && !activeItem.batchId) ? (
-          <p className="-mt-4 text-xs text-slate-500">Transfers are available for approved, active individual animals that are not attached to a herd.</p>
+        {!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1) ? (
+          <p className="-mt-4 text-xs text-slate-500">Transfers are available for approved, active individual animals.</p>
         ) : null}
         <Tabs value={activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
           {/* A two-column tab grid gives each section a comfortable touch target on phones. */}
@@ -1496,7 +1496,7 @@ export default function LivestockDetailPage() {
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-5 sm:p-6">
               <OwnershipTransferPanel
                 livestockId={Number(activeItem.id)}
-                eligible={activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1 && !activeItem.batchId}
+                eligible={activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1}
                 open={isOwnershipFormOpen}
                 onOpenChange={setIsOwnershipFormOpen}
               />
