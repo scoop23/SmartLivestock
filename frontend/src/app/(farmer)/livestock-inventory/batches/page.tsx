@@ -221,6 +221,9 @@ export default function BatchOverviewPage() {
     return found || batches[0];
   }, [batches, selectedBatchId]);
 
+  const canAddAnimalsToCurrentBatch =
+    currentBatch?.status === "ACTIVE" && currentBatch.reviewStatus === "PENDING";
+
   // Filter individuals inside current batch
   const filteredIndividuals = useMemo(() => {
     if (!currentBatch) return [];
@@ -359,16 +362,21 @@ export default function BatchOverviewPage() {
             </div>
           </div>
 
-          {currentBatch && backendBatches.some((batch) => String(batch.id) === currentBatch.id)
-            && currentBatch.status === "ACTIVE" && currentBatch.reviewStatus === "PENDING" && (
+          {currentBatch && backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 <Button
                   onClick={() => setIsAddIndividualOpen(true)}
+                  disabled={!canAddAnimalsToCurrentBatch}
                   size="sm"
-                  className="min-h-11 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm sm:w-auto"
+                  className="min-h-11 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none sm:w-auto"
                 >
                   <Plus className="size-4" /> Add Animal to Batch
                 </Button>
+                {!canAddAnimalsToCurrentBatch && (
+                  <p className="self-center text-xs text-slate-500 sm:max-w-64">
+                    Animals can only be added while a herd is active and before verification begins.
+                  </p>
+                )}
               </div>
             )}
         </div>
