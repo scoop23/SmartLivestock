@@ -405,6 +405,8 @@ export default function LivestockDetailPage() {
   const [isPassportDialogOpen, setIsPassportDialogOpen] = useState(false);
   const [isProductionDialogOpen, setIsProductionDialogOpen] = useState(false);
   const [isCalvingDialogOpen, setIsCalvingDialogOpen] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState("growth");
+  const [isOwnershipFormOpen, setIsOwnershipFormOpen] = useState(false);
   const [livestockQrResult, setLivestockQrResult] = useState<{
     animalId: string;
     dataUrl: string | null;
@@ -900,7 +902,25 @@ export default function LivestockDetailPage() {
         )}
 
         {/* ── TABS: GROWTH, PRODUCTION YIELD, CALVING / BIRTHING, HEALTH, LINEAGE ───────── */}
-        <Tabs defaultValue="growth" className="w-full space-y-6">
+        <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+          <p className="text-sm text-slate-600">Need to record a change of owner?</p>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1 && !activeItem.batchId)}
+            onClick={() => {
+              setActiveProfileTab("ownership");
+              setIsOwnershipFormOpen(true);
+            }}
+            className="min-h-11 w-full rounded-xl border-emerald-700 font-semibold text-emerald-800 hover:bg-emerald-50 sm:w-auto"
+          >
+            Record Ownership Transfer
+          </Button>
+        </div>
+        {!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1 && !activeItem.batchId) ? (
+          <p className="-mt-4 text-xs text-slate-500">Transfers are available for approved, active individual animals that are not attached to a herd.</p>
+        ) : null}
+        <Tabs value={activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
           {/* A two-column tab grid gives each section a comfortable touch target on phones. */}
           <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-slate-100 p-2 sm:flex sm:flex-wrap sm:gap-1 sm:p-1">
             <TabsTrigger
@@ -1476,7 +1496,9 @@ export default function LivestockDetailPage() {
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-5 sm:p-6">
               <OwnershipTransferPanel
                 livestockId={Number(activeItem.id)}
-                eligible={activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && !activeItem.batchId}
+                eligible={activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1 && !activeItem.batchId}
+                open={isOwnershipFormOpen}
+                onOpenChange={setIsOwnershipFormOpen}
               />
             </Card>
             <p className="px-1 text-xs text-slate-500">The animal’s QR remains linked to its canonical inventory ID. It identifies the animal; the backend transfer records hold the changing ownership history.</p>

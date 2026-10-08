@@ -18,9 +18,21 @@ type Transfer = {
   status: string; review_remarks: string;
 };
 
-export function OwnershipTransferPanel({ livestockId, eligible }: { livestockId: number; eligible: boolean }) {
+export function OwnershipTransferPanel({
+  livestockId,
+  eligible,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  livestockId: number;
+  eligible: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const client = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = onOpenChange ?? setLocalOpen;
   const [editing, setEditing] = useState<Transfer | null>(null);
   // QR resolves the canonical livestock row; ownership history stays in backend records and can change without changing that identity.
   const { data = [], isLoading } = useQuery({
@@ -57,6 +69,7 @@ export function OwnershipTransferPanel({ livestockId, eligible }: { livestockId:
           <p className="text-sm text-slate-600">Certificate-backed ownership events stay attached to this same animal identity.</p></div>
         {eligible ? <Button onClick={() => setOpen(true)}>Record Ownership Transfer</Button> : null}
       </div>
+      {!eligible ? <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">A transfer can be recorded for an approved, active individual animal that is not attached to a herd.</p> : null}
       {isLoading ? <p className="text-sm text-slate-500">Loading ownership history…</p> : null}
       {!isLoading && data.length === 0 ? <p className="rounded-xl border border-dashed p-5 text-sm text-slate-500">No ownership transfers are recorded for this animal.</p> : null}
       <ol className="space-y-3">

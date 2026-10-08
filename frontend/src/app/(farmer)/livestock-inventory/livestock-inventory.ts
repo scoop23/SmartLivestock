@@ -508,7 +508,9 @@ export async function deleteInventoryRecord(id: string) {
 // ── Livestock Batches API ──────────────────────────────────────────────────
 
 export async function fetchLivestockBatches(): Promise<LivestockBatchItem[]> {
-  const res = await api.get<any[]>("livestock/batches/");
+  // The batch list is a summary by default; request its real inventory rows so
+  // herd links use canonical livestock IDs instead of generated display labels.
+  const res = await api.get<any[]>("livestock/batches/", { params: { include_roster: true } });
   return res.data.map((b) => ({
     id: b.id,
     farmer: b.farmer,

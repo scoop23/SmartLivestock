@@ -968,19 +968,24 @@ export default function BatchOverviewPage() {
                       ) : (
                         filteredIndividuals.map((animal) => {
                           const isAboveAvg = animal.weightKg >= currentBatch.averageWeightKg;
+                          // API-backed herd children use their numeric livestock row ID; fallback herd labels are not database identities.
+                          const hasInventoryRecord = /^\d+$/.test(animal.id);
                           return (
                             <TableRow
                               key={animal.id}
                               className="transition-colors hover:bg-slate-50/60"
                             >
                               <TableCell className="font-black text-xs text-slate-900">
-                                <Link
-                                  href={`/livestock-inventory/${animal.tagNumber}`}
+                                {hasInventoryRecord ? <Link
+                                  href={`/livestock-inventory/${animal.id}`}
                                   className="text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1.5"
                                 >
                                   <Tag className="size-3 text-emerald-600" />
                                   <span>{animal.tagNumber}</span>
-                                </Link>
+                                </Link> : <span className="flex items-center gap-1.5 text-slate-500" title="This herd row is a display placeholder without a saved animal record.">
+                                  <Tag className="size-3 text-slate-400" />
+                                  <span>{animal.tagNumber}</span>
+                                </span>}
                               </TableCell>
 
                               <TableCell className="text-xs font-semibold text-slate-700">
@@ -1070,7 +1075,7 @@ export default function BatchOverviewPage() {
                                     <Scale className="size-3 mr-1 text-emerald-600" /> Weigh
                                   </Button>
 
-                                  <Link href={`/livestock-inventory/${animal.tagNumber}`}>
+                                  {hasInventoryRecord ? <Link href={`/livestock-inventory/${animal.id}`}>
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -1078,7 +1083,9 @@ export default function BatchOverviewPage() {
                                     >
                                       <Eye className="size-3 mr-1 text-slate-500" /> Details
                                     </Button>
-                                  </Link>
+                                  </Link> : <Button size="sm" variant="ghost" disabled title="No saved individual animal record is linked to this herd row.">
+                                    <Eye className="size-3 mr-1" /> Details
+                                  </Button>}
                                 </div>
                               </TableCell>
                             </TableRow>
