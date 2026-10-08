@@ -765,27 +765,11 @@ export default function LivestockDetailPage() {
           <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-5 sm:p-6 md:p-8">
             <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)] md:items-center">
               <div className="flex min-w-0 items-start gap-4">
-                <div className="relative shrink-0">
-                  {photoUrl ? (
-                    <img
-                      src={photoUrl}
-                      alt={activeItem.tagNumber}
-                      className="size-16 sm:size-20 rounded-2xl object-cover border-2 border-emerald-400 shadow-md"
-                    />
-                  ) : (
-                    <div
-                      className={`size-16 sm:size-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl bg-gradient-to-br border-2 border-white/20 shadow-md ${avatar.bgGradient}`}
-                      title={`${avatar.name} (${avatar.badge})`}
-                    >
-                      {avatar.emoji}
-                    </div>
-                  )}
-                </div>
-
-                  <LivestockPhotoManager
+                <LivestockPhotoManager
                     title="Livestock Photo"
                     subject="livestock"
                     compactOnMobile
+                    triggerImage
                     currentPhotoUrl={photoUrl}
                   currentAvatarKey={activeItem.avatarKey || localAvatar}
                   species={activeItem.livestockTypeName}

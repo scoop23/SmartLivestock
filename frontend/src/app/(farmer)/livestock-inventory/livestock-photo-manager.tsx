@@ -27,6 +27,7 @@ export function LivestockPhotoManager({
   fallback,
   allowAvatar = true,
   compactOnMobile = false,
+  triggerImage = false,
   onSave,
 }: {
   title: string;
@@ -37,6 +38,7 @@ export function LivestockPhotoManager({
   fallback: ReactNode;
   allowAvatar?: boolean;
   compactOnMobile?: boolean;
+  triggerImage?: boolean;
   onSave: (change: LivestockPhotoChange) => Promise<void>;
 }) {
   const defaultAvatar = getAvatarById(null, species);
@@ -87,18 +89,52 @@ export function LivestockPhotoManager({
 
   return (
     <>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={() => setOpen(true)}
-        title={`Change ${subject} photo`}
-        aria-label={`Change ${subject} photo`}
-        className={`min-h-11 rounded-xl border-emerald-200 bg-white/10 text-white hover:bg-white/20 ${compactOnMobile ? "min-w-11 px-0 sm:min-h-10 sm:min-w-0 sm:px-3" : ""}`}
-      >
-        <Camera className={`${compactOnMobile ? "size-5 sm:mr-2 sm:size-4" : "mr-2 size-4"}`} />
-        <span className={compactOnMobile ? "hidden sm:inline" : ""}>Change {subject} photo</span>
-      </Button>
+      <div className={triggerImage ? "group relative w-fit" : undefined}>
+        {triggerImage && (
+          <>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              title={`Change ${subject} photo`}
+              aria-label={`Change ${subject} photo`}
+              className="block cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900"
+            >
+              {currentPhotoUrl ? (
+                <img src={currentPhotoUrl} alt={subject} className="size-16 rounded-2xl border-2 border-emerald-400 object-cover shadow-md sm:size-20" />
+              ) : (
+                <div className={`flex size-16 items-center justify-center rounded-2xl border-2 border-white/20 bg-gradient-to-br text-3xl shadow-md sm:size-20 sm:text-4xl ${selectedAvatar.bgGradient}`}>
+                  {selectedAvatar.emoji}
+                </div>
+              )}
+            </button>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => setOpen(true)}
+              title={`Change ${subject} photo`}
+              aria-label={`Change ${subject} photo`}
+              className="absolute bottom-0 right-0 z-10 size-8 rounded-full border-2 border-emerald-700 bg-white/95 text-emerald-800 opacity-60 shadow-md transition-opacity hover:bg-white hover:opacity-100 focus-visible:opacity-100 sm:size-9 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 [@media(hover:hover)]:group-focus-within:opacity-60"
+            >
+              <Camera className="size-3 sm:size-4" />
+            </Button>
+          </>
+        )}
+        {!triggerImage && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setOpen(true)}
+            title={`Change ${subject} photo`}
+            aria-label={`Change ${subject} photo`}
+            className={`min-h-11 rounded-xl border-emerald-200 bg-white/10 text-white hover:bg-white/20 ${compactOnMobile ? "min-w-11 px-0 sm:min-h-10 sm:min-w-0 sm:px-3" : ""}`}
+          >
+            <Camera className={`${compactOnMobile ? "size-5 sm:mr-2 sm:size-4" : "mr-2 size-4"}`} />
+            <span className={compactOnMobile ? "hidden sm:inline" : ""}>Change {subject} photo</span>
+          </Button>
+        )}
+      </div>
       <Dialog open={open} onOpenChange={(next) => next ? setOpen(true) : resetAndClose()}>
         <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
@@ -145,7 +181,7 @@ export function LivestockPhotoManager({
                 <Label htmlFor={`livestock-avatar-${subject.replaceAll(" ", "-")}`}>Fallback avatar</Label>
                 <Select value={avatarKey} onValueChange={setAvatarKey}>
                   <SelectTrigger id={`livestock-avatar-${subject.replaceAll(" ", "-")}`}><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[var(--z-popover-dialog)]">
                     {avatarOptions.map((option) => (
                       <SelectItem key={option.id} value={option.id}>{option.emoji} {option.name}</SelectItem>
                     ))}
