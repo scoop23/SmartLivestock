@@ -67,7 +67,9 @@ export interface ValidationResult {
   issues_sample: Array<{
     row_number: number;
     barangay: string;
-    species: string;
+    livestock_type?: string;
+    /** Legacy key retained for datasets that still use species terminology. */
+    species?: string;
     field: string;
     error_type: string;
     severity: string;

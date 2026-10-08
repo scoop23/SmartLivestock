@@ -589,7 +589,7 @@ export default function DataUploadsPage() {
                       Farmer
                     </TableHead>
                     <TableHead className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                      Species / Details
+                      {selectedDataset === "livestock_inventory" ? "Livestock Type / Details" : "Species / Details"}
                     </TableHead>
                     <TableHead className="text-[11px] font-black text-slate-500 uppercase tracking-wider text-center">
                       Qty
@@ -642,7 +642,8 @@ export default function DataUploadsPage() {
                           </TableCell>
                           <TableCell className="text-slate-600">
                             {String(
-                              r.data.species ||
+                              r.data.livestock_type ||
+                                r.data.species ||
                                 r.data.production_type ||
                                 r.data.disease_name ||
                                 r.data.cause ||
@@ -665,7 +666,10 @@ export default function DataUploadsPage() {
                                       iss.severity === "ERROR" ? "text-rose-700" : "text-amber-700"
                                     }`}
                                   >
-                                    <span className="font-bold">[{iss.field}]:</span> {iss.message}
+                                    <span className="font-bold">
+                                      [{selectedDataset === "livestock_inventory" && iss.field === "livestock_type" ? "Livestock Type" : iss.field}]:
+                                    </span>{" "}
+                                    {iss.message}
                                   </p>
                                 ))}
                               </div>

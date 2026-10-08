@@ -183,7 +183,7 @@ function AdminBatchesDrilldownContent() {
   const [speciesFilter, setSpeciesFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [barangayFilter, setBarangayFilter] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const BATCH_PAGE_SIZE = 10;
   const ANIMAL_PAGE_SIZE = 10;
   const [batchPage, setBatchPage] = useState(1);
@@ -1100,7 +1100,42 @@ function AdminBatchesDrilldownContent() {
         }}
       >
         <DialogContent className="w-full max-w-[98vw] sm:max-w-5xl md:max-w-6xl lg:max-w-7xl xl:max-w-[1440px] rounded-2xl sm:rounded-3xl bg-white p-0 overflow-hidden shadow-2xl border-slate-200 max-h-[94vh] flex flex-col">
-          {selectedBatch && (
+          {detailQuery.isLoading ? (
+            <div
+              className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                <RefreshCw className="size-6 animate-spin" />
+              </div>
+              <div className="space-y-1">
+                <DialogTitle className="text-base font-black text-slate-900">Loading herd details</DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Retrieving the herd record and individual livestock roster.
+                </DialogDescription>
+              </div>
+            </div>
+          ) : detailQuery.isError ? (
+            <div className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+              <AlertTriangle className="size-8 text-rose-600" />
+              <div className="space-y-1">
+                <DialogTitle className="text-base font-black text-slate-900">Could not load herd details</DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  The herd roster could not be retrieved. Check your connection and try again.
+                </DialogDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void detailQuery.refetch()}
+                className="rounded-xl font-bold"
+              >
+                Try again
+              </Button>
+            </div>
+          ) : selectedBatch && (
             <div className="flex flex-col max-h-[94vh]">
               {/* Modal Header */}
               <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-900 text-white border-b border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pr-12 sm:pr-14">

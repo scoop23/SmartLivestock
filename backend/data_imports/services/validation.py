@@ -25,7 +25,7 @@ from .normalizer import (
 # KEY CONCEPT — Pre-cached lookups to avoid N+1 queries:
 # Instead of hitting the database for every row (which would be
 # extremely slow for hundreds of rows), __init__ loads ALL barangays,
-# species, and farmers once into Python dictionaries.
+# livestock types, and farmers once into Python dictionaries.
 #
 # Then for each row we do an O(1) dictionary lookup instead of a SQL query.
 # This is why large imports stay fast regardless of file size.
@@ -42,7 +42,7 @@ from .normalizer import (
 class ValidationEngine:
     """
     High-performance validation engine for municipal livestock datasets.
-    Pre-caches foreign keys (Barangays, Species, Farmers) in memory to validate
+    Pre-caches foreign keys (Barangays, Livestock Types, Farmers) in memory to validate
     thousands of rows in a single pass without N+1 database queries.
     """
 
@@ -57,8 +57,8 @@ class ValidationEngine:
             b.barangay_name.strip().lower(): b for b in Barangay.objects.all()
         }
 
-        # 2. Species / Livestock Types
-        self.species_by_name: Dict[str, LivestockType] = {
+        # 2. Livestock Types
+        self.livestock_types_by_name: Dict[str, LivestockType] = {
             s.name.strip().lower(): s for s in LivestockType.objects.all()
         }
 
@@ -137,10 +137,15 @@ class ValidationEngine:
         for req_field in self.config.required_fields:
             raw_v = get_val(req_field)
             if raw_v is None or str(raw_v).strip() == "":
+                field_label = (
+                    "Livestock Type"
+                    if self.config.code == "livestock_inventory" and req_field == "livestock_type"
+                    else req_field
+                )
                 issues.append({
                     "field": req_field,
                     "type": "MISSING_REQUIRED_FIELD",
-                    "message": f"Required field '{req_field}' is missing or empty.",
+                    "message": f"Required field '{field_label}' is missing or empty.",
                     "severity": "ERROR",
                 })
 
@@ -190,22 +195,33 @@ class ValidationEngine:
                 })
                 clean_data["farmer_name"] = str(raw_farmer)
 
-        # 4. Species / Livestock Type Lookup
-        if "species" in self.config.field_aliases:
-            raw_species = get_val("species")
-            if raw_species:
-                s_key = str(raw_species).strip().lower()
-                if s_key in self.species_by_name:
-                    clean_data["livestock_type"] = self.species_by_name[s_key]
-                    clean_data["species"] = self.species_by_name[s_key].name
+        # Inventory's canonical field is `livestock_type`. Slaughter keeps its
+        # existing `species` field, while both resolve to LivestockType objects.
+        livestock_field = (
+            "livestock_type" if self.config.code == "livestock_inventory" else "species"
+        )
+        if livestock_field in self.config.field_aliases:
+            raw_livestock_type = get_val(livestock_field)
+            if raw_livestock_type:
+                type_key = str(raw_livestock_type).strip().lower()
+                if type_key in self.livestock_types_by_name:
+                    livestock_type = self.livestock_types_by_name[type_key]
+                    clean_data["livestock_type"] = livestock_type
+                    if livestock_field == "species":
+                        clean_data["species"] = livestock_type.name
                 else:
+                    label = "Livestock Type" if livestock_field == "livestock_type" else "Species"
+                    valid_label = "livestock types" if livestock_field == "livestock_type" else "species"
                     issues.append({
-                        "field": "species",
+                        "field": livestock_field,
                         "type": "INVALID_FOREIGN_KEY",
-                        "message": f"Species '{raw_species}' is not recognized. Valid species: {', '.join(s.name for s in self.species_by_name.values())}.",
+                        "message": (
+                            f"{label} '{raw_livestock_type}' is not recognized. "
+                            f"Valid {valid_label}: {', '.join(s.name for s in self.livestock_types_by_name.values())}."
+                        ),
                         "severity": "ERROR",
                     })
-                    clean_data["species"] = str(raw_species)
+                    clean_data[livestock_field] = str(raw_livestock_type)
 
         # 5. Dates
         for date_field in ["record_date", "last_vaccination_date", "sale_date"]:
@@ -432,11 +448,22 @@ class ValidationEngine:
             elif status == "ERROR":
                 error_count += 1
 
+            livestock_type_value = clean_data.get("livestock_type")
+            if isinstance(livestock_type_value, LivestockType):
+                livestock_type_value = livestock_type_value.name
+            livestock_type_key = (
+                "livestock_type" if self.config.code == "livestock_inventory" else "species"
+            )
             for iss in issues:
                 all_issues.append({
                     "row_number": row_num,
                     "barangay": clean_data.get("barangay_name") or row.get("barangay", ""),
-                    "species": clean_data.get("species") or row.get("species", ""),
+                    livestock_type_key: (
+                        livestock_type_value
+                        or clean_data.get("species")
+                        or row.get("livestock_type")
+                        or row.get("species", "")
+                    ),
                     "field": iss.get("field", ""),
                     "error_type": iss.get("type", "VALIDATION_ERROR"),
                     "severity": iss.get("severity", "ERROR"),
@@ -453,7 +480,11 @@ class ValidationEngine:
                 # Format dates and decimals for JSON serialization
                 serializable_data = {}
                 for k, v in clean_data.items():
-                    if k.startswith("_") or isinstance(v, (Barangay, Farmer, LivestockType)):
+                    if k.startswith("_") or isinstance(v, (Barangay, Farmer)):
+                        continue
+                    if isinstance(v, LivestockType):
+                        if k == "livestock_type":
+                            serializable_data[k] = v.name
                         continue
                     if isinstance(v, date):
                         serializable_data[k] = v.isoformat()

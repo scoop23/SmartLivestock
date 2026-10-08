@@ -299,10 +299,11 @@ def download_batch_errors(request, pk):
 
     output = io.StringIO()
     writer = csv.writer(output)
+    livestock_type_label = "Livestock Type" if batch.dataset_type == "livestock_inventory" else "Species"
     writer.writerow([
         "Row Number",
         "Barangay",
-        "Species",
+        livestock_type_label,
         "Field",
         "Error Type",
         "Severity",
@@ -313,7 +314,7 @@ def download_batch_errors(request, pk):
         writer.writerow([
             err.get("row_number", ""),
             err.get("barangay", ""),
-            err.get("species", ""),
+            err.get("livestock_type", err.get("species", "")),
             err.get("field", ""),
             err.get("error_type", ""),
             err.get("severity", ""),

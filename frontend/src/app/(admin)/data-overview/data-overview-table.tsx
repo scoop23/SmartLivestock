@@ -20,6 +20,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
+import { DataTableSection } from "@/components/ui/data-table-section";
 import {
   DataTab,
   LivestockRecord,
@@ -65,29 +66,43 @@ export function DataOverviewTable({
 
   if (items.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-2xs">
-        <div className="bg-slate-50 inline-block p-4 rounded-full mb-3 border border-slate-100">
-          <Search className="w-8 h-8 text-slate-300" />
+      <DataTableSection className="border-0 bg-transparent p-0 shadow-none">
+        <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-2xs">
+          <div className="mb-3 inline-block rounded-full border border-slate-100 bg-slate-50 p-4">
+            <Search className="size-8 text-slate-300" />
+          </div>
+          <h4 className="text-base font-bold text-slate-800">No records found</h4>
+          <p className="mt-1 max-w-sm text-xs font-medium text-slate-500">
+            No records in <span className="font-bold text-slate-700">{activeTab}</span> matched your active search query or filter criteria.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onResetFilters}
+            className="mt-4 rounded-xl border-slate-300 text-xs font-bold"
+          >
+            Clear Filters
+          </Button>
         </div>
-        <h4 className="text-base font-bold text-slate-800">No records found</h4>
-        <p className="text-slate-500 font-medium text-xs mt-1 max-w-sm mx-auto">
-          No records in <span className="font-bold text-slate-700">{activeTab}</span> matched your active search query or filter criteria.
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onResetFilters}
-          className="mt-4 rounded-xl text-xs font-bold border-slate-300"
-        >
-          Clear Filters
-        </Button>
-      </div>
+      </DataTableSection>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="bg-white rounded-2xl shadow-2xs border border-slate-200/90 overflow-hidden">
+    <DataTableSection
+      footer={
+        <ValidationPagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[10, 25, 50]}
+        />
+      }
+    >
+      <div className="h-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -660,16 +675,6 @@ export function DataOverviewTable({
         </div>
       </div>
 
-      {/* Pagination Controls */}
-      <ValidationPagination
-        currentPage={safeCurrentPage}
-        totalPages={totalPages}
-        totalItems={totalItems}
-        pageSize={pageSize}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
-        pageSizeOptions={[10, 25, 50]}
-      />
-    </div>
+    </DataTableSection>
   );
 }

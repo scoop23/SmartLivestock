@@ -38,6 +38,7 @@ import {
   ActiveDomainTable,
 } from "./components";
 import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
+import { DataTableSection } from "@/components/ui/data-table-section";
 
 // Dialog Modals
 import {
@@ -750,36 +751,39 @@ function AdminDataValidationContent() {
           onClearSelection={() => setSelectedIds([])}
         />
 
-        {/* Domain Data Tables */}
-        <ActiveDomainTable
-          activeDomain={activeDomain}
-          census={paginatedCensus}
-          production={paginatedProduction}
-          inventory={paginatedInventory}
-          incidents={paginatedIncidents}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onSelectAll={handleSelectAll}
-          onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
-          onReview={openReviewSingle}
-          onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
-        />
-
-        {/* Responsive Pagination Bar */}
-        <ValidationPagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          pageSize={pageSize}
-          onPageChange={(newPage) => {
-            setDomainPages((prev) => ({ ...prev, [activeDomain]: newPage }));
-            window.scrollTo({ top: 380, behavior: "smooth" });
-          }}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
-          }}
-        />
+        {/* Row count changes the rows, not the validation workspace's baseline height. */}
+        <DataTableSection
+          footer={
+            <ValidationPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={(newPage) => {
+                setDomainPages((prev) => ({ ...prev, [activeDomain]: newPage }));
+                window.scrollTo({ top: 380, behavior: "smooth" });
+              }}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
+              }}
+            />
+          }
+        >
+          <ActiveDomainTable
+            activeDomain={activeDomain}
+            census={paginatedCensus}
+            production={paginatedProduction}
+            inventory={paginatedInventory}
+            incidents={paginatedIncidents}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAll}
+            onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
+            onReview={openReviewSingle}
+            onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
+          />
+        </DataTableSection>
       </div>
 
       {/* ── FLOATING MOBILE BULK ACTION DOCK ── */}

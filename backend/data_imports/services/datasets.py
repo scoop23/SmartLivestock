@@ -23,11 +23,12 @@ class LivestockInventoryDataset(BaseDatasetConfig):
     label = "Livestock Inventory"
     description = "Individual and herd livestock head registrations, ear tags, breeds, and health records."
     model_class = LivestockInventory
-    required_fields = ["farmer", "barangay", "species"]
+    required_fields = ["farmer", "barangay", "livestock_type"]
     field_aliases = {
         "farmer": ["farmer", "farmer_name", "farmer name", "owner", "owner_name", "farmer_id", "farmer id"],
         "barangay": ["barangay", "barangay_name", "barangay name", "location", "brgy"],
-        "species": ["species", "livestock_type", "livestock type", "animal_type", "animal type", "type"],
+        # Keep `species` as an alias so existing inventory spreadsheets remain importable.
+        "livestock_type": ["livestock_type", "livestock type", "species", "animal_type", "animal type", "type"],
         "tag_number": ["tag_number", "tag number", "tag", "ear_tag", "ear tag", "animal_id", "animal id"],
         "entry_type": ["entry_type", "entry type", "type_of_entry"],
         "quantity": ["quantity", "animal count", "animal_count", "count", "head_count", "heads", "qty"],
@@ -39,7 +40,7 @@ class LivestockInventoryDataset(BaseDatasetConfig):
     column_descriptions = {
         "farmer": "Farmer full name, username, or registered ID.",
         "barangay": "Official Padre Garcia barangay name (e.g. Manggas, Poblacion).",
-        "species": "Livestock type (e.g. Cattle, Swine, Goat, Carabao, Sheep).",
+        "livestock_type": "Livestock type (e.g. Cattle, Swine, Goat, Carabao, Sheep).",
         "tag_number": "Unique ear tag / identification code (e.g. PG-CAT-00101).",
         "entry_type": "'INDIVIDUAL' (default) or 'BATCH'.",
         "quantity": "Animal head count (must be 1 for INDIVIDUAL).",
@@ -52,7 +53,7 @@ class LivestockInventoryDataset(BaseDatasetConfig):
         {
             "farmer": "Juan Dela Cruz",
             "barangay": "Manggas",
-            "species": "Cattle",
+            "livestock_type": "Cattle",
             "tag_number": "PG-CAT-00101",
             "entry_type": "INDIVIDUAL",
             "quantity": 1,
@@ -64,7 +65,7 @@ class LivestockInventoryDataset(BaseDatasetConfig):
         {
             "farmer": "Maria Santos",
             "barangay": "Banaba",
-            "species": "Swine",
+            "livestock_type": "Swine",
             "tag_number": "PG-SWN-00204",
             "entry_type": "INDIVIDUAL",
             "quantity": 1,

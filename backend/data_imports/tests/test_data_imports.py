@@ -1,5 +1,6 @@
 import io
 import csv
+from openpyxl import load_workbook
 from datetime import date, timedelta
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
@@ -96,7 +97,7 @@ class DataImportTests(APITestCase):
         self.client.force_authenticate(self.mao_user)
 
         csv_content = (
-            "Farmer,Barangay,Species,Tag Number,Entry Type,Quantity,Breed,Sex,Weight\n"
+            "Farmer,Barangay,Livestock_Type,Tag Number,Entry Type,Quantity,Breed,Sex,Weight\n"
             # Row 2: Valid
             "juan_farmer,Manggas,Cattle,NEW-CAT-002,INDIVIDUAL,1,Brahman,MALE,450.00\n"
             # Row 3: Missing required barangay
@@ -120,6 +121,8 @@ class DataImportTests(APITestCase):
         self.assertEqual(res.data["valid_count"], 1)
         self.assertEqual(res.data["warning_count"], 1)  # EXISTING-CAT-001
         self.assertEqual(res.data["error_count"], 3)  # Missing, Unknown brgy, Qty>1 for individual
+        self.assertEqual(res.data["column_mapping"]["livestock_type"], "Livestock_Type")
+        self.assertEqual(res.data["preview_rows"][0]["data"]["livestock_type"], "Cattle")
 
         # Verify database was NOT touched
         self.assertFalse(LivestockInventory.objects.filter(tag_number="NEW-CAT-002").exists())
@@ -129,7 +132,7 @@ class DataImportTests(APITestCase):
         self.client.force_authenticate(self.mao_user)
 
         csv_content = (
-            "Farmer,Barangay,Species,Tag Number,Entry Type,Quantity,Breed,Sex,Weight\n"
+            "Farmer,Barangay,Livestock_Type,Tag Number,Entry Type,Quantity,Breed,Sex,Weight\n"
             "juan_farmer,Manggas,Cattle,IMPORT-CAT-101,INDIVIDUAL,1,Brahman,MALE,460.00\n"
             "juan_farmer,Manggas,Cattle,IMPORT-CAT-102,INDIVIDUAL,1,Brahman,FEMALE,420.00\n"
             # Duplicate tag warning
@@ -153,6 +156,7 @@ class DataImportTests(APITestCase):
 
         # Check DB persistence
         imported_animal = LivestockInventory.objects.get(tag_number="IMPORT-CAT-101")
+        self.assertEqual(imported_animal.livestock_type, self.cattle)
         self.assertEqual(imported_animal.status, "APPROVED")
         self.assertEqual(imported_animal.reviewed_by, self.mao_user)
         self.assertIsNotNone(imported_animal.reviewed_at)
@@ -163,6 +167,26 @@ class DataImportTests(APITestCase):
         self.assertEqual(batch.imported_rows, 2)
         self.assertEqual(batch.skipped_rows, 1)
         self.assertEqual(batch.status, DataImportBatch.ImportStatus.PARTIAL)
+
+    def test_legacy_species_inventory_header_still_imports_to_livestock_type(self):
+        """Older inventory sheets using Species remain aliases for the same FK."""
+        self.client.force_authenticate(self.mao_user)
+        csv_content = (
+            "Farmer,Barangay,Species,Tag Number,Entry Type,Quantity\n"
+            "juan_farmer,Manggas,Cattle,LEGACY-CAT-101,INDIVIDUAL,1\n"
+        )
+        file = SimpleUploadedFile("legacy_inventory.csv", csv_content.encode("utf-8"), content_type="text/csv")
+
+        response = self.client.post(
+            "/api/data-imports/import/",
+            {"dataset_type": "livestock_inventory", "file": file, "target_status": "APPROVED"},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imported_rows"], 1)
+        animal = LivestockInventory.objects.get(tag_number="LEGACY-CAT-101")
+        self.assertEqual(animal.livestock_type, self.cattle)
 
     def test_production_and_disease_and_mortality_imports(self):
         """Test importing Production, Disease, and Mortality records."""
@@ -222,11 +246,23 @@ class DataImportTests(APITestCase):
         self.assertEqual(res_csv.status_code, status.HTTP_200_OK)
         self.assertIn("text/csv", res_csv["Content-Type"])
         self.assertIn("Livestock_Inventory_Template.csv", res_csv["Content-Disposition"])
+        csv_rows = list(csv.reader(io.StringIO(res_csv.content.decode("utf-8-sig"))))
+        self.assertIn("livestock_type", csv_rows[0])
+        self.assertNotIn("species", csv_rows[0])
+        livestock_type_column = csv_rows[0].index("livestock_type")
+        self.assertEqual(csv_rows[1][livestock_type_column], "Cattle")
 
         # XLSX format
         res_xlsx = self.client.get("/api/data-imports/templates/livestock_inventory/?format=xlsx")
         self.assertEqual(res_xlsx.status_code, status.HTTP_200_OK)
         self.assertIn("application/vnd.openxmlformats", res_xlsx["Content-Type"])
+        workbook = load_workbook(io.BytesIO(res_xlsx.content), read_only=True)
+        sheet = workbook.active
+        xlsx_headers = [cell.value for cell in sheet[1]]
+        self.assertIn("livestock_type", xlsx_headers)
+        self.assertNotIn("species", xlsx_headers)
+        self.assertEqual(sheet.cell(row=2, column=xlsx_headers.index("livestock_type") + 1).value, "Cattle")
+        workbook.close()
 
     def test_download_error_report(self):
         """MAO can download a structured CSV error report for any batch."""
@@ -241,7 +277,7 @@ class DataImportTests(APITestCase):
                 {
                     "row_number": 3,
                     "barangay": "Unknown",
-                    "species": "Cattle",
+                    "species": "Cattle",  # Older stored logs remain readable.
                     "field": "barangay",
                     "error_type": "INVALID_FOREIGN_KEY",
                     "severity": "ERROR",
@@ -254,7 +290,7 @@ class DataImportTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertIn("text/csv", res["Content-Type"])
         content = res.content.decode("utf-8-sig")
-        self.assertIn("Row Number,Barangay,Species,Field,Error Type,Severity,Error Message", content)
+        self.assertIn("Row Number,Barangay,Livestock Type,Field,Error Type,Severity,Error Message", content)
         self.assertIn("3,Unknown,Cattle,barangay,INVALID_FOREIGN_KEY,ERROR,Barangay Unknown does not exist in Padre Garcia.", content)
 
     def test_analytics_and_overview_reflection(self):

@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Activity,
   AlertTriangle,
-  TrendingUp,
   Search,
   Filter,
   Eye,
@@ -22,8 +21,6 @@ import {
   ClipboardList,
   Beef,
   Flame,
-  Egg,
-  Milk,
   RefreshCw,
   QrCode,
   Tag,
@@ -212,7 +209,6 @@ export default function BatchOverviewPage() {
   const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
-  const [isBatchProductionOpen, setIsBatchProductionOpen] = useState(false);
   const [isQrCardOpen, setIsQrCardOpen] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
   const [newWeightInput, setNewWeightInput] = useState<string>("");
@@ -225,15 +221,6 @@ export default function BatchOverviewPage() {
     ageMonths: "4",
     weightKg: "65",
     healthStatus: "Healthy" as "Healthy" | "Monitored" | "Vaccinated",
-  });
-
-  // Production recording state
-  const [batchProductionData, setBatchProductionData] = useState({
-    productionType: "meat",
-    quantity: "45",
-    unit: "kg",
-    recordDate: new Date().toISOString().split("T")[0],
-    notes: "Batch growth sampling & feed conversion check",
   });
 
   // Local store of custom added or updated individuals
@@ -651,15 +638,6 @@ export default function BatchOverviewPage() {
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
-              onClick={() => setIsBatchProductionOpen(true)}
-              variant="outline"
-              size="sm"
-              className="min-h-11 w-full rounded-xl border-emerald-600/30 text-emerald-800 hover:bg-emerald-50 font-bold text-xs gap-1.5 cursor-pointer sm:w-auto"
-            >
-              <TrendingUp className="size-3.5 text-emerald-600" /> Record Herd Production
-            </Button>
-
-            <Button
               onClick={() => {
                 if (currentBatch) {
                   const nextPad = (currentBatch.individuals.length + 1).toString().padStart(2, "0");
@@ -910,55 +888,6 @@ export default function BatchOverviewPage() {
                 </CardContent>
               </Card>
             </div>
-
-            {/* ── HOW THIS WORKS ON PRODUCTION / YIELD EXPLANATION CARD ──── */}
-            <Card className="rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 to-teal-50/50 shadow-xs overflow-hidden">
-              <CardContent className="p-5 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="size-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <TrendingUp className="size-5" />
-                  </div>
-                  <div className="space-y-1 flex-1">
-                    <h4 className="text-sm font-black text-emerald-950 flex items-center gap-2">
-                      <span>Recording Herd Production</span>
-                      {/* <Badge className="bg-emerald-200 text-emerald-900 text-[9px] font-black">Capstone Standard</Badge> */}
-                    </h4>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      In livestock science, batches represent commercial herds (e.g. 10 fatteners or 30 layers), but each animal has distinct biological gain. By tracking individual weight and health below:
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs">
-                  <div className="p-3 bg-white/80 rounded-xl border border-emerald-100 space-y-1">
-                    <p className="font-black text-slate-900 flex items-center gap-1.5">
-                      <Scale className="size-3.5 text-emerald-600" /> Average Daily Gain (ADG)
-                    </p>
-                    <p className="text-slate-600 text-[11px]">
-                      Comparing individual weights against batch average ({currentBatch.averageWeightKg} kg) reveals top growers vs runts in the herd.
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-white/80 rounded-xl border border-emerald-100 space-y-1">
-                    <p className="font-black text-slate-900 flex items-center gap-1.5">
-                      <Beef className="size-3.5 text-amber-600" /> Meat & Dressing Percentage
-                    </p>
-                    <p className="text-slate-600 text-[11px]">
-                      Total herd weight ({yieldMetrics.totalBiomass} kg) projects {yieldMetrics.dressedYieldKg} kg carcass yield for Padre Garcia slaughterhouse and livestock auction.
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-white/80 rounded-xl border border-emerald-100 space-y-1">
-                    <p className="font-black text-slate-900 flex items-center gap-1.5">
-                      <Egg className="size-3.5 text-sky-600" /> Dairy & Egg Aggregate Output
-                    </p>
-                    <p className="text-slate-600 text-[11px]">
-                      For layers or dairy herds, yield logs can be entered once for the herd and distributed or correlated with individual head counts.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* ── INDIVIDUAL LIVESTOCK ROSTER (ADVISOR REQUIREMENT) ───────── */}
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white overflow-hidden">
@@ -1331,100 +1260,6 @@ export default function BatchOverviewPage() {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── DIALOG: LOG BATCH PRODUCTION OUTPUT ──────────────────────────── */}
-      <Dialog open={isBatchProductionOpen} onOpenChange={setIsBatchProductionOpen}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <TrendingUp className="size-5 text-emerald-600" />
-              <span>Log Production for {currentBatch?.batchCode}</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Record collective batch production such as daily egg harvest, collective milk collection, or feed intake.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3.5 py-3 text-xs">
-            <div className="space-y-1.5">
-              <Label className="font-bold text-slate-700">Production Type</Label>
-              <Select
-                value={batchProductionData.productionType}
-                onValueChange={(v) =>
-                  setBatchProductionData({
-                    ...batchProductionData,
-                    productionType: v,
-                    unit: v === "eggs" ? "pc" : v === "milk" ? "L" : "kg",
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl border-slate-300 font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="meat">Meat / Growth Biomass (kg)</SelectItem>
-                  <SelectItem value="eggs">Egg Harvest (pc / trays)</SelectItem>
-                  <SelectItem value="milk">Dairy Milk (Liters)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Quantity Harvested</Label>
-                <Input
-                  type="number"
-                  value={batchProductionData.quantity}
-                  onChange={(e) => setBatchProductionData({ ...batchProductionData, quantity: e.target.value })}
-                  className="rounded-xl border-slate-300 font-bold"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Unit</Label>
-                <Input
-                  value={batchProductionData.unit}
-                  disabled
-                  className="rounded-xl border-slate-200 bg-slate-50 font-bold"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="font-bold text-slate-700">Observation Notes</Label>
-              <Input
-                value={batchProductionData.notes}
-                onChange={(e) => setBatchProductionData({ ...batchProductionData, notes: e.target.value })}
-                placeholder="e.g. Good feed conversion, no stress symptoms."
-                className="rounded-xl border-slate-300"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsBatchProductionOpen(false)}
-              className="rounded-xl font-bold text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                toast.success(
-                  `Herd production record of ${batchProductionData.quantity} ${batchProductionData.unit} logged successfully for ${currentBatch?.batchCode}!`
-                );
-                setIsBatchProductionOpen(false);
-              }}
-              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
-            >
-              Submit Production
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
