@@ -472,10 +472,10 @@ function SidebarNav({
             <button
               type="button"
               className={cn(
-                "group w-full min-h-11 flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/40",
+                "group w-full h-12 min-h-12 shrink-0 flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/40",
                 collapsed ? "justify-center p-1.5" : "gap-2"
               )}
-              title={collapsed ? `${userDisplayName} (Profile & Options)` : undefined}
+              title={`${userDisplayName}${user?.email ? ` · ${user.email}` : ""} · Profile & Options`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="size-7 rounded-full bg-emerald-600 border border-emerald-300/40 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
@@ -488,14 +488,14 @@ function SidebarNav({
 
                 <div
                   className={cn(
-                    "flex flex-col min-w-0 transition-all duration-200",
+                    "flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-200",
                     collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[130px]"
                   )}
                 >
-                  <span className="text-xs font-bold text-white whitespace-normal break-words leading-tight group-hover:text-emerald-200 transition-colors">
+                  <span className="block truncate whitespace-nowrap text-xs font-bold leading-tight text-white group-hover:text-emerald-200 transition-colors">
                     {userDisplayName}
                   </span>
-                  <span className="text-[10px] text-emerald-200/60 break-all">
+                  <span className="block truncate whitespace-nowrap text-[10px] text-emerald-200/60">
                     {user?.email || 'Padre Garcia'}
                   </span>
                 </div>

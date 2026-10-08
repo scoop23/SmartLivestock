@@ -698,7 +698,7 @@ export default function LivestockDetailPage() {
         maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6 max-w-7xl mx-auto">
+      <div className="w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8">
         {/* Navigation & Breadcrumb */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -900,36 +900,37 @@ export default function LivestockDetailPage() {
 
         {/* ── TABS: GROWTH, PRODUCTION YIELD, CALVING / BIRTHING, HEALTH, LINEAGE ───────── */}
         <Tabs defaultValue="growth" className="w-full space-y-6">
-          <TabsList className="bg-slate-100 p-1 rounded-2xl border border-slate-200/80 flex flex-wrap h-auto gap-1">
+          {/* A two-column tab grid gives each section a comfortable touch target on phones. */}
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-slate-100 p-2 sm:flex sm:flex-wrap sm:gap-1 sm:p-1">
             <TabsTrigger
               value="growth"
-              className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
+              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
             >
-              <TrendingUp className="size-3.5 mr-1.5 text-emerald-600" /> Growth &amp; Weight Logs
+              <TrendingUp className="mr-1.5 size-4 shrink-0 text-emerald-600" /> <span>Growth &amp; Weight Logs</span>
             </TabsTrigger>
             <TabsTrigger
               value="production"
-              className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
+              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
             >
-              <Milk className="size-3.5 mr-1.5 text-sky-600" /> Production
+              <Milk className="mr-1.5 size-4 shrink-0 text-sky-600" /> <span>Production</span>
             </TabsTrigger>
             <TabsTrigger
               value="calving"
-              className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
+              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
             >
-              <Baby className="size-3.5 mr-1.5 text-pink-600" /> {terms.eventName} &amp; Offspring ({totalCalves})
+              <Baby className="mr-1.5 size-4 shrink-0 text-pink-600" /> <span>{terms.eventName} &amp; Offspring ({totalCalves})</span>
             </TabsTrigger>
             <TabsTrigger
               value="health"
-              className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
+              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
             >
-              <Stethoscope className="size-3.5 mr-1.5 text-rose-600" /> Health &amp; Vaccines
+              <Stethoscope className="mr-1.5 size-4 shrink-0 text-rose-600" /> <span>Health &amp; Vaccines</span>
             </TabsTrigger>
             <TabsTrigger
               value="pedigree"
-              className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
+              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:col-span-1 sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center col-span-2"
             >
-              <Heart className="size-3.5 mr-1.5 text-purple-600" /> Pedigree &amp; Lineage
+              <Heart className="mr-1.5 size-4 shrink-0 text-purple-600" /> <span>Pedigree &amp; Lineage</span>
             </TabsTrigger>
           </TabsList>
 

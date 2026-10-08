@@ -629,7 +629,7 @@ export default function BatchOverviewPage() {
         maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6 max-w-7xl mx-auto">
+      <div className="w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8">
         {/* Top Navigation Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center gap-2">
@@ -678,8 +678,10 @@ export default function BatchOverviewPage() {
           </div>
         </div>
 
+        {/* On desktop, keep herd selection beside its details to use the wide page area. */}
+        <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(17rem,0.8fr)_minmax(0,2fr)]">
         {/* ── BATCH SELECTOR CARDS ────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
           {batches.map((batch) => {
             const isSelected = currentBatch?.id === batch.id;
             const avatar = getDefaultAvatarForSpecies(batch.species);
@@ -749,7 +751,7 @@ export default function BatchOverviewPage() {
 
         {/* ── ACTIVE BATCH OVERVIEW HERO & KPIS ───────────────────────────── */}
         {currentBatch && (
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             {/* Banner Header */}
             <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-6 rounded-3xl shadow-lg border border-emerald-800/40 relative overflow-hidden">
               <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1161,6 +1163,7 @@ export default function BatchOverviewPage() {
             </Card>
           </div>
         )}
+        </div>
       </div>
 
       {/* ── DIALOG: QUICK WEIGH ANIMAL ────────────────────────────────────── */}
