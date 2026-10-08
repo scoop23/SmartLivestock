@@ -573,7 +573,7 @@ export default function ProductionSalesTab({
                 <SelectTrigger id="intent-animal" className="bg-slate-50">
                   <SelectValue placeholder="Choose animal" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[var(--z-popover-dialog)]">
                   {approvedInventories.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.tagNumber || `Batch #${item.id}`} ({item.livestockTypeName})
@@ -592,7 +592,7 @@ export default function ProductionSalesTab({
                 <SelectTrigger id="intent-type" className="bg-slate-50">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[var(--z-popover-dialog)]">
                   <SelectItem value="FOR_SALE">Intended for Auction / Commercial Sale</SelectItem>
                   <SelectItem value="FOR_SLAUGHTER">Intended for Slaughter / Katay</SelectItem>
                   <SelectItem value="FOR_MOVEMENT">Farm Transfer / Pasture Movement</SelectItem>
