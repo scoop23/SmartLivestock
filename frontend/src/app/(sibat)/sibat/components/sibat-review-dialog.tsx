@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 import SibatStatusBadge from "./sibat-status-badge";
 import {
   useReviewSubmission,
@@ -354,6 +355,14 @@ export default function SibatReviewDialog({
                           <span className="text-[11px] font-semibold text-slate-400 block">Sex</span>
                           <span className="font-bold text-slate-800 block pt-0.5">
                             {submission.sex}
+                          </span>
+                        </div>
+                      )}
+                      {submission.sourceType === "INVENTORY" && (
+                        <div>
+                          <span className="text-[11px] font-semibold text-slate-400 block">Birth Date · Age / Class</span>
+                          <span className="font-bold text-slate-800 block pt-0.5">
+                            {formatCalendarDate(submission.birthDate)} · {formatLivestockAge(submission.age)} · {formatAgeClassification(submission.ageClassification)}
                           </span>
                         </div>
                       )}

@@ -71,6 +71,9 @@ export interface ValidationInventoryItem {
   tagNumber: string;
   breed: string;
   sex: string;
+  birthDate?: string | null;
+  age?: { years: number; months: number; total_months: number } | null;
+  ageClassification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   weight: number | null;
   entryType: "INDIVIDUAL" | "BATCH";
   quantity: number;
@@ -198,6 +201,9 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           tagNumber: item.tag_number || `TAG-${item.id}`,
           breed: item.breed || "Standard Breed",
           sex: item.sex || "Unspecified",
+          birthDate: item.birth_date ?? null,
+          age: item.age ?? null,
+          ageClassification: item.age_classification ?? "UNKNOWN",
           weight: item.weight ? Number(item.weight) : null,
           entryType: item.entry_type || "INDIVIDUAL",
           quantity: Number(item.quantity ?? 0),

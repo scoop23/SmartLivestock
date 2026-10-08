@@ -34,6 +34,7 @@ import api from "@/lib/axios";
 import type { LivestockInventoryItem } from "./page";
 import { getAvatarById } from "./livestock-inventory";
 import { OperationalStatusBadge } from "./operational-status-badge";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 
 interface ProductionRecordItem {
   id: number;
@@ -62,6 +63,7 @@ interface CalvingRecordItem {
   calf_sex: string;
   birth_weight: number | null;
   calving_date: string;
+  offspring_inventory?: number | null;
   breed: string;
   calving_ease: string;
   notes?: string;
@@ -250,11 +252,11 @@ export default function LivestockDetailsDialog({
                   </div>
                   <div className="flex items-start justify-between gap-4 py-2">
                     <dt className="text-sm text-slate-600">Birth Date</dt>
-                    <dd className="text-right text-sm font-semibold text-slate-900">{livestock.birthDate || "Not recorded"}</dd>
+                    <dd className="min-w-0 text-right text-sm font-semibold text-slate-900 break-words">{formatCalendarDate(livestock.birthDate)}</dd>
                   </div>
                   <div className="flex items-start justify-between gap-4 py-2">
                     <dt className="text-sm text-slate-600">Age / Class</dt>
-                    <dd className="text-right text-sm font-semibold text-slate-900">{livestock.age ? `${livestock.age.years ? `${livestock.age.years}y ` : ""}${livestock.age.months}m` : "Unknown"} · {livestock.ageClassification.toLowerCase()}</dd>
+                    <dd className="min-w-0 text-right text-sm font-semibold text-slate-900 break-words">{formatLivestockAge(livestock.age)} · {formatAgeClassification(livestock.ageClassification)}</dd>
                   </div>
                   <div className="flex items-start justify-between gap-4 py-2 last:pb-0">
                     <dt className="text-sm text-slate-600">Ear Tag</dt>
@@ -392,11 +394,11 @@ export default function LivestockDetailsDialog({
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Birth Date</span>
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.birthDate || "Not recorded"}</p>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{formatCalendarDate(livestock.birthDate)}</p>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Age / Class</span>
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.age ? `${livestock.age.years ? `${livestock.age.years}y ` : ""}${livestock.age.months}m` : "Unknown"} · {livestock.ageClassification.toLowerCase()}</p>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{formatLivestockAge(livestock.age)} · {formatAgeClassification(livestock.ageClassification)}</p>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Vaccination Status</span>
@@ -537,7 +539,7 @@ export default function LivestockDetailsDialog({
                             <div>
                               <p className="font-bold text-slate-900">{c.calf_tag || `Calf #${c.id}`}</p>
                               <p className="text-slate-500 text-[11px] mt-0.5">
-                                Born {c.calving_date} • {c.calf_sex} • {c.breed}
+                                Born {formatCalendarDate(c.calving_date)} • {c.calf_sex} • {c.breed}
                               </p>
                             </div>
                             <div className="text-right">

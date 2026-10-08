@@ -38,6 +38,9 @@ export interface UnifiedSubmissionItem {
   breed?: string;
   tagNumber?: string;
   sex?: string;
+  birthDate?: string | null;
+  age?: { years: number; months: number; total_months: number } | null;
+  ageClassification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   weight?: number | null;
   entryType?: "INDIVIDUAL" | "BATCH";
   batchId?: number | null;
@@ -80,6 +83,9 @@ export interface RawInventoryRecord {
   tag_number?: string;
   breed?: string;
   sex?: string;
+  birth_date?: string | null;
+  age?: { years: number; months: number; total_months: number } | null;
+  age_classification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   weight?: number | null;
   last_vaccination_date?: string | null;
   operational_status?: string;
@@ -234,6 +240,9 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     breed: inv.breed,
     tagNumber: inv.tag_number,
     sex: inv.sex,
+    birthDate: inv.birth_date ?? null,
+    age: inv.age ?? null,
+    ageClassification: inv.age_classification ?? "UNKNOWN",
     weight: inv.weight,
     entryType: inv.entry_type,
     batchId: inv.batch ?? null,

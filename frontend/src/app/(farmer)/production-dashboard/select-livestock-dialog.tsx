@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/components/ui/utils";
 import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
+import { formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 
 interface SelectLivestockDialogProps {
   open: boolean;
@@ -235,9 +236,9 @@ export default function SelectLivestockDialog({
                         </div>
 
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600">
-                          <span className="inline-flex items-center gap-1.5">
+                          <span className="inline-flex min-w-0 items-center gap-1.5 break-words">
                             <CalendarDays className="size-3.5 text-slate-400" />
-                            {formatDate(item.createdAt)}
+                            {item.birthDate ? `Age ${formatLivestockAge(item.age)} · Born ${formatCalendarDate(item.birthDate)}` : "Age unknown · Birth date unknown"}
                           </span>
                           <span className="inline-flex items-center gap-1.5">
                             <Weight className="size-3.5 text-slate-400" />

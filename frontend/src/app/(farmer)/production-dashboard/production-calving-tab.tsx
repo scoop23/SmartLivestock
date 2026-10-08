@@ -27,6 +27,8 @@ export interface CalvingRecordItem {
   notes: string;
   status?: string;
   review_remarks?: string | null;
+  offspring_inventory?: number | null;
+  inventory_reconciled_at?: string | null;
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
   created_at: string;

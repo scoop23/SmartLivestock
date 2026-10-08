@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 import type { CalvingRecordItem } from "../production-calving-tab";
+import { localCalendarDateToday } from "@/lib/livestock-age";
 
 export interface EditableCalvingFields {
   calf_tag: string;
@@ -56,7 +57,7 @@ export default function CalvingResubmitDialog({
   const [birthWeight, setBirthWeight] = useState<string>("");
   const [sireTag, setSireTag] = useState("");
   const [calvingDate, setCalvingDate] = useState(
-    new Date().toISOString().split("T")[0]
+    localCalendarDateToday()
   );
   const [breed, setBreed] = useState("");
   const [calvingEase, setCalvingEase] = useState("Normal / Unassisted");
@@ -68,7 +69,7 @@ export default function CalvingResubmitDialog({
       setCalfSex(record.calf_sex === "MALE" ? "MALE" : "FEMALE");
       setBirthWeight(record.birth_weight != null ? String(record.birth_weight) : "");
       setSireTag(record.sire_tag || "");
-      setCalvingDate(record.calving_date || new Date().toISOString().split("T")[0]);
+      setCalvingDate(record.calving_date || localCalendarDateToday());
       setBreed(record.breed || "");
       setCalvingEase(record.calving_ease || "Normal / Unassisted");
       setNotes(record.notes || "");
@@ -93,7 +94,7 @@ export default function CalvingResubmitDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-xl max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-700">
@@ -182,14 +183,15 @@ export default function CalvingResubmitDialog({
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                 <Calendar className="size-3.5 text-blue-600" />
-                Date of Birth *
+                Calving / Birth Date *
               </Label>
               <Input
                 type="date"
+                max={localCalendarDateToday()}
                 value={calvingDate}
                 onChange={(e) => setCalvingDate(e.target.value)}
                 required
-                className="text-xs"
+                className="h-11 min-w-0 w-full text-xs"
               />
             </div>
           </div>

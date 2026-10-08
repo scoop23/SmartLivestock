@@ -353,6 +353,9 @@ export default function DataUploadsPage() {
                   </code>
                   )
                 </span>
+                {currentDatasetInfo.code === "livestock_inventory" && currentDatasetInfo.available_fields.includes("birth_date") && (
+                  <span className="mt-1 block text-slate-600">Optional header: <code className="rounded bg-slate-200/70 px-1 py-0.5 font-mono text-[11px]">birth_date</code>. Leave blank when the birth date is unknown.</span>
+                )}
               </div>
             </div>
           )}

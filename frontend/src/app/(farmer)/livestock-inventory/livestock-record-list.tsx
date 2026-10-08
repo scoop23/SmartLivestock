@@ -66,6 +66,7 @@ import type { LivestockInventoryItem, StatusType, EntryType } from "./page";
 import type { OperationalStatus } from "./livestock-inventory";
 import { getAvatarById } from "./livestock-inventory";
 import { OperationalStatusBadge } from "./operational-status-badge";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 
 /* ── Species Color Palette & Styling ── */
 interface SpeciesTheme {
@@ -815,6 +816,12 @@ export default function LivestockRecordList({
                   </div>
 
                   <dl className="space-y-0 divide-y divide-slate-100 text-sm">
+                    <div className="flex items-start justify-between gap-3 py-2 first:pt-0">
+                      <dt className="shrink-0 text-slate-500">Birth Date · Age</dt>
+                      <dd className="min-w-0 break-words text-right font-semibold text-slate-900">
+                        {formatCalendarDate(item.birthDate)} · {formatLivestockAge(item.age)} ({formatAgeClassification(item.ageClassification)})
+                      </dd>
+                    </div>
                     <div className="flex items-start justify-between gap-3 py-2 first:pt-0">
                       <dt className="shrink-0 text-slate-500">Weight</dt>
                       <dd className="min-w-0 break-words text-right font-semibold text-slate-900">{item.weight ? `${item.weight} kg` : "Not recorded"}</dd>

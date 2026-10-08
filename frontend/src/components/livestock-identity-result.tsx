@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { RegisteredLivestockLookup } from "@/app/(auction)/auction-inspections/auction-analytics";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 
 // Search and QR show the same database identity and server eligibility decision.
 export function LivestockIdentityResult({ record, onAdd, error }: {
@@ -22,8 +23,8 @@ export function LivestockIdentityResult({ record, onAdd, error }: {
         <div><dt className="text-xs text-slate-500">Species</dt><dd>{record.livestock_type_name}</dd></div>
         <div><dt className="text-xs text-slate-500">Breed</dt><dd>{record.breed || "Not recorded"}</dd></div>
         <div><dt className="text-xs text-slate-500">Sex</dt><dd>{record.sex || "Not recorded"}</dd></div>
-        <div><dt className="text-xs text-slate-500">Birth date</dt><dd>{record.birth_date || "Not recorded"}</dd></div>
-        <div><dt className="text-xs text-slate-500">Age / class</dt><dd>{record.age ? `${record.age.years ? `${record.age.years}y ` : ""}${record.age.months}m` : "Unknown"} · {record.age_classification.toLowerCase()}</dd></div>
+        <div><dt className="text-xs text-slate-500">Birth date</dt><dd>{formatCalendarDate(record.birth_date)}</dd></div>
+        <div><dt className="text-xs text-slate-500">Age / class</dt><dd>{formatLivestockAge(record.age)} · {formatAgeClassification(record.age_classification)}</dd></div>
         <div><dt className="text-xs text-slate-500">Operational status</dt><dd>{record.operational_status}</dd></div>
         <div><dt className="text-xs text-slate-500">Registration</dt><dd>{record.registration_status}</dd></div>
       </dl>

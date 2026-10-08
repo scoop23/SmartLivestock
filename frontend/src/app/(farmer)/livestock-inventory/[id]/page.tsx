@@ -77,6 +77,7 @@ import {
 } from "recharts";
 import api from "@/lib/axios";
 import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
+import { formatCalendarDate, localCalendarDateToday } from "@/lib/livestock-age";
 import {
   useUserInventory,
   type LivestockInventoryItem,
@@ -196,6 +197,9 @@ export default function LivestockDetailPage() {
         quantity: directInventory.quantity || 1,
         breed: directInventory.breed || "Standard Breed",
         sex: directInventory.sex || "Female",
+        birthDate: directInventory.birth_date ?? null,
+        age: directInventory.age ?? null,
+        ageClassification: directInventory.age_classification ?? "UNKNOWN",
         weight: directInventory.weight ? Number(directInventory.weight) : null,
         lastVaccinationDate: directInventory.last_vaccination_date || null,
         status: directInventory.status || "APPROVED",
@@ -1320,7 +1324,7 @@ export default function LivestockDetailPage() {
                     <TableBody>
                       {animalCalvingRecords.map((calving) => (
                         <TableRow key={calving.id}>
-                          <TableCell className="font-bold text-xs text-slate-800">{calving.calving_date}</TableCell>
+                          <TableCell className="font-bold text-xs text-slate-800">{formatCalendarDate(calving.calving_date)}</TableCell>
                           <TableCell className="font-mono font-bold text-xs text-slate-900">
                             <Badge variant="outline" className="font-mono bg-slate-50 border-slate-200">
                               {calving.calf_tag || "Unregistered"}
@@ -1744,9 +1748,10 @@ export default function LivestockDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Birthing Date *</Label>
+                <Label className="font-bold text-slate-700">Calving / Birth Date *</Label>
                 <Input
                   type="date"
+                  max={localCalendarDateToday()}
                   value={newCalfData.date}
                   onChange={(e) => setNewCalfData({ ...newCalfData, date: e.target.value })}
                   className="rounded-xl border-slate-300"

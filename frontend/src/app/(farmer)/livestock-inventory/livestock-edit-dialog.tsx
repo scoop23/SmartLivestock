@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import type { EntryType, LivestockInventoryItem } from "./page";
 import { useLivestockBatches } from "./livestock-inventory";
+import { localCalendarDateToday } from "@/lib/livestock-age";
 
 export interface UpdateInventoryPayload {
   livestock_type: number;
@@ -206,7 +207,7 @@ export default function LivestockEditDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editBirthDate">Birth Date (optional)</Label>
-                  <Input id="editBirthDate" type="date" max={new Date().toISOString().slice(0, 10)} value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} />
+                  <Input id="editBirthDate" type="date" max={localCalendarDateToday()} value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className="h-11 min-w-0 w-full" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>

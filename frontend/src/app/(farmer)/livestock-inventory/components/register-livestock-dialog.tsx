@@ -41,6 +41,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
 import api from "@/lib/axios";
+import { localCalendarDateToday } from "@/lib/livestock-age";
 import {
   type EntryType,
   getSpeciesPreset,
@@ -398,7 +399,7 @@ export function RegisterLivestockDialog({
               tagNumber: a.tagNumber.trim(),
               name: `Livestock #${idx + 1}`,
               sex: a.sex,
-              ageMonths: 4,
+              birthDate: batchAnimals[idx].birthDate || null,
               weightKg: parseFloat(a.weight) || 65,
               adgKgDay: 0.72,
               healthStatus: a.lastVaccinationDate ? ("Vaccinated" as const) : ("Healthy" as const),
@@ -939,7 +940,7 @@ export function RegisterLivestockDialog({
 
                 <div className="space-y-1.5">
                   <Label htmlFor="birthDate" className="text-xs font-black uppercase tracking-wider text-slate-500">Birth Date (optional)</Label>
-                  <Input id="birthDate" type="date" max={new Date().toISOString().slice(0, 10)} value={formData.birthDate} onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))} className="h-11 rounded-xl" />
+                  <Input id="birthDate" type="date" max={localCalendarDateToday()} value={formData.birthDate} onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))} className="h-11 min-w-0 w-full rounded-xl" />
                 </div>
 
                 {/* Individual Vaccination */}
@@ -1410,7 +1411,7 @@ export function RegisterLivestockDialog({
                           </div>
                           <div className="space-y-1">
                             <Label className="text-[10px] font-black uppercase text-slate-400">Birth Date (optional)</Label>
-                            <Input type="date" max={new Date().toISOString().slice(0, 10)} value={animal.birthDate || ""} onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)} className="h-8 text-xs rounded-lg" />
+                            <Input type="date" max={localCalendarDateToday()} value={animal.birthDate || ""} onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)} className="h-11 min-w-0 w-full text-xs rounded-lg" />
                           </div>
                         </div>
 

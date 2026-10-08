@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
+import { localCalendarDateToday } from "@/lib/livestock-age";
 
 interface BirthingRegistrationDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ export default function BirthingRegistrationDialog({
   const [birthWeight, setBirthWeight] = useState<string>("");
   const [sireTag, setSireTag] = useState("");
   const [calvingDate, setCalvingDate] = useState(
-    new Date().toISOString().split("T")[0]
+    localCalendarDateToday()
   );
   const [breed, setBreed] = useState("");
   const [calvingEase, setCalvingEase] = useState("Normal / Unassisted");
@@ -92,7 +93,7 @@ export default function BirthingRegistrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-xl max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800">
@@ -191,14 +192,15 @@ export default function BirthingRegistrationDialog({
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                 <Calendar className="size-3.5 text-blue-600" />
-                Date of Birth *
+                Calving / Birth Date *
               </Label>
               <Input
                 type="date"
+                max={localCalendarDateToday()}
                 value={calvingDate}
                 onChange={(e) => setCalvingDate(e.target.value)}
                 required
-                className="text-xs"
+                className="h-11 min-w-0 w-full text-xs"
               />
             </div>
           </div>

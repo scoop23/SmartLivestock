@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 
 export type DetailRecordData =
   | {
@@ -103,6 +104,9 @@ export type DetailRecordData =
     tagNumber: string;
     breed: string;
     sex: string;
+    birthDate?: string | null;
+    age?: { years: number; months: number; total_months: number } | null;
+    ageClassification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
     weight: number | null;
     entryType: string;
     quantity: number;
@@ -841,6 +845,13 @@ export function RecordDetailDialog({
                           : "Official Vet Record"}
                       </p>
                     </div>
+                    {!record.isBatch && (
+                      <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Birth Date · Age / Class</span>
+                        <p className="text-xs font-black text-slate-900 mt-1">{formatCalendarDate(record.birthDate)}</p>
+                        <p className="text-[10px] text-slate-600">{formatLivestockAge(record.age)} · {formatAgeClassification(record.ageClassification)}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* If batch, show linked animal tags */}

@@ -157,7 +157,9 @@ export default function DataOverviewPage() {
         specie: item.livestockType || "Cattle",
         breed: item.breed || "Standard",
         sex: item.sex || "Female",
-        ageMonths: 24,
+        birthDate: item.birthDate ?? null,
+        age: item.age ?? null,
+        ageClassification: item.ageClassification ?? "UNKNOWN",
         weightKg: item.weight || null,
         entryType: item.entryType || (batchCode ? "BATCH" : "INDIVIDUAL"),
         quantity: Number(item.quantity) || 1,
@@ -687,20 +689,8 @@ export default function DataOverviewPage() {
             rawTimestamp: rawDate,
             badge: "Born Active",
             badgeVariant: "emerald",
-            record: matchingRecord || {
-              id: `LIV-${inc.id}`,
-              cattleId: inc.tagNumber || `CALF-${inc.id}`,
-              farmerName: inc.farmerName || "Farmer",
-              barangay: inc.barangayName || "Padre Garcia",
-              specie: inc.livestockType || "Cattle",
-              breed: inc.livestockBreed || "Crossbred",
-              sex: "Female",
-              ageMonths: 1,
-              weightKg: 28,
-              status: "APPROVED",
-              registrationDate: dateStr?.slice(0, 10) || "",
-              notes: inc.details,
-            },
+            // A calving event is not an inventory record until reconciliation creates one.
+            record: matchingRecord,
           });
         }
       });

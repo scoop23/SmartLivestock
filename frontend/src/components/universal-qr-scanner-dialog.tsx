@@ -25,6 +25,7 @@ import Link from "next/link";
 import api from "@/lib/axios";
 import { lookupRegisteredLivestock } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 
 export interface UniversalQrScannerDialogProps {
   isOpen: boolean;
@@ -44,6 +45,10 @@ interface ScannedRecord {
   weightKg?: number | null;
   operationalStatus?: string;
   registrationStatus?: string;
+  birthDate?: string | null;
+  age?: { years: number; months: number; total_months: number } | null;
+  ageClassification?: string;
+  livestockId?: number;
   eligible?: boolean;
   biosecurity: "CLEARED" | "FLAGGED" | "UNKNOWN";
   lastVaccination?: string;
@@ -180,6 +185,10 @@ export function UniversalQrScannerDialog({
         headCount: 1,
         operationalStatus: found.operational_status,
         registrationStatus: found.registration_status,
+        birthDate: found.birth_date,
+        age: found.age,
+        ageClassification: found.age_classification,
+        livestockId: found.id,
         eligible: found.eligible,
         biosecurity: "UNKNOWN",
         details: found.eligible
@@ -452,6 +461,18 @@ export function UniversalQrScannerDialog({
                     {activeResult.headCount} {activeResult.headCount === 1 ? "Head" : "Heads"}
                   </p>
                 </div>
+                {activeResult.type === "INDIVIDUAL" && (
+                  <>
+                    <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Birth Date</span>
+                      <p className="font-bold text-slate-900">{formatCalendarDate(activeResult.birthDate)}</p>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Age / Class</span>
+                      <p className="font-bold text-slate-900">{formatLivestockAge(activeResult.age)} · {formatAgeClassification(activeResult.ageClassification)}</p>
+                    </div>
+                  </>
+                )}
 
                 <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                   <span className="text-[10px] font-bold text-slate-400 block uppercase">
@@ -473,6 +494,13 @@ export function UniversalQrScannerDialog({
 
             {/* Actions */}
             <div className="space-y-2 pt-1">
+              {activeResult.type === "INDIVIDUAL" && activeResult.livestockId != null && (
+                <Link href={`/livestock-inventory/${activeResult.livestockId}`} className="block">
+                  <Button variant="outline" className="w-full min-h-11 gap-2">
+                    <ExternalLink className="size-4" /> Open livestock profile
+                  </Button>
+                </Link>
+              )}
               <div className="flex items-center gap-2">
 
 

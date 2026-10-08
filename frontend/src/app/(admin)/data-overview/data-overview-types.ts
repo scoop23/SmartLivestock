@@ -50,7 +50,9 @@ export interface LivestockRecord {
   specie: string;
   breed: string;
   sex: 'Male' | 'Female' | 'Mixed' | string;
-  ageMonths?: number;
+  birthDate?: string | null;
+  age?: { years: number; months: number; total_months: number } | null;
+  ageClassification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   weightKg?: number | null;
   entryType: 'INDIVIDUAL' | 'BATCH' | string;
   quantity: number;

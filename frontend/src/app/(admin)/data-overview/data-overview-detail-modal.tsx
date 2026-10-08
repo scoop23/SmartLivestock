@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 import Link from "next/link";
 import {
   Dialog,
@@ -438,10 +439,10 @@ export function DataOverviewDetailModal({
                     </div>
                   )}
 
-                  {record.ageMonths !== undefined && (
+                  {record.entryType === "INDIVIDUAL" && (
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
-                      <span className="text-[10px] font-bold text-slate-400 block">Age</span>
-                      <p className="text-xs font-black text-slate-900 mt-0.5">{record.ageMonths} Months</p>
+                      <span className="text-[10px] font-bold text-slate-400 block">Birth Date · Age / Class</span>
+                      <p className="text-xs font-black text-slate-900 mt-0.5">{formatCalendarDate(record.birthDate)} · {formatLivestockAge(record.age)} · {formatAgeClassification(record.ageClassification)}</p>
                     </div>
                   )}
 
