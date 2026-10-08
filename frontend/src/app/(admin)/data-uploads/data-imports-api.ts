@@ -68,7 +68,7 @@ export interface ValidationResult {
     row_number: number;
     barangay: string;
     livestock_type?: string;
-    /** Legacy key retained for datasets that still use species terminology. */
+    /** Legacy key retained when reading validation logs created before livestock_type was canonical. */
     species?: string;
     field: string;
     error_type: string;

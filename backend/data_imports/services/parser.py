@@ -5,13 +5,13 @@ from typing import Any, Tuple, List, Dict, Optional
 import openpyxl
 
 # =============================================================
-# PARSER — CSV and XLSX File Reader
+# PARSER — CSV and Excel Workbook Reader
 # =============================================================
 # This module is responsible for reading the uploaded file and
 # returning a flat list of row dictionaries that the ValidationEngine can process.
 #
 # Responsibilities:
-#   - Detect file format from extension (.csv or .xlsx)
+#   - Detect file format from extension (.csv, .xlsx, or .xlsm)
 #   - Read and decode the file bytes safely (UTF-8 BOM, latin-1 fallback)
 #   - Sanitize cell values (strip whitespace, defuse formula injection)
 #   - Return a list of {column_name: value} dicts with _row_number tracking
@@ -87,7 +87,12 @@ def parse_csv(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]]
         if not raw_headers:
             return [], [], "No headers found in CSV file."
 
-        headers = [str(h).strip() for h in raw_headers if str(h).strip()]
+        header_columns = [
+            (idx, str(header).strip())
+            for idx, header in enumerate(raw_headers)
+            if str(header).strip()
+        ]
+        headers = [header for _, header in header_columns]
         if not headers:
             return [], [], "CSV file has no valid column headers."
 
@@ -101,7 +106,7 @@ def parse_csv(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]]
                 continue
 
             row_data: Dict[str, Any] = {"_row_number": idx}
-            for col_idx, col_name in enumerate(headers):
+            for col_idx, col_name in header_columns:
                 val = row[col_idx] if col_idx < len(row) else None
                 row_data[col_name] = sanitize_cell_value(val)
             rows.append(row_data)
@@ -116,11 +121,14 @@ def parse_csv(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]]
 
 def parse_xlsx(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]]:
     """
-    Parse an Excel (.xlsx) file safely:
+    Parse an Excel (.xlsx or .xlsm) file safely:
     - Uses openpyxl with read_only=True and data_only=True for memory efficiency.
     - Yields sanitized rows with row_number matching Excel sheet rows.
     """
     try:
+        if getattr(file_obj, "size", 0) > MAX_FILE_SIZE_BYTES:
+            return [], [], f"File size exceeds maximum allowed limit of {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB."
+
         # Load workbook with data_only=True to evaluate formula values
         wb = openpyxl.load_workbook(file_obj, read_only=True, data_only=True)
         sheet = wb.active
@@ -132,7 +140,12 @@ def parse_xlsx(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]
         if not raw_headers:
             return [], [], "No headers found in Excel file."
 
-        headers = [str(h).strip() for h in raw_headers if h is not None and str(h).strip()]
+        header_columns = [
+            (idx, str(header).strip())
+            for idx, header in enumerate(raw_headers)
+            if header is not None and str(header).strip()
+        ]
+        headers = [header for _, header in header_columns]
         if not headers:
             return [], [], "Excel file has no valid column headers."
 
@@ -148,7 +161,7 @@ def parse_xlsx(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]
 
             row_data: Dict[str, Any] = {"_row_number": row_num}
             has_data = False
-            for col_idx, col_name in enumerate(headers):
+            for col_idx, col_name in header_columns:
                 val = row[col_idx] if col_idx < len(row) else None
                 sanitized = sanitize_cell_value(val)
                 if sanitized is not None:
@@ -179,6 +192,6 @@ def parse_file(file_obj, filename: str) -> Tuple[List[str], List[Dict[str, Any]]
     elif ext in [".xlsx", ".xlsm"]:
         return parse_xlsx(file_obj)
     elif ext == ".xls":
-        return [], [], "Legacy .xls format is not supported. Please save and upload as .xlsx or .csv."
+        return [], [], "Legacy .xls format is not supported. Please save and upload as .xlsx, .xlsm, or .csv."
     else:
-        return [], [], f"Unsupported file format '{ext}'. Please upload a .csv or .xlsx file."
+        return [], [], f"Unsupported file format '{ext}'. Please upload a .csv, .xlsx, or .xlsm file."

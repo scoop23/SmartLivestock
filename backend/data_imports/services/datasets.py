@@ -214,12 +214,12 @@ class MortalityRecordDataset(BaseDatasetConfig):
 class SlaughterRecordDataset(BaseDatasetConfig):
     code = "slaughter"
     label = "Slaughter Records"
-    description = "Municipal abattoir and on-farm authorized butcher events and carcass yields."
+    description = "Municipal abattoir and authorized on-farm slaughter events, including slaughter quantities and carcass yields."
     model_class = SlaughterRecord
-    required_fields = ["barangay", "species", "quantity", "record_date"]
+    required_fields = ["barangay", "livestock_type", "quantity", "record_date"]
     field_aliases = {
         "barangay": ["barangay", "barangay_name", "barangay name", "location", "brgy"],
-        "species": ["species", "livestock_type", "livestock type", "animal_type", "animal type", "type"],
+        "livestock_type": ["livestock_type", "livestock type", "species", "animal_type", "animal type", "type"],
         "quantity": ["quantity", "heads", "animal count", "number_slaughtered", "count", "qty"],
         "carcass_weight": ["carcass_weight", "carcass weight", "meat_yield", "meat_yield_kg", "weight_kg"],
         "record_date": ["record_date", "record date", "date", "slaughter_date", "date_slaughtered"],
@@ -227,7 +227,7 @@ class SlaughterRecordDataset(BaseDatasetConfig):
     }
     column_descriptions = {
         "barangay": "Official Padre Garcia barangay name.",
-        "species": "Livestock species slaughtered (e.g. Swine, Cattle).",
+        "livestock_type": "Livestock type slaughtered (e.g. Swine, Cattle).",
         "quantity": "Number of animals butchered (>= 1).",
         "carcass_weight": "Total dressed carcass meat in kilograms.",
         "record_date": "Slaughter date (YYYY-MM-DD).",
@@ -236,7 +236,7 @@ class SlaughterRecordDataset(BaseDatasetConfig):
     sample_rows = [
         {
             "barangay": "Poblacion",
-            "species": "Swine",
+            "livestock_type": "Swine",
             "quantity": 12,
             "carcass_weight": 860.50,
             "record_date": "2026-04-15",
@@ -244,7 +244,7 @@ class SlaughterRecordDataset(BaseDatasetConfig):
         },
         {
             "barangay": "Manggas",
-            "species": "Cattle",
+            "livestock_type": "Cattle",
             "quantity": 2,
             "carcass_weight": 520.00,
             "record_date": "2026-04-16",

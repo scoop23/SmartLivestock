@@ -33,7 +33,8 @@ class DataImportBatch(models.Model):
         AUCTION = "auction", "Auction / Live Animal Sales"
 
     # ImportStatus: Tracks which stage of the pipeline the batch is in.
-    # PENDING → VALIDATED → COMPLETED (or PARTIAL / FAILED on error)
+    # The batch is created as PENDING during execution, then finalized as COMPLETED,
+    # PARTIAL, or FAILED. VALIDATED remains a supported historical status value.
     class ImportStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         VALIDATED = "VALIDATED", "Validated (Previewed)"

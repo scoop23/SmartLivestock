@@ -149,8 +149,8 @@ export default function DataUploadsPage() {
 
   const handleSelectedFile = (selectedFile: File) => {
     const ext = selectedFile.name.substring(selectedFile.name.lastIndexOf(".")).toLowerCase();
-    if (ext !== ".csv" && ext !== ".xlsx") {
-      toast.error("Unsupported file format. Please upload a .csv or .xlsx spreadsheet.");
+    if (ext !== ".csv" && ext !== ".xlsx" && ext !== ".xlsm") {
+      toast.error("Unsupported file format. Please upload a .csv, .xlsx, or .xlsm spreadsheet.");
       return;
     }
     setFile(selectedFile);
@@ -236,6 +236,7 @@ export default function DataUploadsPage() {
 
   // Filter preview rows
   const currentDatasetInfo = datasets.find((d) => d.code === selectedDataset);
+  const hasLivestockTypeField = currentDatasetInfo?.available_fields.includes("livestock_type") ?? false;
   const previewRows: PreviewRow[] = (validationResult?.preview_rows || []).filter((row) => {
     if (statusFilter !== "ALL" && row.status !== statusFilter) {
       return false;
@@ -361,7 +362,7 @@ export default function DataUploadsPage() {
         <section className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 space-y-4">
           <h2 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
             <FileUp className="w-4 h-4 text-[#1E4D2B]" />
-            Step 2: Upload Spreadsheet (CSV or XLSX)
+            Step 2: Upload Spreadsheet (CSV, XLSX, or XLSM)
           </h2>
 
           <div
@@ -381,7 +382,7 @@ export default function DataUploadsPage() {
               ref={fileInputRef}
               type="file"
               onChange={handleFileChange}
-              accept=".csv, .xlsx"
+              accept=".csv, .xlsx, .xlsm"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
 
@@ -407,7 +408,7 @@ export default function DataUploadsPage() {
                     Drag and drop your CSV or XLSX file here, or click to browse
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Supports Microsoft Excel (.xlsx) and Comma-Separated Values (.csv) up to 25MB
+                    Supports Excel (.xlsx, .xlsm) and CSV (.csv) files up to 25MB
                   </p>
                 </div>
               )}
@@ -474,7 +475,7 @@ export default function DataUploadsPage() {
                     onChange={(e) => setSkipDuplicates(e.target.checked)}
                     className="rounded text-emerald-700 focus:ring-emerald-600 h-4 w-4"
                   />
-                  Skip duplicate records
+                  Skip rows with warnings
                 </label>
 
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
@@ -589,7 +590,7 @@ export default function DataUploadsPage() {
                       Farmer
                     </TableHead>
                     <TableHead className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                      {selectedDataset === "livestock_inventory" ? "Livestock Type / Details" : "Species / Details"}
+                      {hasLivestockTypeField ? "Livestock Type / Details" : "Record / Details"}
                     </TableHead>
                     <TableHead className="text-[11px] font-black text-slate-500 uppercase tracking-wider text-center">
                       Qty
@@ -667,7 +668,7 @@ export default function DataUploadsPage() {
                                     }`}
                                   >
                                     <span className="font-bold">
-                                      [{selectedDataset === "livestock_inventory" && iss.field === "livestock_type" ? "Livestock Type" : iss.field}]:
+                                      [{iss.field === "livestock_type" ? "Livestock Type" : iss.field}]:
                                     </span>{" "}
                                     {iss.message}
                                   </p>
@@ -700,7 +701,10 @@ export default function DataUploadsPage() {
 
               <Button
                 onClick={handleExecuteImport}
-                disabled={validationResult.valid_count === 0 || isImporting}
+                disabled={
+                  validationResult.valid_count + (skipDuplicates ? 0 : validationResult.warning_count) === 0 ||
+                  isImporting
+                }
                 className="w-full sm:w-auto h-9 bg-[#1E4D2B] hover:bg-[#163b21] text-white px-6 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 {isImporting ? (
@@ -711,7 +715,9 @@ export default function DataUploadsPage() {
                 ) : (
                   <>
                     <Database className="w-3.5 h-3.5 mr-1.5" />
-                    Confirm &amp; Import {validationResult.valid_count.toLocaleString()} Valid Records
+                    Confirm &amp; Import {(
+                      validationResult.valid_count + (skipDuplicates ? 0 : validationResult.warning_count)
+                    ).toLocaleString()} Records
                   </>
                 )}
               </Button>

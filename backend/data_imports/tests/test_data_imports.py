@@ -13,6 +13,7 @@ from diseases.models import DiseaseCase, MortalityRecord
 from users.models import User, Role
 from data_imports.models import DataImportBatch
 from data_imports.services.templates import generate_template_file
+from data_imports.services.parser import parse_csv
 
 
 class DataImportTests(APITestCase):
@@ -54,7 +55,7 @@ class DataImportTests(APITestCase):
             address="Purok 3, Manggas",
         )
 
-        # 5. Species
+        # 5. Livestock types
         cls.cattle = LivestockType.objects.create(name="Cattle")
         cls.swine = LivestockType.objects.create(name="Swine")
 
@@ -79,6 +80,46 @@ class DataImportTests(APITestCase):
             res_val = self.client.post("/api/data-imports/validate/", {})
             self.assertEqual(res_val.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_csv_parser_preserves_values_after_blank_header_columns(self):
+        content = b"barangay,,livestock_type\nManggas,,Cattle\n"
+        file = SimpleUploadedFile("blank_header.csv", content, content_type="text/csv")
+
+        headers, rows, error = parse_csv(file)
+
+        self.assertIsNone(error)
+        self.assertEqual(headers, ["barangay", "livestock_type"])
+        self.assertEqual(rows[0]["barangay"], "Manggas")
+        self.assertEqual(rows[0]["livestock_type"], "Cattle")
+
+    def test_invalid_inventory_and_auction_values_are_validation_errors(self):
+        self.client.force_authenticate(self.mao_user)
+        cases = [
+            (
+                "livestock_inventory",
+                "Farmer,Barangay,Livestock Type,Entry Type,Sex\n"
+                "juan_farmer,Manggas,Cattle,UNKNOWN,UNKNOWN\n",
+                {"entry_type", "sex"},
+            ),
+            (
+                "auction",
+                "Farmer,Barangay,Quantity,Total Price,Sale Date,Sale Method,Purpose,Price Per Head\n"
+                "juan_farmer,Manggas,1,1000,2026-04-18,INVALID,INVALID,not-a-number\n",
+                {"sale_method", "purpose", "price_per_head"},
+            ),
+        ]
+
+        for dataset_type, content, expected_fields in cases:
+            with self.subTest(dataset_type=dataset_type):
+                file = SimpleUploadedFile("invalid_values.csv", content.encode(), content_type="text/csv")
+                response = self.client.post(
+                    "/api/data-imports/validate/",
+                    {"dataset_type": dataset_type, "file": file},
+                    format="multipart",
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                fields = {issue["field"] for issue in response.data["preview_rows"][0]["issues"]}
+                self.assertTrue(expected_fields.issubset(fields), fields)
+
     def test_list_datasets_for_mao(self):
         """MAO user can view all available import dataset schemas."""
         self.client.force_authenticate(self.mao_user)
@@ -91,6 +132,15 @@ class DataImportTests(APITestCase):
         self.assertIn("mortality", codes)
         self.assertIn("slaughter", codes)
         self.assertIn("auction", codes)
+        slaughter = next(dataset for dataset in res.data if dataset["code"] == "slaughter")
+        self.assertEqual(
+            slaughter["required_fields"],
+            ["barangay", "livestock_type", "quantity", "record_date"],
+        )
+        self.assertEqual(
+            slaughter["description"],
+            "Municipal abattoir and authorized on-farm slaughter events, including slaughter quantities and carcass yields.",
+        )
 
     def test_validate_csv_with_valid_and_invalid_rows(self):
         """Validation returns counts of valid, warning, and error rows without mutating database."""
@@ -161,6 +211,10 @@ class DataImportTests(APITestCase):
         self.assertEqual(imported_animal.reviewed_by, self.mao_user)
         self.assertIsNotNone(imported_animal.reviewed_at)
         self.assertIn("Historical bulk import by MAO", imported_animal.review_remarks)
+        self.assertEqual(
+            LivestockInventory.objects.get(tag_number="IMPORT-CAT-102").sex,
+            "FEMALE",
+        )
 
         # Check batch record
         batch = DataImportBatch.objects.get(pk=res.data["batch_id"])
@@ -187,6 +241,102 @@ class DataImportTests(APITestCase):
         self.assertEqual(response.data["imported_rows"], 1)
         animal = LivestockInventory.objects.get(tag_number="LEGACY-CAT-101")
         self.assertEqual(animal.livestock_type, self.cattle)
+
+    def test_slaughter_import_accepts_canonical_and_legacy_type_headers(self):
+        self.client.force_authenticate(self.mao_user)
+        for header, tag in (("livestock_type", "TYPE"), ("species", "LEGACY")):
+            csv_content = (
+                f"barangay,{header},quantity,record_date,carcass_weight\n"
+                f"Manggas,Cattle,2,2026-04-15,420.50\n"
+            )
+            file = SimpleUploadedFile(
+                f"slaughter_{tag.lower()}.csv",
+                csv_content.encode("utf-8"),
+                content_type="text/csv",
+            )
+            response = self.client.post(
+                "/api/data-imports/import/",
+                {"dataset_type": "slaughter", "file": file, "target_status": "APPROVED"},
+                format="multipart",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+            self.assertEqual(response.data["imported_rows"], 1)
+
+        self.assertEqual(SlaughterRecord.objects.count(), 2)
+        self.assertEqual(
+            set(SlaughterRecord.objects.values_list("livestock_type_id", flat=True)),
+            {self.cattle.id},
+        )
+
+    def test_slaughter_validation_uses_livestock_type_language(self):
+        self.client.force_authenticate(self.mao_user)
+        csv_content = (
+            "barangay,livestock_type,quantity,record_date\n"
+            "Manggas,Unknown Animal,1,2026-04-15\n"
+        )
+        file = SimpleUploadedFile("slaughter_invalid.csv", csv_content.encode("utf-8"), content_type="text/csv")
+
+        response = self.client.post(
+            "/api/data-imports/validate/",
+            {"dataset_type": "slaughter", "file": file},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["column_mapping"]["livestock_type"], "livestock_type")
+        issue = response.data["preview_rows"][0]["issues"][0]
+        self.assertEqual(issue["field"], "livestock_type")
+        self.assertIn("Livestock Type", issue["message"])
+        self.assertEqual(response.data["issues_sample"][0]["livestock_type"], "Unknown Animal")
+        self.assertNotIn("species", response.data["issues_sample"][0])
+
+    def test_slaughter_templates_use_livestock_type_headers(self):
+        self.client.force_authenticate(self.mao_user)
+
+        csv_response = self.client.get("/api/data-imports/templates/slaughter/?format=csv")
+        self.assertEqual(csv_response.status_code, status.HTTP_200_OK)
+        csv_rows = list(csv.reader(io.StringIO(csv_response.content.decode("utf-8-sig"))))
+        self.assertEqual(csv_rows[0][:4], ["barangay", "livestock_type", "quantity", "carcass_weight"])
+        self.assertNotIn("species", csv_rows[0])
+
+        xlsx_response = self.client.get("/api/data-imports/templates/slaughter/?format=xlsx")
+        self.assertEqual(xlsx_response.status_code, status.HTTP_200_OK)
+        workbook = load_workbook(io.BytesIO(xlsx_response.content), read_only=True)
+        headers = [cell.value for cell in workbook.active[1]]
+        self.assertIn("livestock_type", headers)
+        self.assertNotIn("species", headers)
+        workbook.close()
+
+    def test_slaughter_error_report_uses_livestock_type_header_and_reads_legacy_logs(self):
+        self.client.force_authenticate(self.mao_user)
+        batch = DataImportBatch.objects.create(
+            dataset_type="slaughter",
+            file_name="old_slaughter.csv",
+            uploaded_by=self.mao_user,
+            total_rows=1,
+            error_rows=1,
+            error_log=[{
+                "row_number": 2,
+                "barangay": "Manggas",
+                "species": "Unknown Animal",
+                "field": "species",
+                "error_type": "INVALID_FOREIGN_KEY",
+                "severity": "ERROR",
+                "error_message": "Species 'Unknown Animal' is not recognized. Valid species: Cattle.",
+            }],
+        )
+
+        response = self.client.get(f"/api/data-imports/batches/{batch.id}/errors/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = response.content.decode("utf-8-sig")
+        self.assertIn("Row Number,Barangay,Livestock Type,Field,Error Type,Severity,Error Message", content)
+        self.assertIn(
+            "2,Manggas,Unknown Animal,Livestock Type,INVALID_FOREIGN_KEY,ERROR,"
+            "Livestock Type 'Unknown Animal' is not recognized. Valid livestock type: Cattle.",
+            content,
+        )
 
     def test_production_and_disease_and_mortality_imports(self):
         """Test importing Production, Disease, and Mortality records."""

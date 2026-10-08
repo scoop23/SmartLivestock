@@ -137,11 +137,7 @@ class ValidationEngine:
         for req_field in self.config.required_fields:
             raw_v = get_val(req_field)
             if raw_v is None or str(raw_v).strip() == "":
-                field_label = (
-                    "Livestock Type"
-                    if self.config.code == "livestock_inventory" and req_field == "livestock_type"
-                    else req_field
-                )
+                field_label = "Livestock Type" if req_field == "livestock_type" else req_field
                 issues.append({
                     "field": req_field,
                     "type": "MISSING_REQUIRED_FIELD",
@@ -195,11 +191,9 @@ class ValidationEngine:
                 })
                 clean_data["farmer_name"] = str(raw_farmer)
 
-        # Inventory's canonical field is `livestock_type`. Slaughter keeps its
-        # existing `species` field, while both resolve to LivestockType objects.
-        livestock_field = (
-            "livestock_type" if self.config.code == "livestock_inventory" else "species"
-        )
+        # Datasets that refer to the domain's livestock type share one canonical
+        # key. Legacy headers such as `species` are resolved through aliases.
+        livestock_field = "livestock_type"
         if livestock_field in self.config.field_aliases:
             raw_livestock_type = get_val(livestock_field)
             if raw_livestock_type:
@@ -207,21 +201,17 @@ class ValidationEngine:
                 if type_key in self.livestock_types_by_name:
                     livestock_type = self.livestock_types_by_name[type_key]
                     clean_data["livestock_type"] = livestock_type
-                    if livestock_field == "species":
-                        clean_data["species"] = livestock_type.name
                 else:
-                    label = "Livestock Type" if livestock_field == "livestock_type" else "Species"
-                    valid_label = "livestock types" if livestock_field == "livestock_type" else "species"
                     issues.append({
                         "field": livestock_field,
                         "type": "INVALID_FOREIGN_KEY",
                         "message": (
-                            f"{label} '{raw_livestock_type}' is not recognized. "
-                            f"Valid {valid_label}: {', '.join(s.name for s in self.livestock_types_by_name.values())}."
+                            f"Livestock Type '{raw_livestock_type}' is not recognized. "
+                            f"Valid livestock types: {', '.join(s.name for s in self.livestock_types_by_name.values())}."
                         ),
                         "severity": "ERROR",
                     })
-                    clean_data[livestock_field] = str(raw_livestock_type)
+                    clean_data["livestock_type"] = str(raw_livestock_type)
 
         # 5. Dates
         for date_field in ["record_date", "last_vaccination_date", "sale_date"]:
@@ -266,8 +256,15 @@ class ValidationEngine:
 
         # 7. Dataset-specific rules
         if self.config.code == "livestock_inventory":
-            entry_type = (normalize_string(get_val("entry_type")) or "INDIVIDUAL").upper()
+            raw_entry_type = (normalize_string(get_val("entry_type")) or "INDIVIDUAL").upper()
+            entry_type = raw_entry_type
             if entry_type not in ["INDIVIDUAL", "BATCH"]:
+                issues.append({
+                    "field": "entry_type",
+                    "type": "INVALID_CHOICE",
+                    "message": "Invalid entry type. Choices: INDIVIDUAL, BATCH.",
+                    "severity": "ERROR",
+                })
                 entry_type = "INDIVIDUAL"
             clean_data["entry_type"] = entry_type
 
@@ -302,7 +299,19 @@ class ValidationEngine:
 
             clean_data["breed"] = normalize_string(get_val("breed")) or ""
             raw_sex = (normalize_string(get_val("sex")) or "").upper()
-            clean_data["sex"] = "MALE" if "M" in raw_sex else ("FEMALE" if "F" in raw_sex else raw_sex)
+            if raw_sex in {"M", "MALE"}:
+                clean_data["sex"] = "MALE"
+            elif raw_sex in {"F", "FEMALE"}:
+                clean_data["sex"] = "FEMALE"
+            else:
+                clean_data["sex"] = raw_sex
+                if raw_sex:
+                    issues.append({
+                        "field": "sex",
+                        "type": "INVALID_CHOICE",
+                        "message": "Invalid sex. Choices: MALE, FEMALE.",
+                        "severity": "ERROR",
+                    })
 
             raw_wt = get_val("weight")
             if raw_wt is not None:
@@ -325,6 +334,13 @@ class ValidationEngine:
 
             raw_unit = (normalize_string(get_val("unit")) or "").upper()
             valid_units = {"MILK": "LITERS", "EGGS": "PIECES", "MEAT": "KILOGRAMS", "WOOL": "KILOGRAMS"}
+            if raw_unit and raw_unit not in {"LITERS", "PIECES", "KILOGRAMS"}:
+                issues.append({
+                    "field": "unit",
+                    "type": "INVALID_CHOICE",
+                    "message": "Invalid unit. Choices: LITERS, PIECES, KILOGRAMS.",
+                    "severity": "ERROR",
+                })
             expected_unit = valid_units.get(prod_type)
             if expected_unit and raw_unit and raw_unit != expected_unit:
                 issues.append({
@@ -387,7 +403,15 @@ class ValidationEngine:
 
         elif self.config.code == "auction":
             sale_method = (normalize_string(get_val("sale_method")) or "MATA-MATA").upper()
-            clean_data["sale_method"] = sale_method if sale_method in ["MATA-MATA", "WEIGHING", "OTHER"] else "MATA-MATA"
+            if sale_method not in ["MATA-MATA", "WEIGHING", "OTHER"]:
+                issues.append({
+                    "field": "sale_method",
+                    "type": "INVALID_CHOICE",
+                    "message": "Invalid sale method. Choices: MATA-MATA, WEIGHING, OTHER.",
+                    "severity": "ERROR",
+                })
+                sale_method = "MATA-MATA"
+            clean_data["sale_method"] = sale_method
 
             raw_price = get_val("total_price")
             price, price_err = normalize_decimal(raw_price, min_val=Decimal("0.00"))
@@ -399,16 +423,30 @@ class ValidationEngine:
             raw_head = get_val("price_per_head")
             if raw_head is not None:
                 ph, ph_err = normalize_decimal(raw_head, min_val=Decimal("0.00"))
-                clean_data["price_per_head"] = ph
+                if ph_err:
+                    issues.append({"field": "price_per_head", "type": "INVALID_NUMBER", "message": ph_err, "severity": "ERROR"})
+                else:
+                    clean_data["price_per_head"] = ph
 
             raw_wt = get_val("total_live_weight")
             if raw_wt is not None:
                 wt, wt_err = normalize_decimal(raw_wt, min_val=Decimal("0.00"))
-                clean_data["total_live_weight"] = wt
+                if wt_err:
+                    issues.append({"field": "total_live_weight", "type": "INVALID_NUMBER", "message": wt_err, "severity": "ERROR"})
+                else:
+                    clean_data["total_live_weight"] = wt
 
             clean_data["destination"] = normalize_string(get_val("destination")) or ""
             raw_purp = (normalize_string(get_val("purpose")) or "UNKNOWN").upper()
-            clean_data["purpose"] = raw_purp if raw_purp in ["BREEDING", "FATTENING", "SLAUGHTER", "UNKNOWN"] else "UNKNOWN"
+            if raw_purp not in ["BREEDING", "FATTENING", "SLAUGHTER", "UNKNOWN"]:
+                issues.append({
+                    "field": "purpose",
+                    "type": "INVALID_CHOICE",
+                    "message": "Invalid sale purpose. Choices: BREEDING, FATTENING, SLAUGHTER, UNKNOWN.",
+                    "severity": "ERROR",
+                })
+                raw_purp = "UNKNOWN"
+            clean_data["purpose"] = raw_purp
 
         # Determine overall row status
         has_error = any(i["severity"] == "ERROR" for i in issues)
@@ -452,7 +490,7 @@ class ValidationEngine:
             if isinstance(livestock_type_value, LivestockType):
                 livestock_type_value = livestock_type_value.name
             livestock_type_key = (
-                "livestock_type" if self.config.code == "livestock_inventory" else "species"
+                "livestock_type" if "livestock_type" in self.config.field_aliases else "species"
             )
             for iss in issues:
                 all_issues.append({

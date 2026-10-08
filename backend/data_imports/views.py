@@ -299,11 +299,14 @@ def download_batch_errors(request, pk):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    livestock_type_label = "Livestock Type" if batch.dataset_type == "livestock_inventory" else "Species"
+    dataset_config = get_dataset_config(batch.dataset_type)
+    record_value_label = (
+        "Livestock Type" if "livestock_type" in dataset_config.field_aliases else "Record / Details"
+    )
     writer.writerow([
         "Row Number",
         "Barangay",
-        livestock_type_label,
+        record_value_label,
         "Field",
         "Error Type",
         "Severity",
@@ -311,14 +314,24 @@ def download_batch_errors(request, pk):
     ])
 
     for err in error_log:
+        field_name = err.get("field", "")
+        error_message = err.get("error_message", "")
+        if "livestock_type" in dataset_config.field_aliases:
+            # Normalize old stored `species` errors in downloads without
+            # rewriting historical DataImportBatch records.
+            if field_name in {"livestock_type", "species"}:
+                field_name = "Livestock Type"
+            error_message = error_message.replace("Species", "Livestock Type").replace(
+                "species", "livestock type"
+            )
         writer.writerow([
             err.get("row_number", ""),
             err.get("barangay", ""),
             err.get("livestock_type", err.get("species", "")),
-            err.get("field", ""),
+            field_name,
             err.get("error_type", ""),
             err.get("severity", ""),
-            err.get("error_message", ""),
+            error_message,
         ])
 
     # utf-8-sig adds a BOM (Byte Order Mark) at the start so Excel opens it correctly
