@@ -103,6 +103,7 @@ Table livestock_inventory {
   livestock_type_id integer [not null]
   entry_type varchar [default: 'INDIVIDUAL', note: 'INDIVIDUAL or BATCH; INDIVIDUAL quantity must equal 1, and a herd member must be INDIVIDUAL quantity=1.']
   quantity integer [default: 1, note: 'Always 1 for individual animal']
+  birth_date date [note: 'Nullable for legacy records with unknown birth date']
   tag_number varchar [note: 'Ear tag / identification code']
   breed varchar
   sex varchar [note: 'MALE, FEMALE, MIXED']

@@ -98,7 +98,7 @@ def inventory_list_create(request):
         "reviewed_by__role",
         "created_by",
     ).only(
-        "id", "tag_number", "breed", "sex", "weight", "entry_type", "quantity",
+        "id", "tag_number", "breed", "sex", "birth_date", "weight", "entry_type", "quantity",
         "last_vaccination_date", "status", "operational_status", "operational_status_changed_at",
         "review_remarks", "reviewed_at", "created_at", "photo", "avatar_key",
         "livestock_type__id", "livestock_type__name",

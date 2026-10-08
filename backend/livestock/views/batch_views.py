@@ -1,9 +1,10 @@
 from smartlivestock.workflows import scope_reviewer_queryset
 from django.db import transaction
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.db.models.deletion import ProtectedError
 from django.db.models import Q, Prefetch, Count, Sum
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -41,6 +42,18 @@ def batch_list_create(request):
         require_action(user, "batches", "create")
         data = request.data.copy()
         animals_data = data.pop("animals", None)
+        if isinstance(animals_data, dict):
+            animals_data = [animals_data]
+        if isinstance(animals_data, list):
+            for animal in animals_data:
+                raw_birth_date = animal.get("birth_date")
+                if raw_birth_date:
+                    parsed_birth_date = parse_date(raw_birth_date) if isinstance(raw_birth_date, str) else raw_birth_date
+                    if parsed_birth_date is None:
+                        return Response({"birth_date": "Use a valid YYYY-MM-DD date."}, status=status.HTTP_400_BAD_REQUEST)
+                    if parsed_birth_date > timezone.localdate():
+                        return Response({"birth_date": "Birth date cannot be in the future."}, status=status.HTTP_400_BAD_REQUEST)
+                    animal["birth_date"] = parsed_birth_date
 
         farmer_profile = getattr(user, "farmer_profile", None)
         if not farmer_profile:
@@ -92,6 +105,7 @@ def batch_list_create(request):
                         tag_number=animal.get("tag_number", ""),
                         breed=animal.get("breed", ""),
                         sex=animal.get("sex", "UNKNOWN"),
+                        birth_date=animal.get("birth_date") or None,
                         weight=animal.get("weight") or None,
                         avatar_key=animal.get("avatar_key", ""),
                         last_vaccination_date=animal.get("last_vaccination_date") or None,
@@ -348,6 +362,16 @@ def batch_add_animals(request, pk):
     if isinstance(animals_data, dict):
         animals_data = [animals_data]
 
+    for animal in animals_data if isinstance(animals_data, list) else []:
+        raw_birth_date = animal.get("birth_date")
+        if raw_birth_date:
+            birth_date = parse_date(raw_birth_date) if isinstance(raw_birth_date, str) else raw_birth_date
+            if birth_date is None:
+                return Response({"birth_date": "Use a valid YYYY-MM-DD date."}, status=status.HTTP_400_BAD_REQUEST)
+            if birth_date > timezone.localdate():
+                return Response({"birth_date": "Birth date cannot be in the future."}, status=status.HTTP_400_BAD_REQUEST)
+            animal["birth_date"] = birth_date
+
     if not animals_data:
         return Response(
             {"error": "No animal data provided in 'animals' list."},
@@ -368,6 +392,7 @@ def batch_add_animals(request, pk):
                 tag_number=animal.get("tag_number", ""),
                 breed=animal.get("breed", ""),
                 sex=animal.get("sex", "UNKNOWN"),
+                birth_date=animal.get("birth_date") or None,
                 weight=animal.get("weight") or None,
                 avatar_key=animal.get("avatar_key", ""),
                 last_vaccination_date=animal.get("last_vaccination_date") or None,

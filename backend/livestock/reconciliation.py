@@ -39,6 +39,7 @@ def reconcile_approved_calving(calving):
         livestock_type=dam.livestock_type,
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
         quantity=1,
+        birth_date=calving.calving_date,
         tag_number=calving.calf_tag,
         breed=calving.breed or dam.breed,
         sex=calving.calf_sex,

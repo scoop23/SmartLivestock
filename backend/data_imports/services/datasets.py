@@ -34,6 +34,7 @@ class LivestockInventoryDataset(BaseDatasetConfig):
         "quantity": ["quantity", "animal count", "animal_count", "count", "head_count", "heads", "qty"],
         "breed": ["breed", "animal_breed"],
         "sex": ["sex", "gender"],
+        "birth_date": ["birth_date", "birth date", "date_of_birth", "date of birth", "dob"],
         "weight": ["weight", "live_weight", "weight_kg", "weight (kg)"],
         "last_vaccination_date": ["last_vaccination_date", "vaccination_date", "vaccination date", "last vaccinated"],
     }
@@ -46,6 +47,7 @@ class LivestockInventoryDataset(BaseDatasetConfig):
         "quantity": "Animal head count (must be 1 for INDIVIDUAL).",
         "breed": "Breed name (e.g. Brahman, Native, Anglo-Nubian).",
         "sex": "'MALE' or 'FEMALE'.",
+        "birth_date": "Optional animal date of birth (YYYY-MM-DD); leave blank when unknown.",
         "weight": "Live animal weight in kilograms (e.g. 385.50).",
         "last_vaccination_date": "Date of latest vaccination (YYYY-MM-DD).",
     }
@@ -59,6 +61,7 @@ class LivestockInventoryDataset(BaseDatasetConfig):
             "quantity": 1,
             "breed": "Brahman",
             "sex": "MALE",
+            "birth_date": "2024-03-15",
             "weight": 420.50,
             "last_vaccination_date": "2026-03-15",
         },
@@ -71,6 +74,7 @@ class LivestockInventoryDataset(BaseDatasetConfig):
             "quantity": 1,
             "breed": "Landrace",
             "sex": "FEMALE",
+            "birth_date": "2025-11-20",
             "weight": 88.00,
             "last_vaccination_date": "2026-03-20",
         },

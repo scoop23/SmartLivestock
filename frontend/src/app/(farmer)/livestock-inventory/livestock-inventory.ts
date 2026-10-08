@@ -19,6 +19,9 @@ export interface LivestockInventoryItem {
   tagNumber: string;
   breed: string;
   sex: string;
+  birthDate: string | null;
+  age: { years: number; months: number; total_months: number } | null;
+  ageClassification: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   weight: number | null;
   lastVaccinationDate: string | null;
   status: StatusType;
@@ -44,6 +47,9 @@ export interface InventoryApiItem {
   tag_number: string;
   breed: string;
   sex: string;
+  birth_date?: string | null;
+  age?: { years: number; months: number; total_months: number } | null;
+  age_classification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   weight: number | null;
   last_vaccination_date: string | null;
   status: StatusType;
@@ -102,6 +108,7 @@ export interface CreateBatchPayload {
     breed: string;
     sex: string;
     weight?: number | null;
+    birth_date?: string | null;
     last_vaccination_date?: string | null;
     avatar_key?: string | null;
   }>;
@@ -114,6 +121,7 @@ export interface CreateInventoryPayload {
   tag_number?: string;
   breed?: string;
   sex?: string;
+  birth_date?: string | null;
   weight?: number | null;
   last_vaccination_date?: string | null;
   photo?: string | null;
@@ -128,6 +136,7 @@ export interface UpdateInventoryPayload {
   tag_number?: string;
   breed?: string;
   sex?: string;
+  birth_date?: string | null;
   weight?: number | null;
   last_vaccination_date?: string | null;
   photo?: string | null;
@@ -454,6 +463,9 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   tagNumber: item.tag_number,
   breed: item.breed,
   sex: item.sex,
+  birthDate: item.birth_date ?? null,
+  age: item.age ?? null,
+  ageClassification: item.age_classification ?? "UNKNOWN",
   weight: item.weight,
   lastVaccinationDate: item.last_vaccination_date,
   status: item.status,

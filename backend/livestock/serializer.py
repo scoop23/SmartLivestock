@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
 from rest_framework.relations import PrimaryKeyRelatedField
+from django.utils import timezone
 from livestock.services import CensusService  # type: ignore
 from .models import (
     Barangay,
@@ -142,6 +143,9 @@ class LivestockInventorySerializer(serializers.Serializer):
     )
     entry_type = serializers.ChoiceField(choices=LivestockInventory.EntryType.choices)
     quantity = serializers.IntegerField(min_value=1, default=1)
+    birth_date = serializers.DateField(required=False, allow_null=True)
+    age = serializers.SerializerMethodField(read_only=True)
+    age_classification = serializers.SerializerMethodField(read_only=True)
     tag_number = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     breed = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     sex = serializers.CharField(max_length=10, required=False, allow_blank=True, default="")
@@ -170,6 +174,17 @@ class LivestockInventorySerializer(serializers.Serializer):
             return full_name if full_name else user.username
         except Exception:
             return "Unknown Farmer"
+
+    def get_age(self, obj):
+        return obj.age_as_of(timezone.localdate())
+
+    def get_age_classification(self, obj):
+        return obj.age_classification_as_of(timezone.localdate())
+
+    def validate_birth_date(self, value):
+        if value and value > timezone.localdate():
+            raise serializers.ValidationError("Birth date cannot be in the future.")
+        return value
 
     def get_reviewed_by_name(self, obj):
         try:
@@ -250,6 +265,7 @@ class LivestockInventorySerializer(serializers.Serializer):
             "livestock_type",
             "entry_type",
             "quantity",
+            "birth_date",
             "tag_number",
             "breed",
             "sex",
@@ -281,6 +297,14 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField(read_only=True)
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+    age = serializers.SerializerMethodField(read_only=True)
+    age_classification = serializers.SerializerMethodField(read_only=True)
+
+    def get_age(self, obj):
+        return obj.age_as_of(timezone.localdate())
+
+    def get_age_classification(self, obj):
+        return obj.age_classification_as_of(timezone.localdate())
 
     class Meta:
         model = LivestockInventory
@@ -289,6 +313,9 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
             "tag_number",
             "breed",
             "sex",
+            "birth_date",
+            "age",
+            "age_classification",
             "weight",
             "photo",
             "photo_url",

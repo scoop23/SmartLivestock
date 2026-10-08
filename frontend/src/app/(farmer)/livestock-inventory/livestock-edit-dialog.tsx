@@ -32,6 +32,7 @@ export interface UpdateInventoryPayload {
   tag_number: string;
   breed: string;
   sex: string;
+  birth_date: string | null;
   weight: number | null;
   last_vaccination_date: string | null;
   batch?: number | null;
@@ -51,6 +52,7 @@ interface FormState {
   tagNumber: string;
   breed: string;
   sex: string;
+  birthDate: string;
   weight: string;
   isVaccinated: boolean;
   lastVaccinationDate: string;
@@ -62,6 +64,7 @@ const toFormState = (item: LivestockInventoryItem): FormState => ({
   tagNumber: item.tagNumber || "",
   breed: item.breed || "",
   sex: item.sex || "Female",
+  birthDate: item.birthDate ?? "",
   weight: item.weight != null ? String(item.weight) : "",
   isVaccinated: !!item.lastVaccinationDate,
   lastVaccinationDate: item.lastVaccinationDate ?? "",
@@ -73,6 +76,7 @@ const EMPTY_FORM: FormState = {
   tagNumber: "",
   breed: "",
   sex: "Female",
+  birthDate: "",
   weight: "",
   isVaccinated: false,
   lastVaccinationDate: "",
@@ -142,6 +146,7 @@ export default function LivestockEditDialog({
       batch: form.batchId ? Number(form.batchId) : null,
       breed: form.breed.trim(),
       sex: form.sex,
+      birth_date: form.birthDate || null,
       weight: form.weight ? parseFloat(form.weight) : null,
       last_vaccination_date: form.lastVaccinationDate || null,
     });
@@ -199,6 +204,10 @@ export default function LivestockEditDialog({
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editBirthDate">Birth Date (optional)</Label>
+                  <Input id="editBirthDate" type="date" max={new Date().toISOString().slice(0, 10)} value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>
                   <Input

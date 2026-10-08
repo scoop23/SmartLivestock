@@ -140,6 +140,7 @@ def execute_batch_import(
                         tag_number=rec.get("tag_number", ""),
                         breed=rec.get("breed", ""),
                         sex=rec.get("sex", ""),
+                        birth_date=rec.get("birth_date"),
                         weight=rec.get("weight"),
                         last_vaccination_date=rec.get("last_vaccination_date"),
                         operational_status=LivestockInventory.OperationalStatus.ACTIVE,

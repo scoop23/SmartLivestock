@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import date
 import re
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -380,6 +381,8 @@ class Command(BaseCommand):
                         "quantity": 1,
                         "breed": "Native / Brahman Cross",
                         "sex": "Female" if h % 2 == 0 else "Male",
+                        # Keep seeded DOBs before the historical production windows.
+                        "birth_date": date(2019 + (h % 5), 1 + ((h - 1) % 12), min(15 + (h % 10), 28)),
                         "weight": Decimal(str(320 + (h * 15))),
                         "status": LivestockInventory.StatusType.APPROVED,
                         "created_by": user,

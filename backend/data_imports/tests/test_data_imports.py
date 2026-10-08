@@ -182,9 +182,9 @@ class DataImportTests(APITestCase):
         self.client.force_authenticate(self.mao_user)
 
         csv_content = (
-            "Farmer,Barangay,Livestock_Type,Tag Number,Entry Type,Quantity,Breed,Sex,Weight\n"
-            "juan_farmer,Manggas,Cattle,IMPORT-CAT-101,INDIVIDUAL,1,Brahman,MALE,460.00\n"
-            "juan_farmer,Manggas,Cattle,IMPORT-CAT-102,INDIVIDUAL,1,Brahman,FEMALE,420.00\n"
+            "Farmer,Barangay,Livestock_Type,Tag Number,Entry Type,Quantity,Breed,Sex,Weight,Birth Date\n"
+            "juan_farmer,Manggas,Cattle,IMPORT-CAT-101,INDIVIDUAL,1,Brahman,MALE,460.00,2024-02-29\n"
+            "juan_farmer,Manggas,Cattle,IMPORT-CAT-102,INDIVIDUAL,1,Brahman,FEMALE,420.00,\n"
             # Duplicate tag warning
             "juan_farmer,Manggas,Cattle,EXISTING-CAT-001,INDIVIDUAL,1,Brahman,MALE,410.00\n"
         )
@@ -208,6 +208,7 @@ class DataImportTests(APITestCase):
         imported_animal = LivestockInventory.objects.get(tag_number="IMPORT-CAT-101")
         self.assertEqual(imported_animal.livestock_type, self.cattle)
         self.assertEqual(imported_animal.status, "APPROVED")
+        self.assertEqual(imported_animal.birth_date, date(2024, 2, 29))
         self.assertEqual(imported_animal.reviewed_by, self.mao_user)
         self.assertIsNotNone(imported_animal.reviewed_at)
         self.assertIn("Historical bulk import by MAO", imported_animal.review_remarks)

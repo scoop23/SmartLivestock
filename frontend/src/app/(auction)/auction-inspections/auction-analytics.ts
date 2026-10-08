@@ -17,6 +17,9 @@ export interface RegisteredShipperOption {
 export interface RegisteredLivestockLookup extends RegisteredAnimalOption {
   breed: string;
   sex: string;
+  birth_date: string | null;
+  age: { years: number; months: number; total_months: number } | null;
+  age_classification: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   registration_status: string;
   operational_status: string;
   eligible: boolean;

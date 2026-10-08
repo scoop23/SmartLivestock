@@ -56,6 +56,7 @@ export interface BatchAnimalFormRow {
   breed: string;
   sex: "Female" | "Male" | "Castrated";
   weight: string;
+  birthDate?: string;
   lastVaccinationDate: string;
 }
 
@@ -82,6 +83,7 @@ const initialFormData = {
   isOtherBreed: false,
   customBreed: "",
   sex: "Female",
+  birthDate: "",
   weight: "",
   isVaccinated: false,
   lastVaccinationDate: "",
@@ -315,6 +317,7 @@ export function RegisterLivestockDialog({
           body.append("tag_number", formData.tagNumber.trim());
           body.append("breed", finalBreed);
           body.append("sex", formData.sex);
+          if (formData.birthDate) body.append("birth_date", formData.birthDate);
           if (formData.weight) body.append("weight", formData.weight);
           if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
           if (formData.batchId) body.append("batch", String(formData.batchId));
@@ -332,6 +335,7 @@ export function RegisterLivestockDialog({
             tag_number: formData.tagNumber.trim(),
             breed: finalBreed,
             sex: formData.sex,
+            birth_date: formData.birthDate || null,
             weight: formData.weight ? parseFloat(formData.weight) : null,
             last_vaccination_date: formData.lastVaccinationDate || null,
           };
@@ -382,6 +386,7 @@ export function RegisterLivestockDialog({
             breed: (a.breed?.trim() && a.breed !== "Others") ? a.breed.trim() : mainBreed,
             sex: a.sex,
             weight: a.weight ? parseFloat(a.weight) : null,
+            birth_date: a.birthDate || null,
             last_vaccination_date: a.lastVaccinationDate || null,
           })),
         });
@@ -932,6 +937,11 @@ export function RegisterLivestockDialog({
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label htmlFor="birthDate" className="text-xs font-black uppercase tracking-wider text-slate-500">Birth Date (optional)</Label>
+                  <Input id="birthDate" type="date" max={new Date().toISOString().slice(0, 10)} value={formData.birthDate} onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))} className="h-11 rounded-xl" />
+                </div>
+
                 {/* Individual Vaccination */}
                 <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3">
                   <div className="flex items-center gap-2">
@@ -1397,6 +1407,10 @@ export function RegisterLivestockDialog({
                               placeholder="e.g. 65"
                               className="h-8 text-xs font-semibold rounded-lg"
                             />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-black uppercase text-slate-400">Birth Date (optional)</Label>
+                            <Input type="date" max={new Date().toISOString().slice(0, 10)} value={animal.birthDate || ""} onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)} className="h-8 text-xs rounded-lg" />
                           </div>
                         </div>
 

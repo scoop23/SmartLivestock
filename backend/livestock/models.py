@@ -1,9 +1,12 @@
 from decimal import Decimal
+from datetime import date
+from calendar import monthrange
 from typing import TYPE_CHECKING
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
 
 
@@ -160,6 +163,11 @@ class LivestockInventory(models.Model):
         max_length=20, choices=EntryType.choices, default=EntryType.INDIVIDUAL
     )
     quantity = models.IntegerField(default=1, help_text="Always 1 for individual animal records.")
+    birth_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of birth. Optional for legacy records where the birth date is unknown.",
+    )
     tag_number = models.CharField(max_length=50, blank=True, default="")
     breed = models.CharField(max_length=50, blank=True)
     sex = models.CharField(max_length=10, blank=True)
@@ -208,6 +216,31 @@ class LivestockInventory(models.Model):
         related_name="created_inventories",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def age_as_of(self, reference_date: date | None = None):
+        """Return completed calendar age parts, or None when birth is unknown."""
+        if self.birth_date is None:
+            return None
+        reference_date = reference_date or timezone.localdate()
+        if self.birth_date > reference_date:
+            return None
+        months = (reference_date.year - self.birth_date.year) * 12 + reference_date.month - self.birth_date.month
+        anniversary_day = min(self.birth_date.day, monthrange(reference_date.year, reference_date.month)[1])
+        if reference_date.day < anniversary_day:
+            months -= 1
+        months = max(months, 0)
+        return {"years": months // 12, "months": months % 12, "total_months": months}
+
+    def age_classification_as_of(self, reference_date: date | None = None):
+        """Conservative age-only band; reproductive status is not inferred."""
+        age = self.age_as_of(reference_date)
+        if age is None:
+            return "UNKNOWN"
+        if age["total_months"] < 12:
+            return "CALF"
+        if age["total_months"] < 24:
+            return "YEARLING"
+        return "ADULT"
 
     class Meta:
         constraints = [

@@ -61,6 +61,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No seeded synthetic calving records found to clean."))
             return
 
+        offspring_ids = list(seed_qs.exclude(offspring_inventory__isnull=True).values_list("offspring_inventory_id", flat=True))
+        if offspring_ids:
+            LivestockInventory.objects.filter(pk__in=offspring_ids).delete()
         deleted_count, _ = seed_qs.delete()
         self.stdout.write(
             self.style.SUCCESS(
@@ -116,7 +119,10 @@ class Command(BaseCommand):
                 calving_month += 12
                 calving_year -= 1
 
-            calving_date = date(calving_year, calving_month, min(28, (i % 25) + 1))
+            calving_day = min(28, (i % 25) + 1)
+            if calving_year == today.year and calving_month == today.month:
+                calving_day = min(calving_day, today.day)
+            calving_date = date(calving_year, calving_month, calving_day)
             sex = CalvingRecord.SexType.FEMALE if (i % 2 == 0) else CalvingRecord.SexType.MALE
             birth_weight = round(Decimal(str(26.0 + rng.uniform(2.0, 14.0))), 2)
 
@@ -139,6 +145,9 @@ class Command(BaseCommand):
             records_to_create.append(record)
 
         CalvingRecord.objects.bulk_create(records_to_create)
+        from livestock.reconciliation import reconcile_approved_calving
+        for record in records_to_create:
+            reconcile_approved_calving(record)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Successfully seeded {len(records_to_create)} synthetic calving records with marker '{SEED_MARKER_CALVING}'."

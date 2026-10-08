@@ -1,4 +1,6 @@
 from rest_framework.test import APITestCase
+from django.test import SimpleTestCase
+from datetime import date
 from rest_framework import status
 from users.models import Notification, Role, User
 from livestock.models import (
@@ -160,6 +162,42 @@ class LivestockInventoryReviewTests(APITestCase):
         self.assertEqual(notification.title, "New Livestock Entry Awaiting Verification")
         self.assertEqual(notification.link, "/sibat-validation")
         self.assertFalse(notification.is_read)
+
+    def test_birth_date_is_optional_and_future_dates_are_rejected(self):
+        self.client.force_authenticate(user=self.farmer_user)
+        payload = {"livestock_type": self.cattle_type.pk, "entry_type": "INDIVIDUAL", "quantity": 1,
+                   "tag_number": "LEGACY-NO-BIRTH", "birth_date": None}
+        response = self.client.post("/livestock/inventory/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertIsNone(response.data["birth_date"])
+        self.assertIsNone(response.data["age"])
+        self.assertEqual(response.data["age_classification"], "UNKNOWN")
+        payload["tag_number"] = "KNOWN-BIRTH"
+        payload["birth_date"] = "2020-01-15"
+        response = self.client.post("/livestock/inventory/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["birth_date"], "2020-01-15")
+        payload["tag_number"] = "FUTURE-BIRTH"
+        payload["birth_date"] = "2999-01-01"
+        response = self.client.post("/livestock/inventory/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class LivestockAgeCalculationTests(SimpleTestCase):
+    def test_completed_calendar_age_and_age_bands(self):
+        animal = LivestockInventory(birth_date=date(2025, 7, 8))
+        self.assertEqual(animal.age_as_of(date(2026, 10, 8)), {"years": 1, "months": 3, "total_months": 15})
+        self.assertEqual(animal.age_classification_as_of(date(2026, 10, 8)), "YEARLING")
+        self.assertEqual(animal.age_as_of(date(2025, 12, 7))["total_months"], 4)
+        self.assertEqual(animal.age_as_of(date(2026, 7, 8))["total_months"], 12)
+        self.assertEqual(animal.age_classification_as_of(date(2027, 7, 8)), "ADULT")
+
+    def test_unknown_and_leap_day_births_are_safe(self):
+        unknown = LivestockInventory(birth_date=None)
+        self.assertIsNone(unknown.age_as_of(date(2026, 10, 8)))
+        self.assertEqual(unknown.age_classification_as_of(date(2026, 10, 8)), "UNKNOWN")
+        leap_birth = LivestockInventory(birth_date=date(2024, 2, 29))
+        self.assertEqual(leap_birth.age_as_of(date(2025, 2, 28))["total_months"], 12)
 
 
 class LivestockBatchAPITests(APITestCase):

@@ -160,6 +160,9 @@ class LivestockInspectionWorkflowTests(TestCase):
         )
         self.assertEqual(by_qr.status_code, status.HTTP_200_OK)
         self.assertEqual(by_qr.data["id"], self.inventory_cow.id)
+        self.assertIsNone(by_qr.data["birth_date"])
+        self.assertIsNone(by_qr.data["age"])
+        self.assertEqual(by_qr.data["age_classification"], "UNKNOWN")
         batch_pass_is_not_animal_identity = self.client.get(
             "/api/inspections/livestock-lookup/",
             {"code": "https://smartlivestock.padregarcia.gov.ph/data-validation/batches?batchId=PG-COW-001"},
@@ -230,6 +233,7 @@ class LivestockInspectionWorkflowTests(TestCase):
                 self.assertFalse(response.data["eligible"])
                 self.assertEqual(set(response.data), {
                     "id", "tag_number", "livestock_type", "livestock_type_name", "breed", "sex",
+                    "birth_date", "age", "age_classification",
                     "registration_status", "operational_status", "eligible", "ineligibility_reason",
                     "owner_id", "owner_name", "origin", "barangay",
                 })

@@ -182,6 +182,21 @@ class ProductionRecordAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_approved_calving_creates_one_offspring_with_birth_date(self):
+        from livestock.reconciliation import reconcile_approved_calving
+        calving_date = date(2026, 5, 17)
+        calving = CalvingRecord.objects.create(
+            dam=self.animal, calf_tag="CALF-BIRTH-001", calf_sex="FEMALE",
+            calving_date=calving_date, status=CalvingRecord.StatusType.APPROVED,
+            created_by=self.farmer_user, reviewed_by=self.mao_user,
+        )
+        reconcile_approved_calving(calving)
+        reconcile_approved_calving(calving)
+        calving.refresh_from_db()
+        self.assertIsNotNone(calving.offspring_inventory)
+        self.assertEqual(calving.offspring_inventory.birth_date, calving_date)
+        self.assertEqual(LivestockInventory.objects.filter(tag_number="CALF-BIRTH-001").count(), 1)
+
     def swine_animal(self, approved=True):
         swine, _ = LivestockType.objects.get_or_create(name="Swine")
         return LivestockInventory.objects.create(

@@ -268,6 +268,14 @@ class ValidationEngine:
                 entry_type = "INDIVIDUAL"
             clean_data["entry_type"] = entry_type
 
+            birth_date, birth_date_error = normalize_date(get_val("birth_date"))
+            if birth_date_error:
+                issues.append({"field": "birth_date", "type": "INVALID_DATE", "message": birth_date_error, "severity": "ERROR"})
+            elif birth_date and birth_date > self.today:
+                issues.append({"field": "birth_date", "type": "FUTURE_DATE", "message": "Birth date cannot be in the future.", "severity": "ERROR"})
+            else:
+                clean_data["birth_date"] = birth_date
+
             # Check individual quantity constraint
             if entry_type == "INDIVIDUAL" and clean_data.get("quantity") != 1:
                 issues.append({

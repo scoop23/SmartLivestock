@@ -248,6 +248,14 @@ export default function LivestockDetailsDialog({
                     <dt className="text-sm text-slate-600">Sex</dt>
                     <dd className="text-right text-sm font-semibold text-slate-900">{livestock.sex || "Not recorded"}</dd>
                   </div>
+                  <div className="flex items-start justify-between gap-4 py-2">
+                    <dt className="text-sm text-slate-600">Birth Date</dt>
+                    <dd className="text-right text-sm font-semibold text-slate-900">{livestock.birthDate || "Not recorded"}</dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-4 py-2">
+                    <dt className="text-sm text-slate-600">Age / Class</dt>
+                    <dd className="text-right text-sm font-semibold text-slate-900">{livestock.age ? `${livestock.age.years ? `${livestock.age.years}y ` : ""}${livestock.age.months}m` : "Unknown"} · {livestock.ageClassification.toLowerCase()}</dd>
+                  </div>
                   <div className="flex items-start justify-between gap-4 py-2 last:pb-0">
                     <dt className="text-sm text-slate-600">Ear Tag</dt>
                     <dd className="min-w-0 text-right text-sm font-semibold text-slate-900 break-all">{livestock.tagNumber || `TAG-${livestock.id}`}</dd>
@@ -381,6 +389,14 @@ export default function LivestockDetailsDialog({
                         <p className="font-bold text-slate-900 text-sm mt-0.5">
                           {livestock.weight != null ? `${livestock.weight} kg` : "Not weighed"}
                         </p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Birth Date</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.birthDate || "Not recorded"}</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Age / Class</span>
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">{livestock.age ? `${livestock.age.years ? `${livestock.age.years}y ` : ""}${livestock.age.months}m` : "Unknown"} · {livestock.ageClassification.toLowerCase()}</p>
                       </div>
                       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Vaccination Status</span>
