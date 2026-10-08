@@ -96,6 +96,7 @@ const adminLinks: SidebarLink[] = [
     subLinks: [
       { path: '/data-validation', label: 'Overview & Verification' },
       { path: '/data-validation/batches', label: 'Herd Register', badge: 'Herds' },
+      { path: '/ownership-transfers', label: 'Ownership Transfers' },
     ],
   },
   { path: '/gis-map', label: 'GIS Map', icon: Map },
@@ -149,6 +150,7 @@ const sibatLinks: SidebarLink[] = [
     subLinks: [
       { path: '/sibat', label: 'Overview & Field Queues' },
       { path: '/sibat/batches', label: 'Herd Verification', badge: 'Herds' },
+      { path: '/sibat/ownership-transfers', label: 'Ownership Transfers' },
     ],
   },
   { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Map },

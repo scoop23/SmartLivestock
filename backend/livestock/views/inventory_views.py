@@ -59,6 +59,7 @@ def inventory_list_create(request):
     if user_role == "FARMER":
         farmer_profile = getattr(user, "farmer_profile", None)
         if farmer_profile:
+            # Current inventory follows the livestock's current farmer; historical ownership stays in transfer events.
             inventories = LivestockInventory.objects.filter(
                 Q(farmer=farmer_profile)
             ).distinct()

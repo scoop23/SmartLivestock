@@ -38,6 +38,12 @@ class ProductionRecord(models.Model):
         blank=True,
         help_text="Optional link if production is recorded for an entire batch.",
     )
+    # Keep the producing farmer fixed to the recording period: the linked animal's
+    # current owner may change later, while the historical production attribution must not.
+    farmer_at_record = models.ForeignKey(
+        "livestock.Farmer", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="production_records_at_time",
+    )
 
     production_type = models.CharField(
         max_length=20,
@@ -92,6 +98,15 @@ class ProductionRecord(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        # Keep attribution stable even for existing service/seed code that creates model instances directly.
+        if self.farmer_at_record_id is None:
+            if self.livestock_id:
+                self.farmer_at_record_id = self.livestock.farmer_id
+            elif self.batch_id:
+                self.farmer_at_record_id = self.batch.farmer_id
+        super().save(*args, **kwargs)
 
 
 # "Katay" (butcher/slaughter) records.

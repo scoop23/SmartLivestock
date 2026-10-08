@@ -19,7 +19,7 @@ requests from the browser.
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 
@@ -476,7 +476,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     )
     milk_grouped = (
         production_qs.annotate(
-            b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
+            b_id=F("farmer_at_record__barangay_id")
         )
         .values("b_id")
         .annotate(total_milk=Sum("quantity"))
@@ -503,7 +503,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     )
     farmer_meat_grouped = (
         farmer_meat_qs.annotate(
-            b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
+            b_id=F("farmer_at_record__barangay_id")
         )
         .values("b_id")
         .annotate(total_farmer_meat=Sum("quantity"))
@@ -702,12 +702,12 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         my_cattle = my_inv.filter(livestock_type__name__icontains="cattle").aggregate(s=Sum("quantity"))["s"] or 0
         my_total_livestock = my_inv.aggregate(s=Sum("quantity"))["s"] or 0
         my_milk = ProductionRecord.objects.filter(
-            Q(livestock__farmer=fp) | Q(batch__farmer=fp),
+            farmer_at_record=fp,
             status=ProductionRecord.ProductionStatus.APPROVED,
             production_type=ProductionRecord.ProductionType.MILK,
         ).aggregate(s=Sum("quantity"))["s"] or 0.0
         my_farmer_meat = ProductionRecord.objects.filter(
-            Q(livestock__farmer=fp) | Q(batch__farmer=fp),
+            farmer_at_record=fp,
             status=ProductionRecord.ProductionStatus.APPROVED,
             production_type=ProductionRecord.ProductionType.MEAT,
             unit=ProductionRecord.UnitType.KILOGRAMS,

@@ -22,6 +22,7 @@ ROLE_MATRIX = {
     "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
     "inspections": {"create": {FARMER, AUCTION, MAO, ADMIN}, "read_all": {AUCTION, MAO, ADMIN, SIBAT}, "edit_own": {FARMER, AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
+    "ownership_transfers": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
 }
 
 
@@ -38,7 +39,7 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
         TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
         TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     )
-    for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality")
+    for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality", "ownership_transfers")
 }
 
 # Production declarations use the same field-verification and municipal-approval steps.
@@ -137,13 +138,14 @@ def scope_reviewer_queryset(queryset, user):
         "Barangay": ("id",),
         "ProgramBooking": ("farmer__farmer_profile__barangay_id",),
         "SlaughterRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
-        "ProductionRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
+        "ProductionRecord": ("farmer_at_record__barangay_id",),
         "LiveAnimalSale": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "DiseaseCase": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "MortalityRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "CalvingRecord": ("dam__farmer__barangay_id",),
         "WeightRecord": ("livestock__farmer__barangay_id",),
         "AnimalDisposition": ("livestock__farmer__barangay_id",),
+        "LivestockOwnershipTransfer": ("previous_owner__barangay_id", "new_owner__barangay_id"),
         "LivestockInspection": ("shipper__barangay_id",),
         "LivestockInspectionClearance": ("inspection__shipper__barangay_id",),
     }

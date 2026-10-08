@@ -91,8 +91,8 @@ def descriptive_summary(today=None, *, user=None):
         {"barangay_id": row["barangay_id"], "barangay": row["barangay"], "type": row["production_type"],
          "unit": row["unit"], "quantity": float(row["quantity"] or 0)}
         for row in production.annotate(
-            barangay_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
-            barangay=Coalesce("livestock__farmer__barangay__barangay_name", "batch__farmer__barangay__barangay_name"),
+            barangay_id=F("farmer_at_record__barangay_id"),
+            barangay=F("farmer_at_record__barangay__barangay_name"),
         ).values("barangay_id", "barangay", "production_type", "unit")
         .annotate(quantity=Sum("output_quantity"))
         .order_by("barangay", "production_type", "unit")
@@ -131,8 +131,8 @@ def descriptive_summary(today=None, *, user=None):
         "by_month": value_rows(valued.annotate(month=TruncMonth("record_date")), ["month"]),
         "by_type": value_rows(valued, ["production_type"]),
         "by_species": value_rows(valued.annotate(species=Coalesce("livestock__livestock_type__name", "batch__livestock_type__name")), ["species"]),
-        "by_barangay": value_rows(valued.annotate(barangay_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
-                                                    barangay=Coalesce("livestock__farmer__barangay__barangay_name", "batch__farmer__barangay__barangay_name")), ["barangay_id", "barangay"]),
+        "by_barangay": value_rows(valued.annotate(barangay_id=F("farmer_at_record__barangay_id"),
+                                                    barangay=F("farmer_at_record__barangay__barangay_name")), ["barangay_id", "barangay"]),
         "by_commodity": value_rows(valued, ["valuation_snapshot__commodity_id", "valuation_snapshot__commodity"]),
     }
     for row in estimated_values["by_month"]:

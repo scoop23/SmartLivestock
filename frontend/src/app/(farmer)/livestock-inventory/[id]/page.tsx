@@ -83,6 +83,7 @@ import {
   getAvatarById,
 } from "../livestock-inventory";
 import { OperationalStatusBadge } from "../operational-status-badge";
+import { OwnershipTransferPanel } from "../ownership-transfer-panel";
 import {
   getBirthingTerminology,
   type CalvingRecordItem,
@@ -926,11 +927,17 @@ export default function LivestockDetailPage() {
             >
               <Stethoscope className="mr-1.5 size-4 shrink-0 text-rose-600" /> <span>Health &amp; Vaccines</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="pedigree"
+          <TabsTrigger
+            value="pedigree"
               className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:col-span-1 sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center col-span-2"
             >
               <Heart className="mr-1.5 size-4 shrink-0 text-purple-600" /> <span>Pedigree &amp; Lineage</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="ownership"
+              className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
+            >
+              Ownership History
             </TabsTrigger>
           </TabsList>
 
@@ -1463,6 +1470,16 @@ export default function LivestockDetailPage() {
                 </div>
               )}
             </Card>
+          </TabsContent>
+
+          <TabsContent value="ownership" className="space-y-6">
+            <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-5 sm:p-6">
+              <OwnershipTransferPanel
+                livestockId={Number(activeItem.id)}
+                eligible={activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && !activeItem.batchId}
+              />
+            </Card>
+            <p className="px-1 text-xs text-slate-500">The animal’s QR remains linked to its canonical inventory ID. It identifies the animal; the backend transfer records hold the changing ownership history.</p>
           </TabsContent>
         </Tabs>
       </div>

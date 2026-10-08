@@ -777,24 +777,24 @@ export default function LivestockRecordList({
               >
                 {/* Phone cards use a summary-first stack; the denser registry view stays for wider screens. */}
                 <CardContent className="flex flex-1 flex-col gap-4 p-4 sm:hidden">
-                  <div className="flex flex-col items-start gap-3">
+                  <div className="flex min-w-0 flex-col items-start gap-3">
                     <div className="relative shrink-0">
                       {photoUrl ? (
-                        <img src={photoUrl} alt={item.tagNumber || item.livestockTypeName} className="size-14 rounded-xl border border-slate-200 object-cover" />
+                        <img src={photoUrl} alt={item.tagNumber || item.livestockTypeName} className="size-16 rounded-xl border border-slate-200 object-cover" />
                       ) : (
-                        <div className={`flex size-14 items-center justify-center rounded-xl border text-2xl ${avatar.bgGradient}`} aria-hidden="true">
+                        <div className={`flex size-16 items-center justify-center rounded-xl border text-2xl ${avatar.bgGradient}`} aria-hidden="true">
                           {avatar.emoji}
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0 w-full">
+                    <div className="min-w-0 w-full space-y-1">
                       <Link
                         href={`/livestock-inventory/${item.tagNumber || item.id}`}
                         className="block break-words text-lg font-black leading-snug text-slate-900 hover:text-emerald-800"
                       >
                         {item.livestockTypeName} {item.tagNumber ? `#${item.tagNumber}` : `#${item.id}`}
                       </Link>
-                      <p className="mt-1 break-words text-sm text-slate-600">
+                      <p className="break-words text-sm leading-relaxed text-slate-600">
                         {item.breed || "Breed not recorded"}{item.sex ? ` • ${item.sex}` : ""}
                       </p>
                       {item.batchCode && (
@@ -809,23 +809,23 @@ export default function LivestockRecordList({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 border-y border-slate-100 py-3">
+                  <div className="flex flex-col items-start gap-2 border-y border-slate-100 py-3">
                     {getStatusBadge(item.status)}
                     <OperationalStatusBadge status={item.operationalStatus} />
                   </div>
 
-                  <dl className="space-y-2 text-sm">
-                    <div className="flex items-start justify-between gap-4">
+                  <dl className="space-y-0 divide-y divide-slate-100 text-sm">
+                    <div className="flex items-start justify-between gap-3 py-2 first:pt-0">
                       <dt className="shrink-0 text-slate-500">Weight</dt>
                       <dd className="min-w-0 break-words text-right font-semibold text-slate-900">{item.weight ? `${item.weight} kg` : "Not recorded"}</dd>
                     </div>
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-3 py-2">
                       <dt className="shrink-0 text-slate-500">Immunization</dt>
                       <dd className={cn("min-w-0 break-words text-right font-semibold", hasVax ? "text-emerald-700" : "text-amber-700")}>
                         {hasVax ? item.lastVaccinationDate : "No vaccination date"}
                       </dd>
                     </div>
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-3 py-2 last:pb-0">
                       <dt className="shrink-0 text-slate-500">Registered</dt>
                       <dd className="min-w-0 break-words text-right font-semibold text-slate-900">
                         {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Date not recorded"}

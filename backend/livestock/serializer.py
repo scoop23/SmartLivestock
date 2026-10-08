@@ -7,6 +7,7 @@ from .models import (
     Farmer,
     LivestockBatch,
     LivestockInventory,
+    LivestockOwnershipTransfer,
     LivestockType,
     CensusSubmission,
     CensusSubmissionItem,
@@ -565,3 +566,73 @@ class FarmerOptionsSerializer(serializers.ModelSerializer):
         if full_name:
             return full_name
         return user.username if user.username else user.email
+
+
+class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
+    livestock_tag = serializers.CharField(source="livestock.tag_number", read_only=True)
+    livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
+    previous_owner_name = serializers.CharField(source="previous_owner.user.get_full_name", read_only=True)
+    new_owner = serializers.PrimaryKeyRelatedField(read_only=True)
+    new_owner_name = serializers.CharField(source="new_owner.user.get_full_name", read_only=True)
+    new_owner_identifier = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = LivestockOwnershipTransfer
+        fields = (
+            "id", "livestock", "livestock_tag", "livestock_type_name",
+            "previous_owner", "previous_owner_name", "new_owner", "new_owner_name", "new_owner_identifier",
+            "transfer_certificate_number", "original_certificate_number", "transfer_date",
+            "municipality", "province", "animal_description", "sex_at_transfer",
+            "age_at_transfer", "municipality_brand", "owner_brand", "purchase_price",
+            "status", "reviewed_by", "reviewed_at", "review_remarks", "created_at",
+        )
+        read_only_fields = (
+            "previous_owner", "previous_owner_name", "new_owner_name", "status",
+            "reviewed_by", "reviewed_at", "review_remarks", "created_at",
+        )
+
+    def validate(self, attrs):
+        from django.utils import timezone
+        from users.models import User
+
+        request = self.context["request"]
+        livestock = attrs.get("livestock", self.instance.livestock if self.instance else None)
+        new_owner = attrs.get("new_owner", self.instance.new_owner if self.instance else None)
+        owner_identifier = attrs.pop("new_owner_identifier", None)
+        if owner_identifier:
+            from django.db.models import Q
+            candidates = Farmer.objects.filter(
+                Q(rsbsa_number=owner_identifier.strip()) | Q(user__username=owner_identifier.strip()),
+                user__role__role_name="FARMER", user__account_status="APPROVED",
+            ).distinct()
+            if candidates.count() != 1:
+                raise serializers.ValidationError({"new_owner_identifier": "No unique approved Farmer registration matches that identifier."})
+            new_owner = candidates.get()
+            attrs["new_owner"] = new_owner
+        elif new_owner is None:
+            raise serializers.ValidationError({"new_owner_identifier": "Enter the new owner’s exact account username or RSBSA registration number."})
+        transfer_date = attrs.get("transfer_date", self.instance.transfer_date if self.instance else None)
+        current_owner = getattr(request.user, "farmer_profile", None)
+        if current_owner is None or livestock.farmer_id != current_owner.pk:
+            raise serializers.ValidationError({"livestock": "You can request a transfer only for your own livestock."})
+        if self.instance and livestock.pk != self.instance.livestock_id:
+            raise serializers.ValidationError({"livestock": "A transfer request must remain attached to its original livestock identity."})
+        if new_owner.pk == current_owner.pk:
+            raise serializers.ValidationError({"new_owner": "The new owner must be a different registered farmer."})
+        if new_owner.user.role.role_name != "FARMER" or new_owner.user.account_status != User.AccountStatus.APPROVED:
+            raise serializers.ValidationError({"new_owner": "Choose an approved Farmer account."})
+        if livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL or livestock.batch_id or livestock.quantity != 1:
+            raise serializers.ValidationError({"livestock": "Transfers currently require one individually registered animal that is not attached to a herd."})
+        if livestock.status != LivestockInventory.StatusType.APPROVED or livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+            raise serializers.ValidationError({"livestock": "Only approved, active livestock can be transferred."})
+        if transfer_date > timezone.localdate():
+            raise serializers.ValidationError({"transfer_date": "Transfer date cannot be in the future."})
+        previous_transfer = LivestockOwnershipTransfer.objects.filter(
+            livestock=livestock,
+            status=LivestockOwnershipTransfer.Status.APPROVED,
+        ).order_by("-transfer_date", "-pk").first()
+        if previous_transfer and transfer_date < previous_transfer.transfer_date:
+            raise serializers.ValidationError({
+                "transfer_date": "Transfer date cannot precede the animal's latest approved ownership transfer."
+            })
+        return attrs

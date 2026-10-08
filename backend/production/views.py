@@ -62,15 +62,15 @@ def production_record_list_create(request):
 
     if user_role == "FARMER":
         records = ProductionRecord.objects.filter(
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user) | Q(created_by=user)
+            Q(farmer_at_record__user=user) | Q(created_by=user)
         ).distinct()
     else:
         require_action(user, "production", "read_all")
         records = scope_reviewer_queryset(ProductionRecord.objects.all(), request.user)
 
     records = records.select_related(
-        "livestock__farmer__user",
-        "livestock__farmer__barangay",
+        "farmer_at_record__user",
+        "farmer_at_record__barangay",
         "livestock__livestock_type",
         "batch__farmer__user",
         "batch__farmer__barangay",
@@ -100,7 +100,7 @@ def production_record_detail(request, pk):
     if user_role == "FARMER":
         record = get_object_or_404(
             ProductionRecord.objects.select_for_update(of=("self",)),
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user) | Q(created_by=user),
+            Q(farmer_at_record__user=user) | Q(created_by=user),
             pk=pk,
         )
     else:

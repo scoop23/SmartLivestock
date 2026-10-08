@@ -23,4 +23,7 @@ urlpatterns = [
     # References & Geography
     path("barangays/", views.get_barangays, name="get_barangays"),
     path("farmers/<int:barangay_id>/", views.get_farmer_by_barangays, name="get_farmers_by_barangay"),
+    path("ownership-transfers/", views.ownership_transfer_list_create, name="ownership_transfer_list_create"),
+    path("ownership-transfers/<int:pk>/", views.ownership_transfer_detail, name="ownership_transfer_detail"),
+    path("ownership-transfers/<int:pk>/review/", views.review_ownership_transfer, name="review_ownership_transfer"),
 ]

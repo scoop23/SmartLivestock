@@ -97,25 +97,25 @@ def _base(report_type, start, end, filters):
     if report_type == "production":
         query = ProductionRecord.objects.filter(status=approved, record_date__range=(start, end))
         query = _apply_species(query, species, "livestock__livestock_type__name", "batch__livestock_type__name")
-        query = _apply_barangay(query, barangay, "livestock__farmer__barangay", "batch__farmer__barangay")
+        query = _apply_barangay(query, barangay, "farmer_at_record__barangay")
         query = query.annotate(
             output_quantity=Case(When(slaughter__isnull=False, then=F("slaughter__carcass_weight")),
                                  default=F("quantity"), output_field=DecimalField(max_digits=10, decimal_places=2)),
             species_name=Coalesce("livestock__livestock_type__name", "batch__livestock_type__name", output_field=None),
-            farmer_name=Coalesce("livestock__farmer__user__first_name", "batch__farmer__user__first_name"),
-            barangay_name=Coalesce("livestock__farmer__barangay__barangay_name", "batch__farmer__barangay__barangay_name"),
-        ).select_related("livestock__farmer__user", "batch__farmer__user").order_by("record_date", "pk")
+            farmer_name=F("farmer_at_record__user__first_name"),
+            barangay_name=F("farmer_at_record__barangay__barangay_name"),
+        ).select_related("livestock__farmer__user", "batch__farmer__user", "farmer_at_record__user").order_by("record_date", "pk")
         rows = [{
             "record_date": obj.record_date.isoformat(), "production_type": obj.production_type,
             "species": obj.species_name or "", "quantity": _number(obj.output_quantity), "unit": obj.unit,
-            "farmer": obj.livestock.farmer.user.get_full_name() or obj.livestock.farmer.user.username
-                if obj.livestock_id else (obj.batch.farmer.user.get_full_name() or obj.batch.farmer.user.username if obj.batch_id else ""),
+            "farmer": (obj.farmer_at_record.user.get_full_name() or obj.farmer_at_record.user.username)
+                if obj.farmer_at_record_id else "",
             "barangay": obj.barangay_name or "", "status": obj.status,
         } for obj in query]
         # Count distinct foreign-key identities rather than farmer display names,
         # which can collide when two farmers share the same name.
         farmer_ids = {
-            obj.livestock.farmer_id if obj.livestock_id else obj.batch.farmer_id if obj.batch_id else None
+            obj.farmer_at_record_id
             for obj in query
         }
         # Keep totals separate by unit: liters, kilograms, and pieces cannot be

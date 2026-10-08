@@ -1,6 +1,6 @@
 """Small overview response, separate from detailed/historical record lists."""
 from datetime import date
-from django.db.models import Count, Sum
+from django.db.models import Count, F, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from diseases.models import DiseaseCase
@@ -13,12 +13,14 @@ def overview_summary(*, user=None, today=None):
     today = today or timezone.localdate()
     start = date(today.year, today.month, 1)
     population = population_summary(user=user, today=today)
-    def grouped(queryset, value, *, fallback=None):
-        location_paths = ["livestock__farmer__barangay_id", "batch__farmer__barangay_id"]
+    def grouped(queryset, value, *, fallback=None, location_paths=None):
+        location_paths = location_paths or ["livestock__farmer__barangay_id", "batch__farmer__barangay_id"]
         if fallback: location_paths.append(fallback)
-        return dict(queryset.annotate(location=Coalesce(*location_paths)).values("location").annotate(value=value).values_list("location", "value"))
+        location = Coalesce(*location_paths) if len(location_paths) > 1 else F(location_paths[0])
+        return dict(queryset.annotate(location=location).values("location").annotate(value=value).values_list("location", "value"))
     milk = grouped(scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status="APPROVED", production_type="MILK", unit="LITERS", record_date__range=(start, today)), Sum("quantity"))
+        status="APPROVED", production_type="MILK", unit="LITERS", record_date__range=(start, today)), Sum("quantity"),
+        location_paths=["farmer_at_record__barangay_id"])
     meat = grouped(scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
         status="APPROVED", record_date__range=(start, today)), Sum("carcass_weight"), fallback="barangay_id")
     pending = grouped(scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(

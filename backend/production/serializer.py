@@ -78,20 +78,15 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         return "Livestock"
 
     def get_barangay_name(self, obj):
-        if obj.livestock and obj.livestock.farmer and obj.livestock.farmer.barangay:
-            return obj.livestock.farmer.barangay.barangay_name
-        if obj.batch and obj.batch.farmer and obj.batch.farmer.barangay:
-            return obj.batch.farmer.barangay.barangay_name
+        farmer = obj.farmer_at_record or (obj.livestock.farmer if obj.livestock_id else obj.batch.farmer if obj.batch_id else None)
+        if farmer and farmer.barangay:
+            return farmer.barangay.barangay_name
         return "Padre Garcia"
 
     def get_farmer_name(self, obj):
         try:
-            if obj.livestock and obj.livestock.farmer:
-                user = obj.livestock.farmer.user
-            elif obj.batch and obj.batch.farmer:
-                user = obj.batch.farmer.user
-            else:
-                user = None
+            farmer = obj.farmer_at_record or (obj.livestock.farmer if obj.livestock_id else obj.batch.farmer if obj.batch_id else None)
+            user = farmer.user if farmer else None
             if user:
                 full_name = user.get_full_name().strip()
                 return full_name if full_name else user.username
@@ -118,6 +113,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "batch_code",
             "farmer_name",
             "livestock_type_name",
+            "farmer_at_record",
             "production_type",
             "quantity",
             "valuation_snapshot",
@@ -133,7 +129,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "reviewed_by_role",
             "created_at",
         )
-        read_only_fields = ("status", "review_remarks", "reviewed_at", "created_at", "valuation_snapshot")
+        read_only_fields = ("status", "review_remarks", "reviewed_at", "created_at", "valuation_snapshot", "farmer_at_record")
 
     def validate_quantity(self, value):
         # A submitted measurement needs a positive amount; no report is not zero output.
@@ -269,6 +265,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
+        source = validated_data.get("livestock") or validated_data.get("batch")
+        validated_data["farmer_at_record"] = source.farmer
         from .services.valuation import snapshot_for
         animals = validated_data.pop("selected_animals", [])
         record = ProductionRecord(**validated_data)
@@ -293,6 +291,9 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+        if "livestock" in validated_data or "batch" in validated_data:
+            source = instance.livestock or instance.batch
+            instance.farmer_at_record = source.farmer
         from .services.valuation import snapshot_for
         instance.valuation_snapshot = snapshot_for(instance, instance.valuation_snapshot)
         instance.save()

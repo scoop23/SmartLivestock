@@ -252,6 +252,7 @@ class Command(BaseCommand):
                 # -------------------------------------------------------------------------
                 record = ProductionRecord(
                     livestock=anchor_inventory,
+                    farmer_at_record=anchor_inventory.farmer if anchor_inventory else None,
                     production_type=commodity,
                     quantity=Decimal(str(monthly_qty)),
                     unit=unit,

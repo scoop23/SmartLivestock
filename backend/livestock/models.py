@@ -233,6 +233,49 @@ class LivestockInventory(models.Model):
         return f"{self.farmer} - {self.livestock_type}{tag} ({self.quantity})"
 
 
+class LivestockOwnershipTransfer(models.Model):
+    """Certificate-backed ownership event for one existing animal identity."""
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        VERIFIED = "VERIFIED", "Verified"
+        APPROVED = "APPROVED", "Approved"
+        SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
+
+    # This event points to the canonical animal row; changing owners must never create a second identity.
+    livestock = models.ForeignKey(LivestockInventory, on_delete=models.PROTECT, related_name="ownership_transfers")
+    # Keep former and incoming owners as protected historical references even after the animal's current farmer changes.
+    previous_owner = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name="outgoing_livestock_transfers")
+    new_owner = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name="incoming_livestock_transfers")
+    transfer_certificate_number = models.CharField(max_length=100, unique=True)
+    original_certificate_number = models.CharField(max_length=100)
+    transfer_date = models.DateField()
+    municipality = models.CharField(max_length=150)
+    province = models.CharField(max_length=150)
+    animal_description = models.TextField(blank=True)
+    sex_at_transfer = models.CharField(max_length=10, blank=True)
+    age_at_transfer = models.CharField(max_length=50, blank=True)
+    municipality_brand = models.CharField(max_length=100, blank=True)
+    owner_brand = models.CharField(max_length=100, blank=True)
+    purchase_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal("0.00"))])
+    status = models.CharField(max_length=25, choices=Status.choices, default=Status.PENDING)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_livestock_transfers")
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="reviewed_livestock_transfers")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_remarks = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-transfer_date", "-pk"]
+        constraints = [models.UniqueConstraint(
+            fields=["livestock"], condition=models.Q(status__in=["PENDING", "VERIFIED"]),
+            name="one_open_ownership_transfer_per_animal",
+        )]
+
+    def __str__(self):
+        return f"{self.livestock} transfer {self.transfer_certificate_number}"
+
+
 class CensusSubmission(models.Model):
     class StatusType(models.TextChoices):
         PENDING = "PENDING", "Pending"

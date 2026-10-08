@@ -161,6 +161,7 @@ def execute_batch_import(
 
                     inst = ProductionRecord(
                         livestock=animal_fk,
+                        farmer_at_record=farmer,
                         production_type=rec["production_type"],
                         quantity=rec["quantity"],
                         unit=rec["unit"],

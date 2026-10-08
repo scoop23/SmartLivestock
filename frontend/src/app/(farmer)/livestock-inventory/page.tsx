@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
+import Link from "next/link";
 
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -185,6 +186,11 @@ export default function LivestockInventoryPage() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-2">
+        <div className="flex justify-end">
+          <Button asChild variant="outline" className="min-h-10 rounded-xl">
+            <Link href="/livestock-inventory/ownership-history">Ownership History</Link>
+          </Button>
+        </div>
         {/* Executive Farm Telemetry Hero Banner (Collapsible) */}
         <InventoryHeroBanner
           totalRecords={inventories.length}
