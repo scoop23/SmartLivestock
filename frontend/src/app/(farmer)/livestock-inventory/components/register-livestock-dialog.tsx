@@ -805,7 +805,7 @@ export function RegisterLivestockDialog({
                     <SelectTrigger id="assignedBatch" className="h-11 rounded-xl">
                       <SelectValue placeholder="Standalone Animal (No Batch)" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[var(--z-popover-dialog)]">
                       <SelectItem value="none">Standalone Animal (No Batch)</SelectItem>
                       {matchingBatches.map((b) => (
                         <SelectItem key={b.id} value={String(b.id)}>
@@ -854,7 +854,7 @@ export function RegisterLivestockDialog({
                     <SelectTrigger id="breedSelect" className="h-11 rounded-xl bg-white font-medium">
                       <SelectValue placeholder="Select breed..." />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl max-h-60">
+                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
                       {currentPreset?.commonBreeds?.map((b) => (
                         <SelectItem key={b} value={b}>
                           {b}
@@ -904,10 +904,9 @@ export function RegisterLivestockDialog({
                       <SelectTrigger id="sex" className="h-11 rounded-xl">
                         <SelectValue placeholder="Select sex" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[var(--z-popover-dialog)]">
                         <SelectItem value="Female">Female (Cow / Doe / Sow)</SelectItem>
                         <SelectItem value="Male">Male (Bull / Buck / Boar)</SelectItem>
-                        <SelectItem value="Mixed">Mixed (Batch Group)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1087,7 +1086,7 @@ export function RegisterLivestockDialog({
                             <SelectTrigger id="feedType" className="h-9.5 rounded-xl bg-white text-xs font-medium">
                               <SelectValue placeholder="Select a common feed formulation (optional)..." />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl max-h-60">
+                            <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
                               <SelectItem value="NOT_SPECIFIED" className="text-xs text-slate-500">
                                 Not specified
                               </SelectItem>
@@ -1145,7 +1144,7 @@ export function RegisterLivestockDialog({
                           <SelectTrigger id="batchPrimaryBreed" className="h-10 rounded-xl bg-white text-xs font-medium">
                             <SelectValue placeholder="Select common herd breed..." />
                           </SelectTrigger>
-                          <SelectContent className="rounded-xl max-h-60">
+                          <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
                             {currentPreset?.commonBreeds?.map((b) => (
                               <SelectItem key={b} value={b} className="text-xs">
                                 {b}
@@ -1355,7 +1354,7 @@ export function RegisterLivestockDialog({
                               <SelectTrigger className="h-8 text-xs rounded-lg bg-white">
                                 <SelectValue placeholder="Breed" />
                               </SelectTrigger>
-                              <SelectContent className="rounded-xl max-h-56">
+                              <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-56">
                                 {currentPreset?.commonBreeds?.map((b) => (
                                   <SelectItem key={b} value={b} className="text-xs">
                                     {b}
@@ -1388,7 +1387,7 @@ export function RegisterLivestockDialog({
                               <SelectTrigger className="h-8 text-xs rounded-lg">
                                 <SelectValue placeholder="Sex" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="z-[var(--z-popover-dialog)]">
                                 <SelectItem value="Female">Female</SelectItem>
                                 <SelectItem value="Male">Male</SelectItem>
                                 <SelectItem value="Castrated">Castrated / Barrow</SelectItem>
