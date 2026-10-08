@@ -479,12 +479,32 @@ class WeightRecordSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context["request"].user
-        validated_data["created_by"] = user
-        record = WeightRecord.objects.create(**validated_data)
-        livestock = validated_data["livestock"]
-        livestock.weight = validated_data["weight"]
-        livestock.save(update_fields=["weight"])
-        return record
+        with transaction.atomic():
+            livestock = LivestockInventory.objects.select_for_update().get(
+                pk=validated_data["livestock"].pk
+            )
+
+            # Inventory weight is the registration baseline until a measured
+            # weigh-in is logged. Preserve it before syncing the latest weight.
+            if (
+                livestock.weight is not None
+                and livestock.weight > 0
+                and not WeightRecord.objects.filter(livestock=livestock).exists()
+            ):
+                WeightRecord.objects.create(
+                    livestock=livestock,
+                    weight=livestock.weight,
+                    weighing_date=livestock.created_at.date(),
+                    notes="Initial registration weight baseline",
+                    created_by=livestock.created_by,
+                )
+
+            validated_data["livestock"] = livestock
+            validated_data["created_by"] = user
+            record = WeightRecord.objects.create(**validated_data)
+            livestock.weight = validated_data["weight"]
+            livestock.save(update_fields=["weight"])
+            return record
 
 
 class CalvingRecordSerializer(serializers.ModelSerializer):

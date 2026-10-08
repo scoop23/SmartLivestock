@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -160,6 +160,8 @@ export default function BatchOverviewPage() {
 
   // Local state for interactive enhancements
   const [selectedBatchId, setSelectedBatchId] = useState<string>("");
+  const [rosterScrollRequest, setRosterScrollRequest] = useState(0);
+  const livestockRosterRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [genderFilter, setGenderFilter] = useState<string>("ALL");
 
@@ -224,6 +226,26 @@ export default function BatchOverviewPage() {
     const found = batches.find((b) => b.id === selectedBatchId);
     return found || batches[0];
   }, [batches, selectedBatchId]);
+
+  const handleBatchSelect = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setRosterScrollRequest((request) => request + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (rosterScrollRequest === 0 || !currentBatch) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      livestockRosterRef.current?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [rosterScrollRequest, currentBatch]);
 
   const canAddAnimalsToCurrentBatch =
     currentBatch?.status === "ACTIVE" && currentBatch.reviewStatus === "PENDING";
@@ -427,67 +449,62 @@ export default function BatchOverviewPage() {
             return (
               <Card
                 key={batch.id}
-                onClick={() => setSelectedBatchId(batch.id)}
-                className={`group relative cursor-pointer transition-all duration-200 rounded-2xl border-2 overflow-hidden flex flex-col justify-between ${isSelected
-                  ? "border-emerald-600 bg-gradient-to-b from-emerald-50/50 via-white to-emerald-50/20 shadow-md ring-2 ring-emerald-500/20"
-                  : "border-slate-200 hover:border-emerald-300 hover:shadow-md bg-white hover:-translate-y-0.5"
+                onClick={() => handleBatchSelect(batch.id)}
+                className={`group cursor-pointer overflow-hidden rounded-xl border transition-colors ${isSelected
+                  ? "border-emerald-600 bg-emerald-50/40 shadow-sm ring-1 ring-emerald-500/20"
+                  : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/50"
                   }`}
               >
-                {/* Top Ambient Glow / Accent Strip */}
-                <div
-                  className={`h-1.5 w-full transition-colors ${isSelected
-                    ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500"
-                    : "bg-transparent group-hover:bg-emerald-400/40"
-                    }`}
-                />
+                <CardContent className="flex min-w-0 items-center gap-3 p-3">
+                  {batch.photoUrl ? (
+                    <img src={batch.photoUrl} alt={`${batch.batchName} herd`} className="size-11 shrink-0 rounded-lg border border-slate-200 object-cover" />
+                  ) : (
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-2xl" aria-hidden="true">{avatar.emoji}</div>
+                  )}
 
-                <CardContent className="flex flex-1 flex-col gap-4 p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                      {batch.photoUrl ? (
-                        <img src={batch.photoUrl} alt={`${batch.batchName} herd`} className="size-14 shrink-0 rounded-xl border border-slate-200 object-cover" />
-                      ) : (
-                        <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-3xl" aria-hidden="true">{avatar.emoji}</div>
-                      )}
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
                       <div className="min-w-0">
-                      <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-900">
-                        <span aria-hidden="true">{avatar.emoji}</span>
-                        <span className="break-words">{batch.species}</span>
-                      </span>
-                      <h2 className="mt-3 break-words text-lg font-black leading-snug text-slate-900 group-hover:text-emerald-800">
-                        {batch.batchName || "Unnamed herd"}
-                      </h2>
-                      <p className="mt-1 break-words text-sm text-slate-600">{batch.breed || "Breed not recorded"}</p>
-                      <p className="mt-2 inline-block break-all rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">
-                        {batch.batchCode}
-                      </p>
+                        <h2 className="break-words text-sm font-black leading-snug text-slate-900 group-hover:text-emerald-800">
+                          {batch.batchName || "Unnamed herd"}
+                        </h2>
+                        <p className="mt-0.5 break-all font-mono text-[10px] font-semibold text-slate-500">{batch.batchCode}</p>
+                      </div>
+                      <div className="shrink-0 rounded-lg bg-emerald-50 px-2 py-1 text-center">
+                        <p className="text-base font-black leading-none text-emerald-900">{headCount}</p>
+                        <p className="mt-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Active</p>
                       </div>
                     </div>
-                    <div className="shrink-0 rounded-2xl bg-emerald-50 px-3 py-2 text-center">
-                      <p className="text-2xl font-black leading-none text-emerald-900">{headCount}</p>
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Active</p>
+
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-600">
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
+                        <span aria-hidden="true">{avatar.emoji}</span>{batch.species}
+                      </span>
+                      <span aria-hidden="true" className="text-slate-300">•</span>
+                      <span className="break-words">{batch.breed || "Breed not recorded"}</span>
+                    </div>
+
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 pt-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <Badge variant="outline" className="max-w-full whitespace-normal break-words px-1.5 py-0 text-[9px]">
+                          {batch.status || "Status not recorded"}
+                        </Badge>
+                        {getReviewStatusBadge(batch.reviewStatus)}
+                      </div>
+                      <Button
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleBatchSelect(batch.id);
+                        }}
+                        className={`min-h-8 shrink-0 rounded-lg px-2 text-[10px] font-bold ${isSelected ? "bg-emerald-700 text-white hover:bg-emerald-800" : "border-emerald-200 text-emerald-800 hover:bg-emerald-50"}`}
+                      >
+                        {isSelected ? "Viewing" : "View"}
+                        <ChevronRight className="ml-0.5 size-3.5" />
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                    <Badge variant="outline" className="max-w-full whitespace-normal break-words">
-                      {batch.status || "Status not recorded"}
-                    </Badge>
-                    {getReviewStatusBadge(batch.reviewStatus)}
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant={isSelected ? "default" : "outline"}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setSelectedBatchId(batch.id);
-                    }}
-                    className={`mt-auto min-h-11 w-full rounded-xl font-bold ${isSelected ? "bg-emerald-700 text-white hover:bg-emerald-800" : "border-emerald-200 text-emerald-800 hover:bg-emerald-50"}`}
-                  >
-                    {isSelected ? "Viewing this herd" : "View Herd"}
-                    <ChevronRight className="ml-1 size-4" />
-                  </Button>
                 </CardContent>
               </Card>
             );
@@ -667,7 +684,7 @@ export default function BatchOverviewPage() {
             </div>
 
             {/* ── INDIVIDUAL LIVESTOCK ROSTER (ADVISOR REQUIREMENT) ───────── */}
-            <Card className="rounded-3xl border-slate-200 shadow-sm bg-white overflow-hidden">
+            <Card ref={livestockRosterRef} className="scroll-mt-4 rounded-3xl border-slate-200 bg-white shadow-sm overflow-hidden">
               <CardHeader className="p-5 md:p-6 pb-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2">

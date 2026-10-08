@@ -280,7 +280,10 @@ export default function LivestockDetailPage() {
     const animalIdStr = String(activeItem.id);
     const logs = allWeightRecords
       .filter((r) => String(r.livestock) === animalIdStr)
-      .sort((a, b) => new Date(a.weighing_date).getTime() - new Date(b.weighing_date).getTime());
+      .sort((a, b) => {
+        const dateDifference = new Date(a.weighing_date).getTime() - new Date(b.weighing_date).getTime();
+        return dateDifference || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
 
     if (logs.length === 0) {
       if (activeItem.weight && activeItem.weight > 0) {
