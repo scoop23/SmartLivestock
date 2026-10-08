@@ -782,10 +782,11 @@ export default function LivestockDetailPage() {
                   )}
                 </div>
 
-                <LivestockPhotoManager
-                  title="Livestock Photo"
-                  subject="livestock"
-                  currentPhotoUrl={photoUrl}
+                  <LivestockPhotoManager
+                    title="Livestock Photo"
+                    subject="livestock"
+                    compactOnMobile
+                    currentPhotoUrl={photoUrl}
                   currentAvatarKey={activeItem.avatarKey || localAvatar}
                   species={activeItem.livestockTypeName}
                   fallback={<div className={`flex size-36 items-center justify-center rounded-2xl text-6xl ${avatar.bgGradient}`}>{avatar.emoji}</div>}

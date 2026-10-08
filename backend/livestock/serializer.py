@@ -665,14 +665,15 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
     livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
     previous_owner_name = serializers.CharField(source="previous_owner.user.get_full_name", read_only=True)
     new_owner = serializers.PrimaryKeyRelatedField(read_only=True)
-    new_owner_name = serializers.CharField(source="new_owner.user.get_full_name", read_only=True)
+    new_owner_name = serializers.SerializerMethodField(read_only=True)
     new_owner_identifier = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = LivestockOwnershipTransfer
         fields = (
             "id", "livestock", "livestock_tag", "livestock_type_name",
-            "previous_owner", "previous_owner_name", "new_owner", "new_owner_name", "new_owner_identifier",
+            "previous_owner", "previous_owner_name", "owner_type", "new_owner", "new_owner_name",
+            "new_owner_identifier", "external_owner_name", "external_owner_address",
             "transfer_certificate_number", "original_certificate_number", "transfer_date",
             "municipality", "province", "animal_description", "sex_at_transfer",
             "age_at_transfer", "municipality_brand", "owner_brand", "purchase_price",
@@ -683,38 +684,77 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             "reviewed_by", "reviewed_at", "review_remarks", "created_at",
         )
 
+    def get_new_owner_name(self, obj):
+        if obj.new_owner_id:
+            user = obj.new_owner.user
+            return user.get_full_name().strip() or user.username or user.email
+        return obj.external_owner_name
+
     def validate(self, attrs):
         from django.utils import timezone
         from users.models import User
 
         request = self.context["request"]
         livestock = attrs.get("livestock", self.instance.livestock if self.instance else None)
-        new_owner = attrs.get("new_owner", self.instance.new_owner if self.instance else None)
+        owner_type = attrs.get(
+            "owner_type",
+            self.instance.owner_type if self.instance else LivestockOwnershipTransfer.OwnerType.REGISTERED_FARMER,
+        )
         owner_identifier = attrs.pop("new_owner_identifier", None)
-        if owner_identifier:
-            from django.db.models import Q
-            candidates = Farmer.objects.filter(
-                Q(rsbsa_number=owner_identifier.strip()) | Q(user__username=owner_identifier.strip()),
-                user__role__role_name="FARMER", user__account_status="APPROVED",
-            ).distinct()
-            if candidates.count() != 1:
-                raise serializers.ValidationError({"new_owner_identifier": "No unique approved Farmer registration matches that identifier."})
-            new_owner = candidates.get()
+        if self.initial_data.get("new_owner") not in (None, ""):
+            raise serializers.ValidationError({"new_owner": "Use the registered owner identifier field; owner records are resolved by the server."})
+
+        if owner_type == LivestockOwnershipTransfer.OwnerType.REGISTERED_FARMER:
+            external_name = attrs.get("external_owner_name", "")
+            external_address = attrs.get("external_owner_address", "")
+            if external_name or external_address:
+                raise serializers.ValidationError({"external_owner_name": "External buyer details apply only to an external owner type."})
+            attrs["external_owner_name"] = ""
+            attrs["external_owner_address"] = ""
+
+            new_owner = self.instance.new_owner if self.instance else None
+            if owner_identifier:
+                from django.db.models import Q
+                candidates = Farmer.objects.filter(
+                    Q(rsbsa_number=owner_identifier.strip()) | Q(user__username=owner_identifier.strip()),
+                    user__role__role_name="FARMER", user__account_status="APPROVED",
+                ).distinct()
+                if candidates.count() != 1:
+                    raise serializers.ValidationError({"new_owner_identifier": "No unique approved Farmer registration matches that identifier."})
+                new_owner = candidates.get()
+            elif new_owner is None:
+                raise serializers.ValidationError({"new_owner_identifier": "Enter the new owner’s exact account username or RSBSA registration number."})
             attrs["new_owner"] = new_owner
-        elif new_owner is None:
-            raise serializers.ValidationError({"new_owner_identifier": "Enter the new owner’s exact account username or RSBSA registration number."})
-        transfer_date = attrs.get("transfer_date", self.instance.transfer_date if self.instance else None)
+
+            if current_owner := getattr(request.user, "farmer_profile", None):
+                if new_owner.pk == current_owner.pk:
+                    raise serializers.ValidationError({"new_owner": "The new owner must be a different registered farmer."})
+            if new_owner.user.role.role_name != "FARMER" or new_owner.user.account_status != User.AccountStatus.APPROVED:
+                raise serializers.ValidationError({"new_owner": "Choose an approved Farmer account."})
+        else:
+            if owner_identifier:
+                raise serializers.ValidationError({"new_owner_identifier": "A registered Farmer identifier cannot be used for an external owner."})
+            external_name = str(attrs.get("external_owner_name", self.instance.external_owner_name if self.instance else "")).strip()
+            external_address = str(attrs.get("external_owner_address", self.instance.external_owner_address if self.instance else "")).strip()
+            if not external_name:
+                raise serializers.ValidationError({"external_owner_name": "Enter the external buyer or organization name."})
+            if not external_address:
+                raise serializers.ValidationError({"external_owner_address": "Enter the external buyer’s address for the transfer record."})
+            attrs["external_owner_name"] = external_name
+            attrs["external_owner_address"] = external_address
+            attrs["new_owner"] = None
+
         current_owner = getattr(request.user, "farmer_profile", None)
-        if current_owner is None or livestock.farmer_id != current_owner.pk:
+        if current_owner is None:
+            raise serializers.ValidationError({"livestock": "Only the current registered farmer can request this transfer."})
+        if livestock is None or livestock.farmer_id != current_owner.pk:
             raise serializers.ValidationError({"livestock": "You can request a transfer only for your own livestock."})
         if self.instance and livestock.pk != self.instance.livestock_id:
             raise serializers.ValidationError({"livestock": "A transfer request must remain attached to its original livestock identity."})
-        if new_owner.pk == current_owner.pk:
-            raise serializers.ValidationError({"new_owner": "The new owner must be a different registered farmer."})
-        if new_owner.user.role.role_name != "FARMER" or new_owner.user.account_status != User.AccountStatus.APPROVED:
-            raise serializers.ValidationError({"new_owner": "Choose an approved Farmer account."})
-        # An individual herd member still has its own identity, quantity, and QR;
-        # batch membership groups animals but does not make this a batch record.
+
+        transfer_date = attrs.get("transfer_date", self.instance.transfer_date if self.instance else None)
+        if transfer_date is None:
+            raise serializers.ValidationError({"transfer_date": "Transfer date is required."})
         if livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL or livestock.quantity != 1:
             raise serializers.ValidationError({"livestock": "Transfers currently require one individually registered animal."})
         if livestock.status != LivestockInventory.StatusType.APPROVED or livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE:

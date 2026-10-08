@@ -9,8 +9,11 @@ import { Label } from "@/components/ui/label";
 import api from "@/lib/axios";
 import { toast } from "sonner";
 
+type OwnerType = "REGISTERED_FARMER" | "EXTERNAL_INDIVIDUAL" | "COMPANY" | "TRADER" | "OTHER";
+
 type Transfer = {
   id: number; livestock: number; livestock_tag: string; livestock_type_name: string;
+  owner_type: OwnerType; new_owner: number | null; external_owner_name: string; external_owner_address: string;
   previous_owner_name: string; new_owner_name: string; transfer_certificate_number: string;
   original_certificate_number: string; transfer_date: string; municipality: string; province: string;
   animal_description: string; sex_at_transfer: string; age_at_transfer: string;
@@ -34,6 +37,7 @@ export function OwnershipTransferPanel({
   const open = controlledOpen ?? localOpen;
   const setOpen = onOpenChange ?? setLocalOpen;
   const [editing, setEditing] = useState<Transfer | null>(null);
+  const [ownerType, setOwnerType] = useState<OwnerType>("REGISTERED_FARMER");
   // QR resolves the canonical livestock row; ownership history stays in backend records and can change without changing that identity.
   const { data = [], isLoading } = useQuery({
     queryKey: ["ownership-transfers", livestockId],
@@ -54,7 +58,7 @@ export function OwnershipTransferPanel({
       setEditing(null);
       setOpen(false);
     },
-    onError: () => toast.error("Transfer request could not be submitted. Check the certificate and registered farmer details."),
+    onError: () => toast.error("Transfer request could not be submitted. Check the buyer and certificate details."),
   });
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -67,7 +71,7 @@ export function OwnershipTransferPanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h3 className="font-bold text-slate-900">Ownership History</h3>
           <p className="text-sm text-slate-600">Certificate-backed ownership events stay attached to this same animal identity.</p></div>
-        {eligible ? <Button onClick={() => setOpen(true)}>Record Ownership Transfer</Button> : null}
+        {eligible ? <Button onClick={() => { setEditing(null); setOwnerType("REGISTERED_FARMER"); setOpen(true); }}>Record Ownership Transfer</Button> : null}
       </div>
       {!eligible ? <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">A transfer can be recorded for an approved, active individual animal.</p> : null}
       {isLoading ? <p className="text-sm text-slate-500">Loading ownership history…</p> : null}
@@ -81,14 +85,37 @@ export function OwnershipTransferPanel({
           {(transfer.municipality_brand || transfer.owner_brand) ? <p className="text-sm text-slate-600">Brands: {transfer.municipality_brand || "—"} / {transfer.owner_brand || "—"}</p> : null}
           {transfer.purchase_price ? <p className="text-sm text-slate-600">Recorded purchase price: ₱{Number(transfer.purchase_price).toLocaleString()}</p> : null}
           {transfer.review_remarks ? <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Review note: {transfer.review_remarks}</p> : null}
-          {transfer.status === "SUBJECT_TO_REVISION" ? <Button variant="outline" className="mt-3" onClick={() => { setEditing(transfer); setOpen(true); }}>Correct and resubmit</Button> : null}
+          {transfer.status === "SUBJECT_TO_REVISION" ? <Button variant="outline" className="mt-3" onClick={() => { setEditing(transfer); setOwnerType(transfer.owner_type); setOpen(true); }}>Correct and resubmit</Button> : null}
         </li>)}
       </ol>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{editing ? "Correct Ownership Transfer" : "Record Ownership Transfer"}</DialogTitle><DialogDescription>The same animal record stays in place. Current ownership changes only after SIBAT verification and MAO approval.</DialogDescription></DialogHeader>
           <form key={editing?.id || "new-transfer"} id="ownership-transfer-form" onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2"><Label htmlFor="new_owner_identifier">New owner’s exact account username or RSBSA number</Label><Input id="new_owner_identifier" name="new_owner_identifier" required autoComplete="off" /><p className="text-xs text-slate-500">Exact match only; the app does not expose a public farmer directory.</p></div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="owner_type">New owner type</Label>
+              <select
+                id="owner_type"
+                name="owner_type"
+                value={ownerType}
+                onChange={(event) => setOwnerType(event.target.value as OwnerType)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="REGISTERED_FARMER">Registered SmartLivestock Farmer</option>
+                <option value="EXTERNAL_INDIVIDUAL">External Individual</option>
+                <option value="COMPANY">Company</option>
+                <option value="TRADER">Trader</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            {ownerType === "REGISTERED_FARMER" ? (
+              <div className="space-y-2 sm:col-span-2"><Label htmlFor="new_owner_identifier">New owner’s exact account username or RSBSA number</Label><Input id="new_owner_identifier" name="new_owner_identifier" required autoComplete="off" /><p className="text-xs text-slate-500">Exact match only; the app does not expose a public farmer directory.</p></div>
+            ) : (
+              <>
+                <div className="space-y-2 sm:col-span-2"><Label htmlFor="external_owner_name">Buyer / organization name</Label><Input id="external_owner_name" name="external_owner_name" required maxLength={255} defaultValue={editing?.external_owner_name} autoComplete="name" /></div>
+                <div className="space-y-2 sm:col-span-2"><Label htmlFor="external_owner_address">Buyer address</Label><Input id="external_owner_address" name="external_owner_address" required defaultValue={editing?.external_owner_address} autoComplete="street-address" /></div>
+              </>
+            )}
             <div className="space-y-2"><Label htmlFor="transfer_certificate_number">Transfer certificate number</Label><Input id="transfer_certificate_number" name="transfer_certificate_number" required defaultValue={editing?.transfer_certificate_number} /></div>
             <div className="space-y-2"><Label htmlFor="original_certificate_number">Original ownership certificate number</Label><Input id="original_certificate_number" name="original_certificate_number" required defaultValue={editing?.original_certificate_number} /></div>
             <div className="space-y-2"><Label htmlFor="transfer_date">Transfer date</Label><Input id="transfer_date" name="transfer_date" type="date" required defaultValue={editing?.transfer_date} /></div>

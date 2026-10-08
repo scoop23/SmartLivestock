@@ -110,12 +110,21 @@ def review_ownership_transfer(request, pk):
                 or animal.status != LivestockInventory.StatusType.APPROVED
                 or animal.operational_status != LivestockInventory.OperationalStatus.ACTIVE):
             raise ValidationError({"livestock": "The animal is no longer eligible for an ownership transfer."})
-        if transfer.new_owner.user.role.role_name != "FARMER" or transfer.new_owner.user.account_status != "APPROVED":
-            raise ValidationError({"new_owner": "The selected owner is no longer an approved Farmer account."})
-        # Reassign the one canonical livestock row only after final MAO/Admin approval.
-        # Its ID and QR therefore remain stable while current inventory follows the new owner.
-        animal.farmer = transfer.new_owner
-        animal.save(update_fields=["farmer"])
+        if transfer.owner_type == LivestockOwnershipTransfer.OwnerType.REGISTERED_FARMER:
+            if transfer.new_owner is None or transfer.new_owner.user.role.role_name != "FARMER" or transfer.new_owner.user.account_status != "APPROVED":
+                raise ValidationError({"new_owner": "The selected owner is no longer an approved Farmer account."})
+            # Reassign the same canonical animal; detach the seller's herd because its farmer is unchanged.
+            animal.farmer = transfer.new_owner
+            animal.batch = None
+            animal.save(update_fields=["farmer", "batch"])
+        else:
+            # External buyers have no platform Farmer row: retain the canonical animal as SOLD history.
+            if transfer.new_owner_id is not None or not transfer.external_owner_name or not transfer.external_owner_address:
+                raise ValidationError({"new_owner": "External buyer details are incomplete or conflict with a Farmer account."})
+            animal.operational_status = LivestockInventory.OperationalStatus.SOLD
+            animal.operational_status_changed_at = timezone.now()
+            animal.batch = None
+            animal.save(update_fields=["operational_status", "operational_status_changed_at", "batch"])
 
     transfer.status = target
     transfer.reviewed_by = request.user
@@ -134,7 +143,10 @@ def review_ownership_transfer(request, pk):
             message=remarks, link=f"/livestock-inventory/{transfer.livestock_id}")
     elif target == LivestockOwnershipTransfer.Status.APPROVED:
         # Former ownership remains in the transfer record; current inventory uses animal.farmer.
-        for farmer in (transfer.previous_owner, transfer.new_owner):
+        notified_farmers = [transfer.previous_owner]
+        if transfer.new_owner_id:
+            notified_farmers.append(transfer.new_owner)
+        for farmer in notified_farmers:
             create_notification(user=farmer.user, notification_type=Notification.NotificationType.GENERAL,
                 title="Livestock Ownership Transfer Approved",
                 message=f"Ownership transfer for {transfer.livestock.tag_number or 'livestock'} was approved.",

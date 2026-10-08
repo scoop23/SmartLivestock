@@ -26,6 +26,7 @@ export function LivestockPhotoManager({
   species,
   fallback,
   allowAvatar = true,
+  compactOnMobile = false,
   onSave,
 }: {
   title: string;
@@ -35,6 +36,7 @@ export function LivestockPhotoManager({
   species?: string;
   fallback: ReactNode;
   allowAvatar?: boolean;
+  compactOnMobile?: boolean;
   onSave: (change: LivestockPhotoChange) => Promise<void>;
 }) {
   const defaultAvatar = getAvatarById(null, species);
@@ -85,8 +87,17 @@ export function LivestockPhotoManager({
 
   return (
     <>
-      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)} className="min-h-10 rounded-xl border-emerald-200 bg-white/10 text-white hover:bg-white/20">
-        <Camera className="mr-2 size-4" /> Change {subject} photo
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        title={`Change ${subject} photo`}
+        aria-label={`Change ${subject} photo`}
+        className={`min-h-11 rounded-xl border-emerald-200 bg-white/10 text-white hover:bg-white/20 ${compactOnMobile ? "min-w-11 px-0 sm:min-h-10 sm:min-w-0 sm:px-3" : ""}`}
+      >
+        <Camera className={`${compactOnMobile ? "size-5 sm:mr-2 sm:size-4" : "mr-2 size-4"}`} />
+        <span className={compactOnMobile ? "hidden sm:inline" : ""}>Change {subject} photo</span>
       </Button>
       <Dialog open={open} onOpenChange={(next) => next ? setOpen(true) : resetAndClose()}>
         <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">

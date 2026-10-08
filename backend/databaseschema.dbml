@@ -121,12 +121,15 @@ Table livestock_inventory {
 }
 
 // One certificate-backed ownership event for the same canonical livestock row.
-// new_owner is currently a registered Farmer profile, not a general external party.
+// A buyer may be a registered Farmer or a documented external party; external buyers do not get platform accounts.
 Table livestock_ownership_transfers {
   transfer_id integer [pk]
   livestock_id integer [not null, note: 'Existing canonical animal identity; transfer does not create another livestock row. At most one PENDING or VERIFIED transfer is allowed per animal.']
   previous_owner_id integer [not null, note: 'Farmer who owned the animal before this transfer']
-  new_owner_id integer [not null, note: 'Registered Farmer who becomes current owner after final approval']
+  owner_type varchar [not null, default: 'REGISTERED_FARMER', note: 'REGISTERED_FARMER, EXTERNAL_INDIVIDUAL, COMPANY, TRADER, OTHER']
+  new_owner_id integer [note: 'Registered Farmer reference; null for external parties']
+  external_owner_name varchar [not null, default: '', note: 'Required for external owner types; blank for registered Farmer transfers']
+  external_owner_address text [not null, default: '', note: 'Required by the application for external owner transfer documentation']
   transfer_certificate_number varchar [unique, not null]
   original_certificate_number varchar [not null]
   transfer_date date [not null]
@@ -486,7 +489,7 @@ Ref: livestock_inventory.reviewed_by > users.user_id
 
 Ref: livestock_ownership_transfers.livestock_id > livestock_inventory.livestock_id
 Ref: livestock_ownership_transfers.previous_owner_id > farmers.farmer_id
-Ref: livestock_ownership_transfers.new_owner_id > farmers.farmer_id
+Ref: livestock_ownership_transfers.new_owner_id > farmers.farmer_id // nullable for external owner types
 Ref: livestock_ownership_transfers.reviewed_by > users.user_id
 Ref: livestock_ownership_transfers.created_by > users.user_id
 

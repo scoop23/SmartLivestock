@@ -235,7 +235,19 @@ class LivestockInventory(models.Model):
 
 
 class LivestockOwnershipTransfer(models.Model):
-    """Certificate-backed ownership event for one existing animal identity."""
+    """Certificate-backed ownership event for one existing animal identity.
+
+    Ownership history stays separate from LivestockInventory: the inventory
+    row is the canonical animal/current platform state, while each transfer
+    preserves one documented ownership event over that animal's lifetime.
+    """
+
+    class OwnerType(models.TextChoices):
+        REGISTERED_FARMER = "REGISTERED_FARMER", "Registered Farmer"
+        EXTERNAL_INDIVIDUAL = "EXTERNAL_INDIVIDUAL", "External Individual"
+        COMPANY = "COMPANY", "Company"
+        TRADER = "TRADER", "Trader"
+        OTHER = "OTHER", "Other"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -247,7 +259,21 @@ class LivestockOwnershipTransfer(models.Model):
     livestock = models.ForeignKey(LivestockInventory, on_delete=models.PROTECT, related_name="ownership_transfers")
     # Keep former and incoming owners as protected historical references even after the animal's current farmer changes.
     previous_owner = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name="outgoing_livestock_transfers")
-    new_owner = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name="incoming_livestock_transfers")
+    owner_type = models.CharField(
+        max_length=30,
+        choices=OwnerType.choices,
+        default=OwnerType.REGISTERED_FARMER,
+    )
+    new_owner = models.ForeignKey(
+        Farmer,
+        on_delete=models.PROTECT,
+        related_name="incoming_livestock_transfers",
+        null=True,
+        blank=True,
+    )
+    # A legal buyer may not have a SmartLivestock account; store their certificate identity on the event.
+    external_owner_name = models.CharField(max_length=255, blank=True, default="")
+    external_owner_address = models.TextField(blank=True, default="")
     transfer_certificate_number = models.CharField(max_length=100, unique=True)
     original_certificate_number = models.CharField(max_length=100)
     transfer_date = models.DateField()
@@ -268,10 +294,31 @@ class LivestockOwnershipTransfer(models.Model):
 
     class Meta:
         ordering = ["-transfer_date", "-pk"]
-        constraints = [models.UniqueConstraint(
-            fields=["livestock"], condition=models.Q(status__in=["PENDING", "VERIFIED"]),
-            name="one_open_ownership_transfer_per_animal",
-        )]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["livestock"],
+                condition=models.Q(status__in=["PENDING", "VERIFIED"]),
+                name="one_open_ownership_transfer_per_animal",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        owner_type="REGISTERED_FARMER",
+                        new_owner__isnull=False,
+                        external_owner_name="",
+                        external_owner_address="",
+                    )
+                    | (
+                        models.Q(
+                            owner_type__in=["EXTERNAL_INDIVIDUAL", "COMPANY", "TRADER", "OTHER"],
+                            new_owner__isnull=True,
+                        )
+                        & ~models.Q(external_owner_name="")
+                    )
+                ),
+                name="ownership_transfer_owner_matches_type",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.livestock} transfer {self.transfer_certificate_number}"

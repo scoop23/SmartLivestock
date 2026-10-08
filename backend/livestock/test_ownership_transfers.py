@@ -77,6 +77,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.assertEqual(self.animal.pk, response.data["livestock"])
         self.assertEqual(self.animal.tag_number, "CAT-102")
         self.assertEqual(self.animal.farmer_id, self.owner_b.pk)
+        self.assertEqual(self.animal.operational_status, LivestockInventory.OperationalStatus.ACTIVE)
         mao_inventory = self.client.get("/livestock/inventory/")
         mao_animal = next(row for row in mao_inventory.data if row["id"] == self.animal.pk)
         self.assertEqual(mao_animal["farmer"], self.owner_b.pk)
@@ -118,7 +119,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         transfer.refresh_from_db()
         self.assertEqual(transfer.livestock_id, self.animal.pk)
 
-    def test_herd_member_transfer_changes_only_that_animal_and_preserves_batch(self):
+    def test_herd_member_transfer_changes_only_that_animal_and_detaches_seller_batch(self):
         herd = LivestockBatch.objects.create(
             farmer=self.owner_a, livestock_type=self.cattle, batch_name="Herd B001",
             batch_code="HERD-B001", created_by=self.owner_a.user,
@@ -145,13 +146,108 @@ class OwnershipTransferWorkflowTests(APITestCase):
         herd_mate.refresh_from_db()
         self.assertEqual(self.animal.pk, original_id)
         self.assertEqual(self.animal.farmer_id, self.owner_b.pk)
-        self.assertEqual(self.animal.batch_id, herd.pk)
+        self.assertIsNone(self.animal.batch_id)
         self.assertEqual(herd_mate.farmer_id, self.owner_a.pk)
         self.assertEqual(herd_mate.batch_id, herd.pk)
         transfer = LivestockOwnershipTransfer.objects.get(pk=response.data["id"])
         self.assertEqual(transfer.livestock_id, original_id)
         self.assertEqual(transfer.previous_owner_id, self.owner_a.pk)
         self.assertEqual(transfer.new_owner_id, self.owner_b.pk)
+
+    def test_external_buyer_types_preserve_certificate_party_without_farmer_accounts(self):
+        for index, owner_type in enumerate((
+            LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
+            LivestockOwnershipTransfer.OwnerType.COMPANY,
+            LivestockOwnershipTransfer.OwnerType.TRADER,
+            LivestockOwnershipTransfer.OwnerType.OTHER,
+        ), start=1):
+            with self.subTest(owner_type=owner_type):
+                animal = LivestockInventory.objects.create(
+                    farmer=self.owner_a, livestock_type=self.cattle,
+                    entry_type="INDIVIDUAL", quantity=1, tag_number=f"CAT-EXT-{index}",
+                    status="APPROVED", operational_status="ACTIVE", created_by=self.owner_a.user,
+                )
+                self.client.force_authenticate(self.owner_a.user)
+                response = self.client.post("/livestock/ownership-transfers/", {
+                    "livestock": animal.pk,
+                    "owner_type": owner_type,
+                    "external_owner_name": f"Buyer {index}",
+                    "external_owner_address": "Padre Garcia, Batangas",
+                    "transfer_certificate_number": f"PG-EXT-{index}",
+                    "original_certificate_number": f"PG-ORIGINAL-EXT-{index}",
+                    "transfer_date": (timezone.localdate() - timedelta(days=2)).isoformat(),
+                    "municipality": "Padre Garcia",
+                    "province": "Batangas",
+                }, format="json")
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+                self.assertIsNone(response.data["new_owner"])
+                self.assertEqual(response.data["new_owner_name"], f"Buyer {index}")
+                self.assertEqual(response.data["owner_type"], owner_type)
+
+    def test_external_transfer_approval_marks_animal_sold_and_keeps_identity_history(self):
+        herd = LivestockBatch.objects.create(
+            farmer=self.owner_a, livestock_type=self.cattle, batch_name="Seller herd",
+            batch_code="EXTERNAL-HERD", created_by=self.owner_a.user,
+        )
+        self.animal.batch = herd
+        self.animal.save(update_fields=["batch"])
+        original_id = self.animal.pk
+        self.client.force_authenticate(self.owner_a.user)
+        created = self.client.post("/livestock/ownership-transfers/", {
+            "livestock": original_id,
+            "owner_type": "COMPANY",
+            "external_owner_name": "ABC Livestock Trading",
+            "external_owner_address": "Padre Garcia, Batangas",
+            "transfer_certificate_number": "PG-EXTERNAL-APPROVAL",
+            "original_certificate_number": "PG-EXTERNAL-ORIGINAL",
+            "transfer_date": (timezone.localdate() - timedelta(days=2)).isoformat(),
+            "municipality": "Padre Garcia",
+            "province": "Batangas",
+        }, format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+
+        self.client.force_authenticate(self.sibat)
+        verified = self.client.post(f"/livestock/ownership-transfers/{created.data['id']}/review/", {"status": "VERIFIED"})
+        self.assertEqual(verified.status_code, status.HTTP_200_OK, verified.data)
+        self.client.force_authenticate(self.mao)
+        approved = self.client.post(f"/livestock/ownership-transfers/{created.data['id']}/review/", {"status": "APPROVED"})
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
+
+        self.animal.refresh_from_db()
+        self.assertEqual(self.animal.pk, original_id)
+        self.assertEqual(self.animal.operational_status, LivestockInventory.OperationalStatus.SOLD)
+        self.assertIsNone(self.animal.batch_id)
+        self.assertTrue(LivestockInventory.objects.filter(pk=original_id).exists())
+        self.client.force_authenticate(self.owner_a.user)
+        current_inventory = self.client.get("/livestock/inventory/")
+        history = self.client.get("/livestock/ownership-transfers/")
+        self.assertFalse(any(row["id"] == original_id for row in current_inventory.data))
+        self.assertEqual(history.data[0]["new_owner_name"], "ABC Livestock Trading")
+        self.assertEqual(history.data[0]["external_owner_address"], "Padre Garcia, Batangas")
+
+    def test_owner_type_invariants_are_validated(self):
+        self.client.force_authenticate(self.owner_a.user)
+        base = {
+            "livestock": self.animal.pk,
+            "transfer_certificate_number": "PG-OWNER-INVARIANT",
+            "original_certificate_number": "PG-OWNER-INVARIANT-ORIGINAL",
+            "transfer_date": (timezone.localdate() - timedelta(days=2)).isoformat(),
+            "municipality": "Padre Garcia",
+            "province": "Batangas",
+        }
+        missing_registered_owner = self.client.post("/livestock/ownership-transfers/", {
+            **base, "owner_type": "REGISTERED_FARMER",
+        }, format="json")
+        missing_external_name = self.client.post("/livestock/ownership-transfers/", {
+            **base, "owner_type": "EXTERNAL_INDIVIDUAL", "external_owner_address": "Manggas",
+        }, format="json")
+        external_with_farmer_account = self.client.post("/livestock/ownership-transfers/", {
+            **base, "owner_type": "COMPANY", "external_owner_name": "ABC Trading",
+            "external_owner_address": "Manggas", "new_owner": self.owner_b.pk,
+        }, format="json")
+        self.assertEqual(missing_registered_owner.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(missing_external_name.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(external_with_farmer_account.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_batch_pending_and_inactive_animals_cannot_be_transferred(self):
         batch_record = LivestockInventory.objects.create(

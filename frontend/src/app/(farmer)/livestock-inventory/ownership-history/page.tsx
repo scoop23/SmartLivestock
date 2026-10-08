@@ -7,6 +7,7 @@ import api from "@/lib/axios";
 
 type Transfer = {
   id: number; livestock: number; livestock_tag: string; livestock_type_name: string;
+  owner_type: string; new_owner: number | null; external_owner_name: string; external_owner_address: string;
   previous_owner_name: string; new_owner_name: string; transfer_certificate_number: string;
   original_certificate_number: string; transfer_date: string; municipality: string; province: string;
   status: string; purchase_price: string | null;
