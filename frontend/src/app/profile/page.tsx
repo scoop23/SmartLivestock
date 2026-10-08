@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { Sidebar } from "@/app/components/sidebar";
 import { UserProfileView } from "@/components/user-profile-view";
 import { PageHeader } from "@/app/components/page-header";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -58,18 +58,7 @@ export default function ProfilePage() {
         </div>
       </main>
 
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            color: "white",
-            background: "transparent",
-            boxShadow: "none",
-            backdropFilter: "blur(8px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-          },
-        }}
-      />
+      <Toaster />
     </div>
   );
 }

@@ -72,7 +72,7 @@
   --z-sidebar: 1200;
   --z-sidebar-hover: 1210;
   --z-popover: 1300;
-  --z-toast: 1350;
+  --z-toast: 1450;
   --z-dialog-overlay: 1400;
   --z-dialog: 1410;
   --z-popover-dialog: 1420;
@@ -113,8 +113,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* Sonner defaults to an extremely high stacking level; keep notifications
-   above page content but below the shared Radix dialog layer. */
+/* Notifications remain visible above the shared dialog and popover layers. */
 [data-sonner-toaster] {
   z-index: var(--z-toast) !important;
 }

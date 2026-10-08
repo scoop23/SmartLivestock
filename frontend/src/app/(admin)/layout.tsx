@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function AdminLayout({
@@ -56,18 +56,7 @@ export default function AdminLayout({
       */}
       <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
 
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            color: "white",
-            background: "transparent",
-            boxShadow: "none",
-            backdropFilter: "blur(8px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-          },
-        }}
-      />
+      <Toaster />
     </div>
   );
 }
