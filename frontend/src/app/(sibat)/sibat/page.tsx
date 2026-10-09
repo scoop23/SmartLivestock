@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 
 import { useAuth } from "@/contexts/auth-context";
+import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -311,6 +312,13 @@ function SibatPortalContent() {
   return (
 
     <>
+
+      <PageHeader
+        title="Field Inspection Center"
+        subtitle="Review farmer records, assist with corrections, and forward checked submissions to MAO."
+        variant="sibat"
+        maxWidthClass="w-full"
+      />
 
       <div className="mx-auto w-full max-w-7xl space-y-5 p-3 sm:p-5 lg:p-8">
         {!isLoadingAccount && user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
