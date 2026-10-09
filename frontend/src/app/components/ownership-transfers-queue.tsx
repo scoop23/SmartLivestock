@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,20 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
     queryKey: ["ownership-transfers"],
     queryFn: async () => (await api.get<Transfer[]>("livestock/ownership-transfers/")).data,
   });
+  useEffect(() => {
+    if (isLoading) return;
+    const transferId = new URLSearchParams(window.location.search).get("transferId");
+    if (!transferId) return;
+    const transfer = data.find((item) => String(item.id) === transferId);
+    if (!transfer) return;
+
+    const card = document.getElementById(`ownership-transfer-${transferId}`);
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+    card?.classList.add("ring-2", "ring-emerald-500", "ring-offset-2");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("transferId");
+    window.history.replaceState({}, "", url.toString());
+  }, [data, isLoading]);
   const review = useMutation({
     mutationFn: async ({ id, status, remarks = "" }: { id: number; status: "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION"; remarks?: string }) =>
       api.post(`livestock/ownership-transfers/${id}/review/`, { status, remarks }),
@@ -44,7 +58,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
       {isLoading ? <p className="rounded-xl border bg-white p-6 text-sm text-slate-500">Loading transfer records…</p> : null}
       {!isLoading && data.length === 0 ? <p className="rounded-xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">No ownership transfers are awaiting review.</p> : null}
       <div className="grid gap-4 md:grid-cols-2">
-        {data.map((transfer) => <article key={transfer.id} className="min-w-0 space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
+        {data.map((transfer) => <article id={`ownership-transfer-${transfer.id}`} key={transfer.id} className="min-w-0 space-y-4 rounded-2xl border bg-white p-5 shadow-sm transition-shadow">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words font-bold text-slate-900">{transfer.livestock_type_name} {transfer.livestock_tag || `#${transfer.livestock}`}</h2><p className="mt-1 text-sm text-slate-600">{transfer.previous_owner_name} → {transfer.new_owner_name}</p></div><Badge variant="outline">{transfer.status.replaceAll("_", " ")}</Badge></div>
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Transfer certificate</dt><dd className="break-words font-semibold">{transfer.transfer_certificate_number}</dd></div><div><dt className="text-slate-500">Original certificate</dt><dd className="break-words font-semibold">{transfer.original_certificate_number}</dd></div><div><dt className="text-slate-500">Transfer date</dt><dd className="font-semibold">{transfer.transfer_date}</dd></div><div><dt className="text-slate-500">Location</dt><dd className="font-semibold">{transfer.municipality}, {transfer.province}</dd></div><div><dt className="text-slate-500">Animal description</dt><dd className="break-words font-semibold">{transfer.animal_description || "Not recorded"}</dd></div><div><dt className="text-slate-500">Sex / age</dt><dd className="font-semibold">{transfer.sex_at_transfer || "—"} / {transfer.age_at_transfer || "—"}</dd></div><div><dt className="text-slate-500">Municipality / owner brands</dt><dd className="break-words font-semibold">{transfer.municipality_brand || "—"} / {transfer.owner_brand || "—"}</dd></div><div><dt className="text-slate-500">Purchase price</dt><dd className="font-semibold">{transfer.purchase_price ? `₱${Number(transfer.purchase_price).toLocaleString()}` : "Not recorded"}</dd></div></dl>
           {(reviewer === "SIBAT" && transfer.status === "PENDING") || (reviewer === "MAO" && transfer.status === "VERIFIED") ? <div className="space-y-3">

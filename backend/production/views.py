@@ -52,7 +52,9 @@ def production_record_list_create(request):
                 priority=Notification.Priority.MEDIUM,
                 title="New Production Entry Awaiting Verification",
                 message=f"{farmer_name} logged {record.quantity} {record.unit} of {record.get_production_type_display()}.",
-                link="/sibat?tab=production",
+                link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
+                related_entity_type="production_record",
+                related_entity_id=record.pk,
             )
         return Response(serializer.data, status=201)
 
@@ -164,7 +166,19 @@ def production_record_detail(request, pk):
                     f"{user.get_full_name() or user.username} corrected a "
                     f"{record.get_production_type_display()} production record."
                 ),
-                link="/sibat?tab=production",
+                link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
+                related_entity_type="production_record",
+                related_entity_id=record.pk,
+            )
+            notify_role(
+                role_name="ADMIN",
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.MEDIUM,
+                title="Production Record Resubmitted",
+                message=f"{user.get_full_name() or user.username} corrected a {record.get_production_type_display()} production record.",
+                link=f"/admin/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
+                related_entity_type="production_record",
+                related_entity_id=record.pk,
             )
         return Response(serializer.data, status=200)
 
@@ -218,7 +232,8 @@ def review_production_record(request, pk):
     record.save()
     if new_status == "SUBJECT_TO_REVISION":
         notify_review_revision((record.livestock or record.batch).farmer, request.user,
-            title="Revision required: record #" + str(record.pk), message=remarks, link="/sibat")
+            title="Revision required: record #" + str(record.pk), message=remarks,
+            link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}")
 
     if record.slaughter_id:
         slaughter = record.slaughter
@@ -242,7 +257,9 @@ def review_production_record(request, pk):
                 f"{record.get_production_type_display()} from "
                 f"{record.created_by.get_full_name() or record.created_by.username}."
             ),
-            link="/data-validation?domain=production",
+            link=f"/admin/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
+            related_entity_type="production_record",
+            related_entity_id=record.pk,
         )
 
     owner = record.livestock.farmer if record.livestock else (record.batch.farmer if record.batch else None)
@@ -314,7 +331,9 @@ def live_animal_sales_list_create(request):
             priority=Notification.Priority.MEDIUM,
             title="New Livestock Sale Awaiting Verification",
             message=f"{farmer_name} recorded a sale for {sale_reference}.",
-            link="/sibat?tab=production",
+            link=f"/sibat?tab=production&reviewType=SALE&reviewId={sale.pk}",
+            related_entity_type="livestock_sale",
+            related_entity_id=sale.pk,
         )
         return Response(serializer.data, status=201)
 
@@ -371,7 +390,13 @@ def live_animal_sale_delete(request, pk):
         if returned:
             notify_role(role_name="SIBAT", barangay_id=(sale.livestock or sale.batch).farmer.barangay_id,
                 notification_type=Notification.NotificationType.PRODUCTION,
-                title="Sale Resubmitted for Verification", message=f"Sale #{sale.pk} was corrected by its farmer.", link="/sibat?tab=production")
+                title="Sale Resubmitted for Verification", message=f"Sale #{sale.pk} was corrected by its farmer.",
+                link=f"/sibat?tab=production&reviewType=SALE&reviewId={sale.pk}",
+                related_entity_type="livestock_sale", related_entity_id=sale.pk)
+            notify_role(role_name="ADMIN", notification_type=Notification.NotificationType.GENERAL,
+                title="Sale Resubmitted for Verification", message=f"Sale #{sale.pk} was corrected by its farmer.",
+                link=f"/admin/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+                related_entity_type="livestock_sale", related_entity_id=sale.pk)
         return Response(serializer.data)
     if sale.status != "PENDING":
         return Response({"error": "Only PENDING sale records can be deleted."}, status=403)
@@ -414,7 +439,8 @@ def review_live_animal_sale(request, pk):
     sale.save()
     if new_status == "SUBJECT_TO_REVISION":
         notify_review_revision((sale.livestock or sale.batch).farmer, request.user,
-            title="Revision required: sale #" + str(sale.pk), message=remarks, link="/sibat")
+            title="Revision required: sale #" + str(sale.pk), message=remarks,
+            link=f"/sibat?tab=production&reviewType=SALE&reviewId={sale.pk}")
 
     if new_status == LiveAnimalSale.StatusType.APPROVED:
         sale = reconcile_approved_sale(sale)
@@ -426,7 +452,9 @@ def review_live_animal_sale(request, pk):
         link="/production-dashboard")
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
-            title="Verified Sale Awaiting MAO Approval", message=f"Sale #{sale.pk} was verified by SIBAT.", link="/data-validation")
+            title="Verified Sale Awaiting MAO Approval", message=f"Sale #{sale.pk} was verified by SIBAT.",
+            link=f"/admin/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+            related_entity_type="livestock_sale", related_entity_id=sale.pk)
     serializer = LiveAnimalSaleSerializer(sale)
     return Response(serializer.data, status=200)
 
@@ -497,7 +525,9 @@ def calving_records_list_create(request):
             priority=Notification.Priority.MEDIUM,
             title="New Calving Entry Awaiting Verification",
             message=f"{farmer_name} recorded calf {calving.calf_tag or 'Newborn'} from dam {calving.dam.tag_number or calving.dam_id}.",
-            link="/sibat?tab=production",
+            link=f"/sibat?tab=calving&reviewType=CALVING&reviewId={calving.pk}",
+            related_entity_type="calving_record",
+            related_entity_id=calving.pk,
         )
         return Response(serializer.data, status=201)
 
@@ -561,7 +591,8 @@ def review_calving_record(request, pk):
     calving.save()
     if new_status == "SUBJECT_TO_REVISION":
         notify_review_revision(calving.dam.farmer, request.user,
-            title="Revision required: calving #" + str(calving.pk), message=remarks, link="/sibat")
+            title="Revision required: calving #" + str(calving.pk), message=remarks,
+            link=f"/sibat?tab=calving&reviewType=CALVING&reviewId={calving.pk}")
 
     if new_status == CalvingRecord.StatusType.APPROVED:
         calving = reconcile_approved_calving(calving)
@@ -599,7 +630,9 @@ def review_calving_record(request, pk):
 
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
-            title="Verified Calving Awaiting MAO Approval", message=f"Calving #{calving.pk} was verified by SIBAT.", link="/data-validation")
+            title="Verified Calving Awaiting MAO Approval", message=f"Calving #{calving.pk} was verified by SIBAT.",
+            link=f"/admin/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
+            related_entity_type="calving_record", related_entity_id=calving.pk)
     serializer = CalvingRecordSerializer(calving)
     return Response(serializer.data, status=200)
 
@@ -669,7 +702,19 @@ def calving_detail(request, pk):
                     f"{user.get_full_name() or user.username} corrected a birth "
                     f"declaration for calf {calving.calf_tag or 'Newborn'}."
                 ),
-                link="/sibat?tab=production",
+                link=f"/sibat?tab=calving&reviewType=CALVING&reviewId={calving.pk}",
+                related_entity_type="calving_record",
+                related_entity_id=calving.pk,
+            )
+            notify_role(
+                role_name="ADMIN",
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.MEDIUM,
+                title="Calving Record Resubmitted",
+                message=f"{user.get_full_name() or user.username} corrected a birth declaration for calf {calving.calf_tag or 'Newborn'}.",
+                link=f"/admin/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
+                related_entity_type="calving_record",
+                related_entity_id=calving.pk,
             )
         return Response(serializer.data, status=200)
 

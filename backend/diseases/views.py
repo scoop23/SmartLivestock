@@ -21,7 +21,8 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
     try:
         if new_status == "SUBJECT_TO_REVISION":
             notify_review_revision((record.livestock or record.batch).farmer, reviewer_user,
-                title=f"Health declaration #{record.pk} returned for revision", message=remarks, link="/sibat-alerts")
+                title=f"Disease declaration #{record.pk} returned for revision", message=remarks,
+                link=f"/sibat-alerts?recordType=DISEASE&recordId={record.pk}")
         target_farmers = set()
         if record.livestock and getattr(record.livestock, "farmer", None) and getattr(record.livestock.farmer, "user", None):
             target_farmers.add(record.livestock.farmer.user)
@@ -57,7 +58,8 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         priority=Notification.Priority.HIGH,
                         title=f"Urgent: Alert DIS-{record.id} Flagged for Emergency Vet Review",
                         message=f"SIBAT field inspection flagged {animal_desc} ({condition_name}) for emergency veterinary review & lab sampling.{f' Remarks: {remarks}' if remarks else ''}",
-                        link="/data-validation",
+                        link=f"/admin/data-validation?domain=incidents&recordType=DISEASE&recordId={record.pk}",
+                        related_entity_type="disease_case", related_entity_id=record.pk,
                     )
             elif new_status == DiseaseCase.DiseaseStatus.VERIFIED:
                 for farmer_user in target_farmers:
@@ -76,7 +78,8 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         priority=Notification.Priority.MEDIUM,
                         title=f"Verified Disease Report: DIS-{record.id}",
                         message=f"SIBAT field inspection certified for {animal_desc} ({condition_name}). Awaiting MAO final approval.",
-                        link="/data-validation",
+                        link=f"/admin/data-validation?domain=incidents&recordType=DISEASE&recordId={record.pk}",
+                        related_entity_type="disease_case", related_entity_id=record.pk,
                     )
         elif role_name in {"MAO", "ADMIN"}:
             if new_status == DiseaseCase.DiseaseStatus.APPROVED:
@@ -115,7 +118,9 @@ def _notify_disease_case_created(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"New Disease Case Reported: DIS-{instance.id}",
                 message=f"Farmer {reporter_name} reported '{instance.name}' for {animal_tag}. Requires on-farm verification.",
-                link="/sibat-alerts" if role_val == "SIBAT" else "/data-validation",
+                link=f"/sibat-alerts?recordType=DISEASE&recordId={instance.pk}" if role_val == "SIBAT" else f"/admin/data-validation?domain=incidents&recordType=DISEASE&recordId={instance.pk}",
+                related_entity_type="disease_case",
+                related_entity_id=instance.pk,
             )
     except Exception as e:
         print(f"Error creating disease reported notification: {e}")
@@ -133,7 +138,9 @@ def _notify_disease_case_resubmitted(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"Revised Disease Report: DIS-{instance.id}",
                 message=f"Farmer {reporter_name} resubmitted revised report for {animal_tag}. Ready for re-evaluation.",
-                link="/sibat-alerts" if role_val == "SIBAT" else "/data-validation",
+                link=f"/sibat-alerts?recordType=DISEASE&recordId={instance.pk}" if role_val == "SIBAT" else f"/admin/data-validation?domain=incidents&recordType=DISEASE&recordId={instance.pk}",
+                related_entity_type="disease_case",
+                related_entity_id=instance.pk,
             )
     except Exception as e:
         print(f"Error creating disease resubmitted notification: {e}")
@@ -143,7 +150,8 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
     try:
         if new_status == "SUBJECT_TO_REVISION":
             notify_review_revision((record.livestock or record.batch).farmer, reviewer_user,
-                title=f"Health declaration #{record.pk} returned for revision", message=remarks, link="/sibat-alerts")
+                title=f"Mortality declaration #{record.pk} returned for revision", message=remarks,
+                link=f"/sibat-alerts?recordType=MORTALITY&recordId={record.pk}")
         target_farmers = set()
         if record.livestock and getattr(record.livestock, "farmer", None) and getattr(record.livestock.farmer, "user", None):
             target_farmers.add(record.livestock.farmer.user)
@@ -178,7 +186,8 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         priority=Notification.Priority.HIGH,
                         title=f"Urgent: Mortality MOR-{record.id} Flagged by SIBAT",
                         message=f"Mortality report for {animal_desc} returned for veterinary review.{f' Remarks: {remarks}' if remarks else ''}",
-                        link="/data-validation",
+                        link=f"/admin/data-validation?domain=incidents&recordType=MORTALITY&recordId={record.pk}",
+                        related_entity_type="mortality_record", related_entity_id=record.pk,
                     )
             elif new_status == MortalityRecord.MortalityRecordStatus.VERIFIED:
                 for farmer_user in target_farmers:
@@ -197,7 +206,8 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         priority=Notification.Priority.MEDIUM,
                         title=f"Verified Mortality Record: MOR-{record.id}",
                         message=f"SIBAT field inspection certified carcass disposal for {animal_desc}. Awaiting MAO certification.",
-                        link="/data-validation",
+                        link=f"/admin/data-validation?domain=incidents&recordType=MORTALITY&recordId={record.pk}",
+                        related_entity_type="mortality_record", related_entity_id=record.pk,
                     )
         elif role_name in {"MAO", "ADMIN"}:
             if new_status == MortalityRecord.MortalityRecordStatus.APPROVED:
@@ -245,7 +255,9 @@ def _notify_mortality_record_created(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"New Mortality Reported: MOR-{instance.id}",
                 message=f"Farmer {reporter_name} reported {instance.death_count} death(s) for {animal_tag}. Cause: '{instance.cause}'. Requires on-site verification.",
-                link="/sibat-alerts" if role_val == "SIBAT" else "/data-validation",
+                link=f"/sibat-alerts?recordType=MORTALITY&recordId={instance.pk}" if role_val == "SIBAT" else f"/admin/data-validation?domain=incidents&recordType=MORTALITY&recordId={instance.pk}",
+                related_entity_type="mortality_record",
+                related_entity_id=instance.pk,
             )
     except Exception as e:
         print(f"Error creating mortality reported notification: {e}")
@@ -272,7 +284,9 @@ def _notify_mortality_record_resubmitted(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"Revised Mortality Report: MOR-{instance.id}",
                 message=f"Farmer {reporter_name} resubmitted revised mortality declaration for {animal_tag}. Ready for re-evaluation.",
-                link="/sibat-alerts" if role_val == "SIBAT" else "/data-validation",
+                link=f"/sibat-alerts?recordType=MORTALITY&recordId={instance.pk}" if role_val == "SIBAT" else f"/admin/data-validation?domain=incidents&recordType=MORTALITY&recordId={instance.pk}",
+                related_entity_type="mortality_record",
+                related_entity_id=instance.pk,
             )
     except Exception as e:
         print(f"Error creating mortality resubmitted notification: {e}")

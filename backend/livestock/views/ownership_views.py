@@ -33,7 +33,9 @@ def ownership_transfer_list_create(request):
             notification_type=Notification.NotificationType.SIBAT,
             title="Ownership Transfer Awaiting Verification",
             message=f"Transfer certificate {transfer.transfer_certificate_number} is ready for review.",
-            link="/sibat/ownership-transfers",
+            link=f"/sibat/ownership-transfers?transferId={transfer.pk}",
+            related_entity_type="ownership_transfer",
+            related_entity_id=transfer.pk,
         )
         return Response(LivestockOwnershipTransferSerializer(transfer).data, status=status.HTTP_201_CREATED)
 
@@ -83,7 +85,13 @@ def ownership_transfer_detail(request, pk):
     notify_role(role_name="SIBAT", barangay_id=transfer.previous_owner.barangay_id,
         notification_type=Notification.NotificationType.SIBAT, title="Ownership Transfer Resubmitted",
         message=f"Transfer certificate {transfer.transfer_certificate_number} was corrected and resubmitted.",
-        link="/sibat/ownership-transfers")
+        link=f"/sibat/ownership-transfers?transferId={transfer.pk}",
+        related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
+    notify_role(role_name="ADMIN", notification_type=Notification.NotificationType.GENERAL,
+        title="Ownership Transfer Resubmitted",
+        message=f"Transfer certificate {transfer.transfer_certificate_number} was corrected and resubmitted.",
+        link=f"/ownership-transfers?transferId={transfer.pk}",
+        related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
     return Response(LivestockOwnershipTransferSerializer(transfer).data)
 
 
@@ -136,11 +144,12 @@ def review_ownership_transfer(request, pk):
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.GENERAL,
             title="Ownership Transfer Awaiting MAO Approval",
             message=f"Transfer certificate {transfer.transfer_certificate_number} was verified by SIBAT.",
-            link="/ownership-transfers")
+            link=f"/ownership-transfers?transferId={transfer.pk}",
+            related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
     elif target == LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION:
         notify_review_revision(transfer.previous_owner, request.user,
             title=f"Revision required: transfer {transfer.transfer_certificate_number}",
-            message=remarks, link=f"/livestock-inventory/{transfer.livestock_id}")
+            message=remarks, link=f"/sibat/ownership-transfers?transferId={transfer.pk}")
     elif target == LivestockOwnershipTransfer.Status.APPROVED:
         # Former ownership remains in the transfer record; current inventory uses animal.farmer.
         notified_farmers = [transfer.previous_owner]

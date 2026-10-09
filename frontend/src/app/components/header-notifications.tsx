@@ -64,6 +64,8 @@ interface BackendNotification {
   message: string;
   is_read: boolean;
   link?: string | null;
+  related_entity_type?: string | null;
+  related_entity_id?: number | null;
   created_at: string;
   time_ago: string;
 }
@@ -73,7 +75,99 @@ interface BackendNotificationsResponse {
   notifications: BackendNotification[];
 }
 
-const resolveNotificationLink = (notification: BackendNotification) => {
+const resolveNotificationLink = (notification: BackendNotification, variant: HeaderNotificationsProps["variant"]) => {
+  if (variant === "admin") {
+    const adminRoutes: Record<string, (id: number) => string> = {
+      livestock_inventory: (id) => `/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId=${id}`,
+      livestock_batch: (id) => `/admin/data-validation?domain=inventory&recordType=BATCH&recordId=${id}`,
+      production_record: (id) => `/admin/data-validation?domain=production&recordType=PRODUCTION&recordId=${id}`,
+      livestock_sale: (id) => `/admin/data-validation?domain=incidents&recordType=SALE&recordId=${id}`,
+      calving_record: (id) => `/admin/data-validation?domain=incidents&recordType=CALVING&recordId=${id}`,
+      disease_case: (id) => `/admin/data-validation?domain=incidents&recordType=DISEASE&recordId=${id}`,
+      mortality_record: (id) => `/admin/data-validation?domain=incidents&recordType=MORTALITY&recordId=${id}`,
+      ownership_transfer: (id) => `/ownership-transfers?transferId=${id}`,
+      census_submission: (id) => `/admin/data-validation?domain=census&recordType=CENSUS&recordId=${id}`,
+      inspection: (id) => `/admin/data-validation?domain=incidents&recordType=INSPECTION&recordId=${id}`,
+    };
+    const routeFromEntity = notification.related_entity_type
+      ? adminRoutes[notification.related_entity_type]
+      : undefined;
+    if (routeFromEntity && notification.related_entity_id != null) {
+      return routeFromEntity(notification.related_entity_id);
+    }
+
+    // Older livestock resubmission notices already contain the primary key in
+    // their URL but predate the explicit record type parameter.
+    const oldReviewId = notification.link?.match(/[?&]reviewId=(\d+)/)?.[1];
+    if (oldReviewId && notification.title.includes("Livestock Entry Resubmitted")) {
+      return `/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId=${oldReviewId}`;
+    }
+    if (oldReviewId && notification.title.includes("Herd Resubmitted")) {
+      return `/admin/data-validation?domain=inventory&recordType=BATCH&recordId=${oldReviewId}`;
+    }
+  }
+
+  if (variant === "sibat") {
+    const reviewRoutes: Record<string, (id: number) => string> = {
+      livestock_inventory: (id) => `/sibat?tab=inventory&reviewType=INVENTORY&reviewId=${id}`,
+      livestock_batch: (id) => `/sibat?tab=inventory&reviewType=BATCH&reviewId=${id}`,
+      production_record: (id) => `/sibat?tab=production&reviewType=PRODUCTION&reviewId=${id}`,
+      livestock_sale: (id) => `/sibat?tab=production&reviewType=SALE&reviewId=${id}`,
+      calving_record: (id) => `/sibat?tab=calving&reviewType=CALVING&reviewId=${id}`,
+      disease_case: (id) => `/sibat-alerts?recordType=DISEASE&recordId=${id}`,
+      mortality_record: (id) => `/sibat-alerts?recordType=MORTALITY&recordId=${id}`,
+      ownership_transfer: (id) => `/sibat/ownership-transfers?transferId=${id}`,
+      census_submission: (id) => `/sibat?tab=census&censusId=${id}`,
+    };
+    const routeFromEntity = notification.related_entity_type
+      ? reviewRoutes[notification.related_entity_type]
+      : undefined;
+    if (routeFromEntity && notification.related_entity_id != null) {
+      return routeFromEntity(notification.related_entity_id);
+    }
+
+    const oldReviewId = notification.title.match(/\b(inventory|batch|record|sale|calving)\s*#(\d+)/i);
+    if (oldReviewId) {
+      const entityType = oldReviewId[1].toLowerCase();
+      const reviewType = entityType === "inventory" ? "INVENTORY"
+        : entityType === "batch" ? "BATCH"
+          : entityType === "sale" ? "SALE"
+            : entityType === "calving" ? "CALVING" : "PRODUCTION";
+      const tab = reviewType === "INVENTORY" || reviewType === "BATCH" ? "inventory" : reviewType === "CALVING" ? "calving" : "production";
+      return `/sibat?tab=${tab}&reviewType=${reviewType}&reviewId=${oldReviewId[2]}`;
+    }
+
+    // Older notices did not store an entity ID. Pass their text for a careful
+    // exact match against the authorized queue rather than opening its home tab.
+    const legacyTypes: Array<[string, string]> = [
+      ["New Livestock Entry", "INVENTORY"],
+      ["Livestock Entry Resubmitted", "INVENTORY"],
+      ["New Livestock Batch", "BATCH"],
+      ["Herd Resubmitted", "BATCH"],
+      ["New Production Entry", "PRODUCTION"],
+      ["Production Record Resubmitted", "PRODUCTION"],
+      ["New Livestock Sale", "SALE"],
+      ["Sale Resubmitted", "SALE"],
+      ["New Calving Entry", "CALVING"],
+      ["Calving Record Resubmitted", "CALVING"],
+    ];
+    const legacyType = legacyTypes.find(([titlePart]) => notification.title.includes(titlePart))?.[1];
+    if (legacyType) {
+      const tab = legacyType === "CALVING" ? "calving" : legacyType === "INVENTORY" || legacyType === "BATCH" ? "inventory" : "production";
+      const params = new URLSearchParams({ tab, legacyType, legacyMessage: notification.message });
+      return `/sibat?${params.toString()}`;
+    }
+
+    const healthId = notification.title.match(/\b(DIS|MOR)-(\d+)\b/i);
+    const healthDeclarationId = notification.title.match(/\b(disease|mortality) declaration\s*#(\d+)/i);
+    if (healthId || healthDeclarationId) {
+      const type = healthId
+        ? healthId[1].toUpperCase() === "DIS" ? "DISEASE" : "MORTALITY"
+        : healthDeclarationId?.[1].toLowerCase() === "disease" ? "DISEASE" : "MORTALITY";
+      return `/sibat-alerts?recordType=${type}&recordId=${healthId?.[2] ?? healthDeclarationId?.[2]}`;
+    }
+  }
+
   if (notification.link !== "/livestock-inventory") {
     return notification.link || undefined;
   }
@@ -232,7 +326,7 @@ export function HeaderNotifications({
     date: n.created_at ? n.created_at.split("T")[0] : "",
     timeAgo: n.time_ago || "Just now",
     read: n.is_read,
-    link: resolveNotificationLink(n),
+    link: resolveNotificationLink(n, variant),
   }));
 
   const unreadCount = backendData?.unread_count ?? notifications.filter((n) => !n.read).length;

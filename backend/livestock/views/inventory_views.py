@@ -50,7 +50,7 @@ def inventory_list_create(request):
                 priority=Notification.Priority.MEDIUM,
                 title="New Livestock Entry Awaiting Verification",
                 message=f"{farmer_name} registered {animal_name}. Review the entry and schedule field verification.",
-                link="/sibat-validation",
+                link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={inventory.pk}",
                 related_entity_type="livestock_inventory",
                 related_entity_id=inventory.id,
             )
@@ -239,7 +239,19 @@ def inventory_detail(request, pk):
                 priority=Notification.Priority.MEDIUM,
                 title="Livestock Entry Resubmitted",
                 message=f"{farmer_name} corrected and resubmitted {animal_name} for field verification.",
-                link="/sibat-validation",
+                link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={inventory.pk}",
+                related_entity_type="livestock_inventory",
+                related_entity_id=inventory.pk,
+            )
+            notify_role(
+                role_name="ADMIN",
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.MEDIUM,
+                title="Livestock Entry Resubmitted",
+                message=f"{farmer_name} corrected and resubmitted {animal_name} for field verification.",
+                link=f"/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId={inventory.pk}",
+                related_entity_type="livestock_inventory",
+                related_entity_id=inventory.pk,
             )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -300,7 +312,8 @@ def review_inventory(request, pk):
     if new_status == "SUBJECT_TO_REVISION":
         notify_review_revision(inventory.farmer, request.user,
             title="Revision required: inventory #" + str(inventory.pk),
-            message=remarks, link="/sibat")
+            message=remarks,
+            link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={inventory.pk}")
 
     if new_status == LivestockInventory.StatusType.VERIFIED:
         notify_role(
@@ -312,7 +325,9 @@ def review_inventory(request, pk):
                 f"SIBAT verified {inventory.tag_number or inventory.livestock_type.name} "
                 f"from {inventory.farmer.user.get_full_name() or inventory.farmer.user.username}."
             ),
-            link="/data-validation?domain=inventory",
+            link=f"/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId={inventory.pk}",
+            related_entity_type="livestock_inventory",
+            related_entity_id=inventory.pk,
         )
 
     # Automatically notify the animal's owner/registrant
@@ -353,6 +368,8 @@ def review_inventory(request, pk):
                 title="Revision Required on Livestock Record",
                 message=f"Your {species_name} [{tag_info}] requires revision.{f' Note: {remarks}' if remarks else ''}",
                 link=inventory_detail_link,
+                related_entity_type="livestock_inventory",
+                related_entity_id=inventory.pk,
             )
 
     serializer = LivestockInventorySerializer(inventory, context={"request": request})

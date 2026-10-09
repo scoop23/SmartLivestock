@@ -122,7 +122,9 @@ def batch_list_create(request):
             priority=Notification.Priority.MEDIUM,
             title="New Livestock Batch Awaiting Verification",
             message=f"{farmer_name} registered batch {batch.batch_code} with {batch.animals.count()} animal(s).",
-            link="/sibat-validation",
+            link=f"/sibat?tab=inventory&reviewType=BATCH&reviewId={batch.pk}",
+            related_entity_type="livestock_batch",
+            related_entity_id=batch.pk,
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -322,7 +324,18 @@ def batch_detail(request, pk):
                 notification_type=Notification.NotificationType.SIBAT,
                 title="Herd Resubmitted for Verification",
                 message=f"{user.get_full_name() or user.username} resubmitted herd {batch.batch_code} for field review.",
-                link="/sibat/batches?batchId=" + str(batch.pk),
+                link=f"/sibat?tab=inventory&reviewType=BATCH&reviewId={batch.pk}",
+                related_entity_type="livestock_batch",
+                related_entity_id=batch.pk,
+            )
+            notify_role(
+                role_name="ADMIN",
+                notification_type=Notification.NotificationType.GENERAL,
+                title="Herd Resubmitted for Verification",
+                message=f"{user.get_full_name() or user.username} resubmitted herd {batch.batch_code} for field review.",
+                link=f"/admin/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
+                related_entity_type="livestock_batch",
+                related_entity_id=batch.pk,
             )
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -521,7 +534,8 @@ def batch_review(request, pk):
 
     if new_status == "SUBJECT_TO_REVISION":
         notify_review_revision(batch.farmer, request.user,
-            title="Revision required: batch #" + str(batch.pk), message=remarks, link="/sibat")
+            title="Revision required: batch #" + str(batch.pk), message=remarks,
+            link=f"/sibat?tab=inventory&reviewType=BATCH&reviewId={batch.pk}")
     if new_status == LivestockInventory.StatusType.VERIFIED:
         notify_role(
             role_name="MAO",
@@ -532,7 +546,9 @@ def batch_review(request, pk):
                 f"SIBAT verified herd {batch.batch_code} with "
                 f"{batch.animals.count()} animal(s)."
             ),
-            link=f"/data-validation/batches?batchId={batch.pk}",
+            link=f"/admin/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
+            related_entity_type="livestock_batch",
+            related_entity_id=batch.pk,
         )
 
     # Notify the farmer

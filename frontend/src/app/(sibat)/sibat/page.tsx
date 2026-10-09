@@ -2,7 +2,7 @@
 
 
 
-import React, { useState, Suspense } from "react";
+import React, { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 
@@ -60,6 +60,54 @@ import {
 
 
 type SibatActiveTab = "inventory" | "production" | "health" | "calving" | "census";
+
+function resolveLegacyReviewSubmission(
+  submissions: UnifiedSubmissionItem[],
+  legacyType: string | null,
+  legacyMessage: string | null,
+) {
+  if (!legacyType || !legacyMessage) return undefined;
+  const message = legacyMessage.trim();
+  const farmerName = message.match(/^(.+?)\s+(?:registered|corrected|resubmitted|logged|recorded)\b/i)?.[1]?.trim();
+  let candidates = submissions.filter((item) => item.sourceType === legacyType);
+  if (farmerName) {
+    candidates = candidates.filter((item) => item.farmerName.trim().toLowerCase() === farmerName.toLowerCase());
+  }
+
+  if (legacyType === "SALE") {
+    const saleId = message.match(/sale\s*#(\d+)/i)?.[1];
+    if (saleId) candidates = candidates.filter((item) => String(item.rawId) === saleId);
+  } else if (legacyType === "BATCH") {
+    const batchCode = message.match(/(?:batch|herd)\s+([\w-]+)/i)?.[1];
+    if (batchCode) candidates = candidates.filter((item) => item.batchCode === batchCode);
+  } else if (legacyType === "INVENTORY") {
+    const animalTag = message.match(/(?:registered|resubmitted)\s+(.+?)(?:\s+for field verification|\.|$)/i)?.[1]?.trim();
+    if (animalTag) {
+      candidates = candidates.filter((item) =>
+        [item.tagNumber, item.breed, item.livestockTypeName, item.detailsTitle].some(
+          (value) => value?.trim().toLowerCase() === animalTag.toLowerCase(),
+        ),
+      );
+    }
+  } else if (legacyType === "CALVING") {
+    const calfTag = message.match(/calf\s+(.+?)(?:\s+from dam|\.|$)/i)?.[1]?.trim();
+    if (calfTag) candidates = candidates.filter((item) => item.calfTag?.toLowerCase() === calfTag.toLowerCase());
+  } else if (legacyType === "PRODUCTION") {
+    const logged = message.match(/logged\s+(.+?)\s+of\s+(.+?)\./i);
+    if (logged) {
+      candidates = candidates.filter((item) =>
+        item.quantityDisplay.toLowerCase().includes(logged[1].toLowerCase()) &&
+        item.submissionTypeLabel.toLowerCase().includes(logged[2].toLowerCase()),
+      );
+    } else {
+      const productionType = message.match(/corrected a (.+?) production record/i)?.[1];
+      if (productionType) {
+        candidates = candidates.filter((item) => item.submissionTypeLabel.toLowerCase().includes(productionType.toLowerCase()));
+      }
+    }
+  }
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
 
 
 function SibatPortalContent() {
@@ -121,6 +169,7 @@ function SibatPortalContent() {
   const scopeKey = `${user?.email ?? "unknown"}:${user?.accessScope ?? ""}:${user?.assignedBarangayId ?? ""}`;
   const { data: farmers = [], isLoading: isLoadingFarmers, isError: isFarmersError, refetch: refetchFarmers } = useSibatFarmers(scopeKey);
   const [selectedSubmissionForReview, setSelectedSubmissionForReview] = useState<UnifiedSubmissionItem | null>(null);
+  const attemptedReviewLinkRef = useRef<string | null>(null);
 
 
 
@@ -148,6 +197,16 @@ function SibatPortalContent() {
 
   const { data: censuses = [], isLoading: isLoadingCensus, isError: isCensusError, refetch: refetchCensus } = useCensusSubmission();
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
+  const censusIdParam = searchParams.get("censusId");
+  const notificationCensus = !isLoadingCensus && censusIdParam
+    ? censuses.find((item) => String(item.id) === censusIdParam) ?? null
+    : null;
+  const activeCensusForDetail = selectedCensusForDetail ?? notificationCensus;
+  const clearCensusLink = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("censusId");
+    window.history.replaceState({}, "", url.toString());
+  };
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
@@ -273,6 +332,37 @@ function SibatPortalContent() {
         ? "calving"
         : "production";
     handleTabChange(tab);
+  };
+
+  // Notification links carry the canonical queue type and record ID. Resolve
+  // through the existing authorized queue data before opening the normal dialog.
+  const reviewTypeParam = searchParams.get("reviewType");
+  const reviewIdParam = searchParams.get("reviewId");
+  const legacyTypeParam = searchParams.get("legacyType");
+  const legacyMessageParam = searchParams.get("legacyMessage");
+  const directLinkIsValid =
+    !!reviewIdParam &&
+    !!reviewTypeParam &&
+    ["INVENTORY", "BATCH", "PRODUCTION", "SALE", "CALVING"].includes(reviewTypeParam);
+  const notificationSubmission = directLinkIsValid
+    ? submissions.find((item) => item.sourceType === reviewTypeParam && String(item.rawId) === reviewIdParam)
+    : resolveLegacyReviewSubmission(submissions, legacyTypeParam, legacyMessageParam);
+  const activeSubmissionForReview = selectedSubmissionForReview ?? notificationSubmission ?? null;
+
+  useEffect(() => {
+    const linkType = directLinkIsValid ? reviewTypeParam : legacyTypeParam;
+    const linkId = reviewIdParam ?? legacyMessageParam;
+    if (isLoadingSubmissions || !linkType || notificationSubmission) return;
+    const linkKey = `${linkType}:${linkId ?? ""}`;
+    if (attemptedReviewLinkRef.current === linkKey) return;
+    attemptedReviewLinkRef.current = linkKey;
+    void refetchSubmissions();
+  }, [directLinkIsValid, isLoadingSubmissions, legacyMessageParam, legacyTypeParam, notificationSubmission, refetchSubmissions, reviewIdParam, reviewTypeParam]);
+
+  const clearReviewLink = () => {
+    const url = new URL(window.location.href);
+    ["reviewType", "reviewId", "legacyType", "legacyMessage"].forEach((key) => url.searchParams.delete(key));
+    window.history.replaceState({}, "", url.toString());
   };
 
   const handleReviewRecords = () => {
@@ -505,13 +595,14 @@ function SibatPortalContent() {
 
       <SibatReviewDialog
 
-        submission={selectedSubmissionForReview}
+        submission={activeSubmissionForReview}
 
-        open={selectedSubmissionForReview !== null}
+        open={activeSubmissionForReview !== null}
 
         onOpenChange={(open) => {
 
           if (!open) setSelectedSubmissionForReview(null);
+          if (!open && (reviewIdParam || legacyMessageParam)) clearReviewLink();
 
         }}
 
@@ -530,10 +621,13 @@ function SibatPortalContent() {
 
       {/* Census submission and details dialogs */}
       <CensusDetailsDialog
-        submission={selectedCensusForDetail}
-        open={selectedCensusForDetail !== null}
+        submission={activeCensusForDetail}
+        open={activeCensusForDetail !== null}
         onOpenChange={(open) => {
-          if (!open) setSelectedCensusForDetail(null);
+          if (!open) {
+            setSelectedCensusForDetail(null);
+            if (censusIdParam) clearCensusLink();
+          }
         }}
         onRevise={handleOpenCensusRevision}
       />

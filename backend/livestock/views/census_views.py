@@ -53,7 +53,9 @@ def census_list_create(request):
                 f"submitted the {submission.barangay.barangay_name} "
                 f"Q{submission.report_quarter} {submission.report_year} livestock census."
             ),
-            link=MAO_CENSUS_LINK,
+            link=f"/admin/data-validation?domain=census&recordType=CENSUS&recordId={submission.pk}",
+            related_entity_type="census_submission",
+            related_entity_id=submission.pk,
         )
 
         response_serializer = CensusSubmissionSerializer(submission)
@@ -124,7 +126,9 @@ def census_detail(request, pk):
                     f"corrected and resubmitted the {census.barangay.barangay_name} "
                     f"Q{census.report_quarter} {census.report_year} livestock census."
                 ),
-                link=MAO_CENSUS_LINK,
+                link=f"/admin/data-validation?domain=census&recordType=CENSUS&recordId={census.pk}",
+                related_entity_type="census_submission",
+                related_entity_id=census.pk,
             )
         return Response(CensusSubmissionSerializer(census).data, status=status.HTTP_200_OK)
 

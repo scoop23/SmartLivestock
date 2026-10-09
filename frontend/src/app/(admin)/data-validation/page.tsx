@@ -96,12 +96,15 @@ function AdminDataValidationContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const requestedDomain = searchParams.get("domain");
+  const requestedRecordType = searchParams.get("recordType")?.toUpperCase() ?? null;
+  const requestedRecordId = searchParams.get("recordId") ?? searchParams.get("reviewId");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Domain tab & filter states
   const [activeDomain, setActiveDomain] = useState<ValidationDomain>("census");
   useEffect(() => {
-    if (requestedDomain === "inventory" || requestedDomain === "production") {
+    if (requestedDomain === "census" || requestedDomain === "inventory" ||
+      requestedDomain === "production" || requestedDomain === "incidents") {
       setActiveDomain(requestedDomain);
     }
   }, [requestedDomain]);
@@ -203,6 +206,83 @@ function AdminDataValidationContent() {
       return inc;
     });
   }, [rawIncidentData, localIncidentOverrides]);
+
+  // Notification links carry a canonical record type and ID. Resolve them
+  // against the same authorized datasets used by the validation tables.
+  const notificationDetail = useMemo<DetailRecordData | null>(() => {
+    if (!requestedRecordId || !requestedRecordType) return null;
+    const id = Number(requestedRecordId);
+    if (!Number.isFinite(id)) return null;
+
+    if (requestedRecordType === "INVENTORY" || requestedRecordType === "BATCH") {
+      const item = inventoryRecords.find(
+        (record) => record.rawId === id && Boolean(record.isBatch) === (requestedRecordType === "BATCH"),
+      );
+      if (!item) return null;
+      return {
+        kind: "inventory", id: item.id, rawId: item.rawId, isBatch: item.isBatch,
+        batchId: item.batchId, farmerName: item.farmerName, barangayName: item.barangayName,
+        livestockType: item.livestockType, tagNumber: item.tagNumber, breed: item.breed,
+        sex: item.sex, birthDate: item.birthDate, age: item.age,
+        ageClassification: item.ageClassification, weight: item.weight,
+        entryType: item.entryType, quantity: item.quantity,
+        lastVaccinationDate: item.lastVaccinationDate, status: item.status,
+        reviewRemarks: item.reviewRemarks, reviewedByName: item.reviewedBy,
+        reviewedAt: item.reviewedAt, createdAt: item.createdAt, batchCode: item.batchCode,
+        batchName: item.batchName, housingPen: item.housingPen, feedType: item.feedType,
+        targetWeight: item.targetWeight, animals: item.animals, photoUrl: item.photoUrl,
+        photoName: item.photoName,
+      };
+    }
+
+    if (requestedRecordType === "PRODUCTION") {
+      const item = productionRecords.find((record) => record.id === id);
+      if (!item) return null;
+      return {
+        kind: "production", id: item.id, farmerName: item.farmerName || "Registered Farmer",
+        barangayName: item.barangayName || "Padre Garcia",
+        livestockTypeName: item.livestockTypeName || "Livestock",
+        productionType: item.productionType, quantity: item.quantity, unit: item.unit,
+        recordDate: item.recordDate, notes: item.notes, status: item.status,
+        reviewRemarks: item.reviewRemarks, reviewedByName: item.reviewedByName,
+        reviewedAt: item.reviewedAt, createdAt: item.createdAt,
+        slaughterDetails: item.slaughterDetails,
+      };
+    }
+
+    if (requestedRecordType === "CENSUS") {
+      const item = censusSubmissions.find((record) => String(record.id) === requestedRecordId);
+      if (!item) return null;
+      return {
+        kind: "census", id: item.id, barangay: item.barangay,
+        reportYear: item.reportYear, reportQuarter: item.reportQuarter,
+        submissionDate: item.submissionDate, submittedBy: item.submittedBy,
+        totalHeads: item.totalHeads, totalFarmers: item.totalFarmers,
+        status: item.status, remarks: item.remarks, reviewRemarks: item.reviewRemarks,
+        reviewedByName: item.submittedBy, reviewedAt: item.submissionDate, items: item.items,
+      };
+    }
+
+    const incidentTypeByRecordType: Record<string, ValidationIncidentItem["type"]> = {
+      DISEASE: "disease", MORTALITY: "mortality", SALE: "sale",
+      CALVING: "birth", INSPECTION: "inspection",
+    };
+    const incidentType = incidentTypeByRecordType[requestedRecordType];
+    if (!incidentType) return null;
+    const item = incidents.find(
+      (record) => record.type === incidentType && record.id.endsWith(`-${requestedRecordId}`),
+    );
+    if (!item) return null;
+    return {
+      kind: "incident", id: item.id, type: item.type, farmerName: item.farmerName,
+      barangayName: item.barangayName, details: item.details, date: item.date,
+      status: item.status, reviewRemarks: item.reviewRemarks, reviewedByName: item.reviewedBy,
+      reviewedAt: item.reviewedAt, headCount: item.headCount, auctionRecord: item.auctionRecord,
+      weight: item.weight, tagNumber: item.tagNumber, photoUrl: item.photoUrl,
+      photoName: item.photoName, inspectorPhotoUrl: item.inspectorPhotoUrl,
+      inspectorPhotoName: item.inspectorPhotoName,
+    };
+  }, [requestedRecordId, requestedRecordType, inventoryRecords, productionRecords, censusSubmissions, incidents]);
 
   // Unique Barangays for dropdown filter
   const uniqueBarangays = useMemo(() => {
@@ -811,9 +891,19 @@ function AdminDataValidationContent() {
 
       {/* Unified Record Inspection Dialog */}
       <RecordDetailDialog
-        record={recordDetailModal.data}
-        open={recordDetailModal.open}
-        onOpenChange={(open) => setRecordDetailModal((prev) => ({ ...prev, open }))}
+        record={recordDetailModal.data ?? notificationDetail}
+        open={recordDetailModal.open || notificationDetail !== null}
+        onOpenChange={(open) => {
+          setRecordDetailModal((prev) => ({ ...prev, open }));
+          if (!open && (searchParams.has("recordId") || searchParams.has("reviewId"))) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("recordType");
+            params.delete("recordId");
+            params.delete("reviewId");
+            const query = params.toString();
+            window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+          }
+        }}
         onConfirmAction={(action, remarks, itemIds) => {
           return handleConfirmAction(action, remarks, itemIds);
         }}

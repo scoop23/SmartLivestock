@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { Suspense, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Bell,
@@ -8,7 +9,6 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
-  Send,
   ShieldCheck,
   Search,
   X,
@@ -43,7 +43,8 @@ const TAB_PILLS: { value: TabKey; label: string }[] = [
   { value: "verified", label: "Verified / Resolved" },
 ];
 
-export default function SibatAlertsPage() {
+function SibatAlertsContent() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabKey>("pending");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -52,6 +53,18 @@ export default function SibatAlertsPage() {
 
   const [selectedRecord, setSelectedRecord] = useState<SibatValidationRecord | null>(null);
   const [isInspectionOpen, setIsInspectionOpen] = useState(false);
+  const recordTypeParam = searchParams.get("recordType");
+  const recordIdParam = searchParams.get("recordId");
+  const notificationRecord = !isLoading && recordTypeParam && recordIdParam
+    ? records.find((item) => item.reportType === recordTypeParam && item.id.endsWith(`-${recordIdParam}`)) ?? null
+    : null;
+  const activeRecord = selectedRecord ?? notificationRecord;
+  const clearRecordLink = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("recordType");
+    url.searchParams.delete("recordId");
+    window.history.replaceState({}, "", url.toString());
+  };
 
   const handleOpenInspection = (record: SibatValidationRecord) => {
     setSelectedRecord(record);
@@ -82,10 +95,11 @@ export default function SibatAlertsPage() {
           }
           setIsInspectionOpen(false);
           setSelectedRecord(null);
+          if (recordIdParam) clearRecordLink();
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           toast.error("Failed to update alert status", {
-            description: err?.response?.data?.error || err?.message || "Check network connection",
+            description: err instanceof Error ? err.message : "Check network connection",
           });
         },
       }
@@ -402,11 +416,25 @@ export default function SibatAlertsPage() {
 
       {/* Inspection Dialog */}
       <SibatInspectionDialog
-        record={selectedRecord}
-        open={isInspectionOpen}
-        onOpenChange={setIsInspectionOpen}
+        record={activeRecord}
+        open={isInspectionOpen || notificationRecord !== null}
+        onOpenChange={(open) => {
+          setIsInspectionOpen(open);
+          if (!open) {
+            setSelectedRecord(null);
+            if (recordIdParam) clearRecordLink();
+          }
+        }}
         onConfirmInspection={handleConfirmInspection}
       />
     </>
+  );
+}
+
+export default function SibatAlertsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading field alerts...</div>}>
+      <SibatAlertsContent />
+    </Suspense>
   );
 }
