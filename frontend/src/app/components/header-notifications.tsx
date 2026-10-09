@@ -78,16 +78,16 @@ interface BackendNotificationsResponse {
 const resolveNotificationLink = (notification: BackendNotification, variant: HeaderNotificationsProps["variant"]) => {
   if (variant === "admin") {
     const adminRoutes: Record<string, (id: number) => string> = {
-      livestock_inventory: (id) => `/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId=${id}`,
-      livestock_batch: (id) => `/admin/data-validation?domain=inventory&recordType=BATCH&recordId=${id}`,
-      production_record: (id) => `/admin/data-validation?domain=production&recordType=PRODUCTION&recordId=${id}`,
-      livestock_sale: (id) => `/admin/data-validation?domain=incidents&recordType=SALE&recordId=${id}`,
-      calving_record: (id) => `/admin/data-validation?domain=incidents&recordType=CALVING&recordId=${id}`,
-      disease_case: (id) => `/admin/data-validation?domain=incidents&recordType=DISEASE&recordId=${id}`,
-      mortality_record: (id) => `/admin/data-validation?domain=incidents&recordType=MORTALITY&recordId=${id}`,
+      livestock_inventory: (id) => `/data-validation?domain=inventory&recordType=INVENTORY&recordId=${id}`,
+      livestock_batch: (id) => `/data-validation?domain=inventory&recordType=BATCH&recordId=${id}`,
+      production_record: (id) => `/data-validation?domain=production&recordType=PRODUCTION&recordId=${id}`,
+      livestock_sale: (id) => `/data-validation?domain=incidents&recordType=SALE&recordId=${id}`,
+      calving_record: (id) => `/data-validation?domain=incidents&recordType=CALVING&recordId=${id}`,
+      disease_case: (id) => `/data-validation?domain=incidents&recordType=DISEASE&recordId=${id}`,
+      mortality_record: (id) => `/data-validation?domain=incidents&recordType=MORTALITY&recordId=${id}`,
       ownership_transfer: (id) => `/ownership-transfers?transferId=${id}`,
-      census_submission: (id) => `/admin/data-validation?domain=census&recordType=CENSUS&recordId=${id}`,
-      inspection: (id) => `/admin/data-validation?domain=incidents&recordType=INSPECTION&recordId=${id}`,
+      census_submission: (id) => `/data-validation?domain=census&recordType=CENSUS&recordId=${id}`,
+      inspection: (id) => `/data-validation?domain=incidents&recordType=INSPECTION&recordId=${id}`,
     };
     const routeFromEntity = notification.related_entity_type
       ? adminRoutes[notification.related_entity_type]
@@ -100,10 +100,52 @@ const resolveNotificationLink = (notification: BackendNotification, variant: Hea
     // their URL but predate the explicit record type parameter.
     const oldReviewId = notification.link?.match(/[?&]reviewId=(\d+)/)?.[1];
     if (oldReviewId && notification.title.includes("Livestock Entry Resubmitted")) {
-      return `/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId=${oldReviewId}`;
+      return `/data-validation?domain=inventory&recordType=INVENTORY&recordId=${oldReviewId}`;
     }
     if (oldReviewId && notification.title.includes("Herd Resubmitted")) {
-      return `/admin/data-validation?domain=inventory&recordType=BATCH&recordId=${oldReviewId}`;
+      return `/data-validation?domain=inventory&recordType=BATCH&recordId=${oldReviewId}`;
+    }
+
+    // Some older notifications have no related-entity ID. Keep their record
+    // type and message so the validation page can resolve an exact, unique row.
+    const diseaseId = notification.title.match(/\bDIS-(\d+)\b/i)?.[1];
+    if (diseaseId) {
+      return `/data-validation?domain=incidents&recordType=DISEASE&recordId=${diseaseId}`;
+    }
+    const mortalityId = notification.title.match(/\bMOR-(\d+)\b/i)?.[1];
+    if (mortalityId) {
+      return `/data-validation?domain=incidents&recordType=MORTALITY&recordId=${mortalityId}`;
+    }
+    const inspectionId = notification.message.match(/\bInspection\s*#(\d+)/i)?.[1]
+      ?? notification.title.match(/\bInspection\s*#(\d+)/i)?.[1];
+    if (inspectionId) {
+      return `/data-validation?domain=incidents&recordType=INSPECTION&recordId=${inspectionId}`;
+    }
+    const legacyKind = notification.title.toLowerCase().includes("census")
+      ? "CENSUS"
+      : notification.title.includes("Herd") || notification.title.includes("Batch")
+      ? "BATCH"
+      : notification.title.toLowerCase().includes("production")
+        ? "PRODUCTION"
+        : notification.title.toLowerCase().includes("calving") || notification.title.toLowerCase().includes("birth")
+          ? "CALVING"
+          : notification.title.toLowerCase().includes("sale")
+            ? "SALE"
+            : notification.title.toLowerCase().includes("livestock entry") || notification.title.toLowerCase().includes("livestock record")
+              ? "INVENTORY"
+              : null;
+    if (legacyKind && notification.link?.startsWith("/data-validation")) {
+      const domain = legacyKind === "CENSUS" ? "census"
+        : legacyKind === "INVENTORY" || legacyKind === "BATCH" ? "inventory"
+        : legacyKind === "PRODUCTION" ? "production" : "incidents";
+      const params = new URLSearchParams({ domain, legacyType: legacyKind, legacyMessage: notification.message });
+      return `/data-validation?${params.toString()}`;
+    }
+
+    // Older notifications may have persisted the route-group folder as a URL
+    // segment. Next.js route groups are omitted from public paths.
+    if (notification.link?.startsWith("/admin/data-validation")) {
+      return notification.link.replace("/admin/data-validation", "/data-validation");
     }
   }
 

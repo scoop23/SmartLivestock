@@ -333,7 +333,7 @@ def batch_detail(request, pk):
                 notification_type=Notification.NotificationType.GENERAL,
                 title="Herd Resubmitted for Verification",
                 message=f"{user.get_full_name() or user.username} resubmitted herd {batch.batch_code} for field review.",
-                link=f"/admin/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
+                link=f"/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
                 related_entity_type="livestock_batch",
                 related_entity_id=batch.pk,
             )
@@ -546,7 +546,7 @@ def batch_review(request, pk):
                 f"SIBAT verified herd {batch.batch_code} with "
                 f"{batch.animals.count()} animal(s)."
             ),
-            link=f"/admin/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
+            link=f"/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
             related_entity_type="livestock_batch",
             related_entity_id=batch.pk,
         )

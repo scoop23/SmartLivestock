@@ -176,7 +176,7 @@ def production_record_detail(request, pk):
                 priority=Notification.Priority.MEDIUM,
                 title="Production Record Resubmitted",
                 message=f"{user.get_full_name() or user.username} corrected a {record.get_production_type_display()} production record.",
-                link=f"/admin/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
+                link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
                 related_entity_type="production_record",
                 related_entity_id=record.pk,
             )
@@ -257,7 +257,7 @@ def review_production_record(request, pk):
                 f"{record.get_production_type_display()} from "
                 f"{record.created_by.get_full_name() or record.created_by.username}."
             ),
-            link=f"/admin/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
+            link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
             related_entity_type="production_record",
             related_entity_id=record.pk,
         )
@@ -395,7 +395,7 @@ def live_animal_sale_delete(request, pk):
                 related_entity_type="livestock_sale", related_entity_id=sale.pk)
             notify_role(role_name="ADMIN", notification_type=Notification.NotificationType.GENERAL,
                 title="Sale Resubmitted for Verification", message=f"Sale #{sale.pk} was corrected by its farmer.",
-                link=f"/admin/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+                link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
                 related_entity_type="livestock_sale", related_entity_id=sale.pk)
         return Response(serializer.data)
     if sale.status != "PENDING":
@@ -453,7 +453,7 @@ def review_live_animal_sale(request, pk):
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
             title="Verified Sale Awaiting MAO Approval", message=f"Sale #{sale.pk} was verified by SIBAT.",
-            link=f"/admin/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+            link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
             related_entity_type="livestock_sale", related_entity_id=sale.pk)
     serializer = LiveAnimalSaleSerializer(sale)
     return Response(serializer.data, status=200)
@@ -631,7 +631,7 @@ def review_calving_record(request, pk):
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
             title="Verified Calving Awaiting MAO Approval", message=f"Calving #{calving.pk} was verified by SIBAT.",
-            link=f"/admin/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
+            link=f"/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
             related_entity_type="calving_record", related_entity_id=calving.pk)
     serializer = CalvingRecordSerializer(calving)
     return Response(serializer.data, status=200)
@@ -712,7 +712,7 @@ def calving_detail(request, pk):
                 priority=Notification.Priority.MEDIUM,
                 title="Calving Record Resubmitted",
                 message=f"{user.get_full_name() or user.username} corrected a birth declaration for calf {calving.calf_tag or 'Newborn'}.",
-                link=f"/admin/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
+                link=f"/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
                 related_entity_type="calving_record",
                 related_entity_id=calving.pk,
             )

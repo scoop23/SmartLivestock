@@ -249,7 +249,7 @@ def inventory_detail(request, pk):
                 priority=Notification.Priority.MEDIUM,
                 title="Livestock Entry Resubmitted",
                 message=f"{farmer_name} corrected and resubmitted {animal_name} for field verification.",
-                link=f"/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId={inventory.pk}",
+                link=f"/data-validation?domain=inventory&recordType=INVENTORY&recordId={inventory.pk}",
                 related_entity_type="livestock_inventory",
                 related_entity_id=inventory.pk,
             )
@@ -325,7 +325,7 @@ def review_inventory(request, pk):
                 f"SIBAT verified {inventory.tag_number or inventory.livestock_type.name} "
                 f"from {inventory.farmer.user.get_full_name() or inventory.farmer.user.username}."
             ),
-            link=f"/admin/data-validation?domain=inventory&recordType=INVENTORY&recordId={inventory.pk}",
+            link=f"/data-validation?domain=inventory&recordType=INVENTORY&recordId={inventory.pk}",
             related_entity_type="livestock_inventory",
             related_entity_id=inventory.pk,
         )

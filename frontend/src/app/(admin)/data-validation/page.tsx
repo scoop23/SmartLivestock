@@ -96,8 +96,9 @@ function AdminDataValidationContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const requestedDomain = searchParams.get("domain");
-  const requestedRecordType = searchParams.get("recordType")?.toUpperCase() ?? null;
+  const requestedRecordType = (searchParams.get("recordType") ?? searchParams.get("legacyType"))?.toUpperCase() ?? null;
   const requestedRecordId = searchParams.get("recordId") ?? searchParams.get("reviewId");
+  const legacyMessage = searchParams.get("legacyMessage")?.toLocaleLowerCase() ?? "";
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Domain tab & filter states
@@ -130,11 +131,22 @@ function AdminDataValidationContent() {
   const { data: rawInventoryData } = useAdminInventoryRecords();
   const { data: rawIncidentData } = useAdminIncidentRecords();
 
-  const isInitialLoading =
-    rawCensusData === undefined ||
-    rawProductionData === undefined ||
-    rawInventoryData === undefined ||
-    rawIncidentData === undefined;
+  const notificationDataset = requestedRecordType === "INVENTORY" || requestedRecordType === "BATCH"
+    ? rawInventoryData
+    : requestedRecordType === "PRODUCTION"
+      ? rawProductionData
+      : requestedRecordType === "CENSUS"
+        ? rawCensusData
+        : requestedRecordType === "DISEASE" || requestedRecordType === "MORTALITY" ||
+          requestedRecordType === "SALE" || requestedRecordType === "CALVING" || requestedRecordType === "INSPECTION"
+          ? rawIncidentData
+          : undefined;
+  // A notification dialog only depends on its own dataset. An unrelated failed
+  // domain request must not keep the requested record hidden behind the loader.
+  const isInitialLoading = requestedRecordType
+    ? notificationDataset === undefined
+    : rawCensusData === undefined || rawProductionData === undefined ||
+      rawInventoryData === undefined || rawIncidentData === undefined;
 
   // Local state overlays for optimistic updates
   const [localCensusOverrides, setLocalCensusOverrides] = useState<
@@ -210,14 +222,24 @@ function AdminDataValidationContent() {
   // Notification links carry a canonical record type and ID. Resolve them
   // against the same authorized datasets used by the validation tables.
   const notificationDetail = useMemo<DetailRecordData | null>(() => {
-    if (!requestedRecordId || !requestedRecordType) return null;
-    const id = Number(requestedRecordId);
-    if (!Number.isFinite(id)) return null;
+    if (!requestedRecordType) return null;
+    const id = requestedRecordId ? Number(requestedRecordId) : null;
+    if (id !== null && !Number.isFinite(id)) return null;
 
     if (requestedRecordType === "INVENTORY" || requestedRecordType === "BATCH") {
-      const item = inventoryRecords.find(
-        (record) => record.rawId === id && Boolean(record.isBatch) === (requestedRecordType === "BATCH"),
-      );
+      const isBatch = requestedRecordType === "BATCH";
+      const candidates = inventoryRecords.filter((record) => Boolean(record.isBatch) === isBatch);
+      const item = id !== null
+        ? candidates.find((record) => record.rawId === id)
+        : candidates.filter((record) => {
+            const identity = (isBatch ? record.batchCode || record.tagNumber : record.tagNumber)?.toLocaleLowerCase();
+            return !!identity && legacyMessage.includes(identity);
+          }).length === 1
+          ? candidates.find((record) => {
+              const identity = (isBatch ? record.batchCode || record.tagNumber : record.tagNumber)?.toLocaleLowerCase();
+              return !!identity && legacyMessage.includes(identity);
+            })
+          : undefined;
       if (!item) return null;
       return {
         kind: "inventory", id: item.id, rawId: item.rawId, isBatch: item.isBatch,
@@ -236,7 +258,14 @@ function AdminDataValidationContent() {
     }
 
     if (requestedRecordType === "PRODUCTION") {
-      const item = productionRecords.find((record) => record.id === id);
+      const candidates = id !== null
+        ? productionRecords.filter((record) => record.id === id)
+        : productionRecords.filter((record) => {
+            const farmer = record.farmerName?.toLocaleLowerCase();
+            const amount = `${record.quantity} ${record.unit}`.toLocaleLowerCase();
+            return !!farmer && legacyMessage.includes(farmer) && legacyMessage.includes(amount);
+          });
+      const item = candidates.length === 1 ? candidates[0] : undefined;
       if (!item) return null;
       return {
         kind: "production", id: item.id, farmerName: item.farmerName || "Registered Farmer",
@@ -251,7 +280,14 @@ function AdminDataValidationContent() {
     }
 
     if (requestedRecordType === "CENSUS") {
-      const item = censusSubmissions.find((record) => String(record.id) === requestedRecordId);
+      const candidates = id !== null
+        ? censusSubmissions.filter((record) => String(record.id) === requestedRecordId)
+        : censusSubmissions.filter((record) => {
+            const barangay = record.barangay?.toLocaleLowerCase();
+            const period = `q${record.reportQuarter} ${record.reportYear}`.toLocaleLowerCase();
+            return !!barangay && legacyMessage.includes(barangay) && legacyMessage.includes(period);
+          });
+      const item = candidates.length === 1 ? candidates[0] : undefined;
       if (!item) return null;
       return {
         kind: "census", id: item.id, barangay: item.barangay,
@@ -269,9 +305,13 @@ function AdminDataValidationContent() {
     };
     const incidentType = incidentTypeByRecordType[requestedRecordType];
     if (!incidentType) return null;
-    const item = incidents.find(
-      (record) => record.type === incidentType && record.id.endsWith(`-${requestedRecordId}`),
-    );
+    const candidates = id !== null
+      ? incidents.filter((record) => record.type === incidentType && record.id.endsWith(`-${requestedRecordId}`))
+      : incidents.filter((record) => {
+          const tag = record.tagNumber?.toLocaleLowerCase();
+          return !!tag && legacyMessage.includes(tag);
+        });
+    const item = candidates.length === 1 ? candidates[0] : undefined;
     if (!item) return null;
     return {
       kind: "incident", id: item.id, type: item.type, farmerName: item.farmerName,
@@ -282,7 +322,7 @@ function AdminDataValidationContent() {
       photoName: item.photoName, inspectorPhotoUrl: item.inspectorPhotoUrl,
       inspectorPhotoName: item.inspectorPhotoName,
     };
-  }, [requestedRecordId, requestedRecordType, inventoryRecords, productionRecords, censusSubmissions, incidents]);
+  }, [requestedRecordId, requestedRecordType, legacyMessage, inventoryRecords, productionRecords, censusSubmissions, incidents]);
 
   // Unique Barangays for dropdown filter
   const uniqueBarangays = useMemo(() => {
@@ -895,11 +935,14 @@ function AdminDataValidationContent() {
         open={recordDetailModal.open || notificationDetail !== null}
         onOpenChange={(open) => {
           setRecordDetailModal((prev) => ({ ...prev, open }));
-          if (!open && (searchParams.has("recordId") || searchParams.has("reviewId"))) {
+          if (!open && (searchParams.has("recordId") || searchParams.has("reviewId") ||
+            searchParams.has("legacyType") || searchParams.has("legacyMessage"))) {
             const params = new URLSearchParams(searchParams.toString());
             params.delete("recordType");
             params.delete("recordId");
             params.delete("reviewId");
+            params.delete("legacyType");
+            params.delete("legacyMessage");
             const query = params.toString();
             window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
           }

@@ -329,6 +329,7 @@ export function RecordDetailDialog({
   };
 
   const domainMeta = getDomainMeta();
+  console.log(record);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
