@@ -50,6 +50,7 @@ export interface UnifiedSubmissionItem {
   feedType?: string;
   targetWeight?: number;
   animals?: any[];
+  photoUrl?: string | null;
   lastVaccinationDate?: string | null;
   operationalStatus?: string;
   damTag?: string;
@@ -87,6 +88,8 @@ export interface RawInventoryRecord {
   age?: { years: number; months: number; total_months: number } | null;
   age_classification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   weight?: number | null;
+  photo?: string | null;
+  photo_url?: string | null;
   last_vaccination_date?: string | null;
   operational_status?: string;
   status: UnifiedStatus;
@@ -244,6 +247,7 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     age: inv.age ?? null,
     ageClassification: inv.age_classification ?? "UNKNOWN",
     weight: inv.weight,
+    photoUrl: inv.photo_url || inv.photo || null,
     entryType: inv.entry_type,
     batchId: inv.batch ?? null,
     batchCode: inv.batch_code || undefined,
@@ -276,6 +280,7 @@ export const mapBatchToUnified = (b: any): UnifiedSubmissionItem => {
     breed: b.animals?.[0]?.breed || "Herd Roster",
     tagNumber: b.batch_code,
     weight: b.average_weight ? Number(b.average_weight) : null,
+    photoUrl: b.photo_url || b.photo || null,
     entryType: "BATCH",
     housingPen: b.housing_pen,
     feedType: b.feed_type,

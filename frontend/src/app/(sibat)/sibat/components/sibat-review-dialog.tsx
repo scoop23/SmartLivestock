@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Baby,
   Calendar,
@@ -52,6 +53,28 @@ interface SibatReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReviewSuccess?: () => void;
+}
+
+function AnimalPhoto({ submission }: { submission: UnifiedSubmissionItem }) {
+  const [failed, setFailed] = useState(false);
+  const emoji = submission.livestockTypeName?.toLowerCase().includes("cattle") ? "🐄" : "🐾";
+  return (
+    <div className="relative w-full max-h-64 aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-amber-50 flex items-center justify-center">
+      {submission.photoUrl && !failed ? (
+        <Image
+          src={submission.photoUrl}
+          alt={`${submission.livestockTypeName || "Livestock"}${submission.tagNumber ? `, ear tag ${submission.tagNumber}` : ""}`}
+          onError={() => setFailed(true)}
+          fill
+          unoptimized
+          sizes="(max-width: 768px) 100vw, 50vw"
+          className="size-full object-cover"
+        />
+      ) : (
+        <span className="text-5xl" aria-label="Livestock photo unavailable">{emoji}</span>
+      )}
+    </div>
+  );
 }
 
 export default function SibatReviewDialog({
@@ -224,6 +247,10 @@ export default function SibatReviewDialog({
                 <span>{submission.sourceType === "CALVING" ? "Birthing & Pedigree Information" : isBatch ? "Herd Information" : "Animal Identification"}</span>
               </div>
             </div>
+
+            {!isBatch && submission.sourceType === "INVENTORY" && (
+              <AnimalPhoto key={`${submission.id}-${submission.photoUrl || "no-photo"}`} submission={submission} />
+            )}
 
             <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 space-y-3 text-xs">
               {/* Farmer & Barangay */}
