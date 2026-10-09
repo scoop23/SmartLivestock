@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -52,10 +52,11 @@ export interface SibatInspectionData {
   verifiedBy: string;
   verifiedAt: string;
   tagConfirmed: boolean;
+  countConfirmed: boolean;
   confirmedCount: number;
   confirmedSymptoms: string[];
-  severity: SeverityLevel;
-  biosecurityAction: BiosecurityAction;
+  severity: SeverityLevel | "";
+  biosecurityAction: BiosecurityAction | "";
   remarks: string;
   temperatureCelsius?: number;
   inspectorPhotoFile?: File;
@@ -125,6 +126,7 @@ interface SibatInspectionDialogProps {
     action: "VERIFIED" | "FLAGGED" | "FALSE_ALARM",
     inspectionData: SibatInspectionData
   ) => void;
+  isSubmitting?: boolean;
 }
 
 export function SibatInspectionDialog({
@@ -132,42 +134,22 @@ export function SibatInspectionDialog({
   open,
   onOpenChange,
   onConfirmInspection,
+  isSubmitting = false,
 }: SibatInspectionDialogProps) {
-  const [tagConfirmed, setTagConfirmed] = useState<boolean>(true);
-  const [confirmedCount, setConfirmedCount] = useState<number>(1);
-  const [confirmedSymptoms, setConfirmedSymptoms] = useState<string[]>([]);
-  const [severity, setSeverity] = useState<SeverityLevel>("MODERATE");
-  const [biosecurityAction, setBiosecurityAction] = useState<BiosecurityAction>("PEN_ISOLATION");
-  const [temperature, setTemperature] = useState<string>("");
-  const [inspectorRemarks, setInspectorRemarks] = useState<string>("");
+  const [tagConfirmed, setTagConfirmed] = useState<boolean>(record?.inspection?.tagConfirmed ?? false);
+  const [countConfirmed, setCountConfirmed] = useState<boolean>(record?.inspection?.countConfirmed ?? false);
+  const [confirmedCount, setConfirmedCount] = useState<number>(record?.inspection?.confirmedCount ?? record?.reportedCount ?? 1);
+  const [confirmedSymptoms, setConfirmedSymptoms] = useState<string[]>(record?.inspection?.confirmedSymptoms ?? []);
+  const [severity, setSeverity] = useState<SeverityLevel | "">(record?.inspection?.severity ?? "");
+  const [biosecurityAction, setBiosecurityAction] = useState<BiosecurityAction | "">(record?.inspection?.biosecurityAction ?? "");
+  const [temperature, setTemperature] = useState<string>(record?.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "");
+  const [inspectorRemarks, setInspectorRemarks] = useState<string>(record?.inspection?.remarks ?? "");
   const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState<boolean>(false);
   const [inspectorPhotoUrl, setInspectorPhotoUrl] = useState<string>("");
   const [inspectorPhotoName, setInspectorPhotoName] = useState<string>("");
   const [inspectorPhotoFile, setInspectorPhotoFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    if (open && record) {
-      setTagConfirmed(record.inspection?.tagConfirmed ?? true);
-      setConfirmedCount(record.inspection?.confirmedCount ?? record.reportedCount ?? 1);
-      setConfirmedSymptoms(
-        record.inspection?.confirmedSymptoms && record.inspection.confirmedSymptoms.length > 0
-          ? record.inspection.confirmedSymptoms
-          : record.farmerSymptoms || []
-      );
-      setSeverity(record.inspection?.severity ?? "MODERATE");
-      setBiosecurityAction(
-        record.inspection?.biosecurityAction ??
-        (record.reportType === "MORTALITY" ? "BIOSECURE_BURIAL" : "PEN_ISOLATION")
-      );
-      setTemperature(
-        record.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : ""
-      );
-      setInspectorRemarks(record.inspection?.remarks ?? "");
-      setInspectorPhotoUrl("");
-      setInspectorPhotoName("");
-      setInspectorPhotoFile(null);
-    }
-  }, [open, record]);
+  const [confirmationAction, setConfirmationAction] = useState<"VERIFIED" | "FLAGGED" | null>(null);
+  const [validationError, setValidationError] = useState("");
 
   const handleInspectorPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -203,8 +185,18 @@ export function SibatInspectionDialog({
     );
   };
 
-  const handleAction = (status: "VERIFIED" | "FLAGGED" | "FALSE_ALARM") => {
-    const officerName = "Officer R. Mendoza (SIBAT Sector 1)";
+  const handleAction = (status: "VERIFIED" | "FLAGGED") => {
+    if (status === "VERIFIED" && (!tagConfirmed || !countConfirmed || confirmedCount < 1)) {
+      setValidationError("Confirm the physical tag and field count before sending this record to MAO.");
+      return;
+    }
+    setValidationError("");
+    setConfirmationAction(status);
+  };
+
+  const confirmAction = () => {
+    if (!confirmationAction || isSubmitting) return;
+    const status = confirmationAction;
     const nowIso = new Date().toLocaleString("en-US", {
       month: "short",
       day: "numeric",
@@ -214,9 +206,10 @@ export function SibatInspectionDialog({
     });
 
     const inspectionData: SibatInspectionData = {
-      verifiedBy: officerName,
+      verifiedBy: "Signed-in SIBAT account",
       verifiedAt: nowIso,
       tagConfirmed,
+      countConfirmed,
       confirmedCount,
       confirmedSymptoms,
       severity,
@@ -234,7 +227,7 @@ export function SibatInspectionDialog({
     };
 
     onConfirmInspection(record.id, status, inspectionData);
-    onOpenChange(false);
+    setConfirmationAction(null);
   };
 
   const getHeaderIcon = () => {
@@ -285,7 +278,7 @@ export function SibatInspectionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[96vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 bg-white border border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-screen max-w-none rounded-none p-4 sm:w-full sm:max-w-4xl sm:rounded-2xl sm:p-6 md:max-w-5xl lg:max-w-6xl lg:p-8 bg-white border border-slate-100 shadow-2xl max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto">
         {/* ══ POPUP HEADER ══ */}
         <DialogHeader className="mb-3 sm:mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -420,10 +413,10 @@ export function SibatInspectionDialog({
               {/* Farmer Initial Statement */}
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-1">
                 <span className="text-[10px] font-black text-slate-400 uppercase block">
-                  Farmer's Initial Statement:
+                  Farmer&apos;s Initial Statement:
                 </span>
                 <p className="text-slate-700 italic leading-relaxed text-xs sm:text-sm">
-                  "{record.farmerDescription}"
+                  &quot;{record.farmerDescription}&quot;
                 </p>
               </div>
 
@@ -643,7 +636,10 @@ export function SibatInspectionDialog({
                 <input
                   type="checkbox"
                   checked={tagConfirmed}
-                  onChange={(e) => setTagConfirmed(e.target.checked)}
+                  onChange={(e) => {
+                    setTagConfirmed(e.target.checked);
+                    setValidationError("");
+                  }}
                   className="size-5 rounded text-sky-700 focus:ring-sky-500 cursor-pointer"
                 />
                 <div>
@@ -656,18 +652,31 @@ export function SibatInspectionDialog({
                 </div>
               </label>
 
+              <label className="flex min-h-14 items-center gap-3 rounded-xl border border-sky-200 bg-white p-3.5">
+                <input
+                  type="checkbox"
+                  checked={countConfirmed}
+                  onChange={(event) => {
+                    setCountConfirmed(event.target.checked);
+                    setValidationError("");
+                  }}
+                  className="size-5 rounded text-sky-700 focus:ring-sky-500"
+                />
+                <span className="text-xs font-semibold text-slate-800">I counted the affected animal(s) in person.</span>
+              </label>
+
               {/* Confirmed Count & Temperature */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <label className="text-xs font-black text-slate-800">
-                    Confirmed Head Count:
+                    Field count (farmer reported: {record.reportedCount}):
                   </label>
                   <Input
                     type="number"
                     min={1}
                     value={confirmedCount}
-                    onChange={(e) => setConfirmedCount(parseInt(e.target.value) || 1)}
-                    className="bg-white border-sky-200 rounded-xl text-xs font-bold"
+                    onChange={(e) => setConfirmedCount(e.target.value === "" ? 0 : Number(e.target.value))}
+                    className="min-h-11 bg-white border-sky-200 rounded-xl text-sm font-bold"
                   />
                 </div>
                 <div className="space-y-1">
@@ -729,9 +738,10 @@ export function SibatInspectionDialog({
                   </label>
                   <select
                     value={severity}
-                    onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
+                    onChange={(e) => setSeverity(e.target.value as SeverityLevel | "")}
                     className="w-full bg-white border border-sky-200 rounded-xl h-10 px-3 text-xs font-bold text-slate-800 outline-none"
                   >
+                    <option value="">Not assessed</option>
                     <option value="MILD">Mild (Monitoring Required)</option>
                     <option value="MODERATE">Moderate (Treatment Needed)</option>
                     <option value="SEVERE">Severe (Urgent Intervention)</option>
@@ -745,9 +755,10 @@ export function SibatInspectionDialog({
                   </label>
                   <select
                     value={biosecurityAction}
-                    onChange={(e) => setBiosecurityAction(e.target.value as BiosecurityAction)}
+                    onChange={(e) => setBiosecurityAction(e.target.value as BiosecurityAction | "")}
                     className="w-full bg-white border border-sky-200 rounded-xl h-10 px-3 text-xs font-bold text-slate-800 outline-none"
                   >
+                    <option value="">No action recorded</option>
                     <option value="NONE">None / General Advisory</option>
                     <option value="PEN_ISOLATION">Temporary Pen Isolation (7 Days)</option>
                     <option value="TREATMENT_PRESCRIBED">Supportive Treatment Prescribed</option>
@@ -846,7 +857,7 @@ export function SibatInspectionDialog({
               <div className="p-2.5 bg-white rounded-xl border border-sky-200 flex items-center justify-between text-xs text-slate-600">
                 <span className="font-bold flex items-center gap-1.5">
                   <User className="size-3.5 text-sky-700" />
-                  Officer: R. Mendoza (SIBAT Sector 1)
+                  Review recorded under the signed-in SIBAT account
                 </span>
                 <span className="text-[10px] font-mono text-slate-500">Padre Garcia Registry</span>
               </div>
@@ -854,35 +865,46 @@ export function SibatInspectionDialog({
 
             {/* Decision Actions */}
             <div className="space-y-2 pt-1">
-              <Button
-                type="button"
-                onClick={() => handleAction("VERIFIED")}
-                className="w-full py-6 bg-[#1A365D] hover:bg-[#152c4d] text-white rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider shadow-lg hover:shadow-xl transition-all gap-2 cursor-pointer"
-              >
-                <ShieldCheck className="size-5 text-emerald-300" />
-                <span>Certify as VERIFIED ➔ Forward to MAO</span>
-              </Button>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleAction("FLAGGED")}
-                  className="py-4 bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 rounded-xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
-                >
-                  <AlertTriangle className="size-4" />
-                  <span>Refer for Vet Lab Sample</span>
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => onOpenChange(false)}
-                  className="py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black uppercase text-xs tracking-wider cursor-pointer"
-                >
-                  Cancel
-                </Button>
-              </div>
+              {validationError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-900">{validationError}</p>}
+              {confirmationAction ? (
+                <div role="alertdialog" aria-live="polite" className="space-y-3 rounded-xl border border-sky-300 bg-sky-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {confirmationAction === "VERIFIED"
+                      ? "Confirm the physical checks and send this record to MAO for its decision?"
+                      : "Flag this report as needing follow-up? The existing workflow will return it with your remarks."}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Button type="button" onClick={confirmAction} disabled={isSubmitting} className="min-h-11 bg-[#1A365D] text-white hover:bg-[#152c4d]">
+                      {isSubmitting ? "Sending..." : "Confirm and send"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setConfirmationAction(null)} disabled={isSubmitting} className="min-h-11">Go back</Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => handleAction("VERIFIED")}
+                    disabled={isSubmitting}
+                    className="min-h-12 w-full bg-[#1A365D] text-white hover:bg-[#152c4d] rounded-xl font-bold"
+                  >
+                    <ShieldCheck className="mr-2 size-5 text-emerald-300" />
+                    Confirm details and send to MAO
+                  </Button>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleAction("FLAGGED")}
+                      disabled={isSubmitting}
+                      className="min-h-11 bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100 rounded-xl font-semibold"
+                    >
+                      <AlertTriangle className="mr-2 size-4" />Flag a concern
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="min-h-11">Close without sending</Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -929,7 +951,7 @@ export function SibatInspectionDialog({
         <div className="p-4 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-slate-300">Observation:</span>
-            <span className="text-white font-medium italic">"{record.name}"</span>
+            <span className="text-white font-medium italic">&quot;{record.name}&quot;</span>
             <span className="text-slate-500">•</span>
             <span className="text-slate-400">Reported: {record.reportedDate}</span>
           </div>

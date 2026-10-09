@@ -41,7 +41,7 @@ import { cowHead } from "@lucide/lab";
 import { toast } from "sonner";
 import { DataTab } from "./data-overview-types";
 import { QrCodePass } from "@/components/qr-code-pass";
-import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
+import { livestockBatchQrPayload, livestockIdentityQrPayload } from "@/lib/livestock-identity";
 
 interface DataOverviewDetailModalProps {
   open: boolean;
@@ -76,6 +76,9 @@ export function DataOverviewDetailModal({
     : (record.cattleId || record.tagNumber || record.id);
   const livestockQrPayload = domain === "livestock" && !isBatch && /^\d+$/.test(String(record.id ?? ""))
     ? livestockIdentityQrPayload(record.id)
+    : undefined;
+  const batchQrPayload = isBatch && /^\d+$/.test(String(targetBatchId))
+    ? livestockBatchQrPayload(targetBatchId)
     : undefined;
 
   const handleCopyTag = () => {
@@ -752,18 +755,20 @@ export function DataOverviewDetailModal({
             <div className="space-y-4 animate-in fade-in-50 duration-200 flex flex-col items-center">
               <QrCodePass
                 code={identifierCode}
-                qrPayload={livestockQrPayload}
+                qrPayload={livestockQrPayload || batchQrPayload || ""}
                 title={livestockQrPayload
                   ? `${record.specie || "Livestock"} Identity QR`
                   : isBatch ? `Batch ${record.batchName || record.batchCode}` : `${record.specie || "Livestock"} Passport`}
                 subtitle={livestockQrPayload
                   ? "Resolves this animal through the authorized livestock registry"
-                  : "Municipal traceability pass"}
+                  : isBatch
+                    ? "Livestock batch identity · check current status in SmartLivestock"
+                    : "Record identifier · verify current information in SmartLivestock"}
                 ownerName={record.farmerName || record.enumerator || "Registered Farmer"}
                 barangay={record.barangay}
                 specie={record.specie}
                 headCount={record.totalAnimals || record.quantity}
-                status={record.status || (livestockQrPayload ? "RECORDED" : "APPROVED")}
+                status={isBatch ? record.reviewStatus || record.review_status || record.status || "PENDING" : record.status || "RECORDED"}
                 verifiedAt={record.reviewedAt || record.createdAt || record.date}
               />
             </div>

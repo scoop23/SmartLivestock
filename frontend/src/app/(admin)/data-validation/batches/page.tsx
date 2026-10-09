@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import api from "@/lib/axios";
 import { PageHeader } from "@/app/components/page-header";
 import { QrCodePass } from "@/components/qr-code-pass";
+import { livestockBatchQrPayload } from "@/lib/livestock-identity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1782,13 +1783,14 @@ function AdminBatchesDrilldownContent() {
             <div className="space-y-4">
               <QrCodePass
                 code={selectedBatch.batch_code}
+                qrPayload={livestockBatchQrPayload(selectedBatch.id)}
                 title={`Batch ${selectedBatch.batch_name}`}
-                subtitle="Official Municipal Biosecurity & Movement Clearance Pass"
+                subtitle="Livestock batch identity · check current status in SmartLivestock"
                 ownerName={selectedBatch.farmer_name}
                 barangay={selectedBatch.barangay_name}
                 specie={selectedBatch.livestock_type_name}
                 headCount={selectedBatch.animals?.length || selectedBatch.total_animals}
-                status={selectedBatch.review_status || "APPROVED"}
+                status={selectedBatch.review_status || selectedBatch.status || "PENDING"}
                 verifiedAt={selectedBatch.reviewed_at ? selectedBatch.reviewed_at.slice(0, 10) : undefined}
               />
 

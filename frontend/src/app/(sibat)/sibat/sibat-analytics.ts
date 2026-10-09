@@ -361,6 +361,7 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
           verifiedBy: dc.reviewed_by_name,
           verifiedAt: dc.reviewed_at ? dc.reviewed_at.replace("T", " ").slice(0, 16) : "",
           tagConfirmed: true,
+          countConfirmed: true,
           confirmedCount: dc.affected_count || 1,
           confirmedSymptoms: [dc.name],
           severity: "MODERATE" as SeverityLevel,
@@ -400,6 +401,7 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
           verifiedBy: m.reviewed_by_name,
           verifiedAt: m.reviewed_at ? m.reviewed_at.replace("T", " ").slice(0, 16) : "",
           tagConfirmed: true,
+          countConfirmed: true,
           confirmedCount: m.death_count || 1,
           confirmedSymptoms: [m.cause],
           severity: "CRITICAL" as SeverityLevel,
@@ -526,13 +528,8 @@ export async function fetchCensusSubmissions(): Promise<CensusSubmissionRecord[]
 }
 
 export async function fetchRawBatches(): Promise<any[]> {
-  try {
-    const response = await api.get("livestock/batches/");
-    return Array.isArray(response.data) ? response.data : [];
-  } catch (err) {
-    console.warn("Failed to fetch batches for SIBAT:", err);
-    return [];
-  }
+  const response = await api.get("livestock/batches/");
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 export async function fetchRawInventory(): Promise<RawInventoryRecord[]> {
@@ -816,6 +813,8 @@ export function useReviewClinicalHealth() {
 
       const formattedRemarks = [
         inspectionData.remarks,
+        `[Physical ear tag ${inspectionData.tagConfirmed ? "confirmed" : "not confirmed"}]`,
+        `[Field count ${inspectionData.countConfirmed ? "confirmed" : "not confirmed"}: ${inspectionData.confirmedCount}]`,
         inspectionData.severity ? `[Severity: ${inspectionData.severity}]` : "",
         inspectionData.biosecurityAction && inspectionData.biosecurityAction !== "NONE"
           ? `[Action: ${inspectionData.biosecurityAction}]`
@@ -924,6 +923,25 @@ export function useGetBarangays(scopeKey?: readonly unknown[]) {
     // results when the signed-in user's assignment or access scope changes.
     queryKey: ["barangay-records", ...(scopeKey ?? [])],
     queryFn: fetchBarangays,
+    staleTime: 60_000,
+  });
+}
+
+export async function fetchScopedSibatFarmers(): Promise<FarmerOptionItem[]> {
+  // Both endpoints apply the authenticated SIBAT barangay scope on the server.
+  const barangays = await fetchBarangays();
+  const farmerLists = await Promise.all(
+    barangays.map((barangay) => fetchFarmersByBarangay(barangay.id)),
+  );
+  const byId = new Map<number, FarmerOptionItem>();
+  farmerLists.flat().forEach((farmer) => byId.set(farmer.farmerId, farmer));
+  return [...byId.values()].sort((a, b) => a.farmerName.localeCompare(b.farmerName));
+}
+
+export function useSibatFarmers(scopeKey: string) {
+  return useQuery({
+    queryKey: ["sibat-farmers", scopeKey],
+    queryFn: fetchScopedSibatFarmers,
     staleTime: 60_000,
   });
 }

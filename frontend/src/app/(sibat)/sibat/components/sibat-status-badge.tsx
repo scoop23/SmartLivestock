@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock, Sparkles, AlertCircle, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Clock, Sparkles, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { UnifiedStatus } from "../sibat-analytics";
 
@@ -25,11 +25,11 @@ export default function SibatStatusBadge({
             className={`bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
           >
             <Clock className="size-3 text-amber-600" />
-            Needs Field Check
+            Waiting for review
           </Badge>
           {showSubtitle && (
             <span className="text-[10px] text-amber-700 font-medium">
-              Waiting for your on-farm visit
+              No SIBAT review decision has been recorded yet.
             </span>
           )}
         </div>
@@ -42,11 +42,11 @@ export default function SibatStatusBadge({
             className={`bg-sky-50 text-sky-800 border-sky-200/80 hover:bg-sky-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
           >
             <Sparkles className="size-3 text-sky-600" />
-            SIBAT Verified
+            Checked by SIBAT
           </Badge>
           {showSubtitle && (
             <span className="text-[10px] text-sky-700 font-medium">
-              Forwarded to MAO for final approval
+              Sent to MAO for the final municipal decision.
             </span>
           )}
         </div>
@@ -59,11 +59,11 @@ export default function SibatStatusBadge({
             className={`bg-emerald-50 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
           >
             <CheckCircle2 className="size-3 text-emerald-600" />
-            MAO Certified
+            Approved by MAO
           </Badge>
           {showSubtitle && (
             <span className="text-[10px] text-emerald-700 font-medium">
-              Officially recorded in municipal database
+              The municipal review is complete.
             </span>
           )}
         </div>
@@ -71,21 +71,41 @@ export default function SibatStatusBadge({
 
     case "SUBJECT_TO_REVISION":
     case "SUBJECT_FOR_REVISION":
-    case "REJECTED":
-    case "FLAGGED":
       return (
         <div className="inline-flex flex-col items-start gap-0.5">
           <Badge
             className={`bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
           >
             <AlertCircle className="size-3 text-rose-600" />
-            {normStatus === "REJECTED" ? "Rejected" : "Subject to Revision"}
+            Needs correction
           </Badge>
           {showSubtitle && (
             <span className="text-[10px] text-rose-700 font-medium">
-              {normStatus === "REJECTED" ? "Review closed" : "Returned for correction or field clarification"}
+              Read the reviewer remarks and correct the record before resubmitting.
             </span>
           )}
+        </div>
+      );
+
+    case "FLAGGED":
+      return (
+        <div className="inline-flex flex-col items-start gap-0.5">
+          <Badge className={`bg-amber-50 text-amber-900 border-amber-200 font-bold text-xs rounded-lg px-2 py-0.5 gap-1.5 ${className}`}>
+            <AlertCircle className="size-3 text-amber-700" />
+            Flagged for checking
+          </Badge>
+          {showSubtitle && <span className="text-[10px] text-amber-800 font-medium">A concern needs follow-up.</span>}
+        </div>
+      );
+
+    case "REJECTED":
+      return (
+        <div className="inline-flex flex-col items-start gap-0.5">
+          <Badge className={`bg-rose-50 text-rose-800 border-rose-200 font-bold text-xs rounded-lg px-2 py-0.5 gap-1.5 ${className}`}>
+            <AlertCircle className="size-3 text-rose-600" />
+            Rejected
+          </Badge>
+          {showSubtitle && <span className="text-[10px] text-rose-700 font-medium">The current review is closed. Check the remarks.</span>}
         </div>
       );
 

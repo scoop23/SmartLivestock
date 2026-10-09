@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 export interface QrCodePassProps {
   code: string;
-  qrPayload?: string;
+  qrPayload: string;
   title: string;
   subtitle?: string;
   ownerName?: string;
@@ -25,57 +25,65 @@ export function QrCodePass({
   code,
   qrPayload,
   title,
-  subtitle = "Municipal Biosecurity & Traceability Pass",
+  subtitle = "SmartLivestock record identity",
   ownerName,
   barangay,
   specie,
   headCount,
-  status = "APPROVED",
+  status = "RECORDED",
   verifiedAt,
   compact = false,
 }: QrCodePassProps) {
   const [copied, setCopied] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [qrState, setQrState] = useState<{ payload: string; url: string; error: string } | null>(null);
 
-  const verificationUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/data-validation/batches?batchId=${encodeURIComponent(code)}`
-      : `https://smartlivestock.padregarcia.gov.ph/data-validation/batches?batchId=${encodeURIComponent(code)}`;
-  // Individual livestock QR views pass the canonical inventory ID explicitly;
-  // legacy farmer/batch passes keep their existing URLs and separate meanings.
-  const qrValue = qrPayload || verificationUrl;
-
+  // Payload format is supplied by the record-specific caller to prevent ID-type mixups.
+  const qrValue = qrPayload;
+  const qrDataUrl = qrState?.payload === qrValue ? qrState.url : "";
+  const qrError = qrState?.payload === qrValue
+    ? qrState.error
+    : !code || !qrValue ? "This pass is missing its record identifier, so no QR code can be generated." : "";
+  const normalizedStatus = status.toUpperCase();
+  const statusColor = normalizedStatus === "APPROVED"
+    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : normalizedStatus === "VERIFIED"
+      ? "bg-sky-100 text-sky-800 border-sky-200"
+      : normalizedStatus === "PENDING"
+        ? "bg-amber-100 text-amber-900 border-amber-200"
+        : "bg-slate-100 text-slate-700 border-slate-200";
   useEffect(() => {
     let isMounted = true;
-    if (!code) return;
+    if (!code || !qrValue) {
+      return () => { isMounted = false; };
+    }
 
-    // Generate real, camera-scannable standard QR Code Data URL
     QRCode.toDataURL(qrValue, {
       width: compact ? 220 : 320,
       margin: 1,
-      color: {
-        dark: "#064E3B", // Deep emerald for biosecurity theme
-        light: "#FFFFFF",
-      },
-      errorCorrectionLevel: "H", // High error correction to allow center emblem
+      color: { dark: "#064E3B", light: "#FFFFFF" },
+      errorCorrectionLevel: "H",
     })
       .then((url) => {
-        if (isMounted) setQrDataUrl(url);
+        if (isMounted) setQrState({ payload: qrValue, url, error: "" });
       })
-      .catch((err) => {
-        console.error("Failed to generate QR Code:", err);
+      .catch((error: unknown) => {
+        if (isMounted) {
+          setQrState({ payload: qrValue, url: "", error: "QR generation failed. Copy the identifier and try again." });
+          console.error("Failed to generate QR Code:", error);
+        }
       });
 
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [code, qrValue, compact]);
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(qrValue);
-    setCopied(true);
-    toast.success(qrPayload ? "Livestock QR identifier copied" : "Verification link copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(qrValue);
+      setCopied(true);
+      toast.success("QR identifier copied");
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy this identifier. Select and copy it manually.");
+    }
   };
 
   const handleDownloadQr = () => {
@@ -103,20 +111,21 @@ export function QrCodePass({
           </div>
           <div>
             <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
-              Padre Garcia MAO Biosecurity
+              SmartLivestock record identity
             </p>
             <h4 className="text-xs font-black text-slate-900 leading-tight">
               {title}
             </h4>
+            <p className="text-[10px] text-slate-500">{subtitle}</p>
           </div>
         </div>
 
-        <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-black uppercase px-2 py-0.5">
+        <Badge className={`${statusColor} border text-[9px] font-black uppercase px-2 py-0.5`}>
           {status}
         </Badge>
       </div>
 
-      {/* ── Guidance Note: How This Digital QR Pass Works ── */}
+      {/* ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Guidance Note: How This Digital QR Pass Works ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ */}
       <div className="w-full text-left p-3 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-slate-50 border border-emerald-200/90 shadow-2xs space-y-1">
         <div className="flex items-center gap-1.5 font-bold text-emerald-950 text-xs">
           <Info className="size-3.5 text-emerald-700 shrink-0" />
@@ -136,7 +145,7 @@ export function QrCodePass({
           </span>
           <span className="flex items-center gap-1">
             <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-            MAO reviews movement separately
+            Movement approval is reviewed separately
           </span>
         </div>
       </div>
@@ -148,7 +157,7 @@ export function QrCodePass({
             <div className="relative">
               <img
                 src={qrDataUrl}
-                alt={`Official QR Code for ${code}`}
+                alt={`QR code for ${code}`}
                 className={compact ? "size-36 object-contain" : "size-44 sm:size-48 object-contain"}
               />
               {/* Center Seal Emblem */}
@@ -168,10 +177,11 @@ export function QrCodePass({
         </div>
 
         {/* Code Identifier Below QR */}
-        <p className="mt-2 text-xs font-mono font-black text-emerald-950 tracking-wider">
+        <p className="mt-2 break-all text-xs font-mono font-black text-emerald-950 tracking-wider">
           {code}
         </p>
       </div>
+      {qrError && <p role="alert" className="w-full text-left text-xs font-medium text-rose-700">{qrError}</p>}
 
       {/* Metadata Pill Grid */}
       <div className="w-full grid grid-cols-2 gap-2 text-left text-xs pt-1">
@@ -216,10 +226,10 @@ export function QrCodePass({
       <div className="w-full flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100">
         <span className="flex items-center gap-1 text-emerald-700 font-bold">
           <ShieldCheck className="size-3.5" />
-          Camera-Scannable at Municipal Checkpoints
+          Registry identity only
         </span>
         <span className="font-mono text-slate-400">
-          {verifiedAt || "Certified 2026"}
+          {verifiedAt || "Record identifier only"}
         </span>
       </div>
 
@@ -229,18 +239,19 @@ export function QrCodePass({
           variant="outline"
           size="sm"
           onClick={handleCopyLink}
-          className="flex-1 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5 h-8.5"
-          title="Copy direct verification link"
+          className="min-h-11 flex-1 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5"
+          title="Copy the QR identifier"
         >
           {copied ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
-          <span>{copied ? "Copied" : "Copy Link"}</span>
+          <span>{copied ? "Copied" : "Copy code"}</span>
         </Button>
 
         <Button
           variant="outline"
           size="sm"
           onClick={handleDownloadQr}
-          className="flex-1 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5 h-8.5"
+          disabled={!qrDataUrl || !qrValue}
+          className="min-h-11 flex-1 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5"
           title="Download PNG barcode image"
         >
           <Download className="size-3 text-slate-600" />
@@ -250,8 +261,8 @@ export function QrCodePass({
         <Button
           size="sm"
           onClick={handlePrint}
-          className="rounded-xl text-xs font-bold bg-[#2D5A27] hover:bg-[#23461f] text-white gap-1.5 h-8.5 px-3 shadow-2xs"
-          title="Print official clearance certificate"
+          className="min-h-11 rounded-xl text-xs font-bold bg-[#2D5A27] hover:bg-[#23461f] text-white gap-1.5 px-3 shadow-2xs"
+          title="Print record QR"
         >
           <Printer className="size-3" />
           <span>Print</span>

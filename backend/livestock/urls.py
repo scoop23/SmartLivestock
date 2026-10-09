@@ -10,6 +10,7 @@ urlpatterns = [
 
     # Livestock Herds
     path("batches/", views.batch_list_create, name="batch_list_create"),
+    path("batches/lookup/", views.batch_lookup, name="batch_lookup"),
     path("batches/<int:pk>/", views.batch_detail, name="batch_detail"),
     path("batches/<int:pk>/animals/", views.batch_add_animals, name="batch_add_animals"),
     path("batches/<int:pk>/review/", views.batch_review, name="batch_review"),

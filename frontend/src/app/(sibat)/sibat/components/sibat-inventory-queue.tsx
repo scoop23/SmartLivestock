@@ -44,9 +44,9 @@ const STATUS_TABS: Array<{
   emoji: string;
 }> = [
   { value: "all", label: "All Animals", emoji: "📋" },
-  { value: "pending", label: "Needs Tag Check", emoji: "⏳" },
-  { value: "verified", label: "Verified / In MAO Queue", emoji: "✨" },
-  { value: "decided", label: "MAO Certified", emoji: "✅" },
+  { value: "pending", label: "Waiting for field check", emoji: "⏳" },
+  { value: "verified", label: "Checked by SIBAT · Sent to MAO", emoji: "✨" },
+  { value: "decided", label: "Decision / correction", emoji: "✅" },
 ];
 
 const getAnimalEmoji = (typeStr: string = "") => {

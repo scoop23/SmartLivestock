@@ -1,403 +1,526 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+
+
+import React, { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  FileSpreadsheet,
-  Layers,
-  Milk,
-  Plus,
-  Shield,
-  Stethoscope,
-  Tag,
-  AlertTriangle,
-  ClipboardCheck,
-  Sparkles,
-  MapPin,
-  CheckCircle2,
-  QrCode,
-} from "lucide-react";
+import axios from "axios";
+
 import { useAuth } from "@/contexts/auth-context";
-import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
+
 import { toast } from "sonner";
+
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
-import SibatKpiSection from "./components/sibat-kpi-section";
+
+
 import SibatHealthQueue from "./components/sibat-health-queue";
 import SibatProductionQueue from "./components/sibat-production-queue";
+
 import SibatInventoryQueue from "./components/sibat-inventory-queue";
+
 import SibatReviewDialog from "./components/sibat-review-dialog";
-import {
-  SibatInspectionDialog,
-  type SibatValidationRecord,
-  type SibatInspectionData,
-} from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
-import CensusDetailsDialog from "./census-details-dialog";
-import CensusSubmissionsView from "./census-submissions-view";
 
 import {
+
+  SibatInspectionDialog,
+
+  type SibatValidationRecord,
+
+  type SibatInspectionData,
+
+} from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
+
+import CensusDetailsDialog from "./census-details-dialog";
+
+import CensusSubmissionsView from "./census-submissions-view";
+import { SibatWorkspaceSummary } from "./components/sibat-workspace-summary";
+import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
+
+
+import {
+
   useSibatSubmissions,
+
   useCensusSubmission,
+
   useClinicalHealthRecords,
+
   useReviewClinicalHealth,
+  useSibatFarmers,
   type UnifiedSubmissionItem,
+
   type CensusSubmissionRecord,
+
 } from "./sibat-analytics";
 
-type SibatActiveTab = "health" | "production" | "inventory" | "census";
+
+
+type SibatActiveTab = "inventory" | "production" | "health" | "calving" | "census";
+
 
 function SibatPortalContent() {
+
   const { user, isLoading: isLoadingAccount } = useAuth();
+
   const queryClient = useQueryClient();
+
   const searchParams = useSearchParams();
+
   const router = useRouter();
 
+
+
   // Active Tab: "health" | "production" | "inventory" | "census"
+
   const tabParam = searchParams.get("tab") as SibatActiveTab | null;
-  const [activeTab, setActiveTab] = useState<SibatActiveTab>(
-    tabParam && ["health", "production", "inventory", "census"].includes(tabParam)
-      ? tabParam
-      : "health"
-  );
-
-  useEffect(() => {
-    if (tabParam && ["health", "production", "inventory", "census"].includes(tabParam)) {
-      setActiveTab(tabParam);
-    }
-  }, [tabParam]);
-
+  const tabOptions: SibatActiveTab[] = ["inventory", "production", "health", "calving", "census"];
+  const [activeTabState, setActiveTabState] = useState<SibatActiveTab>("health");
+  const activeTab = tabParam && tabOptions.includes(tabParam) ? tabParam : activeTabState;
+  const [isFarmerFinderOpen, setIsFarmerFinderOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const handleTabChange = (newTab: SibatActiveTab) => {
-    setActiveTab(newTab);
+
+    setActiveTabState(newTab);
     const url = new URL(window.location.href);
+
     url.searchParams.set("tab", newTab);
+
     window.history.replaceState({}, "", url.toString());
   };
 
-  // ── 1. Clinical Health & Mortality State ──
-  const { records: healthRecords, isLoading: isLoadingHealth } = useClinicalHealthRecords();
+
+
+  // Clinical health and mortality review state.
+
+  const { records: healthRecords, isLoading: isLoadingHealth, isError: isHealthError, refetch: refetchHealth } = useClinicalHealthRecords();
   const [selectedHealthRecord, setSelectedHealthRecord] = useState<SibatValidationRecord | null>(null);
+
   const [isInspectionDialogOpen, setIsInspectionDialogOpen] = useState(false);
+
   const [healthStatusFilter, setHealthStatusFilter] = useState("ALL");
+
   const [healthTypeFilter, setHealthTypeFilter] = useState<"ALL" | "DISEASE" | "MORTALITY">("ALL");
+
   const [healthBarangayFilter, setHealthBarangayFilter] = useState("ALL");
+
   const [healthSearchQuery, setHealthSearchQuery] = useState("");
+
+
 
   const reviewHealthMutation = useReviewClinicalHealth();
 
-  // ── 2. Production & Inventory State ──
-  const { submissions, isLoading: isLoadingSubmissions } = useSibatSubmissions();
+
+
+  // Production and inventory review state.
+
+  const { submissions, isLoading: isLoadingSubmissions, isError: isSubmissionsError, refetch: refetchSubmissions } = useSibatSubmissions();
+  const scopeKey = `${user?.email ?? "unknown"}:${user?.accessScope ?? ""}:${user?.assignedBarangayId ?? ""}`;
+  const { data: farmers = [], isLoading: isLoadingFarmers, isError: isFarmersError, refetch: refetchFarmers } = useSibatFarmers(scopeKey);
   const [selectedSubmissionForReview, setSelectedSubmissionForReview] = useState<UnifiedSubmissionItem | null>(null);
 
+
+
   // Production Filters
+
   const [prodStatusFilter, setProdStatusFilter] = useState<"all" | "pending" | "verified" | "decided">("all");
+
   const [prodSearchQuery, setProdSearchQuery] = useState("");
+
   const [prodTypeFilter, setProdTypeFilter] = useState("ALL");
 
+
+
   // Inventory Filters
+
   const [invStatusFilter, setInvStatusFilter] = useState<"all" | "pending" | "verified" | "decided">("all");
+
   const [invSearchQuery, setInvSearchQuery] = useState("");
+
   const [invEntryTypeFilter, setInvEntryTypeFilter] = useState<"ALL" | "INDIVIDUAL" | "BATCH">("ALL");
 
-  // ── 3. Census State ──
-  const { data: censuses = [], isLoading: isLoadingCensus } = useCensusSubmission();
+
+
+  // Census review state.
+
+  const { data: censuses = [], isLoading: isLoadingCensus, isError: isCensusError, refetch: refetchCensus } = useCensusSubmission();
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
+
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
+
+
   // Health Inspection Dialog triggers
+
   const handleOpenInspection = (record: SibatValidationRecord) => {
+
     setSelectedHealthRecord(record);
+
     setIsInspectionDialogOpen(true);
+
   };
+
+
 
   const handleConfirmInspection = (
+
     recordId: string,
+
     action: "VERIFIED" | "FLAGGED" | "FALSE_ALARM",
+
     inspectionData: SibatInspectionData
+
   ) => {
+
     reviewHealthMutation.mutate(
+
       {
+
         recordId,
+
         action,
+
         inspectionData,
+
       },
+
       {
+
         onSuccess: () => {
+
           if (action === "VERIFIED") {
-            toast.success(`Record ${recordId} verified! ✨`, {
+
+            toast.success(`Record ${recordId} verified.`, {
+
               description: "Status updated to VERIFIED. Forwarded to MAO queue for municipal sign-off.",
+
             });
+
           } else if (action === "FLAGGED") {
-            toast.warning(`Record ${recordId} flagged for vet review.`, {
-              description: "Quarantine & diagnostic follow-up logged.",
+            toast.warning(`Record ${recordId} marked as needing follow-up.`, {
+              description: "The report was returned with your field remarks for the next review step.",
             });
+
           } else {
+
             toast.info(`Record ${recordId} marked as discrepancy / false alarm.`);
+
           }
+
           setIsInspectionDialogOpen(false);
+
           setSelectedHealthRecord(null);
+
         },
-        onError: (err: any) => {
+
+        onError: (err: unknown) => {
+
           toast.error("Failed to submit review", {
-            description: err?.response?.data?.error || err?.message || "Check network connection",
+
+            description: axios.isAxiosError(err) ? err.response?.data?.error || err.message || "Check network connection" : "Check network connection and try again.",
+
           });
+
         },
+
       }
+
     );
+
   };
+
+
 
   // Census dialog callbacks
+
   const handleOpenNewCensus = () => {
+
     router.push("/sibat/census/submit");
+
   };
 
+
+
   const handleOpenCensusRevision = (submission: CensusSubmissionRecord) => {
+
     setSelectedCensusForDetail(null);
+
     router.push("/sibat/census/submit?revise=" + submission.id);
+
   };
+
+
 
   const handleReviewSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
+
     queryClient.invalidateQueries({ queryKey: ["sibat-calving-records"] });
+
     queryClient.invalidateQueries({ queryKey: ["calving_records"] });
+
     queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
+
   };
 
+  const handleOpenSubmission = (item: UnifiedSubmissionItem) => {
+    setSelectedSubmissionForReview(item);
+    const tab: SibatActiveTab = item.sourceType === "INVENTORY" || item.sourceType === "BATCH"
+      ? "inventory"
+      : item.sourceType === "CALVING"
+        ? "calving"
+        : "production";
+    handleTabChange(tab);
+  };
+
+  const handleReviewRecords = () => {
+    const pendingHealth = healthRecords.find((record) => record.status === "PENDING");
+    if (pendingHealth) {
+      handleOpenInspection(pendingHealth);
+      handleTabChange("health");
+      return;
+    }
+    const pendingSubmission = submissions.find((item) => item.status === "PENDING");
+    if (pendingSubmission) {
+      handleOpenSubmission(pendingSubmission);
+      return;
+    }
+    handleTabChange("census");
+  };
+
+  const handleRefreshQueues = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchHealth(), refetchSubmissions(), refetchCensus(), refetchFarmers()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+
   // Counts for Badges
+
   const pendingHealthCount = healthRecords.filter((r) => r.status === "PENDING").length;
+
   const pendingProdCount = submissions.filter((s) => (s.sourceType === "PRODUCTION" || s.sourceType === "CALVING" || s.sourceType === "SALE") && s.status === "PENDING").length;
   const pendingInvCount = submissions.filter((s) => (s.sourceType === "INVENTORY" || s.sourceType === "BATCH") && s.status === "PENDING").length;
+  const hasDataError = isHealthError || isSubmissionsError || isCensusError || isFarmersError;
+
 
   return (
+
     <>
-      <PageHeader
-        title="Field Inspection Hub"
-        subtitle="Padre Garcia Municipal Field Sector — On-Farm Inspections, Yield Calibrations & Barangay Census"
-        variant="sibat"
-        maxWidthClass="w-full"
-      />
 
-      {!isLoadingAccount && user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
-        <div role="alert" className="mx-4 my-4 rounded-xl bg-amber-50 p-4 text-amber-950 md:mx-8">
-          <p className="font-semibold">Barangay assignment required</p>
-          <p className="mt-1 text-sm">Your account has no assigned barangay, so private farmer logs and review queues are unavailable. Ask MAO/Admin to set your barangay or access scope in User Management, then refresh this page. Existing farmer records have not been removed.</p>
-        </div>
-      )}
-      {user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && user.assignedBarangayName && (
-        <p className="px-4 pt-3 text-sm text-slate-600 md:px-8">Assigned barangay: <strong>{user.assignedBarangayName}</strong>. Private farmer logs are limited to this barangay.</p>
-      )}
-
-      {/* ═══ Warm, Friendly Welcome Banner ═══ */}
-      <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 border-b border-amber-500/20 shadow-xs">
-        <div className="w-full px-4 md:px-8 py-3.5 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-[#1A365D] text-amber-300 flex items-center justify-center font-black shrink-0 shadow-xs text-lg">
-              👋
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-sm font-black text-[#1A365D]">
-                  Welcome back, SIBAT Field Officer!
-                </p>
-                <span className="bg-[#1A365D]/15 text-[#1A365D] font-extrabold text-[10px] px-2 py-0.5 rounded-full">
-                  🌾 Padre Garcia Field Sector
-                </span>
-              </div>
-              <p className="text-xs font-semibold text-[#1A365D]/80">
-                Tip: When you verify records on the farm, they are instantly sent to MAO for municipal sign-off.
-              </p>
-            </div>
+      <div className="mx-auto w-full max-w-7xl space-y-5 p-3 sm:p-5 lg:p-8">
+        {!isLoadingAccount && user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
+          <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+            <p className="font-semibold">Barangay assignment required</p>
+            <p className="mt-1 text-sm">Private farmer records and review queues are unavailable until MAO/Admin assigns a barangay or access scope.</p>
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => setIsScannerOpen(true)}
-              className="bg-white hover:bg-slate-50 text-[#1A365D] border border-amber-400/50 text-xs font-bold rounded-2xl shadow-xs gap-1.5 h-9 px-4 cursor-pointer"
-            >
-              <QrCode className="size-3.5 text-[#1A365D]" />
-              Scan Field Pass
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={handleOpenNewCensus}
-              className="bg-[#1A365D] hover:bg-[#132742] text-white text-xs font-bold rounded-2xl shadow-xs gap-1.5 h-9 px-4 cursor-pointer"
-            >
-              <Plus className="size-3.5 text-amber-300" />
-              New Census Survey
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 md:p-8 w-full space-y-6">
-        {/* ═══ Live High-Level Telemetry ═══ */}
-        <SibatKpiSection
-          healthRecords={healthRecords}
+        <SibatWorkspaceSummary
+          scopeLabel={user?.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : user?.assignedBarangayName || "No barangay assigned"}
           submissions={submissions}
+          healthRecords={healthRecords}
           censuses={censuses}
-          isLoadingHealth={isLoadingHealth}
-          isLoadingSubmissions={isLoadingSubmissions}
-          isLoadingCensus={isLoadingCensus}
-          onSelectTab={handleTabChange}
+          isLoading={isLoadingHealth || isLoadingSubmissions || isLoadingCensus}
+          isRefreshing={isRefreshing}
+          onReviewRecords={handleReviewRecords}
+          onFindFarmer={() => setIsFarmerFinderOpen(true)}
+          onScan={() => setIsScannerOpen(true)}
+          onNewCensus={handleOpenNewCensus}
+          onRefresh={handleRefreshQueues}
         />
 
-        {/* ═══ 4 Master Operational Tabs (Casual & Friendly) ═══ */}
-        <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 rounded-3xl max-w-full overflow-x-auto border border-slate-200">
-          {/* Tab 1: Clinical Health */}
-          <button
-            type="button"
-            onClick={() => handleTabChange("health")}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === "health"
-                ? "bg-[#1A365D] text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span className="text-sm">🩺</span>
-            <span>Health & Illness Visits</span>
-            {pendingHealthCount > 0 && (
-              <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">
-                {pendingHealthCount}
-              </span>
-            )}
-          </button>
+        {hasDataError && (
+          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-950 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Some field data could not be loaded.</p>
+              <p className="mt-1 text-xs">Refresh to retry. A failed request is not shown as an empty or completed queue.</p>
+            </div>
+            <Button type="button" variant="outline" onClick={handleRefreshQueues} disabled={isRefreshing} className="min-h-11 shrink-0">Try again</Button>
+          </div>
+        )}
 
-          {/* Tab 2: Production Logs */}
-          <button
-            type="button"
-            onClick={() => handleTabChange("production")}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === "production"
-                ? "bg-[#1A365D] text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span className="text-sm">🌾</span>
-            <span>Harvest & Calving Logs</span>
-            {pendingProdCount > 0 && (
-              <span className="bg-amber-400 text-slate-900 text-[10px] px-2 py-0.5 rounded-full font-black">
-                {pendingProdCount}
-              </span>
-            )}
-          </button>
-
-          {/* Tab 3: Livestock Inventory */}
-          <button
-            type="button"
-            onClick={() => handleTabChange("inventory")}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === "inventory"
-                ? "bg-[#1A365D] text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span className="text-sm">🏷️</span>
-            <span>Animal Ear Tagging</span>
-            {pendingInvCount > 0 && (
-              <span className="bg-amber-400 text-slate-900 text-[10px] px-2 py-0.5 rounded-full font-black">
-                {pendingInvCount}
-              </span>
-            )}
-          </button>
-
-          {/* Tab 4: Quarterly Census */}
-          <button
-            type="button"
-            onClick={() => handleTabChange("census")}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === "census"
-                ? "bg-[#1A365D] text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span className="text-sm">📋</span>
-            <span>Barangay Census Surveys ({censuses.length})</span>
-          </button>
+        <div role="tablist" aria-label="Field review tasks" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {([
+            { id: "inventory", label: "Livestock registration", count: pendingInvCount },
+            { id: "production", label: "Production & sales", count: pendingProdCount },
+            { id: "health", label: "Health & mortality", count: pendingHealthCount },
+            { id: "calving", label: "Calving & births", count: submissions.filter((item) => item.sourceType === "CALVING" && item.status === "PENDING").length },
+            { id: "census", label: "Census", count: censuses.filter((item) => item.status === "PENDING").length },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`flex min-h-12 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-colors sm:text-sm ${activeTab === tab.id ? "border-[#1A365D] bg-[#1A365D] text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
+            >
+              <span className="min-w-0 break-words">{tab.label}</span>
+              {tab.count > 0 && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${activeTab === tab.id ? "bg-white/15" : "bg-slate-100 text-slate-700"}`}>{tab.count}</span>}
+            </button>
+          ))}
         </div>
 
-        {/* ═══ TAB 1 VIEW: Clinical Health & Mortality ═══ */}
+        {/* Review queues stay connected to the existing scoped APIs and mutations. */}
         {activeTab === "health" && (
+
           <SibatHealthQueue
+
             records={healthRecords}
+
             isLoading={isLoadingHealth}
+
             onInspectRecord={handleOpenInspection}
+
             statusFilter={healthStatusFilter}
+
             onStatusFilterChange={setHealthStatusFilter}
+
             typeFilter={healthTypeFilter}
+
             onTypeFilterChange={setHealthTypeFilter}
+
             barangayFilter={healthBarangayFilter}
+
             onBarangayFilterChange={setHealthBarangayFilter}
+
             searchQuery={healthSearchQuery}
+
             onSearchChange={setHealthSearchQuery}
+
           />
+
         )}
 
-        {/* ═══ TAB 2 VIEW: Production Logs ═══ */}
-        {activeTab === "production" && (
+
+
+        {/* Production records */}
+
+        {(activeTab === "production" || activeTab === "calving") && (
           <SibatProductionQueue
+
             submissions={submissions}
+
             isLoading={isLoadingSubmissions}
-            onReview={(item) => setSelectedSubmissionForReview(item)}
+
+            onReview={handleOpenSubmission}
             statusFilter={prodStatusFilter}
+
             onStatusFilterChange={setProdStatusFilter}
+
             searchQuery={prodSearchQuery}
+
             onSearchChange={setProdSearchQuery}
-            prodTypeFilter={prodTypeFilter}
-            onProdTypeFilterChange={setProdTypeFilter}
+
+            prodTypeFilter={activeTab === "calving" ? "Calving" : prodTypeFilter}
+            onProdTypeFilterChange={(type) => {
+              setProdTypeFilter(type);
+              handleTabChange(type === "Calving" ? "calving" : "production");
+            }}
           />
+
         )}
 
-        {/* ═══ TAB 3 VIEW: Livestock & Ear Tagging ═══ */}
+
+
+        {/* Livestock registration records */}
+
         {activeTab === "inventory" && (
+
           <SibatInventoryQueue
+
             submissions={submissions}
+
             isLoading={isLoadingSubmissions}
-            onReview={(item) => setSelectedSubmissionForReview(item)}
+
+            onReview={handleOpenSubmission}
             statusFilter={invStatusFilter}
+
             onStatusFilterChange={setInvStatusFilter}
+
             searchQuery={invSearchQuery}
+
             onSearchChange={setInvSearchQuery}
+
             entryTypeFilter={invEntryTypeFilter}
+
             onEntryTypeFilterChange={setInvEntryTypeFilter}
+
           />
+
         )}
 
-        {/* ═══ TAB 4 VIEW: Quarterly Census Surveys ═══ */}
+
+
+        {/* Quarterly census records */}
+
         {activeTab === "census" && (
+
           <CensusSubmissionsView
+
             censusSubmissions={censuses}
+
             onOpenSubmitDialog={handleOpenNewCensus}
+
             onSelectCensusForDetail={(census) => setSelectedCensusForDetail(census)}
+
           />
+
         )}
+
       </div>
 
-      {/* ═══ Clinical Health Physical Inspection Modal ═══ */}
+
+
+      {/* Clinical health physical inspection dialog */}
+
       <SibatInspectionDialog
+        key={selectedHealthRecord?.id ?? "empty"}
         record={selectedHealthRecord}
         open={isInspectionDialogOpen}
-        onOpenChange={setIsInspectionDialogOpen}
+        onOpenChange={(open) => {
+          setIsInspectionDialogOpen(open);
+          if (!open) setSelectedHealthRecord(null);
+        }}
         onConfirmInspection={handleConfirmInspection}
+        isSubmitting={reviewHealthMutation.isPending}
       />
 
-      {/* ═══ Production & Inventory Review Dialog ═══ */}
+
+
+      {/* Production and inventory review dialog */}
+
       <SibatReviewDialog
+
         submission={selectedSubmissionForReview}
+
         open={selectedSubmissionForReview !== null}
+
         onOpenChange={(open) => {
+
           if (!open) setSelectedSubmissionForReview(null);
+
         }}
+
         onReviewSuccess={handleReviewSuccess}
       />
 
-      {/* ═══ Census Survey & Details Dialogs ═══ */}
+      <SibatFarmerFinderDialog
+        open={isFarmerFinderOpen}
+        onOpenChange={setIsFarmerFinderOpen}
+        farmers={farmers}
+        submissions={submissions}
+        onOpenRecord={handleOpenSubmission}
+        isLoading={isLoadingFarmers}
+      />
 
 
+      {/* Census submission and details dialogs */}
       <CensusDetailsDialog
         submission={selectedCensusForDetail}
         open={selectedCensusForDetail !== null}
@@ -407,20 +530,37 @@ function SibatPortalContent() {
         onRevise={handleOpenCensusRevision}
       />
 
-      {/* ═══ SIBAT Field QR Scanner Dialog ═══ */}
+
+      {/* SIBAT livestock QR scanner */}
+
       <UniversalQrScannerDialog
+
         isOpen={isScannerOpen}
+
         onOpenChange={setIsScannerOpen}
+
         role="sibat"
+
       />
+
     </>
+
   );
+
 }
 
+
+
 export default function SibatPortal() {
+
   return (
+
     <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Field Inspection Center...</div>}>
+
       <SibatPortalContent />
+
     </Suspense>
+
   );
+
 }

@@ -188,6 +188,46 @@ def batch_list_create(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def batch_lookup(request):
+    """Resolve a batch QR identifier inside the caller's existing batch scope."""
+    user = request.user
+    user_role = role_name(user)
+    code = request.query_params.get("code", "").strip()
+    if code.upper().startswith("SL-BATCH:"):
+        code = code.split(":", 1)[1].strip()
+    if not code or len(code) > 255:
+        return Response({"detail": "A valid batch code or ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    batches = LivestockBatch.objects.select_related(
+        "livestock_type", "farmer__user", "farmer__barangay"
+    ).prefetch_related("animals__reviewed_by__role")
+    if user_role == "FARMER":
+        farmer_profile = getattr(user, "farmer_profile", None)
+        batches = batches.filter(farmer=farmer_profile) if farmer_profile else batches.none()
+    else:
+        require_action(user, "batches", "read_all")
+        batches = scope_reviewer_queryset(batches, user)
+
+    # Query the authorized queryset first, so an out-of-scope code is indistinguishable
+    # from an unknown code and cannot reveal another barangay's herd.
+    if code.isdigit():
+        batch = batches.filter(pk=int(code)).first()
+    else:
+        matches = list(batches.filter(batch_code__iexact=code)[:2])
+        if len(matches) > 1:
+            return Response({"detail": "This batch code is ambiguous."}, status=status.HTTP_409_CONFLICT)
+        batch = matches[0] if matches else None
+    if batch is None:
+        return Response({"detail": "No batch with that code or ID is available in your authorized scope."}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(
+        LivestockBatchSerializer(batch, context={"request": request}).data,
+        status=status.HTTP_200_OK,
+    )
+
+
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 @transaction.atomic

@@ -44,9 +44,9 @@ interface SibatHealthQueueProps {
 const STATUS_TABS = [
   { value: "ALL", label: "All Cases", emoji: "📋" },
   { value: "PENDING", label: "Needs Field Visit", emoji: "⏳" },
-  { value: "VERIFIED", label: "Verified / In MAO Queue", emoji: "✨" },
-  { value: "APPROVED", label: "MAO Certified", emoji: "✅" },
-  { value: "SUBJECT_TO_REVISION", label: "Subject for Revision", emoji: "🔄" },
+  { value: "VERIFIED", label: "Checked by SIBAT · Sent to MAO", emoji: "✨" },
+  { value: "APPROVED", label: "Approved by MAO", emoji: "✅" },
+  { value: "SUBJECT_TO_REVISION", label: "Needs correction", emoji: "🔄" },
 ];
 
 const getAnimalEmoji = (typeStr: string = "") => {

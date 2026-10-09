@@ -104,6 +104,7 @@ class LivestockInventoryReviewTests(APITestCase):
             f"/livestock-inventory/{self.inventory.pk}",
         )
 
+
     def test_mao_can_grant_final_inventory_approval(self):
         self.inventory.status = LivestockInventory.StatusType.VERIFIED
         self.inventory.save(update_fields=["status"])
@@ -629,3 +630,75 @@ class CensusPermissionWorkflowTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+class LivestockBatchQrLookupTests(APITestCase):
+    def setUp(self):
+        self.sibat_role = Role.objects.create(role_name=Role.UserRoles.SIBAT)
+        self.farmer_role = Role.objects.create(role_name=Role.UserRoles.FARMER)
+        self.barangay = Barangay.objects.create(barangay_name="QR Scope Barangay", latitude=13.88, longitude=121.21)
+        self.other_barangay = Barangay.objects.create(barangay_name="Outside QR Scope", latitude=13.89, longitude=121.22)
+        self.cattle = LivestockType.objects.create(name="QR Lookup Cattle")
+        self.sibat = User.objects.create_user(
+            username="qr_sibat", email="qr_sibat@example.com", password="password123",
+            role=self.sibat_role, account_status=User.AccountStatus.APPROVED,
+            assigned_barangay=self.barangay,
+        )
+        self.farmer_user = User.objects.create_user(
+            username="qr_farmer", email="qr_farmer@example.com", password="password123",
+            role=self.farmer_role, account_status=User.AccountStatus.APPROVED,
+        )
+        self.farmer = Farmer.objects.create(user=self.farmer_user, barangay=self.barangay)
+        self.batch = LivestockBatch.objects.create(
+            farmer=self.farmer,
+            livestock_type=self.cattle,
+            batch_name="QR Test Herd",
+            batch_code="QR-HERD-001",
+            created_by=self.farmer_user,
+        )
+
+    def test_canonical_batch_qr_resolves_a_batch_in_the_assigned_scope(self):
+        self.client.force_authenticate(user=self.sibat)
+        response = self.client.get(
+            "/api/livestock/batches/lookup/", {"code": f"SL-BATCH:{self.batch.pk}"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.batch.pk)
+        self.assertEqual(response.data["batch_code"], self.batch.batch_code)
+        self.assertEqual(response.data["livestock_type_name"], self.cattle.name)
+
+    def test_batch_lookup_does_not_expose_a_herd_outside_sibat_scope(self):
+        other_user = User.objects.create_user(
+            username="qr_other_farmer", email="qr_other@example.com", password="password123",
+            role=self.farmer_role, account_status=User.AccountStatus.APPROVED,
+        )
+        other_farmer = Farmer.objects.create(user=other_user, barangay=self.other_barangay)
+        outside_batch = LivestockBatch.objects.create(
+            farmer=other_farmer,
+            livestock_type=self.cattle,
+            batch_name="Outside Herd",
+            batch_code="QR-HERD-OUTSIDE",
+            created_by=other_user,
+        )
+        self.client.force_authenticate(user=self.sibat)
+        response = self.client.get(
+            "/api/livestock/batches/lookup/", {"code": f"SL-BATCH:{outside_batch.pk}"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_farmer_can_only_resolve_their_own_batch(self):
+        self.client.force_authenticate(user=self.farmer_user)
+        response = self.client.get(
+            "/api/livestock/batches/lookup/", {"code": self.batch.batch_code}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.batch.pk)
+
+    def test_unknown_batch_is_not_reported_as_found(self):
+        self.client.force_authenticate(user=self.sibat)
+        response = self.client.get("/api/livestock/batches/lookup/", {"code": "NO-SUCH-BATCH"})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_empty_batch_identifier_is_rejected(self):
+        self.client.force_authenticate(user=self.sibat)
+        response = self.client.get("/api/livestock/batches/lookup/", {"code": " "})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

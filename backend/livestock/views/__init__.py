@@ -13,6 +13,7 @@ from .census_views import (
 )
 from .batch_views import (
     batch_list_create,
+    batch_lookup,
     batch_detail,
     batch_add_animals,
     batch_review,
@@ -35,6 +36,7 @@ __all__ = [
     "census_detail",
     "review_census_submission",
     "batch_list_create",
+    "batch_lookup",
     "batch_detail",
     "batch_add_animals",
     "batch_review",

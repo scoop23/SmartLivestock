@@ -51,18 +51,29 @@ export default function CensusDetailsDialog({
             <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approved by MAO
           </Badge>
         );
+      case "VERIFIED":
+        return (
+          <Badge className="bg-sky-100 text-sky-800 border-sky-200 font-bold text-xs">
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Sent to MAO
+          </Badge>
+        );
       case "SUBJECT_TO_REVISION":
       case "SUBJECT_FOR_REVISION":
+        return (
+          <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-xs">
+            <RotateCcw className="w-3.5 h-3.5 mr-1" /> Needs correction
+          </Badge>
+        );
       case "REJECTED":
         return (
           <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-xs">
-            <RotateCcw className="w-3.5 h-3.5 mr-1" /> Subject for Revision
+            <AlertCircle className="w-3.5 h-3.5 mr-1" /> Rejected
           </Badge>
         );
       default:
         return (
           <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-bold text-xs">
-            <Clock className="w-3.5 h-3.5 mr-1" /> Pending MAO Review
+            <Clock className="w-3.5 h-3.5 mr-1" /> Waiting for review
           </Badge>
         );
     }
@@ -195,7 +206,7 @@ export default function CensusDetailsDialog({
                       <tr key={item.id || idx} className="hover:bg-slate-50/50">
                         <td className="p-3 pl-4 font-bold text-slate-400">{idx + 1}</td>
                         <td className="p-3 font-black text-slate-900">{item.farmerName}</td>
-                        <td className="p-3 font-medium text-slate-600">{item.purok || "—"}</td>
+                        <td className="p-3 font-medium text-slate-600">{item.purok || "â€”"}</td>
                         <td className="p-3">
                           <span className="font-bold text-[#1A365D] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
                             {item.livestockType}
@@ -204,7 +215,7 @@ export default function CensusDetailsDialog({
                         <td className="p-3 text-right font-black text-slate-900 tabular-nums">
                           {item.numberOfHeads}
                         </td>
-                        <td className="p-3 pr-4 text-slate-500 font-medium">{item.remarks || "—"}</td>
+                        <td className="p-3 pr-4 text-slate-500 font-medium">{item.remarks || "â€”"}</td>
                       </tr>
                     ))}
                   </tbody>

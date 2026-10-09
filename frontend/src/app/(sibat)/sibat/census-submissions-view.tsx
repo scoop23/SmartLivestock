@@ -39,27 +39,32 @@ function getCensusStatusBadge(status: string) {
   switch ((status || "").toUpperCase()) {
     case "APPROVED":
       return {
-        label: "Approved",
+        label: "Approved by MAO",
         chip: "bg-emerald-100 text-emerald-800 border-emerald-200",
         Icon: CheckCircle2,
       };
     case "VERIFIED":
       return {
-        label: "Pending MAO",
+        label: "Sent to MAO",
         chip: "bg-sky-100 text-sky-800 border-sky-200",
         Icon: ShieldCheck,
       };
     case "SUBJECT_TO_REVISION":
     case "SUBJECT_FOR_REVISION":
+      return {
+        label: "Needs correction",
+        chip: "bg-rose-100 text-rose-800 border-rose-200",
+        Icon: RotateCcw,
+      };
     case "REJECTED":
       return {
-        label: "Revision Required",
+        label: "Rejected",
         chip: "bg-rose-100 text-rose-800 border-rose-200",
         Icon: RotateCcw,
       };
     default:
       return {
-        label: "Pending MAO",
+        label: "Waiting for review",
         chip: "bg-amber-100 text-amber-800 border-amber-200",
         Icon: Clock,
       };
@@ -72,7 +77,7 @@ export default function CensusSubmissionsView({
   onSelectCensusForDetail,
 }: CensusSubmissionsViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"card" | "table">("table");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   const query = searchQuery.toLowerCase().trim();
   const filteredCensus = censusSubmissions.filter((cen) => {
