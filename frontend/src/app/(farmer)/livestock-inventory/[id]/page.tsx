@@ -92,6 +92,8 @@ import { OperationalStatusBadge } from "../operational-status-badge";
 import { OwnershipTransferPanel } from "../ownership-transfer-panel";
 import { LivestockPhotoManager } from "../livestock-photo-manager";
 import { LivestockMilkForecastTab } from "../livestock-milk-forecast-tab";
+import LivestockEditDialog from "../livestock-edit-dialog";
+import { useLivestockTypes, type UpdateInventoryPayload } from "../livestock-inventory";
 import {
   getBirthingTerminology,
   type CalvingRecordItem,
@@ -168,6 +170,8 @@ export default function LivestockDetailPage() {
   const params = useParams();
   const queryClient = useQueryClient();
   const rawId = params?.id ? decodeURIComponent(String(params.id)) : "";
+  const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
+  const { data: livestockTypes = {} } = useLivestockTypes();
 
   // 1. Fetch user inventories
   const { data: inventories = [], isLoading: isInventoryLoading } = useUserInventory({ includeInactive: true });
@@ -234,6 +238,35 @@ export default function LivestockDetailPage() {
     }
     return null;
   }, [inventoryMatch, directInventory]);
+  const canCorrectIndividual = Boolean(
+    activeItem?.status === "SUBJECT_TO_REVISION"
+      && activeItem.entryType === "INDIVIDUAL"
+      && activeItem.quantity === 1
+  );
+
+  const correctionMutation = useMutation({
+    mutationFn: async (payload: UpdateInventoryPayload) => {
+      if (!activeItem) throw new Error("No livestock record is selected.");
+      const response = await api.put(`livestock/inventory/${activeItem.id}/`, payload);
+      return response.data;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory_item", rawId] }),
+      ]);
+      setIsCorrectionDialogOpen(false);
+      toast.success(
+        activeItem?.batchId ? "Corrections saved" : "Corrections resubmitted",
+        {
+          description: activeItem?.batchId
+            ? "Return to the herd page and resubmit the whole herd for review."
+            : "Your individual livestock record is back in the review queue.",
+        }
+      );
+    },
+    onError: () => toast.error("Could not save your corrections. Please review the fields and try again."),
+  });
 
   // 3. Real Weight Records from Backend API
   const { data: allWeightRecords = [] } = useQuery<ApiWeightRecord[]>({
@@ -747,6 +780,34 @@ export default function LivestockDetailPage() {
       />
 
       <div className="w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8">
+        {canCorrectIndividual && (
+          <section className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-rose-950 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="livestock-revision-title">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 id="livestock-revision-title" className="font-bold">Changes requested for this livestock record</h2>
+                <p className="mt-1 break-words text-sm text-rose-900">
+                  {activeItem.reviewRemarks || "Please review and correct the livestock information."}
+                </p>
+                <p className="mt-1 text-xs text-rose-800">
+                  {activeItem.batchId
+                    ? "After saving, return to the herd page and resubmit the whole herd."
+                    : "Saving your corrections will send this individual record back for review."}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              onClick={() => setIsCorrectionDialogOpen(true)}
+              className="min-h-11 w-full shrink-0 bg-rose-700 font-semibold text-white hover:bg-rose-800 sm:w-auto"
+            >
+              Make Corrections
+            </Button>
+          </section>
+        )}
+
         {/* Navigation & Breadcrumb */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -806,7 +867,7 @@ export default function LivestockDetailPage() {
 
         {/* ── HERO PASSPORT CARD ──────────────────────────────────────────── */}
         <Card className="rounded-3xl border-slate-200 shadow-md bg-white overflow-hidden">
-          <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-5 sm:p-6 md:p-8">
+          <div className={`text-white p-5 sm:p-6 md:p-8 ${activeItem.status === "SUBJECT_TO_REVISION" ? "bg-gradient-to-r from-[#604143] via-[#475244] to-[#1a4425]" : "bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425]"}`}>
             <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)] md:items-center">
               <div className="flex min-w-0 items-start gap-4">
                 <LivestockPhotoManager
@@ -855,7 +916,7 @@ export default function LivestockDetailPage() {
                             : activeItem.status === "PENDING"
                               ? "bg-amber-300 text-amber-950 border-amber-200"
                               : activeItem.status === "SUBJECT_TO_REVISION"
-                                ? "bg-orange-300 text-orange-950 border-orange-200"
+                            ? "bg-rose-200 text-rose-950 border-rose-300"
                                 : "bg-rose-300 text-rose-950 border-rose-200"
                       }`}
                     >
@@ -1598,6 +1659,15 @@ export default function LivestockDetailPage() {
       </div>
 
       {/* ── MODAL: LOG WEIGHT ─────────────────────────────────────────────── */}
+      <LivestockEditDialog
+        item={canCorrectIndividual ? activeItem : null}
+        open={isCorrectionDialogOpen}
+        onOpenChange={setIsCorrectionDialogOpen}
+        livestockTypes={livestockTypes}
+        isSubmitting={correctionMutation.isPending}
+        onSubmit={(payload) => correctionMutation.mutate(payload)}
+      />
+
       <Dialog open={isWeighDialogOpen} onOpenChange={setIsWeighDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>

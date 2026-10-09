@@ -204,6 +204,20 @@ export default function LivestockEditDialog({
                 </div>
               )}
 
+              {item.status === "SUBJECT_TO_REVISION" && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-950">
+                  <p className="font-bold">Reviewer remarks</p>
+                  <p className="mt-1 break-words text-xs leading-relaxed">
+                    {item.reviewRemarks || "Please correct the livestock details requested by the reviewer."}
+                  </p>
+                  <p className="mt-2 text-xs text-rose-800">
+                    {item.batchId
+                      ? "After saving, return to the herd page and resubmit the whole herd."
+                      : "Saving these corrections automatically returns this individual record to review."}
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editBirthDate">Birth Date (optional)</Label>
@@ -354,7 +368,10 @@ export default function LivestockEditDialog({
                     "Saving..."
                   ) : (
                     <>
-                      <Pencil className="w-4 h-4" /> Save Changes
+                      <Pencil className="w-4 h-4" />
+                      {item.status === "SUBJECT_TO_REVISION"
+                        ? item.batchId ? "Save Corrections" : "Save Corrections & Resubmit"
+                        : "Save Changes"}
                     </>
                   )}
                 </Button>
