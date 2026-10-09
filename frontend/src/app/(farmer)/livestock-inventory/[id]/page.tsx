@@ -86,6 +86,7 @@ import {
 import { OperationalStatusBadge } from "../operational-status-badge";
 import { OwnershipTransferPanel } from "../ownership-transfer-panel";
 import { LivestockPhotoManager } from "../livestock-photo-manager";
+import { LivestockMilkForecastTab } from "../livestock-milk-forecast-tab";
 import {
   getBirthingTerminology,
   type CalvingRecordItem,
@@ -204,7 +205,9 @@ export default function LivestockDetailPage() {
         entryType: directInventory.entry_type || "INDIVIDUAL",
         quantity: directInventory.quantity || 1,
         breed: directInventory.breed || "Standard Breed",
-        sex: directInventory.sex || "Female",
+        // Keep unknown sex unknown; defaulting to Female would expose the
+        // female-cattle prediction tab for records with missing sex data.
+        sex: directInventory.sex || "",
         birthDate: directInventory.birth_date ?? null,
         age: directInventory.age ?? null,
         ageClassification: directInventory.age_classification ?? "UNKNOWN",
@@ -651,6 +654,17 @@ export default function LivestockDetailPage() {
   const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${activeItem?.id || activeItem?.tagNumber}`) : null;
   const photoUrl = activeItem?.photoUrl || localPhoto;
   const avatar = getAvatarById(activeItem?.avatarKey || localAvatar, activeItem?.livestockTypeName);
+  const normalizedLivestockType = activeItem?.livestockTypeName?.toLowerCase() || "";
+  // The profile tab is offered to every individually identified female bovine.
+  // The backend still decides whether its status, age, and approved history
+  // are sufficient to return a forecast.
+  const canShowMilkPredictionTab = Boolean(
+    activeItem
+      && ["cattle", "cow", "bovine", "baka", "carabao", "buffalo"].some((term) => normalizedLivestockType.includes(term))
+      && activeItem.entryType === "INDIVIDUAL"
+      && activeItem.quantity === 1
+      && ["FEMALE", "F"].includes(activeItem.sex.trim().toUpperCase())
+  );
 
   // Calving stats
   const totalCalves = animalCalvingRecords.length;
@@ -976,6 +990,14 @@ export default function LivestockDetailPage() {
             >
               <Milk className="mr-1.5 size-4 shrink-0 text-sky-600" /> <span>Production</span>
             </TabsTrigger>
+            {canShowMilkPredictionTab && (
+              <TabsTrigger
+                value="milk-prediction"
+                className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
+              >
+                <Milk className="mr-1.5 size-4 shrink-0 text-amber-600" /> <span>Milk Production Prediction</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger
               value="calving"
               className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
@@ -1254,6 +1276,12 @@ export default function LivestockDetailPage() {
               )}
             </Card>
           </TabsContent>
+
+          {canShowMilkPredictionTab && (
+            <TabsContent value="milk-prediction" className="space-y-6">
+              <LivestockMilkForecastTab livestockId={Number(activeItem.id)} />
+            </TabsContent>
+          )}
 
           {/* ── TAB 3: CALVING & OFFSPRING ─────────────────────────────────── */}
           <TabsContent value="calving" className="space-y-6">

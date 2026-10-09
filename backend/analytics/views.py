@@ -1,11 +1,15 @@
 from django.db.models import Count, F, Sum
+from django.conf import settings
+from django.db.utils import DatabaseError
 import logging
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 
 from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem
 from livestock.permission import isMAO, isSibat
@@ -309,6 +313,219 @@ def predictive_forecast(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR if not settings.DEBUG else status.HTTP_200_OK,
         )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def individual_milk_forecast(request):
+    """List isolated demo cows or forecast one selected demo cow for seven days."""
+    from .services.predictive.individual_milk import get_individual_milk_forecast, list_demo_cows
+
+    try:
+        demo_id = request.query_params.get("cow_id")
+        if not demo_id:
+            # The no-selection response powers the frontend dropdown without exposing real inventory.
+            cows = list_demo_cows()
+            return Response({
+                "status": "READY" if cows else "NOT_READY",
+                "data_source": "synthetic_demo",
+                "cows": cows,
+                "message": None if cows else "No demo cows are available. Run seed_individual_milk_forecasting.",
+            })
+
+        forecast = get_individual_milk_forecast(demo_id)
+        if forecast is None:
+            return Response({"detail": "Demo cow was not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(forecast)
+    except DatabaseError:
+        # Missing migration tables and database outages should produce actionable, safe API errors.
+        logger.exception("Individual milk demo data could not be loaded")
+        return Response(
+            {"detail": "Demo data is unavailable. Check database connectivity and apply `python manage.py migrate analytics`."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def livestock_milk_forecast(request, livestock_id):
+    """Return a safe service error if any part of the database-backed request fails."""
+    try:
+        return _livestock_milk_forecast_response(request, livestock_id)
+    except DatabaseError:
+        logger.exception("Real livestock milk forecast could not read its records")
+        return Response(
+            {"detail": "Milk production history is temporarily unavailable. Check database connectivity and try again."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+
+def _livestock_milk_forecast_response(request, livestock_id):
+    """Authorize one animal, then route to real history or an explicit demo.
+
+    Normal requests use approved ProductionRecord rows. The optional demo source
+    is a separate branch so synthetic observations can never satisfy real-data
+    readiness or silently replace an insufficient real history.
+    """
+    from django.db.models import Q, Sum
+    from livestock.models import LivestockInventory
+    from production.models import CalvingRecord, ProductionRecord
+    from smartlivestock.workflows import require_action, role_name
+    from .services.predictive.livestock_milk import forecast_livestock_milk
+
+    # Scope the livestock queryset first. Every later data source (including the
+    # demo option) is reached only after this object-level access check succeeds.
+    user_role = role_name(request.user)
+    animals = LivestockInventory.objects.select_related("farmer__barangay", "livestock_type")
+    if user_role == "FARMER":
+        # Farmer access follows current ownership, so a previous owner receives the same 404 as an unknown ID.
+        animals = animals.filter(farmer__user=request.user)
+    else:
+        require_action(request.user, "production", "read_all")
+        animals = scope_reviewer_queryset(animals, request.user)
+    animal = get_object_or_404(animals, pk=livestock_id)
+
+    animal_type = animal.livestock_type.name.strip().lower()
+    # Carabao/buffalo are milk-producing bovines in the supported livestock
+    # taxonomy, so they use this same individual milk-forecast workflow.
+    is_cattle = any(term in animal_type for term in ("cattle", "cow", "bovine", "baka", "carabao", "buffalo"))
+    if (
+        not is_cattle
+        or animal.entry_type != LivestockInventory.EntryType.INDIVIDUAL
+        or animal.quantity != 1
+        or animal.status != LivestockInventory.StatusType.APPROVED
+        or animal.operational_status != LivestockInventory.OperationalStatus.ACTIVE
+        or animal.sex.strip().upper() not in {"FEMALE", "F"}
+        or animal.age_classification_as_of() == "CALF"
+    ):
+        return Response(
+            {"detail": "Milk forecasts are available only for approved, active, individual female cattle or carabao that are not calves."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Demo records are never substituted for real production. They are available only
+    # after the authorized owner explicitly selects the synthetic demonstration.
+    demo_source = request.query_params.get("source") == "synthetic_demo"
+    demo_cow = None
+    if demo_source or request.query_params.get("source") not in (None, "", "approved_livestock_records"):
+        if not demo_source:
+            return Response({"detail": "Unsupported milk forecast data source."}, status=status.HTTP_400_BAD_REQUEST)
+        from analytics.models import IndividualMilkDemoCow
+        from analytics.seed_markers import SEED_MARKER_INDIVIDUAL_MILK_DEMO
+        demo_cow = IndividualMilkDemoCow.objects.filter(
+            tag_number=animal.tag_number,
+            seed_marker=SEED_MARKER_INDIVIDUAL_MILK_DEMO,
+        ).first()
+        if demo_cow is None:
+            return Response({"detail": "No synthetic demonstration has been seeded for this livestock."}, status=status.HTTP_404_NOT_FOUND)
+        from .services.predictive.individual_milk import get_individual_milk_forecast
+        from .services.predictive.weather import get_weather_context
+        first_demo_observation = demo_cow.observations.order_by("record_date").first()
+        demo_weather_rows, _, demo_weather_message = get_weather_context(
+            animal.farmer.barangay.latitude,
+            animal.farmer.barangay.longitude,
+            first_demo_observation.record_date if first_demo_observation else timezone.localdate(),
+            timezone.localdate(),
+        )
+        demo_result = get_individual_milk_forecast(
+            demo_cow.demo_id,
+            weather_rows=demo_weather_rows,
+            weather_message=demo_weather_message,
+        )
+        # Return the canonical livestock identity, while the explicit source field
+        # and visible UI warning identify the observations as synthetic.
+        demo_result["livestock"] = {
+            "id": animal.pk,
+            "tag_number": animal.tag_number,
+            "livestock_type": animal.livestock_type.name,
+            "breed": animal.breed or None,
+            "sex": animal.sex or None,
+            "age_years": demo_result["livestock"]["age_years"],
+            "days_since_calving": demo_result["livestock"]["days_since_calving"],
+        }
+        demo_result["demonstration_available"] = True
+        demo_result["weather"]["location_source"] = "Farmer's barangay centroid"
+        demo_result["weather"]["location_name"] = animal.farmer.barangay.barangay_name if animal.farmer.barangay_id else None
+        return Response(demo_result)
+
+    # Keep real data eligibility strict: draft, unrelated, future, or other-unit
+    # records must not count toward this animal's approved milk history.
+    records = ProductionRecord.objects.filter(
+        livestock=animal,
+        production_type=ProductionRecord.ProductionType.MILK,
+        unit=ProductionRecord.UnitType.LITERS,
+        status=ProductionRecord.ProductionStatus.APPROVED,
+        record_date__lte=timezone.localdate(),
+    )
+    if user_role == "FARMER":
+        # Historical attribution stays private to the farmer who recorded that ownership period.
+        records = records.filter(
+            Q(farmer_at_record=animal.farmer)
+            | Q(farmer_at_record__isnull=True, created_by=request.user)
+        )
+    else:
+        records = scope_reviewer_queryset(ProductionRecord.objects.all(), request.user).filter(
+            livestock=animal,
+            production_type=ProductionRecord.ProductionType.MILK,
+            unit=ProductionRecord.UnitType.LITERS,
+            status=ProductionRecord.ProductionStatus.APPROVED,
+            record_date__lte=timezone.localdate(),
+        )
+
+    # Several approved entries may exist on one date. Sum them into one daily
+    # observation because the model predicts daily milk totals.
+    daily_records = list(
+        records.values("record_date")
+        .annotate(milk_liters=Sum("quantity"))
+        .order_by("record_date")
+    )
+    daily_records = [
+        {"date": row["record_date"], "milk_liters": float(row["milk_liters"])}
+        for row in daily_records
+    ]
+    calving_events = list(
+        CalvingRecord.objects.filter(
+            dam=animal,
+            status=CalvingRecord.StatusType.APPROVED,
+            calving_date__lte=timezone.localdate(),
+            reviewed_at__isnull=False,
+        ).values_list("calving_date", "reviewed_at")
+    )
+    calving_events = [(calving_date, reviewed_at.date()) for calving_date, reviewed_at in calving_events]
+
+    # Weather is fetched only when the real milk history is otherwise forecast-ready.
+    # Open-Meteo gets the farmer's barangay centroid, not private farm coordinates.
+    weather_rows = {}
+    weather_message = "Weather is omitted until this animal has sufficient recent approved milk history."
+    today = timezone.localdate()
+    if (
+        len(daily_records) >= 60
+        and daily_records
+        and (today - daily_records[-1]["date"]).days <= 7
+    ):
+        from .services.predictive.weather import get_weather_context
+        barangay = animal.farmer.barangay
+        weather_rows, _, weather_message = get_weather_context(
+            barangay.latitude,
+            barangay.longitude,
+            daily_records[0]["date"],
+            today,
+        )
+
+    result = forecast_livestock_milk(
+        animal,
+        daily_records,
+        calving_events,
+        weather_rows=weather_rows,
+        weather_message=weather_message,
+    )
+    from analytics.models import IndividualMilkDemoCow
+    from analytics.seed_markers import SEED_MARKER_INDIVIDUAL_MILK_DEMO
+    result["demonstration_available"] = IndividualMilkDemoCow.objects.filter(
+        tag_number=animal.tag_number,
+        seed_marker=SEED_MARKER_INDIVIDUAL_MILK_DEMO,
+    ).exists()
+    return Response(result)
 
 
 @api_view(["GET"])

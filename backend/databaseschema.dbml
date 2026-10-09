@@ -464,6 +464,33 @@ Table analytics_recommendations {
   generated_at timestamp
 }
 
+// Isolated synthetic prototype data. These tables are deliberately separate
+// from livestock_inventory and production_records, so demo yields never enter
+// farmer history, official reports, or municipal production aggregates.
+Table individual_milk_demo_cows {
+  demo_id varchar [pk]
+  tag_number varchar [not null, unique]
+  breed varchar
+  sex varchar
+  birth_date date [note: 'Nullable; age is omitted/imputed when unknown']
+  weight_kg decimal [note: 'Nullable; numeric model imputation is fit on training rows only']
+  calving_date date [note: 'Nullable; days since calving is derived when known']
+  seed_marker varchar [not null]
+  created_at timestamp
+}
+
+Table individual_milk_demo_observations {
+  observation_id integer [pk]
+  demo_id varchar [not null]
+  record_date date [not null]
+  milk_quantity_liters decimal [not null]
+  disease_active boolean [not null, default: false]
+  seed_marker varchar [not null]
+  indexes {
+    (demo_id, record_date) [unique]
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Foreign Key Relationships (Refs)
 // ---------------------------------------------------------------------------
@@ -578,3 +605,5 @@ Ref: analytics_insights.source_disease_case_id > disease_cases.disease_case_id
 Ref: analytics_recommendations.barangay_id > barangays.barangay_id
 Ref: analytics_recommendations.livestock_type_id > livestock_types.livestock_type_id
 Ref: analytics_recommendations.related_prediction_id > analytics_predictions.prediction_id
+
+Ref: individual_milk_demo_observations.demo_id > individual_milk_demo_cows.demo_id

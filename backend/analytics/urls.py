@@ -10,6 +10,8 @@ urlpatterns = [
     path("census/", views.census_summary, name="census-summary"),
     path("predictive/", views.predictive_model_comparison, name="predictive-model-comparison"),
     path("predictive/forecast/", views.predictive_forecast, name="predictive-forecast"),
+    path("predictive/individual-milk/", views.individual_milk_forecast, name="individual-milk-forecast"),
+    path("livestock/<int:livestock_id>/milk-forecast/", views.livestock_milk_forecast, name="livestock-milk-forecast"),
     path("prescriptive/", views.prescriptive_recommendations, name="prescriptive-recommendations"),
     path("gis/", views.gis_summary, name="gis-summary"),
 ]
