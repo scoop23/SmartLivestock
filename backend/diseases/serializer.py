@@ -1,4 +1,5 @@
 from django.db.models import Sum
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from .models import DiseaseCase, MortalityRecord
@@ -146,6 +147,11 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 "You can only report disease cases against your own livestock batches."
             )
+        return value
+
+    def validate_record_date(self, value):
+        if value > timezone.localdate():
+            raise ValidationError("Date noticed / occurred cannot be in the future.")
         return value
 
     def validate(self, attrs):
@@ -375,6 +381,11 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 "You can only log mortality records against your own livestock batches."
             )
+        return value
+
+    def validate_record_date(self, value):
+        if value > timezone.localdate():
+            raise ValidationError("Date noticed / occurred cannot be in the future.")
         return value
 
     def validate(self, attrs):

@@ -34,6 +34,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
 import { ReportType, FarmerReport } from "../report-observation-types";
 import { saveAttachedPhoto } from "@/lib/photo-storage";
+import { localCalendarDateToday } from "@/lib/livestock-age";
 
 interface ReportIllnessDialogProps {
   open: boolean;
@@ -96,7 +97,7 @@ function ReportIllnessDialogContent({
     isEditMode && existingReport ? (existingReport.affectedCount || 1) : 1
   );
   const [recordDate, setRecordDate] = useState<string>(() =>
-    isEditMode && existingReport ? (existingReport.recordDate || new Date().toISOString().split("T")[0]) : new Date().toISOString().split("T")[0]
+    isEditMode && existingReport ? (existingReport.recordDate || localCalendarDateToday()) : localCalendarDateToday()
   );
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>(() =>
     isEditMode && existingReport && Array.isArray(existingReport.symptoms) ? existingReport.symptoms : []
@@ -150,6 +151,11 @@ function ReportIllnessDialogContent({
 
     if (!effectiveInventoryId) {
       toast.error("Please select an animal from your livestock first.");
+      return;
+    }
+
+    if (recordDate > localCalendarDateToday()) {
+      toast.error("Date noticed / occurred cannot be in the future.");
       return;
     }
 
@@ -460,6 +466,7 @@ function ReportIllnessDialogContent({
               <Input
                 type="date"
                 value={recordDate}
+                max={localCalendarDateToday()}
                 onChange={(e) => setRecordDate(e.target.value)}
                 className="h-10 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]"
               />
