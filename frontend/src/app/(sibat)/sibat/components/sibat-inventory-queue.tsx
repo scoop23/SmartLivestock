@@ -358,12 +358,7 @@ export default function SibatInventoryQueue({
             return (
               <Card
                 key={item.id}
-                className={`group border border-slate-200 border-l-4 bg-white transition-all shadow-2xs hover:shadow-md rounded-2xl overflow-hidden ${
-                  item.status === "PENDING" ? "border-l-amber-400 hover:border-l-amber-500" :
-                  item.status === "VERIFIED" ? "border-l-sky-400 hover:border-l-sky-500" :
-                  item.status === "APPROVED" ? "border-l-emerald-400 hover:border-l-emerald-500" :
-                  "border-l-rose-400 hover:border-l-rose-500"
-                }`}
+                className="group border-0 bg-white transition-all duration-200 shadow-sm hover:-translate-y-0.5 hover:shadow-md rounded-2xl overflow-hidden"
               >
                 <CardContent className="p-3 sm:p-4 sm:pl-5">
                   <div className="grid grid-cols-1 sm:grid-cols-[6rem_minmax(0,1fr)_auto] gap-3 sm:gap-4 items-start">
