@@ -410,7 +410,7 @@ function SibatPortalContent() {
         maxWidthClass="w-full"
       />
 
-      <div className="mx-auto w-full max-w-7xl space-y-5 p-3 sm:p-5 lg:p-8">
+      <div className="mx-auto w-full max-w-[1600px] space-y-5 p-3 sm:p-5 lg:px-8 lg:py-6 2xl:px-10">
         {!isLoadingAccount && user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
           <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
             <p className="font-semibold">Barangay assignment required</p>

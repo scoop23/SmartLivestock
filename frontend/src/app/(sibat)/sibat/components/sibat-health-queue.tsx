@@ -325,112 +325,82 @@ export default function SibatHealthQueue({
             return (
               <Card
                 key={record.id}
-                className="group border-slate-200/80 bg-white hover:border-[#1A365D]/30 transition-all shadow-2xs hover:shadow-md rounded-3xl overflow-hidden"
+                className="group gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white py-0 shadow-sm transition-[border-color,box-shadow] hover:border-slate-300 hover:shadow-md"
               >
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    {/* Left: Animal Emoji Avatar & Information */}
-                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                      <div
-                        className={`size-12 rounded-2xl shrink-0 flex items-center justify-center font-black text-2xl shadow-2xs ${
-                          isDisease
-                            ? "bg-rose-50 text-rose-600 border border-rose-200/80"
-                            : "bg-slate-800 text-amber-300 border border-slate-700"
-                        }`}
-                      >
-                        {animalEmoji}
-                      </div>
-
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge
-                            className={`text-[10px] font-black tracking-wider uppercase rounded-md px-2 py-0.5 ${
-                              isDisease
-                                ? "bg-rose-100 text-rose-800 border-rose-200"
-                                : "bg-slate-200 text-slate-900 border-slate-300"
-                            }`}
-                          >
-                            {isDisease ? "🩺 Illness Check" : "💀 Mortality"}
-                          </Badge>
-
-                          <SibatStatusBadge status={record.status} />
-
-                          <span className="text-[11px] font-bold text-slate-400">
-                            📅 {record.reportedDate}
-                          </span>
+                <CardContent className="p-0 [&:last-child]:pb-0">
+                  <div className="grid min-w-0 md:grid-cols-[13rem_minmax(0,1fr)]">
+                    <div className={`min-w-0 border-b border-slate-200/70 p-4 md:border-b-0 md:border-r md:p-5 ${isDisease ? "bg-rose-50/50" : "bg-slate-50"}`}>
+                      <div className="flex items-start gap-3 md:flex-col md:gap-4">
+                        <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-white bg-white/80 text-2xl shadow-sm">
+                          {animalEmoji}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-slate-500">Livestock identity</p>
+                          <p className="mt-1 break-all text-base font-bold tracking-tight text-slate-900">
+                            {record.livestockTag ? `#${record.livestockTag}` : "Tag not recorded"}
+                          </p>
+                          {record.livestockType && <p className="mt-1 break-words text-sm font-medium text-slate-700">{record.livestockType}</p>}
+                          {record.livestockBreed && <p className="mt-0.5 break-words text-xs text-slate-500">Breed: {record.livestockBreed}</p>}
                         </div>
-
-                        {/* Title: Friendly statement */}
-                        <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                          <span>{record.name}</span>
-                          <span className="text-slate-400 font-normal text-xs">•</span>
-                          <span className="text-amber-700 font-extrabold text-xs">
-                            Tag #{record.livestockTag}
-                          </span>
-                        </h4>
-
-                        <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap font-medium">
-                          <span className="flex items-center gap-1 text-slate-900 font-bold bg-slate-100 px-2 py-0.5 rounded-lg">
-                            <User className="size-3 text-slate-400" />
-                            {record.farmerName}
-                          </span>
-                          <span className="flex items-center gap-1 text-slate-600">
-                            <MapPin className="size-3 text-slate-400" />
-                            {record.barangayName}
-                          </span>
-                          <span className="text-slate-600 font-medium">
-                            Breed: <strong>{record.livestockBreed}</strong>
-                          </span>
-                          <span className="text-slate-500 font-semibold">
-                            Affected: <strong className="text-slate-900">{record.reportedCount} Head(s)</strong>
-                          </span>
+                        <div className="shrink-0 text-right md:w-full md:border-t md:border-slate-200/70 md:pt-4 md:text-left">
+                          <p className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900">{record.reportedCount}</p>
+                          <p className="text-xs text-slate-500">Affected heads</p>
                         </div>
-
-                        {record.farmerDescription && (
-                          <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 mt-1">
-                            <strong className="text-slate-900 font-bold">Farmer&apos;s note: </strong>
-                            &ldquo;{record.farmerDescription}&rdquo;
-                          </div>
-                        )}
-
-                        {record.inspection && (
-                          <div className="text-[11px] bg-sky-50 text-sky-950 p-2.5 rounded-2xl border border-sky-200/80 mt-1 flex items-start gap-2">
-                            <ShieldCheck className="size-4 text-sky-600 shrink-0 mt-0.5" />
-                            <div>
-                              <p className="font-bold">
-                                ✨ Your Field Findings: {record.inspection.remarks}
-                              </p>
-                              <p className="text-[10px] text-sky-700 font-semibold mt-0.5">
-                                Severity: {record.inspection.severity} • Action: {record.inspection.biosecurityAction} • By: {record.inspection.verifiedBy}
-                              </p>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
 
-                    {/* Right: Friendly CTA Button */}
-                    <div className="flex items-center gap-2 shrink-0 lg:self-center">
-                      <Button
-                        onClick={() => onInspectRecord(record)}
-                        className={`h-10 px-4 rounded-2xl text-xs font-black gap-1.5 transition-all shadow-2xs cursor-pointer ${
-                          isPending
-                            ? "bg-[#1A365D] hover:bg-[#132742] text-white"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200"
-                        }`}
-                      >
-                        {isPending ? (
-                          <>
-                            <ClipboardCheck className="size-4 text-amber-300" />
-                            Start On-Site Field Check
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="size-4 text-slate-600" />
-                            View Field Notes
-                          </>
-                        )}
-                      </Button>
+                    <div className="flex min-w-0 flex-col p-4 sm:p-5">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${isDisease ? "text-rose-700" : "text-slate-600"}`}>
+                          {isDisease ? <Stethoscope className="size-4" /> : <Skull className="size-4" />}
+                          {isDisease ? "Illness report" : "Mortality report"}
+                        </span>
+                        <SibatStatusBadge status={record.status} />
+                      </div>
+                      <h4 className="break-words text-base font-semibold leading-snug tracking-tight text-slate-950 sm:text-lg">{record.name}</h4>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                        <span className="inline-flex min-w-0 items-start gap-1.5">
+                          <User className="mt-0.5 size-3.5 shrink-0" /><span className="break-words font-medium text-slate-700">{record.farmerName}</span>
+                        </span>
+                        <span className="inline-flex min-w-0 items-start gap-1.5">
+                          <MapPin className="mt-0.5 size-3.5 shrink-0" /><span className="break-words">{record.barangayName}</span>
+                        </span>
+                      </div>
+
+                      {record.farmerDescription && (
+                        <div className="mt-4 rounded-xl bg-slate-50 p-3">
+                          <p className="mb-1 text-xs font-semibold text-slate-500">Farmer&apos;s note</p>
+                          <p className="break-words text-sm leading-relaxed text-slate-700">{record.farmerDescription}</p>
+                        </div>
+                      )}
+
+                      {record.inspection && (
+                        <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3">
+                          <p className="flex items-center gap-1.5 text-xs font-semibold text-sky-800"><ShieldCheck className="size-4" />Field findings</p>
+                          <p className="mt-1 break-words text-sm leading-relaxed text-slate-700">{record.inspection.remarks}</p>
+                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                            <span>Severity: {record.inspection.severity}</span>
+                            <span>Action: {record.inspection.biosecurityAction}</span>
+                            <span>By: {record.inspection.verifiedBy}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-auto pt-4">
+                        <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                            <Calendar className="size-3.5 shrink-0" />Reported {record.reportedDate}
+                          </span>
+                          <Button
+                            onClick={() => onInspectRecord(record)}
+                            className={`min-h-11 w-full gap-2 rounded-xl px-4 text-xs font-semibold sm:w-auto ${isPending ? "bg-[#1A365D] text-white hover:bg-[#132742]" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
+                          >
+                            {isPending ? <ClipboardCheck className="size-4" /> : <Eye className="size-4" />}
+                            {isPending ? "Start field check" : "View field notes"}
+                            <ChevronRight className="size-3.5" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

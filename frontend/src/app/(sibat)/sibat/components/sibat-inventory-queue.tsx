@@ -351,17 +351,22 @@ export default function SibatInventoryQueue({
             return (
               <Card
                 key={item.id}
-                className="group border-slate-200/80 bg-white hover:border-[#1A365D]/30 transition-colors shadow-2xs hover:shadow-md rounded-2xl overflow-hidden"
+                className={`group border border-slate-200 border-l-4 bg-white transition-all shadow-2xs hover:shadow-md rounded-2xl overflow-hidden ${
+                  item.status === "PENDING" ? "border-l-amber-400 hover:border-l-amber-500" :
+                  item.status === "VERIFIED" ? "border-l-sky-400 hover:border-l-sky-500" :
+                  item.status === "APPROVED" ? "border-l-emerald-400 hover:border-l-emerald-500" :
+                  "border-l-rose-400 hover:border-l-rose-500"
+                }`}
               >
-                <CardContent className="p-3 sm:p-4">
-                  <div className="grid grid-cols-[5rem_minmax(0,1fr)] sm:grid-cols-[6rem_minmax(0,1fr)_auto] gap-3 sm:gap-4 items-start">
-                    {/* Left: Icon & Details */}
-                    <div className="contents">
+                <CardContent className="p-3 sm:p-4 sm:pl-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-[6rem_minmax(0,1fr)_auto] gap-3 sm:gap-4 items-start">
+                    {/* Keep photo and record details together; reserve the final column for desktop actions. */}
+                    <div className="flex min-w-0 items-start gap-3 sm:col-span-2 sm:gap-4">
                       <LivestockThumbnail key={`${item.id}-${item.photoUrl || "no-photo"}`} item={item} emoji={emoji} />
 
-                      <div className="min-w-0 space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-[10px] font-black uppercase rounded-md px-2 py-0.5">
+                      <div className="min-w-0 flex-1 space-y-2.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] font-bold uppercase rounded-md px-2 py-0.5">
                             {item.submissionTypeLabel}
                           </Badge>
 
@@ -371,7 +376,7 @@ export default function SibatInventoryQueue({
                             </Badge>
                           )}
 
-                          <SibatStatusBadge status={item.status} showSubtitle />
+                          <SibatStatusBadge status={item.status} />
 
                           {item.sourceType === "INVENTORY" && (
                             <LivestockOperationalStatusBadge status={item.operationalStatus} />
@@ -382,16 +387,16 @@ export default function SibatInventoryQueue({
                           </span>
                         </div>
 
-                        <div className="flex items-baseline gap-2">
-                          <h4 className="text-base sm:text-lg font-bold text-slate-900 break-words">
+                        <div className="min-w-0">
+                          <h4 className="text-lg sm:text-xl font-extrabold leading-tight text-slate-950 break-words">
                             {isIndividual ? (
-                              <>Ear Tag: #{item.tagNumber || "Unassigned"}</>
+                              <>{item.tagNumber ? `#${item.tagNumber}` : "Tag not assigned"}</>
                             ) : (
-                              <>Herd: {item.tagNumber || item.batchCode || `Batch #${item.rawId}`}</>
+                              <>{item.tagNumber || item.batchCode || `Batch #${item.rawId}`}</>
                             )}
                           </h4>
-                          <span className="text-xs text-slate-500 font-bold">
-                            {item.livestockTypeName}{item.breed ? ` / ${item.breed}` : ""}
+                          <span className="mt-1 block text-xs text-slate-600 font-semibold">
+                            {item.livestockTypeName}{item.breed ? ` · ${item.breed}` : ""}{!isIndividual && item.quantity ? ` · ${item.quantity} head` : ""}
                           </span>
                         </div>
 
@@ -432,7 +437,7 @@ export default function SibatInventoryQueue({
                     </div>
 
                     {/* Right: CTA Button */}
-                    <div className="col-span-2 sm:col-span-1 sm:row-span-2 sm:self-center flex sm:justify-end">
+                    <div className="col-span-1 sm:col-span-1 sm:self-center flex sm:justify-end">
                       <Button
                         onClick={() => onReview(item)}
                         disabled={isPending && isHerdMember}
@@ -441,7 +446,7 @@ export default function SibatInventoryQueue({
                             ? "Herd animals share one review status. Verify the whole batch from the Herd Verification Center."
                             : undefined
                         }
-                        className={`h-11 w-full sm:w-auto px-4 rounded-xl text-xs font-bold gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                        className={`h-11 w-full sm:w-auto min-w-36 px-4 rounded-xl text-xs font-bold gap-1.5 transition-all shadow-2xs cursor-pointer ${
                           isPending
                             ? "bg-[#1A365D] hover:bg-[#132742] text-white disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
                             : "bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200"
