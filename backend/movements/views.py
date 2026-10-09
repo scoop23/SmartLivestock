@@ -152,6 +152,12 @@ def inspection_livestock_lookup(request):
         return Response({"detail": "Livestock record not found for that tag or ID."}, status=status.HTTP_404_NOT_FOUND)
 
     farmer = inventory.farmer
+    photo_url = None
+    if inventory.photo:
+        try:
+            photo_url = request.build_absolute_uri(inventory.photo.url)
+        except Exception:
+            photo_url = None
     # Identity can still be traced when inactive; action eligibility is checked
     # separately from existence using the current approval and lifecycle fields.
     eligible = (
@@ -175,6 +181,7 @@ def inspection_livestock_lookup(request):
         "birth_date": inventory.birth_date,
         "age": inventory.age_as_of(timezone.localdate()),
         "age_classification": inventory.age_classification_as_of(timezone.localdate()),
+        "photo_url": photo_url,
         "registration_status": inventory.status,
         "operational_status": inventory.operational_status,
         "eligible": eligible,

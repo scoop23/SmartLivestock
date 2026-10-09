@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Camera,
   ExternalLink,
+  ImageIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -52,6 +53,7 @@ interface ScannedRecord {
   birthDate?: string | null;
   age?: { years: number; months: number; total_months: number } | null;
   ageClassification?: string;
+  photoUrl?: string | null;
   livestockId?: number;
   eligible?: boolean;
   biosecurity: "CLEARED" | "FLAGGED" | "UNKNOWN";
@@ -75,6 +77,7 @@ interface BatchLookupRecord {
   status?: string;
   review_status?: string;
   review_remarks?: string | null;
+  photo_url?: string | null;
 }
 
 export function UniversalQrScannerDialog({
@@ -161,6 +164,7 @@ export function UniversalQrScannerDialog({
           weightKg: batch.average_weight == null ? null : Number(batch.average_weight),
           operationalStatus: batch.status,
           reviewStatus: batch.review_status,
+          photoUrl: batch.photo_url,
           biosecurity: "UNKNOWN",
           details: batch.review_remarks || "A registry lookup shows the current batch record only. It does not approve a movement or inspection.",
           linkUrl: isSibat
@@ -193,6 +197,7 @@ export function UniversalQrScannerDialog({
         birthDate: animal.birth_date,
         age: animal.age,
         ageClassification: animal.age_classification,
+        photoUrl: animal.photo_url,
         livestockId: animal.id,
         eligible: animal.eligible,
         biosecurity: "UNKNOWN",
@@ -404,9 +409,31 @@ export function UniversalQrScannerDialog({
           /* Scanned Result Card */
           <div className="space-y-4 py-2 animate-in fade-in-50 zoom-in-95 duration-200">
             {/* Header Badge Strip */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/60 to-slate-50 border border-emerald-200 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
+            <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-white shadow-sm">
+              <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="relative size-24 shrink-0 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-100 shadow-sm sm:size-28">
+                    {activeResult.photoUrl ? (
+                      <>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-emerald-800">
+                          <ImageIcon className="size-6" />
+                          <span className="text-[9px] font-semibold">Photo unavailable</span>
+                        </div>
+                        <img
+                          src={activeResult.photoUrl}
+                          alt={`${activeResult.title} livestock`}
+                          className="relative size-full object-cover"
+                          onError={(event) => { event.currentTarget.style.display = "none"; }}
+                        />
+                      </>
+                    ) : (
+                      <div className="flex size-full flex-col items-center justify-center gap-1 text-emerald-800">
+                        <ImageIcon className="size-6" />
+                        <span className="text-[9px] font-semibold">No photo on file</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-black text-emerald-950">
                       {activeResult.code}
@@ -418,6 +445,8 @@ export function UniversalQrScannerDialog({
                   <h3 className="text-base font-black text-slate-900 mt-0.5">
                     {activeResult.title}
                   </h3>
+                    <p className="mt-1 text-xs font-medium text-slate-600">{activeResult.specie}{activeResult.breed ? ` - ${activeResult.breed}` : ""}</p>
+                  </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-1">
@@ -442,7 +471,7 @@ export function UniversalQrScannerDialog({
               </div>
 
               {/* Data Specs Grid */}
-              <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-emerald-200/60">
+              <div className="grid grid-cols-2 gap-2 border-t border-emerald-200/60 bg-white/60 p-3 text-xs">
                 <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                   <span className="text-[10px] font-bold text-slate-400 block uppercase">
                     Owner / Raiser

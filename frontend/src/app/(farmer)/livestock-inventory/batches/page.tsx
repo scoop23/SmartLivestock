@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Tag,
   Clock,
+  QrCode,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,8 @@ import {
   INVENTORY_QUERY_KEYS,
 } from "../livestock-inventory";
 import { LivestockPhotoManager } from "../livestock-photo-manager";
+import { QrCodePass } from "@/components/qr-code-pass";
+import { livestockBatchQrPayload } from "@/lib/livestock-identity";
 
 // ── Types for Individual Animals inside a Batch ──────────────────────────────
 export interface BatchIndividual {
@@ -167,6 +170,7 @@ export default function BatchOverviewPage() {
 
   // Dialog States
   const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
+  const [isHerdQrOpen, setIsHerdQrOpen] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
@@ -545,6 +549,14 @@ export default function BatchOverviewPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsHerdQrOpen(true)}
+                    className="min-h-11 gap-2 border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                  >
+                    <QrCode className="size-4" /> Herd QR
+                  </Button>
                   {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
                     <LivestockPhotoManager
                       title="Herd Photo"
@@ -866,6 +878,31 @@ export default function BatchOverviewPage() {
       </div>
 
       {/* ── DIALOG: QUICK WEIGH ANIMAL ────────────────────────────────────── */}
+      <Dialog open={isHerdQrOpen} onOpenChange={setIsHerdQrOpen}>
+        <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:max-w-md sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+              <QrCode className="size-5 text-emerald-700" /> Herd QR - {currentBatch?.batchCode}
+            </DialogTitle>
+            <DialogDescription>
+              Scan this code to look up the herd&apos;s current registry record. It identifies the herd and does not approve movement or inspection.
+            </DialogDescription>
+          </DialogHeader>
+          {currentBatch && (
+            <QrCodePass
+              code={currentBatch.batchCode || currentBatch.id}
+              qrPayload={livestockBatchQrPayload(currentBatch.id)}
+              title={currentBatch.batchName || "Livestock herd"}
+              subtitle="Canonical herd identity"
+              specie={currentBatch.species}
+              headCount={currentBatch.activeCount}
+              status={currentBatch.reviewStatus || currentBatch.status}
+              compact
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isWeighModalOpen} onOpenChange={setIsWeighModalOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
