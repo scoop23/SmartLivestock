@@ -140,7 +140,7 @@ export function GISSidebar({
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent
           side="bottom"
-          className="h-[84dvh] max-h-[88dvh] rounded-t-3xl p-0 bg-white border-t border-slate-200 flex flex-col overflow-hidden shadow-2xl z-[var(--z-dialog)]"
+          className="h-[84dvh] max-h-[88dvh] rounded-t-3xl p-0 bg-white border-t border-slate-200 flex flex-col overflow-hidden shadow-2xl z-[var(--z-dialog)] [&>button]:hidden"
         >
           <SheetTitle className="sr-only">
             {selectedBarangay ? `Barangay ${selectedBarangay.name} Telemetry` : 'Municipal Telemetry Overview'}
