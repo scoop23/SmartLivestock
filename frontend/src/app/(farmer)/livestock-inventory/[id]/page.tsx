@@ -77,7 +77,12 @@ import {
 } from "recharts";
 import api from "@/lib/axios";
 import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
-import { formatCalendarDate, localCalendarDateToday } from "@/lib/livestock-age";
+import {
+  formatAgeClassification,
+  formatCalendarDate,
+  formatLivestockAge,
+  localCalendarDateToday,
+} from "@/lib/livestock-age";
 import {
   useUserInventory,
   type LivestockInventoryItem,
@@ -204,7 +209,7 @@ export default function LivestockDetailPage() {
         livestockTypeName: directInventory.livestock_type_name || "Livestock",
         entryType: directInventory.entry_type || "INDIVIDUAL",
         quantity: directInventory.quantity || 1,
-        breed: directInventory.breed || "Standard Breed",
+        breed: directInventory.breed || "",
         // Keep unknown sex unknown; defaulting to Female would expose the
         // female-cattle prediction tab for records with missing sex data.
         sex: directInventory.sex || "",
@@ -870,9 +875,26 @@ export default function LivestockDetailPage() {
                     )}
                   </div>
 
-                  <h3 className="break-words text-sm font-semibold text-emerald-100/90">
-                    {activeItem.breed || "Standard Breed"} &bull; {activeItem.sex || "Female"}
-                  </h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1 text-xs">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Breed</span>
+                      <span className="block break-words font-semibold text-emerald-50">{activeItem.breed?.trim() || "Unknown"}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Sex</span>
+                      <span className="block break-words font-semibold text-emerald-50">{activeItem.sex?.trim() || "Unknown"}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Age</span>
+                      <span className="block break-words font-semibold text-emerald-50">
+                        {formatLivestockAge(activeItem.age)} · {formatAgeClassification(activeItem.ageClassification)}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Birth Date</span>
+                      <span className="block break-words font-semibold text-emerald-50">{formatCalendarDate(activeItem.birthDate)}</span>
+                    </div>
+                  </div>
 
                   <p className="break-words text-xs text-emerald-200/70 font-medium">
                     Owner: <strong>{activeItem.farmerName}</strong> &bull; Registration: {activeItem.createdAt ? activeItem.createdAt.split("T")[0] : "Official Record"}
@@ -891,8 +913,8 @@ export default function LivestockDetailPage() {
                   <p className="text-lg font-black text-emerald-300">+{latestAdg} kg/d</p>
                 </div>
                 <div className="space-y-0.5 col-span-2 sm:col-span-1">
-                  <span className="text-[10px] uppercase font-bold text-emerald-200/60">Gender</span>
-                  <p className="text-lg font-black text-white">{activeItem.sex || "Female"}</p>
+                  <span className="text-[10px] uppercase font-bold text-emerald-200/60">Age Category</span>
+                  <p className="text-lg font-black text-white">{formatAgeClassification(activeItem.ageClassification)}</p>
                 </div>
               </div>
             </div>

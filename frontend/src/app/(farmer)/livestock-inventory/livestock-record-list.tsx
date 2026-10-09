@@ -252,7 +252,7 @@ export default function LivestockRecordList({
   const router = useRouter();
 
   // View mode: "grid" | "table"
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
 
   // Filtering states
   const [searchQuery, setSearchQuery] = useState("");
