@@ -174,7 +174,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
 
       <main className="w-full space-y-4 p-3 sm:p-4 md:p-6">
         {/* Quick Highlights / KPIs */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
           <KpiCard
             title={isAuction ? "Total Bulletins" : "Total Announcements"}
             value={items.length}

@@ -290,7 +290,7 @@ export function GISControls({
           id="gis-control-panel"
           role="region"
           aria-label="GIS Map Layer and Filter Controls"
-          className="w-full max-w-[340px] sm:max-w-md bg-white/98 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xl p-3 sm:p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-150 text-slate-800"
+          className="w-full max-w-[calc(100vw-1.5rem)] sm:max-w-md max-h-[70dvh] overflow-y-auto bg-white/98 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xl p-3 sm:p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-150 text-slate-800"
         >
           {/* Panel Header */}
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">

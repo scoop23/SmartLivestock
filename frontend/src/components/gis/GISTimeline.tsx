@@ -100,6 +100,7 @@ export function GISTimeline({
 }: GISTimelineProps) {
   const [paramsOpen, setParamsOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const currentMonth = TIMELINE_MONTHS[currentMonthIndex] || TIMELINE_MONTHS[0];
 
@@ -115,6 +116,46 @@ export function GISTimeline({
 
   const activeMonthAbbr = currentMonth.label.split(' ')[0];
 
+  if (isMinimized) {
+    return (
+      <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-slate-200/90 shadow-2xl text-slate-800 pointer-events-auto flex items-center justify-between gap-2 max-w-sm mx-auto animate-in fade-in duration-150">
+        <div className="flex items-center gap-1.5">
+          <Badge className="bg-amber-500 text-white text-[9px] font-black uppercase px-1.5 py-0.5 flex items-center gap-0.5">
+            <Zap className="size-2.5 fill-white" />
+            SIM
+          </Badge>
+          <span className="text-xs font-black text-slate-900">
+            {currentMonth.monthName} {currentMonth.year}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            onClick={onTogglePlay}
+            aria-label={isPlaying ? "Pause simulation" : "Play simulation"}
+            className={`min-h-[36px] min-w-[36px] p-0 rounded-lg text-xs font-bold flex items-center justify-center cursor-pointer ${
+              isPlaying
+                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                : 'bg-emerald-800 hover:bg-emerald-900 text-white'
+            }`}
+          >
+            {isPlaying ? <Pause className="size-3.5 fill-white" /> : <Play className="size-3.5 fill-white" />}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsMinimized(false)}
+            className="min-h-[36px] px-2 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-100"
+          >
+            Expand ↗
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xl text-slate-800 pointer-events-auto w-full max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
       {/* Top Header & Environmental Status */}
@@ -126,7 +167,7 @@ export function GISTimeline({
           </Badge>
           {trajectory[0]?.isDemoScenario && (
             <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-bold">
-              Hypothetical Demo Scenario
+              Hypothetical Demo
             </Badge>
           )}
           <span className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1">
@@ -135,11 +176,23 @@ export function GISTimeline({
           </span>
         </div>
 
-        {/* Environmental Wind Display */}
-        <div className="flex items-center gap-1 px-2 py-1 bg-sky-50 border border-sky-200/80 rounded-lg text-[10px] font-semibold text-sky-900">
-          <Wind className="size-3 text-sky-600 animate-pulse" />
-          <span className="font-bold">Wind: {windData?.cardinal || 'WNW'}</span>
-          <span className="text-sky-700">({windData?.speedKmH || 17} km/h)</span>
+        {/* Environmental Wind Display & Minimize button */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 px-2 py-1 bg-sky-50 border border-sky-200/80 rounded-lg text-[10px] font-semibold text-sky-900">
+            <Wind className="size-3 text-sky-600 animate-pulse" />
+            <span className="font-bold">Wind: {windData?.cardinal || 'WNW'}</span>
+            <span className="text-sky-700 hidden sm:inline">({windData?.speedKmH || 17} km/h)</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsMinimized(true)}
+            aria-label="Minimize timeline"
+            title="Minimize timeline"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-md text-xs cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
@@ -202,7 +255,7 @@ export function GISTimeline({
             max={TIMELINE_MONTHS.length - 1}
             value={currentMonthIndex}
             onChange={(e) => onMonthChange(Number(e.target.value))}
-            className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -213,7 +266,7 @@ export function GISTimeline({
               key={m.label}
               type="button"
               onClick={() => onMonthChange(idx)}
-              className={`hover:text-emerald-800 transition-colors cursor-pointer ${
+              className={`hover:text-emerald-800 transition-colors cursor-pointer py-1 min-w-[20px] ${
                 idx === currentMonthIndex ? 'text-emerald-800 font-black scale-110' : ''
               }`}
             >
@@ -226,11 +279,11 @@ export function GISTimeline({
       {/* Controls Bar: Play/Pause, Speed Control, Reset, Toggle Parameters & Chart */}
       <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 gap-2 flex-wrap text-xs">
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Play/Pause Button */}
+          {/* Play/Pause Button - Touch Target 44px */}
           <Button
             size="sm"
             onClick={onTogglePlay}
-            className={`min-h-[38px] px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+            className={`min-h-[44px] px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer ${
               isPlaying
                 ? 'bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-400/50'
                 : 'bg-emerald-800 hover:bg-emerald-900 text-white'
@@ -238,25 +291,25 @@ export function GISTimeline({
           >
             {isPlaying ? (
               <>
-                <Pause className="size-3.5 fill-white" />
+                <Pause className="size-4 fill-white" />
                 <span>Pause</span>
               </>
             ) : (
               <>
-                <Play className="size-3.5 fill-white" />
+                <Play className="size-4 fill-white" />
                 <span>Play</span>
               </>
             )}
           </Button>
 
           {/* Speed Control (1x / 2x / 4x) */}
-          <div className="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200">
+          <div className="bg-slate-100 p-0.5 rounded-xl flex items-center border border-slate-200 min-h-[44px]">
             {([1, 2, 4] as const).map((spd) => (
               <button
                 key={spd}
                 type="button"
                 onClick={() => onPlaybackSpeedChange(spd)}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                className={`min-h-[36px] px-2.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                   playbackSpeed === spd
                     ? 'bg-white text-emerald-900 shadow-2xs font-black'
                     : 'text-slate-500 hover:text-slate-800'
@@ -273,9 +326,9 @@ export function GISTimeline({
             size="sm"
             onClick={onReset}
             title="Reset Simulation to Month 1"
-            className="min-h-[38px] px-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
+            className="min-h-[44px] px-3 rounded-xl text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
           >
-            <RotateCcw className="size-3" />
+            <RotateCcw className="size-3.5" />
             <span className="hidden sm:inline">Reset</span>
           </Button>
         </div>

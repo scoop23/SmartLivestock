@@ -26,12 +26,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SibatStatusBadge from "./sibat-status-badge";
 import type { UnifiedSubmissionItem } from "../sibat-analytics";
 
+export type SibatProdStatusFilter = "all" | "pending" | "verified" | "approved" | "needs_correction" | "decided";
+
 interface SibatProductionQueueProps {
   submissions: UnifiedSubmissionItem[];
   isLoading: boolean;
   onReview: (item: UnifiedSubmissionItem) => void;
-  statusFilter: "all" | "pending" | "verified" | "decided";
-  onStatusFilterChange: (st: "all" | "pending" | "verified" | "decided") => void;
+  statusFilter: SibatProdStatusFilter;
+  onStatusFilterChange: (st: SibatProdStatusFilter) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   prodTypeFilter: string;
@@ -39,14 +41,15 @@ interface SibatProductionQueueProps {
 }
 
 const STATUS_TABS: Array<{
-  value: "all" | "pending" | "verified" | "decided";
+  value: SibatProdStatusFilter;
   label: string;
   emoji: string;
 }> = [
   { value: "all", label: "All Logs", emoji: "📋" },
   { value: "pending", label: "Waiting for review", emoji: "⏳" },
   { value: "verified", label: "Checked by SIBAT · Sent to MAO", emoji: "✨" },
-  { value: "decided", label: "Decision / correction", emoji: "✅" },
+  { value: "approved", label: "Approved by MAO", emoji: "✅" },
+  { value: "needs_correction", label: "Needs correction", emoji: "🔄" },
 ];
 
 const getCommodityEmoji = (title: string = "", sourceType: string = "") => {
@@ -83,6 +86,8 @@ export default function SibatProductionQueue({
       all: prodSubmissions.length,
       pending: prodSubmissions.filter((s) => s.status === "PENDING").length,
       verified: prodSubmissions.filter((s) => s.status === "VERIFIED").length,
+      approved: prodSubmissions.filter((s) => s.status === "APPROVED").length,
+      needs_correction: prodSubmissions.filter((s) => s.status === "SUBJECT_TO_REVISION" || s.status === "SUBJECT_FOR_REVISION").length,
       decided: prodSubmissions.filter((s) => s.status === "APPROVED" || s.status === "SUBJECT_TO_REVISION" || s.status === "SUBJECT_FOR_REVISION" || s.status === "REJECTED").length,
     };
   }, [prodSubmissions]);
@@ -96,6 +101,8 @@ export default function SibatProductionQueue({
         statusFilter === "all" ||
         (statusFilter === "pending" && item.status === "PENDING") ||
         (statusFilter === "verified" && item.status === "VERIFIED") ||
+        (statusFilter === "approved" && item.status === "APPROVED") ||
+        (statusFilter === "needs_correction" && (item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION")) ||
         (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION" || item.status === "REJECTED"));
 
       const matchesProdType =

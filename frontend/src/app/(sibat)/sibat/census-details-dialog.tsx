@@ -85,9 +85,9 @@ export default function CensusDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 border-slate-200 text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 border-slate-200 text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#1A365D] to-[#1E4E8C] text-white p-6 pb-5 shrink-0">
+        <div className="bg-gradient-to-r from-[#1A365D] to-[#1E4E8C] text-white p-4 sm:p-6 pb-4 sm:pb-5 shrink-0">
           <DialogHeader className="space-y-1.5 text-left">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
@@ -237,27 +237,27 @@ export default function CensusDetailsDialog({
         </div>
 
         {/* Footer */}
-        <DialogFooter className="p-4 sm:p-5 bg-slate-100/80 border-t border-slate-200 shrink-0 flex items-center justify-between gap-3">
+        <DialogFooter className="p-3.5 sm:p-5 bg-slate-100/80 border-t border-slate-200 shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleExport}
-            className="rounded-xl font-bold text-xs gap-1.5 text-slate-700"
+            className="rounded-xl font-bold text-xs gap-1.5 text-slate-700 w-full sm:w-auto min-h-10"
           >
             <FileDown className="w-3.5 h-3.5" />
             Export CSV / PDF
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {submission.status === "SUBJECT_TO_REVISION" && (
               <Button type="button" onClick={() => onRevise(submission)}
-                className="rounded-xl font-black text-xs px-5 bg-rose-700 hover:bg-rose-800 text-white gap-1.5">
+                className="rounded-xl font-black text-xs px-5 bg-rose-700 hover:bg-rose-800 text-white gap-1.5 min-h-10 justify-center">
                 <RotateCcw className="size-3.5" /> Correct & Resubmit
               </Button>
             )}
             <Button type="button" onClick={() => onOpenChange(false)}
-              className="rounded-xl font-bold text-xs px-5 bg-[#1A365D] hover:bg-[#152944] text-white">
+              className="rounded-xl font-bold text-xs px-5 bg-[#1A365D] hover:bg-[#152944] text-white min-h-10 justify-center">
               Close
             </Button>
           </div>

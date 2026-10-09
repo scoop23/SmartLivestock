@@ -104,6 +104,9 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
 
   useEffect(() => {
     import('leaflet').then((L) => {
+      const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 640;
+      const defaultPadding: [number, number] = isSmallScreen ? [12, 12] : [24, 24];
+
       // If the user is restricted to a single own/assigned barangay (Farmer or assigned SIBAT),
       // zoom directly to their barangay polygon so they see their farm area immediately
       const isRestricted = userScope && !userScope.can_view_all_barangays && userScope.allowed_barangays?.length === 1;
@@ -117,7 +120,7 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
           const featureLayer = L.geoJSON(feature);
           const fBounds = featureLayer.getBounds();
           if (fBounds.isValid()) {
-            map.fitBounds(fBounds, { padding: [50, 50], maxZoom: 15 });
+            map.fitBounds(fBounds, { padding: isSmallScreen ? [24, 24] : [48, 48], maxZoom: 15 });
             return;
           }
         }
@@ -127,7 +130,7 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
       const geoJsonLayer = L.geoJSON(padreGarciaGeojson as any);
       const bounds = geoJsonLayer.getBounds();
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [24, 24] });
+        map.fitBounds(bounds, { padding: defaultPadding });
       }
     });
   }, [map, resetTrigger, userScope, selectedBarangay]);
@@ -135,7 +138,7 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
   return null;
 }
 
-// Client resize handler to eliminate layout gaps and handle orientation change
+// Client resize handler with ResizeObserver to eliminate layout gaps and handle orientation change
 function MapResizeHandler() {
   const map = useMap();
 
@@ -151,11 +154,27 @@ function MapResizeHandler() {
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
 
+    let resizeObserver: ResizeObserver | null = null;
+    try {
+      const container = map.getContainer();
+      if (container && typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          map.invalidateSize();
+        });
+        resizeObserver.observe(container);
+      }
+    } catch {
+      // ignore
+    }
+
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
     };
   }, [map]);
 
@@ -788,7 +807,7 @@ export function GISMap({
         <MapContainer
           center={centerPosition}
           zoom={13}
-          style={{ height: '100%', width: '100%', minHeight: '380px' }}
+          style={{ height: '100%', width: '100%' }}
           zoomControl={false}
         >
           <FitBounds resetTrigger={resetTrigger} userScope={userScope} selectedBarangay={selectedBarangay} />

@@ -174,21 +174,13 @@ function SibatPortalContent() {
 
 
   // Production Filters
-
-  const [prodStatusFilter, setProdStatusFilter] = useState<"all" | "pending" | "verified" | "decided">("all");
-
+  const [prodStatusFilter, setProdStatusFilter] = useState<"all" | "pending" | "verified" | "approved" | "needs_correction" | "decided">("all");
   const [prodSearchQuery, setProdSearchQuery] = useState("");
-
   const [prodTypeFilter, setProdTypeFilter] = useState("ALL");
 
-
-
   // Inventory Filters
-
-  const [invStatusFilter, setInvStatusFilter] = useState<"all" | "pending" | "verified" | "decided">("all");
-
+  const [invStatusFilter, setInvStatusFilter] = useState<"all" | "pending" | "verified" | "approved" | "needs_correction" | "decided">("all");
   const [invSearchQuery, setInvSearchQuery] = useState("");
-
   const [invEntryTypeFilter, setInvEntryTypeFilter] = useState<"ALL" | "INDIVIDUAL" | "BATCH">("ALL");
 
 

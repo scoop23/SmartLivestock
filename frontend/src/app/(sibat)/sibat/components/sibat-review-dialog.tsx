@@ -192,7 +192,7 @@ export default function SibatReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
         <DialogHeader className="border-b border-slate-100 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -664,7 +664,7 @@ export default function SibatReviewDialog({
             Current Verification Workflow
           </span>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
             {/* Step 1: Farmer Submitted */}
             <div aria-current={isReturned ? "step" : undefined} className={`p-2.5 rounded-xl border ${isReturned
               ? "bg-amber-50 border-amber-300 text-amber-900"
@@ -752,7 +752,7 @@ export default function SibatReviewDialog({
         </div>
 
         {/* ═══ Dialog Actions ═══ */}
-        <DialogFooter className="border-t border-slate-100 pt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+        <DialogFooter className="border-t border-slate-100 pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
           <Button
             type="button"
             variant="outline"
@@ -764,7 +764,7 @@ export default function SibatReviewDialog({
           </Button>
 
           {isPending ? (
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"

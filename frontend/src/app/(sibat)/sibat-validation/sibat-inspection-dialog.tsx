@@ -151,6 +151,25 @@ export function SibatInspectionDialog({
   const [confirmationAction, setConfirmationAction] = useState<"VERIFIED" | "FLAGGED" | null>(null);
   const [validationError, setValidationError] = useState("");
 
+  // Sync state when record changes
+  React.useEffect(() => {
+    if (record) {
+      setTagConfirmed(record.inspection?.tagConfirmed ?? false);
+      setCountConfirmed(record.inspection?.countConfirmed ?? false);
+      setConfirmedCount(record.inspection?.confirmedCount ?? record.reportedCount ?? 1);
+      setConfirmedSymptoms(record.inspection?.confirmedSymptoms ?? []);
+      setSeverity(record.inspection?.severity ?? "");
+      setBiosecurityAction(record.inspection?.biosecurityAction ?? "");
+      setTemperature(record.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "");
+      setInspectorRemarks(record.inspection?.remarks ?? "");
+      setInspectorPhotoUrl(record.inspection?.inspectorPhotoUrl ?? "");
+      setInspectorPhotoName("");
+      setInspectorPhotoFile(null);
+      setConfirmationAction(null);
+      setValidationError("");
+    }
+  }, [record]);
+
   const handleInspectorPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && record) {
@@ -177,15 +196,25 @@ export function SibatInspectionDialog({
 
   const isMortality = record.reportType === "MORTALITY";
   const isDisease = record.reportType === "DISEASE";
-  const isVerified = (record.status || "PENDING").toUpperCase() === "VERIFIED";
+  const normStatus = (record.status || "PENDING").toUpperCase();
+  const isPending =
+    normStatus === "PENDING" ||
+    normStatus === "FLAGGED" ||
+    normStatus === "SUBJECT_TO_REVISION" ||
+    normStatus === "SUBJECT_FOR_REVISION";
+  const isReadOnly = !isPending;
+  const isApproved = normStatus === "APPROVED";
+  const isVerified = normStatus === "VERIFIED";
 
   const toggleSymptom = (label: string) => {
+    if (isReadOnly) return;
     setConfirmedSymptoms((prev) =>
       prev.includes(label) ? prev.filter((s) => s !== label) : [...prev, label]
     );
   };
 
   const handleAction = (status: "VERIFIED" | "FLAGGED") => {
+    if (isReadOnly) return;
     if (status === "VERIFIED" && (!tagConfirmed || !countConfirmed || confirmedCount < 1)) {
       setValidationError("Confirm the physical tag and field count before sending this record to MAO.");
       return;
@@ -195,7 +224,7 @@ export function SibatInspectionDialog({
   };
 
   const confirmAction = () => {
-    if (!confirmationAction || isSubmitting) return;
+    if (!confirmationAction || isSubmitting || isReadOnly) return;
     const status = confirmationAction;
     const nowIso = new Date().toLocaleString("en-US", {
       month: "short",
@@ -316,14 +345,26 @@ export function SibatInspectionDialog({
                   </span>
                 </div>
                 <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight mt-1">
-                  {isMortality
-                    ? "Step 2: SIBAT Mortality Verification"
-                    : isDisease
-                      ? "Step 2: SIBAT On-Farm Health Examination"
-                      : `Step 2: SIBAT Field Inspection (${record.reportType})`}
+                  {isReadOnly
+                    ? isApproved
+                      ? isMortality
+                        ? "Certified Mortality Record (MAO Approved)"
+                        : "Certified Health Record (MAO Approved)"
+                      : isVerified
+                        ? "SIBAT Field Inspection (Under MAO Review)"
+                        : `Field Inspection Record (${record.status})`
+                    : isMortality
+                      ? "Step 2: SIBAT Mortality Verification"
+                      : isDisease
+                        ? "Step 2: SIBAT On-Farm Health Examination"
+                        : `Step 2: SIBAT Field Inspection (${record.reportType})`}
                 </DialogTitle>
                 <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
-                  Conduct on-farm physical checks, verify clinical signs, and certify records for MAO municipal approval.
+                  {isReadOnly
+                    ? isApproved
+                      ? "This record has been officially certified by MAO. Field inspection findings and clinical notes are finalized."
+                      : "Field findings and inspection details submitted to the Municipal Agriculture Office."
+                    : "Conduct on-farm physical checks, verify clinical signs, and certify records for MAO municipal approval."}
                 </p>
               </div>
             </div>
@@ -476,48 +517,50 @@ export function SibatInspectionDialog({
                         The raiser did not upload a photograph with this incident report.
                       </p>
 
-                      {/* Photo upload button & preview matching other dialogs */}
-                      <div className="space-y-2 pt-1 text-left">
-                        <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 hover:border-sky-600 rounded-xl bg-slate-50 cursor-pointer transition-colors text-xs font-bold text-slate-600 hover:text-sky-700">
-                          <Camera className="w-4 h-4 text-sky-600" />
-                          <span>{inspectorPhotoName ? `Photo: ${inspectorPhotoName}` : "Add SIBAT Field Inspection Photo (Optional)"}</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleInspectorPhotoUpload}
-                            className="hidden"
-                          />
-                        </label>
-
-                        {inspectorPhotoUrl && (
-                          <div className="relative rounded-2xl overflow-hidden border border-sky-300 bg-sky-50/60 p-2 flex items-center gap-3">
-                            <img
-                              src={inspectorPhotoUrl}
-                              alt="Attached preview"
-                              className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                      {/* Photo upload button & preview if pending */}
+                      {!isReadOnly && (
+                        <div className="space-y-2 pt-1 text-left">
+                          <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 hover:border-sky-600 rounded-xl bg-slate-50 cursor-pointer transition-colors text-xs font-bold text-slate-600 hover:text-sky-700">
+                            <Camera className="w-4 h-4 text-sky-600" />
+                            <span>{inspectorPhotoName ? `Photo: ${inspectorPhotoName}` : "Add SIBAT Field Inspection Photo (Optional)"}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleInspectorPhotoUpload}
+                              className="hidden"
                             />
-                            <div className="flex-1 min-w-0 text-xs">
-                              <p className="font-bold text-slate-900 truncate">{inspectorPhotoName}</p>
-                              <p className="text-[11px] text-sky-700 font-semibold">
-                                Inspection photo attached & ready for MAO validation
-                              </p>
+                          </label>
+
+                          {inspectorPhotoUrl && (
+                            <div className="relative rounded-2xl overflow-hidden border border-sky-300 bg-sky-50/60 p-2 flex items-center gap-3">
+                              <img
+                                src={inspectorPhotoUrl}
+                                alt="Attached preview"
+                                className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                              />
+                              <div className="flex-1 min-w-0 text-xs">
+                                <p className="font-bold text-slate-900 truncate">{inspectorPhotoName}</p>
+                                <p className="text-[11px] text-sky-700 font-semibold">
+                                  Inspection photo attached & ready for MAO validation
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setInspectorPhotoName("");
+                                  setInspectorPhotoUrl("");
+                                  setInspectorPhotoFile(null);
+                                }}
+                                className="text-slate-400 hover:text-rose-600 rounded-xl"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setInspectorPhotoName("");
-                                setInspectorPhotoUrl("");
-                                setInspectorPhotoFile(null);
-                              }}
-                              className="text-slate-400 hover:text-rose-600 rounded-xl"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -599,16 +642,18 @@ export function SibatInspectionDialog({
                         <span>Enlarge & Examine Symptoms</span>
                       </button>
 
-                      <label className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 cursor-pointer hover:underline">
-                        <Camera className="size-3.5 text-slate-400" />
-                        <span>Add SIBAT Field Photo</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleInspectorPhotoUpload}
-                          className="hidden"
-                        />
-                      </label>
+                      {!isReadOnly && (
+                        <label className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 cursor-pointer hover:underline">
+                          <Camera className="size-3.5 text-slate-400" />
+                          <span>Add SIBAT Field Photo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleInspectorPhotoUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
                     </div>
                   </div>
                 );
@@ -623,24 +668,26 @@ export function SibatInspectionDialog({
                 <div className="flex items-center gap-2">
                   <Stethoscope className="size-5 text-sky-800" />
                   <span className="text-xs sm:text-sm font-black uppercase text-sky-950 tracking-wider">
-                    2. Physical On-Farm Examination (Step 2)
+                    {isReadOnly ? "2. Field Inspection Record" : "2. Physical On-Farm Examination (Step 2)"}
                   </span>
                 </div>
-                <Badge className="bg-sky-200 text-sky-900 border-none font-black text-[10px] uppercase">
-                  Field Checklist
+                <Badge className={`${isApproved ? "bg-emerald-200 text-emerald-900" : isVerified ? "bg-sky-200 text-sky-900" : "bg-slate-200 text-slate-800"} border-none font-black text-[10px] uppercase`}>
+                  {isApproved ? "Certified Record" : isVerified ? "Submitted Record" : "Field Checklist"}
                 </Badge>
               </div>
 
               {/* Ear Tag Verification Checkbox */}
-              <label className="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-sky-200 cursor-pointer hover:bg-sky-50/40 transition-all">
+              <label className={`flex items-center gap-3 p-3.5 bg-white rounded-xl border border-sky-200 transition-all ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
                 <input
                   type="checkbox"
                   checked={tagConfirmed}
+                  disabled={isReadOnly}
                   onChange={(e) => {
+                    if (isReadOnly) return;
                     setTagConfirmed(e.target.checked);
                     setValidationError("");
                   }}
-                  className="size-5 rounded text-sky-700 focus:ring-sky-500 cursor-pointer"
+                  className={`size-5 rounded text-sky-700 focus:ring-sky-500 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`}
                 />
                 <div>
                   <p className="text-xs sm:text-sm font-black text-slate-900">
@@ -652,15 +699,17 @@ export function SibatInspectionDialog({
                 </div>
               </label>
 
-              <label className="flex min-h-14 items-center gap-3 rounded-xl border border-sky-200 bg-white p-3.5">
+              <label className={`flex min-h-14 items-center gap-3 rounded-xl border border-sky-200 bg-white p-3.5 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
                 <input
                   type="checkbox"
                   checked={countConfirmed}
+                  disabled={isReadOnly}
                   onChange={(event) => {
+                    if (isReadOnly) return;
                     setCountConfirmed(event.target.checked);
                     setValidationError("");
                   }}
-                  className="size-5 rounded text-sky-700 focus:ring-sky-500"
+                  className={`size-5 rounded text-sky-700 focus:ring-sky-500 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`}
                 />
                 <span className="text-xs font-semibold text-slate-800">I counted the affected animal(s) in person.</span>
               </label>
@@ -675,21 +724,29 @@ export function SibatInspectionDialog({
                     type="number"
                     min={1}
                     value={confirmedCount}
-                    onChange={(e) => setConfirmedCount(e.target.value === "" ? 0 : Number(e.target.value))}
-                    className="min-h-11 bg-white border-sky-200 rounded-xl text-sm font-bold"
+                    disabled={isReadOnly}
+                    onChange={(e) => {
+                      if (isReadOnly) return;
+                      setConfirmedCount(e.target.value === "" ? 0 : Number(e.target.value));
+                    }}
+                    className="min-h-11 bg-white border-sky-200 rounded-xl text-sm font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-black text-slate-800">
-                    Body Temp (°C) (Optional):
+                    Body Temp (°C) {isReadOnly ? "" : "(Optional)"}:
                   </label>
                   <Input
                     type="number"
                     step="0.1"
-                    placeholder="e.g. 39.5"
+                    placeholder={isReadOnly ? "Not recorded" : "e.g. 39.5"}
                     value={temperature}
-                    onChange={(e) => setTemperature(e.target.value)}
-                    className="bg-white border-sky-200 rounded-xl text-xs font-bold"
+                    disabled={isReadOnly}
+                    onChange={(e) => {
+                      if (isReadOnly) return;
+                      setTemperature(e.target.value);
+                    }}
+                    className="bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -697,7 +754,7 @@ export function SibatInspectionDialog({
               {/* Interactive Symptoms Checklist */}
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-slate-800 block">
-                  Clinically Observed Signs (Click to toggle):
+                  Clinically Observed Signs {isReadOnly ? "(Recorded)" : "(Click to toggle)"}:
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {CLINICAL_SYMPTOMS_LIST.map((sym) => {
@@ -706,19 +763,26 @@ export function SibatInspectionDialog({
                       <button
                         key={sym.id}
                         type="button"
+                        disabled={isReadOnly}
                         onClick={() => toggleSymptom(sym.label)}
-                        className={`p-2 rounded-xl border text-left flex items-start gap-2 transition-all cursor-pointer ${isSelected
+                        className={`p-2 rounded-xl border text-left flex items-start gap-2 transition-all ${
+                          isReadOnly ? "cursor-default" : "cursor-pointer"
+                        } ${isSelected
                           ? "bg-[#1A365D] text-white border-[#1A365D] shadow-2xs"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          : isReadOnly
+                            ? "bg-slate-50/70 text-slate-400 border-slate-200"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
                           }`}
                       >
                         <span className="font-bold text-xs mt-0.5">
                           {isSelected ? "✓" : "○"}
                         </span>
                         <div>
-                          <p className="text-xs font-black leading-tight">{sym.label}</p>
+                          <p className={`text-xs font-black leading-tight ${isSelected ? "text-white" : isReadOnly ? "text-slate-500" : "text-slate-800"}`}>
+                            {sym.label}
+                          </p>
                           <p
-                            className={`text-[9px] font-medium ${isSelected ? "text-blue-200" : "text-slate-400"
+                            className={`text-[9px] font-medium ${isSelected ? "text-blue-200" : isReadOnly ? "text-slate-400" : "text-slate-500"
                               }`}
                           >
                             {sym.desc}
@@ -738,8 +802,12 @@ export function SibatInspectionDialog({
                   </label>
                   <select
                     value={severity}
-                    onChange={(e) => setSeverity(e.target.value as SeverityLevel | "")}
-                    className="w-full bg-white border border-sky-200 rounded-xl h-10 px-3 text-xs font-bold text-slate-800 outline-none"
+                    disabled={isReadOnly}
+                    onChange={(e) => {
+                      if (isReadOnly) return;
+                      setSeverity(e.target.value as SeverityLevel | "");
+                    }}
+                    className="w-full bg-white border border-sky-200 rounded-xl h-10 px-3 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
                   >
                     <option value="">Not assessed</option>
                     <option value="MILD">Mild (Monitoring Required)</option>
@@ -755,8 +823,12 @@ export function SibatInspectionDialog({
                   </label>
                   <select
                     value={biosecurityAction}
-                    onChange={(e) => setBiosecurityAction(e.target.value as BiosecurityAction | "")}
-                    className="w-full bg-white border border-sky-200 rounded-xl h-10 px-3 text-xs font-bold text-slate-800 outline-none"
+                    disabled={isReadOnly}
+                    onChange={(e) => {
+                      if (isReadOnly) return;
+                      setBiosecurityAction(e.target.value as BiosecurityAction | "");
+                    }}
+                    className="w-full bg-white border border-sky-200 rounded-xl h-10 px-3 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
                   >
                     <option value="">No action recorded</option>
                     <option value="NONE">None / General Advisory</option>
@@ -768,51 +840,75 @@ export function SibatInspectionDialog({
                 </div>
               </div>
 
-              {/* SIBAT Inspection Photo upload matching other dialogs */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-black text-slate-800 block">
-                  SIBAT Field Inspection Photo (Optional):
-                </label>
-                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-sky-200 hover:border-sky-600 rounded-xl bg-white cursor-pointer transition-colors text-xs font-bold text-sky-800">
-                  <Camera className="w-4 h-4 text-sky-600" />
-                  <span>{inspectorPhotoName ? `Photo: ${inspectorPhotoName}` : "Attach SIBAT Field Inspection Photo"}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleInspectorPhotoUpload}
-                    className="hidden"
-                  />
-                </label>
+              {/* SIBAT Inspection Photo preview / upload */}
+              {!isReadOnly ? (
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-xs font-black text-slate-800 block">
+                    SIBAT Field Inspection Photo (Optional):
+                  </label>
+                  <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-sky-200 hover:border-sky-600 rounded-xl bg-white cursor-pointer transition-colors text-xs font-bold text-sky-800">
+                    <Camera className="w-4 h-4 text-sky-600" />
+                    <span>{inspectorPhotoName ? `Photo: ${inspectorPhotoName}` : "Attach SIBAT Field Inspection Photo"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleInspectorPhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
 
-                {inspectorPhotoUrl && (
-                  <div className="relative rounded-2xl overflow-hidden border border-sky-300 bg-white p-2 flex items-center gap-3 shadow-2xs">
+                  {inspectorPhotoUrl && (
+                    <div className="relative rounded-2xl overflow-hidden border border-sky-300 bg-white p-2 flex items-center gap-3 shadow-2xs">
+                      <img
+                        src={inspectorPhotoUrl}
+                        alt="Inspection preview"
+                        className="w-16 h-16 rounded-xl object-cover border border-sky-200 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0 text-xs">
+                        <p className="font-bold text-slate-900 truncate">{inspectorPhotoName}</p>
+                        <p className="text-[11px] text-sky-700 font-semibold">
+                          Field photo attached & ready for MAO certification
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setInspectorPhotoName("");
+                          setInspectorPhotoUrl("");
+                          setInspectorPhotoFile(null);
+                        }}
+                        className="text-slate-400 hover:text-rose-600 rounded-xl"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : inspectorPhotoUrl ? (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-xs font-black text-slate-800 block">
+                    SIBAT Field Inspection Photo:
+                  </span>
+                  <div
+                    onClick={() => setIsPhotoLightboxOpen(true)}
+                    className="relative rounded-2xl overflow-hidden border border-sky-300 bg-white p-2 flex items-center gap-3 shadow-2xs cursor-pointer hover:bg-sky-50/50 transition-colors"
+                  >
                     <img
                       src={inspectorPhotoUrl}
                       alt="Inspection preview"
                       className="w-16 h-16 rounded-xl object-cover border border-sky-200 shrink-0"
                     />
                     <div className="flex-1 min-w-0 text-xs">
-                      <p className="font-bold text-slate-900 truncate">{inspectorPhotoName}</p>
-                      <p className="text-[11px] text-sky-700 font-semibold">
-                        Field photo attached & ready for MAO certification
+                      <p className="font-bold text-slate-900 truncate">Field Inspection Documentation</p>
+                      <p className="text-[11px] text-sky-700 font-semibold flex items-center gap-1 mt-0.5">
+                        <ZoomIn className="size-3" /> Click to inspect fullscreen
                       </p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setInspectorPhotoName("");
-                        setInspectorPhotoUrl("");
-                        setInspectorPhotoFile(null);
-                      }}
-                      className="text-slate-400 hover:text-rose-600 rounded-xl"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : null}
 
               {/* Inspector Remarks & Presets */}
               <div className="space-y-1.5 pt-1">
@@ -820,89 +916,164 @@ export function SibatInspectionDialog({
                   <label className="text-xs font-black text-slate-800">
                     SIBAT Field Audit Remarks:
                   </label>
-                  <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold">
-                    <Sparkles className="size-3" /> Quick Presets
-                  </div>
+                  {!isReadOnly && (
+                    <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold">
+                      <Sparkles className="size-3" /> Quick Presets
+                    </div>
+                  )}
                 </div>
 
                 <Textarea
-                  placeholder="Enter detailed clinical findings, veterinarian advisory, prescription details, or carcass disposal notes..."
+                  placeholder={isReadOnly ? "No field remarks recorded." : "Enter detailed clinical findings, veterinarian advisory, prescription details, or carcass disposal notes..."}
                   value={inspectorRemarks}
-                  onChange={(e) => setInspectorRemarks(e.target.value)}
-                  className="bg-white border-sky-200 rounded-2xl text-xs font-medium resize-none h-20 p-3 focus-visible:ring-2 focus-visible:ring-[#1A365D]"
+                  disabled={isReadOnly}
+                  onChange={(e) => {
+                    if (isReadOnly) return;
+                    setInspectorRemarks(e.target.value);
+                  }}
+                  className="bg-white border-sky-200 rounded-2xl text-xs font-medium resize-none h-20 p-3 focus-visible:ring-2 focus-visible:ring-[#1A365D] disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
                 />
 
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {(isMortality
-                    ? [
-                      "Mortality verified on site. Carcass disinfected with lime and deep pit burial (2m) completed under SIBAT supervision.",
-                      "Death caused by severe birth complications. No signs of transmissible infectious disease.",
-                      "Discrepancy in recorded ear tag or animal identity. Requires re-audit.",
-                    ]
-                    : SIBAT_VERIFIED_PRESETS
-                  ).map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setInspectorRemarks(preset)}
-                      className="text-[10px] px-2.5 py-1 rounded-lg bg-white hover:bg-sky-100 text-sky-950 font-bold border border-sky-200 transition-all text-left cursor-pointer"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
+                {!isReadOnly && (
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {(isMortality
+                      ? [
+                        "Mortality verified on site. Carcass disinfected with lime and deep pit burial (2m) completed under SIBAT supervision.",
+                        "Death caused by severe birth complications. No signs of transmissible infectious disease.",
+                        "Discrepancy in recorded ear tag or animal identity. Requires re-audit.",
+                      ]
+                      : SIBAT_VERIFIED_PRESETS
+                    ).map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setInspectorRemarks(preset)}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-white hover:bg-sky-100 text-sky-950 font-bold border border-sky-200 transition-all text-left cursor-pointer"
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Inspector Stamp */}
-              <div className="p-2.5 bg-white rounded-xl border border-sky-200 flex items-center justify-between text-xs text-slate-600">
+              <div className="p-2.5 bg-white rounded-xl border border-sky-200 flex items-center justify-between text-xs text-slate-600 flex-wrap gap-1">
                 <span className="font-bold flex items-center gap-1.5">
                   <User className="size-3.5 text-sky-700" />
-                  Review recorded under the signed-in SIBAT account
+                  {record.inspection?.verifiedBy ? `Inspected by: ${record.inspection.verifiedBy}` : "Review recorded under SIBAT field account"}
                 </span>
-                <span className="text-[10px] font-mono text-slate-500">Padre Garcia Registry</span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  {record.inspection?.verifiedAt ? record.inspection.verifiedAt : "Padre Garcia Registry"}
+                </span>
               </div>
             </div>
 
-            {/* Decision Actions */}
+            {/* Decision Actions / Read-Only Status Notice */}
             <div className="space-y-2 pt-1">
-              {validationError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-900">{validationError}</p>}
-              {confirmationAction ? (
-                <div role="alertdialog" aria-live="polite" className="space-y-3 rounded-xl border border-sky-300 bg-sky-50 p-4">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {confirmationAction === "VERIFIED"
-                      ? "Confirm the physical checks and send this record to MAO for its decision?"
-                      : "Flag this report as needing follow-up? The existing workflow will return it with your remarks."}
-                  </p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Button type="button" onClick={confirmAction} disabled={isSubmitting} className="min-h-11 bg-[#1A365D] text-white hover:bg-[#152c4d]">
-                      {isSubmitting ? "Sending..." : "Confirm and send"}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setConfirmationAction(null)} disabled={isSubmitting} className="min-h-11">Go back</Button>
-                  </div>
+              {isReadOnly ? (
+                <div className="space-y-3">
+                  {isApproved ? (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 flex items-start gap-3">
+                      <CheckCircle2 className="size-5 text-emerald-700 shrink-0 mt-0.5" />
+                      <div className="text-xs text-emerald-950 space-y-1">
+                        <p className="font-bold text-sm text-emerald-900">
+                          Official Municipal Record (MAO Approved)
+                        </p>
+                        <p className="text-emerald-800 leading-relaxed">
+                          This health and mortality record has been validated and officially approved by the Municipal Agriculture Office. Field inspection notes are finalized and locked.
+                        </p>
+                        {record.maoApproval?.approvedBy && (
+                          <div className="mt-2 pt-2 border-t border-emerald-200 flex items-center justify-between text-[11px] font-medium text-emerald-900 flex-wrap gap-1">
+                            <span>Certified by: <strong>{record.maoApproval.approvedBy}</strong></span>
+                            {record.maoApproval.approvedAt && (
+                              <span className="font-mono text-slate-500">{record.maoApproval.approvedAt}</span>
+                            )}
+                          </div>
+                        )}
+                        {record.maoApproval?.remarks && (
+                          <p className="mt-1.5 text-xs font-semibold text-emerald-950 bg-white/80 p-2 rounded-xl border border-emerald-200">
+                            MAO Remarks: &quot;{record.maoApproval.remarks}&quot;
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : isVerified ? (
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 flex items-start gap-3">
+                      <ShieldCheck className="size-5 text-sky-700 shrink-0 mt-0.5" />
+                      <div className="text-xs text-sky-950">
+                        <p className="font-bold text-sm text-sky-900">
+                          Field Inspection Verified & Awaiting MAO Decision
+                        </p>
+                        <p className="mt-0.5 text-sky-800 leading-relaxed">
+                          This incident was inspected on-site by SIBAT and has been forwarded to MAO for final certification.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">
+                      <AlertTriangle className="size-5 text-slate-700 shrink-0 mt-0.5" />
+                      <div className="text-xs text-slate-800">
+                        <p className="font-bold text-sm text-slate-900">
+                          Record Status: {record.status}
+                        </p>
+                        <p className="mt-0.5 text-slate-600 leading-relaxed">
+                          This record has already been processed. Field notes are archived in read-only mode.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    type="button"
+                    onClick={() => onOpenChange(false)}
+                    className="min-h-11 w-full bg-slate-900 text-white hover:bg-slate-800 rounded-xl font-bold"
+                  >
+                    Close
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <Button
-                    type="button"
-                    onClick={() => handleAction("VERIFIED")}
-                    disabled={isSubmitting}
-                    className="min-h-12 w-full bg-[#1A365D] text-white hover:bg-[#152c4d] rounded-xl font-bold"
-                  >
-                    <ShieldCheck className="mr-2 size-5 text-emerald-300" />
-                    Confirm details and send to MAO
-                  </Button>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleAction("FLAGGED")}
-                      disabled={isSubmitting}
-                      className="min-h-11 bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100 rounded-xl font-semibold"
-                    >
-                      <AlertTriangle className="mr-2 size-4" />Flag a concern
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="min-h-11">Close without sending</Button>
-                  </div>
+                  {validationError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-900">{validationError}</p>}
+                  {confirmationAction ? (
+                    <div role="alertdialog" aria-live="polite" className="space-y-3 rounded-xl border border-sky-300 bg-sky-50 p-4">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {confirmationAction === "VERIFIED"
+                          ? "Confirm the physical checks and send this record to MAO for its decision?"
+                          : "Flag this report as needing follow-up? The existing workflow will return it with your remarks."}
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Button type="button" onClick={confirmAction} disabled={isSubmitting} className="min-h-11 bg-[#1A365D] text-white hover:bg-[#152c4d]">
+                          {isSubmitting ? "Sending..." : "Confirm and send"}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => setConfirmationAction(null)} disabled={isSubmitting} className="min-h-11">Go back</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        onClick={() => handleAction("VERIFIED")}
+                        disabled={isSubmitting}
+                        className="min-h-12 w-full bg-[#1A365D] text-white hover:bg-[#152c4d] rounded-xl font-bold"
+                      >
+                        <ShieldCheck className="mr-2 size-5 text-emerald-300" />
+                        Confirm details and send to MAO
+                      </Button>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleAction("FLAGGED")}
+                          disabled={isSubmitting}
+                          className="min-h-11 bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100 rounded-xl font-semibold"
+                        >
+                          <AlertTriangle className="mr-2 size-4" />Flag a concern
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="min-h-11">Close without sending</Button>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>

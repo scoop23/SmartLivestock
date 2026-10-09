@@ -168,41 +168,70 @@ export function GISLegend({
 
   const { title, icon } = titles[layer];
   const items = getLegendItems();
+  const [isCollapsed, setIsCollapsed] = React.useState<boolean>(false);
+
+  if (isCollapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsCollapsed(false)}
+        aria-label="Expand GIS Legend"
+        className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto flex items-center gap-1.5 text-xs font-black active:scale-95 transition-transform cursor-pointer"
+      >
+        <span>{icon}</span>
+        <span className="text-[11px] font-bold text-slate-700">Legend</span>
+        <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono border-slate-300">
+          Show
+        </Badge>
+      </button>
+    );
+  }
 
   return (
-    <div className="bg-white/95 backdrop-blur-md p-3 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto max-w-[270px]">
-      <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
+    <div className="bg-white/95 backdrop-blur-md p-2.5 sm:p-3 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto max-w-[240px] sm:max-w-[270px] animate-in fade-in duration-150">
+      <div className="flex items-center justify-between gap-1.5 mb-1.5 pb-1.5 border-b border-slate-100">
         <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5 truncate">
           <span>{icon}</span>
           <span className="truncate">{title}</span>
         </h4>
-        {viewMode === '3D' ? (
-          <Badge className="bg-emerald-800 text-white text-[9px] px-1 py-0 font-mono flex items-center gap-0.5">
-            <Box className="size-2.5" /> 3D
-          </Badge>
-        ) : layer === 'disease' && diseaseSubMode === 'simulation' ? (
-          <Badge className="bg-amber-500 text-white text-[9px] px-1 py-0 font-mono">
-            <Zap className="size-2 mr-0.5 inline" /> SIM
-          </Badge>
-        ) : layer === 'disease' && diseaseSubMode === 'trend' ? (
-          <Badge className="bg-purple-600 text-white text-[9px] px-1 py-0 font-mono">
-            <TrendingUp className="size-2 mr-0.5 inline" /> TREND
-          </Badge>
-        ) : layer === 'cattle' || layer === 'mortality' ? (
-          <Badge className="bg-slate-900 text-white text-[9px] px-1 py-0 font-mono">
-            {selectedLivestockType === 'ALL' ? 'ALL' : (selectedLivestockType || 'CATTLE').toUpperCase()}
-          </Badge>
-        ) : null}
+        <div className="flex items-center gap-1 shrink-0">
+          {viewMode === '3D' ? (
+            <Badge className="bg-emerald-800 text-white text-[9px] px-1 py-0 font-mono flex items-center gap-0.5">
+              <Box className="size-2.5" /> 3D
+            </Badge>
+          ) : layer === 'disease' && diseaseSubMode === 'simulation' ? (
+            <Badge className="bg-amber-500 text-white text-[9px] px-1 py-0 font-mono">
+              <Zap className="size-2 mr-0.5 inline" /> SIM
+            </Badge>
+          ) : layer === 'disease' && diseaseSubMode === 'trend' ? (
+            <Badge className="bg-purple-600 text-white text-[9px] px-1 py-0 font-mono">
+              <TrendingUp className="size-2 mr-0.5 inline" /> TREND
+            </Badge>
+          ) : layer === 'cattle' || layer === 'mortality' ? (
+            <Badge className="bg-slate-900 text-white text-[9px] px-1 py-0 font-mono">
+              {selectedLivestockType === 'ALL' ? 'ALL' : (selectedLivestockType || 'CATTLE').toUpperCase()}
+            </Badge>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(true)}
+            aria-label="Minimize Legend"
+            title="Minimize Legend"
+            className="text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer transition-colors"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-1.5 text-xs">
+      <div className="space-y-1 sm:space-y-1.5 text-xs">
         {items.map((item, idx) => (
           <div key={idx} className="flex items-center gap-2">
             <span
-              className="size-3 rounded-xs border border-black/10 shrink-0 shadow-2xs"
+              className="size-2.5 sm:size-3 rounded-xs border border-black/10 shrink-0 shadow-2xs"
               style={{ backgroundColor: item.color }}
             />
-            <span className="text-[11px] font-semibold text-slate-700 truncate">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 truncate">
               {item.label}
             </span>
           </div>
@@ -210,8 +239,8 @@ export function GISLegend({
       </div>
 
       {viewMode === '3D' && (
-        <div className="mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500 flex items-center gap-1">
-          <Box className="size-3 text-emerald-700" />
+        <div className="mt-1.5 pt-1 border-t border-slate-100 text-[9px] sm:text-[10px] text-slate-500 flex items-center gap-1">
+          <Box className="size-2.5 sm:size-3 text-emerald-700" />
           <span>Barangay column height shows density</span>
         </div>
       )}

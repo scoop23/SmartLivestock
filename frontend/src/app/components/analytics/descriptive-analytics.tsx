@@ -1191,7 +1191,7 @@ export default function DescriptiveAnalytics() {
           title="Approved Live Animal Sales Summary"
           subtitle="Monetary value reflects transactions where price was explicitly recorded"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 Animals Sold

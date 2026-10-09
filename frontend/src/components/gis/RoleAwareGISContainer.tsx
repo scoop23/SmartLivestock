@@ -110,6 +110,8 @@ export function RoleAwareGISContainer({
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [resetTrigger, setResetTrigger] = useState<number>(0);
 
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+
   // Open sidebar by default on desktop screens (>= 1024px)
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -267,7 +269,11 @@ export function RoleAwareGISContainer({
 
   const handleSelectBarangay = useCallback((b: BarangayGISData) => {
     setSelectedBarangay(b);
-    setSidebarOpen(true);
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setSidebarOpen(true);
+    } else {
+      setMobileDrawerOpen(true);
+    }
   }, []);
 
   const handleClearSelectedBarangay = useCallback(() => {
@@ -313,7 +319,7 @@ export function RoleAwareGISContainer({
   const canUseSimulation = gisData?.user_scope?.can_use_simulation ?? true;
 
   return (
-    <div className="relative w-full min-h-screen lg:h-dvh lg:max-h-dvh lg:overflow-hidden flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden selection:bg-emerald-500 selection:text-white">
+    <div className="relative w-full h-screen h-[100dvh] max-h-dvh overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
       {/* 0. Mobile Back Button Header */}
       <button
         type="button"
@@ -325,8 +331,8 @@ export function RoleAwareGISContainer({
         <span>{backLabel}</span>
       </button>
 
-      {/* 1. Interactive GIS Map Container */}
-      <div className="relative isolate w-full h-[55dvh] sm:h-[60dvh] min-h-[420px] lg:h-full lg:flex-1 lg:min-h-0 shrink-0 overflow-hidden">
+      {/* 1. Full Viewport Interactive GIS Map Container */}
+      <div className="relative isolate w-full h-full flex-1 min-h-0 overflow-hidden">
         <GISMap
           barangaysByName={barangaysByName}
           movements={gisData?.movements || []}
@@ -342,7 +348,7 @@ export function RoleAwareGISContainer({
         />
 
         {/* 2. Floating Controls */}
-        <div className="absolute top-16 sm:top-4 left-3 sm:left-4 z-[900] max-w-[calc(100vw-1.5rem)]">
+        <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-[max(4.75rem,calc(env(safe-area-inset-left)+4.25rem))] sm:left-4 sm:top-4 z-[900] max-w-[calc(100vw-5.5rem)] sm:max-w-[calc(100vw-1.5rem)]">
           <GISControls
             currentLayer={activeLayer}
             onLayerChange={setActiveLayer}
@@ -352,7 +358,13 @@ export function RoleAwareGISContainer({
             onDiseaseSubModeChange={handleDiseaseSubModeChange}
             onResetBounds={handleResetBounds}
             sidebarOpen={sidebarOpen}
-            onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+            onToggleSidebar={() => {
+              if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+                setSidebarOpen((prev) => !prev);
+              } else {
+                setMobileDrawerOpen(true);
+              }
+            }}
             availableLivestockTypes={availableLivestockTypes}
             selectedLivestockType={selectedLivestockType}
             onLivestockTypeChange={setSelectedLivestockType}
@@ -361,7 +373,7 @@ export function RoleAwareGISContainer({
         </div>
 
         {/* 3. Floating Bottom-Left Dynamic Legend */}
-        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-[900]">
+        <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] sm:bottom-4 sm:left-4 z-[900]">
           <GISLegend
             layer={activeLayer}
             viewMode={viewMode}
@@ -372,7 +384,7 @@ export function RoleAwareGISContainer({
 
         {/* 4. Disease Simulation Timeline Player (Admin/MAO only) */}
         {canUseSimulation && activeLayer === 'disease' && diseaseSubMode === 'simulation' && (
-          <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-[950] px-2 sm:px-4 w-full max-w-xl">
+          <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[950] px-2 sm:px-4 w-full max-w-xl">
             <GISTimeline
               currentMonthIndex={currentMonthIndex}
               onMonthChange={setCurrentMonthIndex}
@@ -389,17 +401,15 @@ export function RoleAwareGISContainer({
           </div>
         )}
 
-        {/* 5. Mobile Quick Jump Button to Telemetry Section */}
+        {/* 5. Mobile Quick Action Button to Open Telemetry Bottom Sheet */}
         <button
           type="button"
-          onClick={() => {
-            document.getElementById('mobile-gis-sidebar')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-          aria-label="Scroll to GIS telemetry under map"
-          className="lg:hidden absolute top-16 right-3 z-[900] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-lg text-emerald-900 hover:bg-emerald-50 hover:border-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer pointer-events-auto min-h-[36px]"
+          onClick={() => setMobileDrawerOpen(true)}
+          aria-label="Open GIS telemetry drawer"
+          className="lg:hidden absolute top-[max(0.75rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] z-[900] bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-200/90 shadow-lg text-emerald-900 hover:bg-emerald-50 hover:border-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer pointer-events-auto min-h-[44px]"
         >
-          <Info className="size-3.5 text-emerald-800 shrink-0" />
-          <span className="font-black tracking-tight">Telemetry ↓</span>
+          <Info className="size-4 text-emerald-800 shrink-0" />
+          <span className="font-black tracking-tight">Telemetry</span>
           {selectedBarangay && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 max-w-[70px] truncate">
               {selectedBarangay.name}
@@ -428,7 +438,28 @@ export function RoleAwareGISContainer({
           farmerStats={gisData?.farmer_stats}
         />
 
-        {/* 7. Live Syncing Indicator */}
+        {/* 7. Mobile Bottom Sheet Drawer (< 1024px) */}
+        <GISSidebar
+          renderMode="mobile-sheet"
+          isOpen={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+          selectedBarangay={selectedBarangay}
+          onClearSelectedBarangay={handleClearSelectedBarangay}
+          onSelectBarangay={handleSelectBarangay}
+          summary={gisData?.summary || DEFAULT_SUMMARY}
+          movements={gisData?.movements || []}
+          allBarangays={gisData?.barangays || []}
+          onRefresh={() => fetchGISTelemetry(true)}
+          isLoading={isLoading}
+          diseaseSubMode={diseaseSubMode}
+          viewMode={viewMode}
+          simulatedStates={activeSimulatedStates}
+          selectedLivestockType={selectedLivestockType}
+          userScope={gisData?.user_scope}
+          farmerStats={gisData?.farmer_stats}
+        />
+
+        {/* 8. Live Syncing Indicator */}
         {isLoading && (
           <div className="absolute top-4 right-1/2 translate-x-1/2 z-[1100] bg-emerald-950/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/30 text-xs flex items-center gap-2 shadow-xl animate-in fade-in">
             <Loader2 className="size-3.5 animate-spin text-emerald-400" />
@@ -436,30 +467,6 @@ export function RoleAwareGISContainer({
           </div>
         )}
       </div>
-
-      {/* 8. Mobile GIS Sidebar Section: Under the map for mobile */}
-      <GISSidebar
-        renderMode="mobile-inline"
-        isOpen={true}
-        onClose={handleClearSelectedBarangay}
-        selectedBarangay={selectedBarangay}
-        onClearSelectedBarangay={handleClearSelectedBarangay}
-        onSelectBarangay={handleSelectBarangay}
-        summary={gisData?.summary || DEFAULT_SUMMARY}
-        movements={gisData?.movements || []}
-        allBarangays={gisData?.barangays || []}
-        onRefresh={() => fetchGISTelemetry(true)}
-        isLoading={isLoading}
-        diseaseSubMode={diseaseSubMode}
-        viewMode={viewMode}
-        simulatedStates={activeSimulatedStates}
-        selectedLivestockType={selectedLivestockType}
-        userScope={gisData?.user_scope}
-        farmerStats={gisData?.farmer_stats}
-      />
-
-      {/* 9. Metadata Footer */}
-      <GISFooter userScope={gisData?.user_scope} />
     </div>
   );
 }

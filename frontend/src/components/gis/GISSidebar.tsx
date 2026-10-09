@@ -56,7 +56,7 @@ interface GISSidebarProps {
   viewMode: ViewMode;
   simulatedStates?: Record<string, SimulatedBarangayState>;
   selectedLivestockType?: string;
-  renderMode?: 'desktop' | 'mobile-inline' | 'auto';
+  renderMode?: 'desktop' | 'mobile-sheet' | 'auto';
   userScope?: any;
   farmerStats?: any;
 }
@@ -106,40 +106,26 @@ export function GISSidebar({
     />
   );
 
-  // Mode 1: Mobile Inline View (< 1024px) rendered directly in the document flow under the map
-  if (renderMode === 'mobile-inline') {
+  // Mode 1: Mobile Bottom Sheet (< 1024px)
+  if (renderMode === 'mobile-sheet') {
     return (
-      <section
-        id="mobile-gis-sidebar"
-        aria-label="Mobile GIS Telemetry & Analytics"
-        className="lg:hidden w-full bg-slate-900 border-t-2 border-emerald-800 flex flex-col shrink-0 shadow-2xl"
-      >
-        {/* Mobile Section Header with "Back to Map" button */}
-        <div className="bg-emerald-950 px-4 py-2.5 text-white flex items-center justify-between border-b border-emerald-900 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black tracking-wider uppercase text-emerald-400">
-              📊 {selectedBarangay ? `Brgy. ${selectedBarangay.name} Details` : 'Municipal Telemetry Overview'}
-            </span>
+      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent
+          side="bottom"
+          className="h-[84dvh] max-h-[88dvh] rounded-t-3xl p-0 bg-white border-t border-slate-200 flex flex-col overflow-hidden shadow-2xl z-[1200]"
+        >
+          <SheetTitle className="sr-only">
+            {selectedBarangay ? `Barangay ${selectedBarangay.name} Telemetry` : 'Municipal Telemetry Overview'}
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Detailed livestock, disease, and production records for Padre Garcia
+          </SheetDescription>
+          <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 shrink-0" />
+          <div className="flex-1 overflow-y-auto">
+            {content}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
-            }}
-            className="text-[11px] font-bold text-emerald-300 hover:text-white flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
-            aria-label="Scroll back up to map"
-          >
-            <span>↑ Back to Map</span>
-          </button>
-        </div>
-
-        {/* Telemetry Content with fixed container and smooth internal scrolling */}
-        <div className="w-full max-h-[620px] overflow-hidden flex flex-col bg-white">
-          {content}
-        </div>
-      </section>
+        </SheetContent>
+      </Sheet>
     );
   }
 

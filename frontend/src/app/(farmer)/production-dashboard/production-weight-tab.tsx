@@ -193,7 +193,7 @@ export default function ProductionWeightTab({
   return (
     <div className="space-y-6">
       {/* Top Weight & Calculated Growth KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Average Herd Weight"
           value={avgWeight !== "—" ? `${avgWeight} kg` : "—"}

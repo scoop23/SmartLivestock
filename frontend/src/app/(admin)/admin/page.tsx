@@ -170,7 +170,7 @@ export default function AdminDashboard() {
       {/* Main Content Area */}
       <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
         {/* Executive Stats Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
           {statsCards.map((stat) => (
             <KpiCard
               key={stat.label}

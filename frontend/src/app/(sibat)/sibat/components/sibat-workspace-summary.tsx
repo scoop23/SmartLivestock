@@ -59,8 +59,8 @@ export function SibatWorkspaceSummary({
     {
       title: "Sent to MAO",
       value: allSubmissions.filter((record) => record.status === "VERIFIED").length + censuses.filter((record) => record.status === "VERIFIED").length,
-      badge: "SIBAT checked",
-      description: "Waiting for the municipal decision",
+      badge: "Verified",
+      description: "Waiting for municipal decision",
       icon: <Send className="size-5" />,
       variant: "sky" as const,
     },
@@ -119,7 +119,7 @@ export function SibatWorkspaceSummary({
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         {taskMetrics.map((metric) => (
           <KpiCard
             key={metric.title}
@@ -130,6 +130,7 @@ export function SibatWorkspaceSummary({
             icon={metric.icon}
             variant={metric.variant}
             isLoading={isLoading}
+            wrapText
           />
         ))}
       </div>

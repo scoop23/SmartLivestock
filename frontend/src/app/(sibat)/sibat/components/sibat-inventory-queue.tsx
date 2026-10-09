@@ -27,12 +27,14 @@ import SibatStatusBadge from "./sibat-status-badge";
 import type { UnifiedSubmissionItem } from "../sibat-analytics";
 import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
 
+export type SibatInvStatusFilter = "all" | "pending" | "verified" | "approved" | "needs_correction" | "decided";
+
 interface SibatInventoryQueueProps {
   submissions: UnifiedSubmissionItem[];
   isLoading: boolean;
   onReview: (item: UnifiedSubmissionItem) => void;
-  statusFilter: "all" | "pending" | "verified" | "decided";
-  onStatusFilterChange: (st: "all" | "pending" | "verified" | "decided") => void;
+  statusFilter: SibatInvStatusFilter;
+  onStatusFilterChange: (st: SibatInvStatusFilter) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   entryTypeFilter: "ALL" | "INDIVIDUAL" | "BATCH";
@@ -40,14 +42,15 @@ interface SibatInventoryQueueProps {
 }
 
 const STATUS_TABS: Array<{
-  value: "all" | "pending" | "verified" | "decided";
+  value: SibatInvStatusFilter;
   label: string;
   emoji: string;
 }> = [
   { value: "all", label: "All Animals", emoji: "📋" },
   { value: "pending", label: "Waiting for field check", emoji: "⏳" },
   { value: "verified", label: "Checked by SIBAT · Sent to MAO", emoji: "✨" },
-  { value: "decided", label: "Decision / correction", emoji: "✅" },
+  { value: "approved", label: "Approved by MAO", emoji: "✅" },
+  { value: "needs_correction", label: "Needs correction", emoji: "🔄" },
 ];
 
 const getAnimalEmoji = (typeStr: string = "") => {
@@ -108,6 +111,8 @@ export default function SibatInventoryQueue({
       all: invSubmissions.length,
       pending: invSubmissions.filter((s) => s.status === "PENDING").length,
       verified: invSubmissions.filter((s) => s.status === "VERIFIED").length,
+      approved: invSubmissions.filter((s) => s.status === "APPROVED").length,
+      needs_correction: invSubmissions.filter((s) => s.status === "SUBJECT_TO_REVISION" || s.status === "SUBJECT_FOR_REVISION").length,
       decided: invSubmissions.filter((s) => s.status === "APPROVED" || s.status === "SUBJECT_TO_REVISION" || s.status === "SUBJECT_FOR_REVISION" || s.status === "REJECTED").length,
     };
   }, [invSubmissions]);
@@ -121,6 +126,8 @@ export default function SibatInventoryQueue({
         statusFilter === "all" ||
         (statusFilter === "pending" && item.status === "PENDING") ||
         (statusFilter === "verified" && item.status === "VERIFIED") ||
+        (statusFilter === "approved" && item.status === "APPROVED") ||
+        (statusFilter === "needs_correction" && (item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION")) ||
         (statusFilter === "decided" && (item.status === "APPROVED" || item.status === "SUBJECT_TO_REVISION" || item.status === "SUBJECT_FOR_REVISION" || item.status === "REJECTED"));
 
       const matchesEntryType =

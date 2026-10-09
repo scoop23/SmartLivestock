@@ -1469,7 +1469,7 @@ export default function PredictiveAnalyticsView() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <CardContent className="pt-4 grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
                 <span className="text-slate-500 font-medium">Historical Observations</span>
                 <p className="text-sm font-bold text-slate-900 font-mono">
@@ -1522,7 +1522,7 @@ export default function PredictiveAnalyticsView() {
           </Card>
 
           {/* CHART 6 & SUMMARY METRICS: FORECAST CHANGE VS BASELINE CARD */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardContent className="p-4 space-y-1">
                 <div className="flex items-center justify-between">

@@ -135,7 +135,7 @@ export default function SpeciesKpiCards({
   // Render cards according to species
   if (normSpecies.includes("GOAT") || normSpecies.includes("KAMBING")) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Goat Milk Yield"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
@@ -170,7 +170,7 @@ export default function SpeciesKpiCards({
 
   if (normSpecies.includes("SHEEP") || normSpecies.includes("TUPA")) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Wool & Fleece Harvest"
           value={metrics.totalWool > 0 ? `${metrics.totalWool.toLocaleString()} kg` : "0.0 kg"}
@@ -205,7 +205,7 @@ export default function SpeciesKpiCards({
 
   if (normSpecies.includes("SWINE") || normSpecies.includes("PIG") || normSpecies.includes("BABOY")) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Pork / Carcass Yield"
           value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
@@ -245,7 +245,7 @@ export default function SpeciesKpiCards({
         : 0;
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Daily Egg Harvest"
           value={metrics.totalEggs > 0 ? `${metrics.totalEggs.toLocaleString()} pcs` : "0 pcs"}
@@ -286,7 +286,7 @@ export default function SpeciesKpiCards({
         : "—";
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Dairy Milk Output"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
@@ -321,7 +321,7 @@ export default function SpeciesKpiCards({
 
   // Consolidated / ALL
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
       <KpiCard
         title="Total Output Logs"
         value={metrics.totalRecords.toString()}

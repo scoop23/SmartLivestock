@@ -203,57 +203,60 @@ export const KpiCard: React.FC<KpiCardProps> = ({
         className
       )}
     >
-      <CardContent className={cn("flex flex-col justify-between h-full relative z-10", isSm ? "p-3.5 sm:p-4" : "p-4 sm:p-5")}>
+      <CardContent className={cn("flex flex-col justify-between h-full relative z-10", isSm ? "p-3 sm:p-3.5" : "p-3 sm:p-4 lg:p-5")}>
         <div>
           {/* Header Row: Icon + Badge */}
-        <div className={cn("flex justify-between gap-2", wrapText ? "items-start" : "items-center", isSm ? "mb-2" : "mb-3")}>
-          {icon && (
-            <div
-              className={cn(
-                "transition-transform duration-200 group-hover:scale-105 shrink-0 flex items-center justify-center",
-                isSm ? "p-2 rounded-lg text-sm [&_svg]:w-3.5 [&_svg]:h-3.5" : "p-2.5 rounded-xl",
-                styles.iconWrapper
-              )}
-            >
-              {icon}
-            </div>
-          )}
-          {badge && (
-          <span
-              className={cn(
-                "font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full text-xs",
-                wrapText ? "min-w-0 max-w-full whitespace-normal break-words leading-tight text-right" : "whitespace-nowrap",
-                badgeClassName || styles.badgeDefault
-              )}
-            >
-              {badge}
-            </span>
+          <div className={cn("flex items-center justify-between gap-1.5 sm:gap-2", isSm ? "mb-1.5" : "mb-2 sm:mb-3")}>
+            {icon && (
+              <div
+                className={cn(
+                  "transition-transform duration-200 group-hover:scale-105 shrink-0 flex items-center justify-center",
+                  isSm ? "p-1.5 rounded-lg text-xs [&_svg]:size-3.5" : "p-1.5 sm:p-2.5 rounded-xl text-sm [&_svg]:size-3.5 sm:[&_svg]:size-5",
+                  styles.iconWrapper
+                )}
+              >
+                {icon}
+              </div>
+            )}
+            {badge && (
+              <span
+                className={cn(
+                  "font-bold uppercase tracking-wide px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs whitespace-nowrap shrink-0 max-w-[65%] truncate text-right",
+                  badgeClassName || styles.badgeDefault
+                )}
+              >
+                {badge}
+              </span>
+            )}
+          </div>
+
+          {/* Title / Label */}
+          <p className={cn("text-xs sm:text-sm font-bold text-stone-700 leading-tight", wrapText ? "line-clamp-2 break-normal" : "truncate")}>
+            {title}
+          </p>
+
+          {/* Metric Value */}
+          <div className={cn("font-black text-slate-900 tracking-tight", isSm ? "text-lg sm:text-xl mt-0.5" : "text-xl sm:text-2xl lg:text-3xl mt-0.5 sm:mt-1 truncate")}>
+            {value}
+          </div>
+
+          {/* Optional extra description */}
+          {description && (
+            <p className={cn("text-[11px] sm:text-xs text-stone-500 font-medium mt-0.5 leading-snug", wrapText ? "line-clamp-2 break-normal" : "truncate")}>
+              {description}
+            </p>
           )}
         </div>
 
-        {/* Title / Label */}
-        <p className={cn("text-xs sm:text-sm font-bold text-stone-600", wrapText ? "whitespace-normal break-words" : "truncate")}>{title}</p>
-
-        {/* Metric Value */}
-        <div className={cn("font-black text-slate-900 tracking-tight", wrapText ? "whitespace-normal break-words" : "truncate", isSm ? "text-xl sm:text-2xl mt-0.5" : "text-2xl sm:text-3xl mt-1")}>
-          {value}
-        </div>
-
-        {/* Optional extra description */}
-        {description && (
-          <p className={cn("text-xs text-stone-500 font-medium mt-0.5", wrapText ? "whitespace-normal break-words" : "truncate")}>{description}</p>
-        )}
-      </div>
-
-        {/* Decorative bottom accent bar */ }
-    <div
-      className={cn(
-        "h-1 rounded-full transition-all duration-300",
-        isSm ? "w-8 mt-2.5 group-hover:w-14" : "w-12 mt-4 group-hover:w-20",
-        accentBarColor || styles.accentBar
-      )}
-    />
-      </CardContent >
-    </Card >
+        {/* Decorative bottom accent bar */}
+        <div
+          className={cn(
+            "h-1 rounded-full transition-all duration-300",
+            isSm ? "w-6 mt-2 group-hover:w-10" : "w-8 sm:w-12 mt-3 sm:mt-4 group-hover:w-16",
+            accentBarColor || styles.accentBar
+          )}
+        />
+      </CardContent>
+    </Card>
   );
 };

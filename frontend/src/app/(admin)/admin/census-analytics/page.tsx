@@ -91,7 +91,7 @@ export default function CensusAnalyticsPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
             {Array.from({ length: 5 }).map((_, index) => (
               <KpiCard key={index} title="Loading" value="—" isLoading />
             ))}
@@ -115,7 +115,7 @@ export default function CensusAnalyticsPage() {
         ) : data ? (
           <>
             {/* Coverage KPIs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
               <KpiCard
                 title="Heads Reported"
                 value={data.totals.heads.toLocaleString()}

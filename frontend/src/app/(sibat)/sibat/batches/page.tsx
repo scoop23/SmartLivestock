@@ -1634,12 +1634,12 @@ function SibatBatchesVerificationContent() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <DialogFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setBatchReviewModal({ open: false, batch: null, action: "VERIFIED" })}
-              className="rounded-xl text-xs font-bold"
+              className="rounded-xl text-xs font-bold w-full sm:w-auto min-h-10"
             >
               Cancel
             </Button>
@@ -1662,7 +1662,7 @@ function SibatBatchesVerificationContent() {
                   });
                 }
               }}
-              className={`rounded-xl text-xs font-bold text-white ${batchReviewModal.action === "VERIFIED"
+              className={`rounded-xl text-xs font-bold text-white w-full sm:w-auto min-h-10 justify-center ${batchReviewModal.action === "VERIFIED"
                 ? "bg-sky-700 hover:bg-sky-800"
                 : "bg-rose-700 hover:bg-rose-800"
                 }`}
