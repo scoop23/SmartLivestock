@@ -40,7 +40,9 @@ import {
   BarangayGISData,
   GISUserScope,
   FarmerPersonalStats,
+  MapLayer,
 } from './types';
+import { MovementAnalysisPanel } from './MovementAnalysisPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,6 +72,10 @@ interface MunicipalOverviewProps {
   onClose?: () => void;
   userScope?: GISUserScope;
   farmerStats?: FarmerPersonalStats | null;
+  activeLayer?: MapLayer;
+  selectedMovement?: MovementRecord | null;
+  onSelectMovement?: (m: MovementRecord) => void;
+  onClearSelectedMovement?: () => void;
 }
 
 export function MunicipalOverview({
@@ -83,6 +89,10 @@ export function MunicipalOverview({
   onClose,
   userScope,
   farmerStats,
+  activeLayer,
+  selectedMovement = null,
+  onSelectMovement,
+  onClearSelectedMovement,
 }: MunicipalOverviewProps) {
   const maxCattle = summary.top_cattle[0]?.cattle || 1;
   const maxMilk = summary.top_milk[0]?.milk || 1;
@@ -585,56 +595,69 @@ export function MunicipalOverview({
           </div>
         )}
 
-        {/* Live Cow Movement Flows */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-              <Truck className="size-3.5 text-blue-600" />
-              Live Transport Flows
-            </span>
-            <Badge variant="outline" className="border-blue-200 text-blue-800 text-[10px] font-bold">
-              {movements.length} Active Shipments
-            </Badge>
-          </div>
-
-          {movements.length > 0 ? (
-            <div className="space-y-2 pt-1">
-              {movements.map((m) => (
-                <div
-                  key={m.id}
-                  className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 text-xs space-y-1"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="font-bold text-blue-950">
-                      {m.heads} {m.species}
-                    </div>
-                    <Badge
-                      className={
-                        m.clearance_status === 'APPROVED'
-                          ? 'bg-emerald-600 text-white text-[9px] px-1 py-0'
-                          : 'bg-amber-500 text-white text-[9px] px-1 py-0'
-                      }
-                    >
-                      {m.clearance_status}
-                    </Badge>
-                  </div>
-                  <div className="text-[11px] text-slate-600 flex items-center gap-1">
-                    <MapPin className="size-3 text-slate-400" />
-                    <span>{m.origin}</span>
-                    <span className="text-slate-400">→</span>
-                    <span className="font-semibold text-slate-800 truncate">{m.destination}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px] text-slate-500 pt-0.5">
-                    <span>Shipper: {m.shipper_name}</span>
-                    <span>{m.purpose}</span>
-                  </div>
-                </div>
-              ))}
+        {/* When activeLayer is movement, render the full Movement Analysis & Filter Panel */}
+        {activeLayer === 'movement' ? (
+          <MovementAnalysisPanel
+            movements={movements}
+            selectedMovement={selectedMovement}
+            onSelectMovement={(m) => onSelectMovement?.(m)}
+            onClearSelectedMovement={() => onClearSelectedMovement?.()}
+            onClose={onClose}
+          />
+        ) : (
+          /* Live Cow Movement Flows Summary for other layers */
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                <Truck className="size-3.5 text-blue-600" />
+                Live Transport Flows
+              </span>
+              <Badge variant="outline" className="border-blue-200 text-blue-800 text-[10px] font-bold">
+                {movements.length} Active Shipments
+              </Badge>
             </div>
-          ) : (
-            <p className="text-xs text-slate-400 italic">No movement inspections recorded</p>
-          )}
-        </div>
+
+            {movements.length > 0 ? (
+              <div className="space-y-2 pt-1">
+                {movements.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onSelectMovement?.(m)}
+                    className="w-full text-left p-2.5 rounded-lg bg-blue-50/50 hover:bg-blue-100/60 border border-blue-100 transition-colors text-xs space-y-1 cursor-pointer"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="font-bold text-blue-950">
+                        {m.heads} {m.species}
+                      </div>
+                      <Badge
+                        className={
+                          m.clearance_status === 'APPROVED'
+                            ? 'bg-emerald-600 text-white text-[9px] px-1 py-0'
+                            : 'bg-amber-500 text-white text-[9px] px-1 py-0'
+                        }
+                      >
+                        {m.clearance_status}
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-slate-600 flex items-center gap-1">
+                      <MapPin className="size-3 text-slate-400" />
+                      <span>{m.origin}</span>
+                      <span className="text-slate-400">→</span>
+                      <span className="font-semibold text-slate-800 truncate">{m.destination}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-500 pt-0.5">
+                      <span>Shipper: {m.shipper_name}</span>
+                      <span>{m.purpose}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No movement inspections recorded</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

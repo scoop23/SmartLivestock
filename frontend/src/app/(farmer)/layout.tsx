@@ -2,9 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/auth-context";
+import { cn } from "@/components/ui/utils";
 
 export default function FarmerLayout({
   children,
@@ -12,7 +14,10 @@ export default function FarmerLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
+
+  const isMapPage = pathname === "/gis-user-map" || pathname.startsWith("/gis-user-map");
 
   useEffect(() => {
     if (!isLoading && (!user || user.role?.toUpperCase() !== "FARMER")) {
@@ -33,13 +38,13 @@ export default function FarmerLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <div className={cn("flex bg-slate-50 text-slate-900 antialiased", isMapPage ? "h-screen h-[100dvh] max-h-screen max-h-[100dvh] overflow-hidden" : "min-h-screen")}>
       <Sidebar
         role="farmer"
         onLogout={logout}
       />
 
-      <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
+      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto")}>{children}</main>
 
       <Toaster />
     </div>

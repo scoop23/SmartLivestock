@@ -181,6 +181,44 @@ function MapResizeHandler() {
   return null;
 }
 
+// Calculate a subtle curved arc between origin and destination to prevent overlapping routes
+function computeCurvedArc(
+  from: [number, number],
+  to: [number, number],
+  offsetMultiplier = 0.12,
+  numPoints = 12
+): [number, number][] {
+  const [lat1, lng1] = from;
+  const [lat2, lng2] = to;
+
+  const midLat = (lat1 + lat2) / 2;
+  const midLng = (lng1 + lng2) / 2;
+
+  const dLat = lat2 - lat1;
+  const dLng = lng2 - lng1;
+  const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+
+  if (dist === 0) return [from, to];
+
+  const normLat = -dLng / dist;
+  const normLng = dLat / dist;
+
+  const offset = Math.min(dist * offsetMultiplier, 0.05);
+
+  const ctrlLat = midLat + normLat * offset;
+  const ctrlLng = midLng + normLng * offset;
+
+  const points: [number, number][] = [];
+  for (let i = 0; i <= numPoints; i++) {
+    const t = i / numPoints;
+    const inv = 1 - t;
+    const pLat = inv * inv * lat1 + 2 * inv * t * ctrlLat + t * t * lat2;
+    const pLng = inv * inv * lng1 + 2 * inv * t * ctrlLng + t * t * lng2;
+    points.push([pLat, pLng]);
+  }
+  return points;
+}
+
 interface GISMapProps {
   barangaysByName: Record<string, BarangayGISData>;
   movements: MovementRecord[];
@@ -193,6 +231,9 @@ interface GISMapProps {
   simulatedStates?: Record<string, SimulatedBarangayState>;
   selectedLivestockType?: string;
   userScope?: GISUserScope;
+  selectedMovement?: MovementRecord | null;
+  onSelectMovement?: (m: MovementRecord | null) => void;
+  showMovementOverlay?: boolean;
 }
 
 export function GISMap({
@@ -207,6 +248,9 @@ export function GISMap({
   simulatedStates,
   selectedLivestockType = 'Cattle',
   userScope,
+  selectedMovement,
+  onSelectMovement,
+  showMovementOverlay = false,
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<any>(null);
@@ -417,9 +461,20 @@ export function GISMap({
       };
     }
 
-    // Out-of-scope barangays for restricted roles (e.g., Farmer or assigned SIBAT):
-    // Rendered with muted subtle outline to indicate territorial context without exposing private data
+    const isFarmerRole = scope?.role === 'FARMER';
+
+    // Out-of-scope barangays:
     if (!isInScope) {
+      if (isFarmerRole) {
+        // Farmers only see their own registered barangay; other areas are faint background
+        return {
+          fillColor: '#0f172a',
+          fillOpacity: 0.10,
+          color: '#1e293b',
+          weight: 0.75,
+          className: 'farmer-out-of-scope-polygon',
+        };
+      }
       return {
         fillColor: '#1e293b',
         fillOpacity: 0.25,
@@ -432,7 +487,6 @@ export function GISMap({
 
     const extrusion = viewMode === '3D' ? getExtrusionHeight(name) : 0;
     const isMortality = activeLayer === 'mortality';
-    const isFarmerRole = scope?.role === 'FARMER';
 
     return {
       fillColor: getLayerColor(data),
@@ -514,6 +568,15 @@ export function GISMap({
     const name = feature.properties?.name;
     if (!name) return;
 
+    const data = barangaysByNameRef.current[name];
+    const scope = userScopeRef.current;
+    const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
+
+    // FARMER DATA ISOLATION: Farmers only interact with their own registered barangay
+    if (scope?.role === 'FARMER' && !isInScope) {
+      return;
+    }
+
     layer.bindTooltip(buildTooltipText(name), {
       permanent: false,
       direction: 'center',
@@ -535,12 +598,12 @@ export function GISMap({
         e.target.setStyle(getGeoJSONStyle(feature));
       },
       click: () => {
-        const data = barangaysByNameRef.current[name];
-        const scope = userScopeRef.current;
-        const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
+        const curData = barangaysByNameRef.current[name];
+        const curScope = userScopeRef.current;
+        const curInScope = curData?.is_in_scope ?? (!curScope || curScope.can_view_all_barangays || curScope.allowed_barangays.includes(name));
 
         // If user is restricted to own/assigned barangays, ignore clicks on out-of-scope polygons
-        if (!isInScope) {
+        if (!curInScope) {
           return;
         }
 
@@ -616,7 +679,16 @@ export function GISMap({
             return acc;
           }, {} as Record<string, BarangayGISData>));
 
-    return Object.values(sourceMap).map((b) => {
+    const isFarmerRole = userScopeRef.current?.role === 'FARMER';
+    const farmerAllowed = userScopeRef.current?.allowed_barangays || [];
+    const rawList = Object.values(sourceMap);
+
+    // FARMER DATA ISOLATION: Farmers only see their own registered barangay!
+    const targetList = isFarmerRole
+      ? rawList.filter((b) => b.is_in_scope || farmerAllowed.includes(b.name))
+      : rawList;
+
+    return targetList.map((b) => {
       const scope = userScopeRef.current;
       const isInScope = b.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(b.name));
 
@@ -657,11 +729,11 @@ export function GISMap({
 
       const h = viewMode === '3D' ? getExtrusionHeight(b.name) : 0;
 
-      const isFarmerRole = userScopeRef.current?.role === 'FARMER';
-      const isHighlightedFarm = isFarmerRole && isInScope;
-      const isSubtleOut = isFarmerRole && !isInScope;
+      const isGeographicallyRestricted = Boolean(scope && !scope.can_view_all_barangays);
+      const isHighlightedScope = isGeographicallyRestricted && isInScope;
+      const isSubtleOut = isGeographicallyRestricted && !isInScope;
 
-      const pillClass = isHighlightedFarm
+      const pillClass = isHighlightedScope
         ? 'permanent-centroid-pill highlight-own-farm'
         : isSubtleOut
         ? 'permanent-centroid-pill subtle-out-of-scope'
@@ -670,7 +742,7 @@ export function GISMap({
       const pillContent = isSubtleOut
         ? `<span class="pill-name text-slate-400 font-bold">${b.name}</span>`
         : `
-          <span class="pill-name">${isHighlightedFarm ? `★ ${b.name}` : b.name}</span>
+          <span class="pill-name">${isHighlightedScope ? `★ ${b.name}` : b.name}</span>
           <span class="pill-stat">${statText}</span>
         `;
 
@@ -780,6 +852,33 @@ export function GISMap({
         .extruded-polygon-h8  { filter: drop-shadow(0px 4px 3px rgba(0,0,0,0.30)); }
         .extruded-polygon-h0  { filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.20)); }
 
+        /* Movement Directional Arrow Badges & Arcs */
+        .movement-direction-arrow-container {
+          background: transparent !important;
+          border: none !important;
+        }
+        .movement-arrow-badge {
+          color: white;
+          font-size: 10px;
+          font-weight: 900;
+          padding: 1.5px 5.5px;
+          border-radius: 9999px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          border: 1.5px solid white;
+          white-space: nowrap;
+          text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+        }
+        .movement-arrow-badge:hover, .movement-arrow-badge.is-selected {
+          transform: scale(1.18);
+          box-shadow: 0 0 14px rgba(56, 189, 248, 0.9);
+          border-color: #38bdf8;
+        }
+
         .leaflet-container {
           background-color: #0f172a !important;
           font-family: inherit !important;
@@ -837,68 +936,152 @@ export function GISMap({
           ))}
 
           {/* Movement Layer Polyline Arcs & External Destination Pins */}
-          {activeLayer === 'movement' &&
-            movements.map((move) => (
-              <React.Fragment key={move.id}>
-                <Polyline
-                  positions={[move.from, move.to]}
-                  pathOptions={{
-                    color: move.type === 'export' ? '#dc2626' : '#2563eb',
-                    weight: 3.5,
-                    dashArray: '8, 8',
-                    opacity: 0.8,
-                  }}
-                >
-                  <Popup>
-                    <div className="p-2 space-y-1 text-xs">
-                      <p className="font-black text-slate-900">
-                        {move.type === 'export'
-                          ? '📤 Outbound Livestock Transport'
-                          : '📥 Inbound Transport'}
-                      </p>
-                      <p className="font-bold text-emerald-800">
-                        {move.heads} {move.species} ({move.purpose})
-                      </p>
-                      <p className="text-[11px] text-slate-600">
-                        From: {move.origin}
-                      </p>
-                      <p className="text-[11px] text-slate-600">
-                        To: {move.destination}
-                      </p>
-                      <p className="text-[10px] text-slate-400">
-                        Date: {move.date} • Shipper: {move.shipper_name}
-                      </p>
-                    </div>
-                  </Popup>
-                </Polyline>
+          {(activeLayer === 'movement' || showMovementOverlay) &&
+            movements.map((move, moveIdx) => {
+              const isSelected = selectedMovement?.id === move.id;
+              const isApproved = move.clearance_status?.toUpperCase() === 'APPROVED';
+              const arcOffset = 0.10 + ((moveIdx % 3) * 0.05);
+              const arcPositions = computeCurvedArc(move.from, move.to, arcOffset);
+              const midPoint = arcPositions[Math.floor(arcPositions.length / 2)];
 
-                <CircleMarker
-                  center={move.to}
-                  radius={6}
-                  pathOptions={{
-                    fillColor: move.type === 'export' ? '#ef4444' : '#3b82f6',
-                    color: '#ffffff',
-                    fillOpacity: 1,
-                    weight: 2,
-                  }}
-                >
-                  <Tooltip permanent direction="top" className="barangay-hover-tooltip">
-                    {move.destination.split(',')[0]}
-                  </Tooltip>
-                </CircleMarker>
+              const pathColor = isSelected
+                ? '#38bdf8'
+                : isApproved
+                ? move.direction === 'INBOUND'
+                  ? '#2563eb'
+                  : move.direction === 'INTERNAL'
+                  ? '#10b981'
+                  : '#ef4444'
+                : '#f59e0b';
 
-                <CircleMarker
-                  center={move.from}
-                  radius={4}
-                  pathOptions={{
-                    fillColor: '#1E4D2B',
-                    color: '#ffffff',
-                    fillOpacity: 1,
-                    weight: 1.5,
-                  }}
-                />
-              </React.Fragment>
-            ))}
+              const arrowIcon = leafletLib
+                ? leafletLib.divIcon({
+                    className: 'movement-direction-arrow-container',
+                    html: `
+                      <div class="movement-arrow-badge ${isSelected ? 'is-selected' : ''}" style="background-color: ${pathColor};">
+                        <span>${move.direction === 'INBOUND' ? '📥' : move.direction === 'INTERNAL' ? '🔄' : '📤'} ${move.heads}</span>
+                      </div>
+                    `,
+                    iconSize: [46, 20],
+                    iconAnchor: [23, 10],
+                  })
+                : null;
+
+              return (
+                <React.Fragment key={`move-${move.id}-${moveIdx}`}>
+                  {/* Curved Path */}
+                  <Polyline
+                    positions={arcPositions}
+                    pathOptions={{
+                      color: pathColor,
+                      weight: isSelected ? 5.5 : 3.5,
+                      dashArray: isApproved ? '7, 7' : '3, 6',
+                      opacity: isSelected ? 1 : 0.85,
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onSelectMovement?.(move);
+                      },
+                    }}
+                  >
+                    <Popup>
+                      <div className="p-2 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
+                          <p className="font-black text-slate-900">
+                            {move.direction === 'INBOUND'
+                              ? '📥 Inbound Transport'
+                              : move.direction === 'INTERNAL'
+                              ? '🔄 Local Intra-Municipal'
+                              : '📤 Outbound Transport'}
+                          </p>
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                              isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {move.clearance_status || 'RECORDED'}
+                          </span>
+                        </div>
+                        <p className="font-bold text-emerald-800">
+                          {move.heads} {move.species} ({move.purpose})
+                        </p>
+                        <p className="text-[11px] text-slate-600">
+                          From: <strong>{move.origin}</strong>
+                        </p>
+                        <p className="text-[11px] text-slate-600">
+                          To: <strong>{move.destination}</strong>
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          Date: {move.date} • Permit: {move.control_number || `#${move.id}`}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => onSelectMovement?.(move)}
+                          className="w-full mt-1 bg-slate-900 text-white text-[10px] font-bold py-1 px-2 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                        >
+                          View Full Permit Details →
+                        </button>
+                      </div>
+                    </Popup>
+                  </Polyline>
+
+                  {/* Midpoint Directional Badge Marker */}
+                  {arrowIcon && (
+                    <Marker
+                      position={midPoint}
+                      icon={arrowIcon}
+                      eventHandlers={{
+                        click: () => {
+                          onSelectMovement?.(move);
+                        },
+                      }}
+                    />
+                  )}
+
+                  {/* Destination Terminal Marker */}
+                  <CircleMarker
+                    center={move.to}
+                    radius={isSelected ? 8 : 6}
+                    pathOptions={{
+                      fillColor: move.type === 'export' ? '#ef4444' : '#3b82f6',
+                      color: isSelected ? '#38bdf8' : '#ffffff',
+                      fillOpacity: 1,
+                      weight: isSelected ? 3 : 2,
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onSelectMovement?.(move);
+                      },
+                    }}
+                  >
+                    <Tooltip permanent direction="top" className="barangay-hover-tooltip">
+                      {move.destination.split(',')[0]}
+                    </Tooltip>
+                  </CircleMarker>
+
+                  {/* Origin Hub Marker */}
+                  <CircleMarker
+                    center={move.from}
+                    radius={isSelected ? 6 : 4.5}
+                    pathOptions={{
+                      fillColor: '#1E4D2B',
+                      color: isSelected ? '#38bdf8' : '#ffffff',
+                      fillOpacity: 1,
+                      weight: isSelected ? 2.5 : 1.5,
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onSelectMovement?.(move);
+                      },
+                    }}
+                  >
+                    <Tooltip direction="bottom" className="barangay-hover-tooltip">
+                      Origin: {move.origin.split(',')[0]}
+                    </Tooltip>
+                  </CircleMarker>
+                </React.Fragment>
+              );
+            })}
         </MapContainer>
       </div>
 

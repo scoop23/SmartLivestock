@@ -117,7 +117,7 @@ BARANGAY_CENTROIDS: Dict[str, List[float]] = {
     "Tangob": [13.881157, 121.259591],
 }
 
-# Known destination coordinates for movement arcs
+# Known destination coordinates for movement arcs (official geographic reference points)
 DESTINATION_COORDINATES: Dict[str, List[float]] = {
     "padre garcia": [13.87908, 121.212894],
     "lipa": [13.9419, 121.1644],
@@ -126,13 +126,44 @@ DESTINATION_COORDINATES: Dict[str, List[float]] = {
     "san jose": [13.8828, 121.1039],
     "rosario": [13.8475, 121.2058],
     "san juan": [13.8267, 121.3967],
+    "ibaan": [13.8183, 121.1325],
+    "taysan": [13.7936, 121.2019],
+    "malvar": [14.0450, 121.1583],
+    "sto tomas": [14.1089, 121.1417],
+    "santo tomas": [14.1089, 121.1417],
+    "cuenca": [13.9036, 121.0478],
+    "alitagtag": [13.8647, 121.0042],
+    "bauan": [13.7919, 121.0094],
+    "san pascual": [13.7881, 121.0322],
+    "lemery": [13.8806, 120.9083],
+    "taal": [13.8803, 120.9236],
+    "calaca": [13.9333, 120.8167],
+    "balayan": [13.9392, 120.7344],
+    "nasugbu": [14.0772, 120.6322],
+    "lian": [14.0361, 120.6508],
+    "calatagan": [13.8322, 120.6319],
+    "san nicolas": [13.9261, 120.9525],
+    "mataasnakahoy": [13.9619, 121.1114],
+    "balete": [14.0192, 121.0967],
+    "laurel": [14.0506, 120.9328],
+    "talisay": [14.0950, 121.0236],
+    "lobo": [13.6483, 121.2083],
+    "tingloy": [13.6606, 120.8731],
+    "lucena": [13.9372, 121.6172],
+    "candelaria": [13.9311, 121.4233],
+    "tiaong": [13.9614, 121.3242],
+    "sariaya": [13.9639, 121.5256],
+    "san antonio": [13.8967, 121.2933],
+    "dolores": [14.0206, 121.4011],
+    "cavite": [14.2456, 120.8786],
+    "rizal": [14.6037, 121.3084],
+    "laguna": [14.2790, 121.4170],
+    "quezon": [13.9317, 121.6178],
     "manila": [14.5995, 120.9842],
     "ncr": [14.5995, 120.9842],
     "bulacan": [14.8527, 120.8160],
     "pampanga": [15.0333, 120.6833],
     "masbate": [12.3667, 123.6167],
-    "quezon": [13.9317, 121.6178],
-    "laguna": [14.2790, 121.4170],
 }
 
 
@@ -225,29 +256,29 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
         }
 
     # 2. SIBAT / CBAT — Field Monitoring Scope
-    if u_role == SIBAT:
+    if u_role in (SIBAT, "CBAT"):
         can_view_all = has_all_barangay_access(user)
         if can_view_all:
             allowed_b = set(OFFICIAL_BARANGAYS)
         else:
             allowed_b = set()
-            if user.assigned_barangay:
+            if getattr(user, "assigned_barangay", None):
                 c_name = normalize_barangay_name(user.assigned_barangay.barangay_name)
                 if c_name:
                     allowed_b.add(c_name)
 
         return {
-            "role": SIBAT,
+            "role": u_role,
             "scope": "MUNICIPAL" if can_view_all else "ASSIGNED_BARANGAYS",
             "allowed_barangays": allowed_b,
             "can_view_all_barangays": can_view_all,
-            # SIBAT monitors field inventory, disease reports, production, mortality, and movement
+            # SIBAT/CBAT monitors field inventory, disease reports, production, mortality, and movement
             # But CANNOT use predictive/scenario simulation or municipal decision-support tools
             "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,
-            "title": "Field Monitoring GIS — Assigned Barangays" if not can_view_all else "Field Monitoring GIS — All Barangays",
+            "title": f"Field Monitoring GIS ({u_role}) — Assigned Barangays" if not can_view_all else f"Field Monitoring GIS ({u_role}) — All Barangays",
         }
 
     # 3. FARMER — Own Barangay Local-Context Scope
@@ -598,12 +629,14 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["recent_mortality"] += deaths
             recent_mortality_total += deaths
 
-    # 10. Official livestock movements only. Pending, returned and rejected intake
-    # stays out of GIS until MAO/Admin changes its clearance to APPROVED.
-    # Inbound / Outbound flows
+    # 10. Livestock Movements & Transport Inspections
+    # Records from LivestockInspection with clearance certificates.
+    # DATA INTEGRITY RULE: Only APPROVED clearance records contribute to official
+    # municipal statistics (movement_out), while all valid movements can be explored
+    # with their authoritative clearance status (APPROVED, PENDING, VERIFIED, etc.).
     inspections_qs = (
         scope_reviewer_queryset(
-            LivestockInspection.objects.filter(clearance__status=LivestockInspectionClearance.StatusType.APPROVED),
+            LivestockInspection.objects.filter(clearance__isnull=False),
             user,
         )
         .select_related("shipper", "shipper__barangay", "clearance")
@@ -615,49 +648,82 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     for insp in inspections_qs:
         origin = (insp.clearance.origin or insp.clearance.shipper_address or "").strip()
         destination = insp.destination.strip()
-        # Reports call the same helper so both outputs use one municipality rule.
         direction = classify_movement_direction(origin, destination, OFFICIAL_BARANGAYS)
-        origin_coords = get_destination_coords(origin)
+
+        # Coordinate resolution: Origin
+        origin_coords = None
+        if insp.shipper and insp.shipper.barangay:
+            canonical_sb = normalize_barangay_name(insp.shipper.barangay.barangay_name)
+            if canonical_sb and canonical_sb in BARANGAY_CENTROIDS:
+                origin_coords = BARANGAY_CENTROIDS[canonical_sb]
+        if not origin_coords:
+            origin_coords = get_destination_coords(origin)
         if not origin_coords:
             for barangay_name, coords in BARANGAY_CENTROIDS.items():
                 if barangay_name.lower() in origin.lower():
                     origin_coords = coords
                     break
+        if not origin_coords and ("padre garcia" in origin.lower() or not origin):
+            origin_coords = BARANGAY_CENTROIDS["Poblacion"]
+
+        # Coordinate resolution: Destination
         dest_coords = get_destination_coords(destination)
         if not dest_coords:
             for barangay_name, coords in BARANGAY_CENTROIDS.items():
                 if barangay_name.lower() in destination.lower():
                     dest_coords = coords
                     break
-        # A free-text location without known coordinates remains in the approved log,
-        # but cannot be drawn as an accurate map arc.
+        if not dest_coords and "padre garcia" in destination.lower():
+            dest_coords = BARANGAY_CENTROIDS["Poblacion"]
+
+        # If origin or destination cannot be resolved to a geographic reference, skip map rendering
         if not origin_coords or not dest_coords:
             continue
 
         total_heads = sum(item.quantity for item in insp.items.all())
         species_names = list({item.livestock_type.name for item in insp.items.all() if item.livestock_type})
+        items_breakdown = [
+            {
+                "species": item.livestock_type.name if item.livestock_type else "Livestock",
+                "quantity": item.quantity,
+                "sex": item.get_sex_display(),
+                "classification": item.get_classification_display(),
+            }
+            for item in insp.items.all()
+        ]
+
         origin_b_name = normalize_barangay_name(
             insp.shipper.barangay.barangay_name if insp.shipper and insp.shipper.barangay else ""
         )
+        if not origin_b_name:
+            for b_name in OFFICIAL_BARANGAYS:
+                if b_name.lower() in origin.lower():
+                    origin_b_name = b_name
+                    break
+
         movements_list.append({
             "id": insp.pk,
-            "type": "export",
-            "origin": origin,
+            "type": "import" if direction == "INBOUND" else "export",
+            "origin": origin or "Padre Garcia",
             "destination": destination,
             "direction": direction,
             "from": origin_coords,
             "to": dest_coords,
             "heads": total_heads,
-            "species": ", ".join(species_names),
+            "species": ", ".join(species_names) if species_names else "Cattle",
+            "items_breakdown": items_breakdown,
             "purpose": insp.get_purpose_display(),
             "date": insp.inspection_date.isoformat(),
             "shipper_name": insp.shipper_name,
             "clearance_status": insp.clearance.status,
             "control_number": insp.clearance.control_number,
         })
-        if origin_b_name in barangays_data:
-            barangays_data[origin_b_name]["movement_out"] += total_heads
-            barangays_data[origin_b_name]["inspections_count"] += 1
+
+        # Only officially APPROVED movements increment municipal statistics
+        if insp.clearance.status == LivestockInspectionClearance.StatusType.APPROVED:
+            if origin_b_name and origin_b_name in barangays_data:
+                barangays_data[origin_b_name]["movement_out"] += total_heads
+                barangays_data[origin_b_name]["inspections_count"] += 1
 
     # 11. Security Scoping & Data Masking
     # =========================================================================
@@ -681,7 +747,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             m for m in movements_list
             if any(f"Brgy. {b}" in m["origin"] for b in allowed_barangays_set)
         ]
-    elif u_role == SIBAT and not user_scope["can_view_all_barangays"]:
+    elif u_role in (SIBAT, "CBAT") and not user_scope["can_view_all_barangays"]:
         movements_list = [
             m for m in movements_list
             if any(f"Brgy. {b}" in m["origin"] for b in allowed_barangays_set)

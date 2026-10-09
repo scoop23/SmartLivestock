@@ -105,11 +105,19 @@ export interface FarmerPersonalStats {
   my_barangay: string;
 }
 
+export interface MovementItemBreakdown {
+  species: string;
+  quantity: number;
+  sex: string;
+  classification: string;
+}
+
 export interface MovementRecord {
   id: number;
   type: 'export' | 'import';
   origin: string;
   destination: string;
+  direction?: 'INTERNAL' | 'INBOUND' | 'OUTBOUND' | 'UNKNOWN';
   from: [number, number];
   to: [number, number];
   heads: number;
@@ -119,6 +127,30 @@ export interface MovementRecord {
   shipper_name: string;
   clearance_status: string;
   control_number: string;
+  items_breakdown?: MovementItemBreakdown[];
+}
+
+export type MovementDatePreset = 'all' | '30d' | '90d' | 'this_year' | 'last_year';
+
+export interface MovementFilterState {
+  datePreset: MovementDatePreset;
+  status: string; // 'ALL' | 'APPROVED' | 'PENDING' | 'VERIFIED' | 'SUBJECT_TO_REVISION'
+  direction: string; // 'ALL' | 'OUTBOUND' | 'INBOUND' | 'INTERNAL'
+  originSearch: string;
+  destinationSearch: string;
+  speciesSearch: string;
+}
+
+export interface MovementSummaryStats {
+  totalMovements: number;
+  totalHeads: number;
+  approvedMovements: number;
+  pendingMovements: number;
+  outboundHeads: number;
+  inboundHeads: number;
+  internalHeads: number;
+  topOrigins: { name: string; count: number; heads: number }[];
+  topDestinations: { name: string; count: number; heads: number }[];
 }
 
 export interface MortalitySummary {

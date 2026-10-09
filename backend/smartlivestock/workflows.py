@@ -72,7 +72,7 @@ BATCH_LIFECYCLE_TRANSITIONS = {
 
 
 def role_name(user) -> str:
-    return getattr(getattr(user, "role", None), "role_name", "")
+    return getattr(getattr(user, "role", None), "role_name", "").upper()
 
 
 def require_action(user, domain: str, action: str) -> str:
@@ -113,21 +113,21 @@ def validate_batch_lifecycle(current: str, target: str) -> None:
 
 def has_all_barangay_access(user):
     """Scope expands operational access without changing role or approval authority."""
-    return role_name(user) == SIBAT and user.access_scope == "ALL_BARANGAYS"
+    return role_name(user) in (SIBAT, "CBAT") and getattr(user, "access_scope", None) == "ALL_BARANGAYS"
 
 
 def reviewer_barangay_condition(user, *paths):
     from django.db.models import Q
     condition = Q(pk__in=[])
-    if user.assigned_barangay_id is not None:
+    if getattr(user, "assigned_barangay_id", None) is not None:
         for path in paths:
             condition |= Q(**{path: user.assigned_barangay_id})
     return condition
 
 
 def scope_reviewer_queryset(queryset, user):
-    """Apply the same SIBAT jurisdiction to lists, details, reviews and aggregates."""
-    if role_name(user) != SIBAT or has_all_barangay_access(user):
+    """Apply the same SIBAT/CBAT jurisdiction to lists, details, reviews and aggregates."""
+    if role_name(user) not in (SIBAT, "CBAT") or has_all_barangay_access(user):
         return queryset
     paths = {
         "LivestockInventory": ("farmer__barangay_id",),

@@ -45,6 +45,7 @@ import {
   DiseaseSubMode,
   SimulationParameters,
   MonthlyWindData,
+  MovementRecord,
 } from './types';
 import {
   precomputeSpatialMatrices,
@@ -60,6 +61,7 @@ import { GISLegend } from './GISLegend';
 import { GISTimeline } from './GISTimeline';
 import { GISSidebar } from './GISSidebar';
 import { GISFooter } from './GISFooter';
+import { MovementTimelinePlayer } from './MovementTimelinePlayer';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Info } from 'lucide-react';
 import { useIsMobile } from '@/components/ui/use-mobile';
@@ -107,10 +109,16 @@ export function RoleAwareGISContainer({
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [diseaseSubMode, setDiseaseSubMode] = useState<DiseaseSubMode>('reported');
   const [selectedBarangay, setSelectedBarangay] = useState<BarangayGISData | null>(null);
+  const [selectedMovement, setSelectedMovement] = useState<MovementRecord | null>(null);
+  const [showMovementOverlay, setShowMovementOverlay] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [resetTrigger, setResetTrigger] = useState<number>(0);
 
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+
+  // Movement timeline player states
+  const [movementDateIndex, setMovementDateIndex] = useState<number>(0);
+  const [isMovementAllDatesMode, setIsMovementAllDatesMode] = useState<boolean>(true);
 
   // Open sidebar by default on desktop screens (>= 1024px)
   useEffect(() => {
@@ -267,13 +275,49 @@ export function RoleAwareGISContainer({
     };
   }, [isPlaying, playbackSpeed]);
 
+  const uniqueMovementDates = useMemo(() => {
+    if (!gisData?.movements) return [];
+    const set = new Set<string>();
+    for (const m of gisData.movements) {
+      if (m.date) set.add(m.date);
+    }
+    return Array.from(set).sort();
+  }, [gisData?.movements]);
+
+  const activeDisplayMovements = useMemo(() => {
+    const allMoves = gisData?.movements || [];
+    if (isMovementAllDatesMode || uniqueMovementDates.length <= 1) {
+      return allMoves;
+    }
+    const targetDate = uniqueMovementDates[movementDateIndex];
+    if (!targetDate) return allMoves;
+    return allMoves.filter((m) => m.date === targetDate);
+  }, [gisData?.movements, isMovementAllDatesMode, uniqueMovementDates, movementDateIndex]);
+
   const handleSelectBarangay = useCallback((b: BarangayGISData) => {
+    setSelectedMovement(null);
     setSelectedBarangay(b);
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       setSidebarOpen(true);
     } else {
       setMobileDrawerOpen(true);
     }
+  }, []);
+
+  const handleSelectMovement = useCallback((m: MovementRecord | null) => {
+    setSelectedMovement(m);
+    if (m) {
+      setSelectedBarangay(null);
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        setSidebarOpen(true);
+      } else {
+        setMobileDrawerOpen(true);
+      }
+    }
+  }, []);
+
+  const handleClearSelectedMovement = useCallback(() => {
+    setSelectedMovement(null);
   }, []);
 
   const handleClearSelectedBarangay = useCallback(() => {
@@ -319,23 +363,23 @@ export function RoleAwareGISContainer({
   const canUseSimulation = gisData?.user_scope?.can_use_simulation ?? true;
 
   return (
-    <div className="relative w-full h-screen h-[100dvh] max-h-dvh overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
+    <div className="relative w-full h-full max-h-full min-h-0 overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
       {/* 0. Mobile Back Button Header */}
       <button
         type="button"
         onClick={() => router.push(backRoute)}
         aria-label={backLabel}
-        className="sm:hidden fixed top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))] z-[1100] min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-slate-800 flex items-center justify-center gap-1.5 font-bold text-xs active:scale-95 transition-transform cursor-pointer pointer-events-auto"
+        className="sm:hidden fixed top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] z-[950] min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-slate-800 flex items-center justify-center gap-1.5 font-bold text-xs active:scale-95 transition-transform cursor-pointer pointer-events-auto"
       >
         <ArrowLeft className="size-4 text-emerald-800" />
         <span>{backLabel}</span>
       </button>
 
       {/* 1. Full Viewport Interactive GIS Map Container */}
-      <div className="relative isolate w-full h-full flex-1 min-h-0 overflow-hidden">
+      <div className="relative w-full h-full flex-1 min-h-0 overflow-hidden">
         <GISMap
           barangaysByName={barangaysByName}
-          movements={gisData?.movements || []}
+          movements={activeDisplayMovements}
           activeLayer={activeLayer}
           viewMode={viewMode}
           diseaseSubMode={diseaseSubMode}
@@ -345,13 +389,19 @@ export function RoleAwareGISContainer({
           simulatedStates={activeSimulatedStates}
           selectedLivestockType={selectedLivestockType}
           userScope={gisData?.user_scope}
+          selectedMovement={selectedMovement}
+          onSelectMovement={handleSelectMovement}
+          showMovementOverlay={showMovementOverlay}
         />
 
         {/* 2. Floating Controls */}
-        <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-[max(4.75rem,calc(env(safe-area-inset-left)+4.25rem))] sm:left-4 sm:top-4 z-[900] max-w-[calc(100vw-5.5rem)] sm:max-w-[calc(100vw-1.5rem)]">
+        <div className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4.75rem+env(safe-area-inset-left,0px))] sm:left-4 sm:top-4 z-[850] max-w-[calc(100vw-5.5rem)] sm:max-w-[calc(100vw-1.5rem)]">
           <GISControls
             currentLayer={activeLayer}
-            onLayerChange={setActiveLayer}
+            onLayerChange={(layer) => {
+              setActiveLayer(layer);
+              setSelectedMovement(null);
+            }}
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
             diseaseSubMode={diseaseSubMode}
@@ -373,7 +423,7 @@ export function RoleAwareGISContainer({
         </div>
 
         {/* 3. Floating Bottom-Left Dynamic Legend */}
-        <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] sm:bottom-4 sm:left-4 z-[900]">
+        <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] sm:bottom-4 sm:left-4 z-[850]">
           <GISLegend
             layer={activeLayer}
             viewMode={viewMode}
@@ -384,7 +434,7 @@ export function RoleAwareGISContainer({
 
         {/* 4. Disease Simulation Timeline Player (Admin/MAO only) */}
         {canUseSimulation && activeLayer === 'disease' && diseaseSubMode === 'simulation' && (
-          <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[950] px-2 sm:px-4 w-full max-w-xl">
+          <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-xl">
             <GISTimeline
               currentMonthIndex={currentMonthIndex}
               onMonthChange={setCurrentMonthIndex}
@@ -401,20 +451,38 @@ export function RoleAwareGISContainer({
           </div>
         )}
 
-        {/* 5. Mobile Quick Action Button to Open Telemetry Bottom Sheet */}
+        {/* 4b. Movement Historical Timeline Scrubber (When in Movement Layer) */}
+        {activeLayer === 'movement' && uniqueMovementDates.length > 1 && (
+          <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-lg">
+            <MovementTimelinePlayer
+              movements={gisData?.movements || []}
+              activeDateIndex={movementDateIndex}
+              onDateIndexChange={setMovementDateIndex}
+              uniqueDates={uniqueMovementDates}
+              isAllDatesMode={isMovementAllDatesMode}
+              onToggleAllDatesMode={() => setIsMovementAllDatesMode((prev) => !prev)}
+            />
+          </div>
+        )}
+
+        {/* 5. Mobile Quick Action Button to Open Telemetry Bottom Sheet (Left side under map layers) */}
         <button
           type="button"
           onClick={() => setMobileDrawerOpen(true)}
           aria-label="Open GIS telemetry drawer"
-          className="lg:hidden absolute top-[max(0.75rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] z-[900] bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-200/90 shadow-lg text-emerald-900 hover:bg-emerald-50 hover:border-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer pointer-events-auto min-h-[44px]"
+          className="lg:hidden absolute top-[calc(3.75rem+env(safe-area-inset-top,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] z-[800] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-lg text-emerald-900 hover:bg-emerald-50 hover:border-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer pointer-events-auto min-h-[38px]"
         >
           <Info className="size-4 text-emerald-800 shrink-0" />
           <span className="font-black tracking-tight">Telemetry</span>
-          {selectedBarangay && (
+          {selectedMovement ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-900 max-w-[80px] truncate">
+              Permit #{selectedMovement.id}
+            </span>
+          ) : selectedBarangay ? (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 max-w-[70px] truncate">
               {selectedBarangay.name}
             </span>
-          )}
+          ) : null}
         </button>
 
         {/* 6. Desktop Floating Right Sidebar */}
@@ -436,6 +504,10 @@ export function RoleAwareGISContainer({
           selectedLivestockType={selectedLivestockType}
           userScope={gisData?.user_scope}
           farmerStats={gisData?.farmer_stats}
+          activeLayer={activeLayer}
+          selectedMovement={selectedMovement}
+          onSelectMovement={handleSelectMovement}
+          onClearSelectedMovement={handleClearSelectedMovement}
         />
 
         {/* 7. Mobile Bottom Sheet Drawer (< 1024px) */}
@@ -457,6 +529,10 @@ export function RoleAwareGISContainer({
           selectedLivestockType={selectedLivestockType}
           userScope={gisData?.user_scope}
           farmerStats={gisData?.farmer_stats}
+          activeLayer={activeLayer}
+          selectedMovement={selectedMovement}
+          onSelectMovement={handleSelectMovement}
+          onClearSelectedMovement={handleClearSelectedMovement}
         />
 
         {/* 8. Live Syncing Indicator */}

@@ -2,9 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/auth-context";
+import { cn } from "@/components/ui/utils";
 
 export default function AdminLayout({
   children,
@@ -12,11 +14,13 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
 
   const role = user?.role?.toUpperCase();
   const isAuthorized = role === "MAO" || role === "ADMIN";
-  console.log(role)
+
+  const isMapPage = pathname === "/gis-map" || pathname.startsWith("/gis-map");
 
   useEffect(() => {
     if (!isLoading && (!user || !isAuthorized)) {
@@ -37,24 +41,13 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
-      {/* 
-        MAIN NAVIGATION SIDEBAR (Elevated Component):
-        - Contains municipal administration links (Dashboard, Census, GIS Map, etc.).
-        - Fixed desktop rail with high elevation (z-[1200] / z-[1300] on hover) so that
-          full-screen canvas views (like Leaflet GIS Map) never obscure navigation links.
-      */}
+    <div className={cn("flex bg-slate-50 text-slate-900 antialiased", isMapPage ? "h-screen h-[100dvh] max-h-screen max-h-[100dvh] overflow-hidden" : "min-h-screen")}>
       <Sidebar
         role="lgu"
         onLogout={logout}
       />
 
-      {/* 
-        MAIN CONTENT REGION:
-        - flex-1 min-w-0: Expands to fill available horizontal space next to the sidebar rail.
-        - For /gis-map, the page fills 100dvh with zero margin/padding gaps.
-      */}
-      <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
+      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto")}>{children}</main>
 
       <Toaster />
     </div>

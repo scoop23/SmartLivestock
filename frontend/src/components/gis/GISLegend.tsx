@@ -117,9 +117,12 @@ export function GISLegend({
         ];
       case 'movement':
         return [
-          { color: '#dc2626', label: '📤 Outbound Inspection Transport' },
-          { color: '#2563eb', label: '📥 Inbound Transport' },
-          { color: '#1E4D2B', label: '📍 Padre Garcia Origin / Hub' },
+          { color: '#ef4444', label: '📤 Outbound Shipment (Padre Garcia → External)' },
+          { color: '#2563eb', label: '📥 Inbound Transport (External → Padre Garcia)' },
+          { color: '#10b981', label: '🔄 Local Intra-Municipal Transfer' },
+          { color: '#f59e0b', label: '⏳ Permit Under Inspection / Review' },
+          { color: '#1E4D2B', label: '🟢 Origin Barangay Centroid' },
+          { color: '#38bdf8', label: '✨ Active Selected Route' },
         ];
       default:
         return [];
@@ -175,12 +178,12 @@ export function GISLegend({
       <button
         type="button"
         onClick={() => setIsCollapsed(false)}
-        aria-label="Expand GIS Legend"
-        className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto flex items-center gap-1.5 text-xs font-black active:scale-95 transition-transform cursor-pointer"
+        aria-label={`Expand ${title} Legend`}
+        className="bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto flex items-center gap-2 text-xs font-black active:scale-95 transition-transform cursor-pointer min-h-[38px] select-none"
       >
-        <span>{icon}</span>
-        <span className="text-[11px] font-bold text-slate-700">Legend</span>
-        <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono border-slate-300">
+        <span className="text-sm">{icon}</span>
+        <span className="text-xs font-bold text-slate-800 truncate max-w-[140px]">{title}</span>
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono border-slate-300 bg-slate-50 text-slate-700 shrink-0">
           Show
         </Badge>
       </button>
@@ -188,7 +191,7 @@ export function GISLegend({
   }
 
   return (
-    <div className="bg-white/95 backdrop-blur-md p-2.5 sm:p-3 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto max-w-[240px] sm:max-w-[270px] animate-in fade-in duration-150">
+    <div className="bg-white/95 backdrop-blur-md p-2.5 sm:p-3 rounded-xl border border-slate-200/90 shadow-lg text-slate-800 pointer-events-auto max-w-[240px] sm:max-w-[270px] max-h-[calc(100dvh-12rem)] sm:max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain animate-in fade-in duration-150 scrollbar-thin">
       <div className="flex items-center justify-between gap-1.5 mb-1.5 pb-1.5 border-b border-slate-100">
         <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5 truncate">
           <span>{icon}</span>
@@ -217,7 +220,7 @@ export function GISLegend({
             onClick={() => setIsCollapsed(true)}
             aria-label="Minimize Legend"
             title="Minimize Legend"
-            className="text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer transition-colors"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
           >
             ✕
           </button>

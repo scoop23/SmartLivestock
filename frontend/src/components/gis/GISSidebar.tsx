@@ -31,9 +31,11 @@ import {
   SimulatedBarangayState,
   DiseaseSubMode,
   ViewMode,
+  MapLayer,
 } from './types';
 import { BarangayDetails } from './BarangayDetails';
 import { MunicipalOverview } from './MunicipalOverview';
+import { MovementDetailsModal } from './MovementDetailsModal';
 import {
   Sheet,
   SheetContent,
@@ -59,6 +61,10 @@ interface GISSidebarProps {
   renderMode?: 'desktop' | 'mobile-sheet' | 'auto';
   userScope?: any;
   farmerStats?: any;
+  activeLayer?: MapLayer;
+  selectedMovement?: MovementRecord | null;
+  onSelectMovement?: (m: MovementRecord | null) => void;
+  onClearSelectedMovement?: () => void;
 }
 
 export function GISSidebar({
@@ -79,9 +85,27 @@ export function GISSidebar({
   renderMode = 'auto',
   userScope,
   farmerStats,
+  activeLayer,
+  selectedMovement = null,
+  onSelectMovement,
+  onClearSelectedMovement,
 }: GISSidebarProps) {
-  // Choose content based on selection
-  const content = selectedBarangay ? (
+  // Choose content based on selection priority:
+  // 1. If an individual movement permit is selected -> show permit details sheet
+  // 2. Else if a barangay is selected -> show barangay telemetry details
+  // 3. Else -> show municipal telemetry / movement analysis overview
+  const content = selectedMovement ? (
+    <MovementDetailsModal
+      movement={selectedMovement}
+      onClose={() => {
+        if (onClearSelectedMovement) {
+          onClearSelectedMovement();
+        } else if (onSelectMovement) {
+          onSelectMovement(null);
+        }
+      }}
+    />
+  ) : selectedBarangay ? (
     <BarangayDetails
       data={selectedBarangay}
       simulatedState={simulatedStates?.[selectedBarangay.name]}
@@ -103,6 +127,10 @@ export function GISSidebar({
       onClose={onClose}
       userScope={userScope}
       farmerStats={farmerStats}
+      activeLayer={activeLayer}
+      selectedMovement={selectedMovement}
+      onSelectMovement={(m) => onSelectMovement?.(m)}
+      onClearSelectedMovement={onClearSelectedMovement}
     />
   );
 
@@ -112,7 +140,7 @@ export function GISSidebar({
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent
           side="bottom"
-          className="h-[84dvh] max-h-[88dvh] rounded-t-3xl p-0 bg-white border-t border-slate-200 flex flex-col overflow-hidden shadow-2xl z-[1200]"
+          className="h-[84dvh] max-h-[88dvh] rounded-t-3xl p-0 bg-white border-t border-slate-200 flex flex-col overflow-hidden shadow-2xl z-[var(--z-dialog)]"
         >
           <SheetTitle className="sr-only">
             {selectedBarangay ? `Barangay ${selectedBarangay.name} Telemetry` : 'Municipal Telemetry Overview'}
