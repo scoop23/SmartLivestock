@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
+import { localCalendarDateToday } from "@/lib/livestock-age";
 
 import SpeciesHeroBanner from "./components/species-hero-banner";
 import SpeciesKpiCards from "./components/species-kpi-cards";
@@ -76,6 +77,9 @@ export default function ProductionDashboardView({
   showEnterpriseSwitch = true,
 }: ProductionDashboardViewProps) {
   const queryClient = useQueryClient();
+  const currentMonth = localCalendarDateToday().slice(0, 7);
+  const [kpiMonth, setKpiMonth] = useState(currentMonth);
+  const [showOverallKpis, setShowOverallKpis] = useState(false);
 
   // Wizard state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -178,6 +182,31 @@ export default function ProductionDashboardView({
       (item) => item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase()
     );
   }, [productionRecords, selectedSpecies]);
+
+  const selectedInventoryIds = useMemo(
+    () => new Set(filteredInventories.map((item) => Number(item.id))),
+    [filteredInventories],
+  );
+  const monthlyKpiProductionRecords = useMemo(
+    () => showOverallKpis
+      ? filteredProductionRecords
+      : filteredProductionRecords.filter((record) => record.recordDate?.slice(0, 7) === kpiMonth),
+    [filteredProductionRecords, kpiMonth, showOverallKpis],
+  );
+  const monthlyKpiCalvingRecords = useMemo(
+    () => calvingRecords.filter((record) =>
+      selectedInventoryIds.has(Number(record.dam)) &&
+      (showOverallKpis || record.calving_date?.slice(0, 7) === kpiMonth),
+    ),
+    [calvingRecords, kpiMonth, selectedInventoryIds, showOverallKpis],
+  );
+  const monthlyKpiWeightRecords = useMemo(
+    () => weightRecords.filter((record) =>
+      selectedInventoryIds.has(Number(record.livestock)) &&
+      (showOverallKpis || record.weighing_date?.slice(0, 7) === kpiMonth),
+    ),
+    [kpiMonth, selectedInventoryIds, showOverallKpis, weightRecords],
+  );
 
   const terms = getBirthingTerminology(selectedSpecies);
 
@@ -518,13 +547,48 @@ export default function ProductionDashboardView({
       {/* Tab 1: Daily Yield Logs */}
       {activeMainTab === "production" && (
         <div className="space-y-6">
-          {/* Dynamic Species Telemetry KPI Cards (4 Cards) */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-black text-slate-900">
+                {showOverallKpis ? "Overall KPI Summary" : "Monthly KPI Summary"}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {showOverallKpis
+                  ? "Production, births, and weighings include all dates. Inventory counts show the current roster."
+                  : "Production, births, and weighings use this month. Inventory counts show the current roster."}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
+              <label htmlFor="production-kpi-period">View period</label>
+              <select
+                id="production-kpi-period"
+                value={showOverallKpis ? "OVERALL" : "MONTH"}
+                onChange={(event) => setShowOverallKpis(event.target.value === "OVERALL")}
+                className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+              >
+                <option value="MONTH">By month</option>
+                <option value="OVERALL">Overall (all dates)</option>
+              </select>
+              {!showOverallKpis && (
+                <input
+                  aria-label="KPI month"
+                  type="month"
+                  value={kpiMonth}
+                  max={currentMonth}
+                  onChange={(event) => setKpiMonth(event.target.value)}
+                  className="h-10 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Date-based KPI totals use the selected period; inventory counts remain current. */}
           <SpeciesKpiCards
             species={selectedSpecies}
             inventories={filteredInventories}
-            productionRecords={filteredProductionRecords}
-            calvingRecords={calvingRecords}
-            weightRecords={weightRecords}
+            productionRecords={monthlyKpiProductionRecords}
+            calvingRecords={monthlyKpiCalvingRecords}
+            weightRecords={monthlyKpiWeightRecords}
           />
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">

@@ -98,15 +98,7 @@ export default function SpeciesKpiCards({
     const avgWeight =
       validWeights.length > 0
         ? (validWeights.reduce((a, b) => a + b, 0) / validWeights.length).toFixed(1)
-        : inventories.length > 0
-          ? (
-              inventories
-                .map((i) => Number(i.weight || 0))
-                .filter((w) => w > 0)
-                .reduce((a, b) => a + b, 0) /
-              (inventories.filter((i) => Number(i.weight || 0) > 0).length || 1)
-            ).toFixed(1)
-          : null;
+        : null;
 
     // Approved percentage
     const approvedCount = productionRecords.filter((r) => r.status === "APPROVED").length;
