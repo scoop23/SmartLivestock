@@ -37,6 +37,7 @@ import { DataOverviewToolbar } from "./data-overview-toolbar";
 import { DataOverviewOverallView } from "./data-overview-overall-view";
 import { DataOverviewTable } from "./data-overview-table";
 import { DataOverviewCards } from "./data-overview-cards";
+import { ProductionTradeRecords } from "./production-trade-records";
 import { DataOverviewDetailModal } from "./data-overview-detail-modal";
 import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
 import { Layers, Boxes, Milk, FileSpreadsheet, Activity, Database } from "lucide-react";
@@ -1191,6 +1192,15 @@ export default function DataOverviewPage() {
               setActiveTab(tab);
             }}
             onSelectRecord={handleSelectRecord}
+          />
+        ) : activeTab === "sales" ? (
+          <ProductionTradeRecords
+            salesRecords={filteredData as SalesRecord[]}
+            viewMode={viewMode}
+            onSelectSalesRecord={(record, domain) => handleSelectRecord(record, domain)}
+            onResetFilters={handleResetFilters}
+            search={searchQuery}
+            statusFilter={filterStatus}
           />
         ) : viewMode === "table" ? (
           <DataOverviewTable

@@ -20,6 +20,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { QrCodePass } from "@/components/qr-code-pass";
 import {
   User as UserIcon,
   Shield,
@@ -1477,17 +1478,27 @@ export function UserProfileView() {
               Farmer profile identification
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              This profile ID is not connected to a server lookup, so it cannot be used as a verified SmartLivestock QR.
+              Auction staff can scan this profile QR to find your registered livestock. It identifies your Farmer account; it does not prove that an animal or sale is approved.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-            <QrCode className="size-8 text-slate-500" />
-            <p className="text-sm font-semibold text-slate-900">No profile QR is available</p>
-            <p className="max-w-md text-xs leading-relaxed text-slate-600">
-              Use the QR on an individual livestock record to retrieve its current registry information. A farmer profile code does not identify an animal or prove an approval.
-            </p>
-          </div>
+          {user?.role === "FARMER" && user.farmerId ? (
+            <QrCodePass
+              code={`SL-FARMER:${user.farmerId}`}
+              qrPayload={`SL-FARMER:${user.farmerId}`}
+              title="Farmer account QR"
+              subtitle="Show this QR to Auction staff to look up your registered livestock."
+              ownerName={`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || undefined}
+              status="ACCOUNT ID"
+              compact
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
+              <QrCode className="size-8 text-slate-500" />
+              <p className="text-sm font-semibold text-slate-900">Farmer profile QR unavailable</p>
+              <p className="max-w-md text-xs leading-relaxed text-slate-600">A QR is generated for registered Farmer profiles once the account details load.</p>
+            </div>
+          )}
 
           <Button
             type="button"

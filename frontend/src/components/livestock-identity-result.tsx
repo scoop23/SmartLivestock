@@ -6,10 +6,11 @@ import type { RegisteredLivestockLookup } from "@/app/(auction)/auction-inspecti
 import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 
 // Search and QR show the same database identity and server eligibility decision.
-export function LivestockIdentityResult({ record, onAdd, error }: {
+export function LivestockIdentityResult({ record, onAdd, error, actionLabel = "Add to Movement Log" }: {
   record: RegisteredLivestockLookup;
   onAdd: () => void;
   error?: string;
+  actionLabel?: string;
 }) {
   return (
     <section className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -27,6 +28,7 @@ export function LivestockIdentityResult({ record, onAdd, error }: {
         <div><dt className="text-xs text-slate-500">Age / class</dt><dd>{formatLivestockAge(record.age)} · {formatAgeClassification(record.age_classification)}</dd></div>
         <div><dt className="text-xs text-slate-500">Operational status</dt><dd>{record.operational_status}</dd></div>
         <div><dt className="text-xs text-slate-500">Registration</dt><dd>{record.registration_status}</dd></div>
+        <div><dt className="text-xs text-slate-500">Ownership certificate</dt><dd>{record.ownership_certificate_number || "Not recorded"}</dd></div>
       </dl>
       <p className="mt-4 border-t border-slate-200 pt-3 text-xs font-bold uppercase text-slate-500">Farmer / Owner</p>
       <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 break-words text-sm sm:grid-cols-2">
@@ -37,7 +39,7 @@ export function LivestockIdentityResult({ record, onAdd, error }: {
       {!record.eligible && <p role="alert" className="mt-3 text-sm leading-5 text-amber-900">{record.ineligibility_reason || "This livestock is not eligible to be linked."}</p>}
       {error && <p role="alert" className="mt-3 rounded-lg bg-rose-50 p-2.5 text-sm text-rose-800">{error}</p>}
       <p className="mt-3 text-xs leading-5 text-slate-500">Identity and status come from the registry. MAO reviews the movement separately.</p>
-      <Button type="button" disabled={!record.eligible} onClick={onAdd} className="mt-4 min-h-11 w-full bg-violet-700 text-white hover:bg-violet-800">Add to Movement Log</Button>
+      <Button type="button" disabled={!record.eligible} onClick={onAdd} className="mt-4 min-h-11 w-full bg-violet-700 text-white hover:bg-violet-800">{actionLabel}</Button>
     </section>
   );
 }

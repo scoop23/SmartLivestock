@@ -7,6 +7,8 @@ urlpatterns = [
     path("inventory/<int:pk>/", views.inventory_detail, name="inventory_detail"),
     path("inventory/<int:pk>/review/", views.review_inventory, name="review_inventory"),
     path("livestock_types/", views.list_livestock_types, name="list_livestock_types"),
+    path("gate-registrations/", views.gate_registration_list_create, name="gate_registration_list_create"),
+    path("gate-verifications/", views.gate_verification_list_create, name="gate_verification_list_create"),
 
     # Livestock Herds
     path("batches/", views.batch_list_create, name="batch_list_create"),
@@ -25,6 +27,9 @@ urlpatterns = [
     path("barangays/", views.get_barangays, name="get_barangays"),
     path("farmers/<int:barangay_id>/", views.get_farmer_by_barangays, name="get_farmers_by_barangay"),
     path("ownership-transfers/", views.ownership_transfer_list_create, name="ownership_transfer_list_create"),
+    path("ownership-transfer-farmers/", views.ownership_transfer_farmer_list, name="ownership_transfer_farmer_list"),
+    path("ownership-transfer-farmers/<int:farmer_id>/", views.ownership_transfer_farmer_detail, name="ownership_transfer_farmer_detail"),
+    path("ownership-transfer-farmers/<int:farmer_id>/livestock/", views.ownership_transfer_farmer_livestock, name="ownership_transfer_farmer_livestock"),
     path("ownership-transfers/<int:pk>/", views.ownership_transfer_detail, name="ownership_transfer_detail"),
     path("ownership-transfers/<int:pk>/review/", views.review_ownership_transfer, name="review_ownership_transfer"),
 ]

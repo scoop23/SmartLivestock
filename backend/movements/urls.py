@@ -7,6 +7,7 @@ from movements.views import (
     inspection_verify,
     inspection_resubmit,
     inspection_review,
+    verify_public_clearance,
 )
 
 urlpatterns = [
@@ -15,6 +16,7 @@ urlpatterns = [
     path("", inspection_list_create, name="inspection_list_create"),
     path("shippers/", inspection_shipper_options, name="inspection_shipper_options"),
     path("livestock-lookup/", inspection_livestock_lookup, name="inspection_livestock_lookup"),
+    path("verify-clearance/", verify_public_clearance, name="verify_public_clearance"),
     path("<int:pk>/", inspection_detail, name="inspection_detail"),
     path("<int:pk>/verify/", inspection_verify, name="inspection_verify"),
     path("<int:pk>/resubmit/", inspection_resubmit, name="inspection_resubmit"),

@@ -34,6 +34,7 @@ export interface UniversalQrScannerDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   role?: "admin" | "sibat" | "auction" | "farmer" | "lgu";
+  onSelectFarmer?: (farmerId: number) => void;
 }
 
 interface ScannedRecord {
@@ -84,6 +85,7 @@ export function UniversalQrScannerDialog({
   isOpen,
   onOpenChange,
   role = "admin",
+  onSelectFarmer,
 }: UniversalQrScannerDialogProps) {
   const [scanInput, setScanInput] = useState("");
   const [activeResult, setActiveResult] = useState<ScannedRecord | null>(null);
@@ -126,6 +128,19 @@ export function UniversalQrScannerDialog({
         sub: "Resolve current livestock registry records and review their eligibility status.",
       };
 
+  const handleDialogOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      lookupRequestId.current += 1;
+      lookupInFlight.current = false;
+      setCameraActive(false);
+      setIsSearching(false);
+      setActiveResult(null);
+      setScanInput("");
+      setCameraMessage("");
+    }
+    onOpenChange(open);
+  }, [onOpenChange]);
+
   const handleLookup = useCallback(async (codeToSearch: string) => {
     const input = codeToSearch.trim();
     if (!input) {
@@ -133,6 +148,14 @@ export function UniversalQrScannerDialog({
       return;
     }
     if (lookupInFlight.current) return;
+
+    // Farmer profile QRs identify an account first; the parent loads its eligible animal list.
+    const farmerQr = input.match(/^SL-FARMER:(\d+)$/i);
+    if (farmerQr && onSelectFarmer) {
+      onSelectFarmer(Number(farmerQr[1]));
+      handleDialogOpenChange(false);
+      return;
+    }
 
     const target = parseLivestockQrPayload(input);
     if (target.kind === "UNSUPPORTED") {
@@ -235,7 +258,7 @@ export function UniversalQrScannerDialog({
         setIsSearching(false);
       }
     }
-  }, [isAuction, isSibat, role]);
+  }, [handleDialogOpenChange, isAuction, isSibat, onSelectFarmer, role]);
 
   const enableCamera = () => {
     if (!window.isSecureContext) {
@@ -297,19 +320,6 @@ export function UniversalQrScannerDialog({
     setCameraMessage("");
   };
 
-  const handleDialogOpenChange = (open: boolean) => {
-    if (!open) {
-      lookupRequestId.current += 1;
-      lookupInFlight.current = false;
-      setCameraActive(false);
-      setIsSearching(false);
-      setActiveResult(null);
-      setScanInput("");
-      setCameraMessage("");
-    }
-    onOpenChange(open);
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg rounded-3xl p-4 sm:p-6 bg-white border-slate-100 shadow-2xl max-h-[92dvh] overflow-y-auto">
@@ -320,15 +330,17 @@ export function UniversalQrScannerDialog({
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                {themeColors.title}
+                {onSelectFarmer ? "Auction Ownership Transfer" : themeColors.title}
               </p>
               <DialogTitle className="text-lg font-black text-slate-900 leading-tight">
-                Find a Livestock Record
+                {onSelectFarmer ? "Find a Farmer Profile" : "Find a Livestock Record"}
               </DialogTitle>
             </div>
           </div>
           <DialogDescription className="text-xs text-slate-500 leading-relaxed">
-            {themeColors.sub} The QR is only an identifier; current status comes from SmartLivestock.
+            {onSelectFarmer
+              ? "Scan the seller’s Farmer profile QR, or enter its Farmer ID. You can also search by name, email, or username on the transfer page."
+              : `${themeColors.sub} The QR is only an identifier; current status comes from SmartLivestock.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -362,7 +374,9 @@ export function UniversalQrScannerDialog({
                     Ready to scan
                   </p>
                   <p className="text-[11px] text-slate-400 mt-1 max-w-xs leading-relaxed">
-                    Center the livestock QR in the frame, or enter its tag or code below. The lookup does not approve ownership, movement, or clearance.
+                    {onSelectFarmer
+                      ? "Center the Farmer profile QR in the frame. This identifies the seller so you can choose their livestock; it does not approve an ownership transfer."
+                      : "Center the livestock QR in the frame, or enter its tag or code below. The lookup does not approve ownership, movement, or clearance."}
                   </p>
                   <Button
                     type="button"
@@ -382,14 +396,14 @@ export function UniversalQrScannerDialog({
             {/* Manual Code Input Bar */}
             <div className="space-y-1.5">
               <label className="text-xs font-black uppercase text-slate-600">
-                Ear tag, batch code, or QR value
+                {onSelectFarmer ? "Farmer profile ID or QR value" : "Ear tag, batch code, or QR value"}
               </label>
               <div className="flex gap-2">
                 <Input
                   value={scanInput}
                   onChange={(e) => setScanInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLookup(scanInput)}
-                  placeholder="e.g. BATCH-2026-001 or PG-CAT-0941"
+                  placeholder={onSelectFarmer ? "e.g. SL-FARMER:123" : "e.g. BATCH-2026-001 or PG-CAT-0941"}
                   disabled={isSearching}
                   className="min-h-11 min-w-0 rounded-xl font-bold font-mono text-xs border-slate-300"
                 />

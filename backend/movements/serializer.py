@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from django.utils import timezone
-from livestock.models import Farmer, LivestockType, LivestockInventory
+from livestock.models import Farmer, LivestockType, LivestockInventory, LivestockOwnershipTransfer
 from movements.models import (
     LivestockInspection,
     LivestockInspectionItem,
@@ -54,9 +54,17 @@ class LivestockInspectionItemSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"inventory": "Only officially approved livestock can be included in transport inspection."}
                 )
-            if inventory.operational_status != "ACTIVE":
+            sold_after_approved_transfer = (
+                inventory.operational_status == "SOLD"
+                and LivestockOwnershipTransfer.objects.filter(
+                    livestock=inventory,
+                    previous_owner=inventory.farmer,
+                    status=LivestockOwnershipTransfer.Status.APPROVED,
+                ).exists()
+            )
+            if inventory.operational_status != "ACTIVE" and not sold_after_approved_transfer:
                 raise serializers.ValidationError(
-                    {"inventory": "Selected animal is no longer active (may be sold, deceased, or moved out)."}
+                    {"inventory": "Selected animal is no longer active (may be deceased or moved out)."}
                 )
         return attrs
 

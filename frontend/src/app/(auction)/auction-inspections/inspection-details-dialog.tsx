@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import QRCode from "qrcode";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import {
@@ -54,6 +56,21 @@ export function InspectionDetailsDialog({
   const router = useRouter();
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [clearanceQrResult, setClearanceQrResult] = useState<{ number: string; dataUrl: string } | null>(null);
+
+  const clearanceNumber = inspection?.control_number ?? "";
+  const isApprovedClearance = inspection?.status === "APPROVED";
+  const clearanceQr = isApprovedClearance && clearanceQrResult?.number === clearanceNumber ? clearanceQrResult.dataUrl : "";
+  useEffect(() => {
+    let current = true;
+    if (!isApprovedClearance || !clearanceNumber.startsWith("CLR-")) return () => { current = false; };
+    const verificationUrl = new URL("/clearance-verification", window.location.origin);
+    verificationUrl.searchParams.set("control_number", clearanceNumber);
+    QRCode.toDataURL(verificationUrl.toString(), { width: 220, margin: 1, errorCorrectionLevel: "H" })
+      .then((dataUrl) => { if (current) setClearanceQrResult({ number: clearanceNumber, dataUrl }); })
+      .catch(() => { if (current) setClearanceQrResult({ number: clearanceNumber, dataUrl: "" }); });
+    return () => { current = false; };
+  }, [clearanceNumber, isApprovedClearance]);
 
   if (!inspection) return null;
 
@@ -103,6 +120,24 @@ export function InspectionDetailsDialog({
   return (
     <Dialog open={!!inspection} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-0 shadow-2xl">
+        {inspection.status === "APPROVED" && <section id="livestock-clearance-print" className="hidden p-8 text-slate-900 print:block">
+          <header className="border-b-2 border-slate-900 pb-4 text-center">
+            <p className="text-sm font-bold uppercase tracking-widest">Municipal Agriculture Office</p>
+            <h1 className="mt-2 text-2xl font-black">Livestock Inspection Clearance</h1>
+            <p className="mt-1 font-mono text-lg">{inspection.control_number}</p>
+          </header>
+          <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
+            <p><b>Shipper:</b> {inspection.shipper_name}</p><p><b>Issued:</b> {inspection.date_issued || "—"} {inspection.time_issued || ""}</p>
+            <p><b>Origin:</b> {inspection.origin || "Not recorded"}</p><p><b>Destination:</b> {inspection.destination}</p>
+            <p><b>Purpose:</b> {inspection.purpose}</p><p><b>Status:</b> APPROVED</p>
+          </div>
+          <table className="mt-6 w-full border-collapse text-sm"><thead><tr><th className="border p-2 text-left">Animal type</th><th className="border p-2">Tag</th><th className="border p-2">Heads</th><th className="border p-2">Classification</th></tr></thead>
+            <tbody>{inspection.items.map((item, index) => <tr key={`${item.livestock_type}-${index}`}><td className="border p-2">{item.livestock_type_name || "Livestock"}</td><td className="border p-2 text-center">{item.inventory_tag || "—"}</td><td className="border p-2 text-center">{item.quantity}</td><td className="border p-2 text-center">{item.classification}</td></tr>)}</tbody></table>
+          <div className="mt-7 flex items-center justify-between gap-6 border-t pt-5">
+            <p className="max-w-md text-xs">Scan this QR code to verify this clearance against the SmartLivestock record.</p>
+            {clearanceQr ? <Image src={clearanceQr} width={132} height={132} unoptimized alt="QR code to verify this approved livestock clearance" /> : <p className="text-xs">Verification QR is being prepared or unavailable; reopen this record and try printing again.</p>}
+          </div>
+        </section>}
         {/* Header Banner */}
         <DialogHeader className="p-5 sm:p-6 bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] text-white rounded-t-3xl">
           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -128,6 +163,7 @@ export function InspectionDetailsDialog({
           )}
 
           {/* ════ SECTION 1: VERIFICATION & WORKFLOW STEPPER ════ */}
+          {inspection.status === "PENDING" && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">The buyer may leave while MAO review is pending. This request remains on record for MAO to approve or return; printing and QR verification become available after approval.</p>}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase tracking-wider text-slate-700">
@@ -387,6 +423,7 @@ export function InspectionDetailsDialog({
             <Button
               variant="outline"
               size="sm"
+              disabled={!clearanceQr}
               onClick={() => window.print()}
               className="rounded-xl font-bold text-xs gap-1.5 cursor-pointer w-full sm:w-auto"
             >

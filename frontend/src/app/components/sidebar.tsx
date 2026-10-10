@@ -14,6 +14,7 @@ import {
   Newspaper,
   CalendarDays,
   ClipboardCheck,
+  QrCode,
   Bell,
   Activity,
   Megaphone,
@@ -33,7 +34,6 @@ import {
   Shield,
   User as UserIcon,
   Key,
-  QrCode,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -150,7 +150,6 @@ const sibatLinks: SidebarLink[] = [
     subLinks: [
       { path: '/sibat', label: 'Overview & Field Queues' },
       { path: '/sibat/batches', label: 'Herd Verification', badge: 'Herds' },
-      { path: '/sibat/ownership-transfers', label: 'Ownership Transfers' },
     ],
   },
   { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Map },
@@ -161,8 +160,10 @@ const sibatLinks: SidebarLink[] = [
 
 const auctionLinks: SidebarLink[] = [
   { path: '/auction', label: 'Market Dashboard', icon: LayoutDashboard },
-  { path: '/auction-ownership-transfers', label: 'Ownership Transfers', icon: FileText },
-  { path: '/auction-inspections', label: 'Health Inspections', icon: ClipboardCheck },
+  { path: '/auction-gate', label: 'Main Gate Verification', icon: QrCode },
+  { path: '/auction-ownership-transfers', label: 'Record Ownership Transfer', icon: FileText },
+  { path: '/auction-ownership-transfers/registry', label: 'Ownership Transfer Records', icon: ClipboardCheck },
+  { path: '/auction-inspections', label: 'Livestock Intake & Movement Logs', icon: ClipboardCheck },
   { path: '/auction-gis', label: 'GIS Movement Map', icon: Map },
   { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },
 ];

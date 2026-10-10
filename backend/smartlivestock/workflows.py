@@ -21,9 +21,9 @@ ROLE_MATRIX = {
     "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
     "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
-    "inspections": {"create": {FARMER, AUCTION, MAO, ADMIN}, "read_all": {AUCTION, MAO, ADMIN, SIBAT}, "edit_own": {FARMER, AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
+    "inspections": {"create": {AUCTION}, "read_all": {AUCTION, MAO, ADMIN}, "edit_own": {AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
     # Auction encodes the certificate; farmers and reviewers retain access to their own or scoped records.
-    "ownership_transfers": {"create": {AUCTION}, "read_all": {SIBAT, MAO, ADMIN}, "read_own": {AUCTION}, "review": {SIBAT, MAO, ADMIN}},
+    "ownership_transfers": {"create": {AUCTION}, "read_all": {MAO, ADMIN}, "read_own": {AUCTION}, "review": {MAO, ADMIN}},
 }
 
 
@@ -40,8 +40,17 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
         TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
         TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     )
-    for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality", "ownership_transfers")
+    for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality")
 }
+
+# Auction encodes the completed transfer certificate; MAO is the sole reviewer.
+REVIEW_TRANSITIONS["ownership_transfers"] = (
+    TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    # Let MAO finish legacy transfers that were already verified by SIBAT.
+    TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+)
 
 # Production declarations use the same field-verification and municipal-approval steps.
 REVIEW_TRANSITIONS["production"] = REVIEW_TRANSITIONS["inventory"]

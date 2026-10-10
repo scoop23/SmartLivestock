@@ -19,6 +19,16 @@
   }
   #livestock-identity-pass [data-slot="dialog-close"] { display: none !important; }
   .livestock-id-pass-action { display: none !important; }
+  #livestock-clearance-print,
+  #livestock-clearance-print * { visibility: visible !important; }
+  #livestock-clearance-print {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
 }
 
 @custom-variant dark (&:is(.dark *));

@@ -13,10 +13,12 @@ export function MovementLivestockQrDialog({
   open,
   onOpenChange,
   onFound,
+  actionLabel,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onFound: (animal: RegisteredLivestockLookup) => string | null;
+  onFound: (animal: RegisteredLivestockLookup) => string | null | Promise<string | null>;
+  actionLabel?: string;
 }) {
   // QR supplies an identifier only. Decoding is followed by the same authenticated
   // lookup used by text search, then an officer explicitly adds the returned record.
@@ -146,11 +148,12 @@ export function MovementLivestockQrDialog({
             </div>
           </div>
           {error && <div role="alert" className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"><AlertCircle className="mt-0.5 size-4 shrink-0" />{error}</div>}
-          {record && <LivestockIdentityResult record={record} error={addError} onAdd={() => {
+          {record && <LivestockIdentityResult record={record} error={addError} actionLabel={actionLabel} onAdd={() => {
             if (!record.eligible) return;
-            const failure = onFound(record);
-            if (failure) setAddError(failure);
-            else handleOpenChange(false);
+            void Promise.resolve(onFound(record)).then((failure) => {
+              if (failure) setAddError(failure);
+              else handleOpenChange(false);
+            }).catch(() => setAddError("Could not save this gate verification. Try again."));
           }} />}
         </div>
       </DialogContent>

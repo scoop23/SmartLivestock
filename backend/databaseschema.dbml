@@ -105,6 +105,9 @@ Table livestock_inventory {
   quantity integer [default: 1, note: 'Always 1 for individual animal']
   birth_date date [note: 'Nullable for legacy records with unknown birth date']
   tag_number varchar [note: 'Ear tag / identification code']
+  ownership_certificate_number varchar [note: 'Number printed on the paper Certificate of Ownership; QR remains an identity lookup']
+  ownership_certificate_recorded_by integer [note: 'Auction user who recorded the paper certificate number; FK to users.user_id']
+  ownership_certificate_recorded_at timestamp
   breed varchar
   sex varchar [note: 'MALE, FEMALE, MIXED']
   weight decimal [note: 'Current body weight in kg']
@@ -121,7 +124,17 @@ Table livestock_inventory {
   created_at timestamp
 }
 
-// Auction staff record the certificate against the seller's inventory row; approval marks that row SOLD.
+Table livestock_gate_verifications {
+  verification_id integer [pk]
+  livestock_id integer [not null, note: 'Approved active individual animal confirmed at the Auction gate']
+  gate_session_id uuid [not null, note: 'Browser session used to group distinct heads and prevent duplicate scan counts']
+  certificate_number_checked varchar [not null, default: '']
+  verified_by integer [not null, note: 'Auction user who recorded the physical check; FK to users.user_id']
+  verified_at timestamp
+  indexes { (gate_session_id, livestock_id) [unique] }
+}
+
+// Auction staff record the certificate against the seller's inventory row; direct MAO approval marks that row SOLD.
 // A registered buyer may separately submit their acquired animal into their own inventory.
 // A buyer may be a registered Farmer or a documented external party; external buyers do not get platform accounts.
 Table livestock_ownership_transfers {
@@ -132,7 +145,7 @@ Table livestock_ownership_transfers {
   new_owner_id integer [note: 'Registered Farmer reference; null for external parties']
   external_owner_name varchar [not null, default: '', note: 'Required for external owner types; blank for registered Farmer transfers']
   external_owner_address text [not null, default: '', note: 'Required by the application for external owner transfer documentation']
-  transfer_certificate_number varchar [unique, not null]
+  transfer_certificate_number varchar [not null, note: 'A paper certificate may cover multiple animal transfer records']
   original_certificate_number varchar [not null]
   transfer_date date [not null]
   municipality varchar [not null]
@@ -143,7 +156,7 @@ Table livestock_ownership_transfers {
   municipality_brand varchar [note: 'Optional certificate brand detail']
   owner_brand varchar [note: 'Optional certificate brand detail']
   purchase_price decimal [note: 'Optional; transfer can be recorded without a price']
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED (legacy), APPROVED, SUBJECT_TO_REVISION']
   reviewed_by integer [note: 'FK to users.user_id']
   reviewed_at timestamp
   review_remarks text

@@ -8,11 +8,95 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from livestock.models import LivestockInventory, LivestockOwnershipTransfer
+from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer
 from livestock.serializer import LivestockOwnershipTransferSerializer
 from smartlivestock.workflows import require_action, role_name, scope_reviewer_queryset, validate_review_transition
-from users.models import Notification
+from users.models import Notification, User
 from users.notification_views import create_notification, notify_role, notify_review_revision
+
+
+def _auction_farmer_queryset():
+    return Farmer.objects.select_related("user", "barangay").filter(
+        user__account_status=User.AccountStatus.APPROVED,
+        user__role__role_name="FARMER",
+    )
+
+
+def _farmer_lookup_data(farmer):
+    return {
+        "id": farmer.pk,
+        "name": farmer.user.get_full_name().strip() or farmer.user.username,
+        "username": farmer.user.username,
+        "email": farmer.user.email,
+        "rsbsa_number": farmer.rsbsa_number,
+        "address": farmer.address,
+        "barangay": farmer.barangay.barangay_name,
+    }
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def ownership_transfer_farmer_list(request):
+    """Auction staff can find approved Farmers by profile ID, name, username, email, or RSBSA number."""
+    if role_name(request.user) != "AUCTION":
+        return Response({"detail": "Only Auction staff can look up transfer sellers."}, status=status.HTTP_403_FORBIDDEN)
+    search = request.query_params.get("search", "").strip()
+    if len(search) < 2 and not search.isdigit():
+        return Response([])
+    filters = (
+        Q(user__first_name__icontains=search)
+        | Q(user__last_name__icontains=search)
+        | Q(user__username__icontains=search)
+        | Q(user__email__icontains=search)
+        | Q(rsbsa_number__icontains=search)
+    )
+    if search.isdigit():
+        filters |= Q(pk=int(search))
+    farmers = _auction_farmer_queryset().filter(filters).order_by("user__last_name", "user__first_name")[:20]
+    return Response([_farmer_lookup_data(farmer) for farmer in farmers])
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def ownership_transfer_farmer_detail(request, farmer_id):
+    """Resolve a scanned SL-FARMER profile QR to an approved Farmer account."""
+    if role_name(request.user) != "AUCTION":
+        return Response({"detail": "Only Auction staff can look up transfer sellers."}, status=status.HTTP_403_FORBIDDEN)
+    farmer = _auction_farmer_queryset().filter(pk=farmer_id).first()
+    if farmer is None:
+        return Response({"detail": "No approved Farmer profile matches this QR code."}, status=status.HTTP_404_NOT_FOUND)
+    return Response(_farmer_lookup_data(farmer))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def ownership_transfer_farmer_livestock(request, farmer_id):
+    """Return only that approved Farmer's eligible individual animals for sale selection."""
+    if role_name(request.user) != "AUCTION":
+        return Response({"detail": "Only Auction staff can view seller livestock for transfer."}, status=status.HTTP_403_FORBIDDEN)
+    farmer = _auction_farmer_queryset().filter(pk=farmer_id).first()
+    if farmer is None:
+        return Response({"detail": "No approved Farmer profile matches this ID."}, status=status.HTTP_404_NOT_FOUND)
+    animals = LivestockInventory.objects.filter(
+        farmer=farmer,
+        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+        quantity=1,
+        status=LivestockInventory.StatusType.APPROVED,
+        operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+    ).exclude(
+        ownership_transfers__status__in=[
+            LivestockOwnershipTransfer.Status.PENDING,
+            LivestockOwnershipTransfer.Status.VERIFIED,
+        ]
+    ).select_related("livestock_type").order_by("livestock_type__name", "tag_number", "pk")
+    return Response([{
+        "id": animal.pk,
+        "tag_number": animal.tag_number,
+        "livestock_type_name": animal.livestock_type.name,
+        "sex": animal.sex,
+        "breed": animal.breed,
+        "ownership_certificate_number": animal.ownership_certificate_number,
+    } for animal in animals])
 
 
 @api_view(["GET", "POST"])
@@ -21,6 +105,54 @@ def ownership_transfer_list_create(request):
     """Auction staff encode certificates; farmers and reviewers read their own or scoped history."""
     if request.method == "POST":
         actor_role = require_action(request.user, "ownership_transfers", "create")
+        livestock_ids = request.data.get("livestock_ids")
+        if livestock_ids is not None:
+            if actor_role != "AUCTION":
+                raise ValidationError({"detail": "Only Auction staff can record multi-animal transfer certificates."})
+            if not isinstance(livestock_ids, list) or not livestock_ids:
+                raise ValidationError({"livestock_ids": "Add at least one animal to this certificate."})
+            if len(livestock_ids) != len(set(map(str, livestock_ids))):
+                raise ValidationError({"livestock_ids": "An animal can only appear once on a certificate submission."})
+
+            shared_fields = {
+                key: value for key, value in request.data.items()
+                if key not in {"livestock_ids", "original_certificate_numbers"}
+            }
+            original_certificates = request.data.get("original_certificate_numbers", {})
+            prepared = []
+            # Validate every animal before saving any rows, so one invalid seller cannot leave a partial certificate.
+            with transaction.atomic():
+                for livestock_id in livestock_ids:
+                    animal_data = {**shared_fields, "livestock": livestock_id}
+                    if isinstance(original_certificates, dict):
+                        animal_data["original_certificate_number"] = original_certificates.get(str(livestock_id), "")
+                    serializer = LivestockOwnershipTransferSerializer(data=animal_data, context={"request": request})
+                    serializer.is_valid(raise_exception=True)
+                    prepared.append(serializer)
+
+                seller_ids = {serializer.validated_data["livestock"].farmer_id for serializer in prepared}
+                if len(seller_ids) != 1:
+                    raise ValidationError({"livestock_ids": "A transfer certificate can include animals from only one registered seller."})
+
+                transfers = [
+                    serializer.save(
+                        previous_owner=serializer.validated_data["livestock"].farmer,
+                        created_by=request.user,
+                    )
+                    for serializer in prepared
+                ]
+                for transfer in transfers:
+                    notify_role(
+                        role_name="MAO",
+                        notification_type=Notification.NotificationType.GENERAL,
+                        title="Ownership Transfer Awaiting Review",
+                        message=f"Transfer certificate {transfer.transfer_certificate_number} includes {transfer.livestock.tag_number or 'a livestock animal'} and is ready for MAO review.",
+                        link=f"/ownership-transfers?transferId={transfer.pk}",
+                        related_entity_type="ownership_transfer",
+                        related_entity_id=transfer.pk,
+                    )
+            return Response(LivestockOwnershipTransferSerializer(transfers, many=True).data, status=status.HTTP_201_CREATED)
+
         serializer = LivestockOwnershipTransferSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         # Auction is the recorder, not a party to the sale: the selected animal identifies its seller.
@@ -28,13 +160,13 @@ def ownership_transfer_list_create(request):
         try:
             transfer = serializer.save(previous_owner=farmer, created_by=request.user)
         except IntegrityError as exc:
-            raise ValidationError({"detail": "This animal already has a pending transfer or the certificate number is already recorded."}) from exc
+            raise ValidationError({"detail": "This animal already has a pending transfer."}) from exc
         notify_role(
-            role_name="SIBAT", barangay_id=farmer.barangay_id,
-            notification_type=Notification.NotificationType.SIBAT,
-            title="Ownership Transfer Awaiting Verification",
-            message=f"Transfer certificate {transfer.transfer_certificate_number} is ready for review.",
-            link=f"/sibat/ownership-transfers?transferId={transfer.pk}",
+            role_name="MAO",
+            notification_type=Notification.NotificationType.GENERAL,
+            title="Ownership Transfer Awaiting Review",
+            message=f"Transfer certificate {transfer.transfer_certificate_number} is ready for MAO review.",
+            link=f"/ownership-transfers?transferId={transfer.pk}",
             related_entity_type="ownership_transfer",
             related_entity_id=transfer.pk,
         )
@@ -88,14 +220,8 @@ def ownership_transfer_detail(request, pk):
         with transaction.atomic():
             transfer = serializer.save(status=LivestockOwnershipTransfer.Status.PENDING, reviewed_by=None, reviewed_at=None, review_remarks="")
     except IntegrityError as exc:
-        raise ValidationError({"detail": "This transfer certificate number is already recorded."}) from exc
-    notify_role(role_name="SIBAT", barangay_id=transfer.previous_owner.barangay_id,
-        notification_type=Notification.NotificationType.SIBAT, title="Ownership Transfer Resubmitted",
-        message=f"Transfer certificate {transfer.transfer_certificate_number} was corrected and resubmitted.",
-        link=f"/sibat/ownership-transfers?transferId={transfer.pk}",
-        related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
-    notify_role(role_name="ADMIN", notification_type=Notification.NotificationType.GENERAL,
-        title="Ownership Transfer Resubmitted",
+        raise ValidationError({"detail": "This animal already has a pending transfer."}) from exc
+    notify_role(role_name="MAO", notification_type=Notification.NotificationType.GENERAL, title="Ownership Transfer Resubmitted",
         message=f"Transfer certificate {transfer.transfer_certificate_number} was corrected and resubmitted.",
         link=f"/ownership-transfers?transferId={transfer.pk}",
         related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
@@ -144,13 +270,7 @@ def review_ownership_transfer(request, pk):
     transfer.review_remarks = remarks
     transfer.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks"])
 
-    if target == LivestockOwnershipTransfer.Status.VERIFIED:
-        notify_role(role_name="MAO", notification_type=Notification.NotificationType.GENERAL,
-            title="Ownership Transfer Awaiting MAO Approval",
-            message=f"Transfer certificate {transfer.transfer_certificate_number} was verified by SIBAT.",
-            link=f"/ownership-transfers?transferId={transfer.pk}",
-            related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
-    elif target == LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION:
+    if target == LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION:
         if role_name(transfer.created_by) == "AUCTION":
             create_notification(user=transfer.created_by, notification_type=Notification.NotificationType.GENERAL,
                 title=f"Revision required: transfer {transfer.transfer_certificate_number}",

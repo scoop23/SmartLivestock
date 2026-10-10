@@ -169,6 +169,14 @@ class LivestockInventory(models.Model):
         help_text="Date of birth. Optional for legacy records where the birth date is unknown.",
     )
     tag_number = models.CharField(max_length=50, blank=True, default="")
+    # Paper certificate remains official; these fields let Auction staff verify or
+    # record the issued certificate against this animal's stable QR identity.
+    ownership_certificate_number = models.CharField(max_length=100, blank=True, default="")
+    ownership_certificate_recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="recorded_livestock_ownership_certificates",
+    )
+    ownership_certificate_recorded_at = models.DateTimeField(null=True, blank=True)
     breed = models.CharField(max_length=50, blank=True)
     sex = models.CharField(max_length=10, blank=True)
     weight = models.DecimalField(
@@ -244,6 +252,11 @@ class LivestockInventory(models.Model):
 
     class Meta:
         constraints = [
+            models.UniqueConstraint(
+                fields=["ownership_certificate_number"],
+                condition=~models.Q(ownership_certificate_number=""),
+                name="uniq_livestock_cert_number",
+            ),
             # This also protects bulk imports and QuerySet.update(), which bypass clean().
             models.CheckConstraint(
                 condition=~models.Q(entry_type="INDIVIDUAL") | models.Q(quantity=1),
@@ -265,6 +278,19 @@ class LivestockInventory(models.Model):
     def __str__(self):
         tag = f" [{self.tag_number}]" if self.tag_number else ""
         return f"{self.farmer} - {self.livestock_type}{tag} ({self.quantity})"
+
+
+class LivestockGateVerification(models.Model):
+    """One verified scan of an individual animal during an Auction gate session."""
+    livestock = models.ForeignKey(LivestockInventory, on_delete=models.PROTECT, related_name="gate_verifications")
+    gate_session_id = models.UUIDField()
+    certificate_number_checked = models.CharField(max_length=100, blank=True, default="")
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="livestock_gate_verifications")
+    verified_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["verified_at", "pk"]
+        constraints = [models.UniqueConstraint(fields=["gate_session_id", "livestock"], name="uniq_gate_scan_per_session")]
 
 
 class LivestockOwnershipTransfer(models.Model):
@@ -306,7 +332,8 @@ class LivestockOwnershipTransfer(models.Model):
     # A legal buyer may not have a SmartLivestock account; store their certificate identity on the event.
     external_owner_name = models.CharField(max_length=255, blank=True, default="")
     external_owner_address = models.TextField(blank=True, default="")
-    transfer_certificate_number = models.CharField(max_length=100, unique=True)
+    # One paper certificate can cover several animals, so each animal event may share its number.
+    transfer_certificate_number = models.CharField(max_length=100)
     original_certificate_number = models.CharField(max_length=100)
     transfer_date = models.DateField()
     municipality = models.CharField(max_length=150)

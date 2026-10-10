@@ -148,6 +148,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     age = serializers.SerializerMethodField(read_only=True)
     age_classification = serializers.SerializerMethodField(read_only=True)
     tag_number = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    ownership_certificate_number = serializers.CharField(read_only=True)
     breed = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     sex = serializers.CharField(max_length=10, required=False, allow_blank=True, default="")
     weight = serializers.DecimalField(
@@ -691,6 +692,7 @@ class FarmerOptionsSerializer(serializers.ModelSerializer):
 class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
     livestock_tag = serializers.CharField(source="livestock.tag_number", read_only=True)
     livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
+    livestock_operational_status = serializers.CharField(source="livestock.operational_status", read_only=True)
     previous_owner_name = serializers.CharField(source="previous_owner.user.get_full_name", read_only=True)
     new_owner = serializers.PrimaryKeyRelatedField(read_only=True)
     new_owner_name = serializers.SerializerMethodField(read_only=True)
@@ -700,7 +702,7 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
     class Meta:
         model = LivestockOwnershipTransfer
         fields = (
-            "id", "livestock", "livestock_tag", "livestock_type_name",
+            "id", "livestock", "livestock_tag", "livestock_type_name", "livestock_operational_status",
             "previous_owner", "previous_owner_name", "owner_type", "new_owner", "new_owner_name",
             "new_owner_identifier", "external_owner_name", "external_owner_address", "can_edit",
             "transfer_certificate_number", "original_certificate_number", "transfer_date",

@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -8,7 +8,7 @@ from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.db.models import Q, Prefetch
 from urllib.parse import urlparse, parse_qs
-from livestock.models import Farmer, LivestockInventory
+from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer
 
 from movements.models import (
     LivestockInspection,
@@ -34,6 +34,39 @@ from smartlivestock.workflows import (
     SIBAT,
     FARMER,
 )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def verify_public_clearance(request):
+    """Public QR target that reveals only approved permit verification details."""
+    control_number = request.query_params.get("control_number", "").strip()
+    if not control_number:
+        return Response({"detail": "A clearance number is required."}, status=status.HTTP_400_BAD_REQUEST)
+    clearance = get_object_or_404(
+        LivestockInspectionClearance.objects.select_related("inspection").prefetch_related(
+            "inspection__items__livestock_type"
+        ),
+        control_number=control_number,
+        status=LivestockInspectionClearance.StatusType.APPROVED,
+    )
+    inspection = clearance.inspection
+    return Response({
+        "valid": True,
+        "status": clearance.status,
+        "control_number": clearance.control_number,
+        "date_issued": clearance.date_issued,
+        "time_issued": clearance.time_issued,
+        "shipper_name": inspection.shipper_name,
+        "origin": clearance.origin,
+        "destination": inspection.destination,
+        "purpose": inspection.get_purpose_display(),
+        "items": [
+            {"livestock_type": item.livestock_type.name, "quantity": item.quantity,
+             "classification": item.get_classification_display()}
+            for item in inspection.items.all()
+        ],
+    })
 
 
 @api_view(["GET"])
@@ -183,6 +216,7 @@ def inspection_livestock_lookup(request):
         "age_classification": inventory.age_classification_as_of(timezone.localdate()),
         "photo_url": photo_url,
         "registration_status": inventory.status,
+        "ownership_certificate_number": inventory.ownership_certificate_number,
         "operational_status": inventory.operational_status,
         "eligible": eligible,
         "ineligibility_reason": ineligibility_reason,
@@ -270,7 +304,7 @@ def inspection_list_create(request):
         else:
             queryset = queryset.none()
     elif user_role == SIBAT:
-        queryset = scope_reviewer_queryset(queryset, user)
+        queryset = queryset.none()
     elif user_role in (AUCTION, MAO, ADMIN):
         # Full operational inspection visibility
         pass
@@ -322,9 +356,7 @@ def inspection_detail(request, pk):
         if not inspection.shipper or inspection.shipper.user_id != user.id:
             return Response({"detail": "Not authorized to access this inspection."}, status=status.HTTP_403_FORBIDDEN)
     elif user_role == SIBAT:
-        if not user.access_scope == "ALL_BARANGAYS":
-            if not inspection.shipper or inspection.shipper.barangay_id != user.assigned_barangay_id:
-                return Response({"detail": "Not authorized to access inspections outside assigned barangay."}, status=status.HTTP_403_FORBIDDEN)
+        raise PermissionDenied("SIBAT does not review Auction Office inspection clearances.")
     elif user_role not in (AUCTION, MAO, ADMIN):
         raise PermissionDenied("This role cannot access auction movement records.")
 
@@ -492,11 +524,20 @@ def inspection_review(request, pk):
             # earlier, so status, ownership and individual quantity must still match.
             for item in inspection.items.all():
                 if item.inventory:
-                    if (item.inventory.status != "APPROVED" or item.inventory.operational_status != "ACTIVE"
+                    sold_after_transfer = (
+                        item.inventory.operational_status == "SOLD"
+                        and LivestockOwnershipTransfer.objects.filter(
+                            livestock=item.inventory,
+                            previous_owner_id=inspection.shipper_id,
+                            status=LivestockOwnershipTransfer.Status.APPROVED,
+                        ).exists()
+                    )
+                    if (item.inventory.status != "APPROVED"
+                            or (item.inventory.operational_status != "ACTIVE" and not sold_after_transfer)
                             or item.inventory.farmer_id != inspection.shipper_id
                             or item.inventory.quantity != 1):
                         return Response(
-                            {"error": f"Animal {item.inventory.tag_number or item.inventory.id} is no longer approved and active."},
+                            {"error": f"Animal {item.inventory.tag_number or item.inventory.id} is no longer eligible for clearance review."},
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 

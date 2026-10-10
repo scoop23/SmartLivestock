@@ -269,6 +269,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     barangay = serializers.SerializerMethodField()
     assigned_barangay_id = serializers.IntegerField(read_only=True)
     assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
+    farmer_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -284,6 +285,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "assigned_barangay_id",
             "assigned_barangay_name",
             "access_scope",
+            "farmer_id",
         )
         read_only_fields = ("id", "role", "barangay", "access_scope")
 
@@ -306,6 +308,14 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         if hasattr(obj, "farmer_profile") and obj.farmer_profile.barangay:
             return obj.farmer_profile.barangay.barangay_name
         return ""
+
+    def get_farmer_id(self, obj):
+        if self.get_role(obj) != "FARMER":
+            return None
+        try:
+            return obj.farmer_profile.pk
+        except Farmer.DoesNotExist:
+            return None
 
 
 class UserManagementSerializer(serializers.ModelSerializer):

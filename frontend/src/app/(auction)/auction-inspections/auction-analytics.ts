@@ -22,6 +22,7 @@ export interface RegisteredLivestockLookup extends RegisteredAnimalOption {
   age_classification: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   photo_url?: string | null;
   registration_status: string;
+  ownership_certificate_number: string;
   operational_status: string;
   eligible: boolean;
   ineligibility_reason: string;

@@ -22,8 +22,12 @@ from .batch_views import (
 from .ownership_views import (
     ownership_transfer_list_create,
     ownership_transfer_detail,
+    ownership_transfer_farmer_list,
+    ownership_transfer_farmer_detail,
+    ownership_transfer_farmer_livestock,
     review_ownership_transfer,
 )
+from .gate_views import gate_registration_list_create, gate_verification_list_create
 
 __all__ = [
     "inventory_list_create",
@@ -43,5 +47,10 @@ __all__ = [
     "batch_add_notes",
     "ownership_transfer_list_create",
     "ownership_transfer_detail",
+    "ownership_transfer_farmer_list",
+    "ownership_transfer_farmer_detail",
+    "ownership_transfer_farmer_livestock",
     "review_ownership_transfer",
+    "gate_registration_list_create",
+    "gate_verification_list_create",
 ]
