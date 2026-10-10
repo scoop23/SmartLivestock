@@ -244,7 +244,7 @@ export function GISLegend({
       {viewMode === '3D' && (
         <div className="mt-1.5 pt-1 border-t border-slate-100 text-[9px] sm:text-[10px] text-slate-500 flex items-center gap-1">
           <Box className="size-2.5 sm:size-3 text-emerald-700" />
-          <span>Barangay column height shows density</span>
+          <span>Extrusion height follows the selected GIS layer</span>
         </div>
       )}
     </div>

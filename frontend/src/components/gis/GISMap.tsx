@@ -37,17 +37,17 @@
  *      `map.invalidateSize()`. Combined with `min-h-dvh flex flex-col` in `page.tsx`, this
  *      completely eliminates blank gaps on all desktop and mobile devices.
  * 
- * 4. 2D vs. 3D VOLUMETRIC EXTRUSION:
- *    - 2D: Orthogonal top-down map view.
- *    - 3D: Tilted perspective (`rotateX(42deg) rotateZ(-10deg)`) where polygon border depth
- *      and shadow elevation (`box-shadow`, `border-bottom-width`) extrude upwards based on
- *      the concentration of the active metric (cattle head count or epidemic pressure).
+ * 4. 2D vs. 3D MAP RENDERING:
+ *    - 2D: Leaflet renders the interactive choropleth and movement overlays.
+ *    - 3D: Giro3D converts the same barangay GeoJSON polygons into extruded meshes; their
+ *      heights and colors represent the currently selected GIS metric.
  */
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import type { FeatureCollection } from 'geojson';
 import padreGarciaGeojson from '@/data/padre-garcia-barangays.json';
+import { Giro3DBarangayView } from './Giro3DBarangayView';
 import {
   BarangayGISData,
   MapLayer,
@@ -257,7 +257,11 @@ export function GISMap({
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<any>(null);
-  const [tiltAngle, setTiltAngle] = useState<number>(42);
+  const [heightScale, setHeightScale] = useState<number>(1);
+  const [heightScaleDraft, setHeightScaleDraft] = useState<number>(1);
+  const mapRootRef = useRef<HTMLDivElement>(null);
+  // Shared by the Leaflet and Giro3D click handlers so both modes treat drags the same way.
+  const suppressClickUntilRef = useRef(0);
 
   // Sync refs so callbacks in Leaflet layers never suffer from stale closures (Bug A fix)
   const barangaysByNameRef = useRef(barangaysByName);
@@ -279,6 +283,46 @@ export function GISMap({
   viewModeRef.current = viewMode;
   selectedLivestockTypeRef.current = selectedLivestockType;
   userScopeRef.current = userScope;
+
+  useEffect(() => {
+    const root = mapRootRef.current;
+    if (!root) return;
+
+    // Remember where a map gesture began. A small movement is still a click; a larger one is a pan.
+    let activePointer: { id: number; x: number; y: number; dragged: boolean } | null = null;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('.leaflet-container, canvas')) return;
+      activePointer = { id: event.pointerId, x: event.clientX, y: event.clientY, dragged: false };
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!activePointer || activePointer.id !== event.pointerId) return;
+      // Ignore tiny hand jitter, but classify movement over 6 screen pixels as dragging.
+      if (Math.hypot(event.clientX - activePointer.x, event.clientY - activePointer.y) > 6) {
+        activePointer.dragged = true;
+      }
+    };
+    const onPointerUp = (event: PointerEvent) => {
+      if (!activePointer || activePointer.id !== event.pointerId) return;
+      // Browsers emit click after pointerup, so keep a short suppression window for that follow-up event.
+      if (activePointer.dragged) suppressClickUntilRef.current = performance.now() + 400;
+      activePointer = null;
+    };
+    const onPointerCancel = () => {
+      activePointer = null;
+    };
+
+    root.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('pointermove', onPointerMove, true);
+    window.addEventListener('pointerup', onPointerUp, true);
+    window.addEventListener('pointercancel', onPointerCancel, true);
+    return () => {
+      root.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('pointermove', onPointerMove, true);
+      window.removeEventListener('pointerup', onPointerUp, true);
+      window.removeEventListener('pointercancel', onPointerCancel, true);
+    };
+  }, []);
 
   const getLivestockHeads = (data: BarangayGISData, type?: string): number => {
     if (!data) return 0;
@@ -315,44 +359,6 @@ export function GISMap({
   useEffect(() => {
     import('leaflet').then((L) => setLeafletLib(L));
   }, []);
-
-  // Calculate 3D column extrusion height (pixels) based on active metric
-  const getExtrusionHeight = (bName: string): number => {
-    const data = barangaysByName[bName];
-    if (!data) return 4;
-
-    if (activeLayer === 'cattle') {
-      const heads = getLivestockHeads(data, selectedLivestockTypeRef.current);
-      return Math.min(48, Math.max(4, Math.round(heads * 1.15)));
-    }
-    if (activeLayer === 'disease') {
-      if (diseaseSubMode === 'simulation' && simulatedStates?.[bName]) {
-        const pressure = simulatedStates[bName].transmissionPressure;
-        return Math.min(52, Math.max(6, Math.round(pressure * 46) + 4));
-      }
-      return Math.min(50, Math.max(4, data.active_cases * 16 + (data.disease_cases > 0 ? 8 : 4)));
-    }
-    if (activeLayer === 'milk') {
-      if (data.milk <= 0) return 4;
-      return Math.min(48, Math.max(6, Math.round(Math.log10(data.milk + 1) * 10)));
-    }
-    if (activeLayer === 'farmer_meat') {
-      const fm = data.farmer_meat || 0;
-      return fm > 0 ? Math.min(45, Math.max(6, Math.round(fm * 0.15))) : 4;
-    }
-    if (activeLayer === 'slaughter_yield' || activeLayer === 'meat') {
-      const sy = data.slaughter_yield ?? data.meat ?? 0;
-      return sy > 0 ? Math.min(45, Math.max(6, Math.round(sy * 0.15))) : 4;
-    }
-    if (activeLayer === 'mortality') {
-      const deaths = getMortalityDeaths(data, selectedLivestockTypeRef.current);
-      return deaths > 0 ? Math.min(48, Math.max(6, Math.round(deaths * 6) + 4)) : 4;
-    }
-    if (activeLayer === 'movement') {
-      return data.movement_out > 0 ? Math.min(45, Math.max(6, data.movement_out * 4)) : 4;
-    }
-    return 6;
-  };
 
   // Thematic Choropleth Fill Colors
   const getCattleColor = (cattle: number): string => {
@@ -488,7 +494,6 @@ export function GISMap({
       };
     }
 
-    const extrusion = viewMode === '3D' ? getExtrusionHeight(name) : 0;
     const isMortality = activeLayer === 'mortality';
 
     return {
@@ -496,7 +501,7 @@ export function GISMap({
       fillOpacity: isSelected ? 0.95 : viewMode === '3D' ? 0.85 : isMortality ? 0.82 : 0.80,
       color: isSelected ? '#ffffff' : isFarmerRole ? '#4ade80' : isMortality ? '#334155' : viewMode === '3D' ? '#0f290f' : '#1e3a1e',
       weight: isSelected ? 3.5 : isFarmerRole ? 3.0 : isMortality ? 2.0 : viewMode === '3D' ? 2.5 : 1.8,
-      className: viewMode === '3D' ? `extruded-polygon-h${Math.min(48, Math.round(extrusion / 8) * 8)}` : isFarmerRole ? 'farmer-own-barangay' : '',
+      className: isFarmerRole ? 'farmer-own-barangay' : '',
     };
   };
 
@@ -609,6 +614,9 @@ export function GISMap({
         if (!curInScope) {
           return;
         }
+
+        // Leaflet still reports a click after some drag gestures; skip selection during the guard window.
+        if (performance.now() < suppressClickUntilRef.current) return;
 
         if (data) {
           onSelectBarangayRef.current(data);
@@ -730,8 +738,6 @@ export function GISMap({
         statText = b.movement_out > 0 ? `${b.movement_out}🚛` : '—';
       }
 
-      const h = viewMode === '3D' ? getExtrusionHeight(b.name) : 0;
-
       const isGeographicallyRestricted = Boolean(scope && !scope.can_view_all_barangays);
       const isHighlightedScope = isGeographicallyRestricted && isInScope;
       const isSubtleOut = isGeographicallyRestricted && !isInScope;
@@ -752,7 +758,7 @@ export function GISMap({
       const customIcon = leafletLib.divIcon({
         className: 'permanent-centroid-label-container',
         html: `
-          <div class="${pillClass}" style="transform: translateY(-${h}px)">
+          <div class="${pillClass}">
             ${pillContent}
           </div>
         `,
@@ -771,7 +777,7 @@ export function GISMap({
   const dataCount = Object.keys(barangaysByName).length;
 
   return (
-    <div className="relative w-full h-full min-h-[380px] overflow-hidden bg-slate-900">
+    <div ref={mapRootRef} className="relative w-full h-full min-h-[380px] overflow-hidden bg-slate-900">
       <style>{`
         /* Hover tooltip */
         .barangay-hover-tooltip {
@@ -846,15 +852,6 @@ export function GISMap({
           }
         }
 
-        /* 3D Extruded Polygon Drop Shadows & Volumetric Depth */
-        .extruded-polygon-h48 { filter: drop-shadow(0px 24px 8px rgba(0,0,0,0.55)); }
-        .extruded-polygon-h40 { filter: drop-shadow(0px 20px 7px rgba(0,0,0,0.50)); }
-        .extruded-polygon-h32 { filter: drop-shadow(0px 16px 6px rgba(0,0,0,0.45)); }
-        .extruded-polygon-h24 { filter: drop-shadow(0px 12px 5px rgba(0,0,0,0.40)); }
-        .extruded-polygon-h16 { filter: drop-shadow(0px 8px 4px rgba(0,0,0,0.35)); }
-        .extruded-polygon-h8  { filter: drop-shadow(0px 4px 3px rgba(0,0,0,0.30)); }
-        .extruded-polygon-h0  { filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.20)); }
-
         /* Movement Directional Arrow Badges & Arcs */
         .movement-direction-arrow-container {
           background: transparent !important;
@@ -891,21 +888,22 @@ export function GISMap({
         }
       `}</style>
 
-      {/* 2D / 3D Perspective Transformation Wrapper */}
-      <div
-        className="w-full h-full transition-transform duration-700 ease-out origin-center"
-        style={
-          viewMode === '3D'
-            ? {
-                perspective: '1200px',
-                transform: `rotateX(${tiltAngle}deg) rotateZ(-10deg) scale(1.08)`,
-                transformStyle: 'preserve-3d',
-              }
-            : {
-                transform: 'none',
-              }
-        }
-      >
+      {viewMode === '3D' ? (
+        <Giro3DBarangayView
+          barangaysByName={barangaysByName}
+          activeLayer={activeLayer}
+          diseaseSubMode={diseaseSubMode}
+          selectedBarangay={selectedBarangay}
+          onSelectBarangay={onSelectBarangay}
+          resetTrigger={resetTrigger}
+          simulatedStates={simulatedStates}
+          selectedLivestockType={selectedLivestockType}
+          userScope={userScope}
+          heightScale={heightScale}
+          suppressClickUntilRef={suppressClickUntilRef}
+        />
+      ) : (
+      <div className="w-full h-full">
         <MapContainer
           center={centerPosition}
           zoom={13}
@@ -1087,19 +1085,26 @@ export function GISMap({
             })}
         </MapContainer>
       </div>
+      )}
 
-      {/* 3D Tilt Angle Adjustment Widget (when in 3D Mode) */}
+      {/* Height exaggeration controls thematic extrusion, not real terrain elevation. */}
       {viewMode === '3D' && (
         <div className="absolute top-20 right-4 z-[900] bg-white/95 backdrop-blur-md p-2 rounded-xl border border-slate-200 shadow-xl flex items-center gap-2 pointer-events-auto">
           <span className="text-[10px] font-black uppercase text-emerald-950">
-            Tilt: {tiltAngle}°
+            Height scale: {heightScaleDraft.toFixed(1)}x
           </span>
           <input
             type="range"
-            min={25}
-            max={55}
-            value={tiltAngle}
-            onChange={(e) => setTiltAngle(Number(e.target.value))}
+            min={0.5}
+            max={2}
+            step={0.1}
+            value={heightScaleDraft}
+            // Apply each input step immediately so the label and 3D shapes move with the slider.
+            onChange={(e) => {
+              const nextScale = Number(e.target.value);
+              setHeightScaleDraft(nextScale);
+              setHeightScale(nextScale);
+            }}
             className="w-20 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-700"
           />
         </div>
