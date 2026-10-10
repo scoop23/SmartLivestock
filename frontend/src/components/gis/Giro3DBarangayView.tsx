@@ -5,6 +5,7 @@ import type Feature from 'ol/Feature.js';
 import type { Geometry } from 'ol/geom.js';
 import type Polygon from 'ol/geom/Polygon.js';
 import type MultiPolygon from 'ol/geom/MultiPolygon.js';
+import type { Object3D } from 'three';
 import type { MapControls } from 'three/examples/jsm/controls/MapControls.js';
 import type Instance from '@giro3d/giro3d/core/Instance.js';
 import type FeatureCollection from '@giro3d/giro3d/entities/FeatureCollection.js';
@@ -90,6 +91,49 @@ function getPolygonRings(geometry: Geometry): number[][][] {
   return [];
 }
 
+// Use an interior point so the name sits inside its barangay instead of at a possibly empty bounds corner.
+function getPolygonLabelAnchor(geometry: Geometry): [number, number] {
+  let coordinate: number[] | undefined;
+  if (geometry.getType() === 'Polygon') {
+    coordinate = (geometry as Polygon).getInteriorPoint().getCoordinates();
+  } else if (geometry.getType() === 'MultiPolygon') {
+    coordinate = (geometry as MultiPolygon).getInteriorPoints().getCoordinates()[0];
+  }
+  if (coordinate) return [coordinate[0], coordinate[1]];
+
+  // Fall back to the geometry bounds center for any unexpected polygon geometry type.
+  const extent = geometry.getExtent();
+  return [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+}
+
+// Convert a layer value into the extrusion height shared by the polygon mesh and its outline.
+function getExtrusionHeight(value: number, largestMetric: number, heightScale: number): number {
+  const ratio = value > 0 && largestMetric > 0
+    ? Math.log1p(value) / Math.log1p(largestMetric)
+    : 0;
+  return (50 + ratio * 2_200) * heightScale;
+}
+
+// Create roof edges and vertical corners from a polygon's rings at its current extrusion height.
+function getBorderPositions(geometry: Geometry, height: number): number[] {
+  const positions: number[] = [];
+  for (const ring of getPolygonRings(geometry)) {
+    for (let index = 0; index < ring.length - 1; index += 1) {
+      const [x, y, z = 0] = ring[index];
+      const [nextX, nextY, nextZ = 0] = ring[index + 1];
+      positions.push(x, y, z + height + 1, nextX, nextY, nextZ + height + 1);
+      positions.push(x, y, z, x, y, z + height + 1);
+    }
+  }
+  return positions;
+}
+
+// Update a Three.js object's Z scale and matrix together so the renderer sees the new transform.
+function setVerticalScale(object: Object3D, scale: number): void {
+  object.scale.setZ(scale);
+  object.updateMatrix();
+}
+
 export function Giro3DBarangayView({
   barangaysByName,
   activeLayer,
@@ -113,6 +157,14 @@ export function Giro3DBarangayView({
   const heightScaleRef = useRef(heightScale);
   const appliedHeightScaleRef = useRef(heightScale);
   const borderLinesRef = useRef(new Map<Feature<Geometry>, import('three').LineSegments>());
+  const labelElementsRef = useRef(new Map<Feature<Geometry>, HTMLDivElement>());
+  const labelAnchorsRef = useRef(new Map<Feature<Geometry>, [number, number]>());
+  const syncLabelPositionsRef = useRef<(() => void) | null>(null);
+  const simulatedStatesRef = useRef(simulatedStates);
+  const largestMetricRef = useRef(0);
+  const surfaceMeshesRef = useRef(new Map<Feature<Geometry>, Object3D[]>());
+  const displayedHeightsRef = useRef(new Map<Feature<Geometry>, number>());
+  const simulationAnimationFrameRef = useRef<number | null>(null);
   const hoveredFeatureRef = useRef<Feature<Geometry> | null>(null);
   const onSelectRef = useRef(onSelectBarangay);
   const selectedBarangayRef = useRef(selectedBarangay);
@@ -132,6 +184,11 @@ export function Giro3DBarangayView({
     selectedBarangayRef.current = selectedBarangay;
   }, [selectedBarangay]);
 
+  // Keep the newest month of simulated values available to long-lived scene callbacks.
+  useEffect(() => {
+    simulatedStatesRef.current = simulatedStates;
+  }, [simulatedStates]);
+
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -140,6 +197,10 @@ export function Giro3DBarangayView({
     let controls: MapControls | null = null;
     let featureCollection: FeatureCollection | null = null;
     const borderLines = borderLinesRef.current;
+    const labelElements = labelElementsRef.current;
+    const labelAnchors = labelAnchorsRef.current;
+    const surfaceMeshes = surfaceMeshesRef.current;
+    const displayedHeights = displayedHeightsRef.current;
     let clickHandler: ((event: MouseEvent) => void) | null = null;
     let pointerMoveHandler: ((event: PointerEvent) => void) | null = null;
     let pointerLeaveHandler: (() => void) | null = null;
@@ -188,9 +249,10 @@ export function Giro3DBarangayView({
         const largestMetric = Math.max(
           0,
           ...Object.values(barangaysByName).map((data) =>
-            getMetricValue(data, activeLayer, diseaseSubMode, simulatedStates?.[data.name], selectedLivestockType)
+            getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[data.name], selectedLivestockType)
           ),
         );
+        largestMetricRef.current = largestMetric;
         const featureByName = new Map<string, Feature<Geometry>>();
         for (const feature of features) {
           const name = String(feature.get('name') ?? '');
@@ -228,13 +290,9 @@ export function Giro3DBarangayView({
           extrusionOffset: (feature) => {
             const name = String(feature.get('name') ?? '');
             const data = barangaysByName[name];
-            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStates?.[name], selectedLivestockType);
-            // Log scaling prevents one unusually large barangay value from flattening all other columns.
-            const ratio = value > 0 && largestMetric > 0
-              ? Math.log1p(value) / Math.log1p(largestMetric)
-              : 0;
+            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
             // Every polygon gets a small base height; its metric controls up to 2,200 additional scene units.
-            return (50 + ratio * 2_200) * heightScaleRef.current;
+            return getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
           },
           style: (feature) => {
             // Giro3D calls this for each feature; feature properties drive selection and hover appearance.
@@ -243,8 +301,8 @@ export function Giro3DBarangayView({
             const inScope = data?.is_in_scope ?? (
               !userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name)
             );
-            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStates?.[name], selectedLivestockType);
-            const ratio = largestMetric > 0 ? value / largestMetric : 0;
+            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+            const ratio = largestMetricRef.current > 0 ? value / largestMetricRef.current : 0;
             const hovered = Boolean(feature.get('hovered'));
 
             return {
@@ -260,6 +318,17 @@ export function Giro3DBarangayView({
         await instance.add(featureCollection);
         if (cancelled) return;
 
+        // Cache each roof mesh by its source feature so playback can animate the actual polygon objects.
+        surfaceMeshesRef.current.clear();
+        featureCollection.traverse((object) => {
+          if (object.type !== 'SurfaceMesh') return;
+          const feature = object.userData.feature as Feature<Geometry> | undefined;
+          if (!feature) return;
+          const surfaces = surfaceMeshesRef.current.get(feature) ?? [];
+          surfaces.push(object);
+          surfaceMeshesRef.current.set(feature, surfaces);
+        });
+
         // Draw the roof perimeter and vertical corners at the same extrusion height as each 3D barangay.
         // These lines depth-test against the meshes, so hidden edges stay hidden instead of creating x-ray lines.
         for (const feature of features) {
@@ -267,24 +336,9 @@ export function Giro3DBarangayView({
           if (!geometry) continue;
           const name = String(feature.get('name') ?? '');
           const data = barangaysByName[name];
-          const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStates?.[name], selectedLivestockType);
-          const ratio = value > 0 && largestMetric > 0
-            ? Math.log1p(value) / Math.log1p(largestMetric)
-            : 0;
-          const height = (50 + ratio * 2_200) * heightScaleRef.current;
-          const outlineLift = 1;
-          const positions: number[] = [];
-
-          for (const ring of getPolygonRings(geometry)) {
-            for (let index = 0; index < ring.length - 1; index += 1) {
-              const [x, y, z = 0] = ring[index];
-              const [nextX, nextY, nextZ = 0] = ring[index + 1];
-              // Roof boundary segment
-              positions.push(x, y, z + height + outlineLift, nextX, nextY, nextZ + height + outlineLift);
-              // Vertical corner at this boundary vertex
-              positions.push(x, y, z, x, y, z + height + outlineLift);
-            }
-          }
+          const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+          const height = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
+          const positions = getBorderPositions(geometry, height);
 
           const lineGeometry = new three.BufferGeometry();
           lineGeometry.setAttribute('position', new three.Float32BufferAttribute(positions, 3));
@@ -293,6 +347,39 @@ export function Giro3DBarangayView({
           lines.renderOrder = 2;
           instance.threeObjects.add(lines);
           borderLines.set(feature as Feature<Geometry>, lines);
+          displayedHeightsRef.current.set(feature as Feature<Geometry>, height);
+        }
+
+        // HTML labels are projected over the WebGL canvas, so text remains readable and sits above every polygon.
+        for (const feature of features) {
+          const geometry = feature.getGeometry();
+          const name = String(feature.get('name') ?? '');
+          if (!geometry || !name) continue;
+
+          const typedFeature = feature as Feature<Geometry>;
+          const label = document.createElement('div');
+          label.textContent = name;
+          label.setAttribute('aria-hidden', 'true');
+          Object.assign(label.style, {
+            position: 'absolute',
+            left: '0',
+            top: '0',
+            zIndex: '20',
+            display: 'none',
+            transform: 'translate(-50%, -110%)',
+            padding: '3px 7px',
+            border: '1px solid rgba(255,255,255,0.8)',
+            borderRadius: '5px',
+            background: 'rgba(15,23,42,0.92)',
+            color: '#fff',
+            font: '600 12px/1.2 sans-serif',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+          });
+          host.appendChild(label);
+          labelElements.set(typedFeature, label);
+          labelAnchors.set(typedFeature, getPolygonLabelAnchor(geometry));
         }
         // Record the scale used for these borders; later slider changes scale them by a ratio.
         appliedHeightScaleRef.current = heightScaleRef.current;
@@ -332,8 +419,29 @@ export function Giro3DBarangayView({
         controls.saveState();
         instance.view.setControls(controls);
 
+        // Convert each 3D top-face anchor into canvas pixels; CSS labels then render above the WebGL canvas.
+        const projectedLabelPoint = new three.Vector3();
+        syncLabelPositionsRef.current = () => {
+          if (!instance) return;
+          const bounds = host.getBoundingClientRect();
+          instance.view.camera.updateMatrixWorld(true);
+          for (const [feature, label] of labelElements) {
+            const anchor = labelAnchors.get(feature);
+            if (!anchor) continue;
+            const height = displayedHeightsRef.current.get(feature) ?? 50;
+            projectedLabelPoint.set(anchor[0], anchor[1], height + 30).project(instance.view.camera);
+            const inFrontOfCamera = projectedLabelPoint.z >= -1 && projectedLabelPoint.z <= 1;
+            label.style.display = inFrontOfCamera ? 'block' : 'none';
+            label.style.left = `${((projectedLabelPoint.x + 1) / 2) * bounds.width}px`;
+            label.style.top = `${((1 - projectedLabelPoint.y) / 2) * bounds.height}px`;
+          }
+        };
+        syncLabelPositionsRef.current();
+
         // Log once after camera motion settles, instead of printing a new line for every animation frame.
         cameraChangeHandler = () => {
+          // Camera controls fire this as the view moves, keeping the screen labels over their 3D positions.
+          syncLabelPositionsRef.current?.();
           if (cameraLogTimer) clearTimeout(cameraLogTimer);
           cameraLogTimer = setTimeout(() => {
             if (!instance) return;
@@ -434,12 +542,22 @@ export function Giro3DBarangayView({
       if (pointerLeaveHandler && instance) instance.domElement.removeEventListener('pointerleave', pointerLeaveHandler);
       if (cameraChangeHandler) controls?.removeEventListener('change', cameraChangeHandler);
       if (cameraLogTimer) clearTimeout(cameraLogTimer);
+      if (simulationAnimationFrameRef.current != null) {
+        cancelAnimationFrame(simulationAnimationFrameRef.current);
+        simulationAnimationFrameRef.current = null;
+      }
       for (const [feature, lines] of borderLines) {
         instance?.threeObjects.remove(lines);
         lines.geometry.dispose();
         (lines.material as import('three').Material).dispose();
         borderLines.delete(feature);
       }
+      for (const [feature, label] of labelElements) {
+        label.remove();
+        labelElements.delete(feature);
+      }
+      labelAnchors.clear();
+      syncLabelPositionsRef.current = null;
       controls?.dispose();
       instance?.dispose();
       instanceRef.current = null;
@@ -447,6 +565,8 @@ export function Giro3DBarangayView({
       sceneExtentRef.current = null;
       controlsRef.current = null;
       featuresByNameRef.current.clear();
+      surfaceMeshes.clear();
+      displayedHeights.clear();
       hoveredFeatureRef.current = null;
       setHoverInfo(null);
     };
@@ -455,10 +575,120 @@ export function Giro3DBarangayView({
     barangaysByName,
     diseaseSubMode,
     selectedLivestockType,
-    simulatedStates,
     suppressClickUntilRef,
     userScope,
   ]);
+
+  // A timeline step changes the metric values, not the map itself, so update and animate the existing scene.
+  useEffect(() => {
+    simulatedStatesRef.current = simulatedStates;
+    if (activeLayer !== 'disease' || diseaseSubMode !== 'simulation') return;
+
+    const collection = collectionRef.current;
+    const instance = instanceRef.current;
+    if (!collection || !instance) return;
+
+    // If playback advances mid-animation, continue from the last height the user actually saw.
+    if (simulationAnimationFrameRef.current != null) {
+      cancelAnimationFrame(simulationAnimationFrameRef.current);
+      simulationAnimationFrameRef.current = null;
+    }
+
+    const largestMetric = Math.max(
+      0,
+      ...Object.values(barangaysByName).map((data) =>
+        getMetricValue(data, activeLayer, diseaseSubMode, simulatedStates?.[data.name], selectedLivestockType)
+      ),
+    );
+    largestMetricRef.current = largestMetric;
+
+    const startingHeights = new Map(displayedHeightsRef.current);
+    const targetHeights = new Map<Feature<Geometry>, number>();
+    for (const [lowerName, feature] of featuresByNameRef.current) {
+      const name = String(feature.get('name') ?? lowerName);
+      const value = getMetricValue(
+        barangaysByName[name],
+        activeLayer,
+        diseaseSubMode,
+        simulatedStates?.[name],
+        selectedLivestockType,
+      );
+      targetHeights.set(feature, getExtrusionHeight(value, largestMetric, heightScaleRef.current));
+    }
+
+    // updateStyles builds each new destination mesh once; the animation below only scales those meshes.
+    collection.updateStyles();
+    surfaceMeshesRef.current.clear();
+    collection.traverse((object) => {
+      if (object.type !== 'SurfaceMesh') return;
+      const feature = object.userData.feature as Feature<Geometry> | undefined;
+      if (!feature) return;
+      const surfaces = surfaceMeshesRef.current.get(feature) ?? [];
+      surfaces.push(object);
+      surfaceMeshesRef.current.set(feature, surfaces);
+    });
+
+    // Rebuild borders at their destination height, then scale them in sync with the polygon roofs.
+    for (const [feature, lines] of borderLinesRef.current) {
+      const geometry = feature.getGeometry();
+      const targetHeight = targetHeights.get(feature);
+      if (!geometry || targetHeight == null) continue;
+      const startingHeight = startingHeights.get(feature) ?? targetHeight;
+      const position = lines.geometry.getAttribute('position');
+      const borderPositions = getBorderPositions(geometry, targetHeight);
+      for (let vertex = 0; vertex < position.count; vertex += 1) {
+        position.setXYZ(vertex, borderPositions[vertex * 3], borderPositions[vertex * 3 + 1], borderPositions[vertex * 3 + 2]);
+      }
+      position.needsUpdate = true;
+      lines.geometry.computeBoundingSphere();
+      setVerticalScale(lines, startingHeight / targetHeight);
+    }
+
+    // Mesh scale multiplies only Z, so the polygon footprint stays fixed while its height eases to the next month.
+    for (const [feature, targetHeight] of targetHeights) {
+      const startingHeight = startingHeights.get(feature) ?? targetHeight;
+      for (const surface of surfaceMeshesRef.current.get(feature) ?? []) {
+        setVerticalScale(surface, startingHeight / targetHeight);
+      }
+    }
+
+    const startTime = performance.now();
+    const durationMs = 850;
+    const animateHeights = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / durationMs);
+      const eased = progress * progress * (3 - 2 * progress); // Smoothstep eases in and out between timeline months.
+
+      for (const [feature, targetHeight] of targetHeights) {
+        const startingHeight = startingHeights.get(feature) ?? targetHeight;
+        const currentHeight = startingHeight + (targetHeight - startingHeight) * eased;
+        displayedHeightsRef.current.set(feature, currentHeight);
+
+        for (const surface of surfaceMeshesRef.current.get(feature) ?? []) {
+          setVerticalScale(surface, currentHeight / targetHeight);
+        }
+        const lines = borderLinesRef.current.get(feature);
+        if (lines) {
+          setVerticalScale(lines, currentHeight / targetHeight);
+        }
+      }
+
+      syncLabelPositionsRef.current?.();
+      instance.notifyChange();
+      if (progress < 1) {
+        simulationAnimationFrameRef.current = requestAnimationFrame(animateHeights);
+      } else {
+        simulationAnimationFrameRef.current = null;
+      }
+    };
+
+    simulationAnimationFrameRef.current = requestAnimationFrame(animateHeights);
+    return () => {
+      if (simulationAnimationFrameRef.current != null) {
+        cancelAnimationFrame(simulationAnimationFrameRef.current);
+        simulationAnimationFrameRef.current = null;
+      }
+    };
+  }, [activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType, simulatedStates]);
 
   // When the slider changes, update the existing polygon meshes and their raised border lines in place.
   useEffect(() => {
@@ -467,8 +697,28 @@ export function Giro3DBarangayView({
     const previousScale = appliedHeightScaleRef.current;
     if (!collection || !instance || previousScale === heightScale) return;
 
+    // Stop the current ease before changing its height scale; the next simulation step will use the new scale.
+    if (simulationAnimationFrameRef.current != null) {
+      cancelAnimationFrame(simulationAnimationFrameRef.current);
+      simulationAnimationFrameRef.current = null;
+    }
+    const currentMeshScales = new Map<Feature<Geometry>, number>();
+    for (const [feature, surfaces] of surfaceMeshesRef.current) {
+      currentMeshScales.set(feature, surfaces[0]?.scale.z ?? 1);
+    }
+
     // updateStyles rebuilds an extruded polygon only when its extrusion height changed.
     collection.updateStyles();
+    // updateStyles may replace SurfaceMesh objects, so find the new objects before rendering again.
+    surfaceMeshesRef.current.clear();
+    collection.traverse((object) => {
+      if (object.type !== 'SurfaceMesh') return;
+      const feature = object.userData.feature as Feature<Geometry> | undefined;
+      if (!feature) return;
+      const surfaces = surfaceMeshesRef.current.get(feature) ?? [];
+      surfaces.push(object);
+      surfaceMeshesRef.current.set(feature, surfaces);
+    });
 
     // Borders are separate Three.js lines, so scale each line vertex's Z coordinate by the same ratio.
     const scaleRatio = heightScale / previousScale;
@@ -480,8 +730,18 @@ export function Giro3DBarangayView({
       positions.needsUpdate = true;
       lines.geometry.computeBoundingSphere();
     }
+    // Preserve any partial simulation animation on the new mesh and scale the tracked height by the slider ratio.
+    for (const [feature, surfaces] of surfaceMeshesRef.current) {
+      for (const surface of surfaces) {
+        setVerticalScale(surface, currentMeshScales.get(feature) ?? 1);
+      }
+    }
+    for (const [feature, displayedHeight] of displayedHeightsRef.current) {
+      displayedHeightsRef.current.set(feature, displayedHeight * scaleRatio);
+    }
 
     appliedHeightScaleRef.current = heightScale;
+    syncLabelPositionsRef.current?.();
     instance.notifyChange();
   }, [heightScale]);
 
@@ -528,6 +788,7 @@ export function Giro3DBarangayView({
       );
     }
     controls.update();
+    syncLabelPositionsRef.current?.();
     instance.notifyChange(instance.view.camera);
   }, [resetTrigger, selectedBarangay]);
 
