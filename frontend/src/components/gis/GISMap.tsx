@@ -101,18 +101,21 @@ interface FitBoundsProps {
 // Client component to control Leaflet camera bounds dynamically
 function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps) {
   const map = useMap();
+  const previousResetTrigger = useRef(resetTrigger);
 
   useEffect(() => {
     import('leaflet').then((L) => {
       const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 640;
       const defaultPadding: [number, number] = isSmallScreen ? [12, 12] : [24, 24];
+      const resetRequested = resetTrigger !== previousResetTrigger.current;
+      previousResetTrigger.current = resetTrigger;
 
-      // If the user is restricted to a single own/assigned barangay (Farmer or assigned SIBAT),
-      // zoom directly to their barangay polygon so they see their farm area immediately
+      // Focus the selected barangay for every role. Restricted users start on their
+      // assigned barangay; unrestricted users focus the polygon they clicked.
       const isRestricted = userScope && !userScope.can_view_all_barangays && userScope.allowed_barangays?.length === 1;
       const targetBName = isRestricted ? userScope.allowed_barangays[0] : (selectedBarangay?.name ?? null);
 
-      if (isRestricted && targetBName && resetTrigger === 0) {
+      if (targetBName && !resetRequested) {
         const feature = (padreGarciaGeojson as any).features?.find(
           (f: any) => f.properties?.name?.toLowerCase() === targetBName.toLowerCase()
         );
