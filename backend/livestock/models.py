@@ -268,11 +268,10 @@ class LivestockInventory(models.Model):
 
 
 class LivestockOwnershipTransfer(models.Model):
-    """Certificate-backed ownership event for one existing animal identity.
+    """Certificate-backed sale recorded against the seller's existing animal row.
 
-    Ownership history stays separate from LivestockInventory: the inventory
-    row is the canonical animal/current platform state, while each transfer
-    preserves one documented ownership event over that animal's lifetime.
+    Approval marks that seller-side row SOLD and preserves the buyer on this event.
+    A registered buyer submits a separate inventory record for the acquired animal.
     """
 
     class OwnerType(models.TextChoices):

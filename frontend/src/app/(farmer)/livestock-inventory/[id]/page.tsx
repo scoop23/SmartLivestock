@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -166,7 +166,6 @@ interface ApiDiseaseCase {
 }
 
 export default function LivestockDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
   const rawId = params?.id ? decodeURIComponent(String(params.id)) : "";
@@ -1041,23 +1040,16 @@ export default function LivestockDetailPage() {
 
         {/* ── TABS: GROWTH, PRODUCTION YIELD, CALVING / BIRTHING, HEALTH, LINEAGE ───────── */}
         <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-          <p className="text-sm text-slate-600">Need to record a change of owner?</p>
+          <p className="text-sm text-slate-600">Auction staff record completed ownership-transfer certificates.</p>
           <Button
             type="button"
             variant="outline"
-            disabled={!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1)}
-            onClick={() => {
-              setActiveProfileTab("ownership");
-              setIsOwnershipFormOpen(true);
-            }}
+            onClick={() => setActiveProfileTab("ownership")}
             className="min-h-11 w-full rounded-xl border-emerald-700 font-semibold text-emerald-800 hover:bg-emerald-50 sm:w-auto"
           >
-            Record Ownership Transfer
+            View Ownership History
           </Button>
         </div>
-        {!(activeItem.status === "APPROVED" && activeItem.operationalStatus === "ACTIVE" && activeItem.entryType === "INDIVIDUAL" && activeItem.quantity === 1) ? (
-          <p className="-mt-4 text-xs text-slate-500">Transfers are available for approved, active individual animals.</p>
-        ) : null}
         <Tabs value={activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
           {/* A two-column tab grid gives each section a comfortable touch target on phones. */}
           <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-slate-100 p-2 sm:flex sm:flex-wrap sm:gap-1 sm:p-1">
@@ -1653,7 +1645,7 @@ export default function LivestockDetailPage() {
                 onOpenChange={setIsOwnershipFormOpen}
               />
             </Card>
-            <p className="px-1 text-xs text-slate-500">The animal’s QR remains linked to its canonical inventory ID. It identifies the animal; the backend transfer records hold the changing ownership history.</p>
+            <p className="px-1 text-xs text-slate-500">After approval, this seller-side record remains in history as SOLD with the buyer recorded. A registered buyer submits their own inventory record for the acquired animal.</p>
           </TabsContent>
         </Tabs>
       </div>

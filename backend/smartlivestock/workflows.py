@@ -22,7 +22,8 @@ ROLE_MATRIX = {
     "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
     "inspections": {"create": {FARMER, AUCTION, MAO, ADMIN}, "read_all": {AUCTION, MAO, ADMIN, SIBAT}, "edit_own": {FARMER, AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
-    "ownership_transfers": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
+    # Auction encodes the certificate; farmers and reviewers retain access to their own or scoped records.
+    "ownership_transfers": {"create": {AUCTION}, "read_all": {SIBAT, MAO, ADMIN}, "read_own": {AUCTION}, "review": {SIBAT, MAO, ADMIN}},
 }
 
 

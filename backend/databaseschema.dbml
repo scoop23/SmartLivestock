@@ -121,11 +121,12 @@ Table livestock_inventory {
   created_at timestamp
 }
 
-// One certificate-backed ownership event for the same canonical livestock row.
+// Auction staff record the certificate against the seller's inventory row; approval marks that row SOLD.
+// A registered buyer may separately submit their acquired animal into their own inventory.
 // A buyer may be a registered Farmer or a documented external party; external buyers do not get platform accounts.
 Table livestock_ownership_transfers {
   transfer_id integer [pk]
-  livestock_id integer [not null, note: 'Existing canonical animal identity; transfer does not create another livestock row. At most one PENDING or VERIFIED transfer is allowed per animal.']
+  livestock_id integer [not null, note: 'Seller-side inventory row retained as SOLD history after approval. At most one PENDING or VERIFIED transfer is allowed per row.']
   previous_owner_id integer [not null, note: 'Farmer who owned the animal before this transfer']
   owner_type varchar [not null, default: 'REGISTERED_FARMER', note: 'REGISTERED_FARMER, EXTERNAL_INDIVIDUAL, COMPANY, TRADER, OTHER']
   new_owner_id integer [note: 'Registered Farmer reference; null for external parties']

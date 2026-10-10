@@ -18,7 +18,7 @@ type Transfer = {
   original_certificate_number: string; transfer_date: string; municipality: string; province: string;
   animal_description: string; sex_at_transfer: string; age_at_transfer: string;
   municipality_brand: string; owner_brand: string; purchase_price: string | null;
-  status: string; review_remarks: string;
+  status: string; review_remarks: string; can_edit: boolean;
 };
 
 export function OwnershipTransferPanel({
@@ -70,10 +70,9 @@ export function OwnershipTransferPanel({
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h3 className="font-bold text-slate-900">Ownership History</h3>
-          <p className="text-sm text-slate-600">Certificate-backed ownership events stay attached to this same animal identity.</p></div>
-        {eligible ? <Button onClick={() => { setEditing(null); setOwnerType("REGISTERED_FARMER"); setOpen(true); }}>Record Ownership Transfer</Button> : null}
+          <p className="text-sm text-slate-600">Auction staff record completed sale certificates. Approved sales remain here as SOLD history with the buyer recorded.</p></div>
       </div>
-      {!eligible ? <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">A transfer can be recorded for an approved, active individual animal.</p> : null}
+      {eligible ? <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">To document a completed sale, provide the ownership certificate to the Auction Officer for recording.</p> : null}
       {isLoading ? <p className="text-sm text-slate-500">Loading ownership history…</p> : null}
       {!isLoading && data.length === 0 ? <p className="rounded-xl border border-dashed p-5 text-sm text-slate-500">No ownership transfers are recorded for this animal.</p> : null}
       <ol className="space-y-3">
@@ -85,12 +84,12 @@ export function OwnershipTransferPanel({
           {(transfer.municipality_brand || transfer.owner_brand) ? <p className="text-sm text-slate-600">Brands: {transfer.municipality_brand || "—"} / {transfer.owner_brand || "—"}</p> : null}
           {transfer.purchase_price ? <p className="text-sm text-slate-600">Recorded purchase price: ₱{Number(transfer.purchase_price).toLocaleString()}</p> : null}
           {transfer.review_remarks ? <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Review note: {transfer.review_remarks}</p> : null}
-          {transfer.status === "SUBJECT_TO_REVISION" ? <Button variant="outline" className="mt-3" onClick={() => { setEditing(transfer); setOwnerType(transfer.owner_type); setOpen(true); }}>Correct and resubmit</Button> : null}
+          {transfer.can_edit ? <Button variant="outline" className="mt-3" onClick={() => { setEditing(transfer); setOwnerType(transfer.owner_type); setOpen(true); }}>Correct and resubmit</Button> : null}
         </li>)}
       </ol>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl">
-          <DialogHeader><DialogTitle>{editing ? "Correct Ownership Transfer" : "Record Ownership Transfer"}</DialogTitle><DialogDescription>The same animal record stays in place. Current ownership changes only after SIBAT verification and MAO approval.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Correct Ownership Transfer</DialogTitle><DialogDescription>Update the submitted certificate details and send them back for SIBAT review.</DialogDescription></DialogHeader>
           <form key={editing?.id || "new-transfer"} id="ownership-transfer-form" onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="owner_type">New owner type</Label>

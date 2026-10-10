@@ -161,6 +161,7 @@ const sibatLinks: SidebarLink[] = [
 
 const auctionLinks: SidebarLink[] = [
   { path: '/auction', label: 'Market Dashboard', icon: LayoutDashboard },
+  { path: '/auction-ownership-transfers', label: 'Ownership Transfers', icon: FileText },
   { path: '/auction-inspections', label: 'Health Inspections', icon: ClipboardCheck },
   { path: '/auction-gis', label: 'GIS Movement Map', icon: Map },
   { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },

@@ -18,12 +18,13 @@ from users.notification_views import create_notification, notify_role, notify_re
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def ownership_transfer_list_create(request):
-    """Farmers submit certificate-backed requests; reviewers see only their jurisdiction."""
+    """Auction staff encode certificates; farmers and reviewers read their own or scoped history."""
     if request.method == "POST":
-        require_action(request.user, "ownership_transfers", "create")
+        actor_role = require_action(request.user, "ownership_transfers", "create")
         serializer = LivestockOwnershipTransferSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        farmer = request.user.farmer_profile
+        # Auction is the recorder, not a party to the sale: the selected animal identifies its seller.
+        farmer = serializer.validated_data["livestock"].farmer if actor_role == "AUCTION" else request.user.farmer_profile
         try:
             transfer = serializer.save(previous_owner=farmer, created_by=request.user)
         except IntegrityError as exc:
@@ -45,6 +46,9 @@ def ownership_transfer_list_create(request):
         records = LivestockOwnershipTransfer.objects.none() if farmer is None else LivestockOwnershipTransfer.objects.filter(
             Q(previous_owner=farmer) | Q(new_owner=farmer)
         )
+    elif role_name(user) == "AUCTION":
+        require_action(user, "ownership_transfers", "read_own")
+        records = LivestockOwnershipTransfer.objects.filter(created_by=user)
     else:
         require_action(user, "ownership_transfers", "read_all")
         records = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user)
@@ -65,14 +69,17 @@ def ownership_transfer_detail(request, pk):
     if role_name(user) == "FARMER":
         farmer = getattr(user, "farmer_profile", None)
         qs = qs.filter(Q(previous_owner=farmer) | Q(new_owner=farmer)) if farmer else qs.none()
+    elif role_name(user) == "AUCTION":
+        require_action(user, "ownership_transfers", "read_own")
+        qs = qs.filter(created_by=user)
     else:
         require_action(user, "ownership_transfers", "read_all")
         qs = scope_reviewer_queryset(qs, user)
     transfer = get_object_or_404(qs, pk=pk)
     if request.method == "GET":
         return Response(LivestockOwnershipTransferSerializer(transfer).data)
-    if role_name(user) != "FARMER" or transfer.created_by_id != user.pk or transfer.status != LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION:
-        return Response({"detail": "Only the submitting farmer can correct a returned transfer request."}, status=status.HTTP_403_FORBIDDEN)
+    if role_name(user) not in {"FARMER", "AUCTION"} or transfer.created_by_id != user.pk or transfer.status != LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION:
+        return Response({"detail": "Only the submitting Farmer or Auction Officer can correct a returned transfer request."}, status=status.HTTP_403_FORBIDDEN)
     serializer = LivestockOwnershipTransferSerializer(transfer, data=request.data, partial=True, context={"request": request})
     serializer.is_valid(raise_exception=True)
     try:
@@ -121,18 +128,15 @@ def review_ownership_transfer(request, pk):
         if transfer.owner_type == LivestockOwnershipTransfer.OwnerType.REGISTERED_FARMER:
             if transfer.new_owner is None or transfer.new_owner.user.role.role_name != "FARMER" or transfer.new_owner.user.account_status != "APPROVED":
                 raise ValidationError({"new_owner": "The selected owner is no longer an approved Farmer account."})
-            # Reassign the same canonical animal; detach the seller's herd because its farmer is unchanged.
-            animal.farmer = transfer.new_owner
-            animal.batch = None
-            animal.save(update_fields=["farmer", "batch"])
-        else:
-            # External buyers have no platform Farmer row: retain the canonical animal as SOLD history.
-            if transfer.new_owner_id is not None or not transfer.external_owner_name or not transfer.external_owner_address:
-                raise ValidationError({"new_owner": "External buyer details are incomplete or conflict with a Farmer account."})
-            animal.operational_status = LivestockInventory.OperationalStatus.SOLD
-            animal.operational_status_changed_at = timezone.now()
-            animal.batch = None
-            animal.save(update_fields=["operational_status", "operational_status_changed_at", "batch"])
+        elif transfer.new_owner_id is not None or not transfer.external_owner_name or not transfer.external_owner_address:
+            raise ValidationError({"new_owner": "External buyer details are incomplete or conflict with a Farmer account."})
+
+        # Keep this certificate's animal row in the seller's inventory history as SOLD.
+        # A registered buyer records their acquired animal as a new inventory submission.
+        animal.operational_status = LivestockInventory.OperationalStatus.SOLD
+        animal.operational_status_changed_at = timezone.now()
+        animal.batch = None
+        animal.save(update_fields=["operational_status", "operational_status_changed_at", "batch"])
 
     transfer.status = target
     transfer.reviewed_by = request.user
@@ -147,18 +151,33 @@ def review_ownership_transfer(request, pk):
             link=f"/ownership-transfers?transferId={transfer.pk}",
             related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
     elif target == LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION:
-        notify_review_revision(transfer.previous_owner, request.user,
-            title=f"Revision required: transfer {transfer.transfer_certificate_number}",
-            message=remarks, link=f"/sibat/ownership-transfers?transferId={transfer.pk}")
+        if role_name(transfer.created_by) == "AUCTION":
+            create_notification(user=transfer.created_by, notification_type=Notification.NotificationType.GENERAL,
+                title=f"Revision required: transfer {transfer.transfer_certificate_number}",
+                message=remarks, link="/auction-ownership-transfers",
+                related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
+        else:
+            notify_review_revision(transfer.previous_owner, request.user,
+                title=f"Revision required: transfer {transfer.transfer_certificate_number}",
+                message=remarks, link=f"/sibat/ownership-transfers?transferId={transfer.pk}")
     elif target == LivestockOwnershipTransfer.Status.APPROVED:
-        # Former ownership remains in the transfer record; current inventory uses animal.farmer.
+        # The seller's historical animal row remains linked to them; the transfer event names the buyer.
+        buyer_name = (
+            transfer.new_owner.user.get_full_name().strip() or transfer.new_owner.user.username
+            if transfer.new_owner_id else transfer.external_owner_name
+        )
         notified_farmers = [transfer.previous_owner]
         if transfer.new_owner_id:
             notified_farmers.append(transfer.new_owner)
         for farmer in notified_farmers:
+            is_buyer = farmer.pk == transfer.new_owner_id
             create_notification(user=farmer.user, notification_type=Notification.NotificationType.GENERAL,
                 title="Livestock Ownership Transfer Approved",
-                message=f"Ownership transfer for {transfer.livestock.tag_number or 'livestock'} was approved.",
-                link=f"/livestock-inventory/{transfer.livestock_id}")
+                message=(
+                    f"You are recorded as the new owner of {transfer.livestock.tag_number or 'livestock'}. Register it in your inventory to track it in SmartLivestock."
+                    if is_buyer else
+                    f"Ownership transfer for {transfer.livestock.tag_number or 'livestock'} was approved and marked SOLD in your inventory history. Buyer: {buyer_name}."
+                ),
+                link="/livestock-inventory" if is_buyer else f"/livestock-inventory/{transfer.livestock_id}")
 
     return Response(LivestockOwnershipTransferSerializer(transfer).data)

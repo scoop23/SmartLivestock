@@ -13,6 +13,7 @@ from .models import (
     CensusSubmission,
     CensusSubmissionItem,
 )
+from smartlivestock.workflows import role_name
 
 
 MAX_LIVESTOCK_PHOTO_BYTES = 5 * 1024 * 1024
@@ -694,13 +695,14 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
     new_owner = serializers.PrimaryKeyRelatedField(read_only=True)
     new_owner_name = serializers.SerializerMethodField(read_only=True)
     new_owner_identifier = serializers.CharField(write_only=True, required=False)
+    can_edit = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LivestockOwnershipTransfer
         fields = (
             "id", "livestock", "livestock_tag", "livestock_type_name",
             "previous_owner", "previous_owner_name", "owner_type", "new_owner", "new_owner_name",
-            "new_owner_identifier", "external_owner_name", "external_owner_address",
+            "new_owner_identifier", "external_owner_name", "external_owner_address", "can_edit",
             "transfer_certificate_number", "original_certificate_number", "transfer_date",
             "municipality", "province", "animal_description", "sex_at_transfer",
             "age_at_transfer", "municipality_brand", "owner_brand", "purchase_price",
@@ -717,6 +719,15 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             return user.get_full_name().strip() or user.username or user.email
         return obj.external_owner_name
 
+    def get_can_edit(self, obj):
+        request = self.context.get("request")
+        return bool(
+            request
+            and role_name(request.user) in {"FARMER", "AUCTION"}
+            and obj.created_by_id == request.user.pk
+            and obj.status == LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION
+        )
+
     def validate(self, attrs):
         from django.utils import timezone
         from users.models import User
@@ -728,6 +739,13 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             self.instance.owner_type if self.instance else LivestockOwnershipTransfer.OwnerType.REGISTERED_FARMER,
         )
         owner_identifier = attrs.pop("new_owner_identifier", None)
+        # Auction staff encode the seller's certificate from the selected animal row.
+        # Deriving the seller here prevents the client from naming another Farmer.
+        current_owner = (
+            livestock.farmer
+            if role_name(request.user) == "AUCTION" and livestock
+            else getattr(request.user, "farmer_profile", None)
+        )
         if self.initial_data.get("new_owner") not in (None, ""):
             raise serializers.ValidationError({"new_owner": "Use the registered owner identifier field; owner records are resolved by the server."})
 
@@ -753,7 +771,7 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"new_owner_identifier": "Enter the new owner’s exact account username or RSBSA registration number."})
             attrs["new_owner"] = new_owner
 
-            if current_owner := getattr(request.user, "farmer_profile", None):
+            if current_owner:
                 if new_owner.pk == current_owner.pk:
                     raise serializers.ValidationError({"new_owner": "The new owner must be a different registered farmer."})
             if new_owner.user.role.role_name != "FARMER" or new_owner.user.account_status != User.AccountStatus.APPROVED:
@@ -771,9 +789,8 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             attrs["external_owner_address"] = external_address
             attrs["new_owner"] = None
 
-        current_owner = getattr(request.user, "farmer_profile", None)
         if current_owner is None:
-            raise serializers.ValidationError({"livestock": "Only the current registered farmer can request this transfer."})
+            raise serializers.ValidationError({"livestock": "The transfer must belong to a registered current owner."})
         if livestock is None or livestock.farmer_id != current_owner.pk:
             raise serializers.ValidationError({"livestock": "You can request a transfer only for your own livestock."})
         if self.instance and livestock.pk != self.instance.livestock_id:
