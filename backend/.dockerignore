@@ -1,0 +1,24 @@
+# Never copy local credentials or environment-specific settings into an image.
+.env
+.env.*
+!.env.example
+
+# Local Python environments, caches, and generated database/data files.
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+*.sqlite3
+*.db
+datadump.json
+
+# User uploads and generated static files are runtime data, not image source.
+media/
+user_documents/
+staticfiles/
+backups/
+.git/
+*.log
