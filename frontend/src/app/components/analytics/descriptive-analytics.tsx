@@ -6,9 +6,9 @@ import {
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
-  Activity, BarChart3, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, CircleAlert,
-  HeartPulse, Info, Layers, MapPin, Package, RefreshCw, ShieldCheck, ShoppingBag,
-  Sprout, Syringe, type LucideIcon,
+  Activity, BarChart3, Beef, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, CircleAlert,
+  Download, HeartPulse, Info, Layers, MapPin, Package, RefreshCw, ShieldCheck, ShoppingBag,
+  Syringe, type LucideIcon,
 } from "lucide-react";
 import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
@@ -33,13 +33,37 @@ interface ProductTotal {
   records: number;
 }
 
+interface BarangayReportRow {
+  barangay_id: number | null;
+  barangay: string;
+  registered_farmers: number;
+  current_heads: number;
+  production_outputs: { type: string; unit: string; quantity: number }[];
+  farmer_meat_kg: number;
+  farmer_meat_records: number;
+  slaughter_heads: number;
+  slaughter_yield_kg: number | null;
+  slaughter_records: number;
+  slaughter_yield_records: number;
+  animals_sold: number;
+  sale_transactions: number;
+  recorded_sale_value_php: number | null;
+  priced_transactions: number;
+  disease_cases: number;
+  affected_heads: number;
+  mortality_records: number;
+  deaths: number;
+  vaccinated_heads: number;
+  vaccination_coverage_pct: number;
+}
+
 interface DescriptiveResponse {
   surveillance_series: SeriesPoint[];
   descriptive: {
     period: { start: string; end: string };
     population: {
       total_heads: number;
-      by_barangay: { barangay_id: number | null; barangay: string | null; heads: number }[];
+      by_barangay: { barangay_id: number | null; barangay: string | null; heads: number; registered_farmers: number }[];
       by_species: { species_id: number; species: string; heads: number }[];
     };
     production: {
@@ -47,7 +71,13 @@ interface DescriptiveResponse {
       valuation: { estimated_value: number | null; valued_records: number; unvalued_records: number; by_month: { month: string; value: number; records: number }[]; by_type: { production_type: string; value: number; records: number }[]; by_species: { species: string | null; value: number; records: number }[]; by_barangay: { barangay_id: number | null; barangay: string | null; value: number; records: number }[]; by_commodity: { valuation_snapshot__commodity: string; value: number; records: number }[] };
       by_type: ProductTotal[];
       trend: { month: string; type: string; unit: string; quantity: number }[];
+      monthly_trend_by_species: { month: string; label: string; species: string; production_type: string; unit: string; quantity: number }[];
+      farmer_meat_by_species: { species: string; quantity_kg: number; records: number }[];
+      farmer_meat_by_barangay: { barangay_id: number | null; barangay: string | null; quantity_kg: number; records: number }[];
       by_barangay: { barangay_id: number | null; barangay: string | null; type: string; unit: string; quantity: number }[];
+    };
+    slaughter: {
+      yield_by_species: { species: string; carcass_weight_kg: number; heads: number; avg_carcass_weight_kg_per_head: number | null; records: number }[];
     };
     disease: {
       cases: number;
@@ -71,7 +101,10 @@ interface DescriptiveResponse {
       animals: number;
       recorded_value: number | null;
       priced_sales: number;
+      by_species: { species: string; animals: number; transactions: number; recorded_value_php: number | null; priced_transactions: number }[];
+      monthly_trend_by_species: { month: string; label: string; species: string; animals: number; transactions: number; recorded_value_php: number | null }[];
     };
+    per_barangay_report: BarangayReportRow[];
   };
 }
 
@@ -193,11 +226,13 @@ function CustomChartTooltip({
   payload,
   label,
   unit,
+  currency = false,
 }: {
   active?: boolean;
   payload?: TooltipPayloadItem[];
   label?: string;
   unit?: string;
+  currency?: boolean;
 }) {
   if (!active || !payload || !payload.length) return null;
   return (
@@ -216,7 +251,7 @@ function CustomChartTooltip({
                 <span>{entry.name || "Value"}:</span>
               </span>
               <span className="font-bold text-slate-900 tabular-nums">
-                {typeof entry.value === "number" ? number(entry.value) : entry.value}
+                {typeof entry.value === "number" ? (currency ? money(entry.value) : number(entry.value)) : entry.value}
                 {unit ? ` ${unit}` : ""}
               </span>
             </div>
@@ -225,6 +260,134 @@ function CustomChartTooltip({
       </div>
     </div>
   );
+}
+
+function LivestockTypeBreakdown({
+  title,
+  subtitle,
+  rows,
+  unit,
+  metricName,
+  currency = false,
+}: {
+  title: string;
+  subtitle: string;
+  rows: { species: string; quantity: number }[];
+  unit: string;
+  metricName: string;
+  currency?: boolean;
+}) {
+  return (
+    <Panel title={title} subtitle={subtitle}>
+      {rows.length ? (
+        <div className="h-64 sm:h-72" role="img" aria-label={`${title} horizontal bar chart`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart accessibilityLayer data={rows} layout="vertical" margin={{ left: 8, right: 28, top: 4, bottom: 4 }}>
+              <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" tick={axisStyle} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="species" width={105} tick={axisStyle} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomChartTooltip unit={unit} currency={currency} />} cursor={{ fill: "#f4f8f3" }} />
+              <Bar dataKey="quantity" name={metricName} barSize={18} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+                {rows.map((row) => <Cell key={row.species} fill={getSpeciesColor(row.species)} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <EmptyState message="No approved records with livestock-type details were found for this period." />
+      )}
+    </Panel>
+  );
+}
+
+function MonthlySpeciesTrend({
+  title,
+  subtitle,
+  rows,
+  months,
+  unit,
+}: {
+  title: string;
+  subtitle: string;
+  rows: { month: string; label: string; species: string; value: number }[];
+  months: { month: string; label: string }[];
+  unit: string;
+}) {
+  const speciesNames = [...new Set(rows.map((row) => row.species))].sort((a, b) => a.localeCompare(b));
+  const rowsByMonth = new Map<string, Record<string, number>>();
+  rows.forEach((row) => {
+    const values = rowsByMonth.get(row.month) ?? {};
+    values[row.species] = (values[row.species] ?? 0) + row.value;
+    rowsByMonth.set(row.month, values);
+  });
+  const chartRows = months.map((month) => {
+    const values = rowsByMonth.get(month.month) ?? {};
+    return { ...month, ...Object.fromEntries(speciesNames.map((speciesName) => [speciesName, values[speciesName] ?? 0])) };
+  });
+
+  return (
+    <Panel title={title} subtitle={subtitle}>
+      {speciesNames.length ? (
+        <div className="h-64 sm:h-72" role="img" aria-label={`${title} line chart`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart accessibilityLayer data={chartRows} margin={{ left: -15, right: 12, top: 10, bottom: 0 }}>
+              <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={axisStyle} axisLine={false} tickLine={false} minTickGap={20} interval="preserveStartEnd" tickFormatter={(label: string) => label.slice(0, 3)} />
+              <YAxis tick={axisStyle} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomChartTooltip unit={unit} />} />
+              <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 12, paddingBottom: 10 }} />
+              {speciesNames.map((speciesName) => (
+                <Line key={speciesName} type="monotone" dataKey={speciesName} name={speciesName} stroke={getSpeciesColor(speciesName)} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <EmptyState message="No approved records by livestock type were found for this period." />
+      )}
+    </Panel>
+  );
+}
+
+function csvCell(value: string | number | null) {
+  const text = value == null ? "" : String(value);
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function downloadBarangayReport(rows: BarangayReportRow[], period: { start: string; end: string }) {
+  const headers = [
+    "Barangay", "Registered Farmers", "Current Approved Active Heads", "Approved Production Outputs",
+    "Farmer Meat (kg)", "Slaughter Heads", "Slaughter Yield (kg)", "Animals Sold",
+    "Recorded Sale Value (PHP)", "Disease Cases", "Affected Heads", "Recorded Deaths",
+    "Vaccinated Active Heads", "Vaccination Coverage (%)",
+  ];
+  const records = rows.map((row) => [
+    row.barangay,
+    row.registered_farmers,
+    row.current_heads,
+    row.production_outputs.map((output) => `${output.type}: ${number(output.quantity)} ${output.unit.toLowerCase()}`).join("; "),
+    row.farmer_meat_records ? row.farmer_meat_kg : null,
+    row.slaughter_records ? row.slaughter_heads : null,
+    row.slaughter_yield_records ? row.slaughter_yield_kg : null,
+    row.sale_transactions ? row.animals_sold : null,
+    row.sale_transactions === 0 ? null : row.recorded_sale_value_php === null ? "Not recorded" : row.recorded_sale_value_php,
+    row.disease_cases || null,
+    row.disease_cases ? row.affected_heads : null,
+    row.mortality_records ? row.deaths : null,
+    row.vaccinated_heads,
+    row.vaccination_coverage_pct,
+  ]);
+  const csv = [
+    `Report period,${csvCell(`${period.start} to ${period.end}`)}`,
+    headers.map(csvCell).join(","),
+    ...records.map((record) => record.map(csvCell).join(",")),
+  ].join("\r\n");
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `smartlivestock-barangay-report-${period.end}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function DescriptiveAnalytics() {
@@ -338,6 +501,15 @@ export default function DescriptiveAnalytics() {
         )?.quantity ?? 0
       : 0,
   }));
+  const productionSpeciesTrend = data.production.monthly_trend_by_species
+    .filter((row) => row.production_type === product?.type && row.unit === product?.unit)
+    .map((row) => ({ month: row.month, label: row.label, species: row.species, value: row.quantity }));
+  const salesSpeciesTrend = data.sales.monthly_trend_by_species.map((row) => ({
+    month: row.month,
+    label: row.label,
+    species: row.species,
+    value: row.animals,
+  }));
 
   const species = [...data.population.by_species].sort(
     (a, b) => b.heads - a.heads || a.species.localeCompare(b.species)
@@ -369,7 +541,7 @@ export default function DescriptiveAnalytics() {
       label: "Active Livestock",
       value: number(data.population.total_heads),
       description: "Approved active heads",
-      icon: Sprout,
+      icon: Beef,
       accentColor: "#2D5A27",
       tagBg: "bg-emerald-50",
       tagText: "text-[#2D5A27]",
@@ -565,7 +737,7 @@ export default function DescriptiveAnalytics() {
       {/* 4. POPULATION OVERVIEW */}
       <section className="space-y-4" aria-label="Population Overview">
         <SectionHeader
-          icon={Sprout}
+          icon={Beef}
           title="Population Overview"
           description="Current active approved livestock inventory across Padre Garcia barangays, counted in heads."
         />
@@ -898,6 +1070,40 @@ export default function DescriptiveAnalytics() {
               <EmptyState message="No approved production records recorded by barangay for this selection." />
             )}
           </Panel>
+        </div>
+
+        <MonthlySpeciesTrend
+          title="Monthly Production by Livestock Type"
+          subtitle={product ? `Approved ${product.type.toLowerCase()} output in ${product.unit.toLowerCase()} by month` : "Choose a production type to view monthly output by livestock type"}
+          rows={productionSpeciesTrend}
+          months={response.surveillance_series.map(({ month, label }) => ({ month, label }))}
+          unit={product?.unit.toLowerCase() ?? "units"}
+        />
+
+        <div className="grid gap-5 xl:grid-cols-3">
+          <LivestockTypeBreakdown
+            title="Slaughter Yield by Livestock Type"
+            subtitle="Recorded carcass weight from approved slaughter records"
+            rows={data.slaughter.yield_by_species.map((row) => ({ species: row.species, quantity: row.carcass_weight_kg }))}
+            unit="kg"
+            metricName="Carcass yield"
+          />
+          <LivestockTypeBreakdown
+            title="Farmer-Reported Meat Yield by Livestock Type"
+            subtitle="Approved farmer meat production, excluding slaughter-linked outputs"
+            rows={data.production.farmer_meat_by_species.map((row) => ({ species: row.species, quantity: row.quantity_kg }))}
+            unit="kg"
+            metricName="Farmer-reported meat"
+          />
+          <LivestockTypeBreakdown
+            title="Average Slaughter Yield per Head"
+            subtitle="Recorded carcass kilograms divided by slaughtered heads with a recorded weight"
+            rows={data.slaughter.yield_by_species
+              .filter((row) => row.avg_carcass_weight_kg_per_head !== null)
+              .map((row) => ({ species: row.species, quantity: row.avg_carcass_weight_kg_per_head ?? 0 }))}
+            unit="kg/head"
+            metricName="Average carcass weight"
+          />
         </div>
       </section>
 
@@ -1249,6 +1455,86 @@ export default function DescriptiveAnalytics() {
             Note: Recording transaction price is optional in certain livestock sale workflows; unpriced transactions are excluded from currency totals.
           </p>
         </Panel>
+        <LivestockTypeBreakdown
+          title="Animals Sold by Livestock Type"
+          subtitle="Head counts from approved live-animal sale transactions"
+          rows={data.sales.by_species.map((row) => ({ species: row.species, quantity: row.animals }))}
+          unit="heads"
+          metricName="Animals sold"
+        />
+        <div className="grid gap-5 xl:grid-cols-2">
+          <MonthlySpeciesTrend
+            title="Monthly Live Animal Sales by Livestock Type"
+            subtitle="Approved head counts grouped by sale date and livestock type"
+            rows={salesSpeciesTrend}
+            months={response.surveillance_series.map(({ month, label }) => ({ month, label }))}
+            unit="heads"
+          />
+          <LivestockTypeBreakdown
+            title="Recorded Sales Value by Livestock Type"
+            subtitle="Sum of sale records with a saved price; transactions without a price are excluded"
+            rows={data.sales.by_species
+              .filter((row) => row.recorded_value_php !== null)
+              .map((row) => ({ species: row.species, quantity: row.recorded_value_php ?? 0 }))}
+            unit=""
+            metricName="Recorded value"
+            currency
+          />
+        </div>
+      </section>
+
+      <section className="space-y-4" aria-label="Per Barangay Report">
+        <SectionHeader
+          icon={MapPin}
+          title="Per Barangay Report"
+          description={`Approved production, health, slaughter, and sales activity for ${dateLabel(data.period.start)} to ${dateLabel(data.period.end)}; active livestock and vaccination are current snapshots.`}
+          accentColor="text-sky-700 bg-sky-50"
+        />
+        <Panel
+          title="Barangay Summary"
+          subtitle="Download the same municipal aggregates as a CSV report for follow-up and sharing."
+          action={<Button type="button" variant="outline" size="sm" onClick={() => downloadBarangayReport(data.per_barangay_report, data.period)} disabled={!data.per_barangay_report.length}>
+            <Download className="mr-2 size-4" />Download CSV
+          </Button>}
+        >
+          {data.per_barangay_report.length ? (
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <Table className="min-w-[1450px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Barangay</TableHead><TableHead className="text-right">Farmers</TableHead>
+                    <TableHead className="text-right">Current Heads</TableHead><TableHead>Production by Type</TableHead>
+                    <TableHead className="text-right">Farmer Meat (kg)</TableHead><TableHead className="text-right">Slaughter Heads</TableHead>
+                    <TableHead className="text-right">Carcass Yield (kg)</TableHead><TableHead className="text-right">Sold Heads</TableHead>
+                    <TableHead className="text-right">Recorded Sales Value</TableHead><TableHead className="text-right">Disease Cases</TableHead>
+                    <TableHead className="text-right">Deaths</TableHead><TableHead className="text-right">Vaccination</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.per_barangay_report.map((row) => (
+                    <TableRow key={row.barangay_id ?? `unmapped-${row.barangay}`}>
+                      <TableCell className="font-semibold">{row.barangay}</TableCell>
+                      <TableCell className="text-right tabular-nums">{number(row.registered_farmers)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{number(row.current_heads)}</TableCell>
+                      <TableCell className="max-w-[260px] whitespace-normal text-xs">{row.production_outputs.length ? row.production_outputs.map((output) => `${titleCase(output.type)} ${number(output.quantity)} ${output.unit.toLowerCase()}`).join(" · ") : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.farmer_meat_records ? number(row.farmer_meat_kg) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.slaughter_records ? number(row.slaughter_heads) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.slaughter_yield_records && row.slaughter_yield_kg !== null ? number(row.slaughter_yield_kg) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.sale_transactions ? number(row.animals_sold) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.sale_transactions === 0 ? "—" : row.recorded_sale_value_php === null ? "Not recorded" : money(row.recorded_sale_value_php)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.disease_cases ? `${number(row.disease_cases)} (${number(row.affected_heads)} heads)` : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.mortality_records ? number(row.deaths) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{number(row.vaccination_coverage_pct)}% <span className="text-slate-500">({number(row.vaccinated_heads)})</span></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <EmptyState message="No barangay data is available for this report scope." />
+          )}
+          <p className="mt-3 text-xs text-slate-500">A dash means no approved event records were found for that metric. “Not recorded” means sale records exist but no price was saved. Production commodities keep their original units instead of being combined.</p>
+        </Panel>
       </section>
 
       {/* 9. METHODOLOGY & DATA SCOPE (COLLAPSIBLE / ACCORDION) */}
@@ -1309,7 +1595,13 @@ export default function DescriptiveAnalytics() {
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <strong className="font-bold text-slate-900">6. Geographic Aggregation:</strong>
+                  <strong className="font-bold text-slate-900">6. Livestock Output by Type:</strong>
+                  <p>
+                    Slaughter yield uses recorded carcass kilograms. Farmer-reported meat excludes slaughter-linked output to avoid double counting. Sold head counts use approved live-animal sales; records without a linked livestock type appear as Unspecified.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <strong className="font-bold text-slate-900">7. Geographic Aggregation:</strong>
                   <p>
                     Records are mapped using the barangay relationship of the registered owner or holding facility. Unmapped records remain transparently separated.
                   </p>

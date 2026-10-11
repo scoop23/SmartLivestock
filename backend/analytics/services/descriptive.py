@@ -3,12 +3,13 @@
 import calendar
 from datetime import date
 
-from django.db.models import Case, Count, DecimalField, F, Q, Sum, When
+from django.db.models import Case, CharField, Count, DecimalField, F, Q, Sum, Value, When
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
 
 from diseases.models import DiseaseCase, MortalityRecord
+from livestock.models import LivestockOwnershipTransfer
 from movements.models import (
     LivestockInspection,
     LivestockInspectionItem,
@@ -86,6 +87,82 @@ def descriptive_summary(today=None, *, user=None):
         .annotate(quantity=Sum("output_quantity"), records=Count("id"))
         .order_by("month", "production_type", "unit")
     )
+    # Farmer-reported meat is separate from slaughter output. Slaughter-linked
+    # ProductionRecords are projections of SlaughterRecord and must not be added twice.
+    farmer_meat_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+        status=ProductionRecord.ProductionStatus.APPROVED,
+        production_type=ProductionRecord.ProductionType.MEAT,
+        unit=ProductionRecord.UnitType.KILOGRAMS,
+        slaughter__isnull=True,
+        record_date__range=(start, today),
+    )
+    farmer_meat_rows = list(
+        farmer_meat_qs.annotate(month=TruncMonth("record_date"))
+        .values("month")
+        .annotate(quantity=Sum("quantity"))
+        .order_by("month")
+    )
+    farmer_meat_by_species = [
+        {
+            "species": row["species"],
+            "quantity_kg": float(row["quantity_kg"] or 0),
+            "records": row["records"],
+        }
+        for row in farmer_meat_qs.annotate(species=Coalesce(
+            "livestock__livestock_type__name",
+            "batch__livestock_type__name",
+            Value("Unspecified"),
+            output_field=CharField(),
+        ))
+        .values("species")
+        .annotate(quantity_kg=Sum("quantity"), records=Count("id"))
+        .order_by("-quantity_kg", "species")
+    ]
+    farmer_meat_by_barangay = list(
+        farmer_meat_qs.annotate(
+            barangay_id=F("farmer_at_record__barangay_id"),
+            barangay=F("farmer_at_record__barangay__barangay_name"),
+        )
+        .values("barangay_id", "barangay")
+        .annotate(quantity_kg=Sum("quantity"), records=Count("id"))
+        .order_by("barangay", "barangay_id")
+    )
+    farmer_meat_by_month = {row["month"]: row["quantity"] for row in farmer_meat_rows}
+    farmer_meat_trend = [
+        {
+            "month": month.isoformat(),
+            "label": f"{calendar.month_abbr[month.month]} {month.year}",
+            "quantity_kg": float(farmer_meat_by_month.get(month, 0) or 0),
+        }
+        for month in _months(start)
+    ]
+    # Keep commodity output grouped by livestock type so the dashboard can switch
+    # between milk, wool, eggs, and meat without mixing incompatible units.
+    production_by_species_monthly = list(
+        production.filter(slaughter__isnull=True).annotate(
+            month=TruncMonth("record_date"),
+            species=Coalesce(
+                "livestock__livestock_type__name",
+                "batch__livestock_type__name",
+                Value("Unspecified"),
+                output_field=CharField(),
+            ),
+        )
+        .values("month", "species", "production_type", "unit")
+        .annotate(quantity=Sum("quantity"))
+        .order_by("month", "species", "production_type", "unit")
+    )
+    production_species_trend = [
+        {
+            "month": row["month"].isoformat(),
+            "label": f"{calendar.month_abbr[row['month'].month]} {row['month'].year}",
+            "species": row["species"],
+            "production_type": row["production_type"],
+            "unit": row["unit"],
+            "quantity": float(row["quantity"] or 0),
+        }
+        for row in production_by_species_monthly
+    ]
     # Batch-only events get their location through the batch farmer FK.
     production_by_barangay = [
         {"barangay_id": row["barangay_id"], "barangay": row["barangay"], "type": row["production_type"],
@@ -95,6 +172,21 @@ def descriptive_summary(today=None, *, user=None):
             barangay=F("farmer_at_record__barangay__barangay_name"),
         ).values("barangay_id", "barangay", "production_type", "unit")
         .annotate(quantity=Sum("output_quantity"))
+        .order_by("barangay", "production_type", "unit")
+    ]
+    # The consolidated report displays farmer meat and slaughter yield in their
+    # own columns, so keep both out of this commodity-output list to avoid doubles.
+    report_production_by_barangay = [
+        {"barangay_id": row["barangay_id"], "barangay": row["barangay"], "type": row["production_type"],
+         "unit": row["unit"], "quantity": float(row["quantity"] or 0)}
+        for row in production.filter(
+            slaughter__isnull=True,
+        ).exclude(production_type=ProductionRecord.ProductionType.MEAT)
+        .annotate(
+            barangay_id=F("farmer_at_record__barangay_id"),
+            barangay=F("farmer_at_record__barangay__barangay_name"),
+        ).values("barangay_id", "barangay", "production_type", "unit")
+        .annotate(quantity=Sum("quantity"))
         .order_by("barangay", "production_type", "unit")
     ]
     production_trend = [
@@ -246,6 +338,26 @@ def descriptive_summary(today=None, *, user=None):
         )
         .order_by("-heads")
     )
+    slaughter_yield_by_species = [
+        {
+            "species": row["livestock_type__name"] or "Unspecified",
+            "carcass_weight_kg": float(row["carcass_weight_kg"] or 0),
+            "heads": row["heads"] or 0,
+            "avg_carcass_weight_kg_per_head": (
+                round(float(row["carcass_weight_kg"]) / row["heads"], 2)
+                if row["heads"] else None
+            ),
+            "records": row["records"],
+        }
+        for row in slaughter_qs.filter(carcass_weight__isnull=False)
+        .values("livestock_type__name")
+        .annotate(
+            carcass_weight_kg=Sum("carcass_weight"),
+            heads=Sum("quantity"),
+            records=Count("id"),
+        )
+        .order_by("-carcass_weight_kg", "livestock_type__name")
+    ]
     sl_heads_map = {
         row["month"]: row["heads"]
         for row in slaughter_qs.annotate(month=TruncMonth("record_date"))
@@ -267,6 +379,46 @@ def descriptive_summary(today=None, *, user=None):
         }
         for m in _months(start)
     ]
+    slaughter_by_species_monthly = list(
+        slaughter_qs.annotate(month=TruncMonth("record_date"))
+        .values("month", "livestock_type__name")
+        .annotate(heads=Sum("quantity"), carcass_weight_kg=Sum("carcass_weight"))
+        .order_by("month", "livestock_type__name")
+    )
+    slaughter_species_trend = [
+        {
+            "month": row["month"].isoformat(),
+            "label": f"{calendar.month_abbr[row['month'].month]} {row['month'].year}",
+            "species": row["livestock_type__name"] or "Unknown",
+            "heads": row["heads"] or 0,
+            "carcass_weight_kg": float(row["carcass_weight_kg"] or 0),
+        }
+        for row in slaughter_by_species_monthly
+    ]
+    slaughter_by_barangay = list(
+        slaughter_qs.annotate(
+            report_barangay_id=Coalesce(
+                "livestock__farmer__barangay_id",
+                "batch__farmer__barangay_id",
+                "barangay_id",
+            ),
+            report_barangay=Coalesce(
+                "livestock__farmer__barangay__barangay_name",
+                "batch__farmer__barangay__barangay_name",
+                "barangay__barangay_name",
+                Value("Unmapped"),
+                output_field=CharField(),
+            ),
+        )
+        .values("report_barangay_id", "report_barangay")
+        .annotate(
+            heads=Sum("quantity"),
+            carcass_weight_kg=Sum("carcass_weight"),
+            records=Count("id"),
+            yield_records=Count("id", filter=Q(carcass_weight__isnull=False)),
+        )
+        .order_by("report_barangay", "report_barangay_id")
+    )
     total_heads_slaughtered = slaughter_totals["total_heads"] or 0
     total_carcass_kg = float(slaughter_totals["total_carcass_weight"] or 0.0)
     avg_carcass_per_head = (
@@ -289,7 +441,9 @@ def descriptive_summary(today=None, *, user=None):
             }
             for row in slaughter_by_species
         ],
+        "yield_by_species": slaughter_yield_by_species,
         "monthly_trend": slaughter_trend,
+        "monthly_trend_by_species": slaughter_species_trend,
     }
 
     # -------------------------------------------------------------------------
@@ -308,6 +462,32 @@ def descriptive_summary(today=None, *, user=None):
         sales.values("purpose").annotate(count=Count("id"), animals=Sum("quantity"))
         .order_by("-animals")
     )
+    sales_by_species = [
+        {
+            "species": row["species"],
+            "animals": row["animals"] or 0,
+            "transactions": row["transactions"],
+            "recorded_value_php": (
+                float(row["recorded_value_php"])
+                if row["recorded_value_php"] is not None else None
+            ),
+            "priced_transactions": row["priced_transactions"],
+        }
+        for row in sales.annotate(species=Coalesce(
+            "livestock__livestock_type__name",
+            "batch__livestock_type__name",
+            Value("Unspecified"),
+            output_field=CharField(),
+        ))
+        .values("species")
+        .annotate(
+            animals=Sum("quantity"),
+            transactions=Count("id"),
+            recorded_value_php=Sum("total_price"),
+            priced_transactions=Count("id", filter=Q(total_price__isnull=False)),
+        )
+        .order_by("-animals", "species")
+    ]
     sales_monthly = list(
         sales.annotate(month=TruncMonth("sale_date"))
         .values("month").annotate(count=Count("id"), animals=Sum("quantity"), total_value=Sum("total_price"))
@@ -323,6 +503,183 @@ def descriptive_summary(today=None, *, user=None):
             "total_value_php": float(sales_trend_map.get(m, {}).get("total_value", 0.0) or 0.0),
         }
         for m in _months(start)
+    ]
+    sales_by_species_monthly = list(
+        sales.annotate(
+            month=TruncMonth("sale_date"),
+            species=Coalesce(
+                "livestock__livestock_type__name",
+                "batch__livestock_type__name",
+                Value("Unspecified"),
+                output_field=CharField(),
+            ),
+        )
+        .values("month", "species")
+        .annotate(
+            animals=Sum("quantity"),
+            transactions=Count("id"),
+            recorded_value_php=Sum("total_price"),
+        )
+        .order_by("month", "species")
+    )
+    sales_species_trend = [
+        {
+            "month": row["month"].isoformat(),
+            "label": f"{calendar.month_abbr[row['month'].month]} {row['month'].year}",
+            "species": row["species"],
+            "animals": row["animals"] or 0,
+            "transactions": row["transactions"],
+            "recorded_value_php": (
+                float(row["recorded_value_php"])
+                if row["recorded_value_php"] is not None else None
+            ),
+        }
+        for row in sales_by_species_monthly
+    ]
+    sales_by_barangay = list(
+        sales.annotate(
+            report_barangay_id=Coalesce(
+                "livestock__farmer__barangay_id",
+                "batch__farmer__barangay_id",
+            ),
+            report_barangay=Coalesce(
+                "livestock__farmer__barangay__barangay_name",
+                "batch__farmer__barangay__barangay_name",
+                Value("Unmapped"),
+                output_field=CharField(),
+            ),
+        )
+        .values("report_barangay_id", "report_barangay")
+        .annotate(
+            animals=Sum("quantity"),
+            transactions=Count("id"),
+            recorded_value_php=Sum("total_price"),
+            priced_transactions=Count("id", filter=Q(total_price__isnull=False)),
+        )
+        .order_by("report_barangay", "report_barangay_id")
+    )
+
+    # Start with every in-scope barangay, then merge approved event totals into it.
+    # Current heads are a snapshot; the other fields cover the selected 12-month period.
+    report_by_barangay = {}
+
+    def ensure_barangay_report_row(barangay_id, barangay_name):
+        if barangay_id not in report_by_barangay:
+            report_by_barangay[barangay_id] = {
+                "barangay_id": barangay_id,
+                "barangay": barangay_name or "Unmapped",
+                "registered_farmers": 0,
+                "current_heads": 0,
+                "production_outputs": [],
+                "farmer_meat_kg": 0.0,
+                "farmer_meat_records": 0,
+                "slaughter_heads": 0,
+                "slaughter_yield_kg": None,
+                "slaughter_records": 0,
+                "slaughter_yield_records": 0,
+                "animals_sold": 0,
+                "sale_transactions": 0,
+                "recorded_sale_value_php": None,
+                "priced_transactions": 0,
+                "disease_cases": 0,
+                "affected_heads": 0,
+                "mortality_records": 0,
+                "deaths": 0,
+                "vaccinated_heads": 0,
+                "vaccination_coverage_pct": 0.0,
+            }
+        return report_by_barangay[barangay_id]
+
+    for row in population["by_barangay"]:
+        report_row = ensure_barangay_report_row(row["barangay_id"], row["barangay"])
+        report_row["registered_farmers"] = row["registered_farmers"]
+        report_row["current_heads"] = row["heads"]
+    for row in farmer_meat_by_barangay:
+        report_row = ensure_barangay_report_row(row["barangay_id"], row["barangay"])
+        report_row["farmer_meat_kg"] = float(row["quantity_kg"] or 0)
+        report_row["farmer_meat_records"] = row["records"]
+    for row in report_production_by_barangay:
+        report_row = ensure_barangay_report_row(row["barangay_id"], row["barangay"])
+        report_row["production_outputs"].append({
+            "type": row["type"],
+            "unit": row["unit"],
+            "quantity": row["quantity"],
+        })
+    for row in slaughter_by_barangay:
+        report_row = ensure_barangay_report_row(row["report_barangay_id"], row["report_barangay"])
+        report_row["slaughter_heads"] = row["heads"] or 0
+        report_row["slaughter_yield_kg"] = (
+            float(row["carcass_weight_kg"])
+            if row["carcass_weight_kg"] is not None else None
+        )
+        report_row["slaughter_records"] = row["records"]
+        report_row["slaughter_yield_records"] = row["yield_records"]
+    for row in sales_by_barangay:
+        report_row = ensure_barangay_report_row(row["report_barangay_id"], row["report_barangay"])
+        report_row["animals_sold"] = row["animals"] or 0
+        report_row["sale_transactions"] = row["transactions"]
+        report_row["recorded_sale_value_php"] = (
+            float(row["recorded_value_php"])
+            if row["recorded_value_php"] is not None else None
+        )
+        report_row["priced_transactions"] = row["priced_transactions"]
+    for row in disease_by_barangay:
+        report_row = ensure_barangay_report_row(row["barangay_id"], row["barangay"])
+        report_row["disease_cases"] = row["cases"]
+        report_row["affected_heads"] = row["affected_heads"] or 0
+    for row in mortality_by_barangay:
+        report_row = ensure_barangay_report_row(row["barangay_id"], row["barangay"])
+        report_row["mortality_records"] = row["records"]
+        report_row["deaths"] = row["deaths"] or 0
+    for row in coverage:
+        report_row = ensure_barangay_report_row(row["barangay_id"], row["barangay"])
+        report_row["vaccinated_heads"] = row["vaccinated"]
+        report_row["vaccination_coverage_pct"] = row["coverage_pct"]
+    per_barangay_report = sorted(
+        report_by_barangay.values(),
+        key=lambda row: (row["barangay_id"] is None, row["barangay"].casefold()),
+    )
+
+    # The current ownership workflow marks the seller's animal SOLD only after
+    # a transfer is approved. Count one transfer row per animal, while preserving
+    # the certificate count for certificates that cover multiple animals.
+    ownership_transfers = scope_reviewer_queryset(
+        LivestockOwnershipTransfer.objects.all(), user
+    ).filter(
+        status=LivestockOwnershipTransfer.Status.APPROVED,
+        transfer_date__range=(start, today),
+    )
+    transfer_monthly = list(
+        ownership_transfers.annotate(month=TruncMonth("transfer_date"))
+        .values("month")
+        .annotate(animals=Count("id"), certificates=Count("transfer_certificate_number", distinct=True))
+        .order_by("month")
+    )
+    transfer_by_species_monthly = list(
+        ownership_transfers.annotate(month=TruncMonth("transfer_date"))
+        .values("month", "livestock__livestock_type__name")
+        .annotate(animals=Count("id"), certificates=Count("transfer_certificate_number", distinct=True))
+        .order_by("month", "livestock__livestock_type__name")
+    )
+    transfer_monthly_by_month = {row["month"]: row for row in transfer_monthly}
+    ownership_transfer_trend = [
+        {
+            "month": month.isoformat(),
+            "label": f"{calendar.month_abbr[month.month]} {month.year}",
+            "animals": transfer_monthly_by_month.get(month, {}).get("animals", 0),
+            "certificates": transfer_monthly_by_month.get(month, {}).get("certificates", 0),
+        }
+        for month in _months(start)
+    ]
+    ownership_transfer_species_trend = [
+        {
+            "month": row["month"].isoformat(),
+            "label": f"{calendar.month_abbr[row['month'].month]} {row['month'].year}",
+            "species": row["livestock__livestock_type__name"] or "Unknown",
+            "animals": row["animals"],
+            "certificates": row["certificates"],
+        }
+        for row in transfer_by_species_monthly
     ]
 
     surveillance = _series(disease_monthly, "affected_heads", start)
@@ -456,7 +813,12 @@ def descriptive_summary(today=None, *, user=None):
         "period": {"start": start.isoformat(), "end": today.isoformat()},
         "population": population,
         "production": {"records": sum(row["records"] for row in production_by_type),
-                       "by_type": production_by_type, "trend": production_trend, "by_barangay": production_by_barangay, "valuation": estimated_values},
+                       "by_type": production_by_type, "trend": production_trend,
+                       "farmer_meat_trend": farmer_meat_trend,
+                       "farmer_meat_by_species": farmer_meat_by_species,
+                       "farmer_meat_by_barangay": farmer_meat_by_barangay,
+                       "monthly_trend_by_species": production_species_trend,
+                       "by_barangay": production_by_barangay, "valuation": estimated_values},
         "disease": {"cases": disease_totals["cases"], "affected_heads": disease_totals["affected_heads"] or 0,
                     "trend": [{"month": row["month"].isoformat(), "cases": row["cases"], "affected_heads": row["affected_heads"] or 0} for row in disease_monthly],
                     "by_type": disease_by_type, "by_barangay": disease_by_barangay},
@@ -479,9 +841,16 @@ def descriptive_summary(today=None, *, user=None):
             "priced_sales": sale_totals["priced_sales"],
             "by_method": sales_by_method,
             "by_purpose": sales_by_purpose,
+            "by_species": sales_by_species,
+            "monthly_trend_by_species": sales_species_trend,
             "trend": sales_trend,
         },
+        "ownership_transfers": {
+            "monthly_trend": ownership_transfer_trend,
+            "monthly_trend_by_species": ownership_transfer_species_trend,
+        },
         "inspection": inspection_analytics,
+        "per_barangay_report": per_barangay_report,
     }
     return {
         "monthly_dairy_yield_l": milk_this_month["milk_l"] if milk_this_month else 0,

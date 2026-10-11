@@ -235,6 +235,12 @@ export interface AdminAnalyticsMetrics {
   barangayHerdDistribution: BarangayHerdChartData[];
   specieComposition: SpecieCompositionChartData[];
   monthlyProduction: MonthlyProductionChartData[];
+  slaughterYieldTrend: SlaughterTrendPoint[];
+  slaughterYieldBySpecies: SpeciesSlaughterTrendPoint[];
+  farmerMeatYieldTrend: FarmerMeatTrendPoint[];
+  productionBySpeciesTrend: SpeciesProductionTrendPoint[];
+  animalsSoldTrend: ApprovedTransferTrendPoint[];
+  animalsSoldBySpecies: SpeciesTransferTrendPoint[];
   surveillanceTrends: BiosecuritySurveillanceChartData[];
   sectorCompliance: SectorComplianceChartData[];
   vaccinationTotals: { vaccinated: number; total: number };
@@ -262,6 +268,43 @@ export interface ProductionSeriesPoint {
   meat_kg: number;
 }
 
+export interface SlaughterTrendPoint {
+  month: string;
+  label: string;
+  heads: number;
+  carcass_weight_kg: number;
+}
+
+export interface FarmerMeatTrendPoint {
+  month: string;
+  label: string;
+  quantity_kg: number;
+}
+
+export interface SpeciesProductionTrendPoint {
+  month: string;
+  label: string;
+  species: string;
+  production_type: string;
+  unit: string;
+  quantity: number;
+}
+
+export interface SpeciesSlaughterTrendPoint extends SlaughterTrendPoint {
+  species: string;
+}
+
+export interface ApprovedTransferTrendPoint {
+  month: string;
+  label: string;
+  animals: number;
+  certificates: number;
+}
+
+export interface SpeciesTransferTrendPoint extends ApprovedTransferTrendPoint {
+  species: string;
+}
+
 export interface SurveillanceSeriesPoint {
   month: string;
   label: string;
@@ -283,7 +326,21 @@ export interface VaccinationTotals {
 }
 
 export interface DashboardAnalytics {
-  descriptive: { population: PopulationSummary };
+  descriptive: {
+    population: PopulationSummary;
+    production?: {
+      farmer_meat_trend?: FarmerMeatTrendPoint[];
+      monthly_trend_by_species?: SpeciesProductionTrendPoint[];
+    };
+    slaughter?: {
+      monthly_trend?: SlaughterTrendPoint[];
+      monthly_trend_by_species?: SpeciesSlaughterTrendPoint[];
+    };
+    ownership_transfers?: {
+      monthly_trend?: ApprovedTransferTrendPoint[];
+      monthly_trend_by_species?: SpeciesTransferTrendPoint[];
+    };
+  };
   monthly_dairy_yield_l: number;
   year_to_date_l?: number;
   records_this_month?: number;
@@ -423,6 +480,12 @@ export function computeAdminAnalytics(summary?: DashboardAnalytics | null): Admi
     monthlyProduction: (summary?.production_series ?? []).map((row) => ({
       month: row.month, label: row.label, milk: row.milk_l, meat: row.meat_kg,
     })),
+    slaughterYieldTrend: summary?.descriptive.slaughter?.monthly_trend ?? [],
+    slaughterYieldBySpecies: summary?.descriptive.slaughter?.monthly_trend_by_species ?? [],
+    farmerMeatYieldTrend: summary?.descriptive.production?.farmer_meat_trend ?? [],
+    productionBySpeciesTrend: summary?.descriptive.production?.monthly_trend_by_species ?? [],
+    animalsSoldTrend: summary?.descriptive.ownership_transfers?.monthly_trend ?? [],
+    animalsSoldBySpecies: summary?.descriptive.ownership_transfers?.monthly_trend_by_species ?? [],
     surveillanceTrends: (summary?.surveillance_series ?? []).map((row) => ({
       month: row.month, label: row.label, reported: row.affected_heads ?? row.reported_heads ?? 0, deaths: row.deaths,
     })),
