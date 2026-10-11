@@ -175,22 +175,50 @@ export async function fetchAdminProductionRecords(): Promise<ProductionRecordIte
   throw new Error("Unexpected response: expected complete record array.");
 }
 
+type PaginatedList<T> = {
+  count: number;
+  results: T[];
+};
+
+// The livestock list APIs return every row when `page` is omitted. Read them
+// in bounded pages so the validation portal does not wait on one huge response.
+async function fetchAllLivestockPages<T>(endpoint: string): Promise<T[]> {
+  const pageSize = 100; // LivestockListPagination caps requests at 100 rows.
+  const records: T[] = [];
+  let page = 1;
+  let expectedCount: number | null = null;
+
+  while (expectedCount === null || records.length < expectedCount) {
+    const separator = endpoint.includes("?") ? "&" : "?";
+    const response = await municipalRead<PaginatedList<T>>(
+      `${endpoint}${separator}page=${page}&page_size=${pageSize}`,
+    );
+    const payload = response.data;
+
+    if (!payload || !Array.isArray(payload.results) || typeof payload.count !== "number") {
+      throw new Error("Unexpected paginated livestock response.");
+    }
+
+    expectedCount = payload.count;
+    records.push(...payload.results);
+    if (payload.results.length === 0) break;
+    page += 1;
+  }
+
+  return records;
+}
+
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {
   try {
-    const [invRes, batchRes] = await Promise.allSettled([
-      municipalRead("livestock/inventory/?include_inactive=true"),
-      municipalRead("livestock/batches/"),
+    const [inventory, batches] = await Promise.all([
+      fetchAllLivestockPages("livestock/inventory/?include_inactive=true"),
+      fetchAllLivestockPages("livestock/batches/"),
     ]);
-
-    for (const result of [invRes, batchRes]) {
-      if (result.status === "rejected") throw result.reason;
-      if (!Array.isArray(result.value.data)) throw new Error("Unexpected inventory response.");
-    }
 
     const results: ValidationInventoryItem[] = [];
 
-    if (invRes.status === "fulfilled" && Array.isArray(invRes.value.data)) {
-      invRes.value.data.forEach((item: any) => {
+    if (Array.isArray(inventory)) {
+      inventory.forEach((item: any) => {
         results.push({
           id: item.id,
           rawId: item.id,
@@ -224,8 +252,8 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
       });
     }
 
-    if (batchRes.status === "fulfilled" && Array.isArray(batchRes.value.data)) {
-      batchRes.value.data.forEach((b: any) => {
+    if (Array.isArray(batches)) {
+      batches.forEach((b: any) => {
         results.push({
           id: `batch-${b.id}`,
           rawId: b.id,
@@ -482,6 +510,9 @@ export function useAdminInventoryRecords() {
     staleTime: 30_000,
     gcTime: 15 * 60_000,
     refetchOnWindowFocus: false,
+    // A full inventory read is already several bounded requests; repeating the
+    // entire sequence automatically after a timeout can stall the page for minutes.
+    retry: false,
   });
 }
 
