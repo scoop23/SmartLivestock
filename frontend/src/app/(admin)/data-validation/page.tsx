@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
@@ -102,13 +102,12 @@ function AdminDataValidationContent() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Domain tab & filter states
-  const [activeDomain, setActiveDomain] = useState<ValidationDomain>("census");
-  useEffect(() => {
-    if (requestedDomain === "census" || requestedDomain === "inventory" ||
-      requestedDomain === "production" || requestedDomain === "incidents") {
-      setActiveDomain(requestedDomain);
-    }
-  }, [requestedDomain]);
+  const [activeDomain, setActiveDomain] = useState<ValidationDomain>(() =>
+    requestedDomain === "census" || requestedDomain === "inventory" ||
+    requestedDomain === "production" || requestedDomain === "incidents"
+      ? requestedDomain
+      : "census"
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ValidationStatus>("ALL");
   const [barangayFilter, setBarangayFilter] = useState<string>("ALL");
@@ -368,7 +367,9 @@ function AdminDataValidationContent() {
     census: censusSubmissions.filter((c) => (c.status || "").toUpperCase() === "VERIFIED").length,
     production: productionRecords.filter((p) => (p.status || "").toUpperCase() === "VERIFIED").length,
     inventory: inventoryRecords.filter((i) => (i.status || "").toUpperCase() === "VERIFIED").length,
-    incidents: incidents.filter((inc) => inc.status === "VERIFIED" || (inc.type === "inspection" && inc.status === "PENDING")).length,
+    // Only records whose stored status is VERIFIED belong in this badge.
+    // Pending inspections remain reviewable, but they are not SIBAT-verified.
+    incidents: incidents.filter((inc) => inc.status === "VERIFIED").length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
   const domainTotalCounts = useMemo(() => ({
@@ -990,10 +991,10 @@ function AdminDataValidationContent() {
             barangay: bgry,
             keyMetric: metric,
             currentRemarks: rec.reviewRemarks,
-            photoUrl: (rec as any).photoUrl || null,
-            photoName: (rec as any).photoName || null,
-            inspectorPhotoUrl: (rec as any).inspectorPhotoUrl || null,
-            inspectorPhotoName: (rec as any).inspectorPhotoName || null,
+            photoUrl: "photoUrl" in rec ? rec.photoUrl || null : null,
+            photoName: "photoName" in rec ? rec.photoName || null : null,
+            inspectorPhotoUrl: rec.kind === "incident" ? rec.inspectorPhotoUrl || null : null,
+            inspectorPhotoName: rec.kind === "incident" ? rec.inspectorPhotoName || null : null,
           });
         }}
       />
@@ -1008,10 +1009,17 @@ function AdminDataValidationContent() {
   );
 }
 
+function AdminDataValidationRoute() {
+  const searchParams = useSearchParams();
+
+  // Reinitialize route-derived state when a notification/deep link changes the query string.
+  return <AdminDataValidationContent key={searchParams.toString()} />;
+}
+
 export default function AdminDataValidationPage() {
   return (
     <Suspense fallback={<ValidationLoadingScreen />}>
-      <AdminDataValidationContent />
+      <AdminDataValidationRoute />
     </Suspense>
   );
 }
