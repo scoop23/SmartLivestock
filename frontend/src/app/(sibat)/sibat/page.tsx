@@ -10,6 +10,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
+import { Activity, ClipboardList, FileSpreadsheet } from "lucide-react";
+import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
 
 import { toast } from "sonner";
 
@@ -144,6 +146,10 @@ function SibatPortalContent() {
 
   // Clinical health and mortality review state.
 
+  // Include the signed-in reviewer's scope in the farmer-directory cache key.
+  // The directory stays idle until the finder dialog is opened.
+  const scopeKey = `${user?.email ?? "unknown"}:${user?.accessScope ?? ""}:${user?.assignedBarangayId ?? ""}`;
+
   const { records: healthRecords, isLoading: isLoadingHealth, isError: isHealthError, refetch: refetchHealth } = useClinicalHealthRecords();
   const [selectedHealthRecord, setSelectedHealthRecord] = useState<SibatValidationRecord | null>(null);
 
@@ -166,8 +172,7 @@ function SibatPortalContent() {
   // Production and inventory review state.
 
   const { submissions, isLoading: isLoadingSubmissions, isError: isSubmissionsError, refetch: refetchSubmissions } = useSibatSubmissions();
-  const scopeKey = `${user?.email ?? "unknown"}:${user?.accessScope ?? ""}:${user?.assignedBarangayId ?? ""}`;
-  const { data: farmers = [], isLoading: isLoadingFarmers, isError: isFarmersError, refetch: refetchFarmers } = useSibatFarmers(scopeKey);
+  const { data: farmers = [], isLoading: isLoadingFarmers, isError: isFarmersError, refetch: refetchFarmers } = useSibatFarmers(scopeKey, isFarmerFinderOpen);
   const [selectedSubmissionForReview, setSelectedSubmissionForReview] = useState<UnifiedSubmissionItem | null>(null);
   const attemptedReviewLinkRef = useRef<string | null>(null);
 
@@ -188,6 +193,8 @@ function SibatPortalContent() {
   // Census review state.
 
   const { data: censuses = [], isLoading: isLoadingCensus, isError: isCensusError, refetch: refetchCensus } = useCensusSubmission();
+  const isInitialQueueLoading = isLoadingHealth || isLoadingSubmissions || isLoadingCensus;
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialQueueLoading);
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
   const censusIdParam = searchParams.get("censusId");
   const notificationCensus = !isLoadingCensus && censusIdParam
@@ -375,7 +382,13 @@ function SibatPortalContent() {
   const handleRefreshQueues = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refetchHealth(), refetchSubmissions(), refetchCensus(), refetchFarmers()]);
+      // Refresh the directory only when the user is currently using it.
+      await Promise.all([
+        refetchHealth(),
+        refetchSubmissions(),
+        refetchCensus(),
+        ...(isFarmerFinderOpen ? [refetchFarmers()] : []),
+      ]);
     } finally {
       setIsRefreshing(false);
     }
@@ -389,6 +402,52 @@ function SibatPortalContent() {
   const pendingProdCount = submissions.filter((s) => (s.sourceType === "PRODUCTION" || s.sourceType === "CALVING" || s.sourceType === "SALE") && s.status === "PENDING").length;
   const pendingInvCount = submissions.filter((s) => (s.sourceType === "INVENTORY" || s.sourceType === "BATCH") && s.status === "PENDING").length;
   const hasDataError = isHealthError || isSubmissionsError || isCensusError || isFarmersError;
+
+
+  if (isInitialQueueLoading || keepLoadingScreenMounted) {
+    return (
+      <>
+        <PageHeader
+          title="Field Inspection Center"
+          subtitle="Review farmer records, assist with corrections, and forward checked submissions to MAO."
+          variant="sibat"
+          maxWidthClass="w-full"
+        />
+        <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-5 lg:px-8 lg:py-6 2xl:px-10">
+          <ValidationLoadingScreen
+            isLoading={isInitialQueueLoading}
+            title="Loading SIBAT Field Inspection Center"
+            subtitle="Connecting your authorized production, livestock, health, mortality, and census review queues."
+            badgeLabel="SIBAT Queue Sync"
+            authorityText="SIBAT Field Review · Barangay-scoped records"
+            items={[
+              {
+                id: "submissions",
+                label: "Farmer Submissions",
+                sublabel: "Production, livestock, sales and calving",
+                icon: <ClipboardList className="size-4" />,
+                loaded: !isLoadingSubmissions,
+              },
+              {
+                id: "health",
+                label: "Health & Mortality",
+                sublabel: "Disease and field declarations",
+                icon: <Activity className="size-4" />,
+                loaded: !isLoadingHealth,
+              },
+              {
+                id: "census",
+                label: "Barangay Census",
+                sublabel: "Quarterly livestock surveys",
+                icon: <FileSpreadsheet className="size-4" />,
+                loaded: !isLoadingCensus,
+              },
+            ]}
+          />
+        </div>
+      </>
+    );
+  }
 
 
   return (
@@ -649,7 +708,14 @@ export default function SibatPortal() {
 
   return (
 
-    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Field Inspection Center...</div>}>
+    <Suspense fallback={
+      <ValidationLoadingScreen
+        title="Opening SIBAT Field Inspection Center"
+        subtitle="Preparing the authorized review workspace."
+        badgeLabel="SIBAT Workspace"
+        authorityText="SIBAT Field Review · Barangay-scoped records"
+      />
+    }>
 
       <SibatPortalContent />
 

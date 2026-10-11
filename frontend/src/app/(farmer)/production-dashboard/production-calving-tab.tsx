@@ -284,6 +284,7 @@ export default function ProductionCalvingTab({
           if (!open) setResubmitRecord(null);
         }}
         terms={terms}
+        species={selectedSpecies}
         record={resubmitRecord}
         onSubmit={(payload) => {
           if (resubmitRecord) {

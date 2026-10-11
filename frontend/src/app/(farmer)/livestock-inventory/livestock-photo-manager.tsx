@@ -28,6 +28,9 @@ export function LivestockPhotoManager({
   allowAvatar = true,
   compactOnMobile = false,
   triggerImage = false,
+  triggerImageSizeClassName = "size-16 sm:size-20",
+  triggerImageShapeClassName = "rounded-2xl",
+  triggerImageFallbackClassName = "text-3xl sm:text-4xl",
   onSave,
 }: {
   title: string;
@@ -39,6 +42,9 @@ export function LivestockPhotoManager({
   allowAvatar?: boolean;
   compactOnMobile?: boolean;
   triggerImage?: boolean;
+  triggerImageSizeClassName?: string;
+  triggerImageShapeClassName?: string;
+  triggerImageFallbackClassName?: string;
   onSave: (change: LivestockPhotoChange) => Promise<void>;
 }) {
   const defaultAvatar = getAvatarById(null, species);
@@ -97,12 +103,12 @@ export function LivestockPhotoManager({
               onClick={() => setOpen(true)}
               title={`Change ${subject} photo`}
               aria-label={`Change ${subject} photo`}
-              className="block cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900"
+              className={`block cursor-pointer ${triggerImageShapeClassName} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-900`}
             >
               {currentPhotoUrl ? (
-                <img src={currentPhotoUrl} alt={subject} className="size-16 rounded-2xl border-2 border-emerald-400 object-cover shadow-md sm:size-20" />
+                <img src={currentPhotoUrl} alt={subject} className={`${triggerImageSizeClassName} ${triggerImageShapeClassName} border-2 border-emerald-400 object-cover shadow-md`} />
               ) : (
-                <div className={`flex size-16 items-center justify-center rounded-2xl border-2 border-white/20 bg-gradient-to-br text-3xl shadow-md sm:size-20 sm:text-4xl ${selectedAvatar.bgGradient}`}>
+                <div className={`flex ${triggerImageSizeClassName} items-center justify-center ${triggerImageShapeClassName} border-2 border-white/20 bg-gradient-to-br shadow-md ${triggerImageFallbackClassName} ${selectedAvatar.bgGradient}`}>
                   {selectedAvatar.emoji}
                 </div>
               )}
@@ -114,7 +120,7 @@ export function LivestockPhotoManager({
               onClick={() => setOpen(true)}
               title={`Change ${subject} photo`}
               aria-label={`Change ${subject} photo`}
-              className="absolute bottom-0 right-0 z-10 size-8 rounded-full border-2 border-emerald-700 bg-white/95 text-emerald-800 opacity-60 shadow-md transition-opacity hover:bg-white hover:opacity-100 focus-visible:opacity-100 sm:size-9 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 [@media(hover:hover)]:group-focus-within:opacity-60"
+              className="absolute bottom-1 right-1 z-10 size-9 rounded-full border-2 border-emerald-700 bg-white/95 text-emerald-800 opacity-60 shadow-md transition-opacity hover:bg-white hover:opacity-100 focus-visible:opacity-100 sm:size-9 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 [@media(hover:hover)]:group-focus-within:opacity-60"
             >
               <Camera className="size-3 sm:size-4" />
             </Button>

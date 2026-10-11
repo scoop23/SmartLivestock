@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import {
   Dialog,
   DialogContent,
@@ -339,6 +340,10 @@ export default function BatchOverviewPage() {
 
     if (!newAnimalData.tagNumber.trim()) {
       toast.error("Ear Tag Number is required.");
+      return;
+    }
+    if (!newAnimalData.breed.trim()) {
+      toast.error("Breed is required.");
       return;
     }
 
@@ -997,15 +1002,14 @@ export default function BatchOverviewPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Breed</Label>
-                <Input
+              <LivestockBreedField
+                  id="batch-animal-breed"
+                  species={currentBatch?.species}
                   value={newAnimalData.breed}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, breed: e.target.value })}
-                  className="rounded-xl border-slate-300"
+                  onChange={(breed) => setNewAnimalData({ ...newAnimalData, breed })}
                   required
-                />
-              </div>
+                  className="font-bold"
+              />
 
               <div className="space-y-1.5">
                 <Label className="font-bold text-slate-700">Weight (kg, optional)</Label>

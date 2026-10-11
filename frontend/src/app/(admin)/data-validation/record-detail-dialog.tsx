@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Label } from "@/components/ui/label";
 import { getIncidentTypeBadge, IncidentType } from "./validation-analytics";
 import type { InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
@@ -736,15 +737,15 @@ export function RecordDetailDialog({
                           className="h-8 text-xs rounded-xl mt-1 font-mono"
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs font-bold text-slate-600">Breed</Label>
-                        <Input
+                      <LivestockBreedField
+                          id="mao-review-breed"
+                          species={record.livestockType}
+                          label="Breed"
                           value={editBreed}
-                          onChange={(e) => setEditBreed(e.target.value)}
-                          placeholder="Large White"
-                          className="h-8 text-xs rounded-xl mt-1"
+                          onChange={setEditBreed}
+                          placeholder="Select breed"
+                          controlClassName="h-8 rounded-xl text-xs"
                         />
-                      </div>
                       <div>
                         <Label className="text-xs font-bold text-slate-600">Sex</Label>
                         <select

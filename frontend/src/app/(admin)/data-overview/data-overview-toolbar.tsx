@@ -128,7 +128,7 @@ const DOMAIN_PILLARS: DomainPillar[] = [
       },
       {
         id: "sales",
-        label: "Auction & Trade",
+        label: "Trade Records",
         emoji: "💰",
         icon: TrendingUp,
         activeColorClass: "bg-amber-700 text-white shadow-xs",

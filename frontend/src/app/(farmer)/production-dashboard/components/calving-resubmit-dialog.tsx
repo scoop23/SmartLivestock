@@ -23,6 +23,7 @@ import {
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 import type { CalvingRecordItem } from "../production-calving-tab";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 
 export interface EditableCalvingFields {
   calf_tag: string;
@@ -39,6 +40,7 @@ interface CalvingResubmitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   terms: BirthingSpeciesTerminology;
+  species?: string | null;
   record: CalvingRecordItem | null;
   onSubmit: (payload: EditableCalvingFields) => void;
   isSubmitting: boolean;
@@ -48,6 +50,7 @@ export default function CalvingResubmitDialog({
   open,
   onOpenChange,
   terms,
+  species,
   record,
   onSubmit,
   isSubmitting,
@@ -228,17 +231,16 @@ export default function CalvingResubmitDialog({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">
-              Offspring Breed
-            </Label>
-            <Input
-              placeholder="e.g. Holstein Cross / Boer / Landrace"
+            <LivestockBreedField
+              id="resubmit-offspring-breed"
+              species={species}
+              label="Offspring Breed"
               value={breed}
-              onChange={(e) => setBreed(e.target.value)}
+              onChange={setBreed}
+              placeholder="Select offspring breed"
+              customPlaceholder="Enter offspring breed"
               className="text-xs"
             />
-          </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700">

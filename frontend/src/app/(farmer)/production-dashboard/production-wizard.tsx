@@ -65,6 +65,8 @@ interface ProductionWizardProps {
   onClose: () => void;
   mode: WizardMode;
   editingRecord: Partial<ProductionRecordItem> | null;
+  /** Start at the details stage when the caller already fixed the animal and production type. */
+  profileMode?: boolean;
 }
 
 const STEP_LABELS = ["Livestock", "Production", "Details", "Review"];
@@ -180,8 +182,11 @@ function ProductionWizardContent({
   onClose,
   mode,
   editingRecord,
+  profileMode = false,
 }: ProductionWizardProps) {
-  const [step, setStep] = useState(mode === "edit" ? 2 : 0);
+  const firstStep = profileMode || mode === "edit" ? 2 : 0;
+  const minimumStep = profileMode ? 2 : 0;
+  const [step, setStep] = useState(firstStep);
   const [selectOpen, setSelectOpen] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
   const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>(() =>
@@ -284,7 +289,7 @@ function ProductionWizardContent({
   };
 
   const handleNext = () => setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1));
-  const handleBack = () => setStep((s) => Math.max(s - 1, 0));
+  const handleBack = () => setStep((s) => Math.max(s - 1, minimumStep));
 
   const handleTypePick = (t: ProductionType) => {
     onTypeChange(t);
@@ -323,20 +328,25 @@ function ProductionWizardContent({
             </div>
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-lg sm:text-xl md:text-2xl font-black text-white leading-tight break-words">
-                {mode === "edit" ? "Correct Production Entry" : "New Production Entry"}
+                {profileMode
+                  ? `Record ${meta.label} for ${clickedInventory?.tagNumber || "this livestock"}`
+                  : mode === "edit" ? "Correct Production Entry" : "New Production Entry"}
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm text-white/80 mt-1 leading-normal break-words">
                 {mode === "edit"
                   ? "Update the returned details, review them, and resubmit to SIBAT."
-                  : "Reporting is optional. Enter production information you have recorded; SIBAT and MAO will review your submission."}
+                  : profileMode
+                    ? "Enter this animal’s production details, review the record, then submit it for review."
+                    : "Reporting is optional. Enter production information you have recorded; SIBAT and MAO will review your submission."}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-5 md:p-7">
-          <div className="grid grid-cols-4 gap-1 sm:gap-2.5 mb-4 sm:mb-5">
-            {STEP_LABELS.map((label, i) => {
+          <div className={cn("grid gap-1 sm:gap-2.5 mb-4 sm:mb-5", profileMode ? "grid-cols-2" : "grid-cols-4")}>
+            {(profileMode ? ["Details", "Review"] : STEP_LABELS).map((label, visibleIndex) => {
+              const i = profileMode ? visibleIndex + 2 : visibleIndex;
               const isActive = i === step;
               const isDone = i < step;
               return (
@@ -366,7 +376,7 @@ function ProductionWizardContent({
                         isActive || isDone ? "text-slate-900" : "text-slate-400",
                       )}
                     >
-                      <span className="sm:hidden">{STEP_SHORT_LABELS[i]}</span>
+                      <span className="sm:hidden">{profileMode ? (visibleIndex === 0 ? "Details" : "Review") : STEP_SHORT_LABELS[i]}</span>
                       <span className="hidden sm:inline">{label}</span>
                     </span>
                   </div>
@@ -401,7 +411,7 @@ function ProductionWizardContent({
                     : typeTitle}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5 break-words">
-                Step {step + 1} of {STEP_LABELS.length} · Complete the information below
+                Step {profileMode ? step - 1 : step + 1} of {profileMode ? 2 : STEP_LABELS.length} · Complete the information below
               </p>
             </div>
           </div>
@@ -696,7 +706,7 @@ function ProductionWizardContent({
           {step < 3 && (
             <div className="flex items-center justify-between gap-2 sm:gap-3 mt-4 sm:mt-5 pt-3.5 sm:pt-4 border-t border-slate-200">
               <div className="min-w-[80px] sm:min-w-[88px]">
-              {step > 0 && (
+              {step > minimumStep && (
                 <Button
                   type="button"
                   variant="ghost"

@@ -34,6 +34,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
 import {
@@ -102,6 +103,8 @@ export function RoleAwareGISContainer({
   const [gisData, setGisData] = useState<GISTelemetryResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [showInitialLoadingScreen, setShowInitialLoadingScreen] = useState(true);
+  const [loadingScreenPortalRoot, setLoadingScreenPortalRoot] = useState<HTMLElement | null>(null);
 
   // Active layer & perspective states
   const [activeLayer, setActiveLayer] = useState<MapLayer>('cattle');
@@ -177,8 +180,20 @@ export function RoleAwareGISContainer({
   }, [activeLayer]);
 
   useEffect(() => {
+    setLoadingScreenPortalRoot(document.body);
+  }, []);
+
+  useEffect(() => {
     fetchGISTelemetry();
   }, [fetchGISTelemetry]);
+
+  // Keep the first-load screen mounted briefly after the request ends so its opacity can fade out.
+  // Later refreshes keep using the small syncing indicator and do not cover the interactive map.
+  useEffect(() => {
+    if (isLoading || !showInitialLoadingScreen) return;
+    const timeout = window.setTimeout(() => setShowInitialLoadingScreen(false), 700);
+    return () => window.clearTimeout(timeout);
+  }, [isLoading, showInitialLoadingScreen]);
 
   /**
    * DATA FLOW STEP 2: Meteorological Wind Data Integration
@@ -543,6 +558,30 @@ export function RoleAwareGISContainer({
           </div>
         )}
       </div>
+      {showInitialLoadingScreen && loadingScreenPortalRoot
+        ? createPortal(
+            <div
+              role="status"
+              aria-live="polite"
+              style={{ zIndex: 2_147_483_647 }}
+              className={`fixed inset-0 flex items-center justify-center bg-slate-950 text-white transition-opacity duration-700 ease-out ${isLoading ? "opacity-100" : "pointer-events-none opacity-0"}`}
+            >
+              <div className="flex flex-col items-center gap-4 px-6 text-center">
+                <div className="relative flex size-16 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10 shadow-[0_0_48px_rgba(16,185,129,0.18)]">
+                  <Loader2 className="size-8 animate-spin text-emerald-300" />
+                </div>
+                <div>
+                  <p className="text-lg font-black tracking-wide">Loading GIS map</p>
+                  <p className="mt-1 text-sm text-slate-300">Preparing barangay boundaries and map data…</p>
+                </div>
+                <div className="h-1 w-44 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full w-2/5 animate-pulse rounded-full bg-emerald-400" />
+                </div>
+              </div>
+            </div>,
+            loadingScreenPortalRoot,
+          )
+        : null}
     </div>
   );
 }

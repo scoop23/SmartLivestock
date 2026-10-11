@@ -23,6 +23,7 @@ import {
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 
 interface BirthingRegistrationDialogProps {
   open: boolean;
@@ -62,12 +63,11 @@ export default function BirthingRegistrationDialog({
   const [breed, setBreed] = useState("");
   const [calvingEase, setCalvingEase] = useState("Normal / Unassisted");
   const [notes, setNotes] = useState("");
+  const selectedDam = femaleLivestock.find((item) => String(item.id) === damId);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!damId) return;
-
-    const selectedDam = femaleLivestock.find((i) => String(i.id) === damId);
 
     onSubmit({
       dam: Number(damId),
@@ -240,17 +240,16 @@ export default function BirthingRegistrationDialog({
           </div>
 
           {/* Breed */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">
-              Offspring Breed
-            </Label>
-            <Input
-              placeholder="e.g. Holstein Cross / Boer / Landrace"
+          <LivestockBreedField
+              id="offspring-breed"
+              species={selectedDam?.livestockTypeName}
+              label="Offspring Breed"
               value={breed}
-              onChange={(e) => setBreed(e.target.value)}
+              onChange={setBreed}
+              placeholder="Select offspring breed"
+              customPlaceholder="Enter offspring breed"
               className="text-xs"
-            />
-          </div>
+          />
 
           {/* Notes */}
           <div className="space-y-1.5">

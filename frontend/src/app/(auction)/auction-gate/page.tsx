@@ -9,6 +9,7 @@ import type { RegisteredLivestockLookup } from "../auction-inspections/auction-a
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import api from "@/lib/axios";
 import { toast } from "sonner";
 
@@ -26,10 +27,15 @@ export default function AuctionGatePage() {
   const [farmers, setFarmers] = useState<FarmerOption[]>([]);
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerOption | null>(null);
   const [types, setTypes] = useState<TypeOption[]>([]);
+  const [gateLivestockTypeId, setGateLivestockTypeId] = useState("");
+  const [gateBreed, setGateBreed] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.get<TypeOption[]>("livestock/livestock_types/").then((response) => setTypes(response.data)).catch(() => toast.error("Could not load livestock types."));
+    api.get<TypeOption[]>("livestock/livestock_types/").then((response) => {
+      setTypes(response.data);
+      setGateLivestockTypeId(String(response.data[0]?.id ?? ""));
+    }).catch(() => toast.error("Could not load livestock types."));
   }, []);
 
   useEffect(() => {
@@ -94,6 +100,7 @@ export default function AuctionGatePage() {
       const response = await api.post<{ id: number; tag_number: string; livestock_type: string; farmer: string; ownership_certificate_number: string }>("livestock/gate-registrations/", {
         ...values,
         farmer: selectedFarmer.id,
+        breed: gateBreed,
       });
       const verified = await api.post<CountedAnimal>("livestock/gate-verifications/", {
         livestock: response.data.id,
@@ -103,6 +110,7 @@ export default function AuctionGatePage() {
       setAnimals((current) => current.some((animal) => animal.id === verified.data.id) ? current : [...current, verified.data]);
       form.reset();
       setSelectedFarmer(null);
+      setGateBreed("");
       setFarmerSearch("");
       setFarmers([]);
       await queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -138,10 +146,10 @@ export default function AuctionGatePage() {
         {selectedFarmer && <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-emerald-800"><CheckCircle2 className="size-4" /> Selected owner: {selectedFarmer.name} ({selectedFarmer.barangay})</p>}
         <form onSubmit={registerAtGate} className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2"><Label htmlFor="gate-certificate">Paper ownership certificate number</Label><Input id="gate-certificate" name="ownership_certificate_number" required maxLength={100} /></div>
-          <div className="space-y-2"><Label htmlFor="gate-type">Livestock type</Label><select id="gate-type" name="livestock_type" required className="h-10 w-full rounded-md border bg-white px-3">{types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></div>
+          <div className="space-y-2"><Label htmlFor="gate-type">Livestock type</Label><select id="gate-type" name="livestock_type" value={gateLivestockTypeId} onChange={(event) => setGateLivestockTypeId(event.target.value)} required className="h-10 w-full rounded-md border bg-white px-3">{types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></div>
           <div className="space-y-2"><Label htmlFor="gate-tag">Tag number (optional)</Label><Input id="gate-tag" name="tag_number" maxLength={50} /></div>
           <div className="space-y-2"><Label htmlFor="gate-sex">Sex</Label><select id="gate-sex" name="sex" required className="h-10 w-full rounded-md border bg-white px-3"><option value="UNKNOWN">Unknown</option><option value="MALE">Male</option><option value="FEMALE">Female</option></select></div>
-          <div className="space-y-2"><Label htmlFor="gate-breed">Breed (optional)</Label><Input id="gate-breed" name="breed" maxLength={50} /></div>
+          <LivestockBreedField id="gate-breed" species={types.find((type) => String(type.id) === gateLivestockTypeId)?.name} value={gateBreed} onChange={setGateBreed} label="Breed (optional)" />
           <div className="flex items-end"><Button type="submit" disabled={saving || !selectedFarmer} className="min-h-10 w-full bg-amber-700 hover:bg-amber-800">{saving ? "Recording…" : "Record gate certificate and animal"}</Button></div>
         </form>
       </section>

@@ -943,11 +943,16 @@ export async function fetchScopedSibatFarmers(): Promise<FarmerOptionItem[]> {
   return [...byId.values()].sort((a, b) => a.farmerName.localeCompare(b.farmerName));
 }
 
-export function useSibatFarmers(scopeKey: string) {
+export function useSibatFarmers(scopeKey: string, enabled = true) {
   return useQuery({
     queryKey: ["sibat-farmers", scopeKey],
     queryFn: fetchScopedSibatFarmers,
-    staleTime: 60_000,
+    // The directory is only needed by the farmer finder, so callers can defer
+    // its barangay + farmer requests until that dialog is actually opened.
+    enabled,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

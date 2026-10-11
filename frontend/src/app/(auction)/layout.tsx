@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
-import MobileNavAuction from "@/app/components/mobilenavauction";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/components/ui/utils";
@@ -44,11 +43,9 @@ export default function AuctionLayout({
         onLogout={logout}
       />
 
-      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto pb-16 md:pb-0")}>
+      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto")}>
         {children}
       </main>
-
-      <MobileNavAuction />
 
       <Toaster />
     </div>

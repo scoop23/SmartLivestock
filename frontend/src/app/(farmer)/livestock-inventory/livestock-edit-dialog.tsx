@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import {
   Select,
   SelectContent,
@@ -277,16 +278,14 @@ export default function LivestockEditDialog({
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="editBreed">Breed</Label>
-                  <Input
+                <LivestockBreedField
                     id="editBreed"
-                    placeholder="e.g. Brahman, Holstein"
+                    species={form.livestockType}
                     value={form.breed}
-                    onChange={(e) => set({ breed: e.target.value })}
+                    onChange={(breed) => set({ breed })}
                     required
-                  />
-                </div>
+                    placeholder="Select a breed"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

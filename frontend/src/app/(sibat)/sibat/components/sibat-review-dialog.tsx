@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,20 @@ interface SibatReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReviewSuccess?: () => void;
+}
+
+function getReviewErrorMessage(error: unknown): string | null {
+  const responseData = (error as {
+    response?: { data?: Record<string, unknown> };
+  })?.response?.data;
+  if (!responseData) return null;
+
+  for (const field of ["remarks", "status", "error", "detail"]) {
+    const value = responseData[field];
+    if (typeof value === "string") return value;
+    if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  }
+  return null;
 }
 
 function AnimalPhoto({ submission }: { submission: UnifiedSubmissionItem }) {
@@ -184,7 +199,9 @@ export default function SibatReviewDialog({
         },
         onError: (err) => {
           console.error("Failed to submit review action:", err);
-          toast.error("Failed to update status. Please try again.");
+          toast.error("Failed to update status.", {
+            description: getReviewErrorMessage(err) || "Please check the review details and try again.",
+          });
         },
       }
     );
@@ -311,15 +328,15 @@ export default function SibatReviewDialog({
                             className="h-7 text-xs rounded-lg mt-0.5"
                           />
                         </div>
-                        <div>
-                          <Label className="text-[10px] font-bold text-slate-600">Breed</Label>
-                          <Input
+                        <LivestockBreedField
+                            id="sibat-review-breed"
+                            species={submission.livestockTypeName}
+                            label="Breed"
                             value={editBreed}
-                            onChange={(e) => setEditBreed(e.target.value)}
-                            placeholder="e.g. Large White"
-                            className="h-7 text-xs rounded-lg mt-0.5"
+                            onChange={setEditBreed}
+                            placeholder="Select breed"
+                            controlClassName="h-7 rounded-lg text-xs"
                           />
-                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -632,7 +649,7 @@ export default function SibatReviewDialog({
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700 flex items-center justify-between">
                 <span>{isPending ? "SIBAT Field Verification Remarks" : "Reviewer Remarks"}</span>
-                {isPending && <span className="text-[10px] text-slate-400 font-normal">Optional</span>}
+                {isPending && <span className="text-[10px] text-slate-500 font-normal">Required to return · Optional to verify</span>}
               </Label>
               <Textarea
                 placeholder="Enter field observation notes, ear tag confirmation, or validation remarks..."
@@ -769,7 +786,7 @@ export default function SibatReviewDialog({
                 type="button"
                 variant="outline"
                 onClick={() => handleReviewAction("SUBJECT_TO_REVISION")}
-                disabled={reviewMutation.isPending}
+                disabled={reviewMutation.isPending || !remarks.trim()}
                 className="border-rose-300 text-rose-900 hover:bg-rose-50 font-bold text-xs rounded-xl gap-1.5 flex-1 sm:flex-initial"
               >
                 <RotateCcw className="size-3.5 text-rose-700" />

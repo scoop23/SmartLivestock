@@ -35,6 +35,8 @@ import {
   Dna,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
+import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +66,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   LineChart,
@@ -98,7 +99,12 @@ import {
   getBirthingTerminology,
   type CalvingRecordItem,
 } from "@/app/(farmer)/production-dashboard/production-calving-tab";
-import { getProductionTypesForLivestock } from "@/app/(farmer)/production-dashboard/production-wizard";
+import ProductionWizard, {
+  getProductionTypesForLivestock,
+  type ProductionPayload,
+} from "@/app/(farmer)/production-dashboard/production-wizard";
+import type { ProductionFormState } from "@/app/(farmer)/production-dashboard/production-form-fields";
+import type { ProductionType } from "@/app/(farmer)/production-dashboard/production-analytics";
 
 const PRODUCTION_TYPE_CODES = {
   milk: "MILK",
@@ -142,6 +148,16 @@ interface ApiProductionRecord {
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
   created_at: string;
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const data = (error as { response?: { data?: unknown } })?.response?.data;
+  if (!data || typeof data !== "object") return fallback;
+
+  const messages = Object.values(data as Record<string, unknown>)
+    .flatMap((value) => Array.isArray(value) ? value : [value])
+    .filter((value): value is string => typeof value === "string");
+  return messages.join(" ") || fallback;
 }
 
 interface ApiWeightRecord {
@@ -503,22 +519,28 @@ export default function LivestockDetailPage() {
   const [weighNotes, setWeighNotes] = useState("Routine weigh check");
 
   // Form States: Production
-  const [prodType, setProdType] = useState<"MILK" | "MEAT" | "EGGS" | "WOOL">(
-    (activeItem?.livestockTypeName || "").toLowerCase().includes("cattle") ? "MILK" : "MEAT"
-  );
   const availableProductionTypes = useMemo(
     () => getProductionTypesForLivestock(activeItem?.livestockTypeName).map((type) => PRODUCTION_TYPE_CODES[type]),
     [activeItem?.livestockTypeName],
   );
+  const [profileProductionType, setProfileProductionType] = useState<ProductionType>("milk");
+  const [profileProductionForm, setProfileProductionForm] = useState<ProductionFormState>({});
+  const [productionWizardResetSignal, setProductionWizardResetSignal] = useState(0);
   const openProductionDialog = () => {
     if (availableProductionTypes.length > 0) {
-      setProdType(availableProductionTypes.includes("WOOL") ? "WOOL" : availableProductionTypes[0]);
+      const defaultType = availableProductionTypes.includes("MILK") ? "MILK" : availableProductionTypes[0];
+      setProfileProductionType(defaultType.toLowerCase() as ProductionType);
     }
+    setProfileProductionForm({
+      prodDate: localCalendarDateToday(),
+      milkTime: "Morning",
+      collectionTime: "Morning",
+      meatPurpose: "Auction / Market Sale",
+      notes: "",
+    });
+    setProductionWizardResetSignal((value) => value + 1);
     setIsProductionDialogOpen(true);
   };
-  const [prodQuantity, setProdQuantity] = useState("10.0");
-  const [prodDate, setProdDate] = useState(new Date().toISOString().split("T")[0]);
-  const [prodNotes, setProdNotes] = useState("Daily yield collection");
 
   // Form States: Calving / Birthing
   const [newCalfData, setNewCalfData] = useState({
@@ -526,6 +548,7 @@ export default function LivestockDetailPage() {
     sex: "FEMALE" as "FEMALE" | "MALE",
     birthWeight: "",
     sireTag: "",
+    breed: "",
     date: new Date().toISOString().split("T")[0],
     ease: "Normal / Unassisted",
     notes: "",
@@ -593,41 +616,10 @@ export default function LivestockDetailPage() {
       setIsProductionDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
     },
-    onError: (err: any) => {
-      const msg =
-        err.response?.data?.error ||
-        err.response?.data?.quantity?.[0] ||
-        err.response?.data?.non_field_errors?.[0] ||
-        "Failed to save production record.";
-      toast.error(msg);
+    onError: (error: unknown) => {
+      toast.error(getApiErrorMessage(error, "Failed to save production record."));
     },
   });
-
-  const handleAddProduction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeItem) return;
-    const qty = parseFloat(prodQuantity);
-    if (isNaN(qty) || qty <= 0) {
-      toast.error("Please enter a valid production amount.");
-      return;
-    }
-
-    const unit =
-      prodType === "MILK"
-        ? "LITERS"
-        : prodType === "EGGS"
-          ? "PIECES"
-          : "KILOGRAMS";
-
-    logProductionMutation.mutate({
-      livestock: Number(activeItem.id),
-      production_type: prodType,
-      quantity: qty,
-      unit: unit,
-      record_date: prodDate,
-      notes: prodNotes.trim() || undefined,
-    });
-  };
 
   // 3. Save Calving Record -> POST /api/production/calving/
   const recordCalvingMutation = useMutation({
@@ -657,13 +649,14 @@ export default function LivestockDetailPage() {
         sex: "FEMALE",
         birthWeight: "",
         sireTag: "",
+        breed: "",
         date: new Date().toISOString().split("T")[0],
         ease: "Normal / Unassisted",
         notes: "",
       });
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.error || err.response?.data?.non_field_errors?.[0] || `Failed to record ${terms.eventName.toLowerCase()} details.`;
+      const msg = err.response?.data?.calving_date?.[0] || err.response?.data?.error || err.response?.data?.non_field_errors?.[0] || `Failed to record ${terms.eventName.toLowerCase()} details.`;
       toast.error(msg);
     },
   });
@@ -671,6 +664,10 @@ export default function LivestockDetailPage() {
   const handleRecordCalving = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeItem) return;
+    if (newCalfData.date > localCalendarDateToday()) {
+      toast.error("Calving / birth date cannot be in the future.");
+      return;
+    }
     const generatedTag = newCalfData.tag.trim() || `${terms.offspringName.toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
     recordCalvingMutation.mutate({
@@ -680,7 +677,7 @@ export default function LivestockDetailPage() {
       birth_weight: newCalfData.birthWeight ? parseFloat(newCalfData.birthWeight) : null,
       sire_tag: newCalfData.sireTag.trim(),
       calving_date: newCalfData.date,
-      breed: activeItem.breed || "Standard Breed",
+      breed: newCalfData.breed.trim() || activeItem.breed || "Standard Breed",
       calving_ease: newCalfData.ease,
       notes: newCalfData.notes.trim(),
     });
@@ -717,23 +714,39 @@ export default function LivestockDetailPage() {
 
   // Loading state
   const isGlobalLoading = isInventoryLoading || isDirectLoading;
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isGlobalLoading);
 
-  if (isGlobalLoading) {
+  if (isGlobalLoading || keepLoadingScreenMounted) {
     return (
       <>
         <PageHeader
-          title="Loading Animal Details..."
-          subtitle="Loading animal details and records..."
+          title="Livestock Profile"
+          subtitle="Individual animal details and production records"
           variant="farmer"
           maxWidthClass="w-full"
         />
-        <div className="p-4 md:p-8 w-full space-y-6 max-w-7xl mx-auto">
-          <Skeleton className="h-64 w-full rounded-3xl" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Skeleton className="h-44 rounded-3xl" />
-            <Skeleton className="h-44 rounded-3xl" />
-            <Skeleton className="h-44 rounded-3xl" />
-          </div>
+        <div className="w-full p-3 sm:p-4 md:p-6">
+          <ValidationLoadingScreen
+            isLoading={isGlobalLoading}
+            title="Loading Livestock Profile"
+            subtitle="Retrieving this animal’s registration details and checking the farmer’s livestock records..."
+            badgeLabel="Animal Record Sync"
+            authorityText="SmartLivestock · Padre Garcia"
+            items={[
+              {
+                id: "inventory",
+                label: "Farmer Livestock Records",
+                sublabel: "Finding the animal in the current inventory",
+                loaded: !isInventoryLoading,
+              },
+              {
+                id: "animal",
+                label: "Individual Animal Profile",
+                sublabel: "Loading the selected animal record when needed",
+                loaded: !isDirectLoading,
+              },
+            ]}
+          />
         </div>
       </>
     );
@@ -868,12 +881,15 @@ export default function LivestockDetailPage() {
         <Card className="rounded-3xl border-slate-200 shadow-md bg-white overflow-hidden">
           <div className={`text-white p-5 sm:p-6 md:p-8 ${activeItem.status === "SUBJECT_TO_REVISION" ? "bg-gradient-to-r from-[#604143] via-[#475244] to-[#1a4425]" : "bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425]"}`}>
             <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)] md:items-center">
-              <div className="flex min-w-0 items-start gap-4">
+              <div className="flex min-w-0 flex-col items-center gap-5 text-center sm:flex-row sm:items-start sm:gap-5 sm:text-left">
                 <LivestockPhotoManager
                     title="Livestock Photo"
                     subject="livestock"
                     compactOnMobile
                     triggerImage
+                    triggerImageSizeClassName="size-32 sm:size-32"
+                    triggerImageShapeClassName="rounded-full"
+                    triggerImageFallbackClassName="text-6xl"
                     currentPhotoUrl={photoUrl}
                   currentAvatarKey={activeItem.avatarKey || localAvatar}
                   species={activeItem.livestockTypeName}
@@ -901,8 +917,8 @@ export default function LivestockDetailPage() {
                   }}
                 />
 
-                <div className="min-w-0 space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="w-full min-w-0 space-y-3">
+                  <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                     <span className="break-words text-xl sm:text-2xl font-black text-white tracking-tight">
                       {activeItem.tagNumber}
                     </span>
@@ -935,7 +951,7 @@ export default function LivestockDetailPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1 text-xs">
+                  <div className="mx-auto grid max-w-md grid-cols-2 gap-x-4 gap-y-3 pt-1 text-xs sm:mx-0">
                     <div className="min-w-0">
                       <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Breed</span>
                       <span className="block break-words font-semibold text-emerald-50">{activeItem.breed?.trim() || "Unknown"}</span>
@@ -956,7 +972,7 @@ export default function LivestockDetailPage() {
                     </div>
                   </div>
 
-                  <p className="break-words text-xs text-emerald-200/70 font-medium">
+                  <p className="break-words text-xs text-emerald-200/70 font-medium sm:text-left">
                     Owner: <strong>{activeItem.farmerName}</strong> &bull; Registration: {activeItem.createdAt ? activeItem.createdAt.split("T")[0] : "Official Record"}
                   </p>
                 </div>
@@ -1728,97 +1744,26 @@ export default function LivestockDetailPage() {
       </Dialog>
 
       {/* ── MODAL: LOG PRODUCTION OUTPUT ──────────────────────────────────── */}
-      <Dialog open={isProductionDialogOpen} onOpenChange={setIsProductionDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Milk className="size-5 text-sky-600" />
-              <span>Log Production Output for {activeItem.tagNumber}</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Record individual daily output. This connects directly to the Production page.
-            </DialogDescription>
-          </DialogHeader>
+      {/* The profile already supplies the animal and production type, so start at Details. */}
+      <ProductionWizard
+        profileMode
+        productionType={profileProductionType}
+        onTypeChange={setProfileProductionType}
+        clickedInventory={activeItem}
+        onSelectInventory={() => undefined}
+        formState={profileProductionForm}
+        onFieldChange={(field, value) => setProfileProductionForm((previous) => ({ ...previous, [field]: value }))}
+        approvedInventories={activeItem ? [activeItem] : []}
+        isLoading={false}
+        isSubmitting={logProductionMutation.isPending}
+        resetSignal={productionWizardResetSignal}
+        onSubmit={(payload: ProductionPayload) => logProductionMutation.mutate(payload)}
+        open={isProductionDialogOpen}
+        onClose={() => setIsProductionDialogOpen(false)}
+        mode="create"
+        editingRecord={null}
+      />
 
-          <form onSubmit={handleAddProduction} className="space-y-4 py-3 text-xs">
-            <div className="space-y-1.5">
-              <Label className="font-bold text-slate-700">Production Type *</Label>
-              <Select
-                value={prodType}
-                onValueChange={(val: "MILK" | "MEAT" | "EGGS" | "WOOL") => setProdType(val)}
-              >
-                <SelectTrigger className="rounded-xl border-slate-300">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProductionTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type === "MILK" ? "Dairy Milk (Liters)" :
-                        type === "MEAT" ? "Meat / Carcass (kg)" :
-                          type === "EGGS" ? "Eggs (Pieces)" : "Wool (kg)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="font-bold text-slate-700">
-                Yield Quantity ({prodType === "MILK" ? "Liters" : prodType === "EGGS" ? "Pieces" : "Kilograms"}) *
-              </Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={prodQuantity}
-                onChange={(e) => setProdQuantity(e.target.value)}
-                className="rounded-xl border-slate-300 font-black text-lg h-11"
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="font-bold text-slate-700">Collection Date *</Label>
-              <Input
-                type="date"
-                value={prodDate}
-                onChange={(e) => setProdDate(e.target.value)}
-                className="rounded-xl border-slate-300"
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="font-bold text-slate-700">Remarks / Quality Notes</Label>
-              <Input
-                value={prodNotes}
-                onChange={(e) => setProdNotes(e.target.value)}
-                placeholder="e.g. Morning milking, normal butterfat consistency."
-                className="rounded-xl border-slate-300"
-              />
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsProductionDialogOpen(false)}
-                className="rounded-xl font-bold text-xs"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={logProductionMutation.isPending}
-                className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
-              >
-                {logProductionMutation.isPending ? "Submitting..." : "Save Production Record"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── MODAL: LOG CALVING / BIRTHING ─────────────────────────────────── */}
       <Dialog open={isCalvingDialogOpen} onOpenChange={setIsCalvingDialogOpen}>
         <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
@@ -1858,6 +1803,16 @@ export default function LivestockDetailPage() {
                 </Select>
               </div>
             </div>
+
+            <LivestockBreedField
+              id="profile-offspring-breed"
+              species={activeItem.livestockTypeName}
+              label="Offspring Breed"
+              value={newCalfData.breed}
+              onChange={(breed) => setNewCalfData({ ...newCalfData, breed })}
+              placeholder={`Select ${activeItem.livestockTypeName} breed`}
+              customPlaceholder="Enter crossbreed or other breed"
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">

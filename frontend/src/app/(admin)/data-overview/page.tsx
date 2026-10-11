@@ -39,7 +39,9 @@ import { DataOverviewTable } from "./data-overview-table";
 import { DataOverviewCards } from "./data-overview-cards";
 import { ProductionTradeRecords } from "./production-trade-records";
 import { DataOverviewDetailModal } from "./data-overview-detail-modal";
-import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
+import api from "@/lib/axios";
+import { fetchInspections } from "@/app/(auction)/auction-inspections/auction-analytics";
+import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
 import { Layers, Boxes, Milk, FileSpreadsheet, Activity, Database } from "lucide-react";
 
 // Backend TanStack hooks & API client for live database connectivity
@@ -73,6 +75,17 @@ export default function DataOverviewPage() {
 
   const { user } = useAuth();
 
+  // The Production & Trade tab count includes its separate ownership and movement registries.
+  // These keys match ProductionTradeRecords so React Query can share the same cached requests.
+  const tradeOwnershipQuery = useQuery<unknown[]>({
+    queryKey: ["admin", "data-overview", "ownership-transfers", user?.email, user?.accessScope, user?.assignedBarangayId],
+    queryFn: async () => (await api.get<unknown[]>("livestock/ownership-transfers/")).data,
+  });
+  const tradeMovementQuery = useQuery({
+    queryKey: ["admin", "data-overview", "movement-logs", user?.email, user?.accessScope, user?.assignedBarangayId],
+    queryFn: () => fetchInspections(),
+  });
+
   // Backend Data Queries
   const { data: dbBarangays } = useGetBarangays();
   const summaryQuery = useQuery<OverviewSummary>({
@@ -104,6 +117,7 @@ export default function DataOverviewPage() {
     (isProdLoading && !rawProduction) ||
     (isCenLoading && !rawCensus) ||
     (isIncLoading && !rawIncidents);
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
 
   // Combine backend records with seed datasets
   const livestockList: LivestockRecord[] = useMemo(() => {
@@ -809,7 +823,7 @@ export default function DataOverviewPage() {
       livestock: livestockList.length,
       batches: batchList.length,
       production: productionList.length,
-      sales: salesList.length,
+      sales: salesList.length + (tradeOwnershipQuery.data?.length ?? 0) + (tradeMovementQuery.data?.length ?? 0),
       disease: diseaseList.length,
       mortality: mortalityList.length,
       slaughter: slaughterList.length,
@@ -821,6 +835,8 @@ export default function DataOverviewPage() {
       batchList,
       productionList,
       salesList,
+      tradeOwnershipQuery.data,
+      tradeMovementQuery.data,
       diseaseList,
       mortalityList,
       slaughterList,
@@ -1064,11 +1080,7 @@ export default function DataOverviewPage() {
     toast.success(`Exported ${filteredData.length} records in ${activeTab} to CSV`);
   };
 
-  if (summaryQuery.isError || isInventoryError || isProductionError || isCensusError || isIncidentError || isBatchError) {
-    return <div className="p-6" role="alert">Data Overview could not load complete data. Refresh to try again.</div>;
-  }
-
-  if (isInitialLoading) {
+  if (isInitialLoading || keepLoadingScreenMounted) {
     return (
       <>
         <PageHeader
@@ -1078,8 +1090,9 @@ export default function DataOverviewPage() {
           maxWidthClass="w-full"
           icon={<Database className="size-5 text-slate-800" />}
         />
-        <div className="p-3 sm:p-4 md:p-5 w-full">
+        <div className="w-full p-3 sm:p-4 md:p-5">
           <ValidationLoadingScreen
+            isLoading={isInitialLoading}
             title="Synchronizing Municipal System Data Overview"
             subtitle="Aggregating live animal registries, herds, dairy production, biosecurity alerts, and barangay census..."
             badgeLabel="Live Ledger Sync"
@@ -1125,6 +1138,10 @@ export default function DataOverviewPage() {
         </div>
       </>
     );
+  }
+
+  if (summaryQuery.isError || isInventoryError || isProductionError || isCensusError || isIncidentError || isBatchError) {
+    return <div className="p-6" role="alert">Data Overview could not load complete data. Refresh to try again.</div>;
   }
 
   return (

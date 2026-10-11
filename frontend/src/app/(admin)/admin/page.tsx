@@ -16,7 +16,7 @@ import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import { Button } from "@/components/ui/button";
 import { AdminChartsView } from './admin-charts-view';
 import { useAdminDashboardAnalytics } from './admin-charts';
-import { ValidationLoadingScreen } from '@/components/validation-loading-screen';
+import { ValidationLoadingScreen, useLoadingScreenTransition } from '@/components/validation-loading-screen';
 
 const CowHeadIcon = ({ className }: { className?: string }) => (
   <Icon iconNode={cowHead} className={className} />
@@ -32,8 +32,9 @@ export default function AdminDashboard() {
     refetchAll,
     dashboardSummaryQuery,
   } = analytics;
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading);
 
-  if (isLoading) {
+  if (isLoading || keepLoadingScreenMounted) {
     return (
       <>
         <PageHeader
@@ -43,8 +44,9 @@ export default function AdminDashboard() {
           maxWidthClass="w-full"
           icon={<LayoutDashboard className="size-5 text-slate-800" />}
         />
-        <div className="p-3 sm:p-4 md:p-5 w-full">
+        <div className="w-full p-3 sm:p-4 md:p-5">
           <ValidationLoadingScreen
+            isLoading={isLoading}
             title="Synchronizing Executive Analytics Dashboard"
             subtitle="Aggregating municipal livestock registries, 17-barangay census surveys, dairy production records, and biosecurity surveillance telemetry..."
             badgeLabel="Executive Stream Sync"

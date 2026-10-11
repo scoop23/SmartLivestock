@@ -559,6 +559,11 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             pass
         return None
 
+    def validate_calving_date(self, value):
+        if value > timezone.localdate():
+            raise ValidationError("Calving / birth date cannot be in the future.")
+        return value
+
     class Meta:
         model = CalvingRecord
         fields = (
