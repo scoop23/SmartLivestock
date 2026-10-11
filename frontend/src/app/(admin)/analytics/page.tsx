@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { PageHeader } from '@/app/components/page-header';
-import { AskAIBar } from '@/app/components/ask-ai-bar';
+import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
 import { BarChart3 } from 'lucide-react';
 import DescriptiveAnalytics from '@/app/components/analytics/descriptive-analytics';
 import PredictiveAnalyticsView from '@/app/components/analytics/predictive-analytics-view';
@@ -21,10 +21,10 @@ export default function AnalyticsPage() {
         icon={<BarChart3 className="size-5 text-slate-800" />}
       />
 
-      {/* AI Search Bar */}
+      {/* Rule-based analytics assistant */}
       <div className="p-3 sm:p-4 bg-white border-b border-slate-200 shadow-2xs">
         <div className="w-full">
-          <AskAIBar />
+          <AskSmartLivestock />
         </div>
       </div>
 

@@ -41,6 +41,7 @@ import CensusDetailsDialog from "./census-details-dialog";
 import CensusSubmissionsView from "./census-submissions-view";
 import { SibatWorkspaceSummary } from "./components/sibat-workspace-summary";
 import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
+import { AskSmartLivestock } from "@/app/components/ask-smartlivestock";
 
 
 import {
@@ -482,6 +483,8 @@ function SibatPortalContent() {
           onNewCensus={handleOpenNewCensus}
           onRefresh={handleRefreshQueues}
         />
+
+        {(user?.accessScope === "ALL_BARANGAYS" || Boolean(user?.assignedBarangayId)) && <AskSmartLivestock />}
 
         {hasDataError && (
           <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-950 sm:flex-row sm:items-center sm:justify-between">

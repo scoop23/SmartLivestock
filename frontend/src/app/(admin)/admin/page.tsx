@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/app/components/page-header';
-import { AskAIBar } from '@/app/components/ask-ai-bar';
+import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
 import {
   LayoutDashboard,
   Users, CheckSquare, Map, TrendingUp, AlertTriangle,
@@ -163,10 +163,10 @@ export default function AdminDashboard() {
         icon={<LayoutDashboard className="size-5 text-slate-800" />}
       />
 
-      {/* AI Search Bar */}
+      {/* Rule-based analytics assistant */}
       <div className="p-3 sm:p-4 bg-white border-b border-slate-200 shadow-2xs">
         <div className="w-full">
-          <AskAIBar />
+          <AskSmartLivestock />
         </div>
       </div>
 

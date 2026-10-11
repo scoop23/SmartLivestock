@@ -4,7 +4,7 @@ from django.db.utils import DatabaseError
 import logging
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -20,6 +20,7 @@ from smartlivestock.workflows import scope_reviewer_queryset
 from .services.reports import build_report
 from .services.report_exports import excel_report, pdf_report
 from .services.review_workload import review_workload_summary
+from .services.nlp_query import execute_question
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,21 @@ def dashboard_summary(request):
     # The service owns the DB -> ORM calculations. This view only publishes
     # approved municipal aggregates to authorized dashboard users.
     return Response(descriptive_summary(user=request.user))
+
+
+class AskSmartLivestockSerializer(serializers.Serializer):
+    """Keep the natural-language input small and predictable before parsing."""
+    question = serializers.CharField(max_length=500, allow_blank=False, trim_whitespace=True)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def nlp_query(request):
+    """Answer one allowlisted analytics question using the caller's data scope."""
+    serializer = AskSmartLivestockSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    result = execute_question(serializer.validated_data["question"], user=request.user)
+    return Response(result, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
