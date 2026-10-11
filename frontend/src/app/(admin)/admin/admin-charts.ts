@@ -190,6 +190,7 @@ export interface ProductionRecordApiItem {
 // ─────────────────────────────────────────────────────────────
 
 export interface BarangayHerdChartData {
+  barangayId: number;
   barangay: string;
   cattle: number;
   carabao: number;
@@ -237,6 +238,20 @@ export interface AdminAnalyticsMetrics {
   surveillanceTrends: BiosecuritySurveillanceChartData[];
   sectorCompliance: SectorComplianceChartData[];
   vaccinationTotals: { vaccinated: number; total: number };
+}
+
+export interface BarangayCurrentFarmers {
+  barangay_id: number;
+  barangay: string;
+  farmer_count: number;
+  current_heads: number;
+  livestock_types: Array<{ id: number; name: string; heads: number }>;
+  farmers: Array<{
+    id: number;
+    name: string;
+    current_heads: number;
+    livestock_types: Array<{ id: number; name: string; heads: number }>;
+  }>;
 }
 
 // Aligned with backend `analytics` app `dashboard_summary` response
@@ -389,6 +404,7 @@ export function computeAdminAnalytics(summary?: DashboardAnalytics | null): Admi
     barangayHerdDistribution: (population?.by_barangay ?? []).map((row) => {
       const counts = speciesCategories(row.species);
       return {
+        barangayId: row.barangay_id,
         barangay: row.barangay,
         cattle: counts.cattle,
         carabao: counts.carabao,
@@ -399,7 +415,7 @@ export function computeAdminAnalytics(summary?: DashboardAnalytics | null): Admi
         other: counts.other + counts.poultry,
         total: row.heads,
       };
-    }).sort((a, b) => b.total - a.total || a.barangay.localeCompare(b.barangay)).slice(0, 7),
+    }).sort((a, b) => b.total - a.total || a.barangay.localeCompare(b.barangay)),
     specieComposition: (population?.by_species ?? []).map((row) => ({
       name: row.species, value: row.heads, color: getSpeciesColor(row.species),
       percentage: totalLivestock ? `${(row.heads / totalLivestock * 100).toFixed(1)}%` : "0%",
@@ -438,6 +454,18 @@ export function useAdminBarangays() {
     queryKey: ADMIN_CHARTS_QUERY_KEYS.barangays,
     queryFn: fetchBarangaysList,
     staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useAdminBarangayCurrentFarmers(barangayId: number | null, enabled: boolean) {
+  const { user } = useAuth();
+  return useQuery<BarangayCurrentFarmers>({
+    queryKey: ["admin", "barangay-current-farmers", barangayId, user?.email, user?.accessScope, user?.assignedBarangayId],
+    enabled: Boolean(user && barangayId && enabled),
+    queryFn: async () => (
+      await municipalRead<BarangayCurrentFarmers>(`analytics/barangays/${barangayId}/current-farmers/`)
+    ).data,
+    staleTime: 60_000,
   });
 }
 

@@ -15,6 +15,7 @@ import { cowHead } from '@lucide/lab';
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import { Button } from "@/components/ui/button";
 import { AdminChartsView } from './admin-charts-view';
+import { AdminOperationsView } from './admin-operations-view';
 import { useAdminDashboardAnalytics } from './admin-charts';
 import { ValidationLoadingScreen, useLoadingScreenTransition } from '@/components/validation-loading-screen';
 
@@ -187,6 +188,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── Visualizations & Charts Matrix ── */}
+        <AdminOperationsView />
         <AdminChartsView {...analytics} />
 
         {/* ── Generate Reports ── */}

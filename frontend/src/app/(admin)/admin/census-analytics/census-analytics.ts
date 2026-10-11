@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 
 export interface CensusPeriod {
@@ -96,8 +97,17 @@ async function fetchCensusAnalytics(
 }
 
 export function useCensusAnalytics(year?: number, quarter?: number) {
+  const { user } = useAuth();
   return useQuery<CensusAnalytics>({
-    queryKey: [CENSUS_ANALYTICS_QUERY_KEY, year ?? null, quarter ?? null],
+    queryKey: [
+      CENSUS_ANALYTICS_QUERY_KEY,
+      user?.email,
+      user?.accessScope,
+      user?.assignedBarangayId,
+      year ?? null,
+      quarter ?? null,
+    ],
+    enabled: Boolean(user),
     queryFn: () => fetchCensusAnalytics(year, quarter),
   });
 }

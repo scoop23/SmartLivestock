@@ -1,4 +1,4 @@
-from django.db.models import Count, F, Sum
+from django.db.models import Count, F, Q, Sum
 from django.conf import settings
 from django.db.utils import DatabaseError
 import logging
@@ -11,13 +11,15 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
-from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem
+from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem, Farmer
 from livestock.permission import isMAO, isSibat
 from .services.descriptive import descriptive_summary
 from .services.overview import overview_summary
+from .services.population import official_inventory
 from smartlivestock.workflows import scope_reviewer_queryset
 from .services.reports import build_report
 from .services.report_exports import excel_report, pdf_report
+from .services.review_workload import review_workload_summary
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +90,83 @@ def dashboard_summary(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO])
+def review_workload(request):
+    """Return stage-aware counts and queue ages for the MAO dashboard."""
+    return Response(review_workload_summary())
+
+
+@api_view(["GET"])
 @permission_classes([IsAuthenticated, isMAO | isSibat])
 def data_overview_summary(request):
     return Response(overview_summary(user=request.user))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO])
+def barangay_current_farmers(request, barangay_id):
+    """Return livestock-type and farmer breakdowns for one barangay."""
+    barangay = get_object_or_404(Barangay, pk=barangay_id)
+    registered_farmers = list(
+        Farmer.objects.filter(
+            barangay_id=barangay.pk,
+            user__role__role_name="FARMER",
+            user__account_status="APPROVED",
+        )
+        .values("id", "user__first_name", "user__last_name", "user__username")
+    )
+
+    # Use the same approved-active inventory queryset as the municipal head totals.
+    inventory_rows = list(
+        official_inventory().filter(farmer__barangay_id=barangay.pk)
+        .values(
+            "farmer_id", "farmer__user__first_name", "farmer__user__last_name",
+            "farmer__user__username", "livestock_type_id", "livestock_type__name",
+        )
+        .annotate(heads=Sum("quantity"))
+        .order_by("livestock_type__name", "farmer__user__last_name", "farmer__user__first_name")
+    )
+
+    farmers_by_id = {}
+    for row in registered_farmers:
+        name = " ".join(
+            value for value in (row["user__first_name"], row["user__last_name"]) if value
+        ) or row["user__username"]
+        farmers_by_id[row["id"]] = {
+            "id": row["id"], "name": name, "current_heads": 0, "livestock_types": [],
+        }
+
+    livestock_types_by_id = {}
+    for row in inventory_rows:
+        farmer = farmers_by_id.setdefault(row["farmer_id"], {
+            "id": row["farmer_id"],
+            "name": " ".join(
+                value for value in (row["farmer__user__first_name"], row["farmer__user__last_name"])
+                if value
+            ) or row["farmer__user__username"],
+            "current_heads": 0,
+            "livestock_types": [],
+        })
+        heads = row["heads"] or 0
+        farmer["current_heads"] += heads
+        farmer["livestock_types"].append({
+            "id": row["livestock_type_id"], "name": row["livestock_type__name"], "heads": heads,
+        })
+        livestock_type = livestock_types_by_id.setdefault(row["livestock_type_id"], {
+            "id": row["livestock_type_id"], "name": row["livestock_type__name"], "heads": 0,
+        })
+        livestock_type["heads"] += heads
+
+    farmers = sorted(farmers_by_id.values(), key=lambda farmer: (-farmer["current_heads"], farmer["name"].casefold()))
+    livestock_types = sorted(livestock_types_by_id.values(), key=lambda livestock_type: livestock_type["name"].casefold())
+    return Response({
+        "barangay_id": barangay.pk,
+        "barangay": barangay.barangay_name,
+        "farmer_count": len(farmers),
+        "current_heads": sum(farmer["current_heads"] for farmer in farmers),
+        "livestock_types": livestock_types,
+        "farmers": farmers,
+    })
 
 
 def _latest_census_period(submissions):
