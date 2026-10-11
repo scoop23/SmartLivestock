@@ -466,21 +466,22 @@ export function GISMap({
         fillColor: '#C5E0A8',
         color: '#2D5A27',
         weight: 1.5,
-        fillOpacity: 0.6,
+        fillOpacity: viewMode === '2D' ? 0.55 : 0.6,
       };
     }
 
     const isFarmerRole = scope?.role === 'FARMER';
+    const isFarmer2D = isFarmerRole && viewMode === '2D';
 
     // Out-of-scope barangays:
     if (!isInScope) {
-      if (isFarmerRole) {
-        // Farmers only see their own registered barangay; other areas are faint background
+      if (isFarmer2D) {
+        // Neighboring barangays stay visible, but darken to mark the jurisdiction boundary.
         return {
-          fillColor: '#0f172a',
-          fillOpacity: 0.10,
-          color: '#1e293b',
-          weight: 0.75,
+          fillColor: '#000000',
+          fillOpacity: 0.55,
+          color: '#334155',
+          weight: 1,
           className: 'farmer-out-of-scope-polygon',
         };
       }
@@ -495,10 +496,13 @@ export function GISMap({
     }
 
     const isMortality = activeLayer === 'mortality';
+    const fillOpacity = viewMode === '3D'
+      ? isSelected ? 0.95 : 0.85
+      : isSelected ? 0.7 : 0.55;
 
     return {
       fillColor: getLayerColor(data),
-      fillOpacity: isSelected ? 0.95 : viewMode === '3D' ? 0.85 : isMortality ? 0.82 : 0.80,
+      fillOpacity,
       color: isSelected ? '#ffffff' : isFarmerRole ? '#4ade80' : isMortality ? '#334155' : viewMode === '3D' ? '#0f290f' : '#1e3a1e',
       weight: isSelected ? 3.5 : isFarmerRole ? 3.0 : isMortality ? 2.0 : viewMode === '3D' ? 2.5 : 1.8,
       className: isFarmerRole ? 'farmer-own-barangay' : '',
@@ -514,7 +518,7 @@ export function GISMap({
     const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
 
     if (!isInScope) {
-      return `<strong>Brgy. ${name}</strong><br/><span style="font-size: 10px; opacity: 0.7">Outside your assigned jurisdiction</span>`;
+      return `<strong>Brgy. ${name}</strong><br/><span style="font-size: 10px; opacity: 0.85">Jurisdiction restriction: outside your assigned barangay. View only; selection is disabled.</span>`;
     }
 
     if (!data) {
@@ -580,11 +584,6 @@ export function GISMap({
     const scope = userScopeRef.current;
     const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
 
-    // FARMER DATA ISOLATION: Farmers only interact with their own registered barangay
-    if (scope?.role === 'FARMER' && !isInScope) {
-      return;
-    }
-
     layer.bindTooltip(buildTooltipText(name), {
       permanent: false,
       direction: 'center',
@@ -595,11 +594,16 @@ export function GISMap({
       mouseover: (e: any) => {
         // Dynamically update tooltip content on hover
         layer.setTooltipContent(buildTooltipText(name));
-        e.target.setStyle({
-          weight: 3.5,
-          fillOpacity: 0.95,
-          color: '#ffffff',
-        });
+        const currentData = barangaysByNameRef.current[name];
+        const currentScope = userScopeRef.current;
+        const currentInScope = currentData?.is_in_scope ?? (!currentScope || currentScope.can_view_all_barangays || currentScope.allowed_barangays.includes(name));
+        const isRestrictedFarmer = currentScope?.role === 'FARMER' && !currentInScope && viewModeRef.current === '2D';
+
+        // Out-of-jurisdiction polygons stay black while their border signals hover.
+        const is2DMap = viewModeRef.current === '2D';
+        e.target.setStyle(isRestrictedFarmer
+          ? { fillColor: '#000000', fillOpacity: 0.55, weight: 2, color: '#fbbf24' }
+          : { weight: 3.5, fillOpacity: is2DMap ? 0.65 : 0.95, color: '#ffffff' });
         e.target.bringToFront();
       },
       mouseout: (e: any) => {
