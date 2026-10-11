@@ -58,9 +58,10 @@ export function QrCodePass({
     }
 
     QRCode.toDataURL(qrValue, {
-      width: compact ? 220 : 320,
-      margin: 1,
-      color: { dark: "#064E3B", light: "#FFFFFF" },
+      // QR readers expect a four-module quiet zone around the code.
+      width: compact ? 352 : 512,
+      margin: 4,
+      color: { dark: "#000000", light: "#FFFFFF" },
       errorCorrectionLevel: "H",
     })
       .then((url) => {
@@ -158,19 +159,11 @@ export function QrCodePass({
               <img
                 src={qrDataUrl}
                 alt={`QR code for ${code}`}
-                className={compact ? "size-36 object-contain" : "size-44 sm:size-48 object-contain"}
+                className={compact ? "size-44 object-contain" : "size-44 sm:size-48 object-contain"}
               />
-              {/* Center Seal Emblem */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="size-9 rounded-full bg-white shadow-xs border-2 border-[#2D5A27] flex items-center justify-center">
-                  <span className="text-[10px] font-black text-[#2D5A27] font-mono leading-none">
-                    PG
-                  </span>
-                </div>
-              </div>
             </div>
           ) : (
-            <div className={`flex items-center justify-center bg-slate-50 rounded-lg ${compact ? "size-36" : "size-44 sm:size-48"}`}>
+            <div className={`flex items-center justify-center bg-slate-50 rounded-lg ${compact ? "size-44" : "size-44 sm:size-48"}`}>
               <QrCode className="size-8 text-slate-300 animate-pulse" />
             </div>
           )}
