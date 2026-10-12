@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { AxiosError } from "axios";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { LoaderCircle, Search, Sparkles } from "lucide-react";
+import { LoaderCircle, Search } from "lucide-react";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type ResultRow = Record<string, string | number | null>;
@@ -54,6 +56,8 @@ function displayValue(value: string | number | null | undefined) {
 }
 
 function resultChartRows(response: AskResponse) {
+  // Pivot server rows into chart series. Missing periods remain absent,
+  // rather than being invented as zero values in the browser.
   const visualization = response.visualization;
   if (!visualization?.x_key || !visualization.y_key || !visualization.series_key) return response.results;
   const grouped = new Map<string, ResultRow>();
@@ -68,9 +72,11 @@ function resultChartRows(response: AskResponse) {
 }
 
 function ResultVisualization({ response }: { response: AskResponse }) {
+  // The backend selects the presentation and supplies the real values.
+  // The browser formats them; it does not calculate official analytics.
   const visualization = response.visualization;
   if (!visualization || !response.results.length) {
-    return <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm text-slate-600">No matching records were returned. That does not prove there was no activity; submissions may be incomplete.</p>;
+    return <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-2xs"><Search className="size-7 text-slate-300" aria-hidden="true" /><h3 className="text-base font-bold text-slate-800">No matching records</h3><p className="max-w-sm text-xs font-medium leading-relaxed text-slate-500">This does not prove there was no activity; submissions may be incomplete.</p></div>;
   }
 
   const columns = visualization.columns;
@@ -85,11 +91,7 @@ function ResultVisualization({ response }: { response: AskResponse }) {
   return (
     <div className="space-y-3">
       {visualization.type === "kpi" && yKey ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-900">{visualization.label ?? "Result"}</p>
-          <p className="mt-1 text-3xl font-black tabular-nums text-emerald-950">{displayValue(rows[0][yKey])}</p>
-          {rows[0].livestock_type ? <p className="mt-1 text-sm text-emerald-900">{rows[0].livestock_type}</p> : null}
-        </div>
+        <KpiCard title={visualization.label ?? "Result"} value={displayValue(rows[0][yKey])} description={rows[0].livestock_type ? String(rows[0].livestock_type) : undefined} variant="emerald" size="sm" wrapText />
       ) : null}
 
       {visualization.type === "bar" && xKey && yKey ? (
@@ -124,9 +126,9 @@ function ResultVisualization({ response }: { response: AskResponse }) {
       ) : null}
 
       {visualization.type !== "kpi" ? (
-        <div className="max-h-64 overflow-auto rounded-lg border border-slate-200">
+        <div className="max-h-64 overflow-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xs [&_th]:px-3.5 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-black [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-slate-500 [&_td]:px-3.5 [&_td]:py-2.5 [&_td]:text-xs [&_td]:font-medium [&_td]:text-slate-700">
           <Table>
-            <TableHeader><TableRow>{columns.map((column) => <TableHead key={column.key}>{column.label}</TableHead>)}</TableRow></TableHeader>
+            <TableHeader><TableRow className="border-b border-slate-200/80 bg-slate-50/80 hover:bg-slate-50/80">{columns.map((column) => <TableHead key={column.key}>{column.label}</TableHead>)}</TableRow></TableHeader>
             <TableBody>{rows.map((row, index) => <TableRow key={`${String(row[xKey ?? columns[0]?.key] ?? "row")}-${index}`}>
               {columns.map((column) => <TableCell key={column.key} className="tabular-nums">{displayValue(row[column.key])}</TableCell>)}
             </TableRow>)}</TableBody>
@@ -143,10 +145,13 @@ export function AskSmartLivestock() {
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // A ref changes immediately; React state alone cannot block same-tick clicks.
+  const submitting = useRef(false);
 
   const ask = async (value: string) => {
     const trimmed = value.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || submitting.current) return;
+    submitting.current = true;
     setLoading(true);
     setError("");
     setResponse(null);
@@ -157,6 +162,7 @@ export function AskSmartLivestock() {
       const axiosError = caught as AxiosError<{ detail?: string; question?: string[] }>;
       setError(axiosError.response?.data?.detail ?? axiosError.response?.data?.question?.[0] ?? "Could not query analytics. Check your connection and try again.");
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -167,21 +173,27 @@ export function AskSmartLivestock() {
   };
 
   return (
-    <section className="mx-auto w-full max-w-6xl rounded-xl border border-emerald-200 bg-white p-3 shadow-2xs sm:p-4" aria-label="Ask SmartLivestock analytics assistant">
+    <section className="mx-auto min-w-0 w-full max-w-6xl rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5" aria-label="Ask SmartLivestock analytics assistant" aria-busy={loading}>
+      <div className="mb-4 space-y-1">
+        <h2 className="text-base font-bold tracking-tight text-slate-900">Ask SmartLivestock</h2>
+        <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">Ask about recorded livestock data available to your account. Answers use approved records and current review queues.</p>
+      </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative min-w-0 flex-1">
-          <Sparkles className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-emerald-800" />
+        <div className="min-w-0 flex-1">
+          <Label htmlFor="analytics-question" className="sr-only">Your analytics question</Label>
           <Input
+            id="analytics-question"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             maxLength={500}
             aria-label="Ask a livestock analytics question"
+            aria-describedby="ask-help"
             placeholder="Ask about population, production, disease, mortality, or MAO queues…"
-            className="h-11 pl-9"
+            className="h-11 rounded-xl"
             disabled={loading}
           />
         </div>
-        <Button type="submit" disabled={loading || !question.trim()} className="h-11 shrink-0 bg-[#2D5A27] text-white hover:bg-[#244a20]">
+        <Button type="submit" disabled={loading || !question.trim()} className="h-11 shrink-0 rounded-xl bg-[#2D5A27] text-xs font-bold text-white hover:bg-[#244a20] sm:text-sm">
           {loading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Search className="mr-2 size-4" />}
           {loading ? "Checking records…" : "Ask"}
         </Button>
@@ -189,8 +201,9 @@ export function AskSmartLivestock() {
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Example questions">
         <span className="mr-1 text-[11px] font-semibold text-slate-500">Try:</span>
-        {EXAMPLES.filter((example) => user?.role?.toUpperCase() !== "SIBAT" || !example.includes("MAO approval")).map((example) => <button key={example} type="button" onClick={() => setQuestion(example)} disabled={loading} className="max-w-full truncate rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900 disabled:opacity-50">{example}</button>)}
+        {EXAMPLES.filter((example) => user?.role?.toUpperCase() !== "SIBAT" || !example.includes("MAO approval")).map((example) => <Button key={example} type="button" variant="outline" size="sm" onClick={() => setQuestion(example)} disabled={loading} className="h-auto max-w-full whitespace-normal rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-600">{example}</Button>)}
       </div>
+      {loading ? <p role="status" className="mt-3 flex items-center gap-2 text-sm text-slate-600"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Checking authorized records…</p> : null}
 
       {error ? <Alert variant="destructive" className="mt-3"><AlertTitle>Could not get an analytics answer</AlertTitle><AlertDescription className="flex flex-wrap items-center justify-between gap-2"><span>{error}</span><Button type="button" size="sm" variant="outline" onClick={() => void ask(question)} disabled={loading}>Retry</Button></AlertDescription></Alert> : null}
 
@@ -200,12 +213,13 @@ export function AskSmartLivestock() {
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="capitalize">{response.intent?.replaceAll("_", " ")}</Badge>
-                {response.period ? <Badge variant="outline">{response.period.label}: {response.period.start} – {response.period.end}</Badge> : <Badge variant="outline">Current queue snapshot</Badge>}
+                {response.period ? <Badge variant="outline" className="h-auto whitespace-normal text-left">{response.period.label}: {response.period.start} – {response.period.end}</Badge> : <Badge variant="outline">{response.intent === "pending_reviews" ? "Current queue snapshot" : "Current approved active inventory"}</Badge>}
                 {response.interpreted?.filters.livestock_type ? <Badge variant="outline">{response.interpreted.filters.livestock_type}</Badge> : null}
                 {response.interpreted?.filters.production_type ? <Badge variant="outline">{response.interpreted.filters.production_type}</Badge> : null}
                 {response.interpreted?.filters.barangay ? <Badge variant="outline">{response.interpreted.filters.barangay}</Badge> : null}
               </div>
               <p className="text-sm font-semibold text-slate-900">{response.answer}</p>
+              {response.interpreted ? <p className="text-xs text-slate-500">Metric: {response.interpreted.metric.replaceAll("_", " ")}{response.interpreted.group_by ? ` · Grouped by ${response.interpreted.group_by.replaceAll("_", " ")}` : ""}</p> : null}
               <ResultVisualization response={response} />
               {response.coverage_note ? <p className="text-xs leading-relaxed text-slate-500">{response.coverage_note}</p> : null}
             </>

@@ -1,0 +1,322 @@
+[
+  {
+    "question": "Count the cattle currently on the municipal register",
+    "intent": "population_summary"
+  },
+  {
+    "question": "Give me the present herd total for goats",
+    "intent": "population_summary"
+  },
+  {
+    "question": "I need a headcount of active swine",
+    "intent": "population_summary"
+  },
+  {
+    "question": "How many kalabaw are listed as active right now",
+    "intent": "population_summary"
+  },
+  {
+    "question": "Ilang manok ang nasa kasalukuyang talaan",
+    "intent": "population_summary"
+  },
+  {
+    "question": "Pakibilang ang mga kambing na rehistrado ngayon",
+    "intent": "population_summary"
+  },
+  {
+    "question": "Show the current inventory total for sheep",
+    "intent": "population_summary"
+  },
+  {
+    "question": "What is the registered number of carabao at present",
+    "intent": "population_summary"
+  },
+  {
+    "question": "Tell me the number of livestock heads we have now",
+    "intent": "population_summary"
+  },
+  {
+    "question": "Ilan ang active na baboy sa record",
+    "intent": "population_summary"
+  },
+  {
+    "question": "Plot the monthly milk output over the last six months",
+    "intent": "production_trend"
+  },
+  {
+    "question": "How has egg production changed month by month this year",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Show the recent meat yield trend",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Track wool output for the previous quarter",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Ipakita ang buwanang dami ng gatas nitong nakaraang anim na buwan",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Ano ang trend ng itlog kada buwan",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Graph the milk records from January to June",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Show production over time for cattle milk",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Compare monthly karne output during 2025",
+    "intent": "production_trend"
+  },
+  {
+    "question": "I want a time series of wool production",
+    "intent": "production_trend"
+  },
+  {
+    "question": "Rank barangays by reported livestock illness this quarter",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Where were the most animal sickness cases reported",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Compare outbreak reports across villages this year",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Aling barangay ang maraming naiulat na sakit ng hayop",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Ihambing ang mga kaso ng sakit ng baka sa bawat barangay",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Show the distribution of disease incidents by locality",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Which areas had the highest number of animal disease reports",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "List barangays with reported swine illness last month",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Saan maraming nagkasakit na kambing ngayong quarter",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Break down cattle sickness reports by barangay",
+    "intent": "disease_by_barangay"
+  },
+  {
+    "question": "Compare recorded animal deaths between barangays",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Which locations had the most livestock losses this quarter",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Show cattle fatality counts for each barangay",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Ihambing ang bilang ng namatay na baboy sa mga barangay",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Ilan ang namatay na kalabaw sa bawat lugar",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Give me the death tally by locality for this year",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Where were the most animal deaths reported",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Show mortality counts for goats across barangays",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Compare sheep losses by barangay last quarter",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "Aling barangay ang may pinakamaraming namatay na hayop",
+    "intent": "mortality_comparison"
+  },
+  {
+    "question": "What submissions are still in the municipal approval queue",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Show records waiting for the agriculture office to approve",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Which items have not yet been reviewed by MAO",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Ano ang mga naghihintay pa ng approval ng MAO",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Ilista ang mga pending na record para sa municipal review",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "How many entries need final approval",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Show the current backlog for MAO reviewers",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Are there any submissions awaiting municipal review",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Which production submissions are waiting for final sign off",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Ano pa ang hindi inaaprubahan ng opisina ng agrikultura",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Summarize output amounts by production category",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Separate the yields into milk eggs meat and wool",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Show a production composition by livestock species",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Break out milk output by barangay",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Ipakita ang paghahati ng produksyon ayon sa uri ng hayop",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "How much output was recorded for every production type",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Give me a species level production summary",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Compare the production categories for this year",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Ihiwalay ang dami ng gatas kada barangay",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Show the distribution of livestock output by type",
+    "intent": "production_breakdown"
+  },
+  {
+    "question": "Will the cattle market have sunny weather tomorrow?",
+    "intent": "unsupported"
+  },
+  {
+    "question": "How many registered farmers are in town",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Tell me a joke about a cow",
+    "intent": "unsupported"
+  },
+  {
+    "question": "What is the price of rice today",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Show the municipal budget spending",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Ilang tao ang nakatira sa Padre Garcia",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Who won the basketball game",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Create a new farmer account",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Where is the nearest hospital",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Calculate my income tax",
+    "intent": "unsupported"
+  },
+  {
+    "question": "Show disease and deaths together by barangay",
+    "intent": "clarification"
+  },
+  {
+    "question": "Compare milk and egg records in the same total",
+    "intent": "clarification"
+  },
+  {
+    "question": "Show population last year and current population in one figure",
+    "intent": "clarification"
+  },
+  {
+    "question": "I want production but I am not sure which output",
+    "intent": "clarification"
+  },
+  {
+    "question": "Compare all the records by every possible category",
+    "intent": "clarification"
+  },
+  {
+    "question": "Ihambing ang sakit at pagkamatay sa iisang bilang",
+    "intent": "clarification"
+  },
+  {
+    "question": "Show current and historical herd size as one number",
+    "intent": "clarification"
+  },
+  {
+    "question": "How many milk animals died and produced eggs",
+    "intent": "clarification"
+  },
+  {
+    "question": "Ipakita lahat ng sukatan sa isang total",
+    "intent": "clarification"
+  },
+  {
+    "question": "Give me production numbers without choosing a production output",
+    "intent": "clarification"
+  }
+]

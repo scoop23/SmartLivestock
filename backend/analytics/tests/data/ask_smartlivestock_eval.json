@@ -1,43 +1,269 @@
 [
-  {"question":"How many cattle are currently registered?","status":"parsed","intent":"population_summary","parameters":{"species":"Cattle","period":null}},
-  {"question":"HOW MANY CATTLE ARE CURRENTLY REGISTERED?","status":"parsed","intent":"population_summary","parameters":{"species":"Cattle"}},
-  {"question":"  how   many   cattle   are registered  ","status":"parsed","intent":"population_summary","parameters":{"species":"Cattle"}},
-  {"question":"Ilang baka ang registered ngayon?","status":"parsed","intent":"population_summary","parameters":{"species":"Cattle"}},
-  {"question":"How many goats are currently registered in San Roque?","status":"parsed","intent":"population_summary","parameters":{"species":"Goat","barangay":"San Roque"}},
-  {"question":"Show current heads by barangay","status":"parsed","intent":"population_summary","parameters":{"group_by":"barangay"}},
-  {"question":"Compare active livestock by species","status":"parsed","intent":"population_summary","parameters":{"group_by":"species"}},
-  {"question":"How many registered farmers are there?","status":"unsupported"},
-  {"question":"Show monthly milk production for the last six months.","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","period.selection":"last_6_months"}},
-  {"question":"Ipakita ang gatas per month nitong last 6 months","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","period.selection":"last_6_months"}},
-  {"question":"Trend egg production for the past 3 months","status":"parsed","intent":"production_trend","parameters":{"production_type":"EGGS","period.selection":"last_3_months"}},
-  {"question":"Show wool output this month","status":"parsed","intent":"production_trend","parameters":{"production_type":"WOOL","period.selection":"current_month"}},
-  {"question":"Show milk production in cattle from 2026-01-01 to 2026-06-30","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","species":"Cattle","period.selection":"custom_range"}},
-  {"question":"Break down production by type","status":"parsed","intent":"production_breakdown","parameters":{"group_by":"production_type"}},
-  {"question":"Breakdown production by livestock type","status":"parsed","intent":"production_breakdown","parameters":{"group_by":"species"}},
-  {"question":"Prodution trend of milk by goat last 6 months","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","species":"Goat","period.selection":"last_6_months"}},
-  {"question":"Which barangays reported the most cattle diseases this quarter?","status":"parsed","intent":"disease_by_barangay","parameters":{"species":"Cattle","group_by":"barangay","period.selection":"current_quarter"}},
-  {"question":"Which barangays had most goat sakit this quarter?","status":"parsed","intent":"disease_by_barangay","parameters":{"species":"Goat","group_by":"barangay","period.selection":"current_quarter"}},
-  {"question":"Compare disease cases by barangay in San Roque last month","status":"parsed","intent":"disease_by_barangay","parameters":{"barangay":"San Roque","group_by":"barangay","period.selection":"previous_month"}},
-  {"question":"Compare cattle mortality across barangays this quarter","status":"parsed","intent":"mortality_comparison","parameters":{"species":"Cattle","group_by":"barangay","period.selection":"current_quarter"}},
-  {"question":"Ihambing ang namatay na carabao sa bawat barangay ngayong quarter","status":"parsed","intent":"mortality_comparison","parameters":{"species":"Carabao","group_by":"barangay","period.selection":"current_quarter"}},
-  {"question":"Compare swine deaths by barangay from 2026-04-01 to 2026-06-30","status":"parsed","intent":"mortality_comparison","parameters":{"species":"Swine","group_by":"barangay","period.selection":"custom_range"}},
-  {"question":"Which submissions are waiting for MAO approval?","status":"parsed","intent":"pending_reviews"},
-  {"question":"Which production records are pending MAO review?","status":"parsed","intent":"pending_reviews","parameters":{"review_domain":"production"}},
-  {"question":"Which disease submissions are waiting for MAO approval?","status":"parsed","intent":"pending_reviews","parameters":{"review_domain":"disease"}},
-  {"question":"Which records are pending review?","status":"clarification"},
-  {"question":"Which records for cattle in San Roque await MAO approval?","status":"clarification"},
-  {"question":"Compare disease and mortality across barangays","status":"clarification"},
-  {"question":"Show monthly production for the last six months","status":"clarification"},
-  {"question":"What is the weather forecast tomorrow?","status":"unsupported"},
-  {"question":"Show milk production for cattle between 2026-01-01 and 2026-06-30","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","species":"Cattle","period.selection":"custom_range"}},
-  {"question":"Show milk production last quarter","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","period.selection":"previous_quarter"}},
-  {"question":"Show approved milk production year to date","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","period.selection":"year_to_date"}},
-  {"question":"Show milk production during 2025","status":"parsed","intent":"production_trend","parameters":{"production_type":"MILK","period.selection":"year_2025"}},
-  {"question":"Show cattle mortality in Q2 2025 by barangay","status":"parsed","intent":"mortality_comparison","parameters":{"species":"Cattle","group_by":"barangay","period.selection":"q2_2025"}},
-  {"question":"Show milk production this quarter for the last six months","status":"clarification"},
-  {"question":"Show milk production from 2026-06-30 to 2026-01-01","status":"clarification"},
-  {"question":"Compare disease cases by barangay from 2026-01-01 to 2099-01-01","status":"clarification"},
-  {"question":"Compare disease cases by barangay in Nowhere","status":"clarification"},
-  {"question":"Compare alpaca mortality by barangay this quarter","status":"clarification"},
-  {"question":"Show disease cases across all barangays this quarter","status":"parsed","intent":"disease_by_barangay","parameters":{"group_by":"barangay","period.selection":"current_quarter"}}
+  {
+    "question": "How many cattle are currently registered?",
+    "status": "parsed",
+    "intent": "population_summary",
+    "parameters": {
+      "species": "Cattle",
+      "period": null
+    }
+  },
+  {
+    "question": "Ilang baka ang registered ngayon?",
+    "status": "parsed",
+    "intent": "population_summary",
+    "parameters": {
+      "species": "Cattle"
+    }
+  },
+  {
+    "question": "How many goats are currently registered in San Roque?",
+    "status": "parsed",
+    "intent": "population_summary",
+    "parameters": {
+      "species": "Goat",
+      "barangay": "San Roque"
+    }
+  },
+  {
+    "question": "Show current heads by barangay",
+    "status": "parsed",
+    "intent": "population_summary",
+    "parameters": {
+      "group_by": "barangay"
+    }
+  },
+  {
+    "question": "Compare active livestock by species",
+    "status": "parsed",
+    "intent": "population_summary",
+    "parameters": {
+      "group_by": "species"
+    }
+  },
+  {
+    "question": "How many registered farmers are there?",
+    "status": "unsupported"
+  },
+  {
+    "question": "Show monthly milk production for the last six months.",
+    "status": "parsed",
+    "intent": "production_trend",
+    "parameters": {
+      "production_type": "MILK",
+      "period.selection": "last_6_months"
+    }
+  },
+  {
+    "question": "Ipakita ang gatas per month nitong last 6 months",
+    "status": "parsed",
+    "intent": "production_trend",
+    "parameters": {
+      "production_type": "MILK",
+      "period.selection": "last_6_months"
+    }
+  },
+  {
+    "question": "Trend chicken egg production for the past 3 months",
+    "status": "parsed",
+    "intent": "production_trend",
+    "parameters": {
+      "production_type": "EGGS",
+      "period.selection": "last_3_months",
+      "species": "Chicken"
+    }
+  },
+  {
+    "question": "Show sheep wool output from 2026-01-01 to 2026-06-30",
+    "status": "parsed",
+    "intent": "production_trend",
+    "parameters": {
+      "species": "Sheep",
+      "production_type": "WOOL",
+      "period.selection": "custom_range"
+    }
+  },
+  {
+    "question": "Break down production by type",
+    "status": "parsed",
+    "intent": "production_breakdown",
+    "parameters": {
+      "group_by": "production_type"
+    }
+  },
+  {
+    "question": "Breakdown production by livestock type",
+    "status": "parsed",
+    "intent": "production_breakdown",
+    "parameters": {
+      "group_by": "species"
+    }
+  },
+  {
+    "question": "Prodution trend of milk by goat last 6 months",
+    "status": "parsed",
+    "intent": "production_trend",
+    "parameters": {
+      "production_type": "MILK",
+      "species": "Goat",
+      "period.selection": "last_6_months"
+    }
+  },
+  {
+    "question": "Which barangays reported the most cattle diseases this quarter?",
+    "status": "parsed",
+    "intent": "disease_by_barangay",
+    "parameters": {
+      "species": "Cattle",
+      "group_by": "barangay",
+      "period.selection": "current_quarter"
+    }
+  },
+  {
+    "question": "Compare disease cases by barangay in San Roque last month",
+    "status": "parsed",
+    "intent": "disease_by_barangay",
+    "parameters": {
+      "barangay": "San Roque",
+      "group_by": "barangay",
+      "period.selection": "previous_month"
+    }
+  },
+  {
+    "question": "Compare cattle mortality across barangays this quarter",
+    "status": "parsed",
+    "intent": "mortality_comparison",
+    "parameters": {
+      "species": "Cattle",
+      "group_by": "barangay",
+      "period.selection": "current_quarter"
+    }
+  },
+  {
+    "question": "Ihambing ang namatay na carabao sa bawat barangay ngayong quarter",
+    "status": "parsed",
+    "intent": "mortality_comparison",
+    "parameters": {
+      "species": "Carabao",
+      "group_by": "barangay",
+      "period.selection": "current_quarter"
+    }
+  },
+  {
+    "question": "Which submissions are waiting for MAO approval?",
+    "status": "parsed",
+    "intent": "pending_reviews"
+  },
+  {
+    "question": "Which production records are pending MAO review?",
+    "status": "parsed",
+    "intent": "pending_reviews",
+    "parameters": {
+      "review_domain": "production"
+    }
+  },
+  {
+    "question": "Which disease submissions are waiting for MAO approval?",
+    "status": "parsed",
+    "intent": "pending_reviews",
+    "parameters": {
+      "review_domain": "disease"
+    }
+  },
+  {
+    "question": "Which records are pending review?",
+    "status": "clarification"
+  },
+  {
+    "question": "Which records for cattle in San Roque await MAO approval?",
+    "status": "clarification"
+  },
+  {
+    "question": "Compare disease and mortality across barangays",
+    "status": "clarification"
+  },
+  {
+    "question": "Show monthly production for the last six months",
+    "status": "clarification"
+  },
+  {
+    "question": "What is the weather forecast tomorrow?",
+    "status": "unsupported"
+  },
+  {
+    "question": "Show approved swine meat production year to date",
+    "status": "parsed",
+    "intent": "production_trend",
+    "parameters": {
+      "species": "Swine",
+      "production_type": "MEAT",
+      "period.selection": "year_to_date"
+    }
+  },
+  {
+    "question": "Show milk production during 2025",
+    "status": "parsed",
+    "intent": "production_trend",
+    "parameters": {
+      "production_type": "MILK",
+      "period.selection": "year_2025"
+    }
+  },
+  {
+    "question": "Show milk production this quarter for the last six months",
+    "status": "clarification"
+  },
+  {
+    "question": "Show milk production from 2026-06-30 to 2026-01-01",
+    "status": "clarification"
+  },
+  {
+    "question": "Compare disease cases by barangay from 2026-01-01 to 2099-01-01",
+    "status": "clarification"
+  },
+  {
+    "question": "Compare disease cases by barangay in Nowhere",
+    "status": "clarification"
+  },
+  {
+    "question": "Compare alpaca mortality by barangay this quarter",
+    "status": "clarification"
+  },
+  {
+    "question": "Show disease cases across all barangays this quarter",
+    "status": "parsed",
+    "intent": "disease_by_barangay",
+    "parameters": {
+      "group_by": "barangay",
+      "period.selection": "current_quarter"
+    }
+  },
+  {
+    "question": "How many livestock does Farmer A own?",
+    "status": "unsupported"
+  },
+  {
+    "question": "Ilang livestock ang akin?",
+    "status": "unsupported"
+  },
+  {
+    "question": "Show milk output for animal id 123",
+    "status": "unsupported"
+  },
+  {
+    "question": "How many cattle sold this quarter?",
+    "status": "unsupported"
+  },
+  {
+    "question": "Show slaughter totals this quarter",
+    "status": "unsupported"
+  },
+  {
+    "question": "Show sheep milk production this quarter",
+    "status": "clarification"
+  },
+  {
+    "question": "How many cattle and goats are registered?",
+    "status": "clarification"
+  }
 ]

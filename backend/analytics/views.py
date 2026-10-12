@@ -107,6 +107,18 @@ def nlp_query(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, isMAO])
+def nlp_evaluation(request):
+    """Evaluate checked-in language examples, never user questions or farm data."""
+    from .services.nlp_evaluation import compare_pipelines, evaluate_parser
+    comparison = request.query_params.get("compare", "0")
+    if comparison not in ("0", "1"):
+        raise ValidationError({"compare": "Use 0 for the parser report or 1 for the offline comparison."})
+    # ML is loaded only for an explicit admin diagnostic request, never Ask.
+    return Response(compare_pipelines() if comparison == "1" else evaluate_parser())
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO])
 def review_workload(request):
     """Return stage-aware counts and queue ages for the MAO dashboard."""
     return Response(review_workload_summary())

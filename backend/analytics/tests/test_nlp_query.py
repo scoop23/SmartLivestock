@@ -6,6 +6,7 @@ from pathlib import Path
 from django.urls import reverse
 from django.test import TestCase
 from rest_framework.test import APIClient
+from rest_framework.exceptions import PermissionDenied
 
 from analytics.services.nlp_query import execute_question, parse_question
 from diseases.models import DiseaseCase, MortalityRecord
@@ -29,7 +30,7 @@ class AskSmartLivestockParserTests(TestCase):
     def test_evaluation_examples_match_expected_intent_and_parameters(self):
         examples = json.loads(EVALUATION_PATH.read_text(encoding="utf-8"))
         self.assertGreaterEqual(len(examples), 30)
-        self.assertLessEqual(len(examples), 50)
+        self.assertLessEqual(len(examples), 40)
         exact_status = 0
         exact_intent = 0
         expected_parameter_count = 0
@@ -95,6 +96,41 @@ class AskSmartLivestockParserTests(TestCase):
                 self.assertEqual(parsed["status"], "parsed", parsed)
                 self.assertEqual(parsed["parameters"]["period"]["start"], start)
                 self.assertEqual(parsed["parameters"]["period"]["end"], end)
+
+    def test_unsupported_filters_and_ambiguous_combinations_are_not_ignored(self):
+        questions = [
+            "Show milk production yesterday",
+            "Show milk production since 2025",
+            "Show milk production this quarter since 2025",
+            "How many cattle and goats are registered?",
+            "How many chicken and ducks are registered?",
+            "Show swine milk output this month",
+            "Compare production and disease by barangay",
+            "Show current heads by barangay and by species",
+        ]
+        for question in questions:
+            with self.subTest(question=question):
+                result = parse_question(question, today=TODAY,
+                                        barangays=self.barangays, species_names=self.species)
+                self.assertEqual(result["status"], "clarification", result)
+
+    def test_quarter_rollover_and_leap_month(self):
+        for today, wording, start, end in [
+            (date(2026, 1, 1), "last quarter", "2025-10-01", "2025-12-31"),
+            (date(2024, 3, 1), "last month", "2024-02-01", "2024-02-29"),
+        ]:
+            result = parse_question(f"Show milk production {wording}", today=today,
+                                    barangays=self.barangays, species_names=self.species)
+            self.assertEqual(result["parameters"]["period"]["start"], start)
+            self.assertEqual(result["parameters"]["period"]["end"], end)
+
+    def test_case_whitespace_and_an_unmarked_owner(self):
+        result = parse_question("  HOW   MANY CATTLE ARE REGISTERED?  ", today=TODAY,
+                                barangays=self.barangays, species_names=self.species)
+        self.assertEqual(result["parameters"]["species"], "Cattle")
+        result = parse_question("How many cattle does Alice have?", today=TODAY,
+                                barangays=self.barangays, species_names=self.species)
+        self.assertEqual(result["status"], "unsupported")
 
 
 class AskSmartLivestockQueryTests(TestCase):
@@ -256,3 +292,74 @@ class AskSmartLivestockQueryTests(TestCase):
         self.client.force_authenticate(self.mao)
         response = self.client.post(reverse("nlp-query"), {"question": "x" * 501}, format="json")
         self.assertEqual(response.status_code, 400)
+
+    def test_barangay_species_breakdown_does_not_return_municipal_totals(self):
+        result = self.ask(self.mao, "Show current heads by species in San Roque")
+        self.assertEqual(result["results"], [
+            {"livestock_type": "Cattle", "current_heads": 3},
+            {"livestock_type": "Goat", "current_heads": 2},
+        ])
+
+    def test_individual_owner_queries_do_not_fall_back_to_municipal_inventory(self):
+        for user in (self.mao, self.sibat):
+            result = self.ask(user, "How many cattle does Farmer A own?")
+            self.assertEqual(result["status"], "unsupported")
+            self.assertEqual(result["results"], [])
+            self.assertIn("capability limitation", result["answer"])
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.farmer_user, "How many cattle are mine?")
+
+    def test_sibat_production_and_health_scopes_and_missing_assignment(self):
+        self.make_production(self.other_cattle_record, self.other_farmer, "MILK", "LITERS",
+                             "400", date(2026, 6, 1), "APPROVED")
+        result = self.ask(self.sibat, "Show milk production this quarter")
+        self.assertEqual(sum(row["quantity"] for row in result["results"]), 25)
+        result = self.ask(self.sibat, "Show disease cases across all barangays this quarter")
+        self.assertEqual([row["barangay"] for row in result["results"]], ["San Roque"])
+        self.sibat.assigned_barangay = None
+        self.sibat.save(update_fields=["assigned_barangay"])
+        self.assertEqual(self.ask(self.sibat, "Show current heads by barangay")["results"], [])
+
+    def test_all_barangay_sibat_does_not_gain_mao_queue_authority(self):
+        self.sibat.access_scope = "ALL_BARANGAYS"
+        self.sibat.save(update_fields=["access_scope"])
+        result = self.ask(self.sibat, "How many cattle are currently registered?")
+        self.assertEqual(result["results"][0]["current_heads"], 14)
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.sibat, "Which records are pending MAO approval?")
+
+    def test_evaluation_api_is_read_only_and_mao_admin_only(self):
+        url = reverse("nlp-evaluation")
+        for user in (self.sibat, self.farmer_user):
+            self.client.force_authenticate(user)
+            self.assertEqual(self.client.get(url).status_code, 403)
+            self.assertEqual(self.client.get(url, {"compare": "1"}).status_code, 403)
+        for user in (self.mao, self.make_user("admin", "ADMIN")):
+            self.client.force_authenticate(user)
+            result = self.client.get(url)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.data["total"], 40)
+            self.assertEqual(result.data["passed"], 40)
+            self.assertEqual(self.client.post(url, {}).status_code, 405)
+        self.assertEqual(self.client.get(url, {"compare": "invalid"}).status_code, 400)
+        self.client.force_authenticate(None)
+        self.assertIn(self.client.get(url).status_code, (401, 403))
+
+    def test_blank_and_invalid_question_types_are_rejected(self):
+        self.client.force_authenticate(self.mao)
+        for payload in ({}, {"question": "   "}, {"question": ["milk"]}, {"question": None}):
+            self.assertEqual(self.client.post(reverse("nlp-query"), payload, format="json").status_code, 400)
+
+    def test_mixed_units_are_not_merged_into_a_line_chart(self):
+        self.make_production(self.cattle_record, self.farmer, "MILK", "KILOGRAMS",
+                             "6", date(2026, 6, 10), "APPROVED")
+        result = self.ask(self.mao, "Show monthly milk production this quarter")
+        self.assertEqual(result["visualization"]["type"], "table")
+        self.assertEqual({row["unit"] for row in result["results"]}, {"LITERS", "KILOGRAMS"})
+
+    def test_production_barangay_filter_follows_owner_at_record(self):
+        self.make_production(self.cattle_record, self.other_farmer, "MILK", "LITERS",
+                             "400", date(2026, 6, 10), "APPROVED")
+        result = self.ask(self.mao, "Show milk production by barangay in San Roque this quarter")
+        self.assertEqual(result["results"], [{"production_type": "MILK", "unit": "LITERS",
+                                             "quantity": 25.0, "records": 2, "barangay": "San Roque"}])

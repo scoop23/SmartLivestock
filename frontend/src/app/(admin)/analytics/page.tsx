@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { PageHeader } from '@/app/components/page-header';
 import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
 import { BarChart3 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import DescriptiveAnalytics from '@/app/components/analytics/descriptive-analytics';
 import PredictiveAnalyticsView from '@/app/components/analytics/predictive-analytics-view';
 import PrescriptiveAnalyticsView from '@/app/components/analytics/prescriptive-analytics-view';
@@ -25,6 +27,11 @@ export default function AnalyticsPage() {
       <div className="p-3 sm:p-4 bg-white border-b border-slate-200 shadow-2xs">
         <div className="w-full">
           <AskSmartLivestock />
+          <div className="mx-auto mt-2 flex max-w-6xl justify-end">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/analytics/nlp-example-review">NLP examples & evaluation</Link>
+            </Button>
+          </div>
         </div>
       </div>
 

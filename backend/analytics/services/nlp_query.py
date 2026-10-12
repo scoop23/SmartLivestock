@@ -13,6 +13,7 @@ from rest_framework.exceptions import PermissionDenied
 from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import Barangay, LivestockType
 from production.models import ProductionRecord
+from production.serializer import allowed_production_types
 from smartlivestock.workflows import role_name, scope_reviewer_queryset
 
 from .population import population_summary
@@ -21,6 +22,10 @@ from .review_workload import review_workload_summary
 
 MAX_QUESTION_LENGTH = 500
 MAX_EXPLICIT_PERIOD_DAYS = 366 * 5
+SUPPORTED_INTENTS = frozenset({
+    "population_summary", "production_trend", "production_breakdown",
+    "disease_by_barangay", "mortality_comparison", "pending_reviews",
+})
 
 PRODUCTION_ALIASES = {
     "MILK": ("milk", "dairy", "gatas"),
@@ -49,6 +54,16 @@ def normalize_question(value):
     return re.sub(r"\s+", " ", value).strip()
 
 
+def tokenize_question(value):
+    """Split normalized text without breaking ISO dates or hyphenated names.
+
+    No stemming or stop-word removal: words such as 'last', 'not', and 'sa'
+    help determine dates, negation and location in English/Taglish questions.
+    This same tokenizer is used by the offline TF-IDF experiment.
+    """
+    return re.findall(r"\d{4}-\d{2}-\d{2}|[^\W_]+(?:-[^\W_]+)*", normalize_question(value))
+
+
 def _contains(text, phrase):
     phrase = normalize_question(phrase)
     return bool(phrase and re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text))
@@ -72,6 +87,9 @@ def _date_period(start, end, label, selection):
 def _parse_period(text, today, intent):
     """Recognize explicit calendar periods and reject conflicting/invalid ranges."""
     matches = []
+    unsupported_time = r"\b(?:yesterday|tomorrow|week|weeks|day|days|january|february|march|april|may|june|july|august|september|october|november|december|kahapon|linggo|since|until)\b"
+    if re.search(unsupported_time, text) or (_contains(text, "today") and intent not in ("population_summary", "pending_reviews")):
+        return None, "Use a supported calendar month, quarter, year, or an explicit YYYY-MM-DD date range."
 
     range_match = re.search(
         r"\b(?:from|between)\s+(\d{4}-\d{2}-\d{2})\s+(?:to|and)\s+(\d{4}-\d{2}-\d{2})\b",
@@ -150,6 +168,9 @@ def _parse_period(text, today, intent):
             return None, "Choose a date range no longer than five years."
         return _date_period(start, end, label, selection), None
 
+    # Never ignore an unrecognized date and silently substitute the default.
+    if re.search(r"\b20\d{2}\b|\b(?:from|between)\b", text):
+        return None, "Use a supported calendar month, quarter, year, or an explicit YYYY-MM-DD date range."
     if intent in ("population_summary", "pending_reviews"):
         return None, None
     # Activity questions without a period use an explicit, visible default.
@@ -159,8 +180,6 @@ def _parse_period(text, today, intent):
 def _resolve_species(text, species_names):
     names = sorted({name for name in species_names if name}, key=lambda name: len(name), reverse=True)
     direct = [name for name in names if _contains(text, name)]
-    if direct:
-        return sorted(set(direct), key=str.casefold), None
 
     aliases_found = [
         (group, aliases)
@@ -168,8 +187,18 @@ def _resolve_species(text, species_names):
         if any(_contains(text, alias) for alias in aliases)
     ]
     if not aliases_found:
-        return [], None
+        return sorted(set(direct), key=str.casefold), None
     if len(aliases_found) > 1:
+        return [], "Please ask about one livestock type at a time."
+    if aliases_found[0][0] == "poultry":
+        chicken = any(_contains(text, word) for word in ("chicken", "chickens", "manok", "hen", "layer"))
+        duck = any(_contains(text, word) for word in ("duck", "ducks", "itik"))
+        if chicken and duck:
+            return [], "Please ask about one livestock type at a time."
+    if direct:
+        # Direct names must not hide a conflicting alias (e.g. cattle and goats).
+        if len(direct) == 1:
+            return direct, None
         return [], "Please ask about one livestock type at a time."
     group_name, aliases = aliases_found[0]
     candidates = [
@@ -255,7 +284,7 @@ def _unknown_species_reference(text, species_names):
 
 
 def parse_question(question, *, today=None, barangays=(), species_names=()):
-    """Return a small validated intent object; never return ORM fields or SQL."""
+    """Parse questions with explicit rules; never return ORM fields or SQL."""
     normalized = normalize_question(question)
     if not normalized:
         return {"status": "clarification", "message": "Enter a question about livestock analytics."}
@@ -263,6 +292,17 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         return {"status": "clarification", "message": f"Keep the question to {MAX_QUESTION_LENGTH} characters or fewer."}
 
     today = today or timezone.localdate()
+    # Named-owner and animal filters are not implemented. Reject the filter,
+    # rather than answering a different question with municipal totals.
+    if any(_contains(normalized, word) for word in ("farmer", "farmers", "raiser", "raisers", "magsasaka", "my", "mine", "akin", "own", "owns", "owner", "owned", "tag", "animal id", "farmer id")) or re.search(r"\bdoes\s+.+\s+have\b|\blivestock\s+\d+\b", normalized):
+        return {"status": "unsupported", "message": "The assistant does not yet implement farmer-count, individual-owner, or animal-ID filters. This is a query capability limitation, not a decision about your permissions. Use the authorized farmer directory or inventory instead."}
+    queue_request = _contains(normalized, "mao") and any(_contains(normalized, word) for word in ("waiting", "pending", "approval", "review"))
+    if not queue_request and any(_contains(normalized, word) for word in ("sales", "sold", "revenue", "profit", "benta", "sold animals")):
+        return {"status": "unsupported", "message": "Sales and sold-animal summaries are not implemented in this assistant. Use the existing trade records interface."}
+    if any(_contains(normalized, word) for word in ("slaughter", "slaughtered", "katay")):
+        return {"status": "unsupported", "message": "A separate slaughter summary is not implemented here. Ask for meat production to view approved recorded meat output, including linked slaughter yield."}
+    if any(_contains(normalized, word) for word in ("rate", "rates", "percentage", "predict", "forecast")):
+        return {"status": "unsupported", "message": "This assistant reports recorded counts and quantities, not rates, percentages, or forecasts."}
     signals = {
         "pending_reviews": any(_contains(normalized, phrase) for phrase in (
             "pending", "waiting", "awaiting", "review", "approval", "for mao", "ma approve", "hindi pa approved",
@@ -281,6 +321,8 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         )),
     }
 
+    if not signals["pending_reviews"] and sum(signals[key] for key in ("disease_by_barangay", "mortality_comparison", "production")) > 1:
+        return {"status": "clarification", "message": "Please ask about one metric at a time: production, disease cases, or mortality."}
     if signals["disease_by_barangay"] and signals["mortality_comparison"]:
         return {"status": "clarification", "message": "Do you want a disease-case comparison or a mortality comparison? Please ask about one metric."}
     if signals["pending_reviews"]:
@@ -294,10 +336,12 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     elif signals["population_summary"]:
         intent = "population_summary"
     else:
-        return {"status": "unsupported", "message": "I can answer livestock population, production, disease, mortality, and MAO review-queue questions. Try one of the examples."}
+        return {"status": "unsupported", "reason": "unrecognized_intent", "message": "I can answer livestock population, production, disease, mortality, and MAO review-queue questions. Try one of the examples."}
+    if intent != "pending_reviews" and any(_contains(normalized, word) for word in ("pending", "verified", "rejected", "declarations")):
+        return {"status": "clarification", "message": "Analytics use approved records. For pending submissions, ask about the current MAO review queue."}
     if intent == "production":
         breakdown = any(_contains(normalized, phrase) for phrase in (
-            "breakdown", "by type", "by livestock type", "by species", "distribution", "composition",
+            "breakdown", "break down", "by barangay", "per barangay", "by type", "by livestock type", "by species", "distribution", "composition",
         ))
         intent = "production_breakdown" if breakdown else "production_trend"
 
@@ -338,9 +382,10 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     if production_error:
         return {"status": "clarification", "message": production_error}
 
-    if intent == "population_summary" and any(_contains(normalized, word) for word in ("farmer", "farmers", "raiser", "raisers")):
-        return {"status": "unsupported", "message": "Farmer-count questions are not part of the supported livestock analytics queries."}
-
+    if species and production_type and production_type not in allowed_production_types(species[0]):
+        return {"status": "clarification", "message": "That production category is not supported for the selected livestock type. Choose a supported combination."}
+    if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay")) and any(_contains(normalized, phrase) for phrase in ("by species", "by livestock type")):
+        return {"status": "clarification", "message": "Please choose one grouping: barangay or livestock type."}
     group_by = None
     if intent in ("disease_by_barangay", "mortality_comparison"):
         if not any(_contains(normalized, phrase) for phrase in (
@@ -428,7 +473,8 @@ def _activity_query(queryset, *, user, period, barangay_id, species_name):
     if barangay_id is not None:
         barangay_filter = Q(livestock__farmer__barangay_id=barangay_id) | Q(batch__farmer__barangay_id=barangay_id)
         if queryset.model is ProductionRecord:
-            barangay_filter |= Q(farmer_at_record__barangay_id=barangay_id)
+            # Match the same historical owner used by production authorization.
+            barangay_filter = Q(farmer_at_record__barangay_id=barangay_id)
         scoped = scoped.filter(barangay_filter)
     return _apply_species(scoped, species_name)
 
@@ -484,17 +530,14 @@ def _population_results(parameters, user, today):
         selected_barangays = summary["by_barangay"]
         if barangay_id is not None:
             selected_barangays = [row for row in selected_barangays if row["barangay_id"] == barangay_id]
-        allowed_species = {
-            item["species"]
-            for barangay in selected_barangays
-            for item in barangay["species"]
-        }
-        rows = [
-            {"livestock_type": item["species"], "current_heads": item["heads"]}
-            for item in summary["by_species"]
-            if item["heads"] and item["species"] in allowed_species
-            and (not species_name or item["species"] == species_name)
-        ]
+        # Sum the selected barangays, not the municipality-wide species totals.
+        totals = {}
+        for barangay in selected_barangays:
+            for item in barangay["species"]:
+                if not species_name or item["species"] == species_name:
+                    totals[item["species"]] = totals.get(item["species"], 0) + item["heads"]
+        rows = [{"livestock_type": name, "current_heads": heads}
+                for name, heads in sorted(totals.items()) if heads]
         return rows, "bar", "livestock_type", "current_heads"
 
     barangays = summary["by_barangay"]
@@ -543,7 +586,9 @@ def _production_results(parameters, user):
             .annotate(quantity=Sum("output_quantity"), records=Count("id"))
             .order_by("month", "species")
         ]
-        return rows, "line", "label", "quantity", "livestock_type"
+        # Do not plot different units on one numeric axis or overwrite series.
+        chart_type = "line" if len({row["unit"] for row in rows}) <= 1 else "table"
+        return rows, chart_type, "label", "quantity", "livestock_type"
 
     group_by = parameters["group_by"]
     if group_by == "species":
@@ -611,6 +656,9 @@ def _mortality_results(parameters, user):
 
 def execute_question(question, *, user, today=None):
     """Parse one question, then execute only fixed, permission-scoped analytics."""
+    # Defense in depth: the service is also safe when called without its view.
+    if role_name(user) not in ("MAO", "ADMIN", "SIBAT"):
+        raise PermissionDenied("Your role cannot access this analytics assistant.")
     today = today or timezone.localdate()
     visible_barangays = list(
         scope_reviewer_queryset(Barangay.objects.all(), user)
@@ -619,7 +667,10 @@ def execute_question(question, *, user, today=None):
     )
     parser_barangays = [{"id": row["id"], "name": row["barangay_name"]} for row in visible_barangays]
     species_names = list(LivestockType.objects.order_by("name").values_list("name", flat=True))
-    parsed = parse_question(question, today=today, barangays=parser_barangays, species_names=species_names)
+    # Import here to keep the parser independently testable and avoid a cycle.
+    # The production pipeline does not load scikit-learn or train a model.
+    from .nlp_pipeline import interpret_question
+    parsed = interpret_question(question, today=today, barangays=parser_barangays, species_names=species_names)
     if parsed["status"] != "parsed":
         return {"status": parsed["status"], "question": question, "answer": parsed["message"], "results": []}
 
