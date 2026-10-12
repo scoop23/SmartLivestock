@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   Scale,
   Layers,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,46 @@ function LivestockThumbnail({ item, emoji }: { item: UnifiedSubmissionItem; emoj
       )}
     </div>
   );
+}
+
+function csvCell(value: unknown) {
+  const text = value == null ? "" : String(value);
+  // Prevent spreadsheet applications from treating user-entered values as formulas.
+  const safeText = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
+}
+
+function exportLivestockCsv(records: UnifiedSubmissionItem[]) {
+  const headers = [
+    "Record Type", "Record ID", "Ear Tag / Batch Code", "Batch Name", "Livestock Type", "Breed",
+    "Sex", "Quantity", "Unit", "Operational Status", "Review Status", "Farmer", "Barangay",
+    "Record Date", "Last Vaccination Date", "Review Remarks",
+  ];
+  const rows = records.map((item) => [
+    item.entryType ?? item.sourceType,
+    item.rawId,
+    item.tagNumber || item.batchCode,
+    item.batchName,
+    item.livestockTypeName,
+    item.breed,
+    item.sex,
+    item.quantity,
+    item.unit,
+    item.operationalStatus,
+    item.status,
+    item.farmerName,
+    item.barangayName,
+    item.recordDate,
+    item.lastVaccinationDate,
+    item.reviewRemarks,
+  ]);
+  const content = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blobUrl = URL.createObjectURL(new Blob([`\uFEFF${content}`], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = `sibat-livestock-records-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
 }
 
 export default function SibatInventoryQueue({
@@ -296,6 +337,19 @@ export default function SibatInventoryQueue({
               </button>
             );
           })}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => exportLivestockCsv(filteredSubmissions)}
+            disabled={isLoading || filteredSubmissions.length === 0}
+            title="Download all records matching the current search and filters"
+            className="ml-auto h-8 shrink-0 gap-1.5 rounded-xl border-slate-200 px-2.5 text-xs font-bold text-slate-700"
+          >
+            <Download className="size-3.5" />
+            Export CSV ({filteredSubmissions.length})
+          </Button>
 
           {hasActiveFilters && (
             <Button

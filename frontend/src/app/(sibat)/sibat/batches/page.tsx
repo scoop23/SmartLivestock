@@ -68,6 +68,7 @@ import {
   Info,
   ClipboardList,
   ClipboardCheck,
+  Download,
 } from "lucide-react";
 import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
@@ -115,6 +116,41 @@ interface BatchItem {
   reviewed_at?: string | null;
   created_at: string;
   updated_at?: string;
+}
+
+function csvCell(value: unknown) {
+  const text = value == null ? "" : String(value);
+  const safeText = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
+}
+
+function exportHerdRosterCsv(batches: BatchItem[]) {
+  const headers = [
+    "Row Type", "Batch Code", "Batch Name", "Farmer", "Barangay", "Livestock Type", "Review Status",
+    "Herd Status", "Housing Pen", "Feed Type", "Target Weight", "Target Harvest Date", "Animal Tag",
+    "Animal Breed", "Animal Sex", "Animal Weight", "Animal Review Status", "Last Vaccination Date", "Animal Registered At",
+  ];
+  const rows = batches.flatMap((batch) => {
+    const shared = [
+      batch.batch_code, batch.batch_name, batch.farmer_name, batch.barangay_name,
+      batch.livestock_type_name, batch.review_status, batch.status, batch.housing_pen,
+      batch.feed_type, batch.target_weight, batch.target_harvest_date,
+    ];
+    if (batch.animals?.length) {
+      return batch.animals.map((animal) => [
+        "Animal", ...shared, animal.tag_number, animal.breed, animal.sex, animal.weight,
+        animal.status, animal.last_vaccination_date, animal.created_at,
+      ]);
+    }
+    return [["Batch", ...shared, "", "", "", "", "", "", ""]];
+  });
+  const content = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blobUrl = URL.createObjectURL(new Blob([`\uFEFF${content}`], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = `sibat-herd-roster-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
 }
 
 function deriveBatchReviewStatus(batch: BatchItem): BatchItem["review_status"] {
@@ -537,6 +573,17 @@ function SibatBatchesVerificationContent() {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportHerdRosterCsv(filteredBatches)}
+              disabled={isLoading || filteredBatches.length === 0}
+              title="Download all herds matching the current filters, including their animal rosters"
+              className="h-8 gap-1.5 rounded-xl border-slate-200 text-xs font-bold text-slate-700"
+            >
+              <Download className="size-3.5" />
+              Export Herds ({filteredBatches.length})
+            </Button>
             <Button
               variant="outline"
               size="sm"

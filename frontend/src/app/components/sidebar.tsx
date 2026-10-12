@@ -149,6 +149,7 @@ const sibatLinks: SidebarLink[] = [
     icon: ClipboardCheck,
     subLinks: [
       { path: '/sibat', label: 'Overview & Field Queues' },
+        { path: '/sibat/livestock-registry', label: 'Livestock Registry' },
       { path: '/sibat/batches', label: 'Herd Verification', badge: 'Herds' },
     ],
   },
