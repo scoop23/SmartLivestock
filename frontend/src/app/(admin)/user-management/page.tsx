@@ -52,6 +52,7 @@ import { useAdminBarangays } from "../admin/admin-charts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentPreviewDialog } from "./document-preview-dialog";
 
 export type { ApiUser, UserAccountStatus, UserDocumentItem };
@@ -118,17 +119,24 @@ export default function UserManagementPage() {
   };
 
   const getDocTypeLabel = (doc: UserDocumentItem) => {
-    if (doc.document_type_display) return doc.document_type_display;
-    switch (doc.document_type) {
-      case "GOVERNMENT_ID":
-        return "Government ID";
-      case "RSBSA":
-        return "RSBSA Certificate";
-      case "BARANGAY_CLEARANCE":
-        return "Barangay Clearance";
-      default:
-        return doc.document_type.replaceAll("_", " ");
+    let typeLabel = doc.document_type_display;
+    if (!typeLabel) {
+      switch (doc.document_type) {
+        case "GOVERNMENT_ID":
+          typeLabel = "Government ID";
+          break;
+        case "RSBSA":
+          typeLabel = "RSBSA Certificate";
+          break;
+        case "BARANGAY_CLEARANCE":
+          typeLabel = "Barangay Clearance";
+          break;
+        default:
+          typeLabel = doc.document_type.replaceAll("_", " ");
+      }
     }
+    const side = doc.file_name?.match(/^(front|back)_/i)?.[1];
+    return side ? `${typeLabel} · ${side} side` : typeLabel;
   };
 
   const getDocStatusBadge = (status: string) => {
@@ -510,278 +518,129 @@ export default function UserManagementPage() {
         </div>
       </div>
 
-      {/* PROFILE MODAL (shadcn Dialog) */}
+      {/* User account and registration document review */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         {selectedUser && (
-          <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl p-5 sm:p-6 bg-white border-none shadow-2xl [&>button]:right-8 [&>button]:top-8 [&>button]:p-2 [&>button]:rounded-full [&>button]:hover:bg-gray-100">
-            <DialogHeader className="text-center mb-4">
-              <div
-                className={`size-20 mx-auto rounded-3xl flex items-center justify-center mb-4 overflow-hidden ${
-                  selectedUser.role?.toUpperCase() === "SIBAT"
-                    ? "bg-blue-600 text-white"
-                    : "bg-green-100 text-[#2D5A27]"
-                }`}
-              >
-                {selectedUser.profile_image ? (
-                  <img
-                    src={selectedUser.profile_image}
-                    alt={selectedUser.full_name}
-                    className="size-full object-cover"
-                  />
-                ) : selectedUser.role?.toUpperCase() === "SIBAT" ? (
-                  <ShieldCheck size={40} />
-                ) : (
-                  <Users size={40} />
-                )}
+          <DialogContent className="flex max-h-[92dvh] w-[calc(100%-1rem)] max-w-3xl flex-col gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-10 [&>button]:rounded-full [&>button]:bg-white/90 [&>button]:p-2 [&>button]:shadow-sm">
+            <DialogHeader className="shrink-0 border-b border-slate-200 bg-slate-50/80 px-5 py-4 text-left sm:px-6">
+              <div className="flex items-center gap-3 pr-8">
+                <div className={`flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl ${selectedUser.role?.toUpperCase() === "SIBAT" ? "bg-blue-100 text-blue-800" : "bg-emerald-100 text-emerald-800"}`}>
+                  {selectedUser.profile_image ? (
+                    <img src={selectedUser.profile_image} alt={selectedUser.full_name} className="size-full object-cover" />
+                  ) : selectedUser.role?.toUpperCase() === "SIBAT" ? (
+                    <ShieldCheck className="size-6" />
+                  ) : (
+                    <Users className="size-6" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="truncate text-lg font-bold tracking-tight text-slate-950 sm:text-xl">{selectedUser.full_name}</DialogTitle>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{selectedUser.username} <span aria-hidden="true">·</span> {selectedUser.role}</p>
+                </div>
               </div>
-              <DialogTitle className="text-2xl font-black text-gray-900 text-center">
-                {selectedUser.full_name}
-              </DialogTitle>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center mt-1">
-                {selectedUser.username} â€¢ {selectedUser.role}
-              </p>
             </DialogHeader>
 
-            <div className="space-y-3">
-              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
-                <span className="text-[10px] font-black text-gray-400 uppercase">Email</span>
-                <span className="text-sm font-bold break-all">{selectedUser.email}</span>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
-                <span className="text-[10px] font-black text-gray-400 uppercase">
-                  Contact Phone
-                </span>
-                <span className="text-sm font-bold">
-                  {selectedUser.phone_number || "Not provided"}
-                </span>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
-                <span className="text-[10px] font-black text-gray-400 uppercase">{selectedUser.role === "SIBAT" ? "Assigned Barangay" : "Barangay"}</span>
-                <span className="text-sm font-bold">
-                  {userBarangayLabel(selectedUser)}
-                </span>
-              </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+              <Card className="gap-0 rounded-xl border-slate-200 shadow-none">
+                <CardHeader className="border-b border-slate-100 px-4 py-3">
+                  <CardTitle className="text-sm font-semibold text-slate-900">Account details</CardTitle>
+                  <CardDescription className="text-xs">Contact and registration information</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+                  <div className="min-w-0"><p className="text-[11px] font-medium text-slate-500">Email</p><p className="mt-1 break-all text-sm font-medium text-slate-900">{selectedUser.email}</p></div>
+                  <div><p className="text-[11px] font-medium text-slate-500">Contact phone</p><p className="mt-1 text-sm font-medium text-slate-900">{selectedUser.phone_number || "Not provided"}</p></div>
+                  <div><p className="text-[11px] font-medium text-slate-500">{selectedUser.role === "SIBAT" ? "Assigned barangay" : "Barangay"}</p><p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900"><MapPin className="size-3.5 text-slate-400" />{userBarangayLabel(selectedUser)}</p></div>
+                  <div><p className="text-[11px] font-medium text-slate-500">Registered</p><p className="mt-1 text-sm font-medium text-slate-900">{new Date(selectedUser.created_at).toLocaleDateString()}</p></div>
+                </CardContent>
+              </Card>
+
               {selectedUser.role === "SIBAT" && (
-                <div className="space-y-2 rounded-xl bg-blue-50 p-3">
-                  <Label htmlFor="sibat-assignment">SIBAT review barangay</Label>
-                  <Select value={assignment} onValueChange={setAssignment} disabled={barangaysQuery.isLoading || barangaysQuery.isError || assignmentMutation.isPending}>
-                    <SelectTrigger id="sibat-assignment"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Label htmlFor="sibat-access-scope">Access scope</Label>
-                  <Select value={accessScope} onValueChange={(value) => setAccessScope(value as ApiUser["access_scope"])} disabled={assignmentMutation.isPending}>
-                    <SelectTrigger id="sibat-access-scope"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ASSIGNED_ONLY">Assigned Barangay</SelectItem>
-                      <SelectItem value="ALL_BARANGAYS">All Barangays</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-600">Assigned scope requires a barangay. All Barangays expands visibility and verification while retaining the primary barangay and SIBAT role. Final approval remains with MAO/Admin.</p>
-                  <Button size="sm" disabled={assignmentMutation.isPending || barangaysQuery.isError || barangaysQuery.isLoading} onClick={() => assignmentMutation.mutate({ userId: selectedUser.id, barangayId: assignment === "unassigned" ? null : Number(assignment), accessScope }, { onSuccess: setSelectedUser })}>
-                    {assignmentMutation.isPending ? "Saving..." : "Save Assignment & Scope"}
-                  </Button>
-                </div>
+                <Card className="gap-0 rounded-xl border-slate-200 shadow-none">
+                  <CardHeader className="border-b border-slate-100 px-4 py-3">
+                    <CardTitle className="text-sm font-semibold text-slate-900">SIBAT assignment</CardTitle>
+                    <CardDescription className="text-xs">Set the field barangay and record visibility scope</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 p-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5"><Label htmlFor="sibat-assignment" className="text-xs text-slate-600">Assigned barangay</Label><Select value={assignment} onValueChange={setAssignment} disabled={barangaysQuery.isLoading || barangaysQuery.isError || assignmentMutation.isPending}><SelectTrigger id="sibat-assignment" className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}</SelectContent></Select></div>
+                      <div className="space-y-1.5"><Label htmlFor="sibat-access-scope" className="text-xs text-slate-600">Access scope</Label><Select value={accessScope} onValueChange={(value) => setAccessScope(value as ApiUser["access_scope"])} disabled={assignmentMutation.isPending}><SelectTrigger id="sibat-access-scope" className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ASSIGNED_ONLY">Assigned Barangay</SelectItem><SelectItem value="ALL_BARANGAYS">All Barangays</SelectItem></SelectContent></Select></div>
+                    </div>
+                    <p className="text-xs leading-relaxed text-slate-500">Assigned scope requires a barangay. All Barangays expands visibility and verification while retaining the primary barangay and SIBAT role. Final approval remains with MAO/Admin.</p>
+                    <Button size="sm" variant="outline" disabled={assignmentMutation.isPending || barangaysQuery.isError || barangaysQuery.isLoading} onClick={() => assignmentMutation.mutate({ userId: selectedUser.id, barangayId: assignment === "unassigned" ? null : Number(assignment), accessScope }, { onSuccess: setSelectedUser })}>
+                      {assignmentMutation.isPending ? <><Loader2 className="mr-2 size-4 animate-spin" />Saving assignment...</> : "Save assignment and scope"}
+                    </Button>
+                  </CardContent>
+                </Card>
               )}
-              <p className="text-xs text-slate-500">Registered: {new Date(selectedUser.created_at).toLocaleDateString()}</p>
-
-              {/* Registration Documents Section */}
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <FileText className="size-3.5 text-slate-500" />
-                    Submitted Registration Documents
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-semibold">
-                    {(selectedUser.documents || []).length} attached
-                  </Badge>
-                </div>
-
-                {(selectedUser.documents || []).length === 0 ? (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500">
-                    No documents uploaded during registration.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedUser.documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2.5 transition-all hover:border-slate-300"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                              {getDocTypeLabel(doc)}
-                            </div>
-                            <p className="text-[11px] text-slate-500 break-all mt-0.5">
-                              {doc.file_name || "Attachment"} • {new Date(doc.uploaded_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div>{getDocStatusBadge(doc.verification_status)}</div>
-                        </div>
-
-                        {doc.review_remarks && (
-                          <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-800 space-y-0.5">
-                            <span className="font-bold flex items-center gap-1">
-                              <AlertTriangle className="size-3 text-rose-600" /> Review Remarks:
-                            </span>
-                            <p className="pl-4">{doc.review_remarks}</p>
-                          </div>
-                        )}
-
-                        {doc.approved_by_name && doc.verification_status === "APPROVED" && (
-                          <p className="text-[10px] text-emerald-700 font-medium">
-                            ✓ Verified by: {doc.approved_by_name}
-                          </p>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setPreviewDoc(doc)}
-                            className="h-7 text-xs px-2.5 gap-1.5 text-emerald-900 bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-950 font-semibold"
-                          >
-                            <Eye className="size-3.5 text-emerald-700" /> Preview Attachment
-                          </Button>
-
-                          <div className="ml-auto flex items-center gap-1">
-                            {doc.verification_status !== "APPROVED" && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={verifyDocMutation.isPending}
-                                onClick={() => handleVerifyDocument(doc.id, "APPROVED")}
-                                className="h-7 text-xs px-2.5 bg-emerald-700 hover:bg-emerald-800 text-white gap-1"
-                              >
-                                <Check className="size-3" /> Approve
-                              </Button>
-                            )}
-
-                            {doc.verification_status !== "SUBJECT_TO_REVISION" && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={verifyDocMutation.isPending}
-                                onClick={() => {
-                                  setRevisionDoc(doc);
-                                  setRevisionReason(doc.review_remarks || "");
-                                }}
-                                className="h-7 text-xs px-2.5 border-rose-200 text-rose-700 hover:bg-rose-50 gap-1"
-                              >
-                                <RotateCcw className="size-3" /> Revise
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[10px] text-slate-400 italic">
-                  Note: Documents are manually verified by MAO officers. The system records administrative verification decisions.
-                </p>
-              </div>
 
               {selectedUser.role?.toUpperCase() === "FARMER" && (
-                <>
-                  {selectedUser.rsbsa_number && (
-                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-wrap justify-between gap-2">
-                      <span className="text-[10px] font-black text-emerald-700 uppercase">
-                        RSBSA Number
-                      </span>
-                      <span className="text-sm font-bold text-emerald-900 font-mono">
-                        {selectedUser.rsbsa_number}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="p-4 bg-green-50 rounded-2xl flex justify-between">
-                    <span className="text-[10px] font-black text-green-600 uppercase">
-                      Active Livestock
-                    </span>
-                    <span className="text-sm font-black text-green-700">
-                      {selectedUser.cattle_count} Heads
-                    </span>
-                  </div>
-                  {selectedUser.farm_size !== null && (
-                    <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
-                      <span className="text-[10px] font-black text-gray-400 uppercase">
-                        Farm Size
-                      </span>
-                      <span className="text-sm font-bold">{selectedUser.farm_size} ha</span>
-                    </div>
-                  )}
-                  {selectedUser.address && (
-                    <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
-                      <span className="text-[10px] font-black text-gray-400 uppercase">
-                        Farm Address
-                      </span>
-                      <span className="text-sm font-bold">{selectedUser.address}</span>
-                    </div>
-                  )}
-                </>
+                <Card className="gap-0 rounded-xl border-slate-200 shadow-none">
+                  <CardHeader className="border-b border-slate-100 px-4 py-3">
+                    <CardTitle className="text-sm font-semibold text-slate-900">Farm profile</CardTitle>
+                    <CardDescription className="text-xs">Farmer information submitted during registration</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+                    {selectedUser.rsbsa_number && <div><p className="text-[11px] font-medium text-slate-500">RSBSA number</p><p className="mt-1 font-mono text-sm font-medium text-slate-900">{selectedUser.rsbsa_number}</p></div>}
+                    <div><p className="text-[11px] font-medium text-slate-500">Registered cattle</p><p className="mt-1 text-sm font-medium text-slate-900">{selectedUser.cattle_count} heads</p></div>
+                    {selectedUser.farm_size !== null && <div><p className="text-[11px] font-medium text-slate-500">Farm size</p><p className="mt-1 text-sm font-medium text-slate-900">{selectedUser.farm_size} ha</p></div>}
+                    {selectedUser.address && <div className="sm:col-span-2"><p className="text-[11px] font-medium text-slate-500">Farm address</p><p className="mt-1 text-sm font-medium text-slate-900">{selectedUser.address}</p></div>}
+                  </CardContent>
+                </Card>
               )}
-              <div className="p-4 bg-gray-50 rounded-2xl flex flex-wrap justify-between gap-2">
-                <span className="text-[10px] font-black text-gray-400 uppercase">
-                  Account Status
-                </span>
-                <div>{getStatusBadge(selectedUser.account_status)}</div>
-              </div>
+
+              <Card className="gap-0 rounded-xl border-slate-200 shadow-none">
+                <CardHeader className="border-b border-slate-100 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><CardTitle className="flex items-center gap-2 text-sm font-semibold text-slate-900"><FileText className="size-4 text-slate-500" />Registration documents</CardTitle><CardDescription className="mt-1 text-xs">Preview and review each uploaded file</CardDescription></div>
+                    <Badge variant="secondary" className="shrink-0 text-xs">{(selectedUser.documents || []).length} {selectedUser.documents?.length === 1 ? "file" : "files"}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 p-4">
+                  {(selectedUser.documents || []).length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center"><FileText className="mx-auto size-5 text-slate-400" /><p className="mt-2 text-sm font-medium text-slate-700">No documents attached</p><p className="mt-1 text-xs text-slate-500">No files were uploaded during registration.</p></div>
+                  ) : selectedUser.documents.map((doc) => (
+                    <div key={doc.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><FileText className="size-4" /></span>
+                          <div className="min-w-0"><p className="text-sm font-semibold text-slate-900">{getDocTypeLabel(doc)}</p><p className="mt-0.5 break-all text-xs text-slate-500">{doc.file_name?.replace(/^(front|back)_/i, "") || "Attachment"}</p><p className="mt-1 text-[11px] text-slate-400">Uploaded {new Date(doc.uploaded_at).toLocaleDateString()}</p></div>
+                        </div>
+                        {getDocStatusBadge(doc.verification_status)}
+                      </div>
+                      {doc.review_remarks && <div className="rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-800"><p className="flex items-center gap-1.5 font-semibold"><AlertTriangle className="size-3.5" />Review remarks</p><p className="mt-1 pl-5 leading-relaxed">{doc.review_remarks}</p></div>}
+                      {doc.approved_by_name && doc.verification_status === "APPROVED" && <p className="text-xs text-emerald-700">Verified by {doc.approved_by_name}</p>}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
+                        <Button type="button" size="sm" variant="outline" onClick={() => setPreviewDoc(doc)} className="h-8 gap-1.5 text-xs"><Eye className="size-3.5" />Preview file</Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {doc.verification_status !== "APPROVED" && <Button type="button" size="sm" disabled={verifyDocMutation.isPending} onClick={() => handleVerifyDocument(doc.id, "APPROVED")} className="h-8 gap-1.5 bg-emerald-700 text-xs text-white hover:bg-emerald-800"><Check className="size-3.5" />Approve file</Button>}
+                          {doc.verification_status !== "SUBJECT_TO_REVISION" && <Button type="button" size="sm" variant="outline" disabled={verifyDocMutation.isPending} onClick={() => { setRevisionDoc(doc); setRevisionReason(doc.review_remarks || ""); }} className="h-8 gap-1.5 border-rose-200 text-xs text-rose-700 hover:bg-rose-50"><RotateCcw className="size-3.5" />Request revision</Button>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-xs leading-relaxed text-slate-500">Documents are manually verified by MAO officers. Each file keeps its own review status.</p>
+                </CardContent>
+              </Card>
             </div>
 
-            {selectedUser.account_status === "PENDING" || selectedUser.account_status === "SUBJECT_TO_REVISION" ? (
-              <div className="space-y-2 mt-6">
-                {(selectedUser.documents || []).some((d) => d.verification_status === "SUBJECT_TO_REVISION") && (
-                  <p className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
-                    ⚠ Note: One or more documents require revision. Resolve or update document status before approving the account.
-                  </p>
-                )}
-                {(selectedUser.documents || []).some((d) => d.verification_status === "PENDING") && (
-                  <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                    ℹ Note: Registration documents are still pending review. Please verify documents above.
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    disabled={
-                      updateStatusMutation.isPending ||
-                      (selectedUser.documents || []).some(
-                        (d) => d.verification_status === "SUBJECT_TO_REVISION" || d.verification_status === "PENDING"
-                      )
-                    }
-                    onClick={() => {
-                      handleStatusUpdate(selectedUser.id, "APPROVED");
-                    }}
-                    className="flex-1 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-md cursor-pointer disabled:opacity-50"
-                  >
-                    Approve Account
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={updateStatusMutation.isPending}
-                    onClick={() => {
-                      handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION");
-                    }}
-                    className="flex-1 py-6 border-rose-300 text-rose-900 hover:bg-rose-50 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    <RotateCcw className="size-4 text-rose-700" />
-                    Return for Revision
-                  </Button>
-                </div>
+            <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3.5 sm:px-6">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div><p className="text-[11px] font-medium text-slate-500">Account status</p><div className="mt-1 sm:hidden">{getStatusBadge(selectedUser.account_status)}</div></div>
+                <p className="hidden text-xs text-slate-500 sm:block">{getStatusBadge(selectedUser.account_status)}</p>
               </div>
-            ) : (
-              <Button
-                onClick={() => setSelectedUser(null)}
-                className="w-full mt-6 py-6 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-gray-800 hover:shadow-xl transition-all cursor-pointer"
-              >
-                Close
-              </Button>
-            )}
+              {selectedUser.account_status === "PENDING" || selectedUser.account_status === "SUBJECT_TO_REVISION" ? (
+                <div className="space-y-3">
+                  {(selectedUser.documents || []).some((d) => d.verification_status === "SUBJECT_TO_REVISION") && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-800">One or more documents need revision before the account can be approved.</p>}
+                  {(selectedUser.documents || []).some((d) => d.verification_status === "PENDING") && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">Review all pending documents before approving this account.</p>}
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                    <Button variant="outline" disabled={updateStatusMutation.isPending} onClick={() => handleStatusUpdate(selectedUser.id, "SUBJECT_TO_REVISION")} className="min-h-10 flex-1 gap-2 border-rose-200 text-rose-700 hover:bg-rose-50"><RotateCcw className="size-4" />Return for revision</Button>
+                    <Button disabled={updateStatusMutation.isPending || (selectedUser.documents || []).some((d) => d.verification_status === "SUBJECT_TO_REVISION" || d.verification_status === "PENDING")} onClick={() => handleStatusUpdate(selectedUser.id, "APPROVED")} className="min-h-10 flex-1 gap-2 bg-[#2D5A27] text-white hover:bg-[#23471f]"><Check className="size-4" />Approve account</Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={() => setSelectedUser(null)} className="w-full">Close review</Button>
+              )}
+            </div>
           </DialogContent>
         )}
       </Dialog>

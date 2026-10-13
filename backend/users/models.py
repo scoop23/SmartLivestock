@@ -75,7 +75,15 @@ class Role(models.Model):
 class UserDocument(models.Model):
     class DocumentType(models.TextChoices):
         RSBSA = "RSBSA", "RSBSA Certificate"
-        GOVERNMENT_ID = "GOVERNMENT_ID", "Government ID"
+        GOVERNMENT_ID = "GOVERNMENT_ID", "Government ID"  # Legacy registrations
+        PHILID = "PHILID", "PhilID"
+        DRIVERS_LICENSE = "DRIVERS_LICENSE", "Driver's License"
+        VOTERS_ID = "VOTERS_ID", "Voter's ID"
+        PASSPORT = "PASSPORT", "Passport"
+        UMID = "UMID", "UMID"
+        POSTAL_ID = "POSTAL_ID", "Postal ID"
+        PRC_ID = "PRC_ID", "PRC ID"
+        OTHER_GOV_ID = "OTHER_GOV_ID", "Other Government ID"
         BARANGAY_CERTIFICATE = "BARANGAY_CERTIFICATE", "Barangay Certificate"
         OTHER = "OTHER", "Other"
 

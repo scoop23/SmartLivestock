@@ -33,6 +33,7 @@ import { cowHead } from '@lucide/lab';
 import { toast } from 'sonner';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
@@ -100,17 +101,24 @@ export default function FarmerRegistrationPage() {
   const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
 
   // Document uploads
+  const [governmentIdType, setGovernmentIdType] = useState('');
   const [documents, setDocuments] = useState<{
-    governmentId: File | null;
+    governmentIdFront: File | null;
+    governmentIdBack: File | null;
+    governmentIdPdf: File | null;
     rsbsa: File | null;
-  }>({ governmentId: null, rsbsa: null });
+  }>({ governmentIdFront: null, governmentIdBack: null, governmentIdPdf: null, rsbsa: null });
 
   const [previews, setPreviews] = useState<{
-    governmentId: string;
+    governmentIdFront: string;
+    governmentIdBack: string;
+    governmentIdPdf: string;
     rsbsa: string;
-  }>({ governmentId: '', rsbsa: '' });
+  }>({ governmentIdFront: '', governmentIdBack: '', governmentIdPdf: '', rsbsa: '' });
 
-  const govIdRef = useRef<HTMLInputElement>(null);
+  const govIdFrontRef = useRef<HTMLInputElement>(null);
+  const govIdBackRef = useRef<HTMLInputElement>(null);
+  const govIdPdfRef = useRef<HTMLInputElement>(null);
   const rsbsaRef = useRef<HTMLInputElement>(null);
 
   // Fetch real barangays on mount from backend
@@ -138,30 +146,14 @@ export default function FarmerRegistrationPage() {
     loadBarangays();
   }, []);
 
-  // Password strength calculation
-  const getPasswordStrength = (pass: string) => {
-    if (!pass) return { score: 0, label: '', color: '' };
-    let score = 0;
-    if (pass.length >= 8) score += 1;
-    if (/[A-Z]/.test(pass)) score += 1;
-    if (/[0-9]/.test(pass)) score += 1;
-    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
-
-    switch (score) {
-      case 1:
-        return { score: 25, label: 'Weak', color: 'bg-rose-500' };
-      case 2:
-        return { score: 50, label: 'Fair', color: 'bg-amber-500' };
-      case 3:
-        return { score: 75, label: 'Good', color: 'bg-blue-500' };
-      case 4:
-        return { score: 100, label: 'Strong', color: 'bg-emerald-600' };
-      default:
-        return { score: 15, label: 'Too short', color: 'bg-rose-400' };
-    }
-  };
-
-  const passwordStrength = getPasswordStrength(formData.password);
+  const passwordRequirements = [
+    { label: 'At least 8 characters', met: formData.password.length >= 8 },
+    { label: 'One uppercase character (A–Z)', met: /[A-Z]/.test(formData.password) },
+    { label: 'One lowercase character (a–z)', met: /[a-z]/.test(formData.password) },
+    { label: 'One number (0–9)', met: /[0-9]/.test(formData.password) },
+    { label: 'One special character (e.g. !@#$%)', met: /[^A-Za-z0-9]/.test(formData.password) },
+  ];
+  const passwordMeetsRequirements = passwordRequirements.every((requirement) => requirement.met);
 
   const nextStep = () => {
     setError('');
@@ -188,8 +180,8 @@ export default function FarmerRegistrationPage() {
 
       if (!formData.password) {
         errors.password = 'Password is required.';
-      } else if (formData.password.length < 8) {
-        errors.password = 'Password must be at least 8 characters.';
+      } else if (!passwordMeetsRequirements) {
+        errors.password = 'Password must meet all listed requirements.';
       }
 
       if (formData.password !== formData.confirmPassword) {
@@ -227,35 +219,50 @@ export default function FarmerRegistrationPage() {
 
   const handleFileSelect = (
     e: React.ChangeEvent<HTMLInputElement>,
-    key: 'governmentId' | 'rsbsa'
+    key: 'governmentIdFront' | 'governmentIdBack' | 'governmentIdPdf' | 'rsbsa'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      setError('Only image files (JPG, PNG, WEBP) or PDFs are allowed.');
+    const isGovernmentIdPhoto = key === 'governmentIdFront' || key === 'governmentIdBack';
+    const isGovernmentIdPdf = key === 'governmentIdPdf';
+    const isAllowedIdPhoto = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+    if (isGovernmentIdPhoto && (!isAllowedIdPhoto || documents.governmentIdPdf)) {
+      setError(documents.governmentIdPdf
+        ? 'Use either one ID PDF or two ID photos, not both.'
+        : 'Front and back ID uploads must be image files.');
+      e.target.value = '';
       return;
     }
-
+    if (isGovernmentIdPdf && (file.type !== 'application/pdf' || documents.governmentIdFront || documents.governmentIdBack)) {
+      setError(documents.governmentIdFront || documents.governmentIdBack
+        ? 'Use either one ID PDF or two ID photos, not both.'
+        : 'The government ID document must be a PDF.');
+      e.target.value = '';
+      return;
+    }
+    if (key === 'rsbsa' && !file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      setError('Only image files (JPG, PNG, WEBP) or PDFs are allowed.');
+      e.target.value = '';
+      return;
+    }
     if (file.size > 10 * 1024 * 1024) {
       setError('File size must be 10MB or less.');
+      e.target.value = '';
       return;
     }
 
+    if (previews[key] && previews[key] !== 'pdf') URL.revokeObjectURL(previews[key]);
     setError('');
     setDocuments((prev) => ({ ...prev, [key]: file }));
-    if (file.type.startsWith('image/')) {
-      setPreviews((prev) => ({ ...prev, [key]: URL.createObjectURL(file) }));
-    } else {
-      setPreviews((prev) => ({ ...prev, [key]: 'pdf' }));
-    }
-    toast.success(`${key === 'governmentId' ? 'Government ID' : 'RSBSA document'} attached!`);
+    setPreviews((prev) => ({ ...prev, [key]: file.type === 'application/pdf' ? 'pdf' : URL.createObjectURL(file) }));
+    toast.success(`${key === 'rsbsa' ? 'RSBSA document' : 'Government ID file'} attached!`);
   };
 
-  const removeDocument = (key: 'governmentId' | 'rsbsa') => {
-    if (previews[key] && previews[key] !== 'pdf') {
-      URL.revokeObjectURL(previews[key]);
-    }
+  const removeDocument = (key: 'governmentIdFront' | 'governmentIdBack' | 'governmentIdPdf' | 'rsbsa') => {
+    if (previews[key] && previews[key] !== 'pdf') URL.revokeObjectURL(previews[key]);
+    const inputRefs = { governmentIdFront: govIdFrontRef, governmentIdBack: govIdBackRef, governmentIdPdf: govIdPdfRef, rsbsa: rsbsaRef };
+    if (inputRefs[key].current) inputRefs[key].current.value = '';
     setDocuments((prev) => ({ ...prev, [key]: null }));
     setPreviews((prev) => ({ ...prev, [key]: '' }));
   };
@@ -267,6 +274,22 @@ export default function FarmerRegistrationPage() {
 
     if (!privacyAgreed) {
       setError('You must agree to the Data Privacy Policy before submitting your registration.');
+      return;
+    }
+
+    const hasGovernmentId = Boolean(
+      documents.governmentIdFront || documents.governmentIdBack || documents.governmentIdPdf
+    );
+    if (governmentIdType && !hasGovernmentId) {
+      setError('Upload one PDF or both front and back ID photos for the selected ID type.');
+      return;
+    }
+    if (hasGovernmentId && !governmentIdType) {
+      setError('Choose your government ID type before uploading its document.');
+      return;
+    }
+    if (Boolean(documents.governmentIdFront) !== Boolean(documents.governmentIdBack)) {
+      setError('Please upload both the front and back photos of your ID.');
       return;
     }
 
@@ -297,16 +320,19 @@ export default function FarmerRegistrationPage() {
         submissionData.append('rsbsa_number', formData.rsbsaNumber.trim());
       }
 
-      // Append documents if uploaded
-      if (documents.governmentId) {
-        submissionData.append('government_id', documents.governmentId);
-      }
+      // Include the selected ID type and either a two-photo set or one PDF.
+      if (governmentIdType) submissionData.append('government_id_type', governmentIdType);
+      if (documents.governmentIdFront) submissionData.append('government_id_front', documents.governmentIdFront);
+      if (documents.governmentIdBack) submissionData.append('government_id_back', documents.governmentIdBack);
+      if (documents.governmentIdPdf) submissionData.append('government_id_pdf', documents.governmentIdPdf);
       if (documents.rsbsa) {
         submissionData.append('rsbsa_document', documents.rsbsa);
       }
 
-      // Post to backend register endpoint
-      await api.post('/api/users/register/', submissionData);
+      // Allow extra time for large ID photos on slower connections.
+      await api.post('/api/users/register/', submissionData, {
+        timeout: 30 * 60 * 1000,
+      });
 
       toast.success('Registration Submitted!', {
         description: 'Your application has been received and is pending MAO verification.',
@@ -574,21 +600,25 @@ export default function FarmerRegistrationPage() {
                   </button>
                 </div>
 
-                {/* Password Strength Indicator */}
-                {formData.password && (
-                  <div className="space-y-1 pt-1">
-                    <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider">
-                      <span className="text-slate-400">Strength:</span>
-                      <span className="text-slate-700">{passwordStrength.label}</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${passwordStrength.color}`}
-                        style={{ width: `${passwordStrength.score}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+                <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <p className="text-[11px] font-bold text-slate-700">Password requirements</p>
+                  <ul className="grid grid-cols-1 gap-y-1.5 sm:grid-cols-2" aria-label="Password requirements">
+                    {passwordRequirements.map((requirement) => (
+                      <li
+                        key={requirement.label}
+                        className={`inline-flex items-center gap-1.5 text-[11px] ${requirement.met ? 'font-medium text-emerald-700' : 'text-slate-500'}`}
+                      >
+                        {requirement.met ? (
+                          <Check className="size-3.5 shrink-0" aria-hidden="true" />
+                        ) : (
+                          <span className="size-3.5 shrink-0 rounded-full border border-slate-300" aria-hidden="true" />
+                        )}
+                        {requirement.label}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[10px] leading-relaxed text-slate-500">Avoid common or easy-to-guess passwords.</p>
+                </div>
                 {fieldErrors.password && (
                   <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.password}</p>
                 )}
@@ -598,17 +628,6 @@ export default function FarmerRegistrationPage() {
               <div className="space-y-1">
                 <Label htmlFor="confirmPassword" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
                   <span>Confirm Password <span className="text-rose-500">*</span></span>
-                  {formData.confirmPassword && (
-                    formData.password === formData.confirmPassword ? (
-                      <span className="text-[10px] text-emerald-600 font-extrabold inline-flex items-center gap-1">
-                        <Check className="size-3" /> Passwords Match
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-rose-500 font-extrabold inline-flex items-center gap-1">
-                        <X className="size-3" /> Does Not Match
-                      </span>
-                    )
-                  )}
                 </Label>
                 <div className="relative">
                   <input
@@ -631,6 +650,17 @@ export default function FarmerRegistrationPage() {
                     {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
+                {formData.confirmPassword && (
+                  formData.password === formData.confirmPassword ? (
+                    <p className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600">
+                      <Check className="size-3" /> Passwords Match
+                    </p>
+                  ) : (
+                    <p className="inline-flex items-center gap-1 text-[10px] font-extrabold text-rose-500">
+                      <X className="size-3" /> Does Not Match
+                    </p>
+                  )
+                )}
                 {fieldErrors.confirmPassword && (
                   <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.confirmPassword}</p>
                 )}
@@ -839,65 +869,87 @@ export default function FarmerRegistrationPage() {
                 </div>
               </div>
 
-              {/* Government ID Upload */}
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                  <span>Valid Government ID (Recommended)</span>
-                  <span className="text-[10px] text-slate-400">PhilID, Driver's License, or Voter's ID</span>
-                </Label>
-                <input
-                  ref={govIdRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e, 'governmentId')}
-                />
-                {previews.governmentId ? (
-                  <div className="relative border-2 border-emerald-600 bg-emerald-50/30 rounded-2xl p-3 flex items-center justify-between shadow-xs">
-                    <div className="flex items-center gap-3">
-                      {previews.governmentId === 'pdf' ? (
-                        <div className="size-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black text-xs">
-                          PDF
-                        </div>
-                      ) : (
-                        <img
-                          src={previews.governmentId}
-                          alt="Government ID"
-                          className="size-12 rounded-xl object-cover border border-emerald-300"
-                        />
-                      )}
-                      <div>
-                        <p className="text-xs font-bold text-slate-900 truncate max-w-[200px]">
-                          {documents.governmentId?.name}
-                        </p>
-                        <p className="text-[10px] text-emerald-700 font-extrabold">
-                          Ready for verification upload
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeDocument('governmentId')}
-                      className="px-2.5 py-1 text-[10px] font-black uppercase text-rose-600 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => govIdRef.current?.click()}
-                    className="p-4 border-2 border-dashed border-slate-200 hover:border-[#2D5A27] rounded-2xl flex items-center justify-between transition-colors cursor-pointer bg-slate-50/60 hover:bg-emerald-50/20 group"
+              {/* Guided ID capture: front first, then back, with one complete PDF as an alternative. */}
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="governmentIdType" className="text-[11px] font-extrabold uppercase text-slate-700">
+                    Government ID type <span className="font-medium normal-case text-slate-400">(optional)</span>
+                  </Label>
+                  <select
+                    id="governmentIdType"
+                    value={governmentIdType}
+                    onChange={(e) => {
+                      setGovernmentIdType(e.target.value);
+                      setError('');
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/15"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-xl bg-slate-100 group-hover:bg-emerald-100 text-slate-500 group-hover:text-[#2D5A27] flex items-center justify-center transition-colors">
-                        <Camera className="size-5" />
+                    <option value="">Choose an ID before uploading</option>
+                    <option value="PHILID">PhilID / National ID</option>
+                    <option value="DRIVERS_LICENSE">Driver’s License</option>
+                    <option value="VOTERS_ID">Voter’s ID</option>
+                    <option value="PASSPORT">Passport</option>
+                    <option value="UMID">UMID</option>
+                    <option value="POSTAL_ID">Postal ID</option>
+                    <option value="PRC_ID">PRC ID</option>
+                    <option value="OTHER_GOV_ID">Other Government ID</option>
+                  </select>
+                  <p className="text-[10px] leading-relaxed text-slate-500">
+                    Optional. Take a clear photo of the front, then the back, or upload one PDF containing both sides.
+                  </p>
+                </div>
+
+                {governmentIdType && (
+                  <div className="space-y-3 border-t border-slate-100 pt-3">
+                    <input ref={govIdFrontRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'governmentIdFront')} />
+                    <input ref={govIdBackRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'governmentIdBack')} />
+                    <input ref={govIdPdfRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => handleFileSelect(e, 'governmentIdPdf')} />
+
+                    {documents.governmentIdPdf ? (
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                        <div className="flex min-w-0 items-center gap-2.5"><span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-[10px] font-black text-rose-700">PDF</span><div className="min-w-0"><p className="text-xs font-semibold text-emerald-900">Complete ID PDF attached</p><p className="truncate text-[10px] text-slate-600">{documents.governmentIdPdf.name}</p><p className="text-[10px] text-slate-500">Make sure the PDF shows both sides.</p></div></div>
+                        <button type="button" onClick={() => removeDocument('governmentIdPdf')} className="shrink-0 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-100">Remove</button>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">Upload Valid ID Photo</p>
-                        <p className="text-[10px] text-slate-400">JPG, PNG, or PDF up to 10MB</p>
+                    ) : documents.governmentIdFront && documents.governmentIdBack ? (
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold text-slate-900">Both sides captured</p><p className="text-[10px] text-slate-500">Check each photo before continuing.</p></div><Badge variant="secondary" className="text-[10px]">2 of 2 complete</Badge></div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {([
+                            { key: 'governmentIdFront' as const, label: 'Front', ref: govIdFrontRef },
+                            { key: 'governmentIdBack' as const, label: 'Back', ref: govIdBackRef },
+                          ]).map(({ key, label, ref }) => (
+                            <div key={key} className="flex min-w-0 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-2">
+                              <img src={previews[key]} alt={`${label} of ${governmentIdType}`} className="size-14 shrink-0 rounded-lg border border-emerald-200 object-cover" />
+                              <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-slate-800">{label} side</p><p className="truncate text-[10px] text-slate-500">{documents[key]?.name}</p><div className="mt-1 flex gap-3"><button type="button" onClick={() => { if (ref.current) { ref.current.value = ''; ref.current.click(); } }} className="text-[10px] font-semibold text-[#2D5A27] hover:underline">Retake</button><button type="button" onClick={() => removeDocument(key)} className="text-[10px] font-semibold text-rose-600 hover:underline">Remove</button></div></div>
+                              <Check className="size-4 shrink-0 text-emerald-700" />
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    ) : !documents.governmentIdFront ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-slate-900">Step 1 of 2 · Front side</p><p className="text-[10px] text-slate-500">Place the front of your ID inside the frame and take a clear photo.</p></div><Badge variant="outline" className="shrink-0 text-[10px]">Front</Badge></div>
+                        <button type="button" onClick={() => { if (govIdFrontRef.current) { govIdFrontRef.current.value = ''; govIdFrontRef.current.click(); } }} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-[#2D5A27] hover:bg-emerald-50/40">
+                          <span className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-[#2D5A27]"><Camera className="size-5" /></span><span className="text-xs font-semibold text-slate-800">Take or upload front photo</span><span className="text-[10px] text-slate-500">JPG, PNG, or WEBP · Max 10MB</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-slate-900">Step 2 of 2 · Back side</p><p className="text-[10px] text-slate-500">Front saved. Turn the ID over and capture the back.</p></div><Badge variant="outline" className="shrink-0 text-[10px]">Back</Badge></div>
+                        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2"><img src={previews.governmentIdFront} alt={`Front of ${governmentIdType}`} className="size-11 shrink-0 rounded-md border border-emerald-200 object-cover" /><div className="min-w-0 flex-1"><p className="text-[10px] font-semibold text-emerald-800">Front side captured</p><p className="truncate text-[10px] text-slate-500">{documents.governmentIdFront.name}</p></div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={() => { if (govIdFrontRef.current) { govIdFrontRef.current.value = ''; govIdFrontRef.current.click(); } }} className="text-[10px] font-semibold text-[#2D5A27] hover:underline">Retake</button><button type="button" onClick={() => removeDocument('governmentIdFront')} className="text-[10px] font-semibold text-rose-600 hover:underline">Remove</button></div></div>
+                        <button type="button" onClick={() => { if (govIdBackRef.current) { govIdBackRef.current.value = ''; govIdBackRef.current.click(); } }} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-[#2D5A27] hover:bg-emerald-50/40">
+                          <span className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-[#2D5A27]"><Camera className="size-5" /></span><span className="text-xs font-semibold text-slate-800">Take or upload back photo</span><span className="text-[10px] text-slate-500">JPG, PNG, or WEBP · Max 10MB</span>
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="border-t border-slate-100 pt-3">
+                      {documents.governmentIdFront || documents.governmentIdBack ? (
+                        <p className="text-center text-[10px] text-slate-500">To use a PDF instead, remove the captured photo(s) first.</p>
+                      ) : (
+                        <button type="button" onClick={() => govIdPdfRef.current?.click()} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"><FileText className="size-4 text-rose-600" />Upload one complete PDF instead</button>
+                      )}
                     </div>
-                    <Upload className="size-4 text-slate-400 group-hover:text-[#2D5A27]" />
                   </div>
                 )}
               </div>

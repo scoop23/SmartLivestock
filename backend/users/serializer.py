@@ -1,3 +1,7 @@
+import re
+
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers  # type: ignore
 from users.models import User, Role, UserDocument, Notification
 from livestock.models import Farmer, Barangay
@@ -147,10 +151,34 @@ class RegisterSerializer(serializers.ModelSerializer):
             "address",
             "rsbsa_number",
             "government_id",
+            "government_id_type",
+            "government_id_front",
+            "government_id_back",
+            "government_id_pdf",
             "rsbsa_document",
         )
 
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages) from error
+
+        requirements = (
+            (r"[A-Z]", "one uppercase character"),
+            (r"[a-z]", "one lowercase character"),
+            (r"[0-9]", "one number"),
+            (r"[^A-Za-z0-9]", "one special character"),
+        )
+        missing = [label for pattern, label in requirements if not re.search(pattern, value)]
+        if missing:
+            raise serializers.ValidationError(
+                "Password must include at least " + ", ".join(missing) + "."
+            )
+        return value
+
     barangay = serializers.PrimaryKeyRelatedField(
         queryset=Barangay.objects.all(),
         write_only=True,
@@ -167,6 +195,23 @@ class RegisterSerializer(serializers.ModelSerializer):
     government_id = serializers.FileField(
         required=False, allow_null=True, write_only=True
     )
+    government_id_type = serializers.ChoiceField(
+        choices=(
+            (UserDocument.DocumentType.PHILID, "PhilID"),
+            (UserDocument.DocumentType.DRIVERS_LICENSE, "Driver's License"),
+            (UserDocument.DocumentType.VOTERS_ID, "Voter's ID"),
+            (UserDocument.DocumentType.PASSPORT, "Passport"),
+            (UserDocument.DocumentType.UMID, "UMID"),
+            (UserDocument.DocumentType.POSTAL_ID, "Postal ID"),
+            (UserDocument.DocumentType.PRC_ID, "PRC ID"),
+            (UserDocument.DocumentType.OTHER_GOV_ID, "Other Government ID"),
+        ),
+        required=False,
+        write_only=True,
+    )
+    government_id_front = serializers.FileField(required=False, allow_null=True, write_only=True)
+    government_id_back = serializers.FileField(required=False, allow_null=True, write_only=True)
+    government_id_pdf = serializers.FileField(required=False, allow_null=True, write_only=True)
     rsbsa_document = serializers.FileField(
         required=False, allow_null=True, write_only=True
     )
@@ -189,12 +234,66 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_government_id(self, value):
         return self._validate_upload(value, "Government ID")
 
+    def _validate_id_format(self, file_obj, label, allowed_extensions):
+        file_obj = self._validate_upload(file_obj, label)
+        if file_obj:
+            import os
+            extension = os.path.splitext(file_obj.name)[1].lower()
+            if extension not in allowed_extensions:
+                raise serializers.ValidationError(
+                    f"{label} must be {', '.join(allowed_extensions).upper()} format."
+                )
+        return file_obj
+
+    def validate_government_id_front(self, value):
+        return self._validate_id_format(
+            value, "Government ID front photo", (".jpg", ".jpeg", ".png", ".webp")
+        )
+
+    def validate_government_id_back(self, value):
+        return self._validate_id_format(
+            value, "Government ID back photo", (".jpg", ".jpeg", ".png", ".webp")
+        )
+
+    def validate_government_id_pdf(self, value):
+        return self._validate_id_format(value, "Government ID PDF", (".pdf",))
+
     def validate_rsbsa_document(self, value):
         return self._validate_upload(value, "RSBSA document")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        front = attrs.get("government_id_front")
+        back = attrs.get("government_id_back")
+        pdf = attrs.get("government_id_pdf")
+        legacy_file = attrs.get("government_id")
+        id_type = attrs.get("government_id_type")
+
+        if (front is None) != (back is None):
+            raise serializers.ValidationError(
+                {"government_id_back": "Upload both the front and back ID photos."}
+            )
+        if pdf and (front or back or legacy_file):
+            raise serializers.ValidationError(
+                {"government_id_pdf": "Upload one PDF or both ID photos, not both formats."}
+            )
+        if (front or back or pdf) and not id_type:
+            raise serializers.ValidationError(
+                {"government_id_type": "Choose the type of government ID you are uploading."}
+            )
+        if id_type and not (front or back or pdf or legacy_file):
+            raise serializers.ValidationError(
+                {"government_id_pdf": "Upload one PDF or both front and back ID photos."}
+            )
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
         gov_id_file = validated_data.pop("government_id", None)
+        gov_id_type = validated_data.pop("government_id_type", None)
+        gov_id_front = validated_data.pop("government_id_front", None)
+        gov_id_back = validated_data.pop("government_id_back", None)
+        gov_id_pdf = validated_data.pop("government_id_pdf", None)
         rsbsa_file = validated_data.pop("rsbsa_document", None)
         rsbsa_number = validated_data.pop("rsbsa_number", "")
 
@@ -221,13 +320,25 @@ class RegisterSerializer(serializers.ModelSerializer):
             rsbsa_number=rsbsa_number or "",
         )
 
-        if gov_id_file:
-            UserDocument.objects.create(
-                user=user,
-                document_type=UserDocument.DocumentType.GOVERNMENT_ID,
-                document_file=gov_id_file,
-                verification_status=UserDocument.VerificationStatus.PENDING,
-            )
+        id_type = gov_id_type or UserDocument.DocumentType.GOVERNMENT_ID
+        for side, file_obj in (("Front", gov_id_front), ("Back", gov_id_back)):
+            if file_obj:
+                file_obj.name = f"{side}_{file_obj.name}"
+                UserDocument.objects.create(
+                    user=user,
+                    document_type=id_type,
+                    document_file=file_obj,
+                    verification_status=UserDocument.VerificationStatus.PENDING,
+                )
+
+        for file_obj in (gov_id_pdf, gov_id_file):
+            if file_obj:
+                UserDocument.objects.create(
+                    user=user,
+                    document_type=id_type,
+                    document_file=file_obj,
+                    verification_status=UserDocument.VerificationStatus.PENDING,
+                )
 
         if rsbsa_file:
             UserDocument.objects.create(
