@@ -1,4 +1,4 @@
-"""Compact MAO review-queue aggregates for the Admin dashboard."""
+"""Compact review-queue aggregates for Admin and assigned SIBAT dashboards."""
 
 from datetime import timedelta
 
@@ -14,6 +14,9 @@ from production.models import (
     ProductionRecord,
     SlaughterRecord,
 )
+
+
+from smartlivestock.workflows import has_all_barangay_access, role_name, scope_reviewer_queryset
 
 
 def _stage_age_filter(*, created_statuses, reviewed_statuses, start, end=None):
@@ -67,23 +70,30 @@ def _stage_age_before(*, created_statuses, reviewed_statuses, end):
     return condition
 
 
-def review_workload_summary(*, now=None):
+def review_workload_summary(*, now=None, user=None):
     """Summarize open review queues without returning or aggregating record details."""
     now = now or timezone.now()
+    is_sibat = bool(user and role_name(user) == "SIBAT")
+    assigned_only = is_sibat and not has_all_barangay_access(user)
+
+    def scoped(queryset):
+        if user is None:
+            return queryset
+        return scope_reviewer_queryset(queryset, user, assigned_only=assigned_only)
     # Most submissions pass through SIBAT, while these records are assigned
     # straight to MAO by the established workflow rules.
     standard_domains = [
-        ("inventory", "Livestock Inventory", LivestockInventory.objects.all()),
-        ("production", "Production", ProductionRecord.objects.all()),
-        ("disease", "Disease Reports", DiseaseCase.objects.all()),
-        ("mortality", "Mortality", MortalityRecord.objects.all()),
-        ("calving", "Calving", CalvingRecord.objects.all()),
-        ("slaughter", "Slaughter", SlaughterRecord.objects.all()),
-        ("sales", "Auction Sales", LiveAnimalSale.objects.all()),
+        ("inventory", "Livestock Inventory", scoped(LivestockInventory.objects.all())),
+        ("production", "Production", scoped(ProductionRecord.objects.all())),
+        ("disease", "Disease Reports", scoped(DiseaseCase.objects.all())),
+        ("mortality", "Mortality", scoped(MortalityRecord.objects.all())),
+        ("calving", "Calving", scoped(CalvingRecord.objects.all())),
+        ("slaughter", "Slaughter", scoped(SlaughterRecord.objects.all())),
+        ("sales", "Auction Sales", scoped(LiveAnimalSale.objects.all())),
     ]
     direct_mao_domains = [
-        ("ownership_transfers", "Ownership Transfers", LivestockOwnershipTransfer.objects.all()),
-        ("inspection_clearances", "Inspection Clearances", LivestockInspectionClearance.objects.all()),
+        ("ownership_transfers", "Ownership Transfers", scoped(LivestockOwnershipTransfer.objects.all())),
+        ("inspection_clearances", "Inspection Clearances", scoped(LivestockInspectionClearance.objects.all())),
     ]
     domains = []
     overall = {
@@ -132,6 +142,8 @@ def review_workload_summary(*, now=None):
             overall["mao"]["aging"][bucket] += mao_aging[bucket]
 
     for key, label, queryset in standard_domains:
+        if is_sibat and key == "sales":
+            continue
         add_domain(
             key,
             label,
@@ -145,7 +157,7 @@ def review_workload_summary(*, now=None):
     add_domain(
         "census",
         "Quarterly Census",
-        CensusSubmission.objects.all(),
+        scoped(CensusSubmission.objects.all()),
         sibat_statuses=(),
         mao_created_statuses=(),
         mao_reviewed_statuses=("VERIFIED",),

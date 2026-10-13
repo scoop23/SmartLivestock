@@ -118,10 +118,10 @@ def nlp_evaluation(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, isMAO])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
 def review_workload(request):
-    """Return stage-aware counts and queue ages for the MAO dashboard."""
-    return Response(review_workload_summary())
+    """Return stage-aware counts for MAO or the authenticated SIBAT scope."""
+    return Response(review_workload_summary(user=request.user))
 
 
 @api_view(["GET"])

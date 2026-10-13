@@ -40,6 +40,7 @@ import CensusDetailsDialog from "./census-details-dialog";
 
 import CensusSubmissionsView from "./census-submissions-view";
 import { SibatWorkspaceSummary } from "./components/sibat-workspace-summary";
+import { ReviewWorkloadPanel } from "@/app/(admin)/admin/review-workload-panel";
 import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
 import { AskSmartLivestock } from "@/app/components/ask-smartlivestock";
 
@@ -151,7 +152,7 @@ function SibatPortalContent() {
   // The directory stays idle until the finder dialog is opened.
   const scopeKey = `${user?.email ?? "unknown"}:${user?.accessScope ?? ""}:${user?.assignedBarangayId ?? ""}`;
 
-  const { records: healthRecords, isLoading: isLoadingHealth, isError: isHealthError, refetch: refetchHealth } = useClinicalHealthRecords();
+  const { records: healthRecords, isLoading: isLoadingHealth, failedSources: failedHealthSources, refetch: refetchHealth } = useClinicalHealthRecords();
   const [selectedHealthRecord, setSelectedHealthRecord] = useState<SibatValidationRecord | null>(null);
 
   const [isInspectionDialogOpen, setIsInspectionDialogOpen] = useState(false);
@@ -172,7 +173,7 @@ function SibatPortalContent() {
 
   // Production and inventory review state.
 
-  const { submissions, isLoading: isLoadingSubmissions, isError: isSubmissionsError, refetch: refetchSubmissions } = useSibatSubmissions();
+  const { submissions, isLoading: isLoadingSubmissions, failedSources: failedSubmissionSources, refetch: refetchSubmissions } = useSibatSubmissions();
   const { data: farmers = [], isLoading: isLoadingFarmers, isError: isFarmersError, refetch: refetchFarmers } = useSibatFarmers(scopeKey, isFarmerFinderOpen);
   const [selectedSubmissionForReview, setSelectedSubmissionForReview] = useState<UnifiedSubmissionItem | null>(null);
   const attemptedReviewLinkRef = useRef<string | null>(null);
@@ -402,7 +403,13 @@ function SibatPortalContent() {
 
   const pendingProdCount = submissions.filter((s) => (s.sourceType === "PRODUCTION" || s.sourceType === "CALVING" || s.sourceType === "SALE") && s.status === "PENDING").length;
   const pendingInvCount = submissions.filter((s) => (s.sourceType === "INVENTORY" || s.sourceType === "BATCH") && s.status === "PENDING").length;
-  const hasDataError = isHealthError || isSubmissionsError || isCensusError || isFarmersError;
+  const failedDataSources = [
+    ...failedHealthSources,
+    ...failedSubmissionSources,
+    ...(isCensusError ? ["census submissions"] : []),
+    ...(isFarmersError ? ["farmer directory"] : []),
+  ];
+  const hasDataError = failedDataSources.length > 0;
 
 
   if (isInitialQueueLoading || keepLoadingScreenMounted) {
@@ -484,13 +491,25 @@ function SibatPortalContent() {
           onRefresh={handleRefreshQueues}
         />
 
+        {user?.role === "SIBAT" && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId ? (
+          <ReviewWorkloadPanel
+            scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned barangay: ${user.assignedBarangayName || "Assigned barangay"}`}
+            hideMaoQueue
+          />
+        ) : (
+          <section className="rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Review workload unavailable">
+            <h2 className="text-sm font-bold text-amber-950">Review Workload</h2>
+            <p className="mt-1 text-sm text-amber-900">This account has no assigned barangay, so a barangay-specific workload cannot be shown. Ask MAO/Admin to assign the SIBAT account to a barangay.</p>
+          </section>
+        ))}
+
         {(user?.accessScope === "ALL_BARANGAYS" || Boolean(user?.assignedBarangayId)) && <AskSmartLivestock />}
 
         {hasDataError && (
           <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-950 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold">Some field data could not be loaded.</p>
-              <p className="mt-1 text-xs">Refresh to retry. A failed request is not shown as an empty or completed queue.</p>
+              <p className="mt-1 text-xs">Could not load: {failedDataSources.join(", ")}. Refresh to retry. Failed requests are not counted as empty queues.</p>
             </div>
             <Button type="button" variant="outline" onClick={handleRefreshQueues} disabled={isRefreshing} className="min-h-11 shrink-0">Try again</Button>
           </div>

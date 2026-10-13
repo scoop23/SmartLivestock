@@ -146,9 +146,9 @@ def reviewer_barangay_condition(user, *paths):
     return condition
 
 
-def scope_reviewer_queryset(queryset, user):
+def scope_reviewer_queryset(queryset, user, *, assigned_only=False):
     """Apply the same SIBAT/CBAT jurisdiction to lists, details, reviews and aggregates."""
-    if role_name(user) not in (SIBAT, "CBAT") or has_all_barangay_access(user):
+    if role_name(user) not in (SIBAT, "CBAT") or (has_all_barangay_access(user) and not assigned_only):
         return queryset
     paths = {
         "LivestockInventory": ("farmer__barangay_id",),

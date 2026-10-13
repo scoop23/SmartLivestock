@@ -6,7 +6,7 @@
 
 import api from "@/lib/axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchProductionRecords, type ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
+import { mapProductionRecord, type ApiProductionRecord, type ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
 import type { SibatValidationRecord, SibatStatus, SibatInspectionData, SeverityLevel, BiosecurityAction } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 
@@ -601,7 +601,11 @@ export function useCensusSubmission() {
 export function useProductionFromFarmers() {
   return useQuery({
     queryKey: ["sibat-production-records"],
-    queryFn: fetchProductionRecords,
+    queryFn: async () => {
+      const response = await api.get<ApiProductionRecord[]>("production/records/");
+      if (!Array.isArray(response.data)) throw new Error("Production records response was not a list.");
+      return response.data.map(mapProductionRecord);
+    },
     staleTime: 30_000,
   });
 }
@@ -659,10 +663,7 @@ export function useClinicalHealthRecords() {
 
   const isLoading = casesQuery.isLoading || mortQuery.isLoading;
   const isError = casesQuery.isError || mortQuery.isError;
-  const refetch = () => {
-    casesQuery.refetch();
-    mortQuery.refetch();
-  };
+  const refetch = () => Promise.all([casesQuery.refetch(), mortQuery.refetch()]);
 
   const casesMapped = (casesQuery.data || []).map(mapDiseaseCaseToValidation);
   const mortMapped = (mortQuery.data || []).map(mapMortalityToValidation);
@@ -675,6 +676,10 @@ export function useClinicalHealthRecords() {
     records: allRecords,
     isLoading,
     isError,
+    failedSources: [
+      ...(casesQuery.isError ? ["disease reports"] : []),
+      ...(mortQuery.isError ? ["mortality reports"] : []),
+    ],
     refetch,
   };
 }
@@ -688,13 +693,13 @@ export function useSibatSubmissions() {
 
   const isLoading = prodQuery.isLoading || invQuery.isLoading || batchQuery.isLoading || calvingQuery.isLoading || salesQuery.isLoading;
   const isError = prodQuery.isError || invQuery.isError || batchQuery.isError || calvingQuery.isError || salesQuery.isError;
-  const refetch = () => {
-    prodQuery.refetch();
-    invQuery.refetch();
-    batchQuery.refetch();
-    calvingQuery.refetch();
-    salesQuery.refetch();
-  };
+  const refetch = () => Promise.all([
+    prodQuery.refetch(),
+    invQuery.refetch(),
+    batchQuery.refetch(),
+    calvingQuery.refetch(),
+    salesQuery.refetch(),
+  ]);
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
   const inventoryUnified = (invQuery.data || [])
@@ -715,6 +720,13 @@ export function useSibatSubmissions() {
     submissions: allSubmissions,
     isLoading,
     isError,
+    failedSources: [
+      ...(prodQuery.isError ? ["production records"] : []),
+      ...(invQuery.isError ? ["livestock registrations"] : []),
+      ...(batchQuery.isError ? ["herd records"] : []),
+      ...(calvingQuery.isError ? ["calving records"] : []),
+      ...(salesQuery.isError ? ["sales records"] : []),
+    ],
     refetch,
   };
 }
