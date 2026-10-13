@@ -111,35 +111,15 @@ const adminLinks: SidebarLink[] = [
 
 const farmerLinks: SidebarLink[] = [
   { path: '/farmer', label: 'Home', icon: LayoutDashboard },
-  {
-    path: '/livestock-inventory',
-    label: 'My Livestock',
-    icon: CowHeadIcon,
-    subLinks: [
-      { path: '/livestock-inventory', label: 'Overview' },
-      { path: '/livestock-inventory/batches', label: 'Herds' },
-      { path: '/livestock-inventory/all', label: 'All Livestock' },
-    ],
-  },
-  {
-    path: '/production-dashboard',
-    label: 'Record',
-    icon: ClipboardCheck,
-    subLinks: [
-      { path: '/production-dashboard', label: 'Production' },
-      { path: '/production-dashboard/history', label: 'Production History' },
-    ],
-  },
+  { path: '/livestock-inventory', label: 'My Livestock', icon: CowHeadIcon },
+  { path: '/production-dashboard', label: 'Record', icon: ClipboardCheck },
   { path: '/report-observation', label: 'Report', icon: Stethoscope },
   {
     path: '/gis-user-map',
     label: 'My Farm',
     icon: Map,
-    subLinks: [
-      { path: '/gis-user-map', label: 'Farm Map' },
-      { path: '/farmer-scheduling', label: 'Programs & Visits' },
-    ],
   },
+  { path: '/farmer-scheduling', label: 'Programs & Visits', icon: CalendarDays },
   { path: '/farmer-announcement', label: 'Activities', icon: Megaphone },
 
 ];

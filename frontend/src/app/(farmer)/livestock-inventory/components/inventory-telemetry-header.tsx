@@ -1,15 +1,17 @@
 "use client";
 
 import InventoryStats from "../inventory-stats";
-import type { LivestockInventoryItem } from "../livestock-inventory";
+import type { LivestockBatchItem, LivestockInventoryItem } from "../livestock-inventory";
 
 interface InventoryTelemetryHeaderProps {
   inventories: LivestockInventoryItem[];
+  batches: LivestockBatchItem[];
   isLoading: boolean;
 }
 
 export function InventoryTelemetryHeader({
   inventories,
+  batches,
   isLoading,
 }: InventoryTelemetryHeaderProps) {
   return (
@@ -30,7 +32,7 @@ export function InventoryTelemetryHeader({
 
       </div>
 
-      <InventoryStats inventories={inventories} isLoading={isLoading} layout="vertical" />
+      <InventoryStats inventories={inventories} batches={batches} isLoading={isLoading} layout="vertical" />
     </div>
   );
 }

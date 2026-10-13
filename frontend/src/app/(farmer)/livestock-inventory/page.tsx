@@ -51,7 +51,7 @@ export default function LivestockInventoryPage() {
 
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading, refetch, isFetching } = useUserInventory();
-  const { data: userBatches = [] } = useLivestockBatches();
+  const { data: userBatches = [], isLoading: isBatchesLoading } = useLivestockBatches();
 
   // Herd Telemetry calculations
   const totalHeads = useMemo(
@@ -200,11 +200,13 @@ export default function LivestockInventoryPage() {
           userBatches={userBatches}
         />
 
-        {/* Herd Telemetry & Biometrics KPI Bar (Collapsible) */}
-        <InventoryTelemetryHeader
-          inventories={inventories}
-          isLoading={isLoading}
-        />
+        <details open className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+          <summary className="cursor-pointer list-none rounded-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center justify-between gap-3"><span>Cattle and herd KPIs</span><span className="text-sm font-medium text-emerald-800 group-open:hidden">Show</span><span className="hidden text-sm font-medium text-emerald-800 group-open:inline">Hide</span></span>
+            <span className="mt-1 block text-sm font-normal text-slate-600">Cattle head count, sex breakdown, active herds, and vaccination records.</span>
+          </summary>
+          <div className="pt-4"><InventoryTelemetryHeader inventories={inventories} batches={userBatches} isLoading={isLoading || isBatchesLoading} /></div>
+        </details>
 
         {/* Main Content: Species Drill-Down or Tabbed Roster */}
         {selectedType ? (
