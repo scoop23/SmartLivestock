@@ -29,6 +29,22 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = sys_debug == "True" or sys_debug == "1"
 
+# Local reset emails are printed by Django so developers can test the link
+# without a mail account. Production should provide SMTP credentials through
+# environment variables and the public frontend URL.
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend" if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in {"1", "true", "yes"}
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "noreply@padregarcia.gov.ph"
+
 # Production and local allowed hosts
 ALLOWED_HOSTS: list[str] = [
     host.strip()
@@ -72,7 +88,11 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES" : (
         "rest_framework.permissions.IsAuthenticated",
-    )
+    ),
+    # Public recovery endpoints get a small IP-based limit to discourage abuse.
+    "DEFAULT_THROTTLE_RATES": {
+        "password_reset": "5/hour",
+    },
 }
 
 MIDDLEWARE = [

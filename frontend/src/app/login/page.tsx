@@ -72,6 +72,7 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   // Load remembered email on mount
   useEffect(() => {
@@ -234,17 +235,28 @@ export default function LoginPage() {
     if (!resetEmail.trim()) return;
 
     setResetLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    setResetLoading(false);
-    setResetSuccess(true);
-    toast.success('Password Reset Email Sent', {
-      description: `Instructions have been sent to ${resetEmail}.`,
-    });
+    setResetError('');
+    try {
+      // Ask Django to send a signed, expiring reset link to this address.
+      await api.post('/api/users/password-reset/', {
+        email: resetEmail.trim().toLowerCase(),
+      });
+      setResetSuccess(true);
+      toast.success('Password reset request submitted', {
+        description: 'If an account uses that email, reset instructions will arrive shortly.',
+      });
+    } catch {
+      setResetError('We could not submit the request. Check your connection and try again.');
+      toast.error('Could not request a password reset');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const openResetDialogWithCurrentEmail = () => {
     setResetEmail(email.trim());
     setResetSuccess(false);
+    setResetError('');
     setResetDialogOpen(true);
   };
 
@@ -759,7 +771,7 @@ export default function LoginPage() {
               <div className="space-y-1">
                 <h4 className="text-sm sm:text-base font-black text-slate-900">Check your inbox</h4>
                 <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto leading-relaxed break-words">
-                  We sent password reset steps to <strong className="text-slate-800">{resetEmail}</strong>.
+                  If an account uses <strong className="text-slate-800">{resetEmail}</strong>, reset instructions have been sent. Check its inbox and spam folder.
                 </p>
               </div>
               <Button
@@ -793,6 +805,8 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
+
+              {resetError ? <p role="alert" className="text-sm font-medium text-rose-700">{resetError}</p> : null}
 
               <div className="flex gap-2 pt-2">
                 <Button
