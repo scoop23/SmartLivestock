@@ -195,6 +195,14 @@ function ProductionWizardContent({
     (clickedInventory?.batchId ? item.batchId === clickedInventory.batchId : item.id === clickedInventory?.id));
 
   const availableTypes = getProductionTypesForLivestock(clickedInventory?.livestockTypeName);
+  const selectorInventories = productionType === "milk"
+    ? approvedInventories.filter((item) => {
+        const sex = item.sex?.trim().toLowerCase();
+        const isFemale = sex === "f" || sex === "female";
+        const isOldEnough = item.ageClassification !== "CALF" && item.ageClassification !== "YEARLING";
+        return getProductionTypesForLivestock(item.livestockTypeName).includes("milk") && isFemale && isOldEnough;
+      })
+    : approvedInventories;
   const meta = typeMeta[productionType] ?? typeMeta[availableTypes[0]] ?? typeMeta.milk;
 
   const handleSelectInventory = (item: LivestockInventoryItem | null) => {
@@ -484,8 +492,9 @@ function ProductionWizardContent({
                   <SelectLivestockDialog
                     open={selectOpen}
                     onOpenChange={setSelectOpen}
-                    items={approvedInventories}
+                    items={selectorInventories}
                     selectedId={clickedInventory?.id ?? null}
+                    productionType={productionType}
                     onSelect={handleSelectInventory}
                   />
                 </>

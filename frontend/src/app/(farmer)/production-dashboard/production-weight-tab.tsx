@@ -69,11 +69,13 @@ const chartConfig = {
 
 export default function ProductionWeightTab({
   approvedInventories,
+  autoOpen = false,
 }: {
   approvedInventories: LivestockInventoryItem[];
+  autoOpen?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [isLogOpen, setIsLogOpen] = useState(false);
+  const [isLogOpen, setIsLogOpen] = useState(autoOpen);
   const [selectedLivestockId, setSelectedLivestockId] = useState<string>("");
   const [weightVal, setWeightVal] = useState<string>("");
   const [weighingDate, setWeighingDate] = useState(

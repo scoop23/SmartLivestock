@@ -78,14 +78,17 @@ export interface DispositionItem {
 
 export default function ProductionSalesTab({
   approvedInventories,
+  autoOpen = false,
+  autoOpenIntent = false,
 }: {
   approvedInventories: LivestockInventoryItem[];
+  autoOpen?: boolean;
+  autoOpenIntent?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [isSaleOpen, setIsSaleOpen] = useState(false);
+  const [isSaleOpen, setIsSaleOpen] = useState(autoOpen);
   const [editingSale, setEditingSale] = useState<LiveSaleItem | null>(null);
-  const [isIntentOpen, setIsIntentOpen] = useState(false);
-
+  const [isIntentOpen, setIsIntentOpen] = useState(autoOpenIntent);
   // Sale form state
   const [saleLivestockId, setSaleLivestockId] = useState("");
   const [saleQty, setSaleQty] = useState(1);

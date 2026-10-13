@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/app/components/page-header";
 import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
 import ProductionDashboardView from "../production-dashboard-view";
@@ -10,6 +10,13 @@ import EnterpriseEmptyState from "../components/enterprise-empty-state";
 export default function SpeciesProductionPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedActivity = searchParams.get("activity");
+  const activity = requestedActivity && ["milk", "meat", "eggs", "wool", "calving", "weights", "sales", "intent"].includes(requestedActivity)
+    ? requestedActivity
+    : null;
+  const requestedMode = searchParams.get("mode");
+  const activityMode = requestedMode === "record" || requestedMode === "history" ? requestedMode : null;
 
   const rawSpecies = params?.species;
   const species =
@@ -64,6 +71,9 @@ export default function SpeciesProductionPage() {
             onSpeciesChange={handleSpeciesChange}
             onBackToHub={handleBackToHub}
             showEnterpriseSwitch={hasMultipleSpecies}
+            initialActivity={activity}
+            initialMode={activityMode}
+            initialEligibleSpecies={searchParams.getAll("eligibleSpecies")}
           />
         )}
       </div>

@@ -117,12 +117,14 @@ export function getBirthingTerminology(species?: string | null): BirthingSpecies
 export default function ProductionCalvingTab({
   approvedInventories,
   selectedSpecies,
+  autoOpen = false,
 }: {
   approvedInventories: LivestockInventoryItem[];
   selectedSpecies?: string | null;
+  autoOpen?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [isRecordOpen, setIsRecordOpen] = useState(false);
+  const [isRecordOpen, setIsRecordOpen] = useState(autoOpen);
   const [isResubmitOpen, setIsResubmitOpen] = useState(false);
   const [resubmitRecord, setResubmitRecord] = useState<CalvingRecordItem | null>(null);
 

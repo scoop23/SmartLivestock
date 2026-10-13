@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -61,6 +62,9 @@ interface ProductionDashboardViewProps {
   onSpeciesChange?: (species: string | null) => void;
   onBackToHub?: () => void;
   showEnterpriseSwitch?: boolean;
+  initialActivity?: string | null;
+  initialMode?: "record" | "history" | null;
+  initialEligibleSpecies?: string[];
 }
 
 function productionErrorMessage(error: unknown, fallback: string): string {
@@ -75,25 +79,44 @@ export default function ProductionDashboardView({
   onSpeciesChange,
   onBackToHub,
   showEnterpriseSwitch = true,
+  initialActivity = null,
+  initialMode = null,
+  initialEligibleSpecies = [],
 }: ProductionDashboardViewProps) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const activityTabs: Record<string, "production" | "calving" | "weights" | "sales" | "forecasts"> = {
+    milk: "production", meat: "production", eggs: "production", wool: "production",
+    calving: "calving", weights: "weights", sales: "sales", intent: "sales",
+  };
+  const focusedProductionType = initialActivity && ["milk", "meat", "eggs", "wool"].includes(initialActivity)
+    ? initialActivity as ProductionType
+    : "milk";
   const currentMonth = localCalendarDateToday().slice(0, 7);
+  const [focusedActivity] = useState<string | null>(initialActivity);
+  const [focusedMode] = useState<"record" | "history" | null>(initialMode);
   const [kpiMonth, setKpiMonth] = useState(currentMonth);
   const [showOverallKpis, setShowOverallKpis] = useState(false);
 
   // Wizard state
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(initialMode === "record" && ["milk", "meat", "eggs", "wool"].includes(initialActivity ?? ""));
   const [editingRecord, setEditingRecord] = useState<Partial<ProductionRecordItem> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductionRecordItem | null>(null);
-  const [productionType, setProductionType] = useState<ProductionType>("milk");
+  const [productionType, setProductionType] = useState<ProductionType>(focusedProductionType);
   const [clickedInventory, setClickedInventory] = useState<LivestockInventoryItem | null>(null);
-  const [formState, setFormState] = useState<Record<string, string | number>>({});
+  const [formState, setFormState] = useState<Record<string, string | number>>(() => {
+    if (initialMode !== "record") return {} as Record<string, string | number>;
+    return {
+      prodDate: localCalendarDateToday(), milkTime: "Morning", collectionTime: "Morning",
+      meatPurpose: "Auction / Market Sale", notes: "",
+    };
+  });
   const [resetSignal, setResetSignal] = useState(0);
 
   // Main Tabs State: "production" | "calving" | "weights" | "sales" | "forecasts"
   const [activeMainTab, setActiveMainTab] = useState<
     "production" | "calving" | "weights" | "sales" | "forecasts"
-  >("production");
+  >(initialActivity ? activityTabs[initialActivity] ?? "production" : "production");
 
   // Fetch Inventory with standard hook & mapper
   const { data: inventories = [], isLoading: isInventoryLoading } = useUserInventory();
@@ -136,6 +159,11 @@ export default function ProductionDashboardView({
         (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0,
     );
   }, [inventories]);
+  const activityInventories = useMemo(() => {
+    if (!focusedActivity || initialEligibleSpecies.length === 0) return approvedInventories;
+    const eligible = new Set(initialEligibleSpecies.map((name) => name.toLowerCase()));
+    return approvedInventories.filter((item) => eligible.has(item.livestockTypeName?.toLowerCase() ?? ""));
+  }, [approvedInventories, focusedActivity, initialEligibleSpecies]);
 
   const ownedSpecies = useMemo(
     () =>
@@ -177,11 +205,15 @@ export default function ProductionDashboardView({
   }, [inventories, selectedSpecies]);
 
   const filteredProductionRecords = useMemo(() => {
-    if (!selectedSpecies || selectedSpecies === "ALL") return productionRecords;
-    return productionRecords.filter(
-      (item) => item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase()
-    );
-  }, [productionRecords, selectedSpecies]);
+    let records = productionRecords;
+    if (selectedSpecies && selectedSpecies !== "ALL") {
+      records = records.filter((item) => item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase());
+    }
+    if (focusedActivity && ["milk", "meat", "eggs", "wool"].includes(focusedActivity)) {
+      records = records.filter((item) => item.productionType === focusedActivity);
+    }
+    return records;
+  }, [focusedActivity, productionRecords, selectedSpecies]);
 
   const selectedInventoryIds = useMemo(
     () => new Set(filteredInventories.map((item) => Number(item.id))),
@@ -246,9 +278,9 @@ export default function ProductionDashboardView({
   const handleOpenNewWizard = () => {
     setEditingRecord(null);
     setClickedInventory(null);
-    // Keep currently active productionType selected by user!
+    // Keep the selected production activity; the farmer chooses the animal in the wizard.
     setFormState({
-      prodDate: new Date().toISOString().split("T")[0],
+      prodDate: localCalendarDateToday(),
       milkTime: "Morning",
       collectionTime: "Morning",
       meatPurpose: "Auction / Market Sale",
@@ -381,6 +413,19 @@ export default function ProductionDashboardView({
 
   return (
     <div className="space-y-6">
+      {focusedActivity && focusedMode ? (
+        <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">{selectedSpecies === "ALL" ? "All livestock" : selectedSpecies}</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">{focusedMode === "record" ? "Record activity" : "Activity records"}</h2>
+            <p className="mt-1 text-sm text-slate-600">{focusedMode === "record" ? "Complete the existing form. Choose the animal and review your entry before saving." : "Review the records and their review status for this activity."}</p>
+          </div>
+          <Button type="button" variant="outline" className="min-h-11 shrink-0 rounded-xl" onClick={() => router.push("/production-dashboard")}>
+            <ArrowLeft className="mr-2 size-4" /> Choose another activity
+          </Button>
+        </section>
+      ) : null}
+      <div className={focusedActivity ? "hidden" : "space-y-6"}>
       {/* Top Enterprise Header & Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3">
@@ -543,7 +588,9 @@ export default function ProductionDashboardView({
           <span>Herd Forecasting</span>
         </button>
       </div>
+      </div>
 
+      {(!focusedActivity || focusedMode === "history") && <>
       {/* Tab 1: Daily Yield Logs */}
       {activeMainTab === "production" && (
         <div className="space-y-6">
@@ -670,19 +717,24 @@ export default function ProductionDashboardView({
       {/* Tab 2: Birthing & Offspring Registry */}
       {activeMainTab === "calving" && (
         <ProductionCalvingTab
-          approvedInventories={approvedInventories}
+          approvedInventories={focusedActivity ? activityInventories : approvedInventories}
           selectedSpecies={selectedSpecies}
+          autoOpen={focusedActivity === "calving" && focusedMode === "record"}
         />
       )}
 
       {/* Tab 3: Weight & Growth Tracker */}
       {activeMainTab === "weights" && (
-        <ProductionWeightTab approvedInventories={filteredInventories} />
+        <ProductionWeightTab approvedInventories={focusedActivity ? activityInventories : filteredInventories} autoOpen={focusedActivity === "weights" && focusedMode === "record"} />
       )}
 
       {/* Tab 4: Live Animal Sales & Commercial Outlets */}
       {activeMainTab === "sales" && (
-        <ProductionSalesTab approvedInventories={approvedInventories} />
+        <ProductionSalesTab
+          approvedInventories={focusedActivity ? activityInventories : approvedInventories}
+          autoOpen={focusedActivity === "sales" && focusedMode === "record"}
+          autoOpenIntent={focusedActivity === "intent" && focusedMode === "record"}
+        />
       )}
 
       {/* Tab 5: Forecasts & Analytics */}
@@ -693,6 +745,8 @@ export default function ProductionDashboardView({
         />
       )}
 
+      </>}
+
       {/* Preserved Production Entry Wizard (modal) */}
       <ProductionWizard
         productionType={activeProductionType}
@@ -701,7 +755,7 @@ export default function ProductionDashboardView({
         onSelectInventory={setClickedInventory}
         formState={formState}
         onFieldChange={handleFieldChange}
-        approvedInventories={approvedInventories}
+        approvedInventories={focusedActivity ? activityInventories : approvedInventories}
         isLoading={isInventoryLoading}
         isSubmitting={submitMutation.isPending || updateMutation.isPending}
         resetSignal={resetSignal}

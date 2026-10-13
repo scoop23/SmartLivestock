@@ -45,40 +45,28 @@ export function InventoryHeroBanner({
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
-            asChild
-            variant="outline"
-            className="h-11 gap-2 rounded-xl border-emerald-700/50 bg-white/10 px-4 font-bold text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-95"
-          >
-            <Link href="/livestock-inventory/history">
-              <Archive className="size-4 text-emerald-300" />
-              Livestock History
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="outline"
-            className="h-11 rounded-xl border-emerald-700/50 bg-white/10 px-4 font-bold text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-95"
-          >
-            <Link href="/livestock-inventory/ownership-history">Ownership History</Link>
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={onExportCsv}
-            className="h-11 gap-2 rounded-xl border-emerald-700/50 bg-white/10 px-4 font-bold text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-95"
-          >
-            <FileDown className="size-4 text-emerald-300" />
-            Export CSV
-          </Button>
-
-          <Button
             onClick={onOpenRegister}
             className="h-11 gap-2 rounded-xl bg-emerald-500 px-4 font-black text-emerald-950 shadow-lg shadow-emerald-950/40 transition-all hover:bg-emerald-400 active:scale-95"
           >
             <Plus className="size-5 stroke-[2.5]" />
-            Add Livestock
+            Register livestock
           </Button>
+          <details className="group relative">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-xl border border-emerald-700/50 bg-white/10 px-4 text-sm font-semibold text-white outline-none transition hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-emerald-300 [&::-webkit-details-marker]:hidden">
+              More tools
+            </summary>
+            <div className="mt-2 flex min-w-52 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 text-slate-900 shadow-lg">
+              <Button asChild variant="ghost" className="justify-start rounded-lg text-sm">
+                <Link href="/livestock-inventory/history"><Archive className="mr-2 size-4 text-emerald-700" />Livestock history</Link>
+              </Button>
+              <Button asChild variant="ghost" className="justify-start rounded-lg text-sm">
+                <Link href="/livestock-inventory/ownership-history">Ownership history</Link>
+              </Button>
+              <Button type="button" variant="ghost" onClick={onExportCsv} className="justify-start rounded-lg text-sm">
+                <FileDown className="mr-2 size-4 text-emerald-700" />Export CSV
+              </Button>
+            </div>
+          </details>
         </div>
       </div>
     </section>

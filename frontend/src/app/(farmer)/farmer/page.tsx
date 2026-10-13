@@ -10,6 +10,7 @@ import {
   MapPin,
   CalendarDays,
   Megaphone,
+  Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -126,22 +127,29 @@ export default function FarmerDashboard() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        {/* 1. KEY EXECUTIVE METRICS */}
+        <section aria-label="Quick actions" className="grid gap-3 sm:grid-cols-3">
+          <button type="button" onClick={() => router.push("/production-dashboard")} className="flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-400 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800"><Sparkles className="size-5" aria-hidden="true" /></span>
+            <span><span className="block font-semibold text-slate-900">Record an activity</span><span className="mt-0.5 block text-xs text-slate-600">Milk, birth, weight, and more</span></span>
+          </button>
+          <button type="button" onClick={() => router.push("/livestock-inventory")} className="flex min-h-20 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><MapPin className="size-5" aria-hidden="true" /></span>
+            <span><span className="block font-semibold text-slate-900">My livestock</span><span className="mt-0.5 block text-xs text-slate-600">Find an animal or update its details</span></span>
+          </button>
+          <button type="button" onClick={() => handleOpenReportIllness("DISEASE")} className="flex min-h-20 items-center gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-xs transition hover:border-amber-400 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800"><Stethoscope className="size-5" aria-hidden="true" /></span>
+            <span><span className="block font-semibold text-slate-900">Report an animal health issue</span><span className="mt-0.5 block text-xs text-slate-600">Tell the livestock office what happened</span></span>
+          </button>
+        </section>
+
+        {/* Important record-review work stays visible; only the detailed chart matrix moves behind a request. */}
         {isLoading ? (
           <FarmerStats isLoading />
         ) : isError ? (
           <Card className="p-8 text-center border-red-200 bg-red-50 rounded-3xl">
-            <h3 className="font-bold text-red-800 text-base">
-              Unable to load farm analytics
-            </h3>
-            <p className="text-xs text-red-600 mt-1">
-              Please check your connection and try again.
-            </p>
-            <Button
-              size="sm"
-              className="mt-4 bg-red-700 hover:bg-red-800 text-white rounded-xl gap-2 h-10 px-4 text-xs font-bold active:scale-95 transition-all shadow-xs cursor-pointer"
-              onClick={() => refetch()}
-            >
+            <h3 className="font-bold text-red-800 text-base">Unable to load farm analytics</h3>
+            <p className="text-xs text-red-600 mt-1">Please check your connection and try again.</p>
+            <Button size="sm" className="mt-4 bg-red-700 hover:bg-red-800 text-white rounded-xl gap-2 h-10 px-4 text-xs font-bold active:scale-95 transition-all shadow-xs cursor-pointer" onClick={() => refetch()}>
               <RefreshCw className="size-4" /> Retry
             </Button>
           </Card>
@@ -149,14 +157,32 @@ export default function FarmerDashboard() {
           <FarmerStats data={analytics} />
         )}
 
-        {/* 2. VISUALIZATION & CHARTS MATRIX (4-CHART GRID) */}
-        <FarmerCharts data={analytics} isLoading={isLoading} />
+        <FarmerActivityFeed
+          activities={analytics?.recent_activities}
+          isLoading={isLoading}
+          onSelectActivity={handleSelectActivity}
+          onOpenReportIllness={() => handleOpenReportIllness("DISEASE")}
+          onOpenReportsList={() => setIsReportsListOpen(true)}
+        />
 
-        {/* 3. PROGRAMS & VISITS (UPCOMING SCHEDULES) */}
         <FarmerProgramsVisits />
 
-        {/* 4. MUNICIPAL RESOURCES STRIP (COMPACT COMPLEMENT TO FLOATING DOCK) */}
-        <div className="rounded-2xl bg-slate-50/80 border border-slate-200/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <details className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5">
+          <summary className="cursor-pointer list-none rounded-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center justify-between gap-3"><span>Farm summary and charts</span><span className="text-sm font-medium text-emerald-800 group-open:hidden">View</span><span className="hidden text-sm font-medium text-emerald-800 group-open:inline">Hide</span></span>
+            <span className="mt-1 block text-sm font-normal text-slate-600">Production trends, livestock breakdown, and record status.</span>
+          </summary>
+          <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+            <FarmerCharts data={analytics} isLoading={isLoading} />
+          </div>
+        </details>
+
+        <details className="group rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-xs font-bold text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
+            <span>Farm services and links</span>
+            <span className="font-semibold text-emerald-800 group-open:hidden">Show</span><span className="hidden font-semibold text-emerald-800 group-open:inline">Hide</span>
+          </summary>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3 text-xs">
           <div className="flex items-center gap-2 text-slate-700 font-bold">
             <Sparkles className="size-4 text-[#2D5A27]" />
             <span>Farm Services</span>
@@ -187,16 +213,8 @@ export default function FarmerDashboard() {
               <span>Activities</span>
             </button>
           </div>
-        </div>
-
-        {/* 5. LIVE FARM ACTIVITY & REVIEW STATUS FEED */}
-        <FarmerActivityFeed
-          activities={analytics?.recent_activities}
-          isLoading={isLoading}
-          onSelectActivity={handleSelectActivity}
-          onOpenReportIllness={() => handleOpenReportIllness("DISEASE")}
-          onOpenReportsList={() => setIsReportsListOpen(true)}
-        />
+          </div>
+        </details>
       </div>
 
       {/* ── MODAL DIALOGS ── */}

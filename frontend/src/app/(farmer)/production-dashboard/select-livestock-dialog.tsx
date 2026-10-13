@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   CalendarDays,
   Check,
@@ -23,8 +23,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/components/ui/utils";
-import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
+import { getAvatarById, type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import { formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import type { ProductionType } from "./production-analytics";
 
 interface SelectLivestockDialogProps {
   open: boolean;
@@ -32,9 +33,40 @@ interface SelectLivestockDialogProps {
   items: LivestockInventoryItem[];
   selectedId: string | null;
   onSelect: (item: LivestockInventoryItem) => void;
+  productionType?: ProductionType;
 }
 
 const PAGE_SIZE = 6;
+const subscribeToLocalStorage = () => () => undefined;
+
+function useLocalStorageAsset(key: string) {
+  return useSyncExternalStore(
+    subscribeToLocalStorage,
+    () => (typeof window === "undefined" ? null : window.localStorage.getItem(key)),
+    () => null,
+  );
+}
+
+function LivestockPicture({ item, selected }: { item: LivestockInventoryItem; selected: boolean }) {
+  const localPhoto = useLocalStorageAsset(`livestock_photo_${item.id}`);
+  const localAvatar = useLocalStorageAsset(`livestock_avatar_${item.id}`);
+  const photoUrl = item.photoUrl || localPhoto;
+  const avatar = getAvatarById(item.avatarKey || localAvatar, item.livestockTypeName);
+
+  return (
+    <span className={cn("relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border", selected ? "border-emerald-700 ring-2 ring-emerald-700/20" : "border-slate-200")}>
+      {photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Livestock photos may require the signed-in browser session.
+        <img src={photoUrl} alt={`${item.tagNumber || item.livestockTypeName} livestock`} className="size-full object-cover" />
+      ) : (
+        <span className={cn("flex size-full items-center justify-center bg-gradient-to-br text-3xl", avatar.bgGradient)} role="img" aria-label={`${avatar.name} illustration`}>
+          {avatar.emoji}
+        </span>
+      )}
+      {selected && <span className="absolute bottom-1 right-1 flex size-5 items-center justify-center rounded-full bg-emerald-700 text-white"><Check className="size-3.5" /></span>}
+    </span>
+  );
+}
 
 const formatDate = (date: string | null | undefined) => {
   if (!date) return "Unknown date";
@@ -54,22 +86,25 @@ export default function SelectLivestockDialog({
   items,
   selectedId,
   onSelect,
+  productionType,
 }: SelectLivestockDialogProps) {
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("ALL");
   const [page, setPage] = useState(1);
 
+  const eligibleItems = items;
+
   const speciesOptions = useMemo(
     () =>
       Array.from(
-        new Set(items.map((item) => item.livestockTypeName).filter(Boolean)),
+        new Set(eligibleItems.map((item) => item.livestockTypeName).filter(Boolean)),
       ).sort(),
-    [items],
+    [eligibleItems],
   );
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return items.filter((item) => {
+    return eligibleItems.filter((item) => {
       const matchesSpecies =
         species === "ALL" || item.livestockTypeName.toLowerCase() === species.toLowerCase();
       const matchesQuery =
@@ -87,7 +122,7 @@ export default function SelectLivestockDialog({
           .some((value) => String(value).toLowerCase().includes(normalizedQuery));
       return matchesSpecies && matchesQuery;
     });
-  }, [items, query, species]);
+  }, [eligibleItems, query, species]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -119,7 +154,9 @@ export default function SelectLivestockDialog({
                 Choose Production Livestock
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm text-white/75 mt-1 break-words">
-                All {items.length} MAO-approved livestock records are available below.
+                {productionType === "milk"
+                  ? `Showing female livestock of milk-capable species; calves and yearlings are excluded (${eligibleItems.length} eligible).`
+                  : `All ${eligibleItems.length} MAO-approved livestock records are available below.`}
               </DialogDescription>
             </div>
           </div>
@@ -188,8 +225,8 @@ export default function SelectLivestockDialog({
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6">
-          {items.length === 0 ? (
-            <EmptyState text="No approved livestock is available for production logging." />
+          {eligibleItems.length === 0 ? (
+            <EmptyState text={productionType === "milk" ? "No approved female livestock of a milk-capable species is available." : "No approved livestock is available for production logging."} />
           ) : filtered.length === 0 ? (
             <EmptyState text="No livestock matches the current search and species filter." />
           ) : (
@@ -216,12 +253,7 @@ export default function SelectLivestockDialog({
                     )}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={cn(
-                        "size-11 rounded-2xl flex items-center justify-center shrink-0",
-                        selected ? "bg-[#2D5A27] text-white" : "bg-emerald-50 text-emerald-700",
-                      )}>
-                        {selected ? <Check className="size-5" /> : <Tag className="size-5" />}
-                      </div>
+                      <LivestockPicture item={item} selected={selected} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -262,7 +294,7 @@ export default function SelectLivestockDialog({
 
         <div className="shrink-0 px-4 sm:px-6 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-[11px] text-slate-500">
-            Page {safePage} of {pageCount} · {items.length} approved record{items.length === 1 ? "" : "s"} total
+            Page {safePage} of {pageCount} · {eligibleItems.length} eligible record{eligibleItems.length === 1 ? "" : "s"} total
           </p>
           <div className="flex items-center gap-2">
             <Button

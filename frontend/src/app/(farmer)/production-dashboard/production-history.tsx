@@ -36,6 +36,7 @@ import {
   formatProductionStatus,
   type ProductionRecordItem,
   type ProductionStatus,
+  type ProductionType,
 } from "./production-analytics";
 import ProductionRecordDialog from "./production-record-dialog";
 import ProductionDeleteDialog from "./production-delete-dialog";
@@ -75,7 +76,7 @@ const typeClasses: Record<string, string> = {
 const formatUnit = (unit: string) =>
   unit === "LITERS" ? "L" : unit === "KILOGRAMS" ? "kg" : unit === "PIECES" ? "pc" : unit;
 
-export default function ProductionHistory() {
+export default function ProductionHistory({ initialTypeFilter = "ALL" }: { initialTypeFilter?: "ALL" | ProductionType }) {
   const queryClient = useQueryClient();
 
   const {
@@ -90,7 +91,7 @@ export default function ProductionHistory() {
   });
 
   const [deleteTarget, setDeleteTarget] = useState<ProductionRecordItem | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [typeFilter, setTypeFilter] = useState<string>(initialTypeFilter);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
