@@ -68,7 +68,11 @@ def _base(report_type, start, end, filters):
     approved = "APPROVED"
 
     if report_type == "inventory":
-        query = LivestockInventory.objects.filter(status=approved, created_at__date__range=(start, end))
+        query = LivestockInventory.objects.filter(
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            status=approved,
+            created_at__date__range=(start, end),
+        )
         query = _apply_species(query, species, "livestock_type__name")
         query = _apply_barangay(query, barangay, "farmer__barangay")
         query = query.select_related("livestock_type", "farmer__user", "farmer__barangay").order_by("livestock_type__name", "tag_number", "pk")

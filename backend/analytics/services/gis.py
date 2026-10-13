@@ -413,6 +413,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # 4. Aggregate Livestock Inventory (by farmer's barangay)
     # DATA TRUST POLICY: Only MAO-approved active livestock are counted in official municipal GIS inventory
     inventory_qs = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
+        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
         status=LivestockInventory.StatusType.APPROVED,
         operational_status=LivestockInventory.OperationalStatus.ACTIVE,
     )
@@ -762,6 +763,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         fp = user.farmer_profile
         my_inv = LivestockInventory.objects.filter(
             farmer=fp,
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
             status=LivestockInventory.StatusType.APPROVED,
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
         )

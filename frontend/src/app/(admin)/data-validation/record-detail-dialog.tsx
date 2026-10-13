@@ -221,11 +221,7 @@ export function RecordDetailDialog({
   const canMaoReview = isVerified || (isAuctionRecord && isPending);
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
-  const isHerdInventory =
-    record.kind === "inventory" &&
-    !record.isBatch &&
-    !record.isPostApprovalAddition &&
-    (record.batchId != null || !!record.batchCode);
+
 
   const handleSaveEdits = async () => {
     if (!record || record.kind !== "inventory") return;
@@ -1123,53 +1119,7 @@ export function RecordDetailDialog({
             </div>
           )}
 
-          {/* ── HERD MEMBER — BATCH REVIEW REQUIRED ── */}
-          {canMaoReview && isHerdInventory ? (
-            <div className="p-4 sm:p-5 bg-white rounded-2xl border-2 border-sky-800/20 shadow-sm space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="size-7 rounded-lg bg-sky-100 text-sky-900 flex items-center justify-center font-bold">
-                    <Layers className="size-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                      Herd Member — Reviewed Together
-                    </h4>
-                    <p className="text-[10px] text-slate-500">
-                      Individual MAO certification is disabled for herd livestock
-                    </p>
-                  </div>
-                </div>
-                <Badge className="bg-sky-50 text-sky-900 border-sky-200 text-[9px] font-black whitespace-nowrap">
-                  {record.batchCode || `BATCH #${record.batchId}`}
-                </Badge>
-              </div>
-
-              <p className="text-xs text-slate-600 leading-relaxed">
-                This animal belongs to livestock herd{" "}
-                <span className="font-black text-slate-900">
-                  {record.batchCode ? `"${record.batchCode}"` : `#${record.batchId}`}
-                </span>{" "}
-                and is certified together with all of its pen-mates. Approve or return the{" "}
-                <span className="font-black text-slate-900">entire batch</span> so every
-                herd animal shares the same review status.
-              </p>
-
-              <Link
-                href={`/data-validation/batches${record.batchId ? `?batchId=${record.batchId}` : ""}`}
-              >
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full py-3.5 bg-sky-50 hover:bg-sky-100 text-sky-900 border-sky-200 rounded-xl text-xs font-black uppercase tracking-wider gap-2 cursor-pointer"
-                >
-                  <Layers className="size-4 text-sky-700" />
-                  <span>Open Batch Review Console</span>
-                  <ChevronRight className="size-4 text-sky-700" />
-                </Button>
-              </Link>
-            </div>
-          ) : canMaoReview ? (
+          {canMaoReview ? (
             <div className="p-4 sm:p-5 bg-white rounded-2xl border-2 border-emerald-800/20 shadow-sm space-y-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

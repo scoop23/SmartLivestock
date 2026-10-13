@@ -3,6 +3,7 @@ from datetime import date
 from rest_framework.test import APITestCase
 
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
+from analytics.services.population import official_inventory, population_summary
 from production.models import ProductionRecord
 from users.models import Notification, Role, User
 
@@ -48,54 +49,107 @@ class HerdRevisionTests(APITestCase):
             for number in (1, 2)
         ]
 
-    def test_returned_herd_stays_together_until_explicit_resubmission(self):
-        animal_url = f"/livestock/inventory/{self.animals[0].pk}/"
-        review_url = f"/livestock/batches/{self.batch.pk}/review/"
-        batch_url = f"/livestock/batches/{self.batch.pk}/"
-
+    def test_animal_review_changes_only_that_animal_and_herd_review_is_retired(self):
+        first, sibling = self.animals
         self.client.force_authenticate(user=self.sibat_user)
-        self.assertEqual(
-            self.client.post(
-                f"{animal_url}review/", {"status": "SUBJECT_TO_REVISION", "remarks": "Fix tags"}
-            ).status_code,
-            409,
+        response = self.client.post(
+            f"/livestock/inventory/{first.pk}/review/", {"status": "VERIFIED"}
         )
-        self.assertEqual(
-            self.client.post(
-                review_url, {"status": "SUBJECT_TO_REVISION", "remarks": "Fix tags"}
-            ).status_code,
-            200,
+        self.assertEqual(response.status_code, 200, response.data)
+        first.refresh_from_db()
+        sibling.refresh_from_db()
+        self.assertEqual(first.status, LivestockInventory.StatusType.VERIFIED)
+        self.assertEqual(sibling.status, LivestockInventory.StatusType.PENDING)
+
+        # The old endpoint remains present for old clients but can never mutate the herd.
+        response = self.client.post(
+            f"/livestock/batches/{self.batch.pk}/review/", {"status": "VERIFIED"}
         )
+        self.assertEqual(response.status_code, 410)
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.status, LivestockInventory.StatusType.PENDING)
+
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.post(
+            f"/livestock/inventory/{first.pk}/review/", {"status": "APPROVED"}
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        first.refresh_from_db()
+        sibling.refresh_from_db()
+        self.assertEqual(first.status, LivestockInventory.StatusType.APPROVED)
+        self.assertEqual(sibling.status, LivestockInventory.StatusType.PENDING)
+
+    def test_returned_animal_resubmission_does_not_change_herd_siblings(self):
+        first, sibling = self.animals
+        self.client.force_authenticate(user=self.sibat_user)
+        response = self.client.post(
+            f"/livestock/inventory/{first.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Fix the animal tag"},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
 
         self.client.force_authenticate(user=self.farmer_user)
-        self.assertEqual(self.client.patch(animal_url, {"breed": "Corrected"}).status_code, 200)
-        self.assertEqual(
-            set(self.batch.animals.values_list("status", flat=True)),
-            {LivestockInventory.StatusType.SUBJECT_TO_REVISION},
+        response = self.client.patch(
+            f"/livestock/inventory/{first.pk}/", {"breed": "Corrected breed"}
         )
-        self.assertEqual(self.client.patch(batch_url, {"resubmit": True}).status_code, 200)
-        self.assertEqual(
-            set(self.batch.animals.values_list("status", flat=True)),
-            {LivestockInventory.StatusType.PENDING},
+        self.assertEqual(response.status_code, 200, response.data)
+        first.refresh_from_db()
+        sibling.refresh_from_db()
+        self.assertEqual(first.status, LivestockInventory.StatusType.PENDING)
+        self.assertEqual(sibling.status, LivestockInventory.StatusType.PENDING)
+        self.assertEqual(first.breed, "Corrected breed")
+
+    def test_new_animal_in_approved_herd_starts_its_own_review(self):
+        approved = self.animals[0]
+        approved.status = LivestockInventory.StatusType.APPROVED
+        approved.save(update_fields=["status"])
+
+        self.client.force_authenticate(user=self.farmer_user)
+        response = self.client.post(
+            f"/livestock/batches/{self.batch.pk}/animals/",
+            {"animals": [{"tag_number": "HERD-NEW", "breed": "Native", "sex": "Female"}]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        new_animal = LivestockInventory.objects.get(tag_number="HERD-NEW")
+        self.assertEqual(new_animal.status, LivestockInventory.StatusType.PENDING)
+        self.assertTrue(new_animal.is_post_approval_addition)
+        approved.refresh_from_db()
+        self.assertEqual(approved.status, LivestockInventory.StatusType.APPROVED)
+
+    def test_herd_summary_counts_individual_statuses(self):
+        self.animals[0].status = LivestockInventory.StatusType.APPROVED
+        self.animals[0].save(update_fields=["status"])
+        self.client.force_authenticate(user=self.sibat_user)
+
+        response = self.client.get("/livestock/batches/?summary=true&page_size=100")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["summary"]["approvedAnimals"], 1)
+        self.assertEqual(response.data["summary"]["pendingAnimals"], 1)
+        herd = next(row for row in response.data["results"] if row["id"] == self.batch.pk)
+        self.assertEqual(herd["approved_animals"], 1)
+        self.assertEqual(herd["pending_animals"], 1)
+        self.assertEqual(herd["review_status"], "MIXED")
+
+    def test_legacy_batch_aggregate_is_not_an_animal_or_approved_population(self):
+        approved_animal = self.animals[0]
+        approved_animal.status = LivestockInventory.StatusType.APPROVED
+        approved_animal.save(update_fields=["status"])
+        LivestockInventory.objects.create(
+            farmer=approved_animal.farmer,
+            livestock_type=approved_animal.livestock_type,
+            entry_type=LivestockInventory.EntryType.BATCH,
+            quantity=20,
+            status=LivestockInventory.StatusType.APPROVED,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            created_by=self.farmer_user,
         )
 
-        self.client.force_authenticate(user=self.sibat_user)
-        self.assertEqual(self.client.post(review_url, {"status": "VERIFIED"}).status_code, 200)
-        self.assertEqual(
-            set(self.batch.animals.values_list("status", flat=True)),
-            {LivestockInventory.StatusType.VERIFIED},
-        )
-        self.assertTrue(Notification.objects.filter(
-            user=self.mao_user,
-            title="Livestock Herd Awaiting MAO Approval",
-            link=f"/data-validation/batches?batchId={self.batch.pk}",
-        ).exists())
-        self.client.force_authenticate(user=self.mao_user)
-        self.assertEqual(self.client.post(review_url, {"status": "APPROVED"}).status_code, 200)
-        self.assertEqual(
-            set(self.batch.animals.values_list("status", flat=True)),
-            {LivestockInventory.StatusType.APPROVED},
-        )
+        self.assertEqual(official_inventory(self.mao_user).count(), 1)
+        summary = population_summary(user=self.mao_user)
+        self.assertEqual(summary["total_heads"], 1)
+        self.assertEqual(summary["historical_approved_heads"], 1)
+        self.assertEqual(summary["pending_inventory_records"], 1)
 
     def test_individual_inventory_notifies_mao_after_sibat_verification(self):
         animal = LivestockInventory.objects.create(
@@ -109,7 +163,9 @@ class HerdRevisionTests(APITestCase):
         self.assertTrue(Notification.objects.filter(
             user=self.mao_user,
             title="Livestock Entry Awaiting MAO Approval",
-            link="/data-validation?domain=inventory",
+            link=f"/data-validation?domain=inventory&recordType=INVENTORY&recordId={animal.pk}",
+            related_entity_type="livestock_inventory",
+            related_entity_id=animal.pk,
         ).exists())
         self.client.force_authenticate(user=self.mao_user)
         alerts = self.client.get("/api/notifications/")
@@ -156,38 +212,37 @@ class HerdRevisionTests(APITestCase):
         self.assertTrue(Notification.objects.filter(
             user=self.mao_user,
             title="Production Record Awaiting MAO Approval",
-            link="/data-validation?domain=production",
+            link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record_id}",
+            related_entity_type="production_record",
+            related_entity_id=record_id,
         ).exists())
         self.client.force_authenticate(user=self.mao_user)
         self.assertEqual(self.client.post(
             review_url, {"status": "APPROVED"}
         ).status_code, 200)
 
-    def test_revision_response_identifies_sibat_and_mao_for_inventory_and_herds(self):
-        animal = LivestockInventory.objects.create(
-            farmer=self.batch.farmer, livestock_type=self.batch.livestock_type,
-            tag_number="REVIEWER-ROLE-TEST", created_by=self.farmer_user,
-        )
-        for url, source in (
-            (f"/livestock/inventory/{animal.pk}/", animal),
-            (f"/livestock/batches/{self.batch.pk}/", self.batch),
-        ):
-            self.client.force_authenticate(user=self.sibat_user)
-            response = self.client.post(url + "review/", {
-                "status": "SUBJECT_TO_REVISION", "remarks": "Correct entry",
-            })
-            self.assertEqual(response.status_code, 200, response.data)
-            self.assertEqual((response.data["batch"] if source == self.batch else response.data)["reviewed_by_role"], "SIBAT")
-            self.client.force_authenticate(user=self.farmer_user)
-            payload = {"resubmit": True} if source == self.batch else {"breed": "Corrected"}
-            response = self.client.patch(url, payload)
-            self.assertEqual(response.status_code, 200, response.data)
-            self.assertIsNone(response.data["reviewed_by_role"])
-            self.client.force_authenticate(user=self.sibat_user)
-            self.assertEqual(self.client.post(url + "review/", {"status": "VERIFIED"}).status_code, 200)
-            self.client.force_authenticate(user=self.mao_user)
-            response = self.client.post(url + "review/", {
-                "status": "SUBJECT_TO_REVISION", "remarks": "Municipal correction",
-            })
-            self.assertEqual(response.status_code, 200, response.data)
-            self.assertEqual((response.data["batch"] if source == self.batch else response.data)["reviewed_by_role"], "MAO")
+    def test_revision_response_identifies_sibat_and_mao_for_individual_inventory(self):
+        animal = self.animals[0]
+        inventory_url = f"/livestock/inventory/{animal.pk}/"
+        self.client.force_authenticate(user=self.sibat_user)
+        response = self.client.post(inventory_url + "review/", {
+            "status": "SUBJECT_TO_REVISION", "remarks": "Correct entry",
+        })
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["reviewed_by_role"], "SIBAT")
+
+        self.client.force_authenticate(user=self.farmer_user)
+        response = self.client.patch(inventory_url, {"breed": "Corrected"})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIsNone(response.data["reviewed_by_role"])
+
+        self.client.force_authenticate(user=self.sibat_user)
+        self.assertEqual(self.client.post(
+            inventory_url + "review/", {"status": "VERIFIED"}
+        ).status_code, 200)
+        self.client.force_authenticate(user=self.mao_user)
+        response = self.client.post(inventory_url + "review/", {
+            "status": "SUBJECT_TO_REVISION", "remarks": "Municipal correction",
+        })
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["reviewed_by_role"], "MAO")

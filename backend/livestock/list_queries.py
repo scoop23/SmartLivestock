@@ -1,5 +1,5 @@
 """Opt-in list pagination; existing array responses remain compatible."""
-from django.db.models import Avg, Case, Count, F, IntegerField, Q, Sum, Value, When, CharField
+from django.db.models import Avg, Case, CharField, Count, Exists, F, OuterRef, Q, Sum, Value, When
 from rest_framework.pagination import PageNumberPagination
 
 
@@ -10,24 +10,31 @@ class LivestockListPagination(PageNumberPagination):
 
 
 def batch_list_annotations(queryset):
-    # Post-approval additions stay in the herd and head counts, but their review
-    # status is independent from the original approved members.
+    # A herd is only a container. These counts are summaries of its animals;
+    # they never authorize a herd-wide review action.
     queryset = queryset.annotate(
-        child_count=Count("animals"),
-        review_child_count=Count("animals", filter=Q(animals__is_post_approval_addition=False)),
-        active_animal_count=Count("animals", filter=Q(animals__operational_status="ACTIVE")),
-        active_average_weight=Avg("animals__weight", filter=Q(animals__operational_status="ACTIVE")),
-        approved_children=Count("animals", filter=Q(animals__is_post_approval_addition=False, animals__status="APPROVED")),
-        verified_children=Count("animals", filter=Q(animals__is_post_approval_addition=False, animals__status="VERIFIED")),
-        returned_children=Count("animals", filter=Q(animals__is_post_approval_addition=False, animals__status="SUBJECT_TO_REVISION")),
+        child_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL")),
+        active_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE")),
+        active_average_weight=Avg("animals__weight", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE")),
+        pending_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="PENDING")),
+        verified_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="VERIFIED")),
+        approved_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="APPROVED")),
+        revision_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status__in=("SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"))),
+        rejected_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="REJECTED")),
     )
-    return queryset.annotate(list_review_status=Case(
-        When(review_child_count=0, then=Value("PENDING")),
-        When(approved_children=F("review_child_count"), then=Value("APPROVED")),
-        When(returned_children__gt=0, then=Value("SUBJECT_TO_REVISION")),
-        When(verified_children=F("review_child_count"), then=Value("VERIFIED")),
-        default=Value("PENDING"), output_field=CharField(),
-    ))
+    return queryset.annotate(
+        list_review_status=Case(
+            When(child_count=0, then=Value("NO_ANIMALS")),
+            When(approved_animal_count=F("child_count"), then=Value("APPROVED")),
+            When(verified_animal_count=F("child_count"), then=Value("VERIFIED")),
+            When(pending_animal_count=F("child_count"), then=Value("PENDING")),
+            When(revision_animal_count=F("child_count"), then=Value("SUBJECT_TO_REVISION")),
+            When(rejected_animal_count=F("child_count"), then=Value("REJECTED")),
+            When(revision_animal_count__gt=0, then=Value("MIXED")),
+            default=Value("MIXED"),
+            output_field=CharField(),
+        )
+    )
 
 
 def filter_livestock_list(queryset, params, *, batch=False):
@@ -46,15 +53,23 @@ def filter_livestock_list(queryset, params, *, batch=False):
     else:
         value = params.get("review_status")
         if value and value.upper() != "ALL":
-            queryset = queryset.filter(list_review_status=value)
+            # Status filters find herds containing animals at that stage; the
+            # herd itself is not a reviewable record. EXISTS avoids joining the
+            # roster into the aggregate query and accidentally multiplying counts.
+            from livestock.models import LivestockInventory
+            matching_animals = LivestockInventory.objects.filter(
+                batch_id=OuterRef("pk"),
+                entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+                status=value,
+            )
+            queryset = queryset.alias(has_status_match=Exists(matching_animals)).filter(has_status_match=True)
     search = params.get("search", "").strip()
     if search:
         common = Q(farmer__user__first_name__icontains=search) | Q(farmer__user__last_name__icontains=search) | Q(farmer__user__username__icontains=search) | Q(farmer__barangay__barangay_name__icontains=search)
         if batch:
             # EXISTS avoids duplicating the herd or inflating counts when several tags match.
-            from django.db.models import Exists, OuterRef
             from livestock.models import LivestockInventory
-            matches = LivestockInventory.objects.filter(batch_id=OuterRef("pk"), tag_number__icontains=search)
+            matches = LivestockInventory.objects.filter(batch_id=OuterRef("pk"), entry_type="INDIVIDUAL", tag_number__icontains=search)
             queryset = queryset.alias(tag_match=Exists(matches)).filter(common | Q(batch_code__icontains=search) | Q(batch_name__icontains=search) | Q(tag_match=True))
         else:
             queryset = queryset.filter(common | Q(tag_number__icontains=search) | Q(breed__icontains=search))
@@ -79,8 +94,10 @@ def inventory_management_page(inventories, batches, request):
     lookup = {( "inventory", row["id"]): {**row, "record_kind": "inventory"} for row in animal_data}
     lookup.update({("batch", row["id"]): {**row, "record_kind": "batch"} for row in herd_data})
     response = pager.get_paginated_response([lookup[(row["record_kind"], row["id"])] for row in rows])
+    individual_inventories = inventories.filter(entry_type="INDIVIDUAL")
     stats = {state: Count("id", filter=Q(status=state)) for state in ("PENDING", "VERIFIED", "APPROVED", "SUBJECT_TO_REVISION")}
-    animal_counts = inventories.aggregate(**stats)
-    herd_counts = batches.aggregate(**{state: Count("id", filter=Q(list_review_status=state)) for state in stats})
-    response.data["status_counts"] = {state: animal_counts[state] + herd_counts[state] for state in stats}
+    animal_counts = individual_inventories.aggregate(**stats)
+    # KPI totals count livestock records only. Adding herd rows here would
+    # count the same animals once as animals and again as their container.
+    response.data["status_counts"] = animal_counts
     return response

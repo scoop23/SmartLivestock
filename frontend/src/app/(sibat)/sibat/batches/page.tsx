@@ -108,14 +108,53 @@ interface BatchItem {
   status: string;
   notes?: string;
   total_animals: number;
+  enrolled_animals?: number;
+  pending_animals?: number;
+  verified_animals?: number;
+  approved_animals?: number;
+  revision_animals?: number;
+  rejected_animals?: number;
   average_weight: number | string | null;
   animals: ChildAnimal[];
-  review_status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+  review_status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED" | "MIXED" | "NO_ANIMALS";
   review_remarks?: string | null;
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
   created_at: string;
   updated_at?: string;
+}
+
+interface BatchSummaryPage {
+  count: number;
+  results: BatchItem[];
+  summary: {
+    totalAnimals: number | null;
+    totalHerds: number;
+    pendingAnimals: number | null;
+    verifiedAnimals: number | null;
+    approvedAnimals: number | null;
+    revisionAnimals: number | null;
+    rejectedAnimals: number | null;
+  };
+}
+
+async function fetchAllHerdSummaries(): Promise<BatchSummaryPage> {
+  const pageSize = 100;
+  const first = (await api.get<BatchSummaryPage>("livestock/batches/", {
+    params: { summary: "true", page: 1, page_size: pageSize },
+  })).data;
+  const pageCount = Math.ceil(first.count / pageSize);
+  const remainingPages = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+      api.get<BatchSummaryPage>("livestock/batches/", {
+        params: { summary: "true", page: index + 2, page_size: pageSize },
+      }),
+    ),
+  );
+  return { ...first, results: [
+    ...first.results,
+    ...remainingPages.flatMap((response) => response.data.results),
+  ] };
 }
 
 function csvCell(value: unknown) {
@@ -158,19 +197,16 @@ function deriveBatchReviewStatus(batch: BatchItem): BatchItem["review_status"] {
     (animal.status || "PENDING").toUpperCase(),
   );
 
-  if (statuses.length === 0) return "PENDING";
+  if (statuses.length === 0) return "NO_ANIMALS";
   if (statuses.every((status) => status === "APPROVED")) return "APPROVED";
-  if (statuses.some((status) => status === "SUBJECT_TO_REVISION")) {
+  if (statuses.every((status) => status === "SUBJECT_TO_REVISION")) {
     return "SUBJECT_TO_REVISION";
   }
   if (statuses.every((status) => status === "VERIFIED")) return "VERIFIED";
-  return "PENDING";
+  if (statuses.every((status) => status === "PENDING")) return "PENDING";
+  return "MIXED";
 }
 
-function everyAnimalPending(batch: BatchItem): boolean {
-  const statuses = (batch.animals || []).map((a) => (a.status || "PENDING").toUpperCase());
-  return statuses.length > 0 && statuses.every((s) => s === "PENDING");
-}
 
 function SibatBatchesVerificationContent() {
   const queryClient = useQueryClient();
@@ -193,12 +229,6 @@ function SibatBatchesVerificationContent() {
   const [animalSearchQuery, setAnimalSearchQuery] = useState("");
   const [animalStatusFilter, setAnimalStatusFilter] = useState<string>("ALL");
 
-  const [batchReviewModal, setBatchReviewModal] = useState<{
-    open: boolean;
-    batch: BatchItem | null;
-    action: "VERIFIED" | "SUBJECT_TO_REVISION";
-  }>({ open: false, batch: null, action: "VERIFIED" });
-  const [reviewRemarks, setReviewRemarks] = useState("");
 
 
   const [batchNoteText, setBatchNoteText] = useState("");
@@ -213,32 +243,31 @@ function SibatBatchesVerificationContent() {
 
   // ── Data Fetching ────────────────────────────────────────────────────────
   const {
-    data: batches = [],
+    data: batchSummaryPage,
     isLoading,
     isRefetching,
     refetch,
-  } = useQuery<BatchItem[]>({
+  } = useQuery<BatchSummaryPage>({
     queryKey: ["sibat-batches-drilldown"],
-    queryFn: async () => {
-      const res = await api.get("livestock/batches/?all=true");
-      const records = Array.isArray(res.data) ? (res.data as BatchItem[]) : [];
-      return records.map((batch) => ({
-        ...batch,
-        review_status: deriveBatchReviewStatus(batch),
-      }));
-    },
+    queryFn: fetchAllHerdSummaries,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  const batches = batchSummaryPage?.results ?? [];
 
-  // Keep selectedBatch updated when data refetches
+  // Load the individual roster only after a reviewer opens a herd.
+  const detailQuery = useQuery<BatchItem>({
+    queryKey: ["sibat-batch-detail", selectedBatch?.id],
+    enabled: isDrilldownOpen && Boolean(selectedBatch?.id),
+    queryFn: async ({ signal }) => (await api.get(`livestock/batches/${selectedBatch?.id}/`, { signal })).data,
+    staleTime: 30_000,
+  });
   useEffect(() => {
-    if (selectedBatch) {
-      const updated = batches.find((b) => b.id === selectedBatch.id);
-      if (updated) setSelectedBatch(updated);
+    if (detailQuery.data && detailQuery.data.id === selectedBatch?.id) {
+      setSelectedBatch(detailQuery.data);
     }
-  }, [batches, selectedBatch]);
+  }, [detailQuery.data, selectedBatch?.id]);
 
   // Automatically select and open drilldown if `batchId` is present in URL
   useEffect(() => {
@@ -262,34 +291,21 @@ function SibatBatchesVerificationContent() {
   }, [batchIdParam, batches]);
 
   // ── KPI Metrics ──────────────────────────────────────────────────────────
+  // The API aggregates statuses from individual rows, so herd list KPIs stay accurate without loading every roster.
   const kpis = useMemo(() => {
-    const totalBatches = batches.length;
-    const totalAnimals = batches.reduce((acc, b) => acc + (b.total_animals || b.animals?.length || 0), 0);
-    const pendingBatches = batches.filter(
-      (b) => (b.review_status || "PENDING").toUpperCase() === "PENDING"
-    ).length;
-    const verifiedBatches = batches.filter(
-      (b) => (b.review_status || "").toUpperCase() === "VERIFIED"
-    ).length;
-    const approvedBatches = batches.filter(
-      (b) => (b.review_status || "PENDING").toUpperCase() === "APPROVED"
-    ).length;
-    const revisionBatches = batches.filter((b) => {
-      const s = (b.review_status || "").toUpperCase();
-      return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION";
-    }).length;
-    const avgHeads = totalBatches > 0 ? (totalAnimals / totalBatches).toFixed(1) : "0";
-
+    const summary = batchSummaryPage?.summary;
+    const totalBatches = batchSummaryPage?.count ?? 0;
+    const totalAnimals = summary?.totalAnimals ?? 0;
     return {
       totalBatches,
       totalAnimals,
-      pendingBatches,
-      verifiedBatches,
-      approvedBatches,
-      revisionBatches,
-      avgHeads,
+      pendingAnimals: summary?.pendingAnimals ?? 0,
+      verifiedAnimals: summary?.verifiedAnimals ?? 0,
+      approvedAnimals: summary?.approvedAnimals ?? 0,
+      revisionAnimals: summary?.revisionAnimals ?? 0,
+      avgHeads: totalBatches > 0 ? (totalAnimals / totalBatches).toFixed(1) : "0",
     };
-  }, [batches]);
+  }, [batchSummaryPage]);
 
   const speciesList = useMemo(() => {
     const set = new Set<string>();
@@ -307,20 +323,18 @@ function SibatBatchesVerificationContent() {
         b.batch_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         b.batch_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         b.farmer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.barangay_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.animals?.some((a) =>
-          a.tag_number?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        b.barangay_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchSpecies =
         speciesFilter === "ALL" ||
         b.livestock_type_name?.trim().toLowerCase() === speciesFilter.trim().toLowerCase();
 
-      const matchStatus =
-        statusFilter === "ALL" ||
-        (statusFilter === "SUBJECT_TO_REVISION"
-          ? (b.review_status || "").trim().toUpperCase() === "SUBJECT_TO_REVISION" || (b.review_status || "").trim().toUpperCase() === "SUBJECT_FOR_REVISION"
-          : (b.review_status || "PENDING").trim().toUpperCase() === statusFilter.trim().toUpperCase());
+      const matchStatus = statusFilter === "ALL" || (
+        statusFilter === "PENDING" ? (b.pending_animals ?? 0) > 0 :
+        statusFilter === "VERIFIED" ? (b.verified_animals ?? 0) > 0 :
+        statusFilter === "APPROVED" ? (b.approved_animals ?? 0) > 0 :
+        statusFilter === "SUBJECT_TO_REVISION" ? (b.revision_animals ?? 0) > 0 : false
+      );
 
       const matchBarangay =
         barangayFilter === "ALL" ||
@@ -390,88 +404,8 @@ function SibatBatchesVerificationContent() {
   }, [selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
 
   // ── Mutations: Batch Review (SIBAT verification) ─────────────────────────
-  const reviewBatchMutation = useMutation({
-    mutationFn: async ({
-      batchId,
-      status,
-      remarks,
-    }: {
-      batchId: number;
-      status: "VERIFIED" | "SUBJECT_TO_REVISION";
-      remarks: string;
-    }) => {
-      const res = await api.post(`livestock/batches/${batchId}/review/`, {
-        status,
-        remarks,
-      });
-      return res.data;
-    },
-    onMutate: async (variables) => {
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: ["sibat-batches-drilldown"] }),
-        queryClient.cancelQueries({ queryKey: ["admin-batches-drilldown"] }),
-      ]);
-      const previousSibat = queryClient.getQueryData<BatchItem[]>(["sibat-batches-drilldown"]);
-      const previousAdmin = queryClient.getQueryData<BatchItem[]>(["admin-batches-drilldown"]);
-      const previousSelected = selectedBatch;
-      const previousModal = batchReviewModal;
-      const updateBatch = (batch: BatchItem): BatchItem =>
-        batch.id === variables.batchId
-          ? {
-              ...batch,
-              review_status: variables.status,
-              review_remarks: variables.remarks,
-              animals: batch.animals.map((animal) => ({
-                ...animal,
-                status: variables.status,
-                review_remarks: variables.remarks,
-              })),
-            }
-          : batch;
-      for (const key of [["sibat-batches-drilldown"], ["admin-batches-drilldown"]]) {
-        queryClient.setQueryData<BatchItem[]>(key, (current) => current?.map(updateBatch));
-      }
-      setSelectedBatch((current) => current ? updateBatch(current) : null);
-      setBatchReviewModal((current) => ({ ...current, open: false }));
-      return { previousSibat, previousAdmin, previousSelected, previousModal };
-    },
-    onSuccess: (data, variables) => {
-      const verb =
-        variables.status === "VERIFIED"
-          ? "verified & forwarded to MAO"
-          : "returned for revision";
-      toast.success(`Batch ${selectedBatch?.batch_code || ""} ${verb}!`, {
-        description:
-          variables.status === "VERIFIED"
-            ? `All child animals in this herd updated to VERIFIED and sent to the MAO approval queue.`
-            : `Farmer will be asked to correct the flagged items and resubmit.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
-      queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
-      setBatchReviewModal({ open: false, batch: null, action: "VERIFIED" });
-      setReviewRemarks("");
-    },
-    onError: (err, _variables, context) => {
-      if (context?.previousSibat) {
-        queryClient.setQueryData(["sibat-batches-drilldown"], context.previousSibat);
-      }
-      if (context?.previousAdmin) {
-        queryClient.setQueryData(["admin-batches-drilldown"], context.previousAdmin);
-      }
-      setSelectedBatch(context?.previousSelected ?? null);
-      if (context?.previousModal) setBatchReviewModal(context.previousModal);
-      console.error("Batch review failed:", err);
-      toast.error("Failed to update batch review status. Please try again.");
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] });
-    },
-  });
+  // Individual animals are reviewed from the inventory queue.
 
-  // ── Mutations: Reviewer Notes (append-only audit trail) ──────────────────
   const addBatchNoteMutation = useMutation({
     mutationFn: async ({ batchId, text }: { batchId: number; text: string }) => {
       const res = await api.post(`livestock/batches/${batchId}/notes/`, { text });
@@ -482,6 +416,7 @@ function SibatBatchesVerificationContent() {
         description: "The farmer can now see this note on the herd page.",
       });
       queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
+      queryClient.invalidateQueries({ queryKey: ["sibat-batch-detail"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
       setBatchNoteText("");
     },
@@ -500,11 +435,17 @@ function SibatBatchesVerificationContent() {
 
   const getStatusBadge = (status?: string) => {
     const s = (status || "PENDING").toUpperCase();
+    if (s === "MIXED") {
+      return <Badge variant="outline" className="text-[10px] font-bold text-slate-700 border-slate-300">Mixed animal statuses</Badge>;
+    }
+    if (s === "NO_ANIMALS") {
+      return <Badge variant="outline" className="text-[10px] font-bold text-slate-500">No animals</Badge>;
+    }
     if (s === "APPROVED") {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          MAO Approved
+          All animals approved
         </span>
       );
     }
@@ -512,7 +453,7 @@ function SibatBatchesVerificationContent() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300">
           <ShieldCheck className="w-3 h-3 text-sky-600" />
-          SIBAT Verified
+          All animals SIBAT verified
         </span>
       );
     }
@@ -520,14 +461,14 @@ function SibatBatchesVerificationContent() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
           <AlertTriangle className="w-3 h-3 text-rose-600" />
-          Revision Required
+          Animals Needing Revision
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
         <Clock className="w-3 h-3 text-amber-600" />
-        Awaiting SIBAT
+        All animals awaiting SIBAT
       </span>
     );
   };
@@ -667,7 +608,7 @@ function SibatBatchesVerificationContent() {
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-sky-700 font-mono">
-                  {kpis.verifiedBatches}
+                  {kpis.verifiedAnimals}
                 </span>
                 <ShieldCheck className="w-4 h-4 text-sky-600" />
               </div>
@@ -678,13 +619,13 @@ function SibatBatchesVerificationContent() {
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
             <CardContent className="p-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Awaiting SIBAT Check
+                Animals All animals awaiting SIBAT
               </span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className={`text-2xl font-black font-mono ${kpis.pendingBatches > 0 ? "text-amber-600" : "text-slate-400"}`}>
-                  {kpis.pendingBatches}
+                <span className={`text-2xl font-black font-mono ${kpis.pendingAnimals > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                  {kpis.pendingAnimals}
                 </span>
-                <Clock className={`w-4 h-4 ${kpis.pendingBatches > 0 ? "text-amber-600" : "text-slate-400"}`} />
+                <Clock className={`w-4 h-4 ${kpis.pendingAnimals > 0 ? "text-amber-600" : "text-slate-400"}`} />
               </div>
               <p className="text-[10px] text-slate-500 mt-1 truncate">Fresh farmer submissions</p>
             </CardContent>
@@ -693,13 +634,13 @@ function SibatBatchesVerificationContent() {
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-rose-300 transition-all col-span-2 sm:col-span-1">
             <CardContent className="p-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Revision Required
+                Animals Needing Revision
               </span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className={`text-2xl font-black font-mono ${kpis.revisionBatches > 0 ? "text-rose-600" : "text-slate-400"}`}>
-                  {kpis.revisionBatches}
+                <span className={`text-2xl font-black font-mono ${kpis.revisionAnimals > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                  {kpis.revisionAnimals}
                 </span>
-                <AlertTriangle className={`w-4 h-4 ${kpis.revisionBatches > 0 ? "text-rose-600" : "text-slate-400"}`} />
+                <AlertTriangle className={`w-4 h-4 ${kpis.revisionAnimals > 0 ? "text-rose-600" : "text-slate-400"}`} />
               </div>
               <p className="text-[10px] text-slate-500 mt-1 truncate">Sent back to farmer</p>
             </CardContent>
@@ -747,14 +688,14 @@ function SibatBatchesVerificationContent() {
             <div className="lg:col-span-3">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 rounded-xl border-slate-200 text-xs font-medium">
-                  <SelectValue placeholder="Review Status" />
+                  <SelectValue placeholder="Animal Status" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="ALL">All Statuses ({batches.length})</SelectItem>
-                  <SelectItem value="PENDING">Awaiting SIBAT ({kpis.pendingBatches})</SelectItem>
-                  <SelectItem value="VERIFIED">SIBAT Verified ({kpis.verifiedBatches})</SelectItem>
-                  <SelectItem value="APPROVED">MAO Approved ({kpis.approvedBatches})</SelectItem>
-                  <SelectItem value="SUBJECT_TO_REVISION">Revision Required ({kpis.revisionBatches})</SelectItem>
+                  <SelectItem value="PENDING">Animals awaiting SIBAT ({kpis.pendingAnimals})</SelectItem>
+                  <SelectItem value="VERIFIED">Animals awaiting MAO ({kpis.verifiedAnimals})</SelectItem>
+                  <SelectItem value="APPROVED">Approved animals ({kpis.approvedAnimals})</SelectItem>
+                  <SelectItem value="SUBJECT_TO_REVISION">Animals needing revision ({kpis.revisionAnimals})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -857,15 +798,9 @@ function SibatBatchesVerificationContent() {
             {pagedBatches.map((batch) => {
               const headCount = batch.total_animals || batch.animals?.length || 0;
               const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
-              const sibatCheckedCount = (batch.animals || []).filter((animal) =>
-                ["VERIFIED", "APPROVED"].includes((animal.status || "").toUpperCase()),
-              ).length;
+              const sibatCheckedCount = (batch.verified_animals ?? 0) + (batch.approved_animals ?? 0);
               const verificationProgress =
                 headCount > 0 ? Math.round((sibatCheckedCount / headCount) * 100) : 0;
-              const canVerify = batch.review_status === "PENDING" && everyAnimalPending(batch);
-              const isInMaoQueue = batch.review_status === "VERIFIED";
-              const isApproved = batch.review_status === "APPROVED";
-              const isRevision = batch.review_status === "SUBJECT_TO_REVISION";
 
               return (
                 <Card
@@ -939,20 +874,24 @@ function SibatBatchesVerificationContent() {
                         <span className="text-[9px] font-bold text-slate-500">
                           SIBAT field verification - {sibatCheckedCount}/{headCount} animals
                         </span>
-                        <span className={`text-[9px] font-black ${isInMaoQueue ? "text-emerald-700" : "text-sky-700"}`}>
+                        <span className={`text-[9px] font-black ${batch.verified_animals === 0 && batch.pending_animals === 0 ? "text-emerald-700" : "text-sky-700"}`}>
                           {verificationProgress}%
                         </span>
                       </div>
                       <Progress
                         value={verificationProgress}
                         className={`h-1.5 bg-slate-100 ${
-                          isApproved
-                            ? "[&>div]:bg-emerald-600"
-                            : "[&>div]:bg-sky-600"
+                          batch.review_status === "APPROVED" ? "[&>div]:bg-emerald-600" : "[&>div]:bg-sky-600"
                         }`}
                       />
                     </div>
 
+                    <p className="text-[10px] leading-relaxed text-slate-600">
+                      {batch.approved_animals ?? 0} approved ? {batch.pending_animals ?? 0} awaiting SIBAT ? {batch.verified_animals ?? 0} awaiting MAO ? {batch.revision_animals ?? 0} returned
+                    </p>
+                    <p className="text-[10px] leading-relaxed text-slate-600">
+                      {batch.approved_animals ?? 0} approved ? {batch.pending_animals ?? 0} awaiting SIBAT ? {batch.verified_animals ?? 0} awaiting MAO ? {batch.revision_animals ?? 0} returned
+                    </p>
                     <div className="flex flex-wrap gap-1.5 text-[9px]">
                       <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
                         <Building2 className="size-3 text-slate-400" />
@@ -992,58 +931,11 @@ function SibatBatchesVerificationContent() {
                         <ChevronRight className="size-3.5 ml-auto" />
                       </Button>
 
-                      {!isApproved ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!canVerify}
-                          onClick={() => {
-                            setBatchReviewModal({
-                              open: true,
-                              batch: batch,
-                              action: "VERIFIED",
-                            });
-                          }}
-                          className="col-span-2 h-8 rounded-lg border-sky-300 bg-sky-50 text-sky-900 hover:bg-sky-100 text-[10px] font-bold disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-                          title={
-                            canVerify
-                              ? "Verify every animal in this herd and forward to MAO"
-                              : "Every animal must be pending field review before verification"
-                          }
-                        >
-                          {canVerify ? (
-                            <>
-                              <ClipboardCheck className="size-3.5" />
-                              Verify & Forward to MAO
-                            </>
-                          ) : isInMaoQueue ? (
-                            <>
-                              <ShieldCheck className="size-3.5" />
-                              In MAO queue
-                            </>
-                          ) : isRevision ? (
-                            <>
-                              <AlertTriangle className="size-3.5" />
-                              Returned for revision
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="size-3.5" />
-                              Partial review - use drilldown
-                            </>
-                          )}
+                      <Link href={`/sibat/livestock-registry?batchId=${batch.id}`} className="col-span-2">
+                        <Button size="sm" variant="outline" className="w-full h-8 rounded-lg border-sky-300 text-sky-900 text-[10px] font-bold">
+                          <Eye className="size-3.5 mr-1.5" /> View individual animal records
                         </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled
-                          className="col-span-2 h-8 rounded-lg border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-100"
-                        >
-                          <CheckCircle2 className="size-3.5" />
-                          Herd approved
-                        </Button>
-                      )}
+                      </Link>
                     </div>
                   </CardContent>
                 </Card>
@@ -1282,49 +1174,11 @@ function SibatBatchesVerificationContent() {
                 </div>
 
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200/80">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    SIBAT Verification Action
-                  </span>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 mt-1">
-                    <Button
-                      size="sm"
-                      disabled={selectedBatch.review_status !== "PENDING" || !everyAnimalPending(selectedBatch)}
-                      title={
-                        selectedBatch.review_status === "PENDING" && everyAnimalPending(selectedBatch)
-                          ? "Verify all animals in this herd and forward to MAO"
-                          : "Every animal must be pending field review before batch verification"
-                      }
-                      onClick={() =>
-                        setBatchReviewModal({
-                          open: true,
-                          batch: selectedBatch,
-                          action: "VERIFIED",
-                        })
-                      }
-                      className="h-6 px-2 rounded-lg bg-sky-700 hover:bg-sky-800 text-white font-bold text-[10px] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed w-full sm:w-auto truncate"
-                    >
-                      {selectedBatch.review_status === "PENDING" && everyAnimalPending(selectedBatch)
-                        ? "Verify All & Forward"
-                        : selectedBatch.review_status === "VERIFIED"
-                          ? "In MAO queue"
-                          : "Animals need review"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={selectedBatch.review_status !== "PENDING"}
-                      onClick={() =>
-                        setBatchReviewModal({
-                          open: true,
-                          batch: selectedBatch,
-                          action: "SUBJECT_TO_REVISION",
-                        })
-                      }
-                      className="h-6 px-2 rounded-lg border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-[10px] w-full sm:w-auto"
-                    >
-                      Revision
-                    </Button>
-                  </div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Individual review</span>
+                  <p className="mt-1 text-[10px] leading-relaxed text-slate-600">Review each animal separately. The herd only groups records and summarizes their current statuses.</p>
+                  <Link href={`/sibat/livestock-registry?batchId=${selectedBatch.id}`} className="mt-2 block">
+                    <Button type="button" size="sm" variant="outline" className="h-7 w-full rounded-lg text-[10px] font-bold">Open animal registry</Button>
+                  </Link>
                 </div>
               </div>
 
@@ -1383,6 +1237,8 @@ function SibatBatchesVerificationContent() {
 
               {/* Individual Animals Drilldown Section */}
               <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3">
+                {detailQuery.isLoading ? <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">Loading this herd?s individual animal records?</p> : null}
+                {detailQuery.isError ? <p role="alert" className="rounded-xl bg-rose-50 p-4 text-xs text-rose-800">Could not load this herd?s animal records. <button className="underline" onClick={() => void detailQuery.refetch()}>Retry</button></p> : null}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
@@ -1542,32 +1398,7 @@ function SibatBatchesVerificationContent() {
                               {/* Row Actions */}
                               <TableCell className="sticky right-0 z-10 bg-white border-l border-slate-200 text-right">
                                 <div className="flex items-center justify-end gap-1.5">
-                                  {animal.status === "PENDING" ? (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      disabled
-                                      title="Herd animals share one review status. Use the whole-herd Verify & Forward / Return to Revision actions above."
-                                      className="h-7 px-2 rounded-lg text-slate-500 font-bold text-[10px] disabled:opacity-100"
-                                    >
-                                      Batch review only
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      disabled
-                                      className="h-7 px-2 rounded-lg text-slate-500 font-bold text-[10px] disabled:opacity-100"
-                                    >
-                                      {animal.status === "APPROVED"
-                                        ? "MAO Approved"
-                                        : animal.status === "VERIFIED"
-                                          ? "In MAO queue"
-                                          : animal.status === "SUBJECT_TO_REVISION"
-                                            ? "Revision requested"
-                                            : "Awaiting resubmission"}
-                                    </Button>
-                                  )}
+                                  <Badge variant="outline" className="text-[10px]">Individual review</Badge>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1633,96 +1464,6 @@ function SibatBatchesVerificationContent() {
       {/* ──────────────────────────────────────────────────────────────────────────
           BATCH REVIEW CONFIRMATION MODAL (SIBAT VERIFICATION)
       ────────────────────────────────────────────────────────────────────────── */}
-      <Dialog
-        open={batchReviewModal.open}
-        onOpenChange={(open) => {
-          if (!open) setBatchReviewModal({ open: false, batch: null, action: "VERIFIED" });
-        }}
-      >
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-lg md:max-w-xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
-              {batchReviewModal.action === "VERIFIED" ? (
-                <>
-                  <ShieldCheck className="w-5 h-5 text-sky-600" />
-                  Verify Herd &amp; All Heads
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="w-5 h-5 text-rose-600" />
-                  Request Herd Revision
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              {batchReviewModal.action === "VERIFIED"
-                ? `You are confirming on-farm checks for ${batchReviewModal.batch?.batch_code} containing ${batchReviewModal.batch?.total_animals || batchReviewModal.batch?.animals?.length || 0
-                } heads. All animals will be marked SIBAT VERIFIED and sent to the MAO approval queue.`
-                : `Specify corrective instructions for farmer ${batchReviewModal.batch?.farmer_name}.`}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 py-2">
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Field Verification Remarks (Optional for verification, recommended for revision)
-              </label>
-              <Textarea
-                placeholder={
-                  batchReviewModal.action === "VERIFIED"
-                    ? "e.g. Ear tags confirmed on-site, breeding and health biometrics consistent with records."
-                    : "e.g. Please update housing ventilation logs and re-verify vaccination records."
-                }
-                value={reviewRemarks}
-                onChange={(e) => setReviewRemarks(e.target.value)}
-                className="text-xs rounded-xl border-slate-200"
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setBatchReviewModal({ open: false, batch: null, action: "VERIFIED" })}
-              className="rounded-xl text-xs font-bold w-full sm:w-auto min-h-10"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={
-                reviewBatchMutation.isPending ||
-                (batchReviewModal.action === "VERIFIED" &&
-                  batchReviewModal.batch?.review_status !== "PENDING") ||
-                (batchReviewModal.action === "SUBJECT_TO_REVISION" &&
-                  (!reviewRemarks.trim() ||
-                    batchReviewModal.batch?.review_status !== "PENDING"))
-              }
-              onClick={() => {
-                if (batchReviewModal.batch) {
-                  reviewBatchMutation.mutate({
-                    batchId: batchReviewModal.batch.id,
-                    status: batchReviewModal.action,
-                    remarks: reviewRemarks,
-                  });
-                }
-              }}
-              className={`rounded-xl text-xs font-bold text-white w-full sm:w-auto min-h-10 justify-center ${batchReviewModal.action === "VERIFIED"
-                ? "bg-sky-700 hover:bg-sky-800"
-                : "bg-rose-700 hover:bg-rose-800"
-                }`}
-            >
-              {reviewBatchMutation.isPending
-                ? "Processing..."
-                : batchReviewModal.action === "VERIFIED"
-                  ? "Verify & Forward to MAO"
-                  : "Return for Revision"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
     </>
   );

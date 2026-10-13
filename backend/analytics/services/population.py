@@ -8,6 +8,7 @@ from smartlivestock.workflows import scope_reviewer_queryset
 
 def official_inventory(user=None):
     return scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
+        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
         status="APPROVED", operational_status="ACTIVE", quantity__gt=0)
 
 
@@ -41,7 +42,11 @@ def population_summary(*, user=None, today=None):
         barangay["species"].append(item)
         aggregate = species.setdefault(item["species_id"], dict(item, heads=0))
         aggregate["heads"] += item["heads"]
-    inventory = scope_reviewer_queryset(LivestockInventory.objects.all(), user)
+    # This section reports individual-animal workflow counts. Aggregate legacy
+    # BATCH rows are still preserved, but are not additional animals or reviews.
+    inventory = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
+        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+    )
     operational = inventory.aggregate(
         active_submitted_heads=Sum("quantity", filter=Q(operational_status="ACTIVE", quantity__gt=0)),
         historical_approved_heads=Sum("quantity", filter=Q(status="APPROVED", quantity__gt=0)),

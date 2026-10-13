@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { mapInventoryToUnified, mapBatchToUnified, type RawInventoryRecord, type UnifiedStatus } from "../sibat-analytics";
 import { useAuth } from "@/contexts/auth-context";
@@ -46,8 +47,10 @@ interface RegistryBatchRecord {
 }
 
 /** Read-only registry of livestock across the SIBAT-to-MAO review workflow. */
-export default function SibatLivestockRegistryPage() {
-  const [statusFilter, setStatusFilter] = useState<RegistryStatusFilter>("APPROVED");
+function SibatLivestockRegistryContent() {
+  const searchParams = useSearchParams();
+  const batchId = searchParams.get("batchId");
+  const [statusFilter, setStatusFilter] = useState<RegistryStatusFilter>(() => batchId ? "ALL" : "APPROVED");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -60,34 +63,32 @@ export default function SibatLivestockRegistryPage() {
   const barangayFilter = hasAllBarangayAccess ? undefined : assignedBarangayId;
   // Filter at the API so the registry does not download every pending and returned record.
   const inventoryQuery = useQuery({
-    queryKey: ["sibat", "livestock-registry", "inventory", statusFilter, ...scopeKey],
+    queryKey: ["sibat", "livestock-registry", "inventory", statusFilter, batchId, ...scopeKey],
     queryFn: async () => (await api.get<RawInventoryRecord[]>("livestock/inventory/", {
-      params: { include_inactive: true, status: statusFilter === "ALL" ? undefined : statusFilter, barangay_id: barangayFilter },
+      params: { include_inactive: true, status: statusFilter === "ALL" ? undefined : statusFilter, barangay_id: barangayFilter, batch: batchId || undefined },
     })).data,
     staleTime: 30_000,
     enabled: hasAllBarangayAccess || Boolean(assignedBarangayId),
   });
   const batchesQuery = useQuery({
-    queryKey: ["sibat", "livestock-registry", "batches", statusFilter, ...scopeKey],
+    queryKey: ["sibat", "livestock-registry", "batches", statusFilter, batchId, ...scopeKey],
     queryFn: async () => (await api.get<RegistryBatchRecord[]>("livestock/batches/", {
       params: { review_status: statusFilter === "ALL" ? undefined : statusFilter, barangay_id: barangayFilter },
     })).data,
     staleTime: 30_000,
-    enabled: hasAllBarangayAccess || Boolean(assignedBarangayId),
+    enabled: !batchId && (hasAllBarangayAccess || Boolean(assignedBarangayId)),
   });
   const registryRecords = useMemo(() => {
     const individuals = (inventoryQuery.data ?? [])
-      // Ordinary herd members are represented by the herd row. A later addition
-      // is different: it has its own review lifecycle, so show it as an animal row.
-      .filter((record) => (record.batch == null && !record.batch_code) || record.is_post_approval_addition)
+      // Individual records are the source of truth for review, even when grouped in a herd.
+      .filter((record) => record.entry_type === "INDIVIDUAL")
       .map(mapInventoryToUnified);
-    const herds = (batchesQuery.data ?? [])
-      .map(mapBatchToUnified);
+    const herds = batchId ? [] : (batchesQuery.data ?? []).map(mapBatchToUnified);
     return [...individuals, ...herds].sort((a, b) => {
       const difference = new Date(b.reviewedAt || b.createdAt).getTime() - new Date(a.reviewedAt || a.createdAt).getTime();
       return sortBy === "newest" ? difference : -difference;
     });
-  }, [inventoryQuery.data, batchesQuery.data, sortBy]);
+  }, [inventoryQuery.data, batchesQuery.data, sortBy, batchId]);
 
   const filteredRecords = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -103,12 +104,12 @@ export default function SibatLivestockRegistryPage() {
 
   const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
   const pageRecords = filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const isLoading = inventoryQuery.isLoading || batchesQuery.isLoading;
+  const isLoading = inventoryQuery.isLoading || (!batchId && batchesQuery.isLoading);
   const failedSources = [
     ...(inventoryQuery.isError ? ["individual livestock"] : []),
-    ...(batchesQuery.isError ? ["herds"] : []),
+    ...(!batchId && batchesQuery.isError ? ["herds"] : []),
   ];
-  const isSettled = !inventoryQuery.isLoading && !batchesQuery.isLoading;
+  const isSettled = !inventoryQuery.isLoading && (Boolean(batchId) || !batchesQuery.isLoading);
   const canLoadRegistry = hasAllBarangayAccess || Boolean(assignedBarangayId);
   const registryScopeLabel = hasAllBarangayAccess
     ? "all barangays authorized for this SIBAT account"
@@ -125,7 +126,7 @@ export default function SibatLivestockRegistryPage() {
       <main className="mx-auto w-full max-w-[1600px] space-y-5 p-3 sm:p-5 lg:px-8 lg:py-6 2xl:px-10">
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
           <p className="font-bold">Livestock review registry</p>
-          <p className="mt-1 text-emerald-900/80">Showing individual animals and herds for {registryScopeLabel}. Choose a review status to narrow the registry.</p>
+          <p className="mt-1 text-emerald-900/80">{batchId ? `Showing individual animals in herd #${batchId}.` : `Showing individual animals and herd containers for ${registryScopeLabel}. Choose a review status to narrow the registry.`}</p>
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -242,11 +243,11 @@ export default function SibatLivestockRegistryPage() {
                             <span className="mt-1 block text-xs font-medium text-slate-500">{record.reviewedAt ? new Date(record.reviewedAt).toLocaleDateString() : "Date not recorded"}</span>
                           </TableCell>
                           <TableCell className="px-3.5 py-2.5">
-                            {record.status === "PENDING" ? (
+                            {record.sourceType === "INVENTORY" && record.status === "PENDING" ? (
                               <Button type="button" size="sm" variant="outline" className="gap-1.5 border-sky-200 text-sky-800 hover:bg-sky-50" onClick={() => setSelectedSubmission(record)}>
                                 <Eye className="size-3.5" /> Details / Validate
                               </Button>
-                            ) : <span className="text-xs text-slate-400">—</span>}
+                            ) : record.sourceType === "BATCH" ? <span className="text-xs font-medium text-slate-500">Grouping container</span> : <span className="text-xs text-slate-400">—</span>}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -267,5 +268,14 @@ export default function SibatLivestockRegistryPage() {
         }}
       />
     </>
+  );
+}
+
+
+export default function SibatLivestockRegistryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading livestock registry?</div>}>
+      <SibatLivestockRegistryContent />
+    </Suspense>
   );
 }

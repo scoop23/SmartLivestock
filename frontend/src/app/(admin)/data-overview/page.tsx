@@ -211,7 +211,7 @@ export default function DataOverviewPage() {
       targetHarvestDate: item.target_harvest_date || null,
       totalAnimals: item.total_animals || (item.animals ? item.animals.length : 0),
       averageWeight: item.average_weight || null,
-      status: item.review_status || item.status || "PENDING",
+      status: item.status || "ACTIVE",
       reviewRemarks: item.review_remarks,
       reviewedByName: item.reviewed_by_name,
       reviewedAt: item.reviewed_at,
@@ -731,18 +731,8 @@ export default function DataOverviewPage() {
           barangay: batch.barangay_name || "Padre Garcia",
           timestamp: formatRelativeTime(batch.created_at),
           rawTimestamp: rawDate,
-          badge:
-            batch.review_status === "APPROVED"
-              ? "MAO Certified"
-              : batch.review_status === "SUBJECT_TO_REVISION" || batch.review_status === "SUBJECT_FOR_REVISION"
-              ? "Subject for Revision"
-              : "Pending Review",
-          badgeVariant:
-            batch.review_status === "APPROVED"
-              ? "emerald"
-              : batch.review_status === "SUBJECT_TO_REVISION" || batch.review_status === "SUBJECT_FOR_REVISION"
-              ? "rose"
-              : "sky",
+          badge: "Herd container",
+          badgeVariant: "sky",
           record: matchingRecord || {
             id: `BAT-${batch.id}`,
             rawId: batch.id,
@@ -754,7 +744,7 @@ export default function DataOverviewPage() {
             housingPen: batch.housing_pen || "General Pen",
             feedType: batch.feed_type || "—",
             totalAnimals: batch.total_animals || 0,
-            status: batch.review_status || batch.status || "PENDING",
+            status: batch.status || "ACTIVE",
             createdAt: batch.created_at?.slice(0, 10) || "",
             animals: batch.animals || [],
           },

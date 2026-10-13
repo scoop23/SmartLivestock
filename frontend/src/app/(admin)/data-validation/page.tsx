@@ -81,11 +81,11 @@ function splitHerdInventoryIds(
   itemIds.forEach((id) => {
     const strId = String(id);
     if (strId.startsWith("batch-")) {
-      processableIds.push(id);
+      blockedHerdIds.push(id);
       return;
     }
     const record = records.find((r) => String(r.id) === strId);
-    if (!record || (!record.isBatch && !record.isPostApprovalAddition && (record.batchId != null || !!record.batchCode))) {
+    if (!record || record.isBatch || record.entryType !== "INDIVIDUAL") {
       blockedHerdIds.push(id);
       return;
     }
@@ -100,6 +100,7 @@ function AdminDataValidationContent() {
   const requestedDomain = searchParams.get("domain");
   const requestedRecordType = (searchParams.get("recordType") ?? searchParams.get("legacyType"))?.toUpperCase() ?? null;
   const requestedRecordId = searchParams.get("recordId") ?? searchParams.get("reviewId");
+  const requestedBatchId = searchParams.get("batchId");
   const legacyMessage = searchParams.get("legacyMessage")?.toLocaleLowerCase() ?? "";
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [activeValidationView, setActiveValidationView] = useState<"records" | "slaughter">("records");
@@ -362,14 +363,14 @@ function AdminDataValidationContent() {
   const domainPendingCounts = useMemo(() => ({
     census: censusSubmissions.filter((c) => (c.status || "PENDING").toUpperCase() === "PENDING").length,
     production: productionRecords.filter((p) => (p.status || "PENDING").toUpperCase() === "PENDING").length,
-    inventory: inventoryRecords.filter((i) => (i.status || "PENDING").toUpperCase() === "PENDING").length,
+    inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL" && (i.status || "PENDING").toUpperCase() === "PENDING").length,
     incidents: incidents.filter((inc) => (inc.status || "PENDING").toUpperCase() === "PENDING").length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
   const domainVerifiedCounts = useMemo(() => ({
     census: censusSubmissions.filter((c) => (c.status || "").toUpperCase() === "VERIFIED").length,
     production: productionRecords.filter((p) => (p.status || "").toUpperCase() === "VERIFIED").length,
-    inventory: inventoryRecords.filter((i) => (i.status || "").toUpperCase() === "VERIFIED").length,
+    inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL" && (i.status || "").toUpperCase() === "VERIFIED").length,
     // Only records whose stored status is VERIFIED belong in this badge.
     // Pending inspections remain reviewable, but they are not SIBAT-verified.
     incidents: incidents.filter((inc) => inc.status === "VERIFIED").length,
@@ -378,7 +379,7 @@ function AdminDataValidationContent() {
   const domainTotalCounts = useMemo(() => ({
     census: censusSubmissions.length,
     production: productionRecords.length,
-    inventory: inventoryRecords.length,
+    inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL").length,
     incidents: incidents.length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
 
@@ -413,6 +414,7 @@ function AdminDataValidationContent() {
 
   const filteredInventory = useMemo(() => {
     return inventoryRecords.filter((inv) => {
+      if (requestedBatchId && (inv.isBatch || String(inv.batchId ?? "") !== requestedBatchId)) return false;
       const matchSearch =
         !searchQuery ||
         inv.farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -424,7 +426,7 @@ function AdminDataValidationContent() {
       const matchBarangay = barangayFilter === "ALL" || inv.barangayName === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
     });
-  }, [inventoryRecords, searchQuery, statusFilter, barangayFilter]);
+  }, [inventoryRecords, searchQuery, statusFilter, barangayFilter, requestedBatchId]);
 
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
@@ -504,8 +506,7 @@ function AdminDataValidationContent() {
           .map((p) => p.id);
       case "inventory":
         return paginatedInventory
-          .filter((i) => (i.status || "PENDING").toUpperCase() === "VERIFIED" &&
-            (i.isBatch || i.isPostApprovalAddition || (i.batchId == null && !i.batchCode)))
+          .filter((i) => (i.status || "PENDING").toUpperCase() === "VERIFIED" && !i.isBatch && i.entryType === "INDIVIDUAL")
           .map((i) => i.id);
       case "incidents":
         return paginatedIncidents
@@ -567,8 +568,7 @@ function AdminDataValidationContent() {
         }));
     } else if (activeDomain === "inventory") {
       targets = inventoryRecords
-        .filter((i) => selectedIds.includes(i.id) && (i.status || "PENDING").toUpperCase() === "VERIFIED" &&
-          (i.isBatch || i.isPostApprovalAddition || (i.batchId == null && !i.batchCode)))
+        .filter((i) => selectedIds.includes(i.id) && (i.status || "PENDING").toUpperCase() === "VERIFIED" && !i.isBatch && i.entryType === "INDIVIDUAL")
         .map((i) => ({
           id: i.id,
           domain: "inventory",
@@ -650,10 +650,9 @@ function AdminDataValidationContent() {
 
         if (blockedHerdIds.length > 0) {
           toast.info(
-            `${blockedHerdIds.length} livestock record(s) belong to a herd and are reviewed together.`,
+            `${blockedHerdIds.length} selected record(s) are not individual animal records and cannot be reviewed.`,
             {
-              description:
-                "Review the whole herd from its herd card in Livestock Inventory or the Herd Validation console.",
+              description: "Select individual animal records. Legacy aggregate entries need reconciliation before review.",
             }
           );
         }
@@ -666,10 +665,6 @@ function AdminDataValidationContent() {
         await Promise.all(
           processableIds.map((id) => {
             const strId = String(id);
-            if (strId.startsWith("batch-")) {
-              const cleanId = strId.replace("batch-", "");
-              return api.post(`livestock/batches/${cleanId}/review/`, { status: action, remarks });
-            }
             return api.post(`livestock/inventory/${id}/review/`, { status: action, remarks });
           })
         );
@@ -695,7 +690,7 @@ function AdminDataValidationContent() {
           });
         } else {
           toast.success(`${processableIds.length} records successfully ${actionVerb}.`, {
-            description: remarks ? `Remarks: "${remarks}"` : "Batch status updated across selected entries.",
+            description: remarks ? `Remarks: "${remarks}"` : "Selected animal records updated individually.",
           });
         }
         return;
@@ -744,7 +739,7 @@ function AdminDataValidationContent() {
         });
       } else {
         toast.success(`${itemIds.length} records successfully ${actionVerb}.`, {
-          description: remarks ? `Remarks: "${remarks}"` : "Batch status updated across selected entries.",
+          description: remarks ? `Remarks: "${remarks}"` : "Selected animal records updated individually.",
         });
       }
     } catch (err) {

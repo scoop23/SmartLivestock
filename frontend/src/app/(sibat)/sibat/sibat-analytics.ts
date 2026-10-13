@@ -707,9 +707,11 @@ export function useSibatSubmissions() {
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
   const inventoryUnified = (invQuery.data || [])
-    .filter((inventory) => inventory.batch == null && !inventory.batch_code)
+    // Every individual animal is a review item, including members of a herd.
+    // Legacy aggregate rows remain visible in the registry but cannot be
+    // independently verified as animals.
+    .filter((inventory) => inventory.entry_type === "INDIVIDUAL")
     .map(mapInventoryToUnified);
-  const batchUnified = (batchQuery.data || []).map(mapBatchToUnified);
   const calvingUnified = (calvingQuery.data || []).map(mapCalvingToUnified);
 
   const allSubmissions: UnifiedSubmissionItem[] = [
@@ -717,7 +719,6 @@ export function useSibatSubmissions() {
     ...productionUnified,
     ...calvingUnified,
     ...inventoryUnified,
-    ...batchUnified,
   ].sort((a, b) => new Date(b.createdAt || b.recordDate).getTime() - new Date(a.createdAt || a.recordDate).getTime());
 
   return {
@@ -750,8 +751,8 @@ export function useReviewSubmission() {
       status: "VERIFIED" | "SUBJECT_TO_REVISION" | "REJECTED";
       remarks: string;
     }) => {
-      if (item.sourceType === "INVENTORY" && (item.batchId != null || item.batchCode) && !item.isPostApprovalAddition) {
-        throw new Error("Herd animals must be reviewed through their batch.");
+      if (item.sourceType === "BATCH" || item.id.startsWith("batch-")) {
+        throw new Error("Herds are grouping containers. Review their individual animals instead.");
       }
       let endpoint = `livestock/inventory/${item.rawId}/review/`;
       if (item.sourceType === "PRODUCTION") {
@@ -760,8 +761,6 @@ export function useReviewSubmission() {
         endpoint = `production/sales/${item.rawId}/review/`;
       } else if (item.sourceType === "CALVING") {
         endpoint = `production/calving/${item.rawId}/review/`;
-      } else if (item.sourceType === "BATCH" || item.id.startsWith("batch-")) {
-        endpoint = `livestock/batches/${item.rawId}/review/`;
       }
 
       const response = await api.post(endpoint, {

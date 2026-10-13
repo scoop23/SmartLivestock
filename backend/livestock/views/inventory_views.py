@@ -99,6 +99,7 @@ def inventory_list_create(request):
         "created_by",
     ).only(
         "id", "tag_number", "breed", "sex", "birth_date", "weight", "entry_type", "quantity",
+        "is_post_approval_addition",
         "last_vaccination_date", "status", "operational_status", "operational_status_changed_at",
         "review_remarks", "reviewed_at", "created_at", "photo", "avatar_key",
         "livestock_type__id", "livestock_type__name",
@@ -225,7 +226,7 @@ def inventory_detail(request, pk):
         serializer.is_valid(raise_exception=True)
         was_returned = inventory.status == LivestockInventory.StatusType.SUBJECT_TO_REVISION
         inventory = serializer.save()
-        if was_returned and (not inventory.batch_id or inventory.is_post_approval_addition): #type: ignore
+        if was_returned:
             inventory.status = LivestockInventory.StatusType.PENDING #type: ignore
             inventory.reviewed_by = None #type: ignore
             inventory.reviewed_at = None #type: ignore
@@ -272,35 +273,11 @@ def review_inventory(request, pk):
     """
     inventory = get_object_or_404(scope_reviewer_queryset(LivestockInventory.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
-    if inventory.batch_id and not inventory.is_post_approval_addition: # type: ignore
-        batch = inventory.batch
+    if inventory.entry_type != LivestockInventory.EntryType.INDIVIDUAL:
         return Response(
-            {
-                "error": (
-                    f"This animal belongs to herd {batch.batch_code}. Review the herd at " # type: ignore
-                        f"livestock/batches/{inventory.batch_id}/review/ so every animal "# type: ignore
-                    "animals move through FARMER -> SIBAT -> MAO validation together."
-                )
-            },
+            {"error": "Only individual animal records can be reviewed. This legacy aggregate entry must be reconciled into individual records first."},
             status=status.HTTP_409_CONFLICT,
         )
-
-    if inventory.batch_id and inventory.is_post_approval_addition:
-        # Only the explicitly marked new child can be reviewed on its own.
-        # Lock the parent and confirm its original cohort remains approved.
-        batch = get_object_or_404(
-            LivestockBatch.objects.select_for_update(), pk=inventory.batch_id
-        )
-        original_members = batch.animals.filter(is_post_approval_addition=False)
-        if (
-            batch.status != LivestockBatch.StatusType.ACTIVE
-            or not original_members.exists()
-            or original_members.exclude(status=LivestockInventory.StatusType.APPROVED).exists()
-        ):
-            return Response(
-                {"error": "This animal can only be reviewed individually while its original herd remains active and approved."},
-                status=status.HTTP_409_CONFLICT,
-            )
 
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")

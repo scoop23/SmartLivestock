@@ -83,7 +83,8 @@ def review_workload_summary(*, now=None, user=None):
     # Most submissions pass through SIBAT, while these records are assigned
     # straight to MAO by the established workflow rules.
     standard_domains = [
-        ("inventory", "Livestock Inventory", scoped(LivestockInventory.objects.all())),
+        # Aggregated legacy rows cannot be independently verified as animals.
+        ("inventory", "Livestock Inventory", scoped(LivestockInventory.objects.filter(entry_type=LivestockInventory.EntryType.INDIVIDUAL))),
         ("production", "Production", scoped(ProductionRecord.objects.all())),
         ("disease", "Disease Reports", scoped(DiseaseCase.objects.all())),
         ("mortality", "Mortality", scoped(MortalityRecord.objects.all())),

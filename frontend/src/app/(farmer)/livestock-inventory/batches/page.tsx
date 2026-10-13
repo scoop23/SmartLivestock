@@ -72,7 +72,7 @@ export interface BatchIndividual {
   weightKg: number | null;
   lastVaccinationDate: string | null;
   operationalStatus: string;
-  reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+  reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED" | "MIXED" | "NO_ANIMALS";
   isPostApprovalAddition?: boolean;
 }
 
@@ -95,13 +95,19 @@ export interface EnrichedBatch {
 
 // Helper to render official regulatory review badge for herds
 function getReviewStatusBadge(status?: string) {
+  if (status === "MIXED") {
+    return <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-black px-1.5 py-0">Mixed animal statuses</Badge>;
+  }
+  if (status === "NO_ANIMALS") {
+    return <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-300 text-[10px] font-black px-1.5 py-0">No animals</Badge>;
+  }
   if (status === "APPROVED") {
     return (
       <Badge
         variant="outline"
         className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
       >
-        <ShieldCheck className="size-3 text-emerald-600" /> MAO Approved
+        <ShieldCheck className="size-3 text-emerald-600" /> All animals approved
       </Badge>
     );
   }
@@ -111,7 +117,7 @@ function getReviewStatusBadge(status?: string) {
         variant="outline"
         className="bg-sky-50 text-sky-800 border-sky-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
       >
-        <CheckCircle2 className="size-3 text-sky-600" /> SIBAT Verified
+        <CheckCircle2 className="size-3 text-sky-600" /> All animals SIBAT verified
       </Badge>
     );
   }
@@ -121,7 +127,7 @@ function getReviewStatusBadge(status?: string) {
         variant="outline"
         className="bg-rose-50 text-rose-800 border-rose-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
       >
-        <AlertTriangle className="size-3 text-rose-600" /> Revision Needed
+        <AlertTriangle className="size-3 text-rose-600" /> Animals need revision
       </Badge>
     );
   }
@@ -173,7 +179,6 @@ export default function BatchOverviewPage() {
   // Dialog States
   const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
   const [isHerdQrOpen, setIsHerdQrOpen] = useState(false);
-  const [isResubmitting, setIsResubmitting] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
   const [newWeightInput, setNewWeightInput] = useState<string>("");
@@ -254,9 +259,17 @@ export default function BatchOverviewPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [rosterScrollRequest, currentBatch]);
 
-  const canAddAnimalsToCurrentBatch =
-    currentBatch?.status === "ACTIVE"
-    && (currentBatch.reviewStatus === "PENDING" || currentBatch.reviewStatus === "APPROVED");
+  // Animal approval is independent of herd membership; only the herd's operational state controls additions.
+  const canAddAnimalsToCurrentBatch = currentBatch?.status === "ACTIVE";
+  const individualReviewSummary = currentBatch?.individuals.reduce((summary, animal) => {
+    const status = (animal.reviewStatus || "PENDING").toUpperCase();
+    if (status === "APPROVED") summary.approved += 1;
+    else if (status === "VERIFIED") summary.awaitingMao += 1;
+    else if (status === "SUBJECT_TO_REVISION" || status === "SUBJECT_FOR_REVISION") summary.returned += 1;
+    else if (status === "REJECTED") summary.rejected += 1;
+    else summary.awaitingSibat += 1;
+    return summary;
+  }, { approved: 0, awaitingMao: 0, awaitingSibat: 0, returned: 0, rejected: 0 });
 
   // Filter individuals inside current batch
   const filteredIndividuals = useMemo(() => {
@@ -291,21 +304,6 @@ export default function BatchOverviewPage() {
   }, [currentBatch]);
 
   // Handlers
-  const handleResubmitHerd = async () => {
-    if (!currentBatch || !backendBatches.some((batch) => String(batch.id) === currentBatch.id)) return;
-    setIsResubmitting(true);
-    try {
-      await api.patch(`livestock/batches/${currentBatch.id}/`, { resubmit: true });
-      await queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
-      await queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      toast.success("Whole herd resubmitted to SIBAT for verification.");
-    } catch (error) {
-      console.error("Herd resubmission failed:", error);
-      toast.error("Could not resubmit the herd. Check that every member is returned for revision.");
-    } finally {
-      setIsResubmitting(false);
-    }
-  };
 
   const handleOpenWeighModal = (animal: BatchIndividual) => {
     setWeighTarget(animal);
@@ -425,7 +423,7 @@ export default function BatchOverviewPage() {
                 </Button>
                 {!canAddAnimalsToCurrentBatch && (
                   <p className="self-center text-xs text-slate-500 sm:max-w-64">
-                    Add animals before the first review, or after the herd is approved. Returned and in-review herds must be resolved first.
+                    Animals can be added while the herd is active. Each new animal starts pending its own SIBAT and MAO review.
                   </p>
                 )}
               </div>
@@ -596,37 +594,11 @@ export default function BatchOverviewPage() {
                     Herd: {currentBatch.status || "ACTIVE"}
                   </Badge>
 
-                  {/* LGU Municipal Regulatory Review Status */}
-                  {currentBatch.reviewStatus === "APPROVED" ? (
-                    <Badge className="bg-emerald-400 text-emerald-950 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
-                      <ShieldCheck className="size-3.5" /> MAO APPROVED
-                    </Badge>
-                  ) : currentBatch.reviewStatus === "VERIFIED" ? (
-                    <Badge className="bg-blue-400 text-blue-950 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
-                      <CheckCircle2 className="size-3.5" /> SIBAT VERIFIED
-                    </Badge>
-                  ) : currentBatch.reviewStatus === "SUBJECT_TO_REVISION" ? (
-                    <Badge className="bg-amber-400 text-amber-950 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
-                      <AlertTriangle className="size-3.5" /> REVISION NEEDED
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-amber-100/20 text-amber-200 border border-amber-300/40 font-black px-3 py-1.5 text-xs flex items-center gap-1 shadow-sm">
-                      <Clock className="size-3.5" /> PENDING VERIFICATION
-                    </Badge>
-                  )}
+                  {/* This is an aggregate view only; approval remains on each animal record. */}
+                  <Badge className="bg-white/15 text-white border border-white/20 font-bold px-3 py-1.5 text-xs">
+                    Animals: {individualReviewSummary?.approved ?? 0} approved ? {individualReviewSummary?.awaitingSibat ?? 0} awaiting SIBAT ? {individualReviewSummary?.awaitingMao ?? 0} awaiting MAO ? {individualReviewSummary?.returned ?? 0} returned
+                  </Badge>
 
-                  {currentBatch.reviewStatus === "SUBJECT_TO_REVISION" &&
-                    backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
-                      <Button
-                        type="button"
-                        disabled={isResubmitting}
-                        onClick={handleResubmitHerd}
-                        className="bg-amber-400 text-amber-950 hover:bg-amber-300 rounded-xl text-xs font-bold"
-                      >
-                        <RefreshCw className="size-3.5 mr-1.5" />
-                        {isResubmitting ? "Resubmitting..." : "Resubmit Whole Herd"}
-                      </Button>
-                    )}
 
                 </div>
               </div>
@@ -924,7 +896,7 @@ export default function BatchOverviewPage() {
               subtitle="Canonical herd identity"
               specie={currentBatch.species}
               headCount={currentBatch.activeCount}
-              status={currentBatch.reviewStatus || currentBatch.status}
+              status={currentBatch.status}
               compact
             />
           )}
@@ -993,9 +965,7 @@ export default function BatchOverviewPage() {
                 <span>Add Animal to {currentBatch?.batchCode}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                {currentBatch?.reviewStatus === "APPROVED"
-                  ? "Add an individual animal to this approved herd. The new animal starts pending and goes through SIBAT, then MAO review; the existing herd approval stays in place."
-                  : "Create an individual livestock record before the herd's first review. The herd and its animals will be reviewed together."}
+                Add an individual animal to this active herd. It starts pending its own SIBAT and MAO review; existing animal statuses stay unchanged.
               </DialogDescription>
             </DialogHeader>
 

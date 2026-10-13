@@ -406,7 +406,6 @@ export default function SibatInventoryQueue({
           {pagedSubmissions.map((item) => {
             const isPending = item.status === "PENDING";
             const isIndividual = item.entryType === "INDIVIDUAL";
-            const isHerdMember = isIndividual && !!item.batchCode;
             const emoji = getAnimalEmoji(item.livestockTypeName || item.detailsTitle);
 
             return (
@@ -496,12 +495,6 @@ export default function SibatInventoryQueue({
                     <div className="col-span-1 sm:col-span-1 sm:self-center flex sm:justify-end">
                       <Button
                         onClick={() => onReview(item)}
-                        disabled={isPending && isHerdMember}
-                        title={
-                          isPending && isHerdMember
-                            ? "Herd animals share one review status. Verify the whole batch from the Herd Verification Center."
-                            : undefined
-                        }
                         className={`h-11 w-full sm:w-auto min-w-36 px-4 rounded-xl text-xs font-bold gap-1.5 transition-all shadow-2xs cursor-pointer ${
                           isPending
                             ? "bg-[#1A365D] hover:bg-[#132742] text-white disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
@@ -509,14 +502,10 @@ export default function SibatInventoryQueue({
                         }`}
                       >
                         {isPending ? (
-                          isHerdMember ? (
-                            <>Batch review only</>
-                          ) : (
-                            <>
-                              <ClipboardCheck className="size-4 text-amber-300" />
-                              {isIndividual ? "Verify Tag & Animal" : "Verify Herd"}
-                            </>
-                          )
+                          <>
+                            <ClipboardCheck className="size-4 text-amber-300" />
+                            {isIndividual ? "Verify Tag & Animal" : "Verify Record"}
+                          </>
                         ) : (
                           <>
                             <Eye className="size-4 text-slate-600" />

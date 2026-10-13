@@ -475,9 +475,7 @@ export function UniversalQrScannerDialog({
                   {activeResult.type === "INDIVIDUAL" && (
                     <LivestockOperationalStatusBadge status={activeResult.operationalStatus} />
                   )}
-                  {activeResult.type === "BATCH" && activeResult.reviewStatus && (
-                    <Badge variant="outline" className="text-[10px]">Review: {activeResult.reviewStatus.replaceAll("_", " ")}</Badge>
-                  )}
+
                   {activeResult.type === "BATCH" && activeResult.operationalStatus && (
                     <Badge variant="outline" className="text-[10px]">Herd: {activeResult.operationalStatus}</Badge>
                   )}

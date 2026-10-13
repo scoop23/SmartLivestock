@@ -244,28 +244,8 @@ class LivestockInventorySerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"livestock_type": "The animal species must match its herd."}
                 )
-            # A new child already flagged as a post-approval addition may be
-            # corrected in place without reopening the approved herd.
-            original_members = batch.animals.filter(is_post_approval_addition=False)
-            is_existing_approved_addition = bool(
-                self.instance
-                and self.instance.is_post_approval_addition
-                and original_members.exists()
-                and not original_members.exclude(
-                    status=LivestockInventory.StatusType.APPROVED
-                ).exists()
-            )
-            if not is_existing_approved_addition:
-                if batch.animals.exclude(
-                    status__in=["PENDING", "SUBJECT_TO_REVISION"]
-                ).exists():
-                    raise serializers.ValidationError(
-                        {"batch": "This herd is already verified or approved. Add animals from the herd roster."}
-                    )
-                if not current_batch_id and batch.animals.exclude(status="PENDING").exists():
-                    raise serializers.ValidationError(
-                        {"batch": "New animals can only join a pending herd."}
-                    )
+            # Review belongs to each animal row. Any animal may join an active
+            # herd; its own status remains PENDING until SIBAT reviews it.
         return attrs
 
     def create(self, validated_data):
@@ -377,12 +357,9 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         - Farmer & Barangay: farmer (ID), farmer_name, barangay_id, barangay_name
         - Computed Aggregates: total_animals (head count), average_weight (mean kg of herd)
         - Nested Roster: animals (list of BatchChildAnimalSerializer)
-        - In-Memory Rollup Status: review_status (APPROVED if all animals approved,
-          SUBJECT_TO_REVISION if any need revision, VERIFIED only if all are verified,
-          else PENDING),
-          review_remarks, reviewed_by_name, and reviewed_at
+        - Calculated per-animal review counts; the batch itself has no review status.
     Used in:
-        Admin batch drilldown (/data-validation/batches), farmer herd management, and MAO approvals.
+        Herd grouping views. Individual animal review uses LivestockInventorySerializer.
     """
     photo = LivestockPhotoField(required=False, allow_null=True)
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -398,6 +375,11 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     )
     animals = serializers.SerializerMethodField(read_only=True)
     review_status = serializers.SerializerMethodField(read_only=True)
+    pending_animals = serializers.SerializerMethodField(read_only=True)
+    verified_animals = serializers.SerializerMethodField(read_only=True)
+    approved_animals = serializers.SerializerMethodField(read_only=True)
+    revision_animals = serializers.SerializerMethodField(read_only=True)
+    rejected_animals = serializers.SerializerMethodField(read_only=True)
     review_remarks = serializers.SerializerMethodField(read_only=True)
     reviewed_by_role = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
@@ -428,6 +410,11 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             "average_weight",
             "animals",
             "review_status",
+            "pending_animals",
+            "verified_animals",
+            "approved_animals",
+            "revision_animals",
+            "rejected_animals",
             "review_remarks",
             "reviewed_by_name",
             "reviewed_by_role",
@@ -471,33 +458,53 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
     def get_animals(self, obj):
         # Use prefetched in-memory animals without breaking prefetch cache via .order_by()
-        animals = sorted(obj.animals.all(), key=lambda a: a.id)
+        animals = sorted(
+            (animal for animal in obj.animals.all() if animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL),
+            key=lambda animal: animal.id,
+        )
         return BatchChildAnimalSerializer(animals, many=True, context=self.context).data
 
     def get_review_status(self, obj):
-        # Post-approval additions are reviewed individually, so the original
-        # herd review status is computed from its original members only.
-        animals = [a for a in obj.animals.all() if not a.is_post_approval_addition]
+        # Backward-compatible summary only. No endpoint may use this value to
+        # approve the herd or change any animal's review state.
+        animals = [animal for animal in obj.animals.all() if animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL]
         if not animals:
-            return "PENDING"
+            return "NO_ANIMALS"
         statuses = [a.status for a in animals]
-        if all(s == "APPROVED" for s in statuses):
-            return "APPROVED"
-        if any(s == "SUBJECT_TO_REVISION" for s in statuses):
-            return "SUBJECT_TO_REVISION"
-        if all(s == "VERIFIED" for s in statuses):
-            return "VERIFIED"
-        return "PENDING"
+        return statuses[0] if len(set(statuses)) == 1 else "MIXED"
+
+    def _count_animals_with_status(self, obj, statuses):
+        # Detail responses already prefetch the roster, so this does not issue
+        # one query per status. List responses use SQL annotations below.
+        return sum(
+            animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL and animal.status in statuses
+            for animal in obj.animals.all()
+        )
+
+    def get_pending_animals(self, obj):
+        return self._count_animals_with_status(obj, {"PENDING"})
+
+    def get_verified_animals(self, obj):
+        return self._count_animals_with_status(obj, {"VERIFIED"})
+
+    def get_approved_animals(self, obj):
+        return self._count_animals_with_status(obj, {"APPROVED"})
+
+    def get_revision_animals(self, obj):
+        return self._count_animals_with_status(obj, {"SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"})
+
+    def get_rejected_animals(self, obj):
+        return self._count_animals_with_status(obj, {"REJECTED"})
 
     def get_review_remarks(self, obj):
-        # In-memory computation: only a remark shared by every reviewed animal is a
-        # genuine batch-level remark (a whole-batch review stamps all animals with
-        # the same text). Individually reviewed animals keep their own remarks and
-        # must not surface as the herd's official note.
+        # A herd has no review decision. Only return a shared note when every
+        # reviewed animal has the same remark; mixed individual feedback stays on
+        # each animal and is not presented as a herd-level decision.
         reviewed = [
             a.review_remarks.strip()
             for a in obj.animals.all()
-            if not a.is_post_approval_addition and a.review_remarks and a.reviewed_at and a.review_remarks.strip()
+            if a.entry_type == LivestockInventory.EntryType.INDIVIDUAL
+            and a.review_remarks and a.reviewed_at and a.review_remarks.strip()
         ]
         if reviewed and len(set(reviewed)) == 1:
             return reviewed[0]
@@ -505,7 +512,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
     def get_reviewed_by_role(self, obj):
         # Match the latest reviewed animal used for the herd's reviewer name.
-        reviewed = [a for a in obj.animals.all() if not a.is_post_approval_addition and a.reviewed_by and a.reviewed_at]
+        reviewed = [a for a in obj.animals.all() if a.entry_type == LivestockInventory.EntryType.INDIVIDUAL and a.reviewed_by and a.reviewed_at]
         if not reviewed:
             return None
         reviewer = max(reviewed, key=lambda a: a.reviewed_at).reviewed_by
@@ -513,7 +520,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
     def get_reviewed_by_name(self, obj):
         # In-memory computation
-        reviewed = [a for a in obj.animals.all() if not a.is_post_approval_addition and a.reviewed_by and a.reviewed_at]
+        reviewed = [a for a in obj.animals.all() if a.entry_type == LivestockInventory.EntryType.INDIVIDUAL and a.reviewed_by and a.reviewed_at]
         if reviewed:
             latest = max(reviewed, key=lambda a: a.reviewed_at)
             user = latest.reviewed_by
@@ -523,7 +530,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
     def get_reviewed_at(self, obj):
         # In-memory computation
-        reviewed = [a for a in obj.animals.all() if not a.is_post_approval_addition and a.reviewed_at]
+        reviewed = [a for a in obj.animals.all() if a.entry_type == LivestockInventory.EntryType.INDIVIDUAL and a.reviewed_at]
         if reviewed:
             latest = max(reviewed, key=lambda a: a.reviewed_at)
             return latest.reviewed_at
@@ -532,10 +539,11 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
 class LivestockBatchListSerializer(LivestockBatchSerializer):
     enrolled_animals = serializers.IntegerField(source="child_count", read_only=True)
-    verified_animals = serializers.SerializerMethodField()
-
-    def get_verified_animals(self, obj):
-        return obj.verified_children + obj.approved_children
+    pending_animals = serializers.IntegerField(source="pending_animal_count", read_only=True)
+    verified_animals = serializers.IntegerField(source="verified_animal_count", read_only=True)
+    approved_animals = serializers.IntegerField(source="approved_animal_count", read_only=True)
+    revision_animals = serializers.IntegerField(source="revision_animal_count", read_only=True)
+    rejected_animals = serializers.IntegerField(source="rejected_animal_count", read_only=True)
 
     total_animals = serializers.IntegerField(source="active_animal_count", read_only=True)
     average_weight = serializers.DecimalField(source="active_average_weight", max_digits=6, decimal_places=2, read_only=True, allow_null=True)

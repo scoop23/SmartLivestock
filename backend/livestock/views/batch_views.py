@@ -77,6 +77,7 @@ def batch_list_create(request):
         livestock_type = get_object_or_404(LivestockType, pk=livestock_type_id)
 
         default_animal_status = LivestockInventory.StatusType.PENDING
+        created_animals = []
 
         with transaction.atomic():
             batch = LivestockBatch.objects.create(
@@ -96,7 +97,7 @@ def batch_list_create(request):
             # If animals roster is supplied, create individual LivestockInventory items
             if animals_data and isinstance(animals_data, list):
                 for animal in animals_data:
-                    LivestockInventory.objects.create(
+                    created_animals.append(LivestockInventory.objects.create(
                         batch=batch,
                         farmer=batch.farmer,
                         livestock_type=batch.livestock_type,
@@ -111,21 +112,23 @@ def batch_list_create(request):
                         last_vaccination_date=animal.get("last_vaccination_date") or None,
                         status=default_animal_status,
                         created_by=user,
-                    )
+                    ))
 
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         farmer_name = user.get_full_name() or user.username
-        notify_role(
-            barangay_id=batch.farmer.barangay_id,
-            role_name="SIBAT",
-            notification_type=Notification.NotificationType.SIBAT,
-            priority=Notification.Priority.MEDIUM,
-            title="New Livestock Batch Awaiting Verification",
-            message=f"{farmer_name} registered batch {batch.batch_code} with {batch.animals.count()} animal(s).",
-            link=f"/sibat?tab=inventory&reviewType=BATCH&reviewId={batch.pk}",
-            related_entity_type="livestock_batch",
-            related_entity_id=batch.pk,
-        )
+        for animal in created_animals:
+            animal_name = animal.tag_number or animal.livestock_type.name
+            notify_role(
+                barangay_id=batch.farmer.barangay_id,
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.SIBAT,
+                priority=Notification.Priority.MEDIUM,
+                title="Livestock Awaiting Verification",
+                message=f"{farmer_name} registered {animal_name} in herd {batch.batch_code}.",
+                link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={animal.pk}",
+                related_entity_type="livestock_inventory",
+                related_entity_id=animal.pk,
+            )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # GET List
@@ -161,9 +164,10 @@ def batch_list_create(request):
         response = pager.get_paginated_response(LivestockBatchListSerializer(records, many=True, context={"request": request}).data)
         # These counts describe the filtered set, not just the current page.
         response.data["summary"] = batches.aggregate(
-            totalAnimals=Sum("active_animal_count"), approvedBatches=Count("id", filter=Q(list_review_status="APPROVED")),
-            pendingBatches=Count("id", filter=Q(list_review_status="PENDING")), verifiedBatches=Count("id", filter=Q(list_review_status="VERIFIED")),
-            revisionBatches=Count("id", filter=Q(list_review_status="SUBJECT_TO_REVISION")),
+            totalAnimals=Sum("active_animal_count"), totalHerds=Count("id"),
+            pendingAnimals=Sum("pending_animal_count"), verifiedAnimals=Sum("verified_animal_count"),
+            approvedAnimals=Sum("approved_animal_count"), revisionAnimals=Sum("revision_animal_count"),
+            rejectedAnimals=Sum("rejected_animal_count"),
         )
         return response
 
@@ -271,22 +275,15 @@ def batch_detail(request, pk):
             photo_serializer.is_valid(raise_exception=True)
             batch = photo_serializer.save()
             return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
-        states = set(batch.animals.values_list("status", flat=True))
         resubmit = str(data.get("resubmit", "")).lower() in {"true", "1"}
-        if resubmit and states != {LivestockInventory.StatusType.SUBJECT_TO_REVISION}:
+        if resubmit:
             return Response(
-                {"error": "Only a fully returned herd can be resubmitted."},
-                status=status.HTTP_409_CONFLICT,
+                {"error": "Herds are grouping containers. Correct and resubmit each returned animal from its individual record."},
+                status=status.HTTP_410_GONE,
             )
-        if (set(data) - {"status", "resubmit"} or resubmit) and (
-            batch.status != LivestockBatch.StatusType.ACTIVE
-            or not states.issubset({
-                LivestockInventory.StatusType.PENDING,
-                LivestockInventory.StatusType.SUBJECT_TO_REVISION,
-            })
-        ):
+        if set(data) - {"status"} and batch.status != LivestockBatch.StatusType.ACTIVE:
             return Response(
-                {"error": "Verified or approved herd details are locked."},
+                {"error": "Only active herd grouping details can be changed."},
                 status=status.HTTP_409_CONFLICT,
             )
         updatable = [
@@ -312,31 +309,6 @@ def batch_detail(request, pk):
                     val = None
                 setattr(batch, field, val)
         batch.save()
-        if resubmit:
-            batch.animals.all().update(
-                status=LivestockInventory.StatusType.PENDING,
-                reviewed_by=None,
-                reviewed_at=None,
-            )
-            notify_role(
-                barangay_id=batch.farmer.barangay_id,
-                role_name="SIBAT",
-                notification_type=Notification.NotificationType.SIBAT,
-                title="Herd Resubmitted for Verification",
-                message=f"{user.get_full_name() or user.username} resubmitted herd {batch.batch_code} for field review.",
-                link=f"/sibat?tab=inventory&reviewType=BATCH&reviewId={batch.pk}",
-                related_entity_type="livestock_batch",
-                related_entity_id=batch.pk,
-            )
-            notify_role(
-                role_name="ADMIN",
-                notification_type=Notification.NotificationType.GENERAL,
-                title="Herd Resubmitted for Verification",
-                message=f"{user.get_full_name() or user.username} resubmitted herd {batch.batch_code} for field review.",
-                link=f"/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
-                related_entity_type="livestock_batch",
-                related_entity_id=batch.pk,
-            )
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -405,24 +377,12 @@ def batch_add_animals(request, pk):
             {"error": "Animals can only be added to an ACTIVE batch."},
             status=status.HTTP_409_CONFLICT,
         )
-    # Initial herd members are reviewed together. A later member of an
-    # approved herd gets an independent pending review without reopening the
-    # original cohort's certification.
-    original_members = batch.animals.filter(is_post_approval_addition=False)
-    original_statuses = set(original_members.values_list("status", flat=True).distinct())
-    has_post_approval_additions = batch.animals.filter(is_post_approval_addition=True).exists()
-    if original_members.exists() and original_statuses == {LivestockInventory.StatusType.APPROVED}:
-        is_post_approval_addition = True
-    elif (
-        original_statuses in (set(), {LivestockInventory.StatusType.PENDING})
-        and not has_post_approval_additions
-    ):
-        is_post_approval_addition = False
-    else:
-        return Response(
-            {"error": "Animals can be added before the first herd review or to an approved herd. Resolve any returned or in-review records first."},
-            status=status.HTTP_409_CONFLICT,
-        )
+    # The marker is retained as historical metadata for older reports. It no
+    # longer changes review rules: every animal starts pending and is reviewed
+    # individually, regardless of the statuses of its herd-mates.
+    is_post_approval_addition = batch.animals.filter(
+        status=LivestockInventory.StatusType.APPROVED
+    ).exists()
 
     animals_data = request.data.get("animals", [])
     if isinstance(animals_data, dict):
@@ -491,9 +451,7 @@ def batch_add_animals(request, pk):
     return Response(
         {
             "message": (
-                f"Added {len(created_animals)} animal(s) to {batch.batch_code}; each new animal is pending its own SIBAT and MAO review."
-                if is_post_approval_addition
-                else f"Successfully added {len(created_animals)} animals to batch {batch.batch_code}."
+                f"Added {len(created_animals)} animal(s) to {batch.batch_code}. Each starts pending its own SIBAT and MAO review."
             ),
             "animals": serializer.data,
         },
@@ -503,136 +461,11 @@ def batch_add_animals(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-@transaction.atomic
 def batch_review(request, pk):
-    """
-    POST /api/livestock/batches/<id>/review/
-    Review and verify an entire batch and its animal roster:
-    - SIBAT: Field inspection of the pen/herd (status = VERIFIED or SUBJECT_TO_REVISION)
-    - MAO: Official municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
-    """
-    batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
-    if batch.status != LivestockBatch.StatusType.ACTIVE:
-        return Response(
-            {"error": "Only active herds can enter validation."},
-            status=status.HTTP_409_CONFLICT,
-        )
-    new_status = request.data.get("status")
-    remarks = request.data.get("remarks", "")
-
-    if not new_status:
-        return Response(
-            {"error": "status is required (VERIFIED, APPROVED, or SUBJECT_TO_REVISION)."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    user = request.user
-    user_role = require_action(user, "batches", "review")
-    current_statuses = set(batch.animals.values_list("status", flat=True))
-    if not current_statuses:
-        return Response(
-            {"error": "An empty batch cannot be reviewed."},
-            status=status.HTTP_409_CONFLICT,
-        )
-    if len(current_statuses) != 1:
-        return Response(
-            {"error": "All animals in a batch must have the same review status before batch review."},
-            status=status.HTTP_409_CONFLICT,
-        )
-    current_status = current_statuses.pop()
-    validate_review_transition(
-        domain="batches",
-        role=user_role,
-        current=current_status,
-        target=new_status,
-        remarks=remarks,
-    )
-
-    with transaction.atomic():
-        batch.animals.all().update(
-            status=new_status,
-            reviewed_by=user,
-            reviewed_at=timezone.now(),
-            review_remarks=remarks,
-        )
-        if remarks:
-            timestamp_str = timezone.localtime().strftime("%Y-%m-%d %H:%M")
-            reviewer_title = (
-                f"SIBAT Verification ({user.get_full_name() or user.username})"
-                if user_role == "SIBAT"
-                else f"MAO Approval ({user.get_full_name() or user.username})"
-            )
-            audit_entry = f"\n[{timestamp_str}] {reviewer_title} - {new_status}: {remarks}"
-            batch.notes = (batch.notes + audit_entry).strip() # append the previous note
-            batch.save(update_fields=["notes", "updated_at"]) # saves only this 2
-
-
-    if new_status == "SUBJECT_TO_REVISION":
-        notify_review_revision(batch.farmer, request.user,
-            title="Revision required: batch #" + str(batch.pk), message=remarks,
-            link=f"/sibat?tab=inventory&reviewType=BATCH&reviewId={batch.pk}")
-    if new_status == LivestockInventory.StatusType.VERIFIED:
-        notify_role(
-            role_name="MAO",
-            notification_type=Notification.NotificationType.GENERAL,
-            priority=Notification.Priority.MEDIUM,
-            title="Livestock Herd Awaiting MAO Approval",
-            message=(
-                f"SIBAT verified herd {batch.batch_code} with "
-                f"{batch.animals.count()} animal(s)."
-            ),
-            link=f"/data-validation?domain=inventory&recordType=BATCH&recordId={batch.pk}",
-            related_entity_type="livestock_batch",
-            related_entity_id=batch.pk,
-        )
-
-    # Notify the farmer
-    target_user = None
-    if batch.farmer and getattr(batch.farmer, "user", None):
-        target_user = batch.farmer.user
-    elif batch.created_by:
-        target_user = batch.created_by
-
-    if target_user:
-        count = batch.animals.count()
-        species_name = batch.livestock_type.name if batch.livestock_type else "Livestock"
-        batch_info = f"{batch.batch_code} ({count} heads)"
-
-        if new_status == LivestockInventory.StatusType.VERIFIED:
-            create_notification(
-                user=target_user,
-                notification_type=Notification.NotificationType.SIBAT,
-                priority=Notification.Priority.MEDIUM,
-                title="Herd Verified by SIBAT",
-                message=f"Your {species_name} batch [{batch_info}] has been verified on-farm by SIBAT.{f' Remarks: {remarks}' if remarks else ''}",
-                link="/livestock-inventory/batches",
-            )
-        elif new_status == LivestockInventory.StatusType.APPROVED:
-            create_notification(
-                user=target_user,
-                notification_type=Notification.NotificationType.GENERAL,
-                priority=Notification.Priority.MEDIUM,
-                title="Herd Approved by MAO",
-                message=f"Official certification approved for your {species_name} batch [{batch_info}].",
-                link="/livestock-inventory/batches",
-            )
-        elif new_status == LivestockInventory.StatusType.SUBJECT_TO_REVISION:
-            create_notification(
-                user=target_user,
-                notification_type=Notification.NotificationType.GENERAL,
-                priority=Notification.Priority.HIGH,
-                title="Revision Required on Herd",
-                message=f"Your {species_name} batch [{batch_info}] requires revision.{f' Note: {remarks}' if remarks else ''}",
-                link="/livestock-inventory/batches",
-            )
-
-    serializer = LivestockBatchSerializer(batch, context={"request": request})
+    """Deprecated endpoint: herd containers cannot be reviewed or approved."""
     return Response(
-        {
-            "message": f"Batch {batch.batch_code} and all {batch.animals.count()} animals updated to {new_status}.",
-            "batch": serializer.data,
-        },
-        status=status.HTTP_200_OK,
+        {"error": "Herds are grouping containers. Review each animal at livestock/inventory/<id>/review/."},
+        status=status.HTTP_410_GONE,
     )
 
 

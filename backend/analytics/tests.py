@@ -47,6 +47,10 @@ class DescriptiveSummaryTests(TestCase):
             created_by=self.user,
         )
 
+    def individual_animals(self, count, **kwargs):
+        """Create count one-head records, matching the current inventory model."""
+        return [self.animal(**kwargs) for _ in range(count)]
+
     def test_empty_data_has_zero_totals_and_no_division_error(self):
         result = descriptive_summary(self.today)["descriptive"]
         self.assertEqual(result["population"]["total_heads"], 0)
@@ -54,16 +58,16 @@ class DescriptiveSummaryTests(TestCase):
         self.assertEqual(result["production"]["by_type"], [])
         self.assertIsNone(result["sales"]["recorded_value"])
 
-    def test_population_uses_approved_active_quantity_and_batch_children(self):
-        self.animal(quantity=3, vaccination=date(2026, 9, 1))
+    def test_population_uses_approved_active_individuals_and_herd_children(self):
+        self.individual_animals(3, vaccination=date(2026, 9, 1))
         herd = LivestockBatch.objects.create(
             farmer=self.farmer, livestock_type=self.goat,
             batch_name="Test herd", batch_code="TEST-HERD", created_by=self.user,
         )
         self.animal(species=self.goat, batch=herd)
         self.animal(species=self.goat, batch=herd)
-        self.animal(status="VERIFIED", quantity=9)
-        self.animal(quantity=4, operational="SOLD")
+        self.individual_animals(9, status="VERIFIED")
+        self.individual_animals(4, operational="SOLD")
         result = descriptive_summary(self.today)["descriptive"]
         self.assertEqual(result["population"]["total_heads"], 5)
         self.assertEqual(result["population"]["by_barangay"][0]["barangay_id"], self.barangay.id)
@@ -131,7 +135,7 @@ class DescriptiveSummaryTests(TestCase):
         other = Barangay.objects.create(barangay_name="San Roque", latitude=Decimal("13.89"), longitude=Decimal("121.22"))
         user = User.objects.create_user(username="farmer2", email="farmer2@example.test", role=self.user.role)
         farmer = Farmer.objects.create(user=user, barangay=other, address="Other farm")
-        self.animal(quantity=3, vaccination=self.today)
+        self.individual_animals(3, vaccination=self.today)
         LivestockInventory.objects.create(farmer=farmer, livestock_type=self.goat, entry_type="BATCH", quantity=2, status="APPROVED", created_by=user)
         for status in ("PENDING", "VERIFIED", "SUBJECT_TO_REVISION"):
             self.animal(status=status, quantity=20)
@@ -139,12 +143,12 @@ class DescriptiveSummaryTests(TestCase):
             self.animal(operational=operational, quantity=20)
         data = descriptive_summary(self.today)["descriptive"]
         population = data["population"]
-        self.assertEqual(population["total_heads"], 5)
-        self.assertEqual(sum(row["heads"] for row in population["by_species"]), 5)
-        self.assertEqual(sum(row["heads"] for row in population["by_barangay"]), 5)
+        self.assertEqual(population["total_heads"], 3)
+        self.assertEqual(sum(row["heads"] for row in population["by_species"]), 3)
+        self.assertEqual(sum(row["heads"] for row in population["by_barangay"]), 3)
         self.assertEqual(len(population["by_barangay"]), 2)
-        self.assertEqual({row["barangay_id"]: row["heads"] for row in population["by_barangay"]}, {self.barangay.id: 3, other.id: 2})
-        self.assertEqual(data["vaccination"]["coverage_pct"], 60)
+        self.assertEqual({row["barangay_id"]: row["heads"] for row in population["by_barangay"]}, {self.barangay.id: 3, other.id: 0})
+        self.assertEqual(data["vaccination"]["coverage_pct"], 100)
         self.assertEqual(sum(row["vaccinated"] for row in data["vaccination"]["by_barangay"]), 3)
 
     def test_production_window_boundaries_and_missing_months(self):
@@ -238,18 +242,19 @@ class DescriptiveSummaryTests(TestCase):
 class AdminConsistencyTests(TestCase):
     setUp = DescriptiveSummaryTests.setUp
     animal = DescriptiveSummaryTests.animal
+    individual_animals = DescriptiveSummaryTests.individual_animals
     def test_mixed_population_matches_both_consumers_and_ignores_census(self):
         from livestock.models import CensusSubmission, CensusSubmissionItem
         self.user.account_status = "APPROVED"
         self.user.save(update_fields=["account_status"])
-        self.animal(quantity=3)
+        self.individual_animals(3)
         poultry = LivestockType.objects.create(name="Poultry")
-        self.animal(species=poultry, quantity=7)
-        self.animal(status="PENDING", quantity=11)
-        self.animal(status="VERIFIED", quantity=13)
-        self.animal(status="SUBJECT_TO_REVISION", quantity=17)
+        self.individual_animals(7, species=poultry)
+        self.individual_animals(11, status="PENDING")
+        self.individual_animals(13, status="VERIFIED")
+        self.individual_animals(17, status="SUBJECT_TO_REVISION")
         for operational in ["SOLD", "DECEASED", "SLAUGHTERED", "MOVED_OUT"]:
-            self.animal(quantity=2, operational=operational)
+            self.individual_animals(2, operational=operational)
         herd = LivestockBatch.objects.create(farmer=self.farmer, livestock_type=self.goat,
             batch_name="Herd", batch_code="CONSISTENT-HERD", created_by=self.user)
         self.animal(batch=herd, species=self.goat)
@@ -294,12 +299,13 @@ class AdminConsistencyTests(TestCase):
     def test_repeat_get_navigation_filters_are_read_only_and_scope_correct(self):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
-        self.animal(quantity=3)
+        self.individual_animals(3)
         other = Barangay.objects.create(barangay_name="Other", latitude=Decimal("13.89"), longitude=Decimal("121.22"))
         farmer_user = User.objects.create_user(username="other", email="other@test.example", role=self.user.role)
         farmer = Farmer.objects.create(user=farmer_user, barangay=other, address="Other")
-        LivestockInventory.objects.create(farmer=farmer, livestock_type=self.cattle,
-            entry_type="BATCH", quantity=5, status="APPROVED", created_by=farmer_user)
+        for _ in range(5):
+            LivestockInventory.objects.create(farmer=farmer, livestock_type=self.cattle,
+                status="APPROVED", created_by=farmer_user)
         factory = APIRequestFactory()
         for role_name, scope, assigned, heads in [
             ("ADMIN", "ASSIGNED_ONLY", self.barangay, 8), ("MAO", "ASSIGNED_ONLY", self.barangay, 8),

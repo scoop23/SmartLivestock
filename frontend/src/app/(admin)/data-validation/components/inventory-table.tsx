@@ -44,12 +44,12 @@ export function InventoryTable({
   onViewDetail,
   onReview,
 }: InventoryTableProps) {
-  const isHerdMember = (record: ValidationInventoryItem) =>
-    !record.isBatch && !record.isPostApprovalAddition && (record.batchId != null || !!record.batchCode);
+  const isIndividuallyReviewable = (record: ValidationInventoryItem) =>
+    !record.isBatch && record.entryType === "INDIVIDUAL";
 
   const reviewableRecords = records.filter(
     (record) =>
-      (record.status || "PENDING").toUpperCase() === "VERIFIED" && !isHerdMember(record),
+      (record.status || "PENDING").toUpperCase() === "VERIFIED" && isIndividuallyReviewable(record),
   );
   const allSelected =
     reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
@@ -144,8 +144,8 @@ export function InventoryTable({
                 records.map((inv) => {
                   const isSelected = selectedIds.includes(inv.id);
                   const statusNorm = (inv.status || "PENDING").toUpperCase();
-                  const isHerdMemberRow = isHerdMember(inv);
-                  const canReview = statusNorm === "VERIFIED" && !isHerdMemberRow;
+                  const isHerdMemberRow = !inv.isBatch && (inv.batchId != null || !!inv.batchCode);
+                  const canReview = statusNorm === "VERIFIED" && isIndividuallyReviewable(inv);
                   const detailPayload = buildDetailPayload(inv);
 
                   return (
@@ -256,9 +256,9 @@ export function InventoryTable({
 
                       <TableCell className="px-8 py-5 text-right">
                         <div className="flex flex-col items-end gap-2">
-                          {isHerdMemberRow && statusNorm === "VERIFIED" && (
+                          {isHerdMemberRow && (
                             <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded px-1.5 py-0.5">
-                              Open herd review
+                              Herd member · individual review
                             </span>
                           )}
                           <div className="flex items-center justify-end gap-2">
@@ -351,8 +351,8 @@ export function InventoryTable({
           records.map((inv) => {
             const isSelected = selectedIds.includes(inv.id);
             const statusNorm = (inv.status || "PENDING").toUpperCase();
-            const isHerdMemberRow = isHerdMember(inv);
-            const canReview = statusNorm === "VERIFIED" && !isHerdMemberRow;
+            const isHerdMemberRow = !inv.isBatch && (inv.batchId != null || !!inv.batchCode);
+            const canReview = statusNorm === "VERIFIED" && isIndividuallyReviewable(inv);
             const detailPayload = buildDetailPayload(inv);
 
             return (
@@ -459,7 +459,7 @@ export function InventoryTable({
                       canReview
                         ? "Approve this SIBAT-verified animal"
                         : isHerdMemberRow
-                          ? "Herd member — review the whole herd instead"
+                          ? "Review this herd member individually"
                           : "SIBAT verification is required before MAO approval"
                     }
                     onClick={() =>
@@ -488,7 +488,7 @@ export function InventoryTable({
                       {canReview
                         ? "MAO Approve"
                         : isHerdMemberRow
-                          ? "Batch review only"
+                          ? "Awaiting MAO"
                           : "Awaiting SIBAT"}
                     </span>
                   </Button>
