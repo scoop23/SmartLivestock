@@ -22,7 +22,7 @@ const DOMAIN_CARD_CONFIG: Record<
   },
   production: {
     title: "Production Yields",
-    subtitle: "Milk, Eggs, Wool & Honey Logs",
+    subtitle: "Livestock Production Records",
     activeIconBg: "bg-amber-600 text-white shadow-amber-600/20",
     activeBorder: "data-[state=active]:border-amber-300 data-[state=active]:ring-1 data-[state=active]:ring-amber-300/40",
   },
@@ -66,7 +66,7 @@ export function DomainTabs({
         onValueChange={(val) => onTabChange(val as ValidationDomain | "slaughter")}
         className="w-full space-y-2.5"
       >
-        <TabsList className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 p-2 bg-slate-100/90 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs h-auto">
+        <TabsList className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 gap-2.5 p-2 bg-slate-100/90 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs h-auto">
           {VALIDATION_DOMAINS.map((domain) => {
             const config = DOMAIN_CARD_CONFIG[domain.id];
             const pendingCount = pendingCounts[domain.id];
@@ -78,7 +78,7 @@ export function DomainTabs({
               <TabsTrigger
                 key={domain.id}
                 value={domain.id}
-                className={`group relative flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl transition-all duration-200 text-left border border-slate-200/70 bg-white/70 hover:bg-white hover:border-slate-300 data-[state=active]:bg-white data-[state=active]:shadow-sm cursor-pointer h-auto ${config.activeBorder}`}
+                className={`group relative flex flex-col items-stretch gap-2.5 p-3 sm:p-3.5 rounded-2xl transition-all duration-200 text-left border border-slate-200/70 bg-white/70 hover:bg-white hover:border-slate-300 data-[state=active]:bg-white data-[state=active]:shadow-sm cursor-pointer h-auto ${config.activeBorder}`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div
@@ -95,16 +95,16 @@ export function DomainTabs({
                   </div>
 
                   <div className="text-left min-w-0">
-                    <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 truncate">
+                    <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 whitespace-normal break-words">
                       {config.title}
                     </p>
-                    <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 truncate mt-0.5">
+                    <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 whitespace-normal break-words mt-0.5">
                       {config.subtitle}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-1 shrink-0">
+                <div className="flex flex-row items-center justify-between gap-1 flex-wrap">
                   {pendingCount > 0 ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300/80 font-mono shadow-2xs">
                       <span className="size-1.5 rounded-full bg-amber-600 animate-pulse" />
@@ -117,7 +117,7 @@ export function DomainTabs({
                   )}
 
                   {verifiedCount > 0 && (
-                    <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded-md font-mono hidden sm:inline-block">
+                    <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded-md font-mono">
                       {verifiedCount} Verified
                     </span>
                   )}
@@ -127,15 +127,15 @@ export function DomainTabs({
           })}
           <TabsTrigger
             value="slaughter"
-            className="group relative flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl transition-all duration-200 text-left border border-slate-200/70 bg-white/70 hover:bg-white hover:border-slate-300 data-[state=active]:bg-white data-[state=active]:shadow-sm cursor-pointer h-auto data-[state=active]:border-slate-300 data-[state=active]:ring-1 data-[state=active]:ring-slate-300/50"
+            className="group relative flex flex-col items-stretch gap-2.5 p-3 sm:p-3.5 rounded-2xl transition-all duration-200 text-left border border-slate-200/70 bg-white/70 hover:bg-white hover:border-slate-300 data-[state=active]:bg-white data-[state=active]:shadow-sm cursor-pointer h-auto data-[state=active]:border-slate-300 data-[state=active]:ring-1 data-[state=active]:ring-slate-300/50"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className={`size-10 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs ${activeTab === "slaughter" ? "bg-slate-800 text-white shadow-slate-800/20 shadow-xs" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/80 group-hover:text-slate-800"}`}>
                 <Scissors className="size-4.5" />
               </div>
               <div className="text-left min-w-0">
-                <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 truncate">Slaughter Review</p>
-                <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 truncate mt-0.5">Facility Totals & Weights</p>
+                <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 whitespace-normal break-words">Slaughter Review</p>
+                <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 whitespace-normal break-words mt-0.5">Facility Totals & Weights</p>
               </div>
             </div>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 font-mono shrink-0">MAO Queue</span>

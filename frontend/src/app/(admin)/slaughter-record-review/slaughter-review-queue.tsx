@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Clock, RotateCcw, Scissors } from "lucide-react";
+import { CheckCircle2, Clock, RotateCcw, Scissors, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,8 @@ export function SlaughterReviewQueue() {
   const queryClient = useQueryClient();
   const [remarks, setRemarks] = useState<Record<number, string>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "SUBJECT_TO_REVISION">("ALL");
   const recordsQuery = useQuery({
     queryKey: ["slaughterhouse-review-records"],
     queryFn: async () => (await api.get<ReviewRecord[]>("/production/slaughterhouse/records/")).data,
@@ -34,6 +36,16 @@ export function SlaughterReviewQueue() {
   const queue = (recordsQuery.data ?? []).filter(
     (row) => row.status === "PENDING" || row.status === "SUBJECT_TO_REVISION"
   );
+  const filteredQueue = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return queue.filter((row) => {
+      const matchesStatus = statusFilter === "ALL" || row.status.toUpperCase() === statusFilter;
+      const matchesSearch = !query || [
+        row.livestock_type_name, row.created_by_name, row.record_date, String(row.id),
+      ].some((value) => value.toLowerCase().includes(query));
+      return matchesStatus && matchesSearch;
+    });
+  }, [queue, searchQuery, statusFilter]);
 
   const review = async (row: ReviewRecord, status: "APPROVED" | "SUBJECT_TO_REVISION") => {
     const note = remarks[row.id]?.trim() ?? "";
@@ -58,6 +70,12 @@ export function SlaughterReviewQueue() {
     ? "bg-amber-50 text-amber-700 border-amber-200/80"
     : "bg-orange-50 text-orange-700 border-orange-200/80";
 
+  const noMatchesState = (
+    <div className="py-10 text-center">
+      <p className="text-sm font-bold text-gray-800">No slaughter records match these filters</p>
+      <p className="mt-1 text-xs text-gray-400">Try a different search or status.</p>
+    </div>
+  );
   const emptyState = (
     <div className="flex flex-col items-center justify-center space-y-2 py-10">
       <CheckCircle2 className="size-10 text-green-500" />
@@ -68,12 +86,14 @@ export function SlaughterReviewQueue() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex items-start gap-3 py-4">
-          <Clock className="mt-0.5 size-5 text-amber-700" />
-          <div>
-            <p className="font-semibold">MAO review queue</p>
-            <p className="text-sm text-muted-foreground">
+      <Card className="rounded-2xl border-amber-200/80 bg-amber-50/50 shadow-sm">
+        <CardContent className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
+          <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <Clock className="size-4" />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs font-black uppercase tracking-wider text-slate-800">MAO review queue</p>
+            <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
               Approval makes the aggregate record available to official slaughter analytics. It does not change individual animal inventory.
             </p>
           </div>
@@ -90,6 +110,27 @@ export function SlaughterReviewQueue() {
         <div className="h-36 animate-pulse rounded-[2.5rem] border border-gray-100 bg-white" />
       ) : (
         <DataTableSection className="min-h-0 md:min-h-0 lg:min-h-0">
+          {queue.length > 0 ? (
+            <div className="mb-4 space-y-3 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search livestock, staff, date, or record ID..." aria-label="Search slaughter review records" className="h-11 rounded-2xl border-gray-200 bg-gray-50 pl-10 pr-10 text-xs sm:text-sm" />
+                {searchQuery ? <button type="button" aria-label="Clear slaughter search" onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-500 hover:bg-gray-200"><X className="size-4" /></button> : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-1 rounded-2xl bg-gray-100 p-1">
+                {(["ALL", "PENDING", "SUBJECT_TO_REVISION"] as const).map((status) => {
+                  const active = statusFilter === status;
+                  const label = status === "ALL" ? "All in queue" : status === "PENDING" ? "Pending" : "Revision required";
+                  const count = status === "ALL" ? queue.length : queue.filter((row) => row.status.toUpperCase() === status).length;
+                  return (
+                    <button key={status} type="button" onClick={() => setStatusFilter(status)} className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wide transition-colors sm:text-xs ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:bg-white/70 hover:text-slate-800"}`}>
+                      {label} <span className="ml-1 font-mono text-slate-400">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <div className="hidden overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-sm md:block">
             <div className="overflow-x-auto">
               <Table>
@@ -105,11 +146,11 @@ export function SlaughterReviewQueue() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-gray-50">
-                  {queue.length === 0 ? (
+                  {filteredQueue.length === 0 ? (
                     <TableRow className="border-none hover:bg-transparent">
-                      <TableCell colSpan={7} className="px-8 py-5">{emptyState}</TableCell>
+                      <TableCell colSpan={7} className="px-8 py-5">{queue.length === 0 ? emptyState : noMatchesState}</TableCell>
                     </TableRow>
-                  ) : queue.map((row) => (
+                  ) : filteredQueue.map((row) => (
                     <TableRow key={row.id} className="group border-none transition-all hover:bg-gray-50/80">
                       <TableCell className="px-8 py-5">
                         <div className="flex items-center gap-4">
@@ -154,9 +195,9 @@ export function SlaughterReviewQueue() {
           </div>
 
           <div className="space-y-3 md:hidden">
-            {queue.length === 0 ? (
-              <Card className="rounded-3xl border-gray-100 shadow-sm"><CardContent>{emptyState}</CardContent></Card>
-            ) : queue.map((row) => (
+            {filteredQueue.length === 0 ? (
+              <Card className="rounded-3xl border-gray-100 shadow-sm"><CardContent>{queue.length === 0 ? emptyState : noMatchesState}</CardContent></Card>
+            ) : filteredQueue.map((row) => (
               <div key={row.id} className="space-y-3 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
