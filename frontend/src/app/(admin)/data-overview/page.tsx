@@ -166,6 +166,9 @@ export default function DataOverviewPage() {
 
       return {
         id: `LIV-${item.id}`,
+        // Keep the numeric database key for actions like QR lookup while `id`
+        // remains a readable label for the table and record dialog.
+        rawId: item.id,
         farmerName: item.farmerName || "Registered Farmer",
         barangay: item.barangayName || "Unknown barangay",
         cattleId: item.tagNumber || `TAG-${item.id}`,
@@ -451,6 +454,7 @@ export default function DataOverviewPage() {
           badgeVariant,
           record: matchingRecord || {
             id: `LIV-${inv.id}`,
+            rawId: inv.id,
             cattleId: inv.tagNumber || `TAG-${inv.id}`,
             farmerName: inv.farmerName || "Farmer",
             barangay: inv.barangayName || "Padre Garcia",

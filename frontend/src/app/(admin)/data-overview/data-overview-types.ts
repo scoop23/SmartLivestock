@@ -42,6 +42,8 @@ export interface ActivityFeedItem {
 
 export interface LivestockRecord {
   id: string;
+  /** Original database primary key; `id` is formatted for display in this table. */
+  rawId?: number | string;
   farmerName: string;
   farmerContact?: string;
   barangay: string;

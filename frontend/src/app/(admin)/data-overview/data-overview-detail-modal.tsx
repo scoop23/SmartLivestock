@@ -74,8 +74,11 @@ export function DataOverviewDetailModal({
   const identifierCode = isBatch
     ? (record.batchCode || record.id)
     : (record.cattleId || record.tagNumber || record.id);
-  const livestockQrPayload = domain === "livestock" && !isBatch && /^\d+$/.test(String(record.id ?? ""))
-    ? livestockIdentityQrPayload(record.id)
+  // `record.id` is often a UI label such as "LIV-123". Use the preserved
+  // database key for the QR payload, which the backend can resolve safely.
+  const livestockRecordId = record.rawId ?? record.id;
+  const livestockQrPayload = domain === "livestock" && !isBatch && /^\d+$/.test(String(livestockRecordId ?? ""))
+    ? livestockIdentityQrPayload(livestockRecordId)
     : undefined;
   const batchQrPayload = isBatch && /^\d+$/.test(String(targetBatchId))
     ? livestockBatchQrPayload(targetBatchId)
