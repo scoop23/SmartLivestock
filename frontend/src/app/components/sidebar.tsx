@@ -34,6 +34,8 @@ import {
   Shield,
   User as UserIcon,
   Key,
+  Scissors,
+  History,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -59,7 +61,7 @@ const CowHeadIcon = ({ className }: { className?: string }) => (
 );
 
 interface SidebarProps {
-  role: 'farmer' | 'lgu' | 'sibat' | 'auction';
+  role: 'farmer' | 'lgu' | 'sibat' | 'auction' | 'slaughterhouse';
   onLogout: () => void;
 }
 
@@ -74,6 +76,7 @@ export interface SidebarLink {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  exactMatch?: boolean;
   subLinks?: SidebarSubLink[];
 }
 
@@ -103,6 +106,7 @@ const adminLinks: SidebarLink[] = [
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/data-uploads', label: 'Data Upload', icon: Upload },
+  { path: '/slaughter-record-review', label: 'Slaughter Review', icon: Scissors },
   { path: '/news-announcements', label: 'Activities', icon: Newspaper },
   { path: '/schedules', label: 'Farmer Schedules', icon: CalendarDays },
 ];
@@ -169,11 +173,18 @@ const auctionLinks: SidebarLink[] = [
   { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },
 ];
 
+const slaughterhouseLinks: SidebarLink[] = [
+  { path: '/slaughterhouse', label: 'Slaughter Records', icon: LayoutDashboard, exactMatch: true },
+  { path: '/slaughterhouse/history', label: 'Slaughter History', icon: History },
+  { path: '/slaughterhouse/announcements', label: 'Activities', icon: Megaphone },
+];
+
 function getLinks(role: SidebarProps['role']): SidebarLink[] {
   switch (role) {
     case 'farmer': return farmerLinks;
     case 'sibat': return sibatLinks;
     case 'auction': return auctionLinks;
+    case 'slaughterhouse': return slaughterhouseLinks;
     default: return adminLinks;
   }
 }
@@ -186,6 +197,8 @@ function getRoleBadge(role: SidebarProps['role']): { label: string; bg: string; 
       return { label: 'SIBAT Inspector', bg: 'bg-amber-400/20', text: 'text-amber-300' };
     case 'auction':
       return { label: 'Auction Staff', bg: 'bg-sky-400/20', text: 'text-sky-300' };
+    case 'slaughterhouse':
+      return { label: 'Slaughterhouse Staff', bg: 'bg-rose-400/20', text: 'text-rose-200' };
     default:
       return { label: 'MAO Admin', bg: 'bg-white/20', text: 'text-white' };
   }
@@ -316,6 +329,7 @@ function SidebarNav({
           );
           const isActive = isExactActive || isChildActive || (
             !hasSubLinks &&
+            !link.exactMatch &&
             link.path !== '/admin' &&
             link.path !== '/farmer' &&
             link.path !== '/sibat' &&
@@ -882,7 +896,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       {/* ═════════════════════════════════════════════════════════════════════
           UNIVERSAL QR PASS SCANNER DIALOG (FOR STAFF ROLES)
          ═════════════════════════════════════════════════════════════════════ */}
-      {role !== 'farmer' && (
+      {role !== 'farmer' && role !== 'slaughterhouse' && (
         <UniversalQrScannerDialog
           isOpen={scannerOpen}
           onOpenChange={setScannerOpen}

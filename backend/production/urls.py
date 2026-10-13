@@ -1,7 +1,12 @@
 from django.urls import path
 from . import views
+from . import slaughterhouse_views
 
 urlpatterns = [
+    path("slaughterhouse/records/", slaughterhouse_views.slaughterhouse_records, name="slaughterhouse_records"),
+    path("slaughterhouse/records/<int:pk>/", slaughterhouse_views.slaughterhouse_record_detail, name="slaughterhouse_record_detail"),
+    path("slaughterhouse/records/<int:pk>/review/", slaughterhouse_views.review_slaughterhouse_record, name="review_slaughterhouse_record"),
+    path("slaughterhouse/livestock-types/", slaughterhouse_views.slaughterhouse_livestock_types, name="slaughterhouse_livestock_types"),
     # Daily Production Records (Milk, Meat, etc.)
     path("records/", views.production_record_list_create, name="record_list_create"),
     path("records/<int:pk>/", views.production_record_detail, name="record_detail"),

@@ -135,6 +135,10 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
   }, [visible, featuredItem]);
 
   const isAuction = role === "auction";
+  const isSlaughterhouse = role === "slaughterhouse";
+  const isFarmer = role === "farmer";
+  const accentText = isAuction ? "text-[#7C3AED]" : isSlaughterhouse ? "text-rose-800" : "text-emerald-800";
+  const accentHoverText = isAuction ? "group-hover:text-[#6D28D9]" : isSlaughterhouse ? "group-hover:text-rose-900" : "group-hover:text-emerald-900";
 
   const headerTitle =
     isAuction
@@ -143,11 +147,15 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
       ? "Field Operations & Community Advisories"
       : role === "admin"
       ? "Municipal Activities & Announcements"
+      : isSlaughterhouse
+      ? "Slaughterhouse Announcements & Advisories"
       : "Municipal Activities & Advisories";
 
   const headerSubtitle =
     isAuction
       ? "Official livestock market schedules, biosecurity advisories, municipal notices, and program bulletins for Padre Garcia auction inspectors."
+      : isSlaughterhouse
+      ? "Official municipal announcements, facility advisories, biosecurity notices, and operational updates for slaughterhouse staff."
       : "Official livestock programs, vaccination advisories, agricultural seminars, and announcements from Padre Garcia Municipal Agriculture Office.";
 
   return (
@@ -180,15 +188,15 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
             value={items.length}
             icon={<Megaphone className="size-4" />}
             description="Official bulletins & notices"
-            variant={isAuction ? "sky" : "emerald"}
+            variant={isAuction ? "sky" : isSlaughterhouse ? "rose" : "emerald"}
             size="sm"
             isLoading={loading}
           />
           <KpiCard
-            title={isAuction ? "Related Programs" : "Field Programs & Visits"}
+            title={isAuction || isSlaughterhouse ? "Related Programs" : "Field Programs & Visits"}
             value={fieldProgramsCount}
             icon={<CalendarDays className="size-4" />}
-            description={isAuction ? "Municipal programs & schedules" : "Programs with booking slots"}
+            description={isAuction || isSlaughterhouse ? "Municipal programs & schedules" : "Programs with booking slots"}
             variant="sky"
             size="sm"
             isLoading={loading}
@@ -217,6 +225,8 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
               const isActive = filter === name;
               const activeClass = isAuction
                 ? "bg-[#7C3AED] text-white hover:bg-[#6D28D9] shadow-xs"
+                : isSlaughterhouse
+                ? "bg-rose-700 text-white hover:bg-rose-800 shadow-xs"
                 : "bg-emerald-800 text-white hover:bg-emerald-900 shadow-xs";
               return (
                 <Button
@@ -348,7 +358,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                           </span>
                         </div>
 
-                        <h2 className="mt-2 text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-snug transition-colors group-hover:text-emerald-800">
+                        <h2 className={`mt-2 text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-snug transition-colors ${isAuction ? "group-hover:text-[#7C3AED]" : isSlaughterhouse ? "group-hover:text-rose-800" : "group-hover:text-emerald-800"}`}>
                           {featuredItem.title}
                         </h2>
 
@@ -371,7 +381,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                               </span>
                             ) : null}
                           </div>
-                          {!isAuction ? (
+                          {isFarmer ? (
                             <Link
                               href={`/farmer-scheduling?schedule=${featuredItem.schedule.id}`}
                               onClick={(e) => e.stopPropagation()}
@@ -381,8 +391,8 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                               <ArrowRight className="size-3.5" />
                             </Link>
                           ) : (
-                            <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100">
-                              Related Municipal Program
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${isSlaughterhouse ? "text-rose-800 bg-rose-50 border-rose-100" : "text-purple-700 bg-purple-50 border-purple-100"}`}>
+                              {isSlaughterhouse ? "Facility and municipal notice" : "Related Municipal Program"}
                             </span>
                           )}
                         </div>
@@ -394,7 +404,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                         </span>
                         <span
                           className={`inline-flex items-center gap-1.5 font-bold group-hover:translate-x-0.5 transition-transform ${
-                            isAuction ? "text-[#7C3AED]" : "text-emerald-800"
+                            accentText
                           }`}
                         >
                           <span>Read full advisory</span>
@@ -425,7 +435,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                       key={item.id}
                       onClick={() => setSelected(item)}
                       className={`group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 ${
-                        isAuction ? "focus-within:ring-purple-500/40 hover:border-purple-300" : "focus-within:ring-emerald-500/40 hover:border-emerald-300"
+                        isAuction ? "focus-within:ring-purple-500/40 hover:border-purple-300" : isSlaughterhouse ? "focus-within:ring-rose-500/40 hover:border-rose-300" : "focus-within:ring-emerald-500/40 hover:border-emerald-300"
                       } ${
                         item.is_pinned ? "border-amber-300/80" : "border-slate-200"
                       }`}
@@ -458,7 +468,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
 
                           <h3
                             className={`line-clamp-2 text-base sm:text-lg font-black leading-snug tracking-tight text-slate-900 transition-colors ${
-                              isAuction ? "group-hover:text-[#7C3AED]" : "group-hover:text-emerald-800"
+                              isAuction ? "group-hover:text-[#7C3AED]" : isSlaughterhouse ? "group-hover:text-rose-800" : "group-hover:text-emerald-800"
                             }`}
                           >
                             {item.title}
@@ -483,7 +493,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                                 ) : null}
                               </div>
 
-                              {!isAuction ? (
+                              {isFarmer ? (
                                 <Link
                                   href={`/farmer-scheduling?schedule=${item.schedule.id}`}
                                   onClick={(e) => e.stopPropagation()}
@@ -492,8 +502,8 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                                   Book slot →
                                 </Link>
                               ) : (
-                                <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
-                                  Related Program
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${isSlaughterhouse ? "text-rose-800 bg-rose-50" : "text-purple-700 bg-purple-50"}`}>
+                                  {isSlaughterhouse ? "Facility notice" : "Related Program"}
                                 </span>
                               )}
                             </div>
@@ -507,7 +517,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                           </span>
                           <span
                             className={`inline-flex items-center gap-1 font-bold ${
-                              isAuction ? "text-[#7C3AED] group-hover:text-[#6D28D9]" : "text-emerald-800 group-hover:text-emerald-900"
+                              `${accentText} ${accentHoverText}`
                             }`}
                           >
                             <span>Read advisory</span>

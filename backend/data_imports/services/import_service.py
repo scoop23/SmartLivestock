@@ -56,6 +56,7 @@ def execute_batch_import(
     rejected_count = error_rows
 
     instances_to_create: List[Any] = []
+    seen_slaughter_totals = set()
     # Start the error_log with pre-existing validation issues found during validate_batch().
     error_log: List[Dict[str, Any]] = list(all_issues) if all_issues else []
 
@@ -101,6 +102,29 @@ def execute_batch_import(
                 if status == "WARNING" and skip_duplicates:
                     skipped_count += 1
                     continue
+
+                if dataset_type == "slaughter":
+                    # Aggregate daily sheets have no animal tag. Treat an exact
+                    # duplicate row as a duplicate, while allowing separate
+                    # same-day entries when their recorded totals differ.
+                    duplicate_key = (
+                        rec["record_date"], rec["livestock_type"].pk, rec["quantity"],
+                        rec.get("carcass_weight"), getattr(rec.get("barangay"), "pk", None),
+                    )
+                    duplicate_exists = duplicate_key in seen_slaughter_totals or SlaughterRecord.objects.filter(
+                        livestock__isnull=True, batch__isnull=True,
+                        production_output__isnull=True, selected_animals__isnull=True,
+                        record_date=duplicate_key[0], livestock_type_id=duplicate_key[1],
+                        quantity=duplicate_key[2], carcass_weight=duplicate_key[3], barangay_id=duplicate_key[4],
+                    ).exists()
+                    if duplicate_exists and skip_duplicates:
+                        skipped_count += 1
+                        error_log.append({
+                            "row_number": row_num, "field": "record_date", "error_type": "DUPLICATE_RECORD",
+                            "severity": "WARNING", "error_message": "An identical slaughter total already exists and was skipped.",
+                        })
+                        continue
+                    seen_slaughter_totals.add(duplicate_key)
 
                 # =============================================================
                 # common_kwargs: Fields applied to EVERY domain record.
@@ -211,7 +235,7 @@ def execute_batch_import(
                     instances_to_create.append(inst)
 
                 elif dataset_type == "slaughter":
-                    barangay = rec["barangay"]
+                    barangay = rec.get("barangay")
                     # Slaughter records are linked to a barangay (not a specific farmer),
                     # because slaughter often happens at a municipal abattoir.
                     inst = SlaughterRecord(

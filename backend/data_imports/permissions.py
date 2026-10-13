@@ -15,3 +15,10 @@ class IsMAOOrAdmin(BasePermission):
         role = getattr(user, "role", None)
         role_name = getattr(role, "role_name", "")
         return role_name in {"MAO", "ADMIN"} or user.is_staff or user.is_superuser
+
+
+class IsDataImportUser(BasePermission):
+    """Authenticate first; individual views then limit staff to slaughter data."""
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)

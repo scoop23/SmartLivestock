@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
 
 from .models import DataImportBatch
-from .permissions import IsMAOOrAdmin
+from .permissions import IsDataImportUser
 from .serializers import (
     DataImportBatchSerializer,
     ValidateImportRequestSerializer,
@@ -21,6 +21,17 @@ from .services.parser import parse_file
 from .services.validation import ValidationEngine
 from .services.import_service import execute_batch_import
 from .services.templates import generate_template_file
+
+
+def _can_use_imports(user, dataset_type=None):
+    role = getattr(getattr(user, "role", None), "role_name", "")
+    if role == "SLAUGHTERHOUSESTAFF":
+        return dataset_type in (None, "slaughter")
+    if role in {"MAO", "ADMIN"} or user.is_staff or user.is_superuser:
+        return True
+    # Slaughterhouse operators may submit only daily slaughter totals. They
+    # cannot use the broader municipal import service for other datasets.
+    return False
 
 
 # =============================================================
@@ -58,17 +69,23 @@ class XlsxRenderer(BaseRenderer):
 # Used by the frontend dropdown so MAO officers know which import options exist.
 # The registry is defined in services/datasets.py as BaseDatasetConfig subclasses.
 #
-# Security: IsMAOOrAdmin — only MAO staff and admins can access this endpoint.
+# MAO/Admin can access all datasets; slaughterhouse staff receive only the
+# Slaughter Records dataset after the view applies its role-specific scope.
 # =============================================================
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsMAOOrAdmin])
+@permission_classes([IsAuthenticated, IsDataImportUser])
 def list_datasets(request):
     """
     List all supported municipal datasets available for bulk upload,
     including required fields and column descriptions.
     """
     results = []
-    for code, config in DATASET_REGISTRY.items():
+    if not _can_use_imports(request.user):
+        return Response({"detail": "You do not have permission to use data imports."}, status=403)
+    datasets = DATASET_REGISTRY.items()
+    if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
+        datasets = [(code, config) for code, config in datasets if code == "slaughter"]
+    for code, config in datasets:
         results.append({
             "code": code,
             "label": config.label,
@@ -107,7 +124,7 @@ def list_datasets(request):
 # Parsers: MultiPartParser + FormParser allows file uploads via multipart/form-data.
 # =============================================================
 @api_view(["POST"])
-@permission_classes([IsAuthenticated, IsMAOOrAdmin])
+@permission_classes([IsAuthenticated, IsDataImportUser])
 @parser_classes([MultiPartParser, FormParser])
 def validate_import(request):
     """
@@ -119,11 +136,15 @@ def validate_import(request):
     - column_mapping
     - preview_rows (with specific cell validation issues)
     """
+    if not _can_use_imports(request.user):
+        return Response({"detail": "You do not have permission to validate data imports."}, status=403)
     serializer = ValidateImportRequestSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     dataset_type = serializer.validated_data["dataset_type"]
+    if not _can_use_imports(request.user, dataset_type):
+        return Response({"detail": "You may only validate Slaughter Records uploads."}, status=403)
     uploaded_file = serializer.validated_data["file"]
 
     try:
@@ -187,21 +208,28 @@ def validate_import(request):
 # and some are not — which would corrupt the municipal dataset.
 # =============================================================
 @api_view(["POST"])
-@permission_classes([IsAuthenticated, IsMAOOrAdmin])
+@permission_classes([IsAuthenticated, IsDataImportUser])
 @parser_classes([MultiPartParser, FormParser])
 def execute_import(request):
     """
     POST /api/data-imports/import/
     Execute confirmed batch import inside a database transaction.
     """
+    if not _can_use_imports(request.user):
+        return Response({"detail": "You do not have permission to execute data imports."}, status=403)
     serializer = ExecuteImportRequestSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     dataset_type = serializer.validated_data["dataset_type"]
+    if not _can_use_imports(request.user, dataset_type):
+        return Response({"detail": "You may only import Slaughter Records."}, status=403)
     uploaded_file = serializer.validated_data["file"]
     skip_duplicates = serializer.validated_data.get("skip_duplicates", True)
     target_status = serializer.validated_data.get("target_status", DataImportBatch.TargetStatus.APPROVED)
+    if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
+        # Facility submissions always await MAO review, regardless of payload.
+        target_status = DataImportBatch.TargetStatus.PENDING
 
     try:
         config = get_dataset_config(dataset_type)
@@ -253,25 +281,35 @@ def execute_import(request):
 # User object for each batch row separately, Django joins them in a single SQL query.
 # =============================================================
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsMAOOrAdmin])
+@permission_classes([IsAuthenticated, IsDataImportUser])
 def list_batches(request):
     """
     GET /api/data-imports/
     List recent import batches with audit metadata and metrics.
     """
-    batches = DataImportBatch.objects.select_related("uploaded_by").order_by("-uploaded_at")[:50]
+    if not _can_use_imports(request.user):
+        return Response({"detail": "You do not have permission to view import batches."}, status=403)
+    batches = DataImportBatch.objects.select_related("uploaded_by").order_by("-uploaded_at")
+    if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
+        batches = batches.filter(dataset_type="slaughter", uploaded_by=request.user)
+    batches = batches[:50]
     serializer = DataImportBatchSerializer(batches, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsMAOOrAdmin])
+@permission_classes([IsAuthenticated, IsDataImportUser])
 def batch_detail(request, pk):
     """
     GET /api/data-imports/<pk>/
     Retrieve single batch details and full metrics.
     """
-    batch = get_object_or_404(DataImportBatch.objects.select_related("uploaded_by"), pk=pk)
+    if not _can_use_imports(request.user):
+        return Response({"detail": "You do not have permission to view import batches."}, status=403)
+    batches = DataImportBatch.objects.select_related("uploaded_by")
+    if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
+        batches = batches.filter(dataset_type="slaughter", uploaded_by=request.user)
+    batch = get_object_or_404(batches, pk=pk)
     serializer = DataImportBatchSerializer(batch)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -287,14 +325,19 @@ def batch_detail(request, pk):
 # MAO staff download this after an import to see which rows need correction.
 # =============================================================
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsMAOOrAdmin])
+@permission_classes([IsAuthenticated, IsDataImportUser])
 @renderer_classes([JSONRenderer, CsvRenderer, XlsxRenderer])
 def download_batch_errors(request, pk):
     """
     GET /api/data-imports/<pk>/errors/
     Download CSV error report containing row numbers, fields, and error explanations.
     """
-    batch = get_object_or_404(DataImportBatch, pk=pk)
+    if not _can_use_imports(request.user):
+        return Response({"detail": "You do not have permission to download import errors."}, status=403)
+    batches = DataImportBatch.objects.all()
+    if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
+        batches = batches.filter(dataset_type="slaughter", uploaded_by=request.user)
+    batch = get_object_or_404(batches, pk=pk)
     error_log = batch.error_log or []
 
     output = io.StringIO()
@@ -354,13 +397,15 @@ def download_batch_errors(request, pk):
 # rather than display it inline (like a web page).
 # =============================================================
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsMAOOrAdmin])
+@permission_classes([IsAuthenticated, IsDataImportUser])
 @renderer_classes([JSONRenderer, CsvRenderer, XlsxRenderer])
 def download_template(request, dataset_type):
     """
     GET /api/data-imports/templates/<dataset_type>/?format=xlsx
     Download official municipal template for chosen dataset in XLSX or CSV format.
     """
+    if not _can_use_imports(request.user, dataset_type):
+        return Response({"detail": "You may only download the Slaughter Records template."}, status=403)
     file_format = (request.GET.get("file_format") or request.GET.get("format", "xlsx")).lower()
     if file_format not in ["xlsx", "csv"]:
         file_format = "xlsx"

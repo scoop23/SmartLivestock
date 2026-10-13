@@ -12,7 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from users.models import Notification, Role, User
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
-from .models import CalvingRecord, LiveAnimalSale, ProductionRecord
+from .models import CalvingRecord, LiveAnimalSale, ProductionRecord, SlaughterRecord
 
 
 class ProductionRecordAPITests(APITestCase):
@@ -81,6 +81,7 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.record.refresh_from_db()
         self.assertEqual(self.record.status, ProductionRecord.ProductionStatus.PENDING)
+
 
     def test_mao_review_notifies_record_owner(self):
         self.record.status = ProductionRecord.ProductionStatus.VERIFIED
@@ -835,3 +836,69 @@ class ProductionRecordAPITests(APITestCase):
         milk_stats = [row for row in summary["production"]["by_type"] if row["type"] == "MILK"]
         self.assertEqual(len(milk_stats), 1)
         self.assertEqual(milk_stats[0]["quantity"], 25.0)
+
+
+class SlaughterhouseAggregateRecordAPITests(APITestCase):
+    def setUp(self):
+        self.staff_role = Role.objects.create(role_name=Role.UserRoles.SLAUGHTERHOUSESTAFF)
+        self.mao_role = Role.objects.create(role_name=Role.UserRoles.MAO)
+        self.farmer_role = Role.objects.create(role_name=Role.UserRoles.FARMER)
+        self.staff = User.objects.create_user(username="abattoir", email="abattoir@example.com", password="pw", role=self.staff_role, account_status="APPROVED")
+        self.mao = User.objects.create_user(username="reviewer", email="reviewer@example.com", password="pw", role=self.mao_role, account_status="APPROVED")
+        self.farmer_user = User.objects.create_user(username="farmer", email="farmer@example.com", password="pw", role=self.farmer_role, account_status="APPROVED")
+        self.cattle = LivestockType.objects.create(name="Cattle")
+
+    def test_staff_can_create_pending_aggregate_without_fake_barangay(self):
+        self.client.force_authenticate(self.staff)
+        response = self.client.post("/api/production/slaughterhouse/records/", {
+            "livestock_type": self.cattle.pk, "quantity": 3,
+            "carcass_weight": "415.75", "record_date": "2026-05-01",
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        record = SlaughterRecord.objects.get(pk=response.data["id"])
+        self.assertEqual(record.status, SlaughterRecord.StatusType.PENDING)
+        self.assertEqual(str(record.carcass_weight), "415.75")
+        self.assertIsNone(record.barangay_id)
+
+    def test_staff_cannot_create_invalid_or_duplicate_record(self):
+        self.client.force_authenticate(self.staff)
+        payload = {"livestock_type": self.cattle.pk, "quantity": 1, "carcass_weight": "10.25", "record_date": "2026-05-02"}
+        invalid = self.client.post("/api/production/slaughterhouse/records/", {**payload, "quantity": 0}, format="json")
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        first = self.client.post("/api/production/slaughterhouse/records/", payload, format="json")
+        duplicate = self.client.post("/api/production/slaughterhouse/records/", payload, format="json")
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(duplicate.status_code, status.HTTP_409_CONFLICT)
+
+    def test_mao_approval_does_not_reconcile_individual_inventory(self):
+        record = SlaughterRecord.objects.create(
+            livestock_type=self.cattle, quantity=2, carcass_weight="212.50",
+            record_date=date(2026, 5, 3), created_by=self.staff,
+        )
+        self.client.force_authenticate(self.mao)
+        response = self.client.post(f"/api/production/slaughterhouse/records/{record.pk}/review/", {"status": "APPROVED"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        record.refresh_from_db()
+        self.assertEqual(record.status, SlaughterRecord.StatusType.APPROVED)
+        self.assertTrue(SlaughterRecord.objects.filter(pk=record.pk).exists())
+
+    def test_filters_limit_records_by_date_and_livestock_type(self):
+        SlaughterRecord.objects.create(
+            livestock_type=self.cattle, quantity=2, carcass_weight="212.50",
+            record_date=date(2026, 5, 3), created_by=self.staff,
+        )
+        other_type = LivestockType.objects.create(name="Carabao")
+        SlaughterRecord.objects.create(
+            livestock_type=other_type, quantity=4, carcass_weight="380.00",
+            record_date=date(2026, 5, 4), created_by=self.staff,
+        )
+        self.client.force_authenticate(self.staff)
+        response = self.client.get("/api/production/slaughterhouse/records/?start_date=2026-05-03&end_date=2026-05-03&livestock_type=%s" % self.cattle.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["livestock_type_name"], "Cattle")
+
+    def test_farmer_cannot_access_slaughterhouse_workflow(self):
+        self.client.force_authenticate(self.farmer_user)
+        response = self.client.get("/api/production/slaughterhouse/records/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

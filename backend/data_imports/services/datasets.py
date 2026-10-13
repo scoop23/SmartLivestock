@@ -220,41 +220,26 @@ class SlaughterRecordDataset(BaseDatasetConfig):
     label = "Slaughter Records"
     description = "Municipal abattoir and authorized on-farm slaughter events, including slaughter quantities and carcass yields."
     model_class = SlaughterRecord
-    required_fields = ["barangay", "livestock_type", "quantity", "record_date"]
+    # Daily abattoir sheets often contain municipality totals without a
+    # barangay. The model allows that location to be unknown, so do not invent it.
+    required_fields = ["livestock_type", "quantity", "record_date"]
     field_aliases = {
         "barangay": ["barangay", "barangay_name", "barangay name", "location", "brgy"],
         "livestock_type": ["livestock_type", "livestock type", "species", "animal_type", "animal type", "type"],
         "quantity": ["quantity", "heads", "animal count", "number_slaughtered", "count", "qty"],
-        "carcass_weight": ["carcass_weight", "carcass weight", "meat_yield", "meat_yield_kg", "weight_kg"],
+        "carcass_weight": ["carcass_weight", "carcass weight", "meat_yield", "meat_yield_kg", "weight_kg", "kilograms"],
         "record_date": ["record_date", "record date", "date", "slaughter_date", "date_slaughtered"],
-        "farmer": ["farmer", "farmer_name", "farmer name", "owner", "owner_name"],
     }
     column_descriptions = {
-        "barangay": "Official Padre Garcia barangay name.",
-        "livestock_type": "Livestock type slaughtered (e.g. Swine, Cattle).",
+        "barangay": "Optional official barangay only when the source sheet identifies one.",
+        "livestock_type": "Livestock type slaughtered (e.g. Carabao, Cattle, Swine). Use livestock_type as the header; species remains accepted as a legacy alias.",
         "quantity": "Number of animals butchered (>= 1).",
         "carcass_weight": "Total dressed carcass meat in kilograms.",
         "record_date": "Slaughter date (YYYY-MM-DD).",
-        "farmer": "Optional farmer or livestock owner name.",
     }
-    sample_rows = [
-        {
-            "barangay": "Poblacion",
-            "livestock_type": "Swine",
-            "quantity": 12,
-            "carcass_weight": 860.50,
-            "record_date": "2026-04-15",
-            "farmer": "Municipal Abattoir",
-        },
-        {
-            "barangay": "Manggas",
-            "livestock_type": "Cattle",
-            "quantity": 2,
-            "carcass_weight": 520.00,
-            "record_date": "2026-04-16",
-            "farmer": "Juan Dela Cruz",
-        },
-    ]
+    # Slaughter template has headers only: sample totals could be mistaken for
+    # actual facility records if someone uploads the unedited template.
+    sample_rows = []
 
 
 class LiveAnimalSaleDataset(BaseDatasetConfig):

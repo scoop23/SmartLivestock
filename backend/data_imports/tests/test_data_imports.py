@@ -30,7 +30,7 @@ class DataImportTests(APITestCase):
         # 2. Roles
         cls.roles = {
             name: Role.objects.create(role_name=name)
-            for name in ("FARMER", "SIBAT", "MAO", "ADMIN")
+            for name in ("FARMER", "SIBAT", "MAO", "ADMIN", "SLAUGHTERHOUSESTAFF")
         }
 
         # 3. Users
@@ -47,6 +47,7 @@ class DataImportTests(APITestCase):
         cls.mao_user = create_user("mao_officer", "MAO")
         cls.farmer_user = create_user("juan_farmer", "FARMER")
         cls.sibat_user = create_user("sibat_reviewer", "SIBAT", cls.manggas)
+        cls.slaughterhouse_user = create_user("abattoir_staff", "SLAUGHTERHOUSESTAFF")
 
         # 4. Farmer profile
         cls.farmer = Farmer.objects.create(
@@ -58,6 +59,7 @@ class DataImportTests(APITestCase):
         # 5. Livestock types
         cls.cattle = LivestockType.objects.create(name="Cattle")
         cls.swine = LivestockType.objects.create(name="Swine")
+        cls.carabao = LivestockType.objects.create(name="Carabao")
 
         # 6. Existing animal for duplicate check
         cls.existing_animal = LivestockInventory.objects.create(
@@ -135,12 +137,50 @@ class DataImportTests(APITestCase):
         slaughter = next(dataset for dataset in res.data if dataset["code"] == "slaughter")
         self.assertEqual(
             slaughter["required_fields"],
-            ["barangay", "livestock_type", "quantity", "record_date"],
+            ["livestock_type", "quantity", "record_date"],
         )
         self.assertEqual(
             slaughter["description"],
             "Municipal abattoir and authorized on-farm slaughter events, including slaughter quantities and carcass yields.",
         )
+
+    def test_slaughterhouse_staff_can_only_upload_slaughter_csv_without_barangay(self):
+        """May-style headers normalize to the canonical fields and remain pending for review."""
+        self.client.force_authenticate(self.slaughterhouse_user)
+        response = self.client.get("/api/data-imports/datasets/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([dataset["code"] for dataset in response.data], ["slaughter"])
+
+        csv_content = "date,species,heads,kilograms\n2026-05-01,Hogs,2,318.75\n"
+        file = SimpleUploadedFile("may_slaughter.csv", csv_content.encode(), content_type="text/csv")
+        result = self.client.post(
+            "/api/data-imports/import/",
+            {"dataset_type": "slaughter", "file": file, "target_status": "APPROVED"},
+            format="multipart",
+        )
+        self.assertEqual(result.status_code, status.HTTP_200_OK, result.data)
+        self.assertEqual(result.data["imported_rows"], 1)
+        self.assertEqual(result.data["target_status"], "PENDING")
+        record = SlaughterRecord.objects.get(record_date=date(2026, 5, 1))
+        self.assertEqual(record.livestock_type, self.swine)
+        self.assertEqual(str(record.carcass_weight), "318.75")
+        self.assertIsNone(record.barangay_id)
+        self.assertEqual(record.created_by, self.slaughterhouse_user)
+
+        duplicate_file = SimpleUploadedFile("same_may_slaughter.csv", csv_content.encode(), content_type="text/csv")
+        duplicate_result = self.client.post(
+            "/api/data-imports/import/",
+            {"dataset_type": "slaughter", "file": duplicate_file, "skip_duplicates": "true"},
+            format="multipart",
+        )
+        self.assertEqual(duplicate_result.status_code, status.HTTP_200_OK, duplicate_result.data)
+        self.assertEqual(duplicate_result.data["imported_rows"], 0)
+        self.assertEqual(duplicate_result.data["skipped_rows"], 1)
+
+    def test_slaughterhouse_staff_cannot_download_other_dataset_template(self):
+        self.client.force_authenticate(self.slaughterhouse_user)
+        response = self.client.get("/api/data-imports/templates/livestock_inventory/?format=csv")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_validate_csv_with_valid_and_invalid_rows(self):
         """Validation returns counts of valid, warning, and error rows without mutating database."""
@@ -245,10 +285,10 @@ class DataImportTests(APITestCase):
 
     def test_slaughter_import_accepts_canonical_and_legacy_type_headers(self):
         self.client.force_authenticate(self.mao_user)
-        for header, tag in (("livestock_type", "TYPE"), ("species", "LEGACY")):
+        for header, tag, record_date in (("livestock_type", "TYPE", "2026-04-15"), ("species", "LEGACY", "2026-04-16")):
             csv_content = (
                 f"barangay,{header},quantity,record_date,carcass_weight\n"
-                f"Manggas,Cattle,2,2026-04-15,420.50\n"
+                f"Manggas,Cattle,2,{record_date},420.50\n"
             )
             file = SimpleUploadedFile(
                 f"slaughter_{tag.lower()}.csv",

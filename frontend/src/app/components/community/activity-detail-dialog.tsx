@@ -60,7 +60,12 @@ export function ActivityDetailDialog({
 
   const handleShare = () => {
     if (typeof window !== "undefined") {
-      const shareUrl = `${window.location.origin}/farmer-announcement?id=${activity.id}`;
+      const route = role === "slaughterhouse"
+        ? "/slaughterhouse/announcements"
+        : role === "auction"
+          ? "/auction-announcement"
+          : "/farmer-announcement";
+      const shareUrl = `${window.location.origin}${route}?id=${activity.id}`;
       void navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       toast.success("Announcement link copied to clipboard!");

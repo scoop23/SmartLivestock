@@ -40,7 +40,7 @@ def publish_notifications(announcement):
             (Role.UserRoles.FARMER, "/farmer-announcement", True, None),
             (Role.UserRoles.SIBAT, "/sibat-announcement", True, None),
             (Role.UserRoles.AUCTION, "/auction-announcement", True, None),
-            (Role.UserRoles.SLAUGHTERHOUSESTAFF, "/slaughterhouse", True, None),
+            (Role.UserRoles.SLAUGHTERHOUSESTAFF, "/slaughterhouse/announcements", True, None),
         ]
     elif audience in (Announcement.Audience.FARMER_AND_SIBAT, "FARMER_AND_SIBAT"):
         roles_with_links = [

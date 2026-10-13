@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { HeaderMenuButton } from "./header-menu-button";
 import { HeaderNotifications } from "./header-notifications";
 
-type PageHeaderVariant = "admin" | "farmer" | "sibat" | "auction";
+type PageHeaderVariant = "admin" | "farmer" | "sibat" | "auction" | "slaughterhouse";
 
 interface PageHeaderProps {
   title: ReactNode;
@@ -23,6 +23,7 @@ const headerClasses: Record<PageHeaderVariant, string> = {
   farmer: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   sibat: "bg-gradient-to-r from-[#1A365D] to-[#1E4E8C] text-white shadow-lg",
   auction: "bg-gradient-to-r from-[#7C3AED] to-[#9F67FF] text-white shadow-lg",
+  slaughterhouse: "bg-gradient-to-r from-[#9F1239] to-[#E11D48] text-white shadow-lg",
 };
 
 const glowClasses: Record<PageHeaderVariant, string> = {
@@ -30,6 +31,7 @@ const glowClasses: Record<PageHeaderVariant, string> = {
   farmer: "bg-emerald-300/20",
   sibat: "bg-sky-300/20",
   auction: "bg-fuchsia-200/25",
+  slaughterhouse: "bg-rose-200/25",
 };
 
 const chipClasses: Record<PageHeaderVariant, string> = {
@@ -37,6 +39,7 @@ const chipClasses: Record<PageHeaderVariant, string> = {
   farmer: "bg-white/15 text-white border border-white/20",
   sibat: "bg-white/15 text-white border border-white/20",
   auction: "bg-white/15 text-white border border-white/20",
+  slaughterhouse: "bg-white/15 text-white border border-white/20",
 };
 
 export function PageHeader({

@@ -38,7 +38,10 @@ export default function ProfilePage() {
       ? "sibat"
       : role === "AUCTION"
       ? "auction"
+      : role === "SLAUGHTERHOUSESTAFF"
+      ? "slaughterhouse"
       : "lgu";
+  const headerVariant = role === "SLAUGHTERHOUSESTAFF" ? "slaughterhouse" : "admin";
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
@@ -48,7 +51,7 @@ export default function ProfilePage() {
         <PageHeader
           title="User Profile & Security Settings"
           subtitle="Manage your personal agricultural credentials, biosecurity alerts, and account access — Padre Garcia MAO"
-          variant="admin"
+          variant={headerVariant}
           wrapSubtitleOnMobile={role === "FARMER"}
           maxWidthClass="w-full"
         />

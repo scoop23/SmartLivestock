@@ -160,6 +160,8 @@ export default function LoginPage() {
         router.push('/sibat');
       } else if (normalizedRole === 'AUCTION') {
         router.push('/auction');
+      } else if (normalizedRole === 'SLAUGHTERHOUSESTAFF') {
+        router.push('/slaughterhouse');
       } else {
         router.push('/farmer');
       }

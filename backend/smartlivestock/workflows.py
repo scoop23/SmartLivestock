@@ -10,6 +10,7 @@ SIBAT = "SIBAT"
 MAO = "MAO"
 AUCTION = "AUCTION"
 ADMIN = "ADMIN"
+SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF"
 
 
 ROLE_MATRIX = {
@@ -24,6 +25,9 @@ ROLE_MATRIX = {
     "inspections": {"create": {AUCTION}, "read_all": {AUCTION, MAO, ADMIN}, "edit_own": {AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
     # Auction encodes the certificate; farmers and reviewers retain access to their own or scoped records.
     "ownership_transfers": {"create": {AUCTION}, "read_all": {MAO, ADMIN}, "read_own": {AUCTION}, "review": {MAO, ADMIN}},
+    # Facility-entered daily totals are reviewed by MAO and remain separate from
+    # individual-animal slaughter reconciliation.
+    "slaughter_records": {"create": {SLAUGHTERHOUSESTAFF}, "read_all": {SLAUGHTERHOUSESTAFF, MAO, ADMIN}, "edit_own": {SLAUGHTERHOUSESTAFF}, "review": {MAO, ADMIN}},
 }
 
 
@@ -70,6 +74,13 @@ REVIEW_TRANSITIONS["inspections"] = (
     TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+)
+
+REVIEW_TRANSITIONS["slaughter_records"] = (
+    TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(MAO, "SUBJECT_TO_REVISION", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "SUBJECT_TO_REVISION", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )
 
 

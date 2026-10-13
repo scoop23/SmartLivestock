@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** Time slots the backend accepts for a program booking (users/community_views.py TIMES). */
 export const PROGRAM_TIME_SLOTS = ["08:00", "09:30", "11:00", "13:30"] as const;
 
-export type CommunityRole = "admin" | "sibat" | "farmer" | "auction";
+export type CommunityRole = "admin" | "sibat" | "farmer" | "auction" | "slaughterhouse";
 
 /** Per-role accent so shared community components match each dashboard's palette. */
 export const ROLE_ACCENT: Record<
@@ -41,6 +41,13 @@ export const ROLE_ACCENT: Record<
     tint: "bg-purple-50",
     badge: "text-purple-800 bg-purple-50 border-purple-200",
     bar: "bg-[#7C3AED]",
+  },
+  slaughterhouse: {
+    icon: "text-rose-700",
+    text: "text-rose-800",
+    tint: "bg-rose-50",
+    badge: "text-rose-800 bg-rose-50 border-rose-200",
+    bar: "bg-rose-600",
   },
 };
 

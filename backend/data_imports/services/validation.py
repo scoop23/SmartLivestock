@@ -198,6 +198,11 @@ class ValidationEngine:
             raw_livestock_type = get_val(livestock_field)
             if raw_livestock_type:
                 type_key = str(raw_livestock_type).strip().lower()
+                # Slaughterhouse source sheets commonly label swine as "Hogs".
+                # Resolve that source wording to the existing canonical Swine
+                # lookup when present; the stored field remains livestock_type.
+                if type_key not in self.livestock_types_by_name and self.config.code == "slaughter":
+                    type_key = {"hog": "swine", "hogs": "swine", "pig": "swine", "pigs": "swine"}.get(type_key, type_key)
                 if type_key in self.livestock_types_by_name:
                     livestock_type = self.livestock_types_by_name[type_key]
                     clean_data["livestock_type"] = livestock_type

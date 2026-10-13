@@ -50,7 +50,7 @@ export interface HeaderNotification {
 }
 
 interface HeaderNotificationsProps {
-  variant?: "admin" | "farmer" | "sibat" | "auction";
+  variant?: "admin" | "farmer" | "sibat" | "auction" | "slaughterhouse";
   className?: string;
 }
 
@@ -432,6 +432,8 @@ export function HeaderNotifications({
     sibat:
       "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
     auction:
+      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
+    slaughterhouse:
       "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
   }[variant];
 
