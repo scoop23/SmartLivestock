@@ -161,8 +161,8 @@ function Panel({
   action?: ReactNode;
 }) {
   return (
-    <Card className={`min-w-0 rounded-xl border border-slate-200/90 bg-white shadow-2xs ${className}`}>
-      <CardHeader className="flex flex-col gap-2 border-b border-slate-100/90 px-4 py-3.5 sm:px-5">
+    <Card className={`relative min-w-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.07)] before:absolute before:inset-x-10 before:top-0 before:z-10 before:h-px before:bg-gradient-to-r before:from-transparent before:via-cyan-400/70 before:to-transparent ${className}`}>
+      <CardHeader className="flex flex-col gap-2 border-b border-slate-100/90 bg-slate-50/60 px-4 py-3.5 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -192,7 +192,7 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg ${accentColor}`}>
+      <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-50 to-emerald-50 text-cyan-800 shadow-sm ring-1 ring-cyan-700/10 ${accentColor}`}>
         <Icon className="size-4.5" />
       </div>
       <div>
@@ -612,35 +612,37 @@ export default function DescriptiveAnalytics() {
   ];
 
   return (
-    <div className="min-w-0 space-y-7 text-slate-800">
+    <div className="relative isolate min-w-0 space-y-7 rounded-2xl bg-[radial-gradient(ellipse_at_top_right,rgba(56,189,248,0.08),transparent_38%),linear-gradient(180deg,#ffffff_0%,#f8fbfd_100%)] p-2 text-slate-800 sm:p-3">
       {/* 1. HEADER */}
-      <header className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <header className="relative isolate overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-white via-sky-50 to-emerald-50 p-4 text-slate-900 shadow-[0_14px_40px_rgba(15,57,77,0.08)] sm:p-6">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.15]" style={{ backgroundImage: "linear-gradient(rgba(14, 116, 144, .22) 1px, transparent 1px), linear-gradient(90deg, rgba(14, 116, 144, .22) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 size-80 rounded-full bg-cyan-300/25 blur-3xl" />
+        <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-[#2D5A27]">
+              <span className="rounded-full border border-cyan-700/15 bg-white/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-900">
                 Municipal Agriculture Office · Padre Garcia
               </span>
-              <Badge variant="outline" className="gap-1.5 border-emerald-300 bg-emerald-50/80 text-emerald-800 font-bold text-xs">
+              <Badge variant="outline" className="gap-1.5 border-emerald-700/20 bg-emerald-50 text-emerald-800 font-bold text-xs">
                 <ShieldCheck className="size-3.5 text-emerald-700" />
                 Approved records
               </Badge>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 mt-1">
+            <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
               Descriptive Analytics
             </h1>
-            <p className="text-xs sm:text-sm font-medium text-slate-600">
+            <p className="text-xs font-medium text-slate-600 sm:text-sm">
               Overview of approved livestock population, production, animal health, vaccination, and sales records.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 lg:border-t-0 lg:pt-0">
-            <div className="rounded-lg bg-slate-50 px-3 py-2 border border-slate-200/70 text-right">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                <CalendarDays className="size-3.5 text-[#2D5A27]" />
+          <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3 lg:border-t-0 lg:pt-0">
+            <div className="rounded-xl border border-white/80 bg-white/75 px-3 py-2 text-right shadow-sm backdrop-blur-sm">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <CalendarDays className="size-3.5 text-cyan-700" />
                 <span>{dateLabel(data.period.start)} – {dateLabel(data.period.end)}</span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              <p className="mt-0.5 text-[11px] font-medium text-slate-500">
                 12-month rolling assessment window
               </p>
             </div>
@@ -648,7 +650,7 @@ export default function DescriptiveAnalytics() {
               variant="outline"
               size="sm"
               onClick={() => setAttempt((v) => v + 1)}
-              className="h-10 gap-1.5 rounded-lg border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
+              className="h-10 cursor-pointer gap-1.5 rounded-lg border-cyan-700/20 bg-white/80 text-xs font-bold text-cyan-900 shadow-2xs hover:bg-cyan-50"
             >
               <RefreshCw className="size-3.5" />
               Refresh Data
@@ -658,14 +660,14 @@ export default function DescriptiveAnalytics() {
       </header>
 
       {/* 2. EXECUTIVE MUNICIPAL TELEMETRY BAR */}
-      <section aria-label="Executive Municipal Telemetry" className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
+      <section aria-label="Executive Municipal Telemetry" className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-[0_14px_38px_rgba(15,57,77,0.08)]">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-100 bg-gradient-to-r from-sky-50 to-emerald-50/70 px-4 py-2.5 sm:px-5">
           <div className="flex items-center gap-2">
             <span className="relative flex size-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-[#2D5A27]" />
+              <span className="relative inline-flex size-2 rounded-full bg-cyan-600" />
             </span>
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+            <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-700">
               Executive Telemetry · Municipal Livestock Metrics
             </span>
           </div>
@@ -674,11 +676,11 @@ export default function DescriptiveAnalytics() {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-          {kpiCards.map(({ domain, label, value, description, icon: Icon, accentColor, tagBg, tagText }) => (
+        <div className="grid grid-cols-2 divide-y divide-sky-100 sm:divide-y-0 sm:divide-x md:grid-cols-3 xl:grid-cols-6 sm:divide-sky-100">
+          {kpiCards.map(({ domain, label, value, description, icon: Icon, accentColor }) => (
             <div
               key={label}
-              className="group relative flex flex-col justify-between p-3.5 sm:p-4.5 transition-colors hover:bg-slate-50/80"
+              className="group relative flex flex-col justify-between p-3.5 transition-colors hover:bg-sky-50/70 sm:p-4.5"
             >
               {/* Colored top accent line */}
               <div
@@ -688,7 +690,7 @@ export default function DescriptiveAnalytics() {
 
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${tagBg} ${tagText}`}>
+                  <span className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-600">
                     {domain}
                   </span>
                   <div
@@ -699,16 +701,16 @@ export default function DescriptiveAnalytics() {
                   </div>
                 </div>
 
-                <p className="text-xs font-bold text-slate-600 truncate">
+                <p className="truncate text-xs font-bold text-slate-600">
                   {label}
                 </p>
 
-                <p className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-900 tabular-nums">
+                <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums sm:text-3xl">
                   {value}
                 </p>
               </div>
 
-              <p className="mt-2.5 text-[11px] font-medium text-slate-500 leading-snug border-t border-slate-100/90 pt-1.5">
+              <p className="mt-2.5 border-t border-slate-100 pt-1.5 text-[11px] font-medium leading-snug text-slate-500">
                 {description}
               </p>
             </div>
@@ -717,17 +719,17 @@ export default function DescriptiveAnalytics() {
       </section>
 
       {/* 3. DATA SNAPSHOT / AT A GLANCE (MATHEMATICALLY DERIVED FACTS ONLY) */}
-      <section aria-label="Data Snapshot" className="rounded-xl border border-emerald-900/10 bg-emerald-50/50 p-4 sm:p-4.5">
+      <section aria-label="Data Snapshot" className="rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 p-4 text-slate-800 shadow-[0_12px_32px_rgba(15,40,60,0.06)] sm:p-4.5">
         <div className="flex items-center gap-2 mb-2.5">
-          <Info className="size-4 text-[#2D5A27] shrink-0" />
-          <h2 className="text-xs font-black uppercase tracking-wider text-[#2D5A27]">
+          <Info className="size-4 shrink-0 text-cyan-300" />
+          <h2 className="text-xs font-black uppercase tracking-[0.14em] text-cyan-900">
             Municipal Intelligence Snapshot · At a Glance
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-700 font-medium">
+        <div className="grid grid-cols-1 gap-2 text-xs font-medium text-slate-700 md:grid-cols-2">
           {factualSnapshots.map((fact, index) => (
-            <div key={index} className="flex items-start gap-2 bg-white/70 rounded-lg p-2.5 border border-emerald-900/5">
-              <CheckCircle2 className="size-3.5 text-[#2D5A27] shrink-0 mt-0.5" />
+            <div key={index} className="flex items-start gap-2 rounded-lg border border-cyan-100 bg-white/85 p-2.5">
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
               <span className="leading-relaxed">{fact}</span>
             </div>
           ))}
@@ -895,19 +897,53 @@ export default function DescriptiveAnalytics() {
         </div>
       </section>
 
-      <section className="space-y-3" aria-label="Estimated value of recorded production">
-        <h2 className="text-base font-semibold">Estimated Value of Recorded Production</h2>
-        <p className="text-xl font-semibold">{data.production.valuation.estimated_value == null ? "Not available" : money(data.production.valuation.estimated_value)}</p>
-        <p className="text-xs text-slate-500">{data.production.valuation.valued_records} approved records valued using saved PSA references; {data.production.valuation.unvalued_records} records have no applicable reference. Estimates may use the latest earlier reference when a matching-period price is missing; see record details for the reference period. This is not total municipal production value or sales revenue.</p>
-        <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div><h3 className="mb-2 text-sm font-semibold">By month</h3>{data.production.valuation.by_month.map((row) => <p key={row.month} className="flex justify-between gap-2 text-xs"><span>{row.month.slice(0, 7)}</span><span>{money(row.value)}</span></p>)}</div>
-          <div><h3 className="mb-2 text-sm font-semibold">By species</h3>{data.production.valuation.by_species.map((row) => <p key={row.species ?? "unknown"} className="flex justify-between gap-2 text-xs"><span>{row.species ?? "Unmapped"}</span><span>{money(row.value)}</span></p>)}</div>
-          <div><h3 className="mb-2 text-sm font-semibold">By production type</h3>{data.production.valuation.by_type.map((row) => <p key={row.production_type} className="flex justify-between gap-2 text-xs"><span>{row.production_type}</span><span>{money(row.value)}</span></p>)}</div>
-          <div><h3 className="mb-2 text-sm font-semibold">By barangay</h3>{data.production.valuation.by_barangay.map((row) => <p key={row.barangay_id ?? "unknown"} className="flex justify-between gap-2 text-xs"><span>{row.barangay ?? "Unmapped"}</span><span>{money(row.value)}</span></p>)}</div>
-          <div><h3 className="mb-2 text-sm font-semibold">By reference commodity</h3>{data.production.valuation.by_commodity.map((row) => <p key={row.valuation_snapshot__commodity} className="flex justify-between gap-2 text-xs"><span>{row.valuation_snapshot__commodity}</span><span>{money(row.value)}</span></p>)}</div>
+      <section className="space-y-4 rounded-2xl border border-sky-200/80 bg-white p-4 shadow-[0_14px_38px_rgba(15,57,77,0.07)] sm:p-5" aria-label="Estimated value of recorded production">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-800">Production valuation</p>
+            <h2 className="mt-1 text-base font-bold tracking-tight text-slate-900">Estimated Value of Recorded Production</h2>
+          </div>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">PSA reference based</span>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <div className="rounded-xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50 via-sky-50/80 to-emerald-50/70 p-4 sm:p-5">
+            <p className="text-xs font-semibold text-slate-600">Estimated recorded value</p>
+            <p className="mt-1 text-3xl font-black tabular-nums tracking-tight text-slate-900 sm:text-4xl">
+              {data.production.valuation.estimated_value == null ? "Not available" : money(data.production.valuation.estimated_value)}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+              <span className="rounded-full border border-emerald-200 bg-white/80 px-2.5 py-1 text-emerald-800">{number(data.production.valuation.valued_records)} records valued</span>
+              <span className="rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-slate-600">{number(data.production.valuation.unvalued_records)} without a reference</span>
+            </div>
+          </div>
+          <p className="self-stretch rounded-xl border border-slate-100 bg-slate-50/80 p-4 text-xs leading-relaxed text-slate-600 sm:p-5">
+            Estimates use saved PSA references and may use the latest earlier reference when a matching-period price is missing. See record details for the reference period. This is not total municipal production value or sales revenue.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            { title: "By month", rows: data.production.valuation.by_month.map((row) => ({ label: row.month.slice(0, 7), value: row.value })) },
+            { title: "By species", rows: data.production.valuation.by_species.map((row) => ({ label: row.species ?? "Unmapped", value: row.value })) },
+            { title: "By production type", rows: data.production.valuation.by_type.map((row) => ({ label: row.production_type, value: row.value })) },
+            { title: "By barangay", rows: data.production.valuation.by_barangay.map((row) => ({ label: row.barangay ?? "Unmapped", value: row.value })) },
+            { title: "By reference commodity", rows: data.production.valuation.by_commodity.map((row) => ({ label: row.valuation_snapshot__commodity, value: row.value })) },
+          ].map(({ title, rows }) => (
+            <div key={title} className="min-w-0 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm shadow-slate-900/[0.025]">
+              <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{title}</h3>
+              <div className="space-y-2">
+                {rows.length ? rows.map((row) => (
+                  <p key={row.label} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2 text-xs">
+                    <span className="min-w-0 break-words font-medium text-slate-600">{row.label}</span>
+                    <span className="shrink-0 font-bold tabular-nums text-slate-800">{money(row.value)}</span>
+                  </p>
+                )) : <p className="border-t border-slate-100 pt-2 text-xs text-slate-400">No valued records</p>}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
-
       {/* 5. PRODUCTION SECTION */}
       <section className="space-y-4" aria-label="Production Overview">
         <SectionHeader
@@ -1493,16 +1529,17 @@ export default function DescriptiveAnalytics() {
         <Panel
           title="Barangay Summary"
           subtitle="Download the same municipal aggregates as a CSV report for follow-up and sharing."
-          action={<Button type="button" variant="outline" size="sm" onClick={() => downloadBarangayReport(data.per_barangay_report, data.period)} disabled={!data.per_barangay_report.length}>
-            <Download className="mr-2 size-4" />Download CSV
+          className="!gap-3.5"
+          action={<Button type="button" variant="outline" size="sm" onClick={() => downloadBarangayReport(data.per_barangay_report, data.period)} disabled={!data.per_barangay_report.length} className="h-9 gap-2 rounded-lg border-sky-200 bg-white px-3 text-xs font-bold text-sky-800 shadow-sm hover:bg-sky-50">
+            <Download className="size-4" />Download CSV
           </Button>}
         >
           {data.per_barangay_report.length ? (
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <Table className="min-w-[1450px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Barangay</TableHead><TableHead className="text-right">Farmers</TableHead>
+            <div className="max-h-[36rem] overflow-auto rounded-xl border border-slate-200 bg-white shadow-inner shadow-slate-100/70">
+              <Table className="min-w-[1450px] text-xs [&_td]:px-3 [&_td]:py-3 [&_th]:px-3">
+                <TableHeader className="sticky top-0 z-20 [&_tr]:border-slate-200 [&_th]:h-11 [&_th]:bg-slate-50 [&_th]:text-[10px] [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-slate-500">
+                  <TableRow className="bg-slate-50 hover:bg-slate-50">
+                    <TableHead className="sticky left-0 z-30 min-w-40 bg-slate-100">Barangay</TableHead><TableHead className="text-right">Farmers</TableHead>
                     <TableHead className="text-right">Current Heads</TableHead><TableHead>Production by Type</TableHead>
                     <TableHead className="text-right">Farmer Meat (kg)</TableHead><TableHead className="text-right">Slaughter Heads</TableHead>
                     <TableHead className="text-right">Carcass Yield (kg)</TableHead><TableHead className="text-right">Sold Heads</TableHead>
@@ -1512,11 +1549,11 @@ export default function DescriptiveAnalytics() {
                 </TableHeader>
                 <TableBody>
                   {data.per_barangay_report.map((row) => (
-                    <TableRow key={row.barangay_id ?? `unmapped-${row.barangay}`}>
-                      <TableCell className="font-semibold">{row.barangay}</TableCell>
-                      <TableCell className="text-right tabular-nums">{number(row.registered_farmers)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{number(row.current_heads)}</TableCell>
-                      <TableCell className="max-w-[260px] whitespace-normal text-xs">{row.production_outputs.length ? row.production_outputs.map((output) => `${titleCase(output.type)} ${number(output.quantity)} ${output.unit.toLowerCase()}`).join(" · ") : "—"}</TableCell>
+                    <TableRow key={row.barangay_id ?? `unmapped-${row.barangay}`} className="group/row border-slate-100 even:bg-slate-50/55 hover:bg-sky-50/70">
+                      <TableCell className="sticky left-0 z-10 min-w-40 bg-white font-bold text-slate-800 shadow-[4px_0_10px_-8px_rgba(15,23,42,0.35)] group-hover/row:bg-sky-50">{row.barangay}</TableCell>
+                      <TableCell className="text-right tabular-nums text-slate-600">{number(row.registered_farmers)}</TableCell>
+                      <TableCell className="text-right font-bold tabular-nums text-slate-900">{number(row.current_heads)}</TableCell>
+                      <TableCell className="max-w-[260px] whitespace-normal text-xs leading-relaxed text-slate-600">{row.production_outputs.length ? row.production_outputs.map((output) => `${titleCase(output.type)} ${number(output.quantity)} ${output.unit.toLowerCase()}`).join(" · ") : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.farmer_meat_records ? number(row.farmer_meat_kg) : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.slaughter_records ? number(row.slaughter_heads) : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.slaughter_yield_records && row.slaughter_yield_kg !== null ? number(row.slaughter_yield_kg) : "—"}</TableCell>
@@ -1524,7 +1561,7 @@ export default function DescriptiveAnalytics() {
                       <TableCell className="text-right tabular-nums">{row.sale_transactions === 0 ? "—" : row.recorded_sale_value_php === null ? "Not recorded" : money(row.recorded_sale_value_php)}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.disease_cases ? `${number(row.disease_cases)} (${number(row.affected_heads)} heads)` : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.mortality_records ? number(row.deaths) : "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{number(row.vaccination_coverage_pct)}% <span className="text-slate-500">({number(row.vaccinated_heads)})</span></TableCell>
+                      <TableCell className="text-right tabular-nums"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${row.vaccination_coverage_pct > 0 ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{number(row.vaccination_coverage_pct)}%</span> <span className="text-slate-500">({number(row.vaccinated_heads)})</span></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1533,7 +1570,7 @@ export default function DescriptiveAnalytics() {
           ) : (
             <EmptyState message="No barangay data is available for this report scope." />
           )}
-          <p className="mt-3 text-xs text-slate-500">A dash means no approved event records were found for that metric. “Not recorded” means sale records exist but no price was saved. Production commodities keep their original units instead of being combined.</p>
+          <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-500">A dash means no approved event records were found for that metric. “Not recorded” means sale records exist but no price was saved. Production commodities keep their original units instead of being combined.</p>
         </Panel>
       </section>
 

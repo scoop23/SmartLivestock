@@ -10,6 +10,9 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
+  ReferenceLine,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -797,6 +800,38 @@ export default function PredictiveAnalyticsView() {
       metadata: forecastData?.metadata,
     };
   }, [evalData, forecastData, selectedModel, activeDomain, productionType, unit, unitLabel]);
+
+  // Pair actual holdout observations with the currently selected model's predictions.
+  const scatterPoints = useMemo(() => {
+    const testPeriod = evalData?.data?.test_period;
+    const actuals = testPeriod?.actual_values ?? [];
+    const months = testPeriod?.months ?? [];
+    const models = evalData?.models ?? [];
+    const model = models.find((candidate) => candidate.name === selectedModel)
+      ?? models.find((candidate) => candidate.is_selected)
+      ?? models[0];
+
+    if (!model?.test_predictions) return [];
+
+    return actuals.flatMap((actual, index) => {
+      const predicted = model.test_predictions?.[index];
+      if (!Number.isFinite(actual) || !Number.isFinite(predicted)) return [];
+      return [{ actual, predicted: predicted as number, month: months[index] ?? `Observation ${index + 1}` }];
+    });
+  }, [evalData, selectedModel]);
+
+  const scatterDomain = useMemo<[number, number]>(() => {
+    if (!scatterPoints.length) return [0, 1];
+    const values = scatterPoints.flatMap((point) => [point.actual, point.predicted]);
+    const minimum = Math.min(...values);
+    const maximum = Math.max(...values);
+    const padding = maximum === minimum ? Math.max(Math.abs(maximum) * 0.1, 1) : (maximum - minimum) * 0.08;
+    return [minimum - padding, maximum + padding];
+  }, [scatterPoints]);
+  const scatterIdealLine = [
+    { x: scatterDomain[0], y: scatterDomain[0] },
+    { x: scatterDomain[1], y: scatterDomain[1] },
+  ] as const;
 
   // Rationale text from backend
   const winningModel = evalData?.models?.find((m) => m.is_selected);
@@ -2005,6 +2040,75 @@ export default function PredictiveAnalyticsView() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {scatterPoints.length > 0 && (
+            <Card className="rounded-2xl border-slate-200 shadow-xs" aria-label="Actual versus predicted scatter plot">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                      <Activity className="size-5 text-cyan-700" />
+                      Actual vs. Predicted ({normalized.unitLabel})
+                    </CardTitle>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Each dot is a holdout observation from {evalData.data?.test_period?.start_month} to {evalData.data?.test_period?.end_month}. Points closer to the dashed diagonal match actual values more closely.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="w-fit border-cyan-200 bg-cyan-50 text-xs font-semibold text-cyan-800">
+                    {evalData.models?.find((model) => model.name === selectedModel)?.name ?? winningModel?.name ?? "Selected model"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="h-80 w-full" role="img" aria-label={`Scatter plot comparing actual and predicted ${normalized.metricLabel.toLowerCase()} values for ${scatterPoints.length} holdout observations`}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 12, right: 24, bottom: 28, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis
+                        type="number"
+                        dataKey="actual"
+                        name="Actual"
+                        domain={scatterDomain}
+                        tick={{ fill: "#64748b", fontSize: 11 }}
+                        stroke="#cbd5e1"
+                        tickFormatter={(value) => Number(value).toLocaleString("en-PH", { maximumFractionDigits: 2 })}
+                        label={{ value: `Actual (${normalized.unitLabel})`, position: "insideBottom", offset: -18, fill: "#475569", fontSize: 11 }}
+                      />
+                      <YAxis
+                        type="number"
+                        dataKey="predicted"
+                        name="Predicted"
+                        domain={scatterDomain}
+                        tick={{ fill: "#64748b", fontSize: 11 }}
+                        stroke="#cbd5e1"
+                        tickFormatter={(value) => Number(value).toLocaleString("en-PH", { maximumFractionDigits: 2 })}
+                        label={{ value: `Predicted (${normalized.unitLabel})`, angle: -90, position: "insideLeft", fill: "#475569", fontSize: 11 }}
+                      />
+                      <Tooltip
+                        cursor={{ strokeDasharray: "3 3" }}
+                        contentStyle={{ backgroundColor: "#fff", borderRadius: "10px", border: "1px solid #e2e8f0", color: "#0f172a", fontSize: "12px" }}
+                        labelFormatter={(_, payload) => payload?.[0]?.payload?.month ?? "Holdout observation"}
+                        formatter={(value, name) => [`${Number(value).toLocaleString("en-PH", { maximumFractionDigits: 2 })} ${normalized.unitLabel}`, name]}
+                      />
+                      <ReferenceLine segment={scatterIdealLine} stroke="#64748b" strokeDasharray="6 5" ifOverflow="extendDomain" />
+                      <Scatter
+                        name={evalData.models?.find((model) => model.name === selectedModel)?.name ?? winningModel?.name ?? "Selected model"}
+                        data={scatterPoints}
+                        fill="#0891b2"
+                        fillOpacity={0.82}
+                        stroke="#fff"
+                        strokeWidth={1.5}
+                        isAnimationActive={false}
+                      />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="mt-1 text-center text-[11px] text-slate-500">
+                  Dashed diagonal = perfect prediction · {scatterPoints.length} paired holdout {scatterPoints.length === 1 ? "observation" : "observations"}
+                </p>
               </CardContent>
             </Card>
           )}
