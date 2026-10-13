@@ -45,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // ---------------------------------------------------------------------------
@@ -426,6 +427,23 @@ const MODEL_COLORS: Record<string, string> = {
   "Holt-Winters": "#0891b2",
 };
 
+const ANALYTICS_TOOLTIP_STYLE = {
+  backgroundColor: "#ffffff",
+  border: "1px solid #a5f3fc",
+  borderRadius: "12px",
+  boxShadow: "0 12px 28px rgba(8,145,178,0.16)",
+  color: "#0f172a",
+  fontSize: "12px",
+  padding: "8px 12px",
+};
+const ANALYTICS_TOOLTIP_CURSOR = {
+  stroke: "#0891b2",
+  strokeDasharray: "4 4",
+  strokeWidth: 1.5,
+  fill: "#cffafe",
+  fillOpacity: 0.25,
+};
+
 export default function PredictiveAnalyticsView() {
   // Domain & Parameter States
   const [activeDomain, setActiveDomain] = useState<AnalyticsDomain>("production");
@@ -801,24 +819,29 @@ export default function PredictiveAnalyticsView() {
     };
   }, [evalData, forecastData, selectedModel, activeDomain, productionType, unit, unitLabel]);
 
-  // Pair actual holdout observations with the currently selected model's predictions.
-  const scatterPoints = useMemo(() => {
+  // Pair actual holdout observations with every candidate model's predictions.
+  const scatterSeries = useMemo(() => {
     const testPeriod = evalData?.data?.test_period;
     const actuals = testPeriod?.actual_values ?? [];
     const months = testPeriod?.months ?? [];
     const models = evalData?.models ?? [];
-    const model = models.find((candidate) => candidate.name === selectedModel)
-      ?? models.find((candidate) => candidate.is_selected)
-      ?? models[0];
+    const selectedName = models.find((candidate) => candidate.name === selectedModel)?.name
+      ?? models.find((candidate) => candidate.is_selected)?.name
+      ?? models[0]?.name;
+    const fallbackColors = ["#0f766e", "#c2410c", "#4f46e5", "#be123c", "#4d7c0f"];
 
-    if (!model?.test_predictions) return [];
-
-    return actuals.flatMap((actual, index) => {
-      const predicted = model.test_predictions?.[index];
-      if (!Number.isFinite(actual) || !Number.isFinite(predicted)) return [];
-      return [{ actual, predicted: predicted as number, month: months[index] ?? `Observation ${index + 1}` }];
-    });
+    return models.map((model, modelIndex) => ({
+      name: model.name,
+      color: MODEL_COLORS[model.name] ?? fallbackColors[modelIndex % fallbackColors.length],
+      isSelected: model.name === selectedName,
+      points: actuals.flatMap((actual, index) => {
+        const predicted = model.test_predictions?.[index];
+        if (!Number.isFinite(actual) || !Number.isFinite(predicted)) return [];
+        return [{ actual, predicted: predicted as number, month: months[index] ?? `Observation ${index + 1}` }];
+      }),
+    })).filter((series) => series.points.length > 0);
   }, [evalData, selectedModel]);
+  const scatterPoints = scatterSeries.flatMap((series) => series.points);
 
   const scatterDomain = useMemo<[number, number]>(() => {
     if (!scatterPoints.length) return [0, 1];
@@ -1281,13 +1304,10 @@ export default function PredictiveAnalyticsView() {
                         unit={` ${unit === "PHP" ? "₱" : ""}`}
                       />
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#0f172a",
-                          borderRadius: "12px",
-                          border: "none",
-                          color: "#fff",
-                          fontSize: "12px",
-                        }}
+                        contentStyle={ANALYTICS_TOOLTIP_STYLE}
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#334155" }}
+                        cursor={ANALYTICS_TOOLTIP_CURSOR}
                         formatter={(val: any) => [`${val} ${unitLabel}`, "Recorded Actual"]}
                       />
                       <Line
@@ -1797,13 +1817,10 @@ export default function PredictiveAnalyticsView() {
                         unit={` ${normalized.unit === "PHP" ? "₱" : ""}`}
                       />
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#0f172a",
-                          borderRadius: "12px",
-                          border: "none",
-                          color: "#fff",
-                          fontSize: "12px",
-                        }}
+                        contentStyle={ANALYTICS_TOOLTIP_STYLE}
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#334155" }}
+                        cursor={ANALYTICS_TOOLTIP_CURSOR}
                         formatter={(val: any, name: any) => [`${val} ${normalized.unitLabel}`, name]}
                       />
                       <Legend
@@ -1866,7 +1883,10 @@ export default function PredictiveAnalyticsView() {
                       />
                       <YAxis tick={{ fill: "#64748b", fontSize: 10 }} stroke="#cbd5e1" />
                       <Tooltip
-                        contentStyle={{ backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", fontSize: "11px" }}
+                        contentStyle={ANALYTICS_TOOLTIP_STYLE}
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#334155" }}
+                        cursor={ANALYTICS_TOOLTIP_CURSOR}
                         formatter={(val: any) => [`${val} ${unitLabel}`, "MAE"]}
                       />
                       <Bar dataKey="mae" radius={[4, 4, 0, 0]}>
@@ -1908,7 +1928,10 @@ export default function PredictiveAnalyticsView() {
                       />
                       <YAxis tick={{ fill: "#64748b", fontSize: 10 }} stroke="#cbd5e1" />
                       <Tooltip
-                        contentStyle={{ backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", fontSize: "11px" }}
+                        contentStyle={ANALYTICS_TOOLTIP_STYLE}
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#334155" }}
+                        cursor={ANALYTICS_TOOLTIP_CURSOR}
                         formatter={(val: any) => [`${val} ${unitLabel}`, "RMSE"]}
                       />
                       <Bar dataKey="rmse" radius={[4, 4, 0, 0]}>
@@ -1950,7 +1973,10 @@ export default function PredictiveAnalyticsView() {
                       />
                       <YAxis tick={{ fill: "#64748b", fontSize: 10 }} stroke="#cbd5e1" domain={[0, 1]} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", fontSize: "11px" }}
+                        contentStyle={ANALYTICS_TOOLTIP_STYLE}
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#334155" }}
+                        cursor={ANALYTICS_TOOLTIP_CURSOR}
                         formatter={(val: any, _name: any, item: any) => [
                           item.payload.isNegativeR2
                             ? `${item.payload.r2} (Negative R² indicates worse than naive mean)`
@@ -2008,13 +2034,10 @@ export default function PredictiveAnalyticsView() {
                       <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 11 }} stroke="#cbd5e1" />
                       <YAxis tick={{ fill: "#64748b", fontSize: 11 }} stroke="#cbd5e1" domain={["auto", "auto"]} />
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#0f172a",
-                          borderRadius: "12px",
-                          border: "none",
-                          color: "#fff",
-                          fontSize: "12px",
-                        }}
+                        contentStyle={ANALYTICS_TOOLTIP_STYLE}
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#334155" }}
+                        cursor={ANALYTICS_TOOLTIP_CURSOR}
                       />
                       <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "8px" }} />
                       <Line
@@ -2044,7 +2067,7 @@ export default function PredictiveAnalyticsView() {
             </Card>
           )}
 
-          {scatterPoints.length > 0 && (
+          {scatterSeries.length > 0 && (
             <Card className="rounded-2xl border-slate-200 shadow-xs" aria-label="Actual versus predicted scatter plot">
               <CardHeader className="pb-3 border-b border-slate-100">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -2054,16 +2077,37 @@ export default function PredictiveAnalyticsView() {
                       Actual vs. Predicted ({normalized.unitLabel})
                     </CardTitle>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Each dot is a holdout observation from {evalData.data?.test_period?.start_month} to {evalData.data?.test_period?.end_month}. Points closer to the dashed diagonal match actual values more closely.
+                      Each color shows a candidate model for holdout observations from {evalData.data?.test_period?.start_month} to {evalData.data?.test_period?.end_month}. The selected model is emphasized; points closer to the dashed diagonal match actual values more closely.
                     </p>
                   </div>
-                  <Badge variant="outline" className="w-fit border-cyan-200 bg-cyan-50 text-xs font-semibold text-cyan-800">
-                    {evalData.models?.find((model) => model.name === selectedModel)?.name ?? winningModel?.name ?? "Selected model"}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <label htmlFor="scatter-highlight-model" className="text-xs font-medium text-slate-500">
+                      Highlight model
+                    </label>
+                    <Select
+                      value={selectedModel || winningModel?.name || ""}
+                      onValueChange={setSelectedModel}
+                    >
+                      <SelectTrigger
+                        id="scatter-highlight-model"
+                        aria-label="Choose the model to emphasize in the scatter plot"
+                        className="h-9 w-[220px] rounded-lg border-cyan-200 bg-cyan-50 text-xs font-semibold text-cyan-900 focus-visible:ring-cyan-600"
+                      >
+                        <SelectValue placeholder="Choose a model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {evalData.models?.map((model) => (
+                          <SelectItem key={model.name} value={model.name} className="text-xs">
+                            {model.name}{model.is_selected ? " (Best MAE)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-5">
-                <div className="h-80 w-full" role="img" aria-label={`Scatter plot comparing actual and predicted ${normalized.metricLabel.toLowerCase()} values for ${scatterPoints.length} holdout observations`}>
+                <div className="h-80 w-full" role="img" aria-label={`Scatter plot comparing actual and predicted ${normalized.metricLabel.toLowerCase()} values across ${scatterSeries.length} candidate models`}>
                   <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 12, right: 24, bottom: 28, left: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -2088,26 +2132,32 @@ export default function PredictiveAnalyticsView() {
                         label={{ value: `Predicted (${normalized.unitLabel})`, angle: -90, position: "insideLeft", fill: "#475569", fontSize: 11 }}
                       />
                       <Tooltip
-                        cursor={{ strokeDasharray: "3 3" }}
-                        contentStyle={{ backgroundColor: "#fff", borderRadius: "10px", border: "1px solid #e2e8f0", color: "#0f172a", fontSize: "12px" }}
+                        contentStyle={ANALYTICS_TOOLTIP_STYLE}
+                        labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                        itemStyle={{ color: "#334155" }}
+                        cursor={ANALYTICS_TOOLTIP_CURSOR}
                         labelFormatter={(_, payload) => payload?.[0]?.payload?.month ?? "Holdout observation"}
                         formatter={(value, name) => [`${Number(value).toLocaleString("en-PH", { maximumFractionDigits: 2 })} ${normalized.unitLabel}`, name]}
                       />
+                      <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "8px" }} />
                       <ReferenceLine segment={scatterIdealLine} stroke="#64748b" strokeDasharray="6 5" ifOverflow="extendDomain" />
-                      <Scatter
-                        name={evalData.models?.find((model) => model.name === selectedModel)?.name ?? winningModel?.name ?? "Selected model"}
-                        data={scatterPoints}
-                        fill="#0891b2"
-                        fillOpacity={0.82}
-                        stroke="#fff"
-                        strokeWidth={1.5}
-                        isAnimationActive={false}
-                      />
+                      {[...scatterSeries].sort((a, b) => Number(a.isSelected) - Number(b.isSelected)).map((series) => (
+                        <Scatter
+                          key={series.name}
+                          name={series.isSelected ? `${series.name} (Selected)` : series.name}
+                          data={series.points}
+                          fill={series.color}
+                          fillOpacity={series.isSelected ? 0.96 : 0.3}
+                          stroke="#fff"
+                          strokeWidth={series.isSelected ? 1.5 : 0.75}
+                          isAnimationActive={false}
+                        />
+                      ))}
                     </ScatterChart>
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-1 text-center text-[11px] text-slate-500">
-                  Dashed diagonal = perfect prediction · {scatterPoints.length} paired holdout {scatterPoints.length === 1 ? "observation" : "observations"}
+                  Dashed diagonal = perfect prediction · {scatterPoints.length} paired model-observations across {scatterSeries.length} {scatterSeries.length === 1 ? "model" : "models"}
                 </p>
               </CardContent>
             </Card>
