@@ -10,20 +10,22 @@ class LivestockListPagination(PageNumberPagination):
 
 
 def batch_list_annotations(queryset):
-    # Count all children for review status, but only ACTIVE children for current heads.
+    # Post-approval additions stay in the herd and head counts, but their review
+    # status is independent from the original approved members.
     queryset = queryset.annotate(
         child_count=Count("animals"),
+        review_child_count=Count("animals", filter=Q(animals__is_post_approval_addition=False)),
         active_animal_count=Count("animals", filter=Q(animals__operational_status="ACTIVE")),
         active_average_weight=Avg("animals__weight", filter=Q(animals__operational_status="ACTIVE")),
-        approved_children=Count("animals", filter=Q(animals__status="APPROVED")),
-        verified_children=Count("animals", filter=Q(animals__status="VERIFIED")),
-        returned_children=Count("animals", filter=Q(animals__status="SUBJECT_TO_REVISION")),
+        approved_children=Count("animals", filter=Q(animals__is_post_approval_addition=False, animals__status="APPROVED")),
+        verified_children=Count("animals", filter=Q(animals__is_post_approval_addition=False, animals__status="VERIFIED")),
+        returned_children=Count("animals", filter=Q(animals__is_post_approval_addition=False, animals__status="SUBJECT_TO_REVISION")),
     )
     return queryset.annotate(list_review_status=Case(
-        When(child_count=0, then=Value("PENDING")),
-        When(approved_children=F("child_count"), then=Value("APPROVED")),
+        When(review_child_count=0, then=Value("PENDING")),
+        When(approved_children=F("review_child_count"), then=Value("APPROVED")),
         When(returned_children__gt=0, then=Value("SUBJECT_TO_REVISION")),
-        When(verified_children=F("child_count"), then=Value("VERIFIED")),
+        When(verified_children=F("review_child_count"), then=Value("VERIFIED")),
         default=Value("PENDING"), output_field=CharField(),
     ))
 

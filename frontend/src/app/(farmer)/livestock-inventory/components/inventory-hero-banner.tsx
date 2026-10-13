@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, FileDown, Plus } from "lucide-react";
+import { Activity, Archive, FileDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,6 +44,17 @@ export function InventoryHeroBanner({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 gap-2 rounded-xl border-emerald-700/50 bg-white/10 px-4 font-bold text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-95"
+          >
+            <Link href="/livestock-inventory/history">
+              <Archive className="size-4 text-emerald-300" />
+              Livestock History
+            </Link>
+          </Button>
+
           <Button
             asChild
             variant="outline"

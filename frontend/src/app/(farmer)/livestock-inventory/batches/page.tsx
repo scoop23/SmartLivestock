@@ -73,6 +73,7 @@ export interface BatchIndividual {
   lastVaccinationDate: string | null;
   operationalStatus: string;
   reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+  isPostApprovalAddition?: boolean;
 }
 
 export interface EnrichedBatch {
@@ -221,6 +222,7 @@ export default function BatchOverviewPage() {
           lastVaccinationDate: animal.lastVaccinationDate,
           operationalStatus: animal.operationalStatus,
           reviewStatus: animal.status,
+          isPostApprovalAddition: animal.isPostApprovalAddition,
         })),
       }));
   }, [backendBatches]);
@@ -253,12 +255,16 @@ export default function BatchOverviewPage() {
   }, [rosterScrollRequest, currentBatch]);
 
   const canAddAnimalsToCurrentBatch =
-    currentBatch?.status === "ACTIVE" && currentBatch.reviewStatus === "PENDING";
+    currentBatch?.status === "ACTIVE"
+    && (currentBatch.reviewStatus === "PENDING" || currentBatch.reviewStatus === "APPROVED");
 
   // Filter individuals inside current batch
   const filteredIndividuals = useMemo(() => {
     if (!currentBatch) return [];
+    // The herd roster represents animals that are still active. Sold, deceased,
+    // slaughtered, and moved animals remain in the database and are shown in History.
     return currentBatch.individuals.filter((animal) => {
+      if (animal.operationalStatus !== "ACTIVE") return false;
       const matchSearch =
         (animal.tagNumber || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         animal.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -419,7 +425,7 @@ export default function BatchOverviewPage() {
                 </Button>
                 {!canAddAnimalsToCurrentBatch && (
                   <p className="self-center text-xs text-slate-500 sm:max-w-64">
-                    Animals can only be added while a herd is active and before verification begins.
+                    Add animals before the first review, or after the herd is approved. Returned and in-review herds must be resolved first.
                   </p>
                 )}
               </div>
@@ -707,11 +713,11 @@ export default function BatchOverviewPage() {
                   <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <span>Individual Livestock in {currentBatch.batchCode}</span>
                     <Badge variant="outline" className="text-xs font-bold border-slate-300">
-                      {filteredIndividuals.length} of {currentBatch.individuals.length} Listed
+                      {filteredIndividuals.length} active
                     </Badge>
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500 font-medium">
-                    Individual records linked to this herd, using saved livestock details.
+                    Active animals linked to this herd. Inactive animals remain available in livestock history.
                   </CardDescription>
                 </div>
 
@@ -761,7 +767,9 @@ export default function BatchOverviewPage() {
                           <TableCell colSpan={6} className="text-center py-10 text-xs text-slate-400 font-medium">
                             {currentBatch.individuals.length === 0
                               ? "No individual livestock records are linked to this herd."
-                              : "No livestock records matched the current filters."}
+                              : currentBatch.individuals.some((animal) => animal.operationalStatus !== "ACTIVE")
+                                ? "No active animals match this view. Inactive animals are available in Livestock History."
+                                : "No livestock records matched the current filters."}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -814,30 +822,35 @@ export default function BatchOverviewPage() {
                               </TableCell>
 
                               <TableCell>
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    animal.reviewStatus === "APPROVED"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : animal.reviewStatus === "VERIFIED"
-                                        ? "bg-blue-100 text-blue-800"
-                                      : animal.reviewStatus === "REJECTED"
-                                        ? "bg-rose-100 text-rose-800"
-                                        : animal.reviewStatus === "SUBJECT_TO_REVISION"
-                                          ? "bg-amber-100 text-amber-800"
-                                          : "bg-slate-100 text-slate-600"
-                                  }`}
-                                >
-                                  <span className="size-1.5 rounded-full bg-current" />
-                                  {animal.reviewStatus === "SUBJECT_TO_REVISION"
-                                    ? "For Revision"
-                                      : animal.reviewStatus === "REJECTED"
-                                        ? "Rejected"
+                                <div className="flex flex-col items-start gap-1">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      animal.reviewStatus === "APPROVED"
+                                        ? "bg-emerald-100 text-emerald-800"
                                         : animal.reviewStatus === "VERIFIED"
-                                          ? "Verified"
-                                          : animal.reviewStatus === "APPROVED"
-                                            ? "Approved"
-                                            : "Pending"}
-                                </span>
+                                          ? "bg-blue-100 text-blue-800"
+                                        : animal.reviewStatus === "REJECTED"
+                                          ? "bg-rose-100 text-rose-800"
+                                          : animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                            ? "bg-amber-100 text-amber-800"
+                                            : "bg-slate-100 text-slate-600"
+                                    }`}
+                                  >
+                                    <span className="size-1.5 rounded-full bg-current" />
+                                    {animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                      ? "For Revision"
+                                        : animal.reviewStatus === "REJECTED"
+                                          ? "Rejected"
+                                          : animal.reviewStatus === "VERIFIED"
+                                            ? "Verified"
+                                            : animal.reviewStatus === "APPROVED"
+                                              ? "Approved"
+                                              : "Pending"}
+                                  </span>
+                                  {animal.isPostApprovalAddition && (
+                                    <span className="text-[10px] font-semibold text-indigo-700">New animal · reviewed separately</span>
+                                  )}
+                                </div>
                               </TableCell>
 
                               <TableCell className="text-right pr-6">
@@ -876,6 +889,16 @@ export default function BatchOverviewPage() {
                   </Table>
                 </div>
               </CardContent>
+              {currentBatch.individuals.some((animal) => animal.operationalStatus !== "ACTIVE") && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 text-xs text-slate-600">
+                  <span>
+                    {currentBatch.individuals.filter((animal) => animal.operationalStatus !== "ACTIVE").length} inactive animal(s) are kept in history.
+                  </span>
+                  <Link href="/livestock-inventory/history" className="font-bold text-emerald-800 hover:underline">
+                    View Livestock History
+                  </Link>
+                </div>
+              )}
             </Card>
           </div>
         )}
@@ -970,7 +993,9 @@ export default function BatchOverviewPage() {
                 <span>Add Animal to {currentBatch?.batchCode}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Create a real individual livestock record in this herd. The animal will appear after it is saved.
+                {currentBatch?.reviewStatus === "APPROVED"
+                  ? "Add an individual animal to this approved herd. The new animal starts pending and goes through SIBAT, then MAO review; the existing herd approval stays in place."
+                  : "Create an individual livestock record before the herd's first review. The herd and its animals will be reviewed together."}
               </DialogDescription>
             </DialogHeader>
 

@@ -153,6 +153,9 @@ class LivestockInventory(models.Model):
         related_name="animals",
         help_text="Optional herd this individual animal belongs to.",
     )
+    # New members of an already-approved herd use their own review lifecycle.
+    # This keeps their pending status from reopening the original herd approval.
+    is_post_approval_addition = models.BooleanField(default=False, editable=False)
     farmer = models.ForeignKey(
         "Farmer", on_delete=models.PROTECT, related_name="inventories"
     )

@@ -77,7 +77,9 @@ export default function SibatLivestockRegistryPage() {
   });
   const registryRecords = useMemo(() => {
     const individuals = (inventoryQuery.data ?? [])
-      .filter((record) => record.batch == null && !record.batch_code)
+      // Ordinary herd members are represented by the herd row. A later addition
+      // is different: it has its own review lifecycle, so show it as an animal row.
+      .filter((record) => (record.batch == null && !record.batch_code) || record.is_post_approval_addition)
       .map(mapInventoryToUnified);
     const herds = (batchesQuery.data ?? [])
       .map(mapBatchToUnified);
@@ -228,7 +230,7 @@ export default function SibatLivestockRegistryPage() {
                         <TableRow key={`${record.sourceType}-${record.rawId}`} className="transition-colors hover:bg-slate-50/90">
                           <TableCell className="px-3.5 py-2.5">
                             <span className="font-mono text-xs font-bold text-slate-900">{record.tagNumber || record.batchCode || `Record #${record.rawId}`}</span>
-                            <span className="block text-xs text-slate-500">{record.entryType === "BATCH" ? record.batchName || "Herd" : record.sex || "Individual animal"}</span>
+                            <span className="block text-xs text-slate-500">{record.isPostApprovalAddition ? "Added to approved herd · reviewed separately" : record.entryType === "BATCH" ? record.batchName || "Herd" : record.sex || "Individual animal"}</span>
                           </TableCell>
                           <TableCell className="px-3.5 py-2.5 text-xs font-bold text-slate-800">{record.farmerName}</TableCell>
                           <TableCell className="px-3.5 py-2.5 text-xs font-semibold text-slate-700">{record.barangayName}</TableCell>

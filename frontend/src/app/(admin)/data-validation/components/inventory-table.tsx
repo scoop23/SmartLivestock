@@ -45,7 +45,7 @@ export function InventoryTable({
   onReview,
 }: InventoryTableProps) {
   const isHerdMember = (record: ValidationInventoryItem) =>
-    !record.isBatch && (record.batchId != null || !!record.batchCode);
+    !record.isBatch && !record.isPostApprovalAddition && (record.batchId != null || !!record.batchCode);
 
   const reviewableRecords = records.filter(
     (record) =>
@@ -80,6 +80,7 @@ export function InventoryTable({
     batchId: inv.batchId,
     batchCode: inv.batchCode,
     batchName: inv.batchName,
+    isPostApprovalAddition: inv.isPostApprovalAddition,
     housingPen: inv.housingPen,
     feedType: inv.feedType,
     targetWeight: inv.targetWeight,
@@ -188,6 +189,11 @@ export function InventoryTable({
                                 <span className="text-[9px] font-bold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
                                   {inv.batchCode}
                                 </span>
+                              )}
+                              {inv.isPostApprovalAddition && (
+                                <Badge className="border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-800">
+                                  New herd member
+                                </Badge>
                               )}
                             </div>
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">

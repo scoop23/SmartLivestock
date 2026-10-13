@@ -225,7 +225,7 @@ def inventory_detail(request, pk):
         serializer.is_valid(raise_exception=True)
         was_returned = inventory.status == LivestockInventory.StatusType.SUBJECT_TO_REVISION
         inventory = serializer.save()
-        if was_returned and not inventory.batch_id: #type: ignore
+        if was_returned and (not inventory.batch_id or inventory.is_post_approval_addition): #type: ignore
             inventory.status = LivestockInventory.StatusType.PENDING #type: ignore
             inventory.reviewed_by = None #type: ignore
             inventory.reviewed_at = None #type: ignore
@@ -272,7 +272,7 @@ def review_inventory(request, pk):
     """
     inventory = get_object_or_404(scope_reviewer_queryset(LivestockInventory.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
-    if inventory.batch_id: # type: ignore
+    if inventory.batch_id and not inventory.is_post_approval_addition: # type: ignore
         batch = inventory.batch
         return Response(
             {
@@ -284,6 +284,23 @@ def review_inventory(request, pk):
             },
             status=status.HTTP_409_CONFLICT,
         )
+
+    if inventory.batch_id and inventory.is_post_approval_addition:
+        # Only the explicitly marked new child can be reviewed on its own.
+        # Lock the parent and confirm its original cohort remains approved.
+        batch = get_object_or_404(
+            LivestockBatch.objects.select_for_update(), pk=inventory.batch_id
+        )
+        original_members = batch.animals.filter(is_post_approval_addition=False)
+        if (
+            batch.status != LivestockBatch.StatusType.ACTIVE
+            or not original_members.exists()
+            or original_members.exclude(status=LivestockInventory.StatusType.APPROVED).exists()
+        ):
+            return Response(
+                {"error": "This animal can only be reviewed individually while its original herd remains active and approved."},
+                status=status.HTTP_409_CONFLICT,
+            )
 
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")

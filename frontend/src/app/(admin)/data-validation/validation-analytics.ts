@@ -65,6 +65,8 @@ export interface ValidationInventoryItem {
   id: string | number;
   rawId?: number;
   isBatch?: boolean;
+  /** Allows an animal added to an approved herd to be reviewed independently. */
+  isPostApprovalAddition?: boolean;
   farmerName: string;
   barangayName: string;
   livestockType: string;
@@ -246,6 +248,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           batch: item.batch || item.batch_id || null,
           batchCode: item.batch_code || undefined,
           batchName: item.batch_name || undefined,
+          isPostApprovalAddition: item.is_post_approval_addition ?? false,
           photoUrl: item.photo_url || item.photo || undefined,
           photoName: (item.photo_url || item.photo) ? `Animal Passport #${item.tag_number || item.id}` : undefined,
         });

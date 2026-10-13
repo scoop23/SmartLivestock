@@ -46,6 +46,8 @@ export interface UnifiedSubmissionItem {
   batchId?: number | null;
   batchCode?: string;
   batchName?: string;
+  /** True when this animal was added after its herd was approved and has its own review lifecycle. */
+  isPostApprovalAddition?: boolean;
   housingPen?: string;
   feedType?: string;
   targetWeight?: number;
@@ -73,6 +75,7 @@ export interface UnifiedSubmissionItem {
 export interface RawInventoryRecord {
   id: number;
   batch?: number | null;
+  is_post_approval_addition?: boolean;
   batch_code?: string | null;
   batch_name?: string | null;
   farmer_name?: string;
@@ -252,6 +255,7 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     batchId: inv.batch ?? null,
     batchCode: inv.batch_code || undefined,
     batchName: inv.batch_name || undefined,
+    isPostApprovalAddition: inv.is_post_approval_addition ?? false,
     lastVaccinationDate: inv.last_vaccination_date,
     operationalStatus: inv.operational_status || "ACTIVE",
     reviewRemarks: inv.review_remarks,
@@ -746,7 +750,7 @@ export function useReviewSubmission() {
       status: "VERIFIED" | "SUBJECT_TO_REVISION" | "REJECTED";
       remarks: string;
     }) => {
-      if (item.sourceType === "INVENTORY" && (item.batchId != null || item.batchCode)) {
+      if (item.sourceType === "INVENTORY" && (item.batchId != null || item.batchCode) && !item.isPostApprovalAddition) {
         throw new Error("Herd animals must be reviewed through their batch.");
       }
       let endpoint = `livestock/inventory/${item.rawId}/review/`;

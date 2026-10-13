@@ -405,9 +405,22 @@ def batch_add_animals(request, pk):
             {"error": "Animals can only be added to an ACTIVE batch."},
             status=status.HTTP_409_CONFLICT,
         )
-    if batch.animals.exclude(status=LivestockInventory.StatusType.PENDING).exists():
+    # Initial herd members are reviewed together. A later member of an
+    # approved herd gets an independent pending review without reopening the
+    # original cohort's certification.
+    original_members = batch.animals.filter(is_post_approval_addition=False)
+    original_statuses = set(original_members.values_list("status", flat=True).distinct())
+    has_post_approval_additions = batch.animals.filter(is_post_approval_addition=True).exists()
+    if original_members.exists() and original_statuses == {LivestockInventory.StatusType.APPROVED}:
+        is_post_approval_addition = True
+    elif (
+        original_statuses in (set(), {LivestockInventory.StatusType.PENDING})
+        and not has_post_approval_additions
+    ):
+        is_post_approval_addition = False
+    else:
         return Response(
-            {"error": "Animals can only be added before herd verification begins."},
+            {"error": "Animals can be added before the first herd review or to an approved herd. Resolve any returned or in-review records first."},
             status=status.HTTP_409_CONFLICT,
         )
 
@@ -451,15 +464,37 @@ def batch_add_animals(request, pk):
                 last_vaccination_date=animal.get("last_vaccination_date") or None,
                 status=default_animal_status,
                 created_by=user,
+                is_post_approval_addition=is_post_approval_addition,
             )
             created_animals.append(created)
+
+            animal_label = created.tag_number or created.livestock_type.name
+            notify_role(
+                barangay_id=batch.farmer.barangay_id,
+                role_name="SIBAT",
+                notification_type=Notification.NotificationType.SIBAT,
+                priority=Notification.Priority.MEDIUM,
+                title="New Herd Animal Awaiting Verification",
+                message=(
+                    f"{animal_label} was added to {batch.batch_code} and needs individual SIBAT verification."
+                    if is_post_approval_addition
+                    else f"{animal_label} was added to {batch.batch_code} before herd verification."
+                ),
+                link=f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={created.pk}",
+                related_entity_type="livestock_inventory",
+                related_entity_id=created.pk,
+            )
 
     serializer = LivestockInventorySerializer(
         created_animals, many=True, context={"request": request}
     )
     return Response(
         {
-            "message": f"Successfully added {len(created_animals)} animals to batch {batch.batch_code}.",
+            "message": (
+                f"Added {len(created_animals)} animal(s) to {batch.batch_code}; each new animal is pending its own SIBAT and MAO review."
+                if is_post_approval_addition
+                else f"Successfully added {len(created_animals)} animals to batch {batch.batch_code}."
+            ),
             "animals": serializer.data,
         },
         status=status.HTTP_201_CREATED,

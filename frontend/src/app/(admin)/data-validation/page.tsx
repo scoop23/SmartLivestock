@@ -85,7 +85,7 @@ function splitHerdInventoryIds(
       return;
     }
     const record = records.find((r) => String(r.id) === strId);
-    if (!record || (!record.isBatch && (record.batchId != null || !!record.batchCode))) {
+    if (!record || (!record.isBatch && !record.isPostApprovalAddition && (record.batchId != null || !!record.batchCode))) {
       blockedHerdIds.push(id);
       return;
     }
@@ -505,7 +505,7 @@ function AdminDataValidationContent() {
       case "inventory":
         return paginatedInventory
           .filter((i) => (i.status || "PENDING").toUpperCase() === "VERIFIED" &&
-            (i.isBatch || (i.batchId == null && !i.batchCode)))
+            (i.isBatch || i.isPostApprovalAddition || (i.batchId == null && !i.batchCode)))
           .map((i) => i.id);
       case "incidents":
         return paginatedIncidents
@@ -568,7 +568,7 @@ function AdminDataValidationContent() {
     } else if (activeDomain === "inventory") {
       targets = inventoryRecords
         .filter((i) => selectedIds.includes(i.id) && (i.status || "PENDING").toUpperCase() === "VERIFIED" &&
-          (i.isBatch || (i.batchId == null && !i.batchCode)))
+          (i.isBatch || i.isPostApprovalAddition || (i.batchId == null && !i.batchCode)))
         .map((i) => ({
           id: i.id,
           domain: "inventory",

@@ -27,6 +27,7 @@ export interface LivestockInventoryItem {
   status: StatusType;
   operationalStatus: OperationalStatus;
   operationalStatusChangedAt?: string | null;
+  isPostApprovalAddition?: boolean;
   reviewRemarks?: string | null;
   reviewedByName?: string | null;
   reviewedAt?: string | null;
@@ -55,6 +56,7 @@ export interface InventoryApiItem {
   status: StatusType;
   operational_status: OperationalStatus;
   operational_status_changed_at: string | null;
+  is_post_approval_addition?: boolean;
   review_remarks: string | null;
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
@@ -471,6 +473,7 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   status: item.status,
   operationalStatus: item.operational_status || "ACTIVE",
   operationalStatusChangedAt: item.operational_status_changed_at,
+  isPostApprovalAddition: item.is_post_approval_addition ?? false,
   reviewRemarks: item.review_remarks,
   reviewedByName: item.reviewed_by_name,
   reviewedAt: item.reviewed_at,

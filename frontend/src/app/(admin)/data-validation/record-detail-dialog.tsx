@@ -98,6 +98,7 @@ export type DetailRecordData =
     id: string | number;
     rawId?: number;
     isBatch?: boolean;
+    isPostApprovalAddition?: boolean;
     batchId?: number | null;
     farmerName: string;
     barangayName: string;
@@ -223,6 +224,7 @@ export function RecordDetailDialog({
   const isHerdInventory =
     record.kind === "inventory" &&
     !record.isBatch &&
+    !record.isPostApprovalAddition &&
     (record.batchId != null || !!record.batchCode);
 
   const handleSaveEdits = async () => {

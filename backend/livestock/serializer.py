@@ -163,6 +163,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     status = serializers.CharField(max_length=25, read_only=True)
     operational_status = serializers.CharField(max_length=20, read_only=True)
     operational_status_changed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    is_post_approval_addition = serializers.BooleanField(read_only=True)
     review_remarks = serializers.CharField(read_only=True, allow_null=True)
     reviewed_at = serializers.DateTimeField(read_only=True, allow_null=True)
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
@@ -243,16 +244,28 @@ class LivestockInventorySerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"livestock_type": "The animal species must match its herd."}
                 )
-            if batch.animals.exclude(
-                status__in=["PENDING", "SUBJECT_TO_REVISION"]
-            ).exists():
-                raise serializers.ValidationError(
-                    {"batch": "This herd is already verified or approved."}
-                )
-            if not current_batch_id and batch.animals.exclude(status="PENDING").exists():
-                raise serializers.ValidationError(
-                    {"batch": "New animals can only join a pending herd."}
-                )
+            # A new child already flagged as a post-approval addition may be
+            # corrected in place without reopening the approved herd.
+            original_members = batch.animals.filter(is_post_approval_addition=False)
+            is_existing_approved_addition = bool(
+                self.instance
+                and self.instance.is_post_approval_addition
+                and original_members.exists()
+                and not original_members.exclude(
+                    status=LivestockInventory.StatusType.APPROVED
+                ).exists()
+            )
+            if not is_existing_approved_addition:
+                if batch.animals.exclude(
+                    status__in=["PENDING", "SUBJECT_TO_REVISION"]
+                ).exists():
+                    raise serializers.ValidationError(
+                        {"batch": "This herd is already verified or approved. Add animals from the herd roster."}
+                    )
+                if not current_batch_id and batch.animals.exclude(status="PENDING").exists():
+                    raise serializers.ValidationError(
+                        {"batch": "New animals can only join a pending herd."}
+                    )
         return attrs
 
     def create(self, validated_data):
@@ -326,6 +339,7 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
             "status",
             "operational_status",
             "operational_status_changed_at",
+            "is_post_approval_addition",
             "review_remarks",
             "reviewed_by_name",
             "reviewed_by_role",
@@ -461,8 +475,9 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         return BatchChildAnimalSerializer(animals, many=True, context=self.context).data
 
     def get_review_status(self, obj):
-        # In-memory computation
-        animals = obj.animals.all()
+        # Post-approval additions are reviewed individually, so the original
+        # herd review status is computed from its original members only.
+        animals = [a for a in obj.animals.all() if not a.is_post_approval_addition]
         if not animals:
             return "PENDING"
         statuses = [a.status for a in animals]
@@ -482,7 +497,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         reviewed = [
             a.review_remarks.strip()
             for a in obj.animals.all()
-            if a.review_remarks and a.reviewed_at and a.review_remarks.strip()
+            if not a.is_post_approval_addition and a.review_remarks and a.reviewed_at and a.review_remarks.strip()
         ]
         if reviewed and len(set(reviewed)) == 1:
             return reviewed[0]
@@ -490,7 +505,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
     def get_reviewed_by_role(self, obj):
         # Match the latest reviewed animal used for the herd's reviewer name.
-        reviewed = [a for a in obj.animals.all() if a.reviewed_by and a.reviewed_at]
+        reviewed = [a for a in obj.animals.all() if not a.is_post_approval_addition and a.reviewed_by and a.reviewed_at]
         if not reviewed:
             return None
         reviewer = max(reviewed, key=lambda a: a.reviewed_at).reviewed_by
@@ -498,7 +513,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
     def get_reviewed_by_name(self, obj):
         # In-memory computation
-        reviewed = [a for a in obj.animals.all() if a.reviewed_by and a.reviewed_at]
+        reviewed = [a for a in obj.animals.all() if not a.is_post_approval_addition and a.reviewed_by and a.reviewed_at]
         if reviewed:
             latest = max(reviewed, key=lambda a: a.reviewed_at)
             user = latest.reviewed_by
@@ -508,7 +523,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
 
     def get_reviewed_at(self, obj):
         # In-memory computation
-        reviewed = [a for a in obj.animals.all() if a.reviewed_at]
+        reviewed = [a for a in obj.animals.all() if not a.is_post_approval_addition and a.reviewed_at]
         if reviewed:
             latest = max(reviewed, key=lambda a: a.reviewed_at)
             return latest.reviewed_at
