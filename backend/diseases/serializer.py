@@ -154,6 +154,14 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             raise ValidationError("Date noticed / occurred cannot be in the future.")
         return value
 
+    def validate_name(self, value):
+        name = value.strip()
+        if not name:
+            raise ValidationError("Enter an illness name or select an observed sign.")
+        if name.casefold() == "general health concern":
+            raise ValidationError("Describe the illness or select an observed sign.")
+        return name
+
     def validate(self, attrs):
         if self.instance is None:
             livestock = attrs.get("livestock")

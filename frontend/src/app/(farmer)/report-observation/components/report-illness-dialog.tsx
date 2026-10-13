@@ -159,12 +159,19 @@ function ReportIllnessDialogContent({
       return;
     }
 
+    if (
+      reportType === "DISEASE" &&
+      selectedSymptoms.length === 0 &&
+      !conditionName.trim()
+    ) {
+      toast.error("Select at least one observed sign or enter a custom diagnosis.");
+      return;
+    }
+
     const mainName =
       conditionName.trim() ||
       (selectedSymptoms.length > 0
         ? selectedSymptoms.join(", ")
-        : reportType === "DISEASE"
-        ? "General Health Concern"
         : DEFAULT_MORTALITY_CAUSE);
 
     setIsSubmitting(true);
