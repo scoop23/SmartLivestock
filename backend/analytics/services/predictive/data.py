@@ -44,8 +44,10 @@ KEY DATA SCIENCE & CAPSTONE PRINCIPLES:
 """
 
 from typing import Dict, Any, Tuple, Optional
+from datetime import date
 import pandas as pd
 import numpy as np
+from django.utils import timezone
 
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth
@@ -87,7 +89,7 @@ MIN_OBSERVATIONS_REQUIRED = 12
 QUALITY_OBSERVATIONS_THRESHOLD = 24
 
 
-def get_readiness_status(observation_count: int) -> Tuple[str, str]:
+def get_readiness_status(observation_count: int, missing_month_count: int = 0) -> Tuple[str, str]:
     """
     Computes deterministic model/data readiness state:
     - NOT_READY (< 12 observations): Insufficient data to perform chronological split and train/test evaluation.
@@ -99,6 +101,12 @@ def get_readiness_status(observation_count: int) -> Tuple[str, str]:
         return (
             READINESS_NOT_READY,
             f"Found {observation_count} monthly observation(s). At least {MIN_OBSERVATIONS_REQUIRED} required.",
+        )
+    elif missing_month_count > 0:
+        return (
+            READINESS_READY,
+            f"Found {observation_count} observed months and {missing_month_count} months with no approved records. "
+            "Missing months are not assumed to be zero; annual seasonality confidence is limited.",
         )
     elif observation_count < QUALITY_OBSERVATIONS_THRESHOLD:
         return (
@@ -311,8 +319,39 @@ def extract_monthly_series(
         records = []
         base_qs = ProductionRecord.objects.none()
 
-    # Filter out any None months if legacy records had null dates
+    # A current calendar month is still in progress, so its total may be partial.
+    # Keep it out of the model history instead of treating a month-to-date value
+    # as a complete monthly observation.
+    current_month_start = date(timezone.localdate().year, timezone.localdate().month, 1)
+    # TruncMonth can yield either datetime or date objects depending on the
+    # database backend. Convert both to a pandas Timestamp before comparing.
+    current_month_has_records = any(
+        r.get("month") is not None and pd.Timestamp(r["month"]).date() >= current_month_start
+        for r in records
+    )
+
+    # Filter out any None months if legacy records had null dates, plus the
+    # incomplete current month. We do not fill missing months with fabricated zeros.
     records = [r for r in records if r.get("month") is not None and r.get("total_quantity") is not None]
+    records = [
+        r for r in records
+        if pd.Timestamp(r["month"]).date() < current_month_start
+    ]
+
+    # Count absent calendar months so model results can disclose incomplete
+    # coverage. An absent row could mean no activity or no submitted records.
+    missing_months = []
+    if records:
+        observed_months = {pd.Timestamp(r["month"]).to_period("M") for r in records}
+        first_month = min(observed_months)
+        # Also disclose trailing months without approved records through the last
+        # fully completed calendar month; otherwise stale data can look current.
+        last_month = (pd.Timestamp(current_month_start) - pd.offsets.MonthBegin(1)).to_period("M")
+        missing_months = [
+            str(month)
+            for month in pd.period_range(first_month, last_month, freq="M")
+            if month not in observed_months
+        ]
 
     # Convert the raw database query results into a list of chronological data points
     historical_trend_points = [
@@ -338,7 +377,17 @@ def extract_monthly_series(
     domain_scope = domain_scopes.get(domain, f"Municipal {domain} aggregate")
 
     # Compute deterministic readiness status & explanatory message
-    readiness_status, readiness_message = get_readiness_status(len(records))
+    readiness_status, readiness_message = get_readiness_status(len(records), len(missing_months))
+    coverage_warning_parts = []
+    if current_month_has_records:
+        coverage_warning_parts.append(
+            f"Records from the incomplete current month ({current_month_start:%Y-%m}) were excluded from model history."
+        )
+    if missing_months:
+        coverage_warning_parts.append(
+            f"There are {len(missing_months)} calendar month(s) with no approved records. They were left missing, not treated as zero."
+        )
+    coverage_warning = " ".join(coverage_warning_parts) or None
 
     # Build standardized metadata dictionary passed downstream to evaluation and forecasting
     metadata = {
@@ -358,6 +407,11 @@ def extract_monthly_series(
         "quality_observations_threshold": QUALITY_OBSERVATIONS_THRESHOLD,
         "readiness_status": readiness_status,
         "readiness_details": readiness_message,
+        "missing_months": missing_months,
+        "missing_month_count": len(missing_months),
+        "is_monthly_series_contiguous": not missing_months,
+        "excluded_incomplete_current_month": current_month_has_records,
+        "coverage_warning": coverage_warning,
         "historical_trend": historical_trend_points,
     }
 
@@ -425,16 +479,22 @@ def prepare_tabular_features(df: pd.DataFrame) -> pd.DataFrame:
     3. Lag 3 (lag_3): Production from 3 months ago (t - 3).
     4. Rolling Mean (rolling_mean_3): The average production of the last 3 months,
        which smooths short-term noise and reveals local momentum.
-    5. Time Index (time_step): 0, 1, 2, ..., N which allows regression to capture linear trend.
-    6. Month Number (month_num): 1 to 12 which allows modeling annual seasonality.
+    5. Calendar Time Index (time_step) captures elapsed months, including gaps.
+    6. Month sine/cosine features represent annual seasonality as a continuous cycle.
     """
     df_feat = df.copy()
 
-    # Time step index for trend
-    df_feat["time_step"] = np.arange(len(df_feat))
+    # Use elapsed calendar months so a gap does not masquerade as one time step.
+    first_month = df_feat["month"].iloc[0]
+    df_feat["time_step"] = (
+        (df_feat["month"].dt.year - first_month.year) * 12
+        + (df_feat["month"].dt.month - first_month.month)
+    )
 
-    # Calendar month for seasonal cyclicality
-    df_feat["month_num"] = df_feat["month"].dt.month
+    # Sine/cosine encode month as a cycle: December is close to January.
+    month_angle = 2 * np.pi * (df_feat["month"].dt.month - 1) / 12
+    df_feat["month_sin"] = np.sin(month_angle)
+    df_feat["month_cos"] = np.cos(month_angle)
 
     # Lag features (previous values)
     df_feat["lag_1"] = df_feat["quantity"].shift(1)

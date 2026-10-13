@@ -86,6 +86,12 @@ COMMODITY_CONFIGS = {
 }
 
 
+def shift_month(month_start: date, offset: int) -> date:
+    """Return the first day of a month moved by `offset` calendar months."""
+    month_index = month_start.year * 12 + month_start.month - 1 + offset
+    return date(month_index // 12, month_index % 12 + 1, 1)
+
+
 class Command(BaseCommand):
     help = (
         "Deterministically seeds or cleans synthetic test production records for predictive analytics.\n"
@@ -119,6 +125,16 @@ class Command(BaseCommand):
             choices=["LITERS", "KILOGRAMS", "PIECES"],
             help="Optional unit override (must be compatible with chosen commodity).",
         )
+        parser.add_argument(
+            "--fill-gaps",
+            action="store_true",
+            help="Create records only for months without an approved record in the selected series.",
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Report the records that would be created without inserting them.",
+        )
 
     def handle(self, *args, **options):
         if options["clean"]:
@@ -129,6 +145,8 @@ class Command(BaseCommand):
             months=options["months"],
             production_type=options["production_type"],
             unit_override=options["unit"],
+            fill_gaps=options["fill_gaps"],
+            dry_run=options["dry_run"],
         )
 
     def _handle_clean(self):
@@ -152,7 +170,17 @@ class Command(BaseCommand):
             )
         )
 
-    def _handle_seed(self, months: int, production_type: str, unit_override: str):
+    def _handle_seed(
+        self,
+        months: int,
+        production_type: str,
+        unit_override: str,
+        fill_gaps: bool = False,
+        dry_run: bool = False,
+    ):
+        if months < 1:
+            self.stderr.write(self.style.ERROR("--months must be at least 1."))
+            return
         # Determine which commodities to generate
         if production_type == "ALL":
             commodities_to_seed = ["MILK", "MEAT", "EGGS", "WOOL"]
@@ -188,18 +216,34 @@ class Command(BaseCommand):
         # Fixed random seed ensures exact reproducibility across runs
         rng = np.random.RandomState(42)
 
+        # Use a complete range ending with the last finished calendar month.
+        # For October 2026, 36 observations cover Oct 2023 through Sep 2026.
         today = timezone.localdate()
-        start_year = today.year - (months // 12) - 1
-        start_month = (today.month - (months % 12))
-        if start_month <= 0:
-            start_month += 12
-            start_year -= 1
+        last_complete_month = shift_month(date(today.year, today.month, 1), -1)
+        first_month = shift_month(last_complete_month, -(months - 1))
+        target_months = [shift_month(first_month, step) for step in range(months)]
 
         total_created = 0
 
         for commodity in commodities_to_seed:
             cfg = COMMODITY_CONFIGS[commodity]
             unit = unit_override or cfg["unit"]
+
+            # A real approved observation already covers its month. In gap-fill
+            # mode we skip it so synthetic output is never added to real output.
+            existing_months = set()
+            skipped_months = 0
+            if fill_gaps:
+                first_day_after_range = shift_month(first_month, months)
+                approved_dates = ProductionRecord.objects.filter(
+                    production_type=commodity,
+                    unit=unit,
+                    status=ProductionRecord.ProductionStatus.APPROVED,
+                    slaughter__isnull=True,
+                    record_date__gte=first_month,
+                    record_date__lt=first_day_after_range,
+                ).values_list("record_date", flat=True)
+                existing_months = {(record_date.year, record_date.month) for record_date in approved_dates}
 
             # Locate appropriate anchor inventory for this commodity species
             anchor_inventory = (
@@ -216,19 +260,15 @@ class Command(BaseCommand):
             )
 
             records_to_create: List[ProductionRecord] = []
-            cur_year = start_year
-            cur_month = start_month
+            for step, month_start in enumerate(target_months):
+                if fill_gaps and (month_start.year, month_start.month) in existing_months:
+                    skipped_months += 1
+                    continue
 
-            for step in range(months):
-                cur_month += 1
-                if cur_month > 12:
-                    cur_month = 1
-                    cur_year += 1
-
-                obs_date = date(cur_year, cur_month, 15)
+                obs_date = date(month_start.year, month_start.month, 15)
 
                 # 12-month annual sinusoidal wave
-                month_angle = 2.0 * np.pi * (cur_month - 1) / 12.0
+                month_angle = 2.0 * np.pi * (month_start.month - 1) / 12.0
                 seasonal_component = cfg["seasonal_amp"] * np.sin(month_angle - 1.0)
                 trend_component = cfg["trend_slope"] * step
                 noise = rng.normal(loc=0.0, scale=cfg["noise_sigma"])
@@ -267,19 +307,27 @@ class Command(BaseCommand):
                 )
                 records_to_create.append(record)
 
-            ProductionRecord.objects.bulk_create(records_to_create)
+            if dry_run:
+                self.stdout.write(
+                    f"  -> Would create {len(records_to_create)} {commodity} records; "
+                    f"preserve existing approved months: {skipped_months}"
+                )
+            else:
+                ProductionRecord.objects.bulk_create(records_to_create)
+                self.stdout.write(
+                    f"  -> Seeded {len(records_to_create)} monthly records for {commodity} ({unit}); "
+                    f"preserved {skipped_months} existing approved month(s)"
+                )
             total_created += len(records_to_create)
-
-            self.stdout.write(
-                f"  -> Seeded {len(records_to_create)} monthly records for {commodity} ({unit})"
-            )
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\nProduction predictive analytics seed completed successfully!\n"
+                f"\nProduction predictive analytics seed {'preview' if dry_run else 'completed successfully'}!\n"
                 f"-----------------------------------------------------------\n"
                 f"  Commodities Seeded: {', '.join(commodities_to_seed)}\n"
                 f"  Total Records:      {total_created}\n"
+                f"  Date Range:         {first_month:%Y-%m} to {last_complete_month:%Y-%m}\n"
+                f"  Fill Gaps Only:     {fill_gaps}\n"
                 f"  Months per Series:  {months}\n"
                 f"  Seed Marker:        {SEED_MARKER_PRODUCTION_V2}\n"
                 f"-----------------------------------------------------------\n"

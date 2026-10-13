@@ -54,9 +54,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 type AnalyticsDomain = "production" | "disease" | "mortality" | "slaughter" | "auction";
 
-// ModelEvaluation:
-// Represents the benchmark score of a single ML candidate algorithm
-// (e.g. Random Forest, ARIMA, Linear Regression) tested on historical holdout data.
+// ModelEvaluation holds pooled error scores from rolling forecast windows.
 interface ModelEvaluation {
   name: string;
   model_type: string;
@@ -66,6 +64,7 @@ interface ModelEvaluation {
   rmse: number | null;
   r2: number | null;
   test_predictions?: number[];
+  future_predictions?: number[];
   is_selected?: boolean;
 }
 
@@ -77,9 +76,8 @@ interface HistoricalTrendPoint {
   actual: number;
 }
 
-// EvaluationResponse:
-// Shape of the response from GET /api/analytics/predictive/evaluate/
-// Contains model comparison benchmarks, baseline superiority check, data provenance, and readiness status.
+// EvaluationResponse is the backend contract for rolling forecast comparisons,
+// baseline checks, data coverage warnings, and provenance.
 interface EvaluationResponse {
   status: "ready" | "insufficient_data" | "error";
   readiness_status?: "NOT_READY" | "READY" | "QUALITY_READY";
@@ -123,9 +121,24 @@ interface EvaluationResponse {
       start_month: string;
       end_month: string;
       observations: number;
+      dates?: string[];
       actual_values?: number[];
       months?: string[];
     };
+    future_period?: {
+      start_month: string;
+      end_month: string;
+      dates: string[];
+      months: string[];
+      horizon_months: number;
+    };
+    rolling_origin_windows?: number;
+    evaluation_horizon_months?: number;
+    missing_months?: string[];
+    missing_month_count?: number;
+    is_monthly_series_contiguous?: boolean;
+    excluded_incomplete_current_month?: boolean;
+    coverage_warning?: string | null;
     historical_trend?: HistoricalTrendPoint[];
   };
   data_provenance?: {
@@ -153,6 +166,7 @@ interface EvaluationResponse {
   selection?: {
     criterion: string;
     selected_model: string;
+    baseline_model?: string;
     rationale: string;
   };
   models?: ModelEvaluation[];
@@ -173,6 +187,7 @@ interface ChartTimelinePoint {
 
 interface ForecastResponse {
   status: "ready" | "insufficient_data" | "error";
+  message?: string;
   readiness_status?: "NOT_READY" | "READY" | "QUALITY_READY";
   readiness_details?: string;
   baseline_comparison?: "MODEL_BEATS_BASELINE" | "BASELINE_BEST" | "INSUFFICIENT_DATA";
@@ -421,11 +436,24 @@ const PRODUCTION_COMMODITIES = [
 
 const MODEL_COLORS: Record<string, string> = {
   "Naive Baseline": "#64748b",
+  "Seasonal Naive": "#0e7490",
   "Linear Regression": "#2563eb",
   "Random Forest": "#7c3aed",
   ARIMA: "#d97706",
   "Holt-Winters": "#0891b2",
 };
+
+// Short labels keep the six-model error charts readable on narrow screens.
+function shortModelLabel(name: string) {
+  const labels: Record<string, string> = {
+    "Naive Baseline": "Naive",
+    "Seasonal Naive": "Seasonal",
+    "Linear Regression": "Linear Reg.",
+    "Random Forest": "Random Forest",
+    "Holt-Winters": "Holt-Winters",
+  };
+  return labels[name] ?? name;
+}
 
 const ANALYTICS_TOOLTIP_STYLE = {
   backgroundColor: "#ffffff",
@@ -461,6 +489,7 @@ export default function PredictiveAnalyticsView() {
   // Loading & UI States
   const [loading, setLoading] = useState<boolean>(true);
   const [forecastLoading, setForecastLoading] = useState<boolean>(false);
+  const [forecastError, setForecastError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [showMethodology, setShowMethodology] = useState<boolean>(false);
@@ -513,6 +542,7 @@ export default function PredictiveAnalyticsView() {
     const params: Record<string, string> = {
       domain: activeDomain,
       unit,
+      horizon: String(horizon),
     };
     if (activeDomain === "production") {
       params.production_type = productionType;
@@ -528,6 +558,15 @@ export default function PredictiveAnalyticsView() {
       })
       .then(({ data }) => {
         if (!active) return;
+        // Django may return a JSON error payload with HTTP 200 while DEBUG is
+        // enabled. Axios then enters .then(), so check the API's own status too;
+        // otherwise neither the error panel nor the analytics panels render.
+        if (data.status === "error") {
+          setEvalData(null);
+          setSelectedModel(null);
+          setError(data.message || "The predictive analytics service could not evaluate this dataset.");
+          return;
+        }
         setEvalData(data);
         if (data.status === "ready" && data.selection?.selected_model) {
           setSelectedModel(data.selection.selected_model);
@@ -549,18 +588,23 @@ export default function PredictiveAnalyticsView() {
       active = false;
       controller.abort();
     };
-  }, [activeDomain, productionType, targetMetric, unit, refreshTrigger]);
+  }, [activeDomain, productionType, targetMetric, unit, horizon, refreshTrigger]);
 
-  // Fetch future forecast whenever selectedModel, horizon, or evaluation data changes
+  // Fetch the actual future points separately from model evaluation. Evaluation
+  // scores tell us how candidates performed in backtests; this endpoint returns
+  // the projection plotted on the purple line. Keep API failures visible in the UI.
   useEffect(() => {
     if (evalData?.status !== "ready") {
       setForecastData(null);
+      setForecastError(null);
       return;
     }
 
     let active = true;
     const controller = new AbortController();
     setForecastLoading(true);
+    setForecastError(null);
+    setForecastData(null);
 
     const params: Record<string, string | number> = {
       domain: activeDomain,
@@ -583,12 +627,25 @@ export default function PredictiveAnalyticsView() {
         signal: controller.signal,
       })
       .then(({ data }) => {
-        if (active) setForecastData(data);
+        if (!active) return;
+        if (data.status !== "ready" || !data.forecast_available || !data.forecast?.length) {
+          setForecastData(null);
+          setForecastError(data.message || "The server did not return forecast values for this selection.");
+          return;
+        }
+        setForecastData(data);
       })
       .catch((err) => {
         if (!active) return;
         if (err.name !== "CanceledError" && err.name !== "AbortError") {
           console.error("Forecast fetch error:", err);
+          const responseMessage = (err as { response?: { data?: { message?: string; detail?: string } } })
+            ?.response?.data;
+          setForecastData(null);
+          setForecastError(
+            responseMessage?.message || responseMessage?.detail ||
+            "Could not load the projection. Check the selected data and try again."
+          );
         }
       })
       .finally(() => {
@@ -616,11 +673,16 @@ export default function PredictiveAnalyticsView() {
   const testComparisonData = useMemo(() => {
     if (!evalData?.data?.test_period?.actual_values || !evalData.models) return [];
     const testInfo = evalData.data.test_period;
+    const dates = testInfo.dates || [];
     const months = testInfo.months || [];
     const actuals = testInfo.actual_values || [];
+    const forecastModelName = forecastData?.model ?? evalData.selection?.selected_model;
 
-    return months.map((monthStr, idx) => {
+    // A date key is more reliable than sorting display labels such as "Sep 2026".
+    // Carry the same index through actuals and every model's predictions.
+    const holdoutRows = months.map((monthStr, idx) => {
       const row: Record<string, string | number | null> = {
+        date: dates[idx] ?? `${idx}`,
         month: monthStr,
         Actual: actuals[idx] ?? null,
       };
@@ -628,10 +690,55 @@ export default function PredictiveAnalyticsView() {
         if (m.test_predictions && m.test_predictions[idx] !== undefined) {
           row[m.name] = m.test_predictions[idx];
         }
+        // Start the selected model's dashed forecast at the latest actual point,
+        // so it flows directly from September into October on the chart.
+        row[`${m.name}__future`] = m.name === forecastModelName && idx === actuals.length - 1
+          ? (actuals[idx] ?? null)
+          : null;
       });
       return row;
     });
-  }, [evalData]);
+
+    // Future estimates are a different period from the holdout: there are no
+    // actual values yet, so render them as separate dashed model series.
+    const futureInfo = evalData.data?.future_period;
+    // The forecast endpoint is already used for the main projection chart. Use
+    // it as a fallback when the comparison endpoint is served by an older API
+    // process that has not started returning per-model future projections yet.
+    const operationalForecast = forecastData?.forecast ?? [];
+    const futureMonths = futureInfo?.months ?? operationalForecast.map((point) => point.month_label);
+    const futureDates = futureInfo?.dates ?? operationalForecast.map((point) => point.date);
+    const futureRows = futureMonths.map((monthStr, idx) => {
+      const row: Record<string, string | number | null> = {
+        date: futureDates[idx] ?? `future-${idx}`,
+        month: monthStr,
+        Actual: null,
+      };
+      evalData.models?.forEach((m) => {
+        row[m.name] = null;
+        // Keep the future section focused on the one model the dashboard chose.
+        const predicted = m.name === forecastModelName
+          ? (operationalForecast[idx]?.predicted ?? m.future_predictions?.[idx])
+          : undefined;
+        row[`${m.name}__future`] = predicted === undefined ? null : predicted;
+      });
+      return row;
+    });
+
+    return [...holdoutRows, ...futureRows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [evalData, forecastData]);
+
+  // Prefer the comparison response's full candidate range. Older API responses
+  // can still show the selected model's range from the operational forecast.
+  const futureForecastRange = useMemo(() => {
+    const futurePeriod = evalData?.data?.future_period;
+    if (futurePeriod) return { start: futurePeriod.start_month, end: futurePeriod.end_month, firstLabel: futurePeriod.months[0] };
+
+    const points = forecastData?.forecast ?? [];
+    return points.length > 0
+      ? { start: points[0].date, end: points[points.length - 1].date, firstLabel: points[0].month_label }
+      : null;
+  }, [evalData, forecastData]);
 
   // Model Metric Comparison bar datasets
   const modelBarData = useMemo(() => {
@@ -667,7 +774,7 @@ export default function PredictiveAnalyticsView() {
     // 1. Check data sufficiency status returned by Django backend
     const isInsufficient = evalData?.status === "insufficient_data";
     
-    // 2. Extract available vs required observations (12 months required for 1-year seasonality & holdout testing)
+    // 2. Count observed months. The backend needs a history long enough to evaluate forecasts.
     const availableObs =
       evalData?.available_observations ??
       evalData?.data?.available_observations ??
@@ -690,7 +797,7 @@ export default function PredictiveAnalyticsView() {
     // If in insufficient_data mode, fall back to historical points with null forecast values.
     const timelineData: ChartTimelinePoint[] =
       forecastData?.chart_data && forecastData.chart_data.length > 0
-        ? forecastData.chart_data
+        ? [...forecastData.chart_data].sort((a, b) => a.date.localeCompare(b.date))
         : historicalList.map((h) => ({
             date: h.date,
             month_label: h.month_label,
@@ -710,7 +817,7 @@ export default function PredictiveAnalyticsView() {
       (readinessStatus === "QUALITY_READY"
         ? "Dataset includes 2+ annual cycles (24+ months) for seasonal decomposition."
         : readinessStatus === "READY"
-        ? "Dataset meets the 12-month minimum for 1-year seasonality and holdout evaluation."
+        ? "Dataset meets the minimum history for chronological forecast evaluation."
         : "Insufficient historical observations (< 12 months).");
 
     // 5. Baseline Superiority & Winning Model Metadata
@@ -724,7 +831,7 @@ export default function PredictiveAnalyticsView() {
       forecastData?.forecast_source ??
       (isInsufficient ? "NONE" : "MACHINE_LEARNING");
 
-    const baselineModel = evalData?.baseline_model ?? forecastData?.baseline_model ?? "Naive Baseline";
+    const baselineModel = evalData?.selection?.baseline_model ?? evalData?.baseline_model ?? forecastData?.baseline_model ?? "Naive Baseline";
     const baselineMae = evalData?.baseline_mae ?? forecastData?.baseline_mae ?? null;
     const selectedModelMae = evalData?.selected_model_mae ?? forecastData?.selected_model_mae ?? null;
 
@@ -742,14 +849,14 @@ export default function PredictiveAnalyticsView() {
 
     const dataProvenance = evalData?.data_provenance ?? forecastData?.data_provenance;
 
-    // 6. Identify the active model (user selection or lowest-MAE holdout winner chosen by backend)
+    // 6. Identify the active model (user selection or rolling-origin winner chosen by backend)
     const activeModelName =
       selectedModel ||
       forecastData?.model ||
       evalData?.selection?.selected_model ||
       "Best Evaluated Model";
 
-    // 7. Connect holdout test metrics (MAE, RMSE, R²) for the active model
+    // 7. Connect rolling-origin metrics (MAE, RMSE, R²) for the active model
     const evaluatedModelObj = evalData?.models?.find((m) => m.name === activeModelName);
     const metrics = {
       mae: evaluatedModelObj?.mae ?? forecastData?.metrics?.mae ?? null,
@@ -819,7 +926,7 @@ export default function PredictiveAnalyticsView() {
     };
   }, [evalData, forecastData, selectedModel, activeDomain, productionType, unit, unitLabel]);
 
-  // Pair actual holdout observations with every candidate model's predictions.
+  // Pair the final rolling-origin window's actual values with its recursive predictions.
   const scatterSeries = useMemo(() => {
     const testPeriod = evalData?.data?.test_period;
     const actuals = testPeriod?.actual_values ?? [];
@@ -858,6 +965,13 @@ export default function PredictiveAnalyticsView() {
 
   // Rationale text from backend
   const winningModel = evalData?.models?.find((m) => m.is_selected);
+  const forecastLineModelName = forecastData?.model ?? evalData?.selection?.selected_model;
+  const forecastLineModel = evalData?.models?.find((model) => model.name === forecastLineModelName);
+  const latestObservedPoint = normalized.historical[normalized.historical.length - 1];
+  const priorObservedPoints = normalized.historical.slice(-6, -1);
+  const priorObservedAverage = priorObservedPoints.length > 0
+    ? priorObservedPoints.reduce((total, point) => total + point.actual, 0) / priorObservedPoints.length
+    : null;
 
   return (
     <div className="space-y-6">
@@ -1218,7 +1332,7 @@ export default function PredictiveAnalyticsView() {
                   There are currently not enough monthly observations to generate a mathematically defensible forecast.
                 </p>
 
-                {/* Available observations vs Required observations (12 required for 1-year annual seasonality) */}
+                  {/* Display complete-month observations and whether coverage has gaps. */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
                   <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/80 flex items-center justify-between">
                     <span className="text-xs text-amber-900 font-semibold">Available observations:</span>
@@ -1489,6 +1603,22 @@ export default function PredictiveAnalyticsView() {
       {/* ------------------------------------------------------------------ */}
       {!loading && !error && evalData?.status === "ready" && (
         <div className="space-y-6 animate-in fade-in duration-300">
+          {forecastError && (
+            <div role="alert" className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-bold">Forecast unavailable</p>
+                <p className="mt-1">{forecastError}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                onClick={() => setRefreshTrigger((value) => value + 1)}
+              >
+                <RefreshCw className="mr-2 size-4" /> Try again
+              </Button>
+            </div>
+          )}
           {/* FORECAST READINESS & DATA PROVENANCE CARD */}
           <Card className="rounded-2xl border-slate-200 bg-white shadow-xs overflow-hidden">
             <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
@@ -1509,11 +1639,15 @@ export default function PredictiveAnalyticsView() {
                         : "bg-amber-600 text-white font-bold text-xs"
                     }
                   >
-                    Readiness: {normalized.readinessStatus}
+                      Data history: {normalized.readinessStatus === "QUALITY_READY"
+                        ? "2+ years available"
+                        : normalized.readinessStatus === "READY"
+                        ? "enough to evaluate"
+                        : "more history needed"}
                   </Badge>
                   {normalized.baselineComparison === "MODEL_BEATS_BASELINE" && (
                     <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs">
-                      ★ ML Beats Baseline
+                      ★ Model Beats Baseline
                     </Badge>
                   )}
                   {normalized.baselineComparison === "BASELINE_BEST" && (
@@ -1526,69 +1660,81 @@ export default function PredictiveAnalyticsView() {
             </CardHeader>
             <CardContent className="pt-4 grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                <span className="text-slate-500 font-medium">Historical Observations</span>
+                <span className="text-slate-500 font-medium">Past data available</span>
                 <p className="text-sm font-bold text-slate-900 font-mono">
                   {normalized.availableObservations} months
                 </p>
                 <p className="text-[11px] text-slate-500 truncate">
                   {normalized.historicalStartDate || "—"} to {normalized.historicalEndDate || "—"}
                 </p>
+                {(evalData?.data?.missing_month_count ?? 0) > 0 && (
+                  <p className="text-[11px] font-medium text-amber-700">
+                    {evalData?.data?.missing_month_count} calendar month(s) have no approved records
+                  </p>
+                )}
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                <span className="text-slate-500 font-medium">Evaluation Split</span>
+                <span className="text-slate-500 font-medium">How the test was split</span>
                 <p className="text-sm font-bold text-slate-900 font-mono">
-                  {evalData?.data?.training_observations ?? evalData?.data_provenance?.train_period?.observations ?? "—"} train / {evalData?.data?.test_observations ?? evalData?.data_provenance?.test_period?.observations ?? "—"} test
+                  {evalData?.data?.training_observations ?? evalData?.data_provenance?.train_period?.observations ?? "—"} months to learn / {evalData?.data?.test_observations ?? evalData?.data_provenance?.test_period?.observations ?? "—"} months to check
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Chronological holdout split
+                  Checked against later records in {evalData?.data?.rolling_origin_windows ?? 0} separate test period(s)
                 </p>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                <span className="text-slate-500 font-medium">Operational Forecast Source</span>
+                <span className="text-slate-500 font-medium">Forecast method</span>
                 <p className="text-sm font-bold text-slate-900 truncate">
                   {normalized.forecastSource === "NAIVE_BASELINE"
-                    ? "Naive Baseline (Persistence)"
+                    ? `${normalized.model} (Baseline)`
                     : `Machine Learning (${normalized.model})`}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Horizon: +{horizon} months projection
+                  Estimates the next {horizon} months
                 </p>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                <span className="text-slate-500 font-medium">Baseline Benchmark (MAE)</span>
+                <span className="text-slate-500 font-medium">Simple baseline miss (MAE)</span>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold font-mono text-slate-900">
                     {typeof normalized.baselineMae === "number" ? `${normalized.baselineMae.toFixed(2)} ${normalized.unit}` : "—"}
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    vs {typeof normalized.selectedModelMae === "number" ? `${normalized.selectedModelMae.toFixed(2)}` : "—"} ML
+                    selected: {typeof normalized.selectedModelMae === "number" ? `${normalized.selectedModelMae.toFixed(2)}` : "—"}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
                   {normalized.baselineComparison === "MODEL_BEATS_BASELINE"
-                    ? "ML error lower than baseline"
-                    : "Baseline error lower or equal"}
+                    ? "The selected method missed by less than the simple forecast"
+                    : "The simple forecast missed by less or about the same"}
                 </p>
               </div>
             </CardContent>
           </Card>
+
+          {evalData?.data?.coverage_warning && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
+              <span>{evalData.data.coverage_warning}</span>
+            </div>
+          )}
 
           {/* CHART 6 & SUMMARY METRICS: FORECAST CHANGE VS BASELINE CARD */}
           <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardContent className="p-4 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500">Selected Model</span>
+                  <span className="text-xs font-semibold text-slate-500">Selected method</span>
                   <Award className="size-4 text-emerald-700" />
                 </div>
                 <div className="text-lg font-bold text-slate-900 truncate">
                   {forecastData?.model || winningModel?.name || "Evaluating..."}
                 </div>
                 <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                  <CheckCircle2 className="size-3 text-emerald-600" /> Lowest Test MAE
+                  <CheckCircle2 className="size-3 text-emerald-600" /> Lowest average error in past tests
                 </div>
               </CardContent>
             </Card>
@@ -1596,20 +1742,20 @@ export default function PredictiveAnalyticsView() {
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardContent className="p-4 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500">Recent Baseline (3m Avg)</span>
+                  <span className="text-xs font-semibold text-slate-500">Recent average (last 3 months)</span>
                   <Calendar className="size-4 text-slate-400" />
                 </div>
                 <div className="text-lg font-bold text-slate-900">
                   {forecastData?.metadata?.recent_baseline_avg ?? "—"} {unitLabel}
                 </div>
-                <div className="text-[11px] text-slate-500">Historical velocity</div>
+                <div className="text-[11px] text-slate-500">Recorded monthly output</div>
               </CardContent>
             </Card>
 
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardContent className="p-4 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500">Forecast Period Average</span>
+                  <span className="text-xs font-semibold text-slate-500">Estimated average output</span>
                   <LineChartIcon className="size-4 text-emerald-700" />
                 </div>
                 <div className="text-lg font-bold text-slate-900">
@@ -1622,7 +1768,7 @@ export default function PredictiveAnalyticsView() {
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardContent className="p-4 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500">Projected Change</span>
+                  <span className="text-xs font-semibold text-slate-500">Estimated change</span>
                   {(forecastData?.metadata?.projected_change_pct ?? 0) >= 0 ? (
                     <TrendingUp className="size-4 text-emerald-600" />
                   ) : (
@@ -1638,7 +1784,7 @@ export default function PredictiveAnalyticsView() {
                   {forecastData?.metadata?.projected_change_pct ?? 0}%
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Projected change (model estimate, not guaranteed outcome)
+                  Compared with the recent average; this is an estimate
                 </div>
               </CardContent>
             </Card>
@@ -1675,7 +1821,7 @@ export default function PredictiveAnalyticsView() {
           {/* ------------------------------------------------------------------ */}
           {/* ACTIVE MODEL EVALUATION & SCOPE PANEL:                              */}
           {/* Displays the benchmark evaluation metrics (MAE, RMSE, R²) achieved   */}
-          {/* by the active model on the chronological holdout test dataset.       */}
+          {/* by the active model across rolling-origin forecast windows.            */}
           {/* Shows MAO officers the quantitative reliability of the model.       */}
           {/* ------------------------------------------------------------------ */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-2xs">
@@ -1683,7 +1829,7 @@ export default function PredictiveAnalyticsView() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Award className="size-4 text-emerald-700" />
-                  Active Model Evaluation: <span className="text-emerald-800 font-extrabold">{normalized.model}</span>
+                  How well it matched past data: <span className="text-emerald-800 font-extrabold">{normalized.model}</span>
                 </span>
                 {winningModel?.name === normalized.model && (
                   <Badge className="bg-emerald-700 text-white text-[10px] py-0 px-2 font-bold">
@@ -1703,8 +1849,8 @@ export default function PredictiveAnalyticsView() {
               <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    MAE (Mean Absolute Error)
-                    <span title="Average absolute difference between predictions and actual values (in target unit)." className="cursor-help text-slate-400">ℹ️</span>
+                    Typical miss (MAE)
+                    <span title="On average, how far the model's estimates were from the actual amounts." className="cursor-help text-slate-400">ℹ️</span>
                   </span>
                   <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 font-mono">
                     {normalized.unit}
@@ -1713,14 +1859,14 @@ export default function PredictiveAnalyticsView() {
                 <div className="text-xl font-extrabold text-slate-900 mt-2 font-mono">
                   {normalized.metrics.mae !== null ? Number(normalized.metrics.mae).toFixed(2) : "N/A"}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Average absolute difference between predictions and actual values.</p>
+                <p className="text-[11px] text-slate-500 mt-1">On average, estimates missed the recorded amount by this many {unitLabel}.</p>
               </div>
 
               <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    RMSE (Root Mean Squared Error)
-                    <span title="Root Mean Squared Error: Penalizes larger deviations more severely than smaller ones." className="cursor-help text-slate-400">ℹ️</span>
+                    Large-miss score (RMSE)
+                    <span title="This score rises more when a few estimates are very far from the actual amounts." className="cursor-help text-slate-400">ℹ️</span>
                   </span>
                   <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 font-mono">
                     {normalized.unit}
@@ -1729,17 +1875,17 @@ export default function PredictiveAnalyticsView() {
                 <div className="text-xl font-extrabold text-slate-900 mt-2 font-mono">
                   {normalized.metrics.rmse !== null ? Number(normalized.metrics.rmse).toFixed(2) : "N/A"}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Penalizes large error spikes more severely than small ones.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Higher values mean some estimates had larger misses.</p>
               </div>
 
               <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    R² Score (Variance Explained)
-                    <span title="Coefficient of determination: Proportion of target variance captured by the model (closer to 1.0 is better; negative means worse than naive average)." className="cursor-help text-slate-400">ℹ️</span>
+                    Pattern-fit score (R²)
+                    <span title="Shows how closely the model followed ups and downs in the test data. It is not a percentage accuracy score." className="cursor-help text-slate-400">ℹ️</span>
                   </span>
                   <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 font-mono">
-                    Ratio
+                    Score
                   </Badge>
                 </div>
                 <div className="text-xl font-extrabold text-slate-900 mt-2 font-mono">
@@ -1752,8 +1898,8 @@ export default function PredictiveAnalyticsView() {
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">
                   {normalized.metrics.r2 !== null && normalized.metrics.r2 < 0
-                    ? "Negative R² indicates worse than naive mean."
-                    : "Proportion of target variance captured (closer to 1.0 is better)."}
+                    ? "Below zero: worse than simply guessing the test-period average."
+                    : "Closer to 1 means it followed more of the test data's ups and downs; near 0 means little pattern was explained."}
                 </p>
               </div>
             </div>
@@ -1784,7 +1930,7 @@ export default function PredictiveAnalyticsView() {
                     onChange={(e) => setSelectedModel(e.target.value)}
                     className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 font-semibold text-slate-700 bg-white"
                   >
-                    {evalData.models?.map((m) => (
+                    {evalData.models?.filter((m) => m.status === "EVALUATED").map((m) => (
                       <option key={m.name} value={m.name}>
                         {m.name} {m.is_selected ? "★ (Best MAE)" : ""}
                       </option>
@@ -1798,6 +1944,14 @@ export default function PredictiveAnalyticsView() {
                 {forecastLoading ? (
                   <div className="h-full flex items-center justify-center">
                     <Skeleton className="h-full w-full rounded-xl" />
+                  </div>
+                ) : forecastError || !forecastData?.forecast?.length ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 text-center">
+                    <Info className="size-6 text-slate-500" />
+                    <p className="font-semibold text-slate-800">No forecast points to display</p>
+                    <p className="max-w-md text-xs text-slate-600">
+                      {forecastError || "The projection has not returned any future months yet."}
+                    </p>
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
@@ -1824,15 +1978,15 @@ export default function PredictiveAnalyticsView() {
                         formatter={(val: any, name: any) => [`${val} ${normalized.unitLabel}`, name]}
                       />
                       <Legend
-                        verticalAlign="top"
-                        align="right"
-                        wrapperStyle={{ fontSize: "12px", paddingBottom: "10px" }}
+                        verticalAlign="bottom"
+                        align="center"
+                        wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                       />
                       {/* GROUND TRUTH ACTUALS: Solid emerald line representing real records stored in PostgreSQL */}
                       <Line
                         type="monotone"
                         dataKey="actual"
-                        name="Historical Actual (Observed Ground Truth)"
+                        name="Observed actual"
                         stroke="#059669"
                         strokeWidth={2.5}
                         dot={{ r: 3.5, fill: "#059669", strokeWidth: 1, stroke: "#fff" }}
@@ -1842,7 +1996,7 @@ export default function PredictiveAnalyticsView() {
                       <Line
                         type="monotone"
                         dataKey="forecast"
-                        name="Projected Forecast (Model-Generated Estimate)"
+                        name="Selected model forecast"
                         stroke="#7c3aed"
                         strokeWidth={2.5}
                         strokeDasharray="5 5"
@@ -1862,12 +2016,12 @@ export default function PredictiveAnalyticsView() {
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardHeader className="pb-2 border-b border-slate-100">
                 <CardTitle className="text-sm font-bold text-slate-800 flex items-center justify-between">
-                  <span>Model MAE (Lower is Better)</span>
+                  <span>Average prediction miss by method (lower is better)</span>
                   <Badge variant="outline" className="text-[10px] font-bold text-slate-600">
                     {unit}
                   </Badge>
                 </CardTitle>
-                <p className="text-[11px] text-slate-500">Average absolute prediction deviation on test set.</p>
+                <p className="text-[11px] text-slate-500">Average difference between estimates and recorded amounts.</p>
               </CardHeader>
               <CardContent className="pt-4">
                 <div className="h-64 w-full">
@@ -1880,6 +2034,7 @@ export default function PredictiveAnalyticsView() {
                         stroke="#cbd5e1"
                         angle={-30}
                         textAnchor="end"
+                        tickFormatter={shortModelLabel}
                       />
                       <YAxis tick={{ fill: "#64748b", fontSize: 10 }} stroke="#cbd5e1" />
                       <Tooltip
@@ -1907,12 +2062,12 @@ export default function PredictiveAnalyticsView() {
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardHeader className="pb-2 border-b border-slate-100">
                 <CardTitle className="text-sm font-bold text-slate-800 flex items-center justify-between">
-                  <span>Model RMSE (Lower is Better)</span>
+                  <span>Large-miss score by method (lower is better)</span>
                   <Badge variant="outline" className="text-[10px] font-bold text-slate-600">
                     {unit}
                   </Badge>
                 </CardTitle>
-                <p className="text-[11px] text-slate-500">Heavily penalizes occasional large error spikes.</p>
+                <p className="text-[11px] text-slate-500">Highlights methods that sometimes miss by a lot.</p>
               </CardHeader>
               <CardContent className="pt-4">
                 <div className="h-64 w-full">
@@ -1925,6 +2080,7 @@ export default function PredictiveAnalyticsView() {
                         stroke="#cbd5e1"
                         angle={-30}
                         textAnchor="end"
+                        tickFormatter={shortModelLabel}
                       />
                       <YAxis tick={{ fill: "#64748b", fontSize: 10 }} stroke="#cbd5e1" />
                       <Tooltip
@@ -1952,9 +2108,9 @@ export default function PredictiveAnalyticsView() {
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardHeader className="pb-2 border-b border-slate-100">
                 <CardTitle className="text-sm font-bold text-slate-800 flex items-center justify-between">
-                  <span>Model R² (Closer to 1.0 is Better)</span>
+                  <span>Pattern-fit score by method (closer to 1 is better)</span>
                   <Badge variant="outline" className="text-[10px] font-bold text-slate-600">
-                    Ratio
+                    Score
                   </Badge>
                 </CardTitle>
                 <p className="text-[11px] text-slate-500">Proportion of variance explained by model.</p>
@@ -1971,7 +2127,7 @@ export default function PredictiveAnalyticsView() {
                         angle={-30}
                         textAnchor="end"
                       />
-                      <YAxis tick={{ fill: "#64748b", fontSize: 10 }} stroke="#cbd5e1" domain={[0, 1]} />
+                      <YAxis tick={{ fill: "#64748b", fontSize: 10 }} stroke="#cbd5e1" domain={["dataMin", 1]} />
                       <Tooltip
                         contentStyle={ANALYTICS_TOOLTIP_STYLE}
                         labelStyle={{ color: "#0f172a", fontWeight: 600 }}
@@ -1984,6 +2140,7 @@ export default function PredictiveAnalyticsView() {
                           "R² Score",
                         ]}
                       />
+                      <ReferenceLine y={0} stroke="#64748b" strokeDasharray="3 3" />
                       <Bar dataKey="r2_display" radius={[4, 4, 0, 0]}>
                         {modelBarData.map((entry, index) => (
                           <Cell
@@ -2013,16 +2170,21 @@ export default function PredictiveAnalyticsView() {
                   <div>
                     <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
                       <Scale className="size-5 text-blue-700" />
-                      Holdout Test Period: Actual vs. Model Predictions ({unitLabel})
+                      Model Comparison and Forecast ({unitLabel})
                     </CardTitle>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Visual audit of model behavior during the chronological evaluation period (
+                      Candidate models are compared with actual output for the holdout period (
                       {evalData.data?.test_period?.start_month} to {evalData.data?.test_period?.end_month}).
-                      This confirms how closely each model matched real, unseen observations.
+                      The selected model, {forecastData?.model ?? evalData.selection?.selected_model ?? "—"},
+                      forecasts {futureForecastRange?.start ?? "the next months"} to {futureForecastRange?.end ?? ""}.
+                      The dashed line is a forecast; future actuals are not available yet.
+                      {latestObservedPoint && priorObservedAverage !== null ? (
+                        <> Latest actual: {latestObservedPoint.actual.toLocaleString("en-PH", { maximumFractionDigits: 1 })} {normalized.unitLabel}; prior-month average: {priorObservedAverage.toLocaleString("en-PH", { maximumFractionDigits: 1 })} {normalized.unitLabel}.</>
+                      ) : null}
                     </p>
                   </div>
                   <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-xs font-semibold">
-                    Test Split Validation
+                    Holdout + Forecast
                   </Badge>
                 </div>
               </CardHeader>
@@ -2039,7 +2201,14 @@ export default function PredictiveAnalyticsView() {
                         itemStyle={{ color: "#334155" }}
                         cursor={ANALYTICS_TOOLTIP_CURSOR}
                       />
-                      <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "8px" }} />
+                      {futureForecastRange?.firstLabel ? (
+                        <ReferenceLine
+                          x={futureForecastRange.firstLabel}
+                          stroke="#94a3b8"
+                          strokeDasharray="4 4"
+                          label={{ value: "Future forecast", position: "insideTopRight", fill: "#64748b", fontSize: 10 }}
+                        />
+                      ) : null}
                       <Line
                         type="monotone"
                         dataKey="Actual"
@@ -2055,13 +2224,42 @@ export default function PredictiveAnalyticsView() {
                           dataKey={m.name}
                           name={m.name}
                           stroke={MODEL_COLORS[m.name] || "#94a3b8"}
-                          strokeWidth={m.is_selected ? 2.5 : 1.5}
-                          strokeDasharray={m.is_selected ? undefined : "3 3"}
-                          dot={{ r: m.is_selected ? 4 : 2 }}
+                          strokeWidth={m.name === forecastLineModelName ? 2.5 : 1.5}
+                          strokeDasharray={m.name === forecastLineModelName ? undefined : "3 3"}
+                          dot={{ r: m.name === forecastLineModelName ? 4 : 2 }}
                         />
                       ))}
+                      {forecastLineModel && futureForecastRange ? (
+                        <Line
+                          type="monotone"
+                          dataKey={`${forecastLineModel.name}__future`}
+                          name={`${forecastLineModel.name} forecast`}
+                          stroke={MODEL_COLORS[forecastLineModel.name] || "#94a3b8"}
+                          strokeWidth={2.5}
+                          strokeDasharray="6 4"
+                          dot={{ r: 3, fill: MODEL_COLORS[forecastLineModel.name] || "#94a3b8" }}
+                        />
+                      ) : null}
                     </LineChart>
                   </ResponsiveContainer>
+                </div>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 pt-3 text-[11px] text-slate-600" aria-label="Chart legend">
+                  <span className="inline-flex items-center gap-1.5"><span className="w-5 border-t-2 border-slate-900" />Actual</span>
+                  {evalData.models?.map((model) => (
+                    <span key={`legend-${model.name}`} className="inline-flex items-center gap-1.5">
+                      <span
+                        className="w-5 border-t-2"
+                        style={{ borderColor: MODEL_COLORS[model.name] || "#94a3b8", borderStyle: model.name === forecastLineModelName ? "solid" : "dashed" }}
+                      />
+                      {model.name}
+                    </span>
+                  ))}
+                  {forecastLineModel ? (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+                      <span className="w-5 border-t-2 border-dashed" style={{ borderColor: MODEL_COLORS[forecastLineModel.name] || "#94a3b8" }} />
+                      {forecastLineModel.name} forecast
+                    </span>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
@@ -2077,7 +2275,7 @@ export default function PredictiveAnalyticsView() {
                       Actual vs. Predicted ({normalized.unitLabel})
                     </CardTitle>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Each color shows a candidate model for holdout observations from {evalData.data?.test_period?.start_month} to {evalData.data?.test_period?.end_month}. The selected model is emphasized; points closer to the dashed diagonal match actual values more closely.
+                      Each color shows a candidate model in the final rolling-origin window from {evalData.data?.test_period?.start_month} to {evalData.data?.test_period?.end_month}. The selected model is emphasized; points closer to the dashed diagonal match actual values more closely. Metrics above summarize all rolling windows.
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -2139,7 +2337,6 @@ export default function PredictiveAnalyticsView() {
                         labelFormatter={(_, payload) => payload?.[0]?.payload?.month ?? "Holdout observation"}
                         formatter={(value, name) => [`${Number(value).toLocaleString("en-PH", { maximumFractionDigits: 2 })} ${normalized.unitLabel}`, name]}
                       />
-                      <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "8px" }} />
                       <ReferenceLine segment={scatterIdealLine} stroke="#64748b" strokeDasharray="6 5" ifOverflow="extendDomain" />
                       {[...scatterSeries].sort((a, b) => Number(a.isSelected) - Number(b.isSelected)).map((series) => (
                         <Scatter
@@ -2156,6 +2353,20 @@ export default function PredictiveAnalyticsView() {
                     </ScatterChart>
                   </ResponsiveContainer>
                 </div>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[11px] leading-tight text-slate-600" aria-label="Scatter plot model legend">
+                  {[...scatterSeries].sort((a, b) => Number(a.isSelected) - Number(b.isSelected)).map((series) => (
+                    <span
+                      key={`scatter-legend-${series.name}`}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 ${series.isSelected ? "bg-slate-100 font-semibold text-slate-900" : ""}`}
+                    >
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: series.color, opacity: series.isSelected ? 0.96 : 0.45 }}
+                      />
+                      <span className="whitespace-nowrap">{series.name}{series.isSelected ? " (Selected)" : ""}</span>
+                    </span>
+                  ))}
+                </div>
                 <p className="mt-1 text-center text-[11px] text-slate-500">
                   Dashed diagonal = perfect prediction · {scatterPoints.length} paired model-observations across {scatterSeries.length} {scatterSeries.length === 1 ? "model" : "models"}
                 </p>
@@ -2170,11 +2381,10 @@ export default function PredictiveAnalyticsView() {
                 <div>
                   <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <Database className="size-5 text-emerald-700" />
-                    Candidate Model Benchmarks & Baseline Superiority Check
+                    Compare prediction methods on past data
                   </CardTitle>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Chronological holdout split: {evalData.data?.training_observations ?? evalData.data_provenance?.train_period?.observations} train months |{" "}
-                    {evalData.data?.test_observations ?? evalData.data_provenance?.test_period?.observations} test months.
+                    Tested against later records in {evalData.data?.rolling_origin_windows ?? 0} separate period(s), up to {evalData.data?.evaluation_horizon_months ?? horizon} months each. The latest check used {evalData.data?.training_observations ?? evalData.data_provenance?.train_period?.observations} months to learn and {evalData.data?.test_observations ?? evalData.data_provenance?.test_period?.observations} months to check.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2187,12 +2397,12 @@ export default function PredictiveAnalyticsView() {
                       }
                     >
                       {normalized.baselineComparison === "BASELINE_BEST"
-                        ? "Best: Naive Baseline"
+                        ? `Best: ${normalized.baselineModel || "Baseline"}`
                         : `Best: ${winningModel.name}`}
                     </Badge>
                   )}
                   <Badge variant="outline" className="bg-slate-50 text-slate-700 text-xs">
-                    Source: {normalized.forecastSource === "NAIVE_BASELINE" ? "Naive Baseline" : "Machine Learning Model"}
+                    Source: {normalized.forecastSource === "NAIVE_BASELINE" ? "Baseline" : "Machine Learning Model"}
                   </Badge>
                 </div>
               </div>
@@ -2211,19 +2421,19 @@ export default function PredictiveAnalyticsView() {
                     {normalized.baselineComparison === "MODEL_BEATS_BASELINE" ? (
                       <>
                         <CheckCircle2 className="size-4 text-emerald-600" />
-                        Model Beats Baseline: {winningModel?.name || normalized.model} outperforms persistence
+                        Model Beats Baseline: {winningModel?.name || normalized.model} outperforms {normalized.baselineModel}
                       </>
                     ) : (
                       <>
                         <Info className="size-4 text-slate-600" />
-                        Baseline Performs Best: Naive Baseline achieves lowest test error
+                        Baseline Performs Best: {normalized.baselineModel} achieves the lowest rolling-origin error
                       </>
                     )}
                   </span>
                   <p className="text-[11px] mt-0.5 opacity-90">
                     {normalized.baselineComparison === "MODEL_BEATS_BASELINE"
-                      ? `Candidate ML model achieved MAE of ${normalized.selectedModelMae?.toFixed(2)} ${normalized.unit} (vs Naive Baseline MAE of ${normalized.baselineMae?.toFixed(2)} ${normalized.unit}). ML forecast is used operationally.`
-                      : `Naive Baseline achieved MAE of ${normalized.baselineMae?.toFixed(2)} ${normalized.unit}. Since ML models did not improve upon the persistence baseline, the baseline is selected for operational forecasts to prevent overfitting.`}
+                      ? `Selected model achieved rolling-origin MAE of ${normalized.selectedModelMae?.toFixed(2)} ${normalized.unit} (vs ${normalized.baselineModel} MAE of ${normalized.baselineMae?.toFixed(2)} ${normalized.unit}).`
+                      : `${normalized.baselineModel} achieved rolling-origin MAE of ${normalized.baselineMae?.toFixed(2)} ${normalized.unit}, so it is used instead of a more complex model.`}
                   </p>
                 </div>
               </div>
@@ -2261,7 +2471,7 @@ export default function PredictiveAnalyticsView() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="text-xs">
-                    {evalData.models?.map((m) => (
+                    {evalData.models?.filter((m) => m.status === "EVALUATED").map((m) => (
                       <TableRow
                         key={m.name}
                         className={m.is_selected ? "bg-emerald-50/50 font-semibold" : "hover:bg-slate-50/50"}

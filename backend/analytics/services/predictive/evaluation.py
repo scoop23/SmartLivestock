@@ -29,30 +29,23 @@ Therefore, regression performance is measured by ERROR METRICS:
    - R² = 0.0 -> Model performs no better than guessing the average.
    - R² < 0.0 -> Model performs worse than the simple average.
 
-4. Fair Comparison Guarantee:
-   Every model is trained on the EXACT same training period and tested against the EXACT
-   same unseen test observations. We never compare Model A on 2025 with Model B on 2026.
+4. Rolling-origin evaluation:
+   We repeat the forecast from several earlier cutoffs. At each cutoff, every candidate
+   sees only the history available then and predicts the next months. This better reflects
+   repeated real forecasting than one lucky chronological split.
 """
 
 from typing import Dict, Any, List, Tuple, Optional
+import math
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from .data import (
     extract_monthly_series,
-    extract_monthly_production_series,
     prepare_tabular_features,
-    chronological_split,
-    SEED_MARKER,
 )
-from .models import (
-    NaiveBaselineModel,
-    TabularLinearRegression,
-    TabularRandomForest,
-    ARIMAForecaster,
-    HoltWintersForecaster,
-)
+from .models import forecast_candidate
 
 
 def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
@@ -77,16 +70,108 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float
     }
 
 
+def evaluate_rolling_origins(
+    df: pd.DataFrame,
+    model_names: List[str],
+    requested_horizon: int = 6,
+    max_windows: int = 8,
+) -> Dict[str, Any]:
+    """Compare models through repeated fixed-origin forecasts, without test peeking.
+
+    Each fold trains on data available at that historical origin and predicts the
+    next horizon recursively. Folds are spaced across history to avoid evaluating
+    the model at only one lucky or unlucky cutoff date.
+    """
+    observation_count = len(df)
+    horizon = min(max(1, int(requested_horizon)), 12)
+    # Reserve enough history to fit the models while allowing short datasets to
+    # receive a shorter, clearly reported evaluation horizon.
+    min_train = min(24, max(8, observation_count - max(1, min(horizon, observation_count // 3))))
+    horizon = min(horizon, observation_count - min_train)
+    if horizon < 1:
+        return {"horizon": 0, "windows": 0, "models": {}, "final_window": None}
+
+    # Each origin is the pretend "today" for one backtest fold. The newest
+    # origin is exactly the start of the final visible evaluation window.
+    last_origin = observation_count - horizon
+    step = max(1, math.ceil((last_origin - min_train) / max(1, max_windows - 1)))
+    origins = list(range(min_train, last_origin + 1, step))
+    if not origins or origins[-1] != last_origin:
+        origins.append(last_origin)
+    origins = origins[-max_windows:]
+
+    collected: Dict[str, Dict[str, List[float]]] = {
+        name: {"actual": [], "predicted": []} for name in model_names
+    }
+    # A model is eligible only if it succeeds on every shared origin. Otherwise
+    # its score would be based on easier/different months than another candidate.
+    completed_windows = {name: 0 for name in model_names}
+    model_failures: Dict[str, str] = {}
+    final_window: Dict[str, Any] = {}
+    successful_windows = 0
+
+    for origin in origins:
+        # Crucially, the model only receives rows before this origin. The next
+        # months are hidden until after prediction, just like a real forecast.
+        history = df.iloc[:origin].copy()
+        window = df.iloc[origin:origin + horizon].copy()
+        if len(window) != horizon:
+            continue
+        actual = window["quantity"].astype(float).to_numpy()
+        window_results = {}
+        for name in model_names:
+            try:
+                predicted = forecast_candidate(name, history, window["month"].tolist())
+                if len(predicted) != horizon or not np.isfinite(predicted).all():
+                    continue
+                # Pool errors from all windows, while keeping final-window
+                # predictions separately for the frontend's actual-vs-predicted plot.
+                collected[name]["actual"].extend(actual.tolist())
+                collected[name]["predicted"].extend(predicted.tolist())
+                completed_windows[name] += 1
+                window_results[name] = [round(float(value), 1) for value in predicted]
+            except Exception as exc:
+                # A failed model/fold is omitted; a candidate still needs a
+                # complete successful evaluation to compete for selection.
+                model_failures.setdefault(name, str(exc))
+                continue
+        if window_results:
+            successful_windows += 1
+            final_window = {
+                "train": history,
+                "test": window,
+                "predictions": window_results,
+            }
+
+    model_metrics = {}
+    for name, values in collected.items():
+        if values["actual"] and completed_windows[name] == len(origins):
+            model_metrics[name] = calculate_metrics(
+                np.asarray(values["actual"]), np.asarray(values["predicted"])
+            )
+
+    return {
+        "horizon": horizon,
+        "windows": successful_windows,
+        "requested_windows": len(origins),
+        "model_windows": completed_windows,
+        "model_failures": model_failures,
+        "models": model_metrics,
+        "final_window": final_window or None,
+    }
+
+
 def evaluate_all_models(
     domain: str = "production",
     target: str = "MILK",
     unit: str = "LITERS",
     user=None,
     production_type: Optional[str] = None,
+    horizon_months: int = 6,
 ) -> Dict[str, Any]:
     """
-    Extracts approved records, splits chronologically, trains all 5 candidate models,
-    and returns a fair evaluation comparison across any supported domain.
+    Extracts approved records and compares six candidates over chronological,
+    fixed-origin forecast windows across any supported domain.
     """
     # Backward compatibility with callers passing production_type
     effective_target = production_type if production_type is not None else target
@@ -123,7 +208,7 @@ def evaluate_all_models(
             "historical_trend": meta.get("historical_trend", []),
             "data": meta,
             "selection": {
-                "criterion": "Lowest validation MAE on chronological test holdout (with Baseline Superiority verification)",
+                "criterion": "Lowest rolling-origin forecast MAE against the best baseline",
                 "selected_model": None,
                 "baseline_model": "Naive Baseline",
                 "baseline_mae": None,
@@ -135,164 +220,97 @@ def evaluate_all_models(
             "models": [],
         }
 
-    # TIME-SERIES EVALUATION FLOW:
-    # 1. Feature Engineering: extracts lag_1, lag_2, rolling means, month cyclical features.
-    df_feat = prepare_tabular_features(df)
-
-    # 2. Chronological Split (Train vs Test Holdout):
-    # Unlike general machine learning where random train_test_split is used, time-series data
-    # MUST be split chronologically. Shuffling time-series leaks future knowledge into past predictions.
-    # We train on earlier months (e.g., first 75%) and evaluate on recent holdout months (last 25%).
-    train_feat, test_feat = chronological_split(df_feat)
-
-    # 3. Univariate Series Alignment:
-    test_dates = test_feat["month"].tolist()
-    y_test_actual = test_feat["quantity"].values
-
-    # Univariate train series: all observations up to the start of the test set
-    split_date = test_feat["month"].iloc[0]
-    univariate_train = df[df["month"] < split_date]["quantity"].values
-
-    models_results: List[Dict[str, Any]] = []
-
-    # ---------------------------------------------------------
-    # 1. Naive Baseline
-    # ---------------------------------------------------------
-    try:
-        naive = NaiveBaselineModel().fit(pd.Series(univariate_train))
-        naive_preds = naive.predict_test(test_feat, train_feat)
-        metrics = calculate_metrics(y_test_actual, naive_preds)
-        models_results.append({
-            "name": "Naive Baseline",
-            "model_type": "Baseline (Persistence)",
-            "status": "EVALUATED",
-            "description": "Predicts next month will equal the most recently observed month.",
-            **metrics,
-            "test_predictions": [round(float(p), 1) for p in naive_preds],
-        })
-    except Exception as e:
-        models_results.append({
-            "name": "Naive Baseline",
-            "model_type": "Baseline (Persistence)",
-            "status": f"FAILED: {str(e)}",
-            "description": "Predicts next month will equal the most recently observed month.",
-            "mae": None, "rmse": None, "r2": None,
+    # Define all model candidates once so every method is evaluated over the same
+    # chronological forecast windows. The two simple methods are benchmarks.
+    candidate_specs = [
+        ("Naive Baseline", "Baseline (Persistence)", "Repeats the latest observed value for each forecast month."),
+        ("Seasonal Naive", "Baseline (Same Month Last Year)", "Reuses the value from the same calendar month last year; falls back to persistence if absent."),
+        ("Linear Regression", "Parametric Linear (OLS)", "Fits a linear trend and cyclical month pattern for stable multi-month projections."),
+        ("Random Forest", "Nonlinear Ensemble (50 Trees)", "Learns nonlinear patterns from trend, cyclical month, and recent lags."),
+        ("ARIMA", "Time Series (1,1,1)", "Models autocorrelation and trend through differencing."),
+        ("Holt-Winters", "Exponential Smoothing", "Models a smoothed level and trend, with annual seasonality when enough history exists."),
+    ]
+    models_results: List[Dict[str, Any]] = [
+        {
+            "name": name,
+            "model_type": model_type,
+            "status": "PENDING",
+            "description": description,
+            "mae": None,
+            "rmse": None,
+            "r2": None,
             "test_predictions": [],
-        })
+        }
+        for name, model_type, description in candidate_specs
+    ]
 
-    # ---------------------------------------------------------
-    # 2. Linear Regression (scikit-learn)
-    # ---------------------------------------------------------
-    try:
-        lr = TabularLinearRegression().fit(train_feat, train_feat["quantity"])
-        lr_preds = lr.predict(test_feat)
-        metrics = calculate_metrics(y_test_actual, lr_preds)
-        models_results.append({
-            "name": "Linear Regression",
-            "model_type": "Parametric Linear (OLS)",
-            "status": "EVALUATED",
-            "description": "Learns linear relationship over time index, month seasonality, and past lags.",
-            **metrics,
-            "test_predictions": [round(float(p), 1) for p in lr_preds],
-        })
-    except Exception as e:
-        models_results.append({
-            "name": "Linear Regression",
-            "model_type": "Parametric Linear (OLS)",
-            "status": f"FAILED: {str(e)}",
-            "description": "Learns linear relationship over time index, month seasonality, and past lags.",
-            "mae": None, "rmse": None, "r2": None,
-            "test_predictions": [],
-        })
+    # Repeated fixed-origin folds mirror the actual multi-month forecast: each
+    # model predicts a whole future window without being given later actual values.
+    rolling = evaluate_rolling_origins(
+        df,
+        [item["name"] for item in models_results],
+        requested_horizon=horizon_months,
+    )
+    final_window = rolling.get("final_window")
+    if final_window:
+        train_feat = prepare_tabular_features(final_window["train"])
+        test_feat = final_window["test"]
+        test_dates = test_feat["month"].tolist()
+        y_test_actual = test_feat["quantity"].astype(float).to_numpy()
+        for item in models_results:
+            metrics = rolling["models"].get(item["name"])
+            predictions = final_window["predictions"].get(item["name"])
+            if metrics and predictions is not None:
+                item.update(metrics)
+                item["test_predictions"] = predictions
+                item["status"] = "EVALUATED"
+            elif item["name"] in rolling.get("model_failures", {}):
+                item["status"] = f"FAILED: {rolling['model_failures'][item['name']]}"
+            else:
+                item["status"] = "NOT_EVALUATED"
+    else:
+        # With the service's 12-observation minimum this should be rare, but keep
+        # the API response safe if a future data rule leaves no evaluable window.
+        train_feat = prepare_tabular_features(df)
+        test_feat = df.iloc[0:0].copy()
+        test_dates = []
+        y_test_actual = np.asarray([], dtype=float)
 
-    # ---------------------------------------------------------
-    # 3. Random Forest Regressor (scikit-learn)
-    # ---------------------------------------------------------
-    try:
-        rf = TabularRandomForest(random_state=42).fit(train_feat, train_feat["quantity"])
-        rf_preds = rf.predict(test_feat)
-        metrics = calculate_metrics(y_test_actual, rf_preds)
-        models_results.append({
-            "name": "Random Forest",
-            "model_type": "Nonlinear Ensemble (50 Trees)",
-            "status": "EVALUATED",
-            "description": "Ensemble of 50 decision trees capturing non-linear interactions without overfitting.",
-            **metrics,
-            "test_predictions": [round(float(p), 1) for p in rf_preds],
-        })
-    except Exception as e:
-        models_results.append({
-            "name": "Random Forest",
-            "model_type": "Nonlinear Ensemble (50 Trees)",
-            "status": f"FAILED: {str(e)}",
-            "description": "Ensemble of 50 decision trees capturing non-linear interactions without overfitting.",
-            "mae": None, "rmse": None, "r2": None,
-            "test_predictions": [],
-        })
+    # Backtest predictions answer "how did each model perform on unseen data?"
+    # These separate predictions answer "what does each model project next?"
+    # Fit candidates on all available observations for the future projection;
+    # future values are estimates and have no actual observations yet.
+    future_horizon = min(max(1, int(horizon_months)), 12)
+    last_observed_month = pd.Timestamp(df["month"].max())
+    future_dates = pd.date_range(
+        start=last_observed_month + pd.offsets.MonthBegin(1),
+        periods=future_horizon,
+        freq="MS",
+    )
+    for item in models_results:
+        item["future_predictions"] = []
+        if item["status"] != "EVALUATED":
+            continue
+        try:
+            future_predictions = forecast_candidate(item["name"], df, future_dates.tolist())
+            if len(future_predictions) == future_horizon and np.isfinite(future_predictions).all():
+                item["future_predictions"] = [
+                    round(float(value), 1) for value in future_predictions
+                ]
+        except Exception:
+            # A candidate can still be useful in holdout evaluation even if its
+            # full-history future fit fails, so leave only its projection empty.
+            continue
 
+    # Baseline Superiority & Model Selection (rolling-origin MAE)
     # ---------------------------------------------------------
-    # 4. ARIMA (statsmodels)
-    # ---------------------------------------------------------
-    try:
-        arima = ARIMAForecaster(order=(1, 1, 1)).fit(pd.Series(univariate_train))
-        arima_preds = arima.predict_steps(steps=len(test_dates))
-        metrics = calculate_metrics(y_test_actual, arima_preds)
-        models_results.append({
-            "name": "ARIMA",
-            "model_type": f"Time Series {arima.order}",
-            "status": "EVALUATED",
-            "description": "Classical time-series model combining autoregression, differencing, and moving average errors.",
-            **metrics,
-            "test_predictions": [round(float(p), 1) for p in arima_preds],
-        })
-    except Exception as e:
-        models_results.append({
-            "name": "ARIMA",
-            "model_type": "Time Series (1,1,1)",
-            "status": f"FAILED: {str(e)}",
-            "description": "Classical time-series model combining autoregression, differencing, and moving average errors.",
-            "mae": None, "rmse": None, "r2": None,
-            "test_predictions": [],
-        })
-
-    # ---------------------------------------------------------
-    # 5. Holt-Winters Exponential Smoothing (statsmodels)
-    # ---------------------------------------------------------
-    try:
-        hw = HoltWintersForecaster(seasonal_periods=12).fit(pd.Series(univariate_train))
-        hw_preds = hw.predict_steps(steps=len(test_dates))
-        metrics = calculate_metrics(y_test_actual, hw_preds)
-        status_note = f"EVALUATED ({hw.model_variant})"
-        models_results.append({
-            "name": "Holt-Winters",
-            "model_type": "Exponential Smoothing",
-            "status": status_note,
-            "description": "Models level, additive trend, and seasonal cyclical components with exponential decay weights.",
-            **metrics,
-            "test_predictions": [round(float(p), 1) for p in hw_preds],
-        })
-    except Exception as e:
-        models_results.append({
-            "name": "Holt-Winters",
-            "model_type": "Exponential Smoothing",
-            "status": f"FAILED: {str(e)}",
-            "description": "Models level, additive trend, and seasonal cyclical components with exponential decay weights.",
-            "mae": None, "rmse": None, "r2": None,
-            "test_predictions": [],
-        })
-
-    # ---------------------------------------------------------
-    # Baseline Superiority & Model Selection (MAE-based)
-    # ---------------------------------------------------------
-    # In time-series forecasting, the Naive (Persistence) Baseline represents the
-    # foundational benchmark. If a sophisticated statistical or ML model (Linear Regression,
-    # Random Forest, ARIMA, Holt-Winters) fails to achieve a lower MAE than the Naive Baseline,
-    # claiming the ML model is superior is statistically dishonest.
+    # In time-series forecasting, both persistence and seasonal-naive methods are
+    # baselines. A complex candidate must beat the stronger of these two methods.
     # In that event:
     # 1. baseline_comparison is marked 'BASELINE_BEST'.
     # 2. The operational selected model defaults to 'Naive Baseline'.
     # 3. forecast_source is marked 'NAIVE_BASELINE'.
-    # If an ML model beats the baseline:
+    # If an advanced model beats the baseline:
     # 1. baseline_comparison is marked 'MODEL_BEATS_BASELINE'.
     # 2. The operational selected model is set to the winning ML model.
     # 3. forecast_source is marked 'MACHINE_LEARNING'.
@@ -301,31 +319,34 @@ def evaluate_all_models(
         m for m in models_results
         if m.get("mae") is not None and str(m.get("status", "")).startswith("EVALUATED")
     ]
-    naive_model = next((m for m in valid_models if m["name"] == "Naive Baseline"), None)
-    naive_mae = naive_model["mae"] if naive_model else None
+    baseline_models = [m for m in valid_models if m["name"] in ("Naive Baseline", "Seasonal Naive")]
+    # Require advanced methods to beat the better simple reference, not just
+    # whichever baseline happens to be weaker for this dataset.
+    best_baseline = min(baseline_models, key=lambda m: m["mae"]) if baseline_models else None
+    naive_mae = best_baseline["mae"] if best_baseline else None
 
-    ml_models = [m for m in valid_models if m["name"] != "Naive Baseline"]
+    ml_models = [m for m in valid_models if m["name"] not in ("Naive Baseline", "Seasonal Naive")]
 
     selected_model_name = None
     selected_model_mae = None
     baseline_comparison = "INSUFFICIENT_DATA"
     forecast_source = "NONE"
-    selection_criterion = "Lowest validation MAE on chronological test holdout (with Baseline Superiority verification)"
+    selection_criterion = f"Lowest MAE across {rolling['windows']} rolling-origin window(s), each forecasting up to {rolling['horizon']} month(s), while requiring the winner to beat the best baseline"
 
-    if ml_models and naive_model:
+    if ml_models and best_baseline:
         best_ml = min(ml_models, key=lambda m: m["mae"])
         best_ml_mae = best_ml["mae"]
 
         if naive_mae is not None and naive_mae <= best_ml_mae:
             # Baseline performs better or equal -> do not use an inferior ML model
-            selected_model_name = "Naive Baseline"
+            selected_model_name = best_baseline["name"]
             selected_model_mae = naive_mae
             baseline_comparison = "BASELINE_BEST"
             forecast_source = "NAIVE_BASELINE"
             rationale = (
-                f"Naive Baseline achieved lower or equal validation MAE ({naive_mae} {unit}) "
-                f"compared to advanced models (best ML was {best_ml['name']} at {best_ml_mae} {unit}). "
-                f"Operational forecast defaults to Naive Baseline to prevent overconfident projections."
+                f"{best_baseline['name']} achieved lower or equal rolling validation MAE ({naive_mae} {unit}) "
+                f"compared to advanced models (best was {best_ml['name']} at {best_ml_mae} {unit}). "
+                "Operational forecast uses the stronger simple baseline rather than a weaker complex model."
             )
         else:
             # ML model beats baseline!
@@ -333,26 +354,26 @@ def evaluate_all_models(
             selected_model_mae = best_ml_mae
             baseline_comparison = "MODEL_BEATS_BASELINE"
             forecast_source = "MACHINE_LEARNING"
-            improvement_pct = round(((naive_mae - best_ml_mae) / naive_mae) * 100, 1) if (naive_mae and naive_mae > 0) else 0.0
+            improvement_pct = round(((naive_mae - best_ml_mae) / naive_mae) * 100, 1) if naive_mae and naive_mae > 0 else 0.0
             rationale = (
-                f"Selected '{selected_model_name}' because it beats the Naive Baseline (MAE {selected_model_mae} vs {naive_mae} {unit}, "
-                f"{improvement_pct}% error reduction) on the chronological test holdout."
+                f"Selected '{selected_model_name}' because it beats {best_baseline['name']} (MAE {selected_model_mae} vs {naive_mae} {unit}, "
+                f"{improvement_pct}% error reduction) across rolling-origin windows."
             )
-    elif naive_model:
-        selected_model_name = "Naive Baseline"
+    elif best_baseline:
+        selected_model_name = best_baseline["name"]
         selected_model_mae = naive_mae
         baseline_comparison = "BASELINE_BEST"
         forecast_source = "NAIVE_BASELINE"
-        rationale = "Only Naive Baseline evaluated successfully among candidate models."
+        rationale = "Only a simple baseline evaluated successfully among candidate models."
     elif ml_models:
         best_ml = min(ml_models, key=lambda m: m["mae"])
         selected_model_name = best_ml["name"]
         selected_model_mae = best_ml["mae"]
         baseline_comparison = "MODEL_BEATS_BASELINE"
         forecast_source = "MACHINE_LEARNING"
-        rationale = f"Selected '{selected_model_name}' with test MAE {selected_model_mae} {unit}."
+        rationale = f"Selected '{selected_model_name}' with rolling-origin MAE {selected_model_mae} {unit}."
     else:
-        rationale = "No candidate model evaluated successfully on the test holdout."
+        rationale = "No candidate model evaluated successfully across rolling-origin windows."
 
     for m in models_results:
         m["is_selected"] = (m["name"] == selected_model_name)
@@ -361,6 +382,9 @@ def evaluate_all_models(
         "start_month": test_feat["month"].min().strftime("%Y-%m-%d"),
         "end_month": test_feat["month"].max().strftime("%Y-%m-%d"),
         "observations": len(test_feat),
+        # Keep machine-sortable dates alongside display labels so charts can
+        # preserve chronology even when month names repeat across different years.
+        "dates": [d.strftime("%Y-%m-%d") for d in test_dates],
         "actual_values": [round(float(y), 1) for y in y_test_actual],
         "months": [d.strftime("%b %Y") for d in test_dates],
     }
@@ -390,19 +414,33 @@ def evaluate_all_models(
         },
         "data": {
             "total_observations": len(df),
-            "training_observations": len(train_feat),
+            "training_observations": len(final_window["train"]) if final_window else len(train_feat),
             "test_observations": len(test_feat),
+            "rolling_origin_windows": rolling["windows"],
+            "evaluation_horizon_months": rolling["horizon"],
             "start_date": meta.get("start_date"),
             "end_date": meta.get("end_date"),
             "train_period": train_period_info,
             "test_period": test_period_info,
+            "future_period": {
+                "start_month": future_dates.min().strftime("%Y-%m-%d"),
+                "end_month": future_dates.max().strftime("%Y-%m-%d"),
+                "dates": [date.strftime("%Y-%m-%d") for date in future_dates],
+                "months": [date.strftime("%b %Y") for date in future_dates],
+                "horizon_months": len(future_dates),
+            },
+            "missing_months": meta.get("missing_months", []),
+            "missing_month_count": meta.get("missing_month_count", 0),
+            "is_monthly_series_contiguous": meta.get("is_monthly_series_contiguous", True),
+            "excluded_incomplete_current_month": meta.get("excluded_incomplete_current_month", False),
+            "coverage_warning": meta.get("coverage_warning"),
             "is_seeded": meta["is_seeded"],
             "seed_marker": meta.get("seed_marker") if meta["is_seeded"] else None,
         },
         "selection": {
             "criterion": selection_criterion,
             "selected_model": selected_model_name,
-            "baseline_model": "Naive Baseline",
+            "baseline_model": best_baseline["name"] if best_baseline else "Naive Baseline",
             "baseline_mae": naive_mae,
             "selected_model_mae": selected_model_mae,
             "baseline_comparison": baseline_comparison,

@@ -171,7 +171,7 @@ class PredictiveAnalyticsTests(TestCase):
 
     def test_model_evaluation_metrics_and_comparison(self):
         """
-        Verify that all 5 models are evaluated with valid MAE, RMSE, and R² scores.
+        Verify that all 6 candidates are evaluated with valid MAE, RMSE, and R² scores.
         """
         call_command("seed_productions", months=36)
 
@@ -179,10 +179,11 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(eval_res["status"], "ready")
 
         models = eval_res["models"]
-        self.assertEqual(len(models), 5)
+        self.assertEqual(len(models), 6)
 
         model_names = [m["name"] for m in models]
         self.assertIn("Naive Baseline", model_names)
+        self.assertIn("Seasonal Naive", model_names)
         self.assertIn("Linear Regression", model_names)
         self.assertIn("Random Forest", model_names)
         self.assertIn("ARIMA", model_names)
@@ -270,7 +271,7 @@ class PredictiveAnalyticsTests(TestCase):
         """
         Verify end-to-end slaughter domain pipeline:
         1. Seed 24 months of slaughterhouse throughput.
-        2. Evaluate all 5 candidate models on HEADS.
+        2. Evaluate six candidates over rolling forecast windows on HEADS.
         3. Generate future 6-month forecast.
         4. Clean synthetic records safely.
         """
@@ -286,7 +287,7 @@ class PredictiveAnalyticsTests(TestCase):
         eval_res = evaluate_all_models(domain="slaughter", target="ALL", unit="HEADS")
         self.assertEqual(eval_res["status"], "ready")
         self.assertTrue(eval_res["forecast_available"])
-        self.assertEqual(len(eval_res["models"]), 5)
+        self.assertEqual(len(eval_res["models"]), 6)
         self.assertIn("selected_model", eval_res["selection"])
 
         # Future forecast generation
@@ -398,11 +399,11 @@ class PredictiveAnalyticsTests(TestCase):
         seeded_sales = LiveAnimalSale.objects.filter(review_remarks__contains=SEED_MARKER_AUCTION).count()
         self.assertGreaterEqual(seeded_sales, 24)
 
-        # Step 2: Model evaluation on HEADS metric (checks 5 candidate models)
+        # Step 2: Model evaluation on HEADS metric (checks 6 candidates, including seasonal baseline)
         eval_res = evaluate_all_models(domain="auction", target="ALL", unit="HEADS")
         self.assertEqual(eval_res["status"], "ready")
         self.assertEqual(eval_res["scope"], "Municipal live animal commercial trade")
-        self.assertEqual(len(eval_res["models"]), 5)
+        self.assertEqual(len(eval_res["models"]), 6)
 
         # Step 3A: Forecast generation on HEADS (verifies active metrics MAE/RMSE/R2 are attached)
         fc_heads = generate_future_forecast(domain="auction", target="ALL", unit="HEADS", horizon_months=6)
@@ -548,9 +549,9 @@ class PredictiveAnalyticsTests(TestCase):
             self.assertIsNone(hw_model["r2"])
             self.assertFalse(hw_model["is_selected"])
 
-            # The other 4 models must still be evaluated
+            # The other 5 candidates must still be evaluated
             other_models = [m for m in eval_res["models"] if m["name"] != "Holt-Winters"]
-            self.assertEqual(len(other_models), 4)
+            self.assertEqual(len(other_models), 5)
             for m in other_models:
                 self.assertTrue(m["status"].startswith("EVALUATED"))
                 self.assertIsNotNone(m["mae"])
@@ -576,7 +577,7 @@ class PredictiveAnalyticsTests(TestCase):
         eval_cases = evaluate_all_models(domain="disease", target="ALL", unit="CASES")
         self.assertEqual(eval_cases["status"], "ready")
         self.assertEqual(eval_cases["target"]["unit"], "CASES")
-        self.assertEqual(len(eval_cases["models"]), 5)
+        self.assertEqual(len(eval_cases["models"]), 6)
 
         # 2. Forecast on CASES
         fc_cases = generate_future_forecast(domain="disease", target="ALL", unit="CASES", horizon_months=6)
@@ -605,7 +606,7 @@ class PredictiveAnalyticsTests(TestCase):
 
         eval_res = evaluate_all_models(domain="mortality", target="ALL", unit="HEADS")
         self.assertEqual(eval_res["status"], "ready")
-        self.assertEqual(len(eval_res["models"]), 5)
+        self.assertEqual(len(eval_res["models"]), 6)
 
         fc_res = generate_future_forecast(domain="mortality", target="ALL", unit="HEADS", horizon_months=3)
         self.assertEqual(fc_res["status"], "ready")

@@ -344,6 +344,7 @@ def predictive_model_comparison(request):
         )
     )
     unit = request.query_params.get("unit", default_unit).upper()
+    horizon = int(request.query_params.get("horizon", 6))
 
     try:
         res = evaluate_all_models(
@@ -351,6 +352,7 @@ def predictive_model_comparison(request):
             target=target,
             unit=unit,
             user=request.user,
+            horizon_months=horizon,
         )
         return Response(res)
     except Exception as e:

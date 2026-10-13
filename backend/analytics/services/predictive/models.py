@@ -13,8 +13,8 @@ from historical data. Here is what each concept means:
 
 1. X (Features / Independent Variables):
    The inputs used to make a prediction. In our tabular models (Linear Regression &
-   Random Forest), X is a matrix where each row contains past observations:
-   [lag_1, lag_2, lag_3, rolling_mean, month_num, time_step].
+   Random Forest), X is a matrix containing calendar trend, cyclical month,
+   recent lags, and the rolling average of earlier observations.
 
 2. y (Target / Dependent Variable):
    The true value we want to predict. In our case, the recorded production quantity for
@@ -30,11 +30,12 @@ from historical data. Here is what each concept means:
 
 5. Overfitting vs. Generalization:
    Overfitting happens when a model memorizes past noise instead of true underlying patterns.
-   Such a model scores great on training data but fails terribly on future test data.
-   Our fair chronological test set reveals whether models truly generalize.
+   Such a model can score well on its training rows but fail on later forecast windows.
+   Rolling-origin evaluation helps reveal whether the model generalizes across time.
 """
 
 from typing import Dict, Any, List, Optional
+from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -42,9 +43,9 @@ from sklearn.ensemble import RandomForestRegressor
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
-from .data import prepare_tabular_features, chronological_split
+from .data import prepare_tabular_features
 
-FEATURE_COLS = ["time_step", "month_num", "lag_1", "lag_2", "lag_3", "rolling_mean_3"]
+FEATURE_COLS = ["time_step", "month_sin", "month_cos", "lag_1", "lag_2", "lag_3", "rolling_mean_3"]
 
 
 class NaiveBaselineModel:
@@ -52,8 +53,9 @@ class NaiveBaselineModel:
     Model 1: Naive (Persistence) Baseline.
 
     How it works:
-    The forecast for time t is simply the observed value at time t - 1.
-      y_hat[t] = y[t-1]
+    For a multi-month forecast, repeat the latest known observation at every step.
+      y_hat[t+1] = y[t]
+      y_hat[t+2] = y[t]
 
     Why it matters:
     This is the foundational baseline for all time-series analysis. If an advanced
@@ -76,13 +78,37 @@ class NaiveBaselineModel:
         full_series = pd.concat([train_df["quantity"].iloc[[-1]], test_df["quantity"]]).values
         return full_series[:-1]
 
+    def predict_steps(self, steps: int) -> np.ndarray:
+        """Repeat the latest known value for each future step (fixed-origin baseline)."""
+        if self.last_observed is None:
+            raise RuntimeError("NaiveBaselineModel must be fitted before predicting.")
+        return np.repeat(self.last_observed, steps)
+
+
+class SeasonalNaiveModel:
+    """Simple benchmark: reuse the value from the same calendar month last year."""
+
+    def fit_predict(self, history: pd.DataFrame, future_dates: List[pd.Timestamp]) -> np.ndarray:
+        # Match by calendar month, not by row offset, because some months may have
+        # no approved records. If last year's same month is absent, use persistence.
+        values_by_month = {
+            pd.Timestamp(row.month).to_period("M"): float(row.quantity)
+            for row in history.itertuples()
+        }
+        latest_value = float(history["quantity"].iloc[-1])
+        predictions = []
+        for future_date in future_dates:
+            prior_year_month = (pd.Timestamp(future_date) - relativedelta(months=12)).to_period("M")
+            predictions.append(values_by_month.get(prior_year_month, latest_value))
+        return np.asarray(predictions, dtype=float)
+
 
 class TabularLinearRegression:
     """
     Model 2: Multiple Linear Regression (scikit-learn).
 
     Mathematical Formulation:
-      y = beta_0 + beta_1 * time_step + beta_2 * month_num + beta_3 * lag_1 + ... + epsilon
+      y = beta_0 + beta_1 * time_step + beta_2 * month_sin + beta_3 * month_cos + ... + epsilon
 
     How fit() works:
     scikit-learn's LinearRegression calculates the Ordinary Least Squares (OLS) solution,
@@ -92,9 +118,11 @@ class TabularLinearRegression:
     Strengths: Interpretable, fast, establishes trend.
     Weaknesses: Assumes linear relationships; cannot model complex non-linear seasonal waves.
     """
-    def __init__(self):
+    def __init__(self, feature_names: Optional[List[str]] = None):
         self.model = LinearRegression()
-        self.feature_names = FEATURE_COLS
+        # Keep feature selection explicit so the forecasting path can choose a
+        # stable trend-and-seasonality model without lag feedback.
+        self.feature_names = feature_names or FEATURE_COLS
 
     def fit(self, X_train: pd.DataFrame, y_train: pd.Series):
         self.model.fit(X_train[self.feature_names], y_train)
@@ -318,3 +346,86 @@ class HoltWintersForecaster:
             raise RuntimeError("HoltWintersForecaster must be fitted before generating predictions.")
         forecast_res = self.fitted_model.forecast(steps=steps)
         return np.array(forecast_res, dtype=float)
+
+
+def forecast_candidate(
+    model_name: str,
+    history: pd.DataFrame,
+    future_dates: List[pd.Timestamp],
+) -> np.ndarray:
+    """Fit one candidate on history and forecast dates using the production method.
+
+    Keeping this shared by evaluation and live forecasts makes the reported
+    backtest resemble the forecast users actually see in the dashboard.
+    """
+    if history.empty or not future_dates:
+        return np.asarray([], dtype=float)
+
+    values = history["quantity"].astype(float).tolist()
+    horizon = len(future_dates)
+
+    if model_name == "Naive Baseline":
+        predictions = NaiveBaselineModel().fit(pd.Series(values)).predict_steps(horizon)
+    elif model_name == "Seasonal Naive":
+        predictions = SeasonalNaiveModel().fit_predict(history, future_dates)
+    elif model_name == "Linear Regression":
+        features = prepare_tabular_features(history)
+        # Linear regression uses only calendar trend and month seasonality.
+        # Feeding its own predictions into lag features can create unstable
+        # oscillations (large value, then zero, then large value) over long horizons.
+        stable_features = ["time_step", "month_sin", "month_cos"]
+        model = TabularLinearRegression(feature_names=stable_features).fit(
+            features, features["quantity"]
+        )
+        first_month = pd.Timestamp(history["month"].iloc[0])
+        future_features = []
+        for future_date in future_dates:
+            future_date = pd.Timestamp(future_date)
+            elapsed_months = (future_date.year - first_month.year) * 12 + future_date.month - first_month.month
+            month_angle = 2 * np.pi * (future_date.month - 1) / 12
+            future_features.append({
+                "time_step": elapsed_months,
+                "month_sin": np.sin(month_angle),
+                "month_cos": np.cos(month_angle),
+            })
+        predictions = model.predict(pd.DataFrame(future_features))
+    elif model_name == "Random Forest":
+        features = prepare_tabular_features(history)
+        model = TabularRandomForest(random_state=42).fit(features, features["quantity"])
+
+        # Forecast recursively: once a month is predicted, use it as a lag for
+        # the following month, matching a multi-month operational projection.
+        running_values = list(values)
+        first_month = pd.Timestamp(history["month"].iloc[0])
+        predictions_list = []
+        for future_date in future_dates:
+            future_date = pd.Timestamp(future_date)
+            elapsed_months = (future_date.year - first_month.year) * 12 + future_date.month - first_month.month
+            month_angle = 2 * np.pi * (future_date.month - 1) / 12
+            lag1 = running_values[-1]
+            lag2 = running_values[-2] if len(running_values) >= 2 else lag1
+            lag3 = running_values[-3] if len(running_values) >= 3 else lag2
+            feature_row = pd.DataFrame([{
+                "time_step": elapsed_months,
+                "month_sin": np.sin(month_angle),
+                "month_cos": np.cos(month_angle),
+                "lag_1": lag1,
+                "lag_2": lag2,
+                "lag_3": lag3,
+                "rolling_mean_3": float(np.mean(running_values[-3:])),
+            }])
+            prediction = max(0.0, float(model.predict(feature_row)[0]))
+            predictions_list.append(prediction)
+            running_values.append(prediction)
+        predictions = np.asarray(predictions_list, dtype=float)
+    elif model_name == "ARIMA":
+        model = ARIMAForecaster(order=(1, 1, 1)).fit(pd.Series(values))
+        predictions = model.predict_steps(horizon)
+    elif model_name == "Holt-Winters":
+        model = HoltWintersForecaster(seasonal_periods=12).fit(pd.Series(values))
+        predictions = model.predict_steps(horizon)
+    else:
+        raise ValueError(f"Unsupported predictive model: {model_name}")
+
+    # Counts, weights and production totals cannot be negative.
+    return np.maximum(np.asarray(predictions, dtype=float), 0.0)

@@ -4,10 +4,10 @@ Future Forecast Generation Engine.
 =============================================================================
 EDUCATIONAL OVERVIEW: OUT-OF-SAMPLE FORECASTING
 =============================================================================
-Once models are evaluated and benchmarked on the test period:
-1. We select the winning model based on lowest test MAE.
-2. We re-fit the winning model on ALL historical data (so it learns from both
-   train and test periods up to the present day).
+Once models are evaluated and benchmarked over rolling forecast windows:
+1. We select the winning model based on rolling-origin MAE, provided it beats
+   the strongest simple baseline.
+2. We fit the selected model again on ALL available historical data.
 3. We project forward into the UNSEEN FUTURE (e.g. next 3 to 6 months).
 4. For tabular models (Linear Regression, Random Forest), recursive forecasting
    is used: predicting month t + 1, then using that prediction as lag_1 for t + 2.
@@ -16,22 +16,15 @@ Once models are evaluated and benchmarked on the test period:
 """
 
 from typing import Dict, Any, List, Optional
-from datetime import date
 from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 
 from .data import (
     extract_monthly_series,
-    extract_monthly_production_series,
-    prepare_tabular_features,
 )
 from .models import (
-    NaiveBaselineModel,
-    TabularLinearRegression,
-    TabularRandomForest,
-    ARIMAForecaster,
-    HoltWintersForecaster,
+    forecast_candidate,
 )
 from .evaluation import evaluate_all_models
 
@@ -50,7 +43,7 @@ def generate_future_forecast(
     across any supported domain (production, disease, mortality, slaughter, auction).
 
     Production Hardening & Reliability:
-    - Automatically discovers the best evaluated model on the chronological holdout.
+    - Automatically discovers the best evaluated model from rolling-origin forecasts.
     - If user requests a specific preferred_model, tracks is_user_override explicitly without
       misrepresenting the true evaluated winner.
     - Wraps full-dataset model fitting in a safe try-catch hierarchy, falling back to the evaluated
@@ -65,6 +58,7 @@ def generate_future_forecast(
         target=effective_target,
         unit=unit,
         user=user,
+        horizon_months=horizon_months,
     )
     if eval_res.get("status") == "insufficient_data":
         return eval_res
@@ -102,54 +96,8 @@ def generate_future_forecast(
 
     # Step 3: Train and project based on chosen model architecture with safe fallbacks
     try:
-        if operational_model_name == "ARIMA":
-            arima = ARIMAForecaster(order=(1, 1, 1)).fit(df["quantity"])
-            raw_preds = arima.predict_steps(steps=horizon)
-            predicted_values = [round(max(0.0, float(v)), 1) for v in raw_preds]
-
-        elif operational_model_name == "Holt-Winters":
-            hw = HoltWintersForecaster(seasonal_periods=12).fit(df["quantity"])
-            raw_preds = hw.predict_steps(steps=horizon)
-            predicted_values = [round(max(0.0, float(v)), 1) for v in raw_preds]
-
-        elif operational_model_name in ("Random Forest", "Linear Regression"):
-            df_feat = prepare_tabular_features(df)
-            if operational_model_name == "Random Forest":
-                model = TabularRandomForest(random_state=42).fit(df_feat, df_feat["quantity"])
-            else:
-                model = TabularLinearRegression().fit(df_feat, df_feat["quantity"])
-
-            # Recursive step-by-step projection
-            cur_history = list(df["quantity"].values)
-            cur_time_step = len(df)
-
-            for f_date in future_dates:
-                lag1 = cur_history[-1]
-                lag2 = cur_history[-2] if len(cur_history) >= 2 else lag1
-                lag3 = cur_history[-3] if len(cur_history) >= 3 else lag2
-                roll3 = float(np.mean(cur_history[-3:]))
-
-                row_dict = {
-                    "time_step": cur_time_step,
-                    "month_num": f_date.month,
-                    "lag_1": lag1,
-                    "lag_2": lag2,
-                    "lag_3": lag3,
-                    "rolling_mean_3": roll3,
-                }
-                X_future = pd.DataFrame([row_dict])
-                pred_val = float(model.predict(X_future)[0])
-                pred_val = round(max(0.0, pred_val), 1)
-
-                predicted_values.append(pred_val)
-                cur_history.append(pred_val)
-                cur_time_step += 1
-
-        else:
-            # Default Naive Persistence
-            last_val = float(df["quantity"].iloc[-1])
-            predicted_values = [round(last_val, 1)] * horizon
-            operational_model_name = "Naive Baseline"
+        raw_predictions = forecast_candidate(operational_model_name, df, future_dates)
+        predicted_values = [round(float(value), 1) for value in raw_predictions]
 
     except Exception as e:
         # Graceful fallback to Naive Baseline if full-series fitting failed
@@ -185,7 +133,12 @@ def generate_future_forecast(
         for f_date, pred_val in zip(future_dates, predicted_values)
     ]
 
-    combined_timeline = historical_timeline + future_timeline
+    # The chart's x-axis follows array order, so sort by the ISO date key and
+    # guarantee that every forecast point comes after the latest actual month.
+    combined_timeline = sorted(
+        historical_timeline + future_timeline,
+        key=lambda point: point["date"],
+    )
 
     # Step 5: Summary Metrics & Change Analysis
     recent_baseline = float(df["quantity"].iloc[-3:].mean())
@@ -206,12 +159,12 @@ def generate_future_forecast(
     # Determine forecast source and baseline comparison metadata
     forecast_source = (
         "NAIVE_BASELINE"
-        if operational_model_name == "Naive Baseline"
+        if operational_model_name in ("Naive Baseline", "Seasonal Naive")
         else "MACHINE_LEARNING"
     )
 
     naive_mae = eval_res.get("selection", {}).get("baseline_mae")
-    if operational_model_name == "Naive Baseline":
+    if operational_model_name in ("Naive Baseline", "Seasonal Naive"):
         baseline_comparison = "BASELINE_BEST"
     elif active_metrics.get("mae") is not None and naive_mae is not None:
         baseline_comparison = (
@@ -237,7 +190,7 @@ def generate_future_forecast(
         "fallback_reason": fallback_reason,
         "forecast_source": forecast_source,
         "baseline_comparison": baseline_comparison,
-        "baseline_model": "Naive Baseline",
+        "baseline_model": eval_res.get("selection", {}).get("baseline_model", "Naive Baseline"),
         "baseline_mae": naive_mae,
         "selected_model_mae": active_metrics.get("mae"),
         "metrics": active_metrics,
@@ -256,11 +209,17 @@ def generate_future_forecast(
             "test_period": eval_res.get("data", {}).get("test_period"),
             "is_seeded": meta["is_seeded"],
             "seed_marker": meta.get("seed_marker"),
+            "missing_months": meta.get("missing_months", []),
+            "missing_month_count": meta.get("missing_month_count", 0),
+            "is_monthly_series_contiguous": meta.get("is_monthly_series_contiguous", True),
+            "excluded_incomplete_current_month": meta.get("excluded_incomplete_current_month", False),
+            "coverage_warning": meta.get("coverage_warning"),
         },
         "metadata": {
             "horizon_months": horizon,
             "is_seeded": meta["is_seeded"],
             "seed_marker": meta.get("seed_marker"),
+            "coverage_warning": meta.get("coverage_warning"),
             "historical_start_date": meta.get("start_date"),
             "last_historical_date": last_date.strftime("%Y-%m-%d"),
             "recent_baseline_avg": round(recent_baseline, 1),
