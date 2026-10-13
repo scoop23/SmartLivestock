@@ -99,8 +99,7 @@ export default function InventoryStats({
           title={card.label}
           value={card.value}
           icon={card.icon}
-          badge={card.sub}
-          badgeClassName={card.subClass}
+          description={card.sub}
           variant={card.variant}
           layout={layout}
         />

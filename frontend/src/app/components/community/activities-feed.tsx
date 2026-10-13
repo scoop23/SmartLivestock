@@ -216,7 +216,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
         <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-3">
           {/* Category Filter Pills with Badges */}
           <div
-            className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-1 sm:pb-0"
+            className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
             role="group"
             aria-label="Filter activities by category"
           >

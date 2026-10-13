@@ -30,7 +30,7 @@ export function InventoryTelemetryHeader({
 
       </div>
 
-      <InventoryStats inventories={inventories} isLoading={isLoading} layout="horizontal" />
+      <InventoryStats inventories={inventories} isLoading={isLoading} layout="vertical" />
     </div>
   );
 }

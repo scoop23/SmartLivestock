@@ -539,7 +539,7 @@ export default function LivestockRecordList({
         </div>
 
         {/* Inline Dropdown Filters & Actions */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex flex-1 min-w-0 items-center justify-end gap-2 flex-wrap">
           {/* Species Dropdown */}
           {livestockTypes && (
             <Select value={typeFilter} onValueChange={setTypeFilter}>
