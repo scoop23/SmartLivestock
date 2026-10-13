@@ -23,7 +23,6 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from production.models import LiveAnimalSale
-from livestock.models import LivestockInventory
 from users.models import User
 from analytics.seed_markers import SEED_MARKER_AUCTION
 
@@ -53,7 +52,12 @@ class Command(BaseCommand):
             self._handle_clean()
             return
 
-        self._handle_seed(months=options["months"])
+        months = options["months"]
+        if months < 1:
+            self.stderr.write(self.style.ERROR("--months must be at least 1."))
+            return
+
+        self._handle_seed(months=months)
 
     def _handle_clean(self):
         seed_qs = LiveAnimalSale.objects.filter(review_remarks__contains=SEED_MARKER_AUCTION)
@@ -83,10 +87,6 @@ class Command(BaseCommand):
                 )
             )
             return
-
-        inventory = (
-            LivestockInventory.objects.filter(status="APPROVED").first()
-        )
 
         mao_user = (
             User.objects.filter(role__role_name__icontains="MAO").first()
@@ -142,7 +142,10 @@ class Command(BaseCommand):
                 purpose = purposes[(m_idx + e_idx) % len(purposes)]
 
                 record = LiveAnimalSale(
-                    livestock=inventory,
+                    # These are aggregate synthetic market totals, not a sale of
+                    # one identified animal. Leave both optional links empty so
+                    # quantity (multiple heads) is not falsely tied to one animal.
+                    livestock=None,
                     batch=None,
                     quantity=heads,
                     sale_method=method,

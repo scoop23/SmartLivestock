@@ -60,7 +60,12 @@ class Command(BaseCommand):
             self._handle_clean()
             return
 
-        self._handle_seed(months=options["months"])
+        months = options["months"]
+        if months < 1:
+            self.stderr.write(self.style.ERROR("--months must be at least 1."))
+            return
+
+        self._handle_seed(months=months)
 
     def _handle_clean(self):
         seed_qs = SlaughterRecord.objects.filter(review_remarks__contains=SEED_MARKER_SLAUGHTER)
@@ -91,13 +96,14 @@ class Command(BaseCommand):
             )
             return
 
+        # The generated carcass weights below describe cattle. Do not silently
+        # attach them to an unrelated first lookup value (for example, poultry).
         livestock_type = (
             LivestockType.objects.filter(name__icontains="cattle").first()
             or LivestockType.objects.filter(name__icontains="cow").first()
-            or LivestockType.objects.first()
         )
         if not livestock_type:
-            self.stdout.write(self.style.ERROR("Cannot seed: No LivestockType found in database."))
+            self.stdout.write(self.style.ERROR("Cannot seed cattle slaughter data: add a Cattle/Cow LivestockType first."))
             return
 
         barangay = Barangay.objects.first()
