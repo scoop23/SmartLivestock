@@ -34,7 +34,7 @@ from django.utils import timezone
 from django.db.models import Sum
 
 from diseases.models import DiseaseCase
-from livestock.models import LivestockInventory
+from ..population import population_summary
 from .forecasting import generate_future_forecast
 
 
@@ -173,8 +173,9 @@ def generate_prescriptive_recommendations(
     # Rule 4: Vaccination Coverage Check
     # Condition: Check total approved inventory vs vaccinated heads
     # -------------------------------------------------------------
-    total_approved_heads = LivestockInventory.objects.filter(status="APPROVED").count()
-    vaccinated_heads = LivestockInventory.objects.filter(status="APPROVED", last_vaccination_date__isnull=False).count()
+    population = population_summary(user=user, today=today)
+    total_approved_heads = population["total_heads"]
+    vaccinated_heads = sum(row["vaccinated"] for row in population["by_barangay"])
     coverage_pct = round((vaccinated_heads / total_approved_heads) * 100, 1) if total_approved_heads > 0 else 0.0
 
     if total_approved_heads > 0 and coverage_pct < 60.0:
