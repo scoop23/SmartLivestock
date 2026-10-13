@@ -15,6 +15,7 @@ import { ValidationStatus } from "../validation-analytics";
 const STATUS_FILTERS = [
   { id: "ALL", label: "All Records", shortLabel: "All", activeClass: "bg-slate-800 text-white ring-slate-300", dotClass: "bg-slate-500" },
   { id: "PENDING", label: "Awaiting SIBAT", shortLabel: "Awaiting SIBAT", activeClass: "bg-amber-50 text-amber-900 ring-amber-200", dotClass: "bg-amber-500" },
+  { id: "AWAITING_MAO", label: "Awaiting MAO", shortLabel: "Awaiting MAO", activeClass: "bg-indigo-50 text-indigo-900 ring-indigo-200", dotClass: "bg-indigo-500" },
   { id: "VERIFIED", label: "SIBAT Verified", shortLabel: "SIBAT Verified", activeClass: "bg-sky-50 text-sky-900 ring-sky-200", dotClass: "bg-sky-500" },
   { id: "APPROVED", label: "MAO Approved", shortLabel: "MAO Approved", activeClass: "bg-emerald-50 text-emerald-900 ring-emerald-200", dotClass: "bg-emerald-500" },
   { id: "SUBJECT_TO_REVISION", label: "Revision Required", shortLabel: "Revision", activeClass: "bg-rose-50 text-rose-900 ring-rose-200", dotClass: "bg-rose-500" },

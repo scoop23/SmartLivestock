@@ -35,6 +35,14 @@ import {
 import { ReviewTargetItem } from "../validation-review-dialog";
 import { DetailRecordData } from "../record-detail-dialog";
 
+function getIncidentStatusPill(incident: ValidationIncidentItem) {
+  const pill = getStatusPill(incident.status);
+  if (incident.type === "inspection" && (incident.status || "PENDING").toUpperCase() === "PENDING") {
+    return { ...pill, label: "Awaiting MAO", shortLabel: "Awaiting MAO", bg: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500 animate-pulse" };
+  }
+  return pill;
+}
+
 interface IncidentsTableProps {
   records: ValidationIncidentItem[];
   selectedIds: (string | number)[];
@@ -168,7 +176,7 @@ export function IncidentsTable({
                 records.map((inc) => {
                   const isSelected = selectedIds.includes(inc.id);
                   const typeBadge = getIncidentTypeBadge(inc.type);
-                  const statusPill = getStatusPill(inc.status);
+                  const statusPill = getIncidentStatusPill(inc);
                   const detailPayload = buildDetailPayload(inc);
                   const iconStyle = getIncidentIcon(inc.type);
                   const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";
@@ -358,7 +366,7 @@ export function IncidentsTable({
           records.map((inc) => {
             const isSelected = selectedIds.includes(inc.id);
             const typeBadge = getIncidentTypeBadge(inc.type);
-            const statusPill = getStatusPill(inc.status);
+            const statusPill = getIncidentStatusPill(inc);
             const detailPayload = buildDetailPayload(inc);
             const iconStyle = getIncidentIcon(inc.type);
             const isHealthOrMortality = inc.type === "disease" || inc.type === "mortality";

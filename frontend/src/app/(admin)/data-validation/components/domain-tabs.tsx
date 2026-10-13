@@ -2,7 +2,7 @@
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileSpreadsheet, Milk, Tag, Activity } from "lucide-react";
+import { Activity, FileSpreadsheet, Milk, Scissors, Tag } from "lucide-react";
 import { VALIDATION_DOMAINS, ValidationDomain } from "../validation-analytics";
 
 const DOMAIN_CARD_CONFIG: Record<
@@ -43,16 +43,18 @@ const DOMAIN_CARD_CONFIG: Record<
 type DomainCounts = Record<ValidationDomain, number>;
 
 interface DomainTabsProps {
+  activeTab: ValidationDomain | "slaughter";
+  onTabChange: (tab: ValidationDomain | "slaughter") => void;
   activeDomain: ValidationDomain;
-  onDomainChange: (domain: ValidationDomain) => void;
   pendingCounts: DomainCounts;
   verifiedCounts: DomainCounts;
   totalCounts: DomainCounts;
 }
 
 export function DomainTabs({
+  activeTab,
+  onTabChange,
   activeDomain,
-  onDomainChange,
   pendingCounts,
   verifiedCounts,
   totalCounts,
@@ -60,11 +62,11 @@ export function DomainTabs({
   return (
     <div className="w-full space-y-2.5">
       <Tabs
-        value={activeDomain}
-        onValueChange={(val) => onDomainChange(val as ValidationDomain)}
+        value={activeTab}
+        onValueChange={(val) => onTabChange(val as ValidationDomain | "slaughter")}
         className="w-full space-y-2.5"
       >
-        <TabsList className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 p-2 bg-slate-100/90 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs h-auto">
+        <TabsList className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 p-2 bg-slate-100/90 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs h-auto">
           {VALIDATION_DOMAINS.map((domain) => {
             const config = DOMAIN_CARD_CONFIG[domain.id];
             const pendingCount = pendingCounts[domain.id];
@@ -123,11 +125,26 @@ export function DomainTabs({
               </TabsTrigger>
             );
           })}
+          <TabsTrigger
+            value="slaughter"
+            className="group relative flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl transition-all duration-200 text-left border border-slate-200/70 bg-white/70 hover:bg-white hover:border-slate-300 data-[state=active]:bg-white data-[state=active]:shadow-sm cursor-pointer h-auto data-[state=active]:border-slate-300 data-[state=active]:ring-1 data-[state=active]:ring-slate-300/50"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`size-10 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs ${activeTab === "slaughter" ? "bg-slate-800 text-white shadow-slate-800/20 shadow-xs" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/80 group-hover:text-slate-800"}`}>
+                <Scissors className="size-4.5" />
+              </div>
+              <div className="text-left min-w-0">
+                <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 truncate">Slaughter Review</p>
+                <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 truncate mt-0.5">Facility Totals & Weights</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 font-mono shrink-0">MAO Queue</span>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
       {/* Contextual Active Queue Telemetry Strip */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs text-xs">
+      {activeTab !== "slaughter" ? <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs text-xs">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="font-black text-slate-900 truncate">
@@ -157,7 +174,7 @@ export function DomainTabs({
             </Badge>
           )}
         </div>
-      </div>
+      </div> : null}
     </div>
   );
 }

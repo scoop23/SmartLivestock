@@ -18,7 +18,7 @@ import {
 
 export type ValidationDomain = "census" | "production" | "inventory" | "incidents";
 
-export type ValidationStatus = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+export type ValidationStatus = "ALL" | "PENDING" | "AWAITING_MAO" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export interface ValidationDomainConfig {
   id: ValidationDomain;

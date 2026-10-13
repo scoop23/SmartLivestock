@@ -362,6 +362,8 @@ export function RecordDetailDialog({
                   ? "bg-sky-500 text-white border-sky-400"
                   : isRejected
                     ? "bg-rose-600 text-white border-rose-500"
+                    : isAuctionRecord && isPending
+                    ? "bg-indigo-400/20 text-indigo-200 border-indigo-300/40"
                     : "bg-amber-400/20 text-amber-200 border-amber-300/40"
                 }`}
             >
@@ -376,7 +378,9 @@ export function RecordDetailDialog({
                     ? "SIBAT Field-Verified"
                     : isRejected
                       ? "Subject for Revision"
-                      : record.kind === "census"
+                      : isAuctionRecord && isPending
+                        ? "Awaiting MAO"
+                        : record.kind === "census"
                         ? "Pending MAO Review"
                         : "Pending SIBAT Verification"}
               </span>

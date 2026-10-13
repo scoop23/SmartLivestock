@@ -34,7 +34,6 @@ import {
   Shield,
   User as UserIcon,
   Key,
-  Scissors,
   History,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -106,7 +105,6 @@ const adminLinks: SidebarLink[] = [
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/data-uploads', label: 'Data Upload', icon: Upload },
-  { path: '/slaughter-record-review', label: 'Slaughter Review', icon: Scissors },
   { path: '/news-announcements', label: 'Activities', icon: Newspaper },
   { path: '/schedules', label: 'Farmer Schedules', icon: CalendarDays },
 ];

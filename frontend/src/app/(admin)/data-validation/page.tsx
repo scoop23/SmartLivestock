@@ -39,6 +39,7 @@ import {
 } from "./components";
 import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
 import { DataTableSection } from "@/components/ui/data-table-section";
+import { SlaughterReviewQueue } from "@/app/(admin)/slaughter-record-review/slaughter-review-queue";
 
 // Dialog Modals
 import {
@@ -55,6 +56,7 @@ function matchesStatusFilter(
   statusFilter: ValidationStatus
 ): boolean {
   if (statusFilter === "ALL") return true;
+  if (statusFilter === "AWAITING_MAO") return false;
   const s = (rawStatus || "PENDING").toUpperCase();
   if (statusFilter === "SUBJECT_TO_REVISION") {
     return (
@@ -100,6 +102,7 @@ function AdminDataValidationContent() {
   const requestedRecordId = searchParams.get("recordId") ?? searchParams.get("reviewId");
   const legacyMessage = searchParams.get("legacyMessage")?.toLocaleLowerCase() ?? "";
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [activeValidationView, setActiveValidationView] = useState<"records" | "slaughter">("records");
 
   // Domain tab & filter states
   const [activeDomain, setActiveDomain] = useState<ValidationDomain>(() =>
@@ -431,7 +434,9 @@ function AdminDataValidationContent() {
         inc.barangayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inc.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inc.type.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus = matchesStatusFilter(inc.status, statusFilter);
+      const matchStatus = statusFilter === "AWAITING_MAO"
+        ? inc.type === "inspection" && (inc.status || "PENDING").toUpperCase() === "PENDING"
+        : matchesStatusFilter(inc.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || inc.barangayName === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
     });
@@ -837,17 +842,27 @@ function AdminDataValidationContent() {
         {/* Herds & Livestock Drilldown Callout Banner */}
         <HerdBatchesBanner />
 
-        {/* ── Remastered Executive Domain Switcher Tabs ── */}
         <DomainTabs
+          activeTab={activeValidationView === "records" ? activeDomain : "slaughter"}
           activeDomain={activeDomain}
-          onDomainChange={(val) => {
-            setActiveDomain(val);
-            setSelectedIds([]);
+          onTabChange={(tab) => {
+            if (tab === "slaughter") {
+              setActiveValidationView("slaughter");
+            } else {
+              setActiveDomain(tab);
+              setActiveValidationView("records");
+              setSelectedIds([]);
+            }
           }}
           pendingCounts={domainPendingCounts}
           verifiedCounts={domainVerifiedCounts}
           totalCounts={domainTotalCounts}
         />
+
+        {activeValidationView === "slaughter" ? (
+          <SlaughterReviewQueue />
+        ) : (
+          <>
 
         {/* Search, Filter & Bulk Actions Toolbar */}
         <ValidationToolbar
@@ -865,6 +880,10 @@ function AdminDataValidationContent() {
           statusFilter={statusFilter}
           onStatusChange={(s) => {
             setStatusFilter(s);
+            if (s === "AWAITING_MAO") {
+              setActiveDomain("incidents");
+              setActiveValidationView("records");
+            }
             setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
           }}
           selectedCount={selectedIds.length}
@@ -905,14 +924,16 @@ function AdminDataValidationContent() {
             onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
           />
         </DataTableSection>
+          </>
+        )}
       </div>
 
       {/* ── FLOATING MOBILE BULK ACTION DOCK ── */}
-      <BulkActionDock
+      {activeValidationView === "records" ? <BulkActionDock
         count={selectedIds.length}
         onValidate={openReviewBatch}
         onClear={() => setSelectedIds([])}
-      />
+      /> : null}
 
       {/* Batch / Single Review Dialog */}
       <ValidationReviewDialog
