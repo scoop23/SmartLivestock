@@ -36,6 +36,7 @@ import ProductionSalesTab from "./production-sales-tab";
 import ProductionForecastsTab from "./production-forecasts-tab";
 import ProductionWizard, { getProductionTypesForLivestock } from "./production-wizard";
 import ProductionDeleteDialog from "./production-delete-dialog";
+import ProductionSubmissionSuccessDialog from "./production-submission-success-dialog";
 
 import {
   EMPTY_TYPE_ANALYTICS,
@@ -102,6 +103,8 @@ export default function ProductionDashboardView({
 
   // Wizard state
   const [isWizardOpen, setIsWizardOpen] = useState(initialMode === "record" && ["milk", "meat", "eggs", "wool"].includes(initialActivity ?? ""));
+  const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
+  const [submittedProductionId, setSubmittedProductionId] = useState<number | string | null>(null);
   const [editingRecord, setEditingRecord] = useState<Partial<ProductionRecordItem> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductionRecordItem | null>(null);
   const [productionType, setProductionType] = useState<ProductionType>(focusedProductionType);
@@ -370,10 +373,12 @@ export default function ProductionDashboardView({
       const res = await api.post("production/records/", payload);
       return res.data;
     },
-    onSuccess: () => {
-      toast.success("Production record logged successfully!");
+    onSuccess: (createdRecord) => {
+      setSubmittedProductionId(createdRecord?.id ?? null);
+      setIsSubmissionSuccessOpen(true);
       setIsWizardOpen(false);
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
+      queryClient.invalidateQueries({ queryKey: ["production"] });
     },
     onError: (error: unknown) => {
       toast.error(productionErrorMessage(error, "Failed to log production record."));
@@ -812,6 +817,11 @@ export default function ProductionDashboardView({
         }}
         onConfirm={handleConfirmDelete}
         isDeleting={deleteMutation.isPending}
+      />
+      <ProductionSubmissionSuccessDialog
+        open={isSubmissionSuccessOpen}
+        onOpenChange={setIsSubmissionSuccessOpen}
+        recordId={submittedProductionId}
       />
     </div>
   );
