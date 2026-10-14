@@ -123,6 +123,51 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Comfortable text is the default; users can adjust this in Profile settings. */
+html {
+  font-size: 112.5%;
+  --fixed-font-scale: 1.125;
+}
+
+html[data-font-scale="standard"] {
+  font-size: 100%;
+  --fixed-font-scale: 1;
+}
+
+html[data-font-scale="extra-large"] {
+  font-size: 125%;
+  --fixed-font-scale: 1.25;
+}
+
+/* Scale the app's legacy fixed-pixel text utilities along with rem-based text. */
+html[data-font-scale] [class*="text-[8px]"] {
+  font-size: calc(8px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[9px]"] {
+  font-size: calc(9px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[9.5px]"] {
+  font-size: calc(9.5px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[10px]"] {
+  font-size: calc(10px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[10.5px]"] {
+  font-size: calc(10.5px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[11px]"] {
+  font-size: calc(11px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[13px]"] {
+  font-size: calc(13px * var(--fixed-font-scale)) !important;
+}
+
 /* Notifications remain visible above the shared dialog and popover layers. */
 [data-sonner-toaster] {
   z-index: var(--z-toast) !important;

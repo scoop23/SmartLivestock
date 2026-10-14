@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { invalidateMunicipalSummaries } from "@/lib/municipal-cache";
 import { AuthProvider } from "@/contexts/auth-context";
+import { AccessibilitySettingsProvider } from "@/contexts/accessibility-settings-context";
 import { PrivacyConsentModal } from "@/app/components/privacy-consent-modal";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -30,11 +31,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        {children}
-        <PrivacyConsentModal />
-      </AuthProvider>
-    </QueryClientProvider>
+    <AccessibilitySettingsProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          {children}
+          <PrivacyConsentModal />
+        </AuthProvider>
+      </QueryClientProvider>
+    </AccessibilitySettingsProvider>
   );
 }

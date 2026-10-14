@@ -576,7 +576,7 @@ export default function BatchOverviewPage() {
                     onClick={() => setIsHerdQrOpen(true)}
                     className="absolute right-1 top-1 min-h-11 gap-2 border-white/30 bg-white/10 px-2.5 text-white hover:bg-white/20 hover:text-white sm:right-0 sm:top-0 sm:px-4"
                   >
-                    <QrCode className="size-4" /> <span className="hidden sm:inline"></span>
+                    <QrCode className="size-4" />
                   </Button>
                   {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
                     <LivestockPhotoManager

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { useAccessibilitySettings } from "@/contexts/accessibility-settings-context";
 import { useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,6 +63,7 @@ import {
 
 export function UserProfileView() {
   const { user, logout, updateUser } = useAuth();
+  const { fontScale, setFontScale } = useAccessibilitySettings();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "overview";
 
@@ -831,7 +833,7 @@ export function UserProfileView() {
           >
             {/* Enhanced Full-Width Tab Strip */}
             <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto no-scrollbar w-full">
-              <TabsList className="bg-slate-100/90 p-1.5 rounded-xl h-auto grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full">
+              <TabsList className="bg-slate-100/90 p-1.5 rounded-xl h-auto grid grid-cols-2 lg:grid-cols-5 gap-1.5 w-full">
                 <TabsTrigger
                   value="overview"
                   className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
@@ -858,6 +860,13 @@ export function UserProfileView() {
                   className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-emerald-700 data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
                 >
                   <span>Audit Logs</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="text-size"
+                  className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-sky-700 data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
+                >
+                  <span>Text Size</span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1094,6 +1103,71 @@ export function UserProfileView() {
                       </div>
                     )}
                   </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="text-size" className="space-y-4 mt-0">
+              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+                <CardContent className="p-5 sm:p-7 space-y-5">
+                  <div className="pb-4 border-b border-slate-100">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">
+                      Make text easier to read
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                      Choose a size that feels comfortable. This setting applies throughout SmartLivestock on this browser.
+                    </p>
+                  </div>
+
+                  <div role="group" aria-label="Text size" className="grid gap-3 sm:grid-cols-3">
+                    {([
+                      {
+                        value: "standard",
+                        label: "Standard",
+                        description: "The usual text size",
+                      },
+                      {
+                        value: "comfortable",
+                        label: "Comfortable",
+                        description: "Recommended for easier reading",
+                      },
+                      {
+                        value: "extra-large",
+                        label: "Extra large",
+                        description: "The largest text size",
+                      },
+                    ] as const).map((option) => {
+                      const selected = fontScale === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => setFontScale(option.value)}
+                          className={`min-h-24 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 ${
+                            selected
+                              ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-700/20"
+                              : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="text-base font-bold text-slate-900">{option.label}</span>
+                            {option.value === "comfortable" && (
+                              <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-900">
+                                Recommended
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-2 block text-sm leading-relaxed text-slate-600">
+                            {option.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-sm text-slate-600" aria-live="polite">
+                    Current text size: {fontScale === "extra-large" ? "Extra large" : fontScale === "standard" ? "Standard" : "Comfortable"}.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>

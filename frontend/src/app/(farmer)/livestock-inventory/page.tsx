@@ -215,7 +215,7 @@ export default function LivestockInventoryPage() {
         }
       />
 
-      <div className="p-4 md:p-8 w-full space-y-2">
+      <div className="w-full min-w-0 max-w-full space-y-2 p-4 md:p-8">
         {/* Livestock overview and inventory actions */}
         {!selectedType && (
           <InventoryHeroBanner
@@ -252,7 +252,7 @@ export default function LivestockInventoryPage() {
             setActiveTab(nextTab);
             if (nextTab !== "types") setSelectedType(null);
           }}
-          className="-space-y-2 pt-2"
+          className="-space-y-2 w-full min-w-0 max-w-full pt-2"
         >
           {!selectedType && (
             <InventoryTabsNav
@@ -262,7 +262,7 @@ export default function LivestockInventoryPage() {
             />
           )}
 
-          <TabsContent value="types" className="space-y-4 pt-2 outline-hidden w-full">
+          <TabsContent value="types" className="w-full min-w-0 max-w-full space-y-4 pt-2 outline-hidden">
             {selectedType ? (
               <SpeciesDrilldownView
                 selectedType={selectedType}

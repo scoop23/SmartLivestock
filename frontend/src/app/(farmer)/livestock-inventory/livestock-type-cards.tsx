@@ -183,9 +183,9 @@ export default function LivestockTypeCards({
   const typeSummaries = buildTypeSummaries(inventories, batches);
 
   return (
-    <div className="py-2 space-y-4">
+    <div className="w-full min-w-0 max-w-full py-2 space-y-4">
       {/* Elevated Header Control Strip */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3.5 p-3.5 sm:px-4 sm:py-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
+      <div className="flex min-w-0 flex-col justify-between gap-3.5 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:px-4 sm:py-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="size-9 rounded-xl bg-emerald-100/80 text-emerald-800 flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200/60">
             <Layers className="size-4.5" />
@@ -205,13 +205,13 @@ export default function LivestockTypeCards({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+        <div className="flex w-full min-w-0 flex-col items-stretch gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
           {/* View Mode Switcher */}
-          <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/80 shadow-2xs">
+          <div className="flex w-full min-w-0 items-center rounded-xl border border-slate-200/80 bg-slate-100/90 p-1 shadow-2xs sm:w-auto">
             <button
               type="button"
               onClick={() => setViewMode("card")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-bold transition-all cursor-pointer sm:flex-initial sm:px-3 sm:py-1.5 ${
                 viewMode === "card"
                   ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
                   : "text-slate-500 hover:text-slate-900 hover:bg-white/40"
@@ -225,7 +225,7 @@ export default function LivestockTypeCards({
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-bold transition-all cursor-pointer sm:flex-initial sm:px-3 sm:py-1.5 ${
                 viewMode === "table"
                   ? "bg-white text-emerald-950 shadow-xs border border-slate-200/80 font-extrabold"
                   : "text-slate-500 hover:text-slate-900 hover:bg-white/40"
@@ -238,17 +238,17 @@ export default function LivestockTypeCards({
           </div>
 
           {/* View All Records Link */}
-          <Link href="/livestock-inventory/all">
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 bg-white hover:bg-emerald-50/80 border border-slate-200/90 hover:border-emerald-300 text-emerald-950 font-bold text-xs shadow-2xs rounded-xl h-9 px-3.5 transition-all cursor-pointer"
-            >
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 w-full gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 text-xs font-bold text-emerald-950 shadow-2xs transition-all hover:border-emerald-300 hover:bg-emerald-50/80 cursor-pointer sm:h-9 sm:w-auto"
+          >
+            <Link href="/livestock-inventory/all">
               <Layers className="size-3.5 text-emerald-700" />
               <span>All Records</span>
-              <ChevronRight className="size-3 text-slate-400 -ml-1" />
-            </Button>
-          </Link>
+              <ChevronRight className="-ml-1 size-3 text-slate-400" />
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -264,7 +264,7 @@ export default function LivestockTypeCards({
         </Card>
       ) : viewMode === "card" ? (
         /* ═══ CARD VIEW MODE ═══ */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {typeSummaries.map((type) => {
             const config = getSpeciesConfig(type.name);
             const Icon = config.icon;
@@ -275,7 +275,7 @@ export default function LivestockTypeCards({
               <Card
                 key={type.name}
                 onClick={() => onSelectType(type.name)}
-                className={`group relative overflow-hidden rounded-2xl border-2 ${config.border} ${config.cardBg} shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between`}
+                className={`group relative w-full min-w-0 overflow-hidden rounded-2xl border-2 ${config.border} ${config.cardBg} shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between`}
               >
                 {/* Visual Image Banner (if available) */}
                 {config.image ? (
@@ -383,9 +383,9 @@ export default function LivestockTypeCards({
         </div>
       ) : (
         /* ═══ TABLE VIEW MODE ═══ */
-        <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
+        <Card className="w-full min-w-0 max-w-full border-2 border-emerald-900/10 bg-white shadow-xs rounded-2xl overflow-hidden">
+          <div className="w-full min-w-0 max-w-full overflow-x-auto">
+            <Table className="min-w-[720px]">
               <TableHeader className="bg-emerald-950/5">
                 <TableRow className="border-b border-emerald-900/10 hover:bg-transparent">
                   <TableHead className="font-black text-xs uppercase tracking-wider text-emerald-950 py-3.5 pl-5">

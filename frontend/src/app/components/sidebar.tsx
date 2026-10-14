@@ -43,6 +43,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/components/ui/utils';
 import { cowHead } from '@lucide/lab';
 import { Icon } from 'lucide-react';
+import { useAccessibilitySettings } from '@/contexts/accessibility-settings-context';
 import { UniversalQrScannerDialog } from '@/components/universal-qr-scanner-dialog';
 import { MOBILE_NAV_EVENT } from './mobile-nav-open';
 import { useAuth } from '@/contexts/auth-context';
@@ -248,8 +249,13 @@ function SidebarNav({
   return (
     <div className="flex flex-col h-full select-none bg-[#1E4D2B] border-r border-[#163b21] text-white">
       {/* Top Header Logo */}
-      <div className="flex items-center justify-between gap-2 p-3.5 pb-3 min-h-[68px] border-b border-white/10">
-        <div className="flex items-center gap-3 min-w-0">
+      <div
+        className={cn(
+          "flex items-center gap-2 min-h-[68px] border-b border-white/10",
+          collapsed ? "justify-center p-1.5" : "justify-between p-3.5 pb-3"
+        )}
+      >
+        <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-3")}>
           <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1E4D2B] shadow-md shadow-black/20 ring-2 ring-white/20">
             <Icon iconNode={cowHead} className="size-5.5 text-[#1E4D2B]" />
           </div>
@@ -390,7 +396,8 @@ function SidebarNav({
               title={collapsed ? link.label : undefined}
               onClick={() => onNavigate?.()}
               className={cn(
-                "group relative flex min-h-12 items-center gap-3 px-3 rounded-xl font-semibold transition-all duration-150",
+                "group relative flex min-h-12 items-center gap-3 rounded-xl font-semibold transition-all duration-150",
+                collapsed ? "justify-center gap-0 px-0" : "gap-3 px-3",
                 role === "sibat" || role === "farmer" ? "py-3 text-base" : "py-2.5 text-sm",
                 isActive
                   ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs"
@@ -423,7 +430,7 @@ function SidebarNav({
             type="button"
             onClick={onOpenScanner}
             title={collapsed ? "Scan QR Pass / Tag" : undefined}
-            className={`flex items-center gap-3 w-full ${collapsed ? "pl-1.5" : "px-2 py-2"} rounded-xl text-sm font-semibold bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 hover:text-white border border-emerald-400/25 transition-all cursor-pointer group shadow-xs`}
+            className={`flex items-center w-full ${collapsed ? "justify-center gap-0 p-1.5" : "gap-3 px-2 py-2"} rounded-xl text-sm font-semibold bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 hover:text-white border border-emerald-400/25 transition-all cursor-pointer group shadow-xs`}
           >
             <div className="size-8 rounded-lg bg-emerald-400/25 text-emerald-300 flex items-center justify-center shrink-0 group-hover:bg-emerald-400 group-hover:text-[#1E4D2B] group-hover:scale-105 transition-all">
               <QrCode className="size-4.5" />
@@ -450,7 +457,7 @@ function SidebarNav({
           type="button"
           onClick={onOpenHelp}
           title={collapsed ? "Help & Support" : undefined}
-          className={`flex items-center  gap-3 w-full ${collapsed ? "pl-1.5" : "px-2 py-2"} rounded-xl text-sm font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-all cursor-pointer group`}
+          className={`flex items-center w-full ${collapsed ? "justify-center gap-0 p-1.5" : "gap-3 px-2 py-2"} rounded-xl text-sm font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-all cursor-pointer group`}
         >
           <div className="size-8 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/30 group-hover:scale-105 transition-all">
             <HelpCircle className="size-4.5" />
@@ -477,7 +484,7 @@ function SidebarNav({
               )}
               title={`${userDisplayName}${user?.email ? ` · ${user.email}` : ""} · Profile & Options`}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className={cn("flex items-center min-w-0", collapsed ? "justify-center gap-0" : "gap-2.5")}>
                 <div className="size-7 rounded-full bg-emerald-600 border border-emerald-300/40 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
                   {user?.profileImage ? (
                     <img src={user.profileImage} alt={userDisplayName} className="size-full object-cover" />
@@ -652,6 +659,7 @@ function SidebarNav({
 
 export function Sidebar({ role, onLogout }: SidebarProps) {
   const pathname = usePathname();
+  const { fontScale } = useAccessibilitySettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isPinned, setIsPinned] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState<boolean>(false);
@@ -674,6 +682,9 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
     });
   };
 
+  const isExtraLargeText = fontScale === "extra-large";
+  const collapsedSidebarWidth = isExtraLargeText ? 80 : fontScale === "comfortable" ? 72 : 64;
+  const expandedSidebarWidth = isExtraLargeText ? 360 : 280;
   const isExpanded = isPinned || isHovered;
   const links = getLinks(role);
 
@@ -704,20 +715,21 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       */}
       <div
         className="hidden lg:block relative shrink-0 z-[var(--z-sidebar)] transition-[width] duration-200 ease-out"
-        style={{ width: isPinned ? 280 : 64 }}
+        style={{ width: isPinned ? expandedSidebarWidth : collapsedSidebarWidth }}
       >
         {/* Sidebar Panel: Smooth floating overlay on hover, locks in place when pinned */}
         <aside
           onMouseEnter={() => !isPinned && setIsHovered(true)}
           onMouseLeave={() => !isPinned && setIsHovered(false)}
           className={cn(
-            "fixed inset-y-0 left-0 flex flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden transform-gpu",
+            "fixed inset-y-0 left-0 flex flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden transform-gpu transition-[width,box-shadow] duration-200 ease-in-out",
             isPinned
-              ? "w-[280px] z-[var(--z-sidebar)] shadow-xl"
+              ? "z-[var(--z-sidebar)] shadow-xl"
               : isHovered
-                ? "w-[280px] shadow-2xl z-[var(--z-sidebar-hover)] transition-[width,box-shadow] duration-200 ease-out"
-                : "w-16 z-[var(--z-sidebar)] shadow-md transition-[width] duration-200 ease-in-out"
+                ? "shadow-2xl z-[var(--z-sidebar-hover)]"
+                : "z-[var(--z-sidebar)] shadow-md"
           )}
+          style={{ width: isExpanded ? expandedSidebarWidth : collapsedSidebarWidth }}
         >
           <SidebarNav
             collapsed={!isExpanded}

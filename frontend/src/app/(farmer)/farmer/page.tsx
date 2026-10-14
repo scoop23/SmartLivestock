@@ -70,6 +70,7 @@ export default function FarmerDashboard() {
         subtitle="Your livestock, farm records, and updates in one place."
         variant="farmer"
         maxWidthClass="w-full"
+        mobileActionsRow
         action={
           <>
             {user?.barangay ? (
@@ -95,19 +96,25 @@ export default function FarmerDashboard() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        <section aria-label="Quick actions" className="grid gap-3 sm:grid-cols-3">
-          <button type="button" onClick={() => router.push("/production-dashboard")} className="flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-400 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800"><Sparkles className="size-5" aria-hidden="true" /></span>
-            <span><span className="block font-semibold text-slate-900">Record an activity</span><span className="mt-0.5 block text-xs text-slate-600">Milk, birth, weight, and more</span></span>
-          </button>
-          <button type="button" onClick={() => router.push("/livestock-inventory")} className="flex min-h-20 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><MapPin className="size-5" aria-hidden="true" /></span>
-            <span><span className="block font-semibold text-slate-900">My livestock</span><span className="mt-0.5 block text-xs text-slate-600">Find an animal or update its details</span></span>
-          </button>
-          <button type="button" onClick={() => handleOpenReportIllness("DISEASE")} className="flex min-h-20 items-center gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-xs transition hover:border-amber-400 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800"><Stethoscope className="size-5" aria-hidden="true" /></span>
-            <span><span className="block font-semibold text-slate-900">Report an animal health issue</span><span className="mt-0.5 block text-xs text-slate-600">Tell the livestock office what happened</span></span>
-          </button>
+        <section aria-label="Quick actions" className="space-y-3">
+          <div>
+            <h2 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Quick actions</h2>
+            <p className="mt-0.5 text-sm text-slate-600">Common tasks for managing your farm</p>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-3">
+            <button type="button" onClick={() => router.push("/production-dashboard")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-emerald-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-400 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800"><Sparkles className="size-5" aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">Record an activity</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Milk, birth, weight, and more</span></span>
+            </button>
+            <button type="button" onClick={() => router.push("/livestock-inventory")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><MapPin className="size-5" aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">My livestock</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Find an animal or update its details</span></span>
+            </button>
+            <button type="button" onClick={() => handleOpenReportIllness("DISEASE")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-xs transition hover:border-amber-400 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800"><Stethoscope className="size-5" aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">Report an animal health issue</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Tell the livestock office what happened</span></span>
+            </button>
+          </div>
         </section>
 
         {/* Important record-review work stays visible; only the detailed chart matrix moves behind a request. */}

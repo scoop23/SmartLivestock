@@ -95,53 +95,53 @@ export default function FarmerProgramsVisits() {
     : undefined;
 
   return (
-    <section aria-label="Upcoming Programs and Visits" className="space-y-3">
+    <section aria-label="Upcoming Programs and Visits" className="space-y-4">
       {/* Section Header */}
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h3 className="flex items-center gap-2 text-sm sm:text-base font-bold tracking-tight text-slate-900">
-            <CalendarDays className="size-4 text-[#2D5A27]" />
+          <h3 className="flex items-center gap-2.5 text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+            <CalendarDays className="size-5 text-[#2D5A27]" />
             <span>Programs & Visits</span>
           </h3>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-1 text-sm text-slate-600">
             Upcoming municipal programs and scheduled field visits
           </p>
         </div>
 
         <Link
           href="/farmer-scheduling"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 hover:text-emerald-900 transition-colors"
+          className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-emerald-800 hover:text-emerald-900 transition-colors"
         >
           <span>View all</span>
-          <ArrowRight className="size-3.5" />
+          <ArrowRight className="size-4" />
         </Link>
       </div>
 
       {/* Content */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {Array.from({ length: 3 }).map((_, index) => (
             <div
               key={index}
-              className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2.5 shadow-xs"
+              className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3 shadow-xs"
             >
-              <Skeleton className="h-4 w-20 rounded-full" />
-              <Skeleton className="h-4 w-3/4 rounded" />
-              <Skeleton className="h-3 w-1/2 rounded" />
-              <Skeleton className="mt-2 h-7 w-full rounded-lg" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+              <Skeleton className="h-6 w-3/4 rounded" />
+              <Skeleton className="h-4 w-1/2 rounded" />
+              <Skeleton className="mt-3 h-11 w-full rounded-xl" />
             </div>
           ))}
         </div>
       ) : upcomingSchedules.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 text-center shadow-xs">
-          <CalendarDays className="mx-auto size-5 text-slate-400" />
-          <h4 className="mt-1.5 text-xs font-bold text-slate-800">Programs & Visits</h4>
-          <p className="mt-0.5 text-xs text-slate-500">
+        <div className="rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-xs">
+          <CalendarDays className="mx-auto size-6 text-slate-400" />
+          <h4 className="mt-2 text-base font-bold text-slate-800">Programs & Visits</h4>
+          <p className="mx-auto mt-1 max-w-xl text-sm leading-relaxed text-slate-600">
             No upcoming programs or visits right now. Check back later for new activities.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {upcomingSchedules.map((schedule) => {
             const isBooked = confirmedBookingIds.has(schedule.id);
             const isFull = schedule.registration_status === "FULL" || schedule.remaining_slots === 0;
@@ -151,46 +151,46 @@ export default function FarmerProgramsVisits() {
             return (
               <div
                 key={schedule.id}
-                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm"
+                className="group flex min-h-60 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm sm:p-6"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-1.5">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
                     <Badge
                       variant="outline"
-                      className={`text-[9px] font-semibold uppercase tracking-wider ${categoryBadge.badge}`}
+                      className={`text-xs font-semibold uppercase tracking-wide ${categoryBadge.badge}`}
                     >
                       {categoryBadge.label}
                     </Badge>
 
                     {isBooked ? (
-                      <Badge className="border-emerald-200 bg-emerald-50 text-emerald-800 text-[9px] font-semibold">
+                      <Badge className="border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-semibold">
                         Booked
                       </Badge>
                     ) : null}
                   </div>
 
-                  <h4 className="text-xs sm:text-[13px] font-bold leading-snug text-slate-900 group-hover:text-emerald-800 transition-colors whitespace-normal break-words">
+                  <h4 className="text-base sm:text-lg font-bold leading-snug text-slate-900 group-hover:text-emerald-800 transition-colors whitespace-normal break-words">
                     {schedule.program}
                   </h4>
 
-                  <div className="space-y-1 text-[11px] text-slate-500">
-                    <p className="flex items-center gap-1 font-medium text-slate-700">
-                      <CalendarDays className="size-3 text-emerald-700 shrink-0" />
+                  <div className="space-y-2 text-sm text-slate-600">
+                    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-medium text-slate-700">
+                      <CalendarDays className="size-4 text-emerald-700 shrink-0" />
                       <span>{formatShortDate(schedule.date)}</span>
                       <span className="text-slate-300">·</span>
-                      <Clock3 className="size-3 text-slate-400 shrink-0" />
+                      <Clock3 className="size-4 text-slate-400 shrink-0" />
                       <span>{formatTimeWindow(schedule.available_times)}</span>
                     </p>
 
                     {schedule.location ? (
                       <p className="flex items-center gap-1 text-slate-600 truncate">
-                        <MapPin className="size-3 text-rose-500 shrink-0" />
+                        <MapPin className="size-4 text-rose-500 shrink-0" />
                         <span className="truncate">{schedule.location}</span>
                       </p>
                     ) : null}
                   </div>
 
-                  <div className="pt-0.5 text-[11px]">
+                  <div className="pt-1 text-sm">
                     {isBooked ? (
                       <span className="text-emerald-700 font-medium">Your visit is confirmed</span>
                     ) : isFull ? (
@@ -205,31 +205,17 @@ export default function FarmerProgramsVisits() {
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-slate-100">
-                  {isBooked ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDetailsSchedule(schedule)}
-                      className="w-full h-9 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800"
-                    >
-                      View Details
-                      <ArrowRight className="ml-1 size-3" />
-                    </Button>
-                  ) : (
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-9 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800"
-                    >
-                      <Link href={`/farmer-scheduling?schedule=${schedule.id}`}>
-                        {isFull || isClosed ? "View Schedule" : "Book Program"}
-                        <ArrowRight className="ml-1 size-3" />
-                      </Link>
-                    </Button>
-                  )}
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDetailsSchedule(schedule)}
+                    className="w-full h-11 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800"
+                  >
+                    See details
+                    <ArrowRight className="ml-1 size-4" />
+                  </Button>
                 </div>
               </div>
             );
