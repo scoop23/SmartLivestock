@@ -66,6 +66,8 @@ import {
   List,
   RefreshCw,
   Info,
+  AlertCircle,
+  CheckSquare,
   ClipboardList,
   ClipboardCheck,
   Download,
@@ -74,6 +76,16 @@ import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 import SibatReviewDialog from "../components/sibat-review-dialog";
 import type { UnifiedSubmissionItem } from "../sibat-analytics";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -231,6 +243,9 @@ function SibatBatchesVerificationContent() {
   const [selectedAnimalReview, setSelectedAnimalReview] = useState<UnifiedSubmissionItem | null>(null);
   const [animalSearchQuery, setAnimalSearchQuery] = useState("");
   const [animalStatusFilter, setAnimalStatusFilter] = useState<string>("ALL");
+  const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>([]);
+  const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false);
+  const [bulkVerifying, setBulkVerifying] = useState(false);
 
 
 
@@ -401,6 +416,14 @@ function SibatBatchesVerificationContent() {
       ),
     [filteredChildAnimals, animalPage],
   );
+  const visiblePendingAnimalIds = pagedChildAnimals
+    .filter((animal) => (animal.status || "PENDING").toUpperCase() === "PENDING")
+    .map((animal) => animal.id);
+  const selectedPendingAnimals = (selectedBatch?.animals ?? []).filter(
+    (animal) => selectedAnimalIds.includes(animal.id) && (animal.status || "PENDING").toUpperCase() === "PENDING",
+  );
+  const allVisiblePendingAnimalsSelected = visiblePendingAnimalIds.length > 0
+    && visiblePendingAnimalIds.every((id) => selectedAnimalIds.includes(id));
 
   useEffect(() => {
     if (animalPage > pageCountAnimals) setAnimalPage(1);
@@ -408,10 +431,56 @@ function SibatBatchesVerificationContent() {
 
   useEffect(() => {
     setAnimalPage(1);
+    setSelectedAnimalIds([]);
   }, [selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
 
   // ── Mutations: Batch Review (SIBAT verification) ─────────────────────────
   // Individual animals are reviewed from the inventory queue.
+
+  function toggleVisiblePendingAnimals(checked: boolean) {
+    setSelectedAnimalIds((current) => checked
+      ? Array.from(new Set([...current, ...visiblePendingAnimalIds]))
+      : current.filter((id) => !visiblePendingAnimalIds.includes(id)));
+  }
+
+  async function verifySelectedAnimals() {
+    if (!selectedBatch || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length) return;
+    setBulkVerifying(true);
+    try {
+      // Reuse the individual review endpoint so role checks, barangay scope,
+      // audit fields, and farmer notifications remain the same for every animal.
+      const results = await Promise.allSettled(selectedPendingAnimals.map((animal) =>
+        api.post(`livestock/inventory/${animal.id}/review/`, {
+          status: "VERIFIED",
+          remarks: "Field verification completed in the herd registry.",
+        }),
+      ));
+      const verifiedCount = results.filter((result) => result.status === "fulfilled").length;
+      const failedCount = results.length - verifiedCount;
+      setBulkVerifyOpen(false);
+      setSelectedAnimalIds([]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] }),
+        queryClient.invalidateQueries({ queryKey: ["sibat-batch-detail", selectedBatch.id] }),
+        queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+      ]);
+      await detailQuery.refetch();
+      if (failedCount > 0) {
+        toast.warning(`${verifiedCount} animal${verifiedCount === 1 ? "" : "s"} verified. ${failedCount} could not be verified.`, {
+          description: "Refresh the herd and review the remaining animals individually.",
+        });
+      } else {
+        toast.success(`${verifiedCount} animal${verifiedCount === 1 ? "" : "s"} verified.`, {
+          description: "These records are now ready for MAO review.",
+        });
+      }
+    } catch {
+      toast.error("Could not verify the selected animals. Please try again.");
+    } finally {
+      setBulkVerifying(false);
+    }
+  }
 
   const addBatchNoteMutation = useMutation({
     mutationFn: async ({ batchId, text }: { batchId: number; text: string }) => {
@@ -506,7 +575,7 @@ function SibatBatchesVerificationContent() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300">
           <ShieldCheck className="w-3 h-3 text-sky-600" />
-          All animals SIBAT verified
+          All animals checked
         </span>
       );
     }
@@ -521,7 +590,7 @@ function SibatBatchesVerificationContent() {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
         <Clock className="w-3 h-3 text-amber-600" />
-        All animals awaiting SIBAT
+          Waiting for field check
       </span>
     );
   };
@@ -539,8 +608,8 @@ function SibatBatchesVerificationContent() {
   return (
     <>
       <PageHeader
-        title="SIBAT Herd Verification"
-        subtitle="Municipal Field Sector: verify farmer-logged livestock herds at the farm and forward them to the MAO approval queue"
+        title="Herds"
+        subtitle="Choose a herd to see its animals and check their records."
         variant="sibat"
         maxWidthClass="w-full"
         icon={<Layers className="size-5 text-white" />}
@@ -557,71 +626,75 @@ function SibatBatchesVerificationContent() {
                 className="h-8 gap-1.5 rounded-xl border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                Return to Field Inspection Hub
+                Back to overview
               </Button>
             </Link>
             <span className="hidden sm:inline text-slate-300">|</span>
             <span className="text-xs font-black text-slate-600 uppercase tracking-wider hidden sm:inline">
-              Padre Garcia Farm Batches ({batches.length})
+              Herds ({batches.length})
             </span>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center sm:justify-end">
             <Button
               variant="outline"
               size="sm"
               onClick={() => exportHerdRosterCsv(filteredBatches)}
               disabled={isLoading || filteredBatches.length === 0}
               title="Download all herds matching the current filters, including their animal rosters"
-              className="h-8 gap-1.5 rounded-xl border-slate-200 text-xs font-bold text-slate-700"
+              className="min-h-11 w-full gap-2 rounded-xl border-slate-200 px-3 text-sm font-semibold text-slate-700 sm:w-auto sm:px-4"
             >
               <Download className="size-3.5" />
-              Export Herds ({filteredBatches.length})
+              Download list ({filteredBatches.length})
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => refetch()}
               disabled={isRefetching}
-              className="h-8 gap-1.5 rounded-xl border-slate-200 text-xs font-bold text-slate-700"
+              className="min-h-11 w-full gap-2 rounded-xl border-slate-200 px-3 text-sm font-semibold text-slate-700 sm:w-auto sm:px-4"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? "animate-spin text-sky-600" : ""}`} />
-              Refresh Roster
+              Refresh list
             </Button>
 
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+            <div className="col-span-2 flex w-full items-center justify-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 sm:col-span-1 sm:w-auto">
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${viewMode === "grid"
+                className={`min-h-10 rounded-lg px-3 text-sm font-semibold flex items-center gap-2 transition-all ${viewMode === "grid"
                   ? "bg-white text-sky-800 shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
                   }`}
-                title="Grid Cards View"
+                title="Show herds as cards"
+                aria-label="Show herds as cards"
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
+                Cards
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${viewMode === "table"
+                className={`min-h-10 rounded-lg px-3 text-sm font-semibold flex items-center gap-2 transition-all ${viewMode === "table"
                   ? "bg-white text-sky-800 shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
                   }`}
-                title="Tabular Roster View"
+                title="Show herds in a table"
+                aria-label="Show herds in a table"
               >
                 <List className="w-3.5 h-3.5" />
+                Table
               </button>
             </div>
           </div>
         </div>
 
         {/* KPI Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
             <CardContent className="p-3.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Total Farm Batches
+              <span className="text-xs font-bold text-slate-600 block">
+                Total herds
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-slate-900 font-mono">
@@ -631,14 +704,14 @@ function SibatBatchesVerificationContent() {
                   Active
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1 truncate">All Padre Garcia farms</p>
+              <p className="text-xs text-slate-600 mt-1">In your assigned area</p>
             </CardContent>
           </Card>
 
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
             <CardContent className="p-3.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Total Enrolled Heads
+              <span className="text-xs font-bold text-slate-600 block">
+                Total animals
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-sky-800 font-mono">
@@ -648,7 +721,7 @@ function SibatBatchesVerificationContent() {
                   Heads
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1 truncate">
+              <p className="text-xs text-slate-600 mt-1">
                 Avg {kpis.avgHeads} animals / batch
               </p>
             </CardContent>
@@ -656,8 +729,8 @@ function SibatBatchesVerificationContent() {
 
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
             <CardContent className="p-3.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                SIBAT Field Verified
+              <span className="text-xs font-bold text-slate-600 block">
+                Checked by field staff
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-sky-700 font-mono">
@@ -665,14 +738,14 @@ function SibatBatchesVerificationContent() {
                 </span>
                 <ShieldCheck className="w-4 h-4 text-sky-600" />
               </div>
-              <p className="text-[10px] text-slate-500 mt-1 truncate">Ready for MAO approval</p>
+              <p className="text-xs text-slate-600 mt-1">Ready for MAO approval</p>
             </CardContent>
           </Card>
 
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
             <CardContent className="p-3.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Animals All animals awaiting SIBAT
+              <span className="text-xs font-bold text-slate-600 block">
+                Waiting to be checked
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className={`text-2xl font-black font-mono ${kpis.pendingAnimals > 0 ? "text-amber-600" : "text-slate-400"}`}>
@@ -680,14 +753,14 @@ function SibatBatchesVerificationContent() {
                 </span>
                 <Clock className={`w-4 h-4 ${kpis.pendingAnimals > 0 ? "text-amber-600" : "text-slate-400"}`} />
               </div>
-              <p className="text-[10px] text-slate-500 mt-1 truncate">Fresh farmer submissions</p>
+              <p className="text-xs text-slate-600 mt-1">Farmer submissions</p>
             </CardContent>
           </Card>
 
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-rose-300 transition-all col-span-2 sm:col-span-1">
             <CardContent className="p-3.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Animals Needing Revision
+              <span className="text-xs font-bold text-slate-600 block">
+                Needs correction
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className={`text-2xl font-black font-mono ${kpis.revisionAnimals > 0 ? "text-rose-600" : "text-slate-400"}`}>
@@ -695,7 +768,7 @@ function SibatBatchesVerificationContent() {
                 </span>
                 <AlertTriangle className={`w-4 h-4 ${kpis.revisionAnimals > 0 ? "text-rose-600" : "text-slate-400"}`} />
               </div>
-              <p className="text-[10px] text-slate-500 mt-1 truncate">Sent back to farmer</p>
+              <p className="text-xs text-slate-600 mt-1">Sent back to farmer</p>
             </CardContent>
           </Card>
         </div>
@@ -706,10 +779,10 @@ function SibatBatchesVerificationContent() {
             <div className="relative lg:col-span-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
-                placeholder="Search batch code, farmer, barangay, or tag..."
+                placeholder="Search by farmer, animal tag, or barangay"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 rounded-xl border-slate-200 text-xs focus-visible:ring-sky-500"
+                className="pl-10 min-h-11 rounded-xl border-slate-200 text-base focus-visible:ring-sky-500"
               />
               {searchQuery && (
                 <button
@@ -724,11 +797,11 @@ function SibatBatchesVerificationContent() {
 
             <div className="lg:col-span-3">
               <Select value={speciesFilter} onValueChange={setSpeciesFilter}>
-                <SelectTrigger className="h-9 rounded-xl border-slate-200 text-xs font-medium">
-                  <SelectValue placeholder="All Species" />
+                <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-base font-medium">
+                  <SelectValue placeholder="Animal type" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="ALL">All Species ({batches.length})</SelectItem>
+                  <SelectItem value="ALL">All animal types ({batches.length})</SelectItem>
                   {speciesList.map((sp) => (
                     <SelectItem key={sp} value={sp}>
                       {sp}
@@ -740,23 +813,23 @@ function SibatBatchesVerificationContent() {
 
             <div className="lg:col-span-3">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 rounded-xl border-slate-200 text-xs font-medium">
-                  <SelectValue placeholder="Animal Status" />
+                <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-base font-medium">
+                  <SelectValue placeholder="Review status" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="ALL">All Statuses ({batches.length})</SelectItem>
-                  <SelectItem value="PENDING">Animals awaiting SIBAT ({kpis.pendingAnimals})</SelectItem>
-                  <SelectItem value="VERIFIED">Animals awaiting MAO ({kpis.verifiedAnimals})</SelectItem>
-                  <SelectItem value="APPROVED">Approved animals ({kpis.approvedAnimals})</SelectItem>
-                  <SelectItem value="SUBJECT_TO_REVISION">Animals needing revision ({kpis.revisionAnimals})</SelectItem>
+                  <SelectItem value="ALL">All review statuses ({batches.length})</SelectItem>
+                  <SelectItem value="PENDING">Waiting to be checked ({kpis.pendingAnimals})</SelectItem>
+                  <SelectItem value="VERIFIED">Waiting for MAO ({kpis.verifiedAnimals})</SelectItem>
+                  <SelectItem value="APPROVED">Approved ({kpis.approvedAnimals})</SelectItem>
+                  <SelectItem value="SUBJECT_TO_REVISION">Needs correction ({kpis.revisionAnimals})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="lg:col-span-2">
               <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                <SelectTrigger className="h-9 rounded-xl border-slate-200 text-xs font-medium truncate">
-                  <SelectValue placeholder="All Barangays" />
+                <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-base font-medium truncate">
+                  <SelectValue placeholder="Barangay" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl max-h-56">
                   <SelectItem value="ALL">All Barangays</SelectItem>
@@ -773,7 +846,7 @@ function SibatBatchesVerificationContent() {
           {(searchQuery || speciesFilter !== "ALL" || statusFilter !== "ALL" || barangayFilter !== "ALL") && (
             <div className="flex items-center gap-2 pt-1 border-t border-slate-100 flex-wrap text-xs">
               <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
-                Filters Active:
+                Filters:
               </span>
               {searchQuery && (
                 <Badge variant="secondary" className="rounded-lg text-[10px] font-medium gap-1 bg-slate-100">
@@ -810,7 +883,7 @@ function SibatBatchesVerificationContent() {
                 }}
                 className="h-6 text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 rounded-md"
               >
-                Reset All Filters
+                Clear filters
               </Button>
             </div>
           )}
@@ -818,27 +891,33 @@ function SibatBatchesVerificationContent() {
 
         {/* ── Main Batch Displays ── */}
         {isLoading ? (
-          <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
-            <RefreshCw className="w-8 h-8 mx-auto text-sky-600 animate-spin mb-3" />
-            <p className="text-sm font-black text-slate-800">Loading farm herds...</p>
-            <p className="text-xs text-slate-500 mt-1">Retrieving batch records and individual animal rosters from backend</p>
+          <div role="status" aria-live="polite" className="mx-auto max-w-2xl rounded-2xl border border-sky-200 bg-white px-6 py-10 text-center shadow-sm sm:px-10">
+            <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-sky-50">
+              <RefreshCw className="size-8 text-sky-700 animate-spin" />
+            </div>
+            <p className="text-xl font-bold text-slate-900">Loading your herd list</p>
+            <p className="mx-auto mt-2 max-w-md text-base leading-6 text-slate-600">Please wait while we get the herds and animal records for your area.</p>
+            <div className="mx-auto mt-6 max-w-md space-y-2" aria-hidden="true">
+              <div className="h-3 animate-pulse rounded-full bg-slate-100" />
+              <div className="mx-auto h-3 w-4/5 animate-pulse rounded-full bg-slate-100" />
+            </div>
           </div>
         ) : isError && !batchSummaryPage ? (
           <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-2xs">
-            <p className="text-sm font-black text-rose-900">Could not load SIBAT herds</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-rose-800">
-              The herd request failed. Check your session and SIBAT barangay access, then try again.
+            <p className="text-lg font-bold text-rose-900">We could not load the herd list</p>
+            <p className="mx-auto mt-2 max-w-md text-base leading-6 text-rose-800">
+              Check your internet connection, then try again. If the problem continues, ask your administrator for help.
             </p>
-            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} className="mt-3 rounded-xl border-rose-300 font-bold text-rose-900 hover:bg-rose-100">
-              <RefreshCw className="mr-1.5 size-3.5" /> Retry loading herds
+            <Button type="button" variant="outline" size="lg" onClick={() => void refetch()} className="mt-4 min-h-12 rounded-xl border-rose-300 px-5 text-base font-bold text-rose-900 hover:bg-rose-100">
+              <RefreshCw className="mr-2 size-5" /> Try again
             </Button>
           </div>
         ) : filteredBatches.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
             <Layers className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-            <p className="text-base font-black text-slate-800">No matching batches found</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              No livestock batches match your search criteria. Try modifying your search term or clearing the active filters.
+            <p className="text-lg font-bold text-slate-800">No herds found</p>
+            <p className="text-base leading-6 text-slate-600 mt-2 max-w-md mx-auto">
+              Try a different search, or clear the filters to see all herds in your area.
             </p>
             <Button
               variant="outline"
@@ -851,7 +930,7 @@ function SibatBatchesVerificationContent() {
               }}
               className="mt-4 rounded-xl text-xs font-bold"
             >
-              Clear All Filters
+              Clear filters
             </Button>
           </div>
         ) : viewMode === "grid" ? (
@@ -870,7 +949,7 @@ function SibatBatchesVerificationContent() {
                   key={batch.id}
                   className="group overflow-hidden rounded-2xl border-slate-200 bg-white shadow-2xs hover:shadow-md hover:border-sky-300 transition-all duration-200 flex flex-col"
                 >
-                  <CardHeader className="p-3.5 pb-2.5 min-h-[88px]">
+                  <CardHeader className="p-4 pb-3 min-h-[88px]">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span
@@ -890,10 +969,10 @@ function SibatBatchesVerificationContent() {
                       {getStatusBadge(batch.review_status)}
                     </div>
 
-                    <CardTitle className="text-sm font-black text-slate-900 mt-1.5 truncate">
+                    <CardTitle className="text-lg font-bold text-slate-900 mt-1.5 break-words">
                       {batch.batch_name || `${batch.livestock_type_name} Herd`}
                     </CardTitle>
-                    <CardDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                    <CardDescription className="text-sm text-slate-600 flex flex-wrap items-center gap-1.5 mt-1">
                       <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                       <span className="font-bold text-slate-700 truncate">{batch.farmer_name}</span>
                       <span>•</span>
@@ -902,31 +981,31 @@ function SibatBatchesVerificationContent() {
                     </CardDescription>
                   </CardHeader>
 
-                  <CardContent className="p-3.5 pt-0 space-y-2.5 flex flex-1 flex-col">
-                    <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2">
+                  <CardContent className="p-4 pt-0 space-y-3 flex flex-1 flex-col">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 divide-slate-200 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
                       <div className="px-1.5">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
-                          Herd Size
+                        <span className="text-xs font-semibold text-slate-600 block">
+                          Animals
                         </span>
-                        <p className="text-sm leading-none font-black text-slate-900 mt-1">
+                        <p className="text-lg leading-none font-bold text-slate-900 mt-1.5">
                           {headCount}
-                          <span className="text-[8px] font-bold text-slate-500 ml-1">heads</span>
+                          <span className="text-xs font-semibold text-slate-600 ml-1">animals</span>
                         </p>
                       </div>
-                      <div className="px-2">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
-                          Verified
+                      <div className="px-1.5 sm:border-l sm:pl-3">
+                        <span className="text-xs font-semibold text-slate-600 block">
+                          Checked
                         </span>
-                        <p className="text-sm leading-none font-black text-sky-800 mt-1">
+                        <p className="text-lg leading-none font-bold text-sky-800 mt-1.5">
                           {sibatCheckedCount}
-                          <span className="text-[8px] font-bold text-slate-500 ml-1">of {headCount}</span>
+                          <span className="text-xs font-semibold text-slate-600 ml-1">of {headCount}</span>
                         </p>
                       </div>
-                      <div className="px-2">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
-                          Avg Weight
+                      <div className="col-span-2 border-t border-slate-200 px-1.5 pt-2 sm:col-span-1 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+                        <span className="text-xs font-semibold text-slate-600 block">
+                          Average weight
                         </span>
-                        <p className="text-sm leading-none font-black text-slate-900 mt-1">
+                        <p className="text-lg leading-none font-bold text-slate-900 mt-1.5">
                           {avgWeight ? `${avgWeight} kg` : "N/A"}
                         </p>
                       </div>
@@ -934,47 +1013,44 @@ function SibatBatchesVerificationContent() {
 
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-bold text-slate-500">
-                          SIBAT field verification - {sibatCheckedCount}/{headCount} animals
+                          <span className="text-sm font-semibold text-slate-700">
+                          Field check - {sibatCheckedCount} of {headCount} animals
                         </span>
-                        <span className={`text-[9px] font-black ${batch.verified_animals === 0 && batch.pending_animals === 0 ? "text-emerald-700" : "text-sky-700"}`}>
+                        <span className={`text-sm font-bold ${batch.verified_animals === 0 && batch.pending_animals === 0 ? "text-emerald-700" : "text-sky-700"}`}>
                           {verificationProgress}%
                         </span>
                       </div>
                       <Progress
                         value={verificationProgress}
-                        className={`h-1.5 bg-slate-100 ${
+                        className={`h-2.5 bg-slate-100 ${
                           batch.review_status === "APPROVED" ? "[&>div]:bg-emerald-600" : "[&>div]:bg-sky-600"
                         }`}
                       />
                     </div>
 
-                    <p className="text-[10px] leading-relaxed text-slate-600">
-                      {batch.approved_animals ?? 0} approved ? {batch.pending_animals ?? 0} awaiting SIBAT ? {batch.verified_animals ?? 0} awaiting MAO ? {batch.revision_animals ?? 0} returned
+                    <p className="text-sm leading-5 text-slate-700">
+                      {batch.approved_animals ?? 0} approved · {batch.pending_animals ?? 0} waiting for field check · {batch.verified_animals ?? 0} waiting for MAO · {batch.revision_animals ?? 0} need correction
                     </p>
-                    <p className="text-[10px] leading-relaxed text-slate-600">
-                      {batch.approved_animals ?? 0} approved ? {batch.pending_animals ?? 0} awaiting SIBAT ? {batch.verified_animals ?? 0} awaiting MAO ? {batch.revision_animals ?? 0} returned
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 text-[9px]">
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700 capitalize">
                         <Building2 className="size-3 text-slate-400" />
                         {batch.housing_pen || "General Pen"}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700 capitalize">
                         <Activity className="size-3 text-slate-400" />
                         {batch.feed_type || "—"}
                       </span>
                     </div>
 
                     <div
-                      className={`h-9 px-2.5 rounded-lg border text-[10px] flex items-center gap-1.5 ${
+                      className={`min-h-11 px-3 rounded-lg border text-sm flex items-center gap-2 ${
                         batch.review_remarks
                           ? "bg-amber-50 border-amber-200 text-amber-900"
                           : "bg-slate-50 border-slate-100 text-slate-400"
                       }`}
                     >
                       <Info className={`size-3.5 shrink-0 ${batch.review_remarks ? "text-amber-600" : "text-slate-300"}`} />
-                      <span className="line-clamp-1">
+                      <span className="line-clamp-2">
                         {batch.review_remarks || "No review remarks"}
                       </span>
                     </div>
@@ -986,16 +1062,16 @@ function SibatBatchesVerificationContent() {
                         onClick={() => {
                           openHerdDrilldown(batch);
                         }}
-                        className="h-8 rounded-lg bg-[#1A365D] hover:bg-[#132742] text-white font-bold text-[10px] gap-1.5 shadow-2xs"
+                        className="min-h-11 rounded-xl bg-[#1A365D] px-4 hover:bg-[#132742] text-white font-bold text-sm gap-2 shadow-2xs"
                       >
                         <Eye className="size-3.5" />
-                        Inspect & verify
+                        Open herd
                         <ChevronRight className="size-3.5 ml-auto" />
                       </Button>
 
                       <Link href={`/sibat/livestock-registry?batchId=${batch.id}`} className="col-span-2">
-                        <Button size="sm" variant="outline" className="w-full h-8 rounded-lg border-sky-300 text-sky-900 text-[10px] font-bold">
-                          <Eye className="size-3.5 mr-1.5" /> View individual animal records
+                        <Button size="sm" variant="outline" className="w-full min-h-11 rounded-xl border-sky-300 text-sky-900 text-sm font-semibold">
+                          <Eye className="size-3.5 mr-1.5" /> View animal list
                         </Button>
                       </Link>
                     </div>
@@ -1006,18 +1082,43 @@ function SibatBatchesVerificationContent() {
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-2 py-2 text-xs">
               <span className="text-[11px] text-slate-500 font-medium">
-                Showing {(batchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(batchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length} batches
+                Showing herds {(batchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(batchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length}
               </span>
               <div className="flex items-center gap-1.5">
-                <Button variant="outline" size="sm" disabled={batchPage <= 1} onClick={() => setBatchPage((p) => p - 1)} className="h-7 rounded-lg text-[10px] font-bold">‹ Prev</Button>
-                <span className="px-2.5 py-1 rounded-lg bg-[#1A365D] text-white font-black text-[10px]">Page {batchPage} / {pageCountBatches}</span>
-                <Button variant="outline" size="sm" disabled={batchPage >= pageCountBatches} onClick={() => setBatchPage((p) => p + 1)} className="h-7 rounded-lg text-[10px] font-bold">Next ›</Button>
+                <Button variant="outline" size="sm" disabled={batchPage <= 1} onClick={() => setBatchPage((p) => p - 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">‹ Previous</Button>
+                <span className="px-3 py-2 rounded-lg bg-[#1A365D] text-white font-bold text-sm">Page {batchPage} of {pageCountBatches}</span>
+                <Button variant="outline" size="sm" disabled={batchPage >= pageCountBatches} onClick={() => setBatchPage((p) => p + 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">Next ›</Button>
               </div>
             </div>
           </div>
         ) : (
           /* Table View Mode */
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+          <>
+          <div className="space-y-3 md:hidden">
+            {pagedBatches.map((batch) => (
+              <Card key={batch.id} className="rounded-2xl border-slate-200 shadow-sm">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="break-words text-lg font-bold text-slate-900">{batch.batch_name || `${batch.livestock_type_name} herd`}</p>
+                      <p className="mt-1 text-sm text-slate-600">{batch.livestock_type_name} · {batch.batch_code}</p>
+                    </div>
+                    {getStatusBadge(batch.review_status)}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+                    <div><span className="block text-xs font-semibold text-slate-500">Farmer</span><span className="break-words font-semibold text-slate-900">{batch.farmer_name}</span></div>
+                    <div><span className="block text-xs font-semibold text-slate-500">Barangay</span><span className="break-words font-semibold text-slate-900">{batch.barangay_name}</span></div>
+                    <div><span className="block text-xs font-semibold text-slate-500">Animals</span><span className="font-semibold text-slate-900">{batch.total_animals || batch.animals?.length || 0}</span></div>
+                    <div><span className="block text-xs font-semibold text-slate-500">Average weight</span><span className="font-semibold text-slate-900">{batch.average_weight ? `${batch.average_weight} kg` : "Not recorded"}</span></div>
+                  </div>
+                  <Button type="button" onClick={() => openHerdDrilldown(batch)} className="min-h-12 w-full rounded-xl bg-[#1A365D] text-base font-bold text-white">
+                    <Eye className="mr-2 size-5" /> Open herd and animals
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs md:block">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-slate-50/80">
@@ -1026,7 +1127,7 @@ function SibatBatchesVerificationContent() {
                       Batch Code
                     </TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      Herd Name &amp; Species
+                      Herd name &amp; animal type
                     </TableHead>
                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                       Farmer &amp; Barangay
@@ -1109,7 +1210,7 @@ function SibatBatchesVerificationContent() {
                             className="h-8 rounded-xl bg-[#1A365D] hover:bg-[#132742] text-white font-bold text-xs gap-1 shadow-2xs"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            Drill Down
+                            Open herd
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1121,8 +1222,8 @@ function SibatBatchesVerificationContent() {
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-xs">
               <span className="text-[11px] text-slate-500 font-medium">
-                Showing {(batchPage - 1) * BATCH_PAGE_SIZE + 1}–
-                {Math.min(batchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length} batches
+                Showing herds {(batchPage - 1) * BATCH_PAGE_SIZE + 1}–
+                {Math.min(batchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length}
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -1130,25 +1231,26 @@ function SibatBatchesVerificationContent() {
                   size="sm"
                   disabled={batchPage <= 1}
                   onClick={() => setBatchPage((p) => p - 1)}
-                  className="h-7 rounded-lg text-[10px] font-bold"
+                  className="min-h-10 rounded-lg px-3 text-sm font-semibold"
                 >
-                  ‹ Prev
+                  ‹ Previous
                 </Button>
                 <span className="px-2.5 py-1 rounded-lg bg-[#1A365D] text-white font-black text-[10px]">
-                  Page {batchPage} / {pageCountBatches}
+                  Page {batchPage} of {pageCountBatches}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={batchPage >= pageCountBatches}
                   onClick={() => setBatchPage((p) => p + 1)}
-                  className="h-7 rounded-lg text-[10px] font-bold"
+                  className="min-h-10 rounded-lg px-3 text-sm font-semibold"
                 >
                   Next ›
                 </Button>
               </div>
             </div>
           </div>
+          </>
         )}
       </div>
 
@@ -1164,7 +1266,7 @@ function SibatBatchesVerificationContent() {
           }
         }}
       >
-        <DialogContent className="w-full max-w-[98vw] sm:max-w-5xl md:max-w-6xl lg:max-w-7xl xl:max-w-[1440px] rounded-2xl sm:rounded-3xl bg-white p-0 overflow-hidden shadow-2xl border-slate-200 max-h-[94vh] flex flex-col">
+        <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 bg-white p-0 shadow-2xl sm:h-auto sm:max-h-[94vh] sm:w-[98vw] sm:max-w-5xl sm:rounded-2xl sm:border md:max-w-6xl lg:max-w-7xl xl:max-w-[1440px] flex flex-col">
           {detailQuery.isLoading ? (
             <div
               className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
@@ -1175,9 +1277,9 @@ function SibatBatchesVerificationContent() {
                 <RefreshCw className="size-6 animate-spin" />
               </div>
               <div className="space-y-1">
-                <DialogTitle className="text-base font-black text-slate-900">Loading herd details</DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  Retrieving the herd record and individual animal roster.
+                <DialogTitle className="text-xl font-bold text-slate-900">Loading herd and animals</DialogTitle>
+                <DialogDescription className="text-base leading-6 text-slate-600">
+                  Please wait. The animal list is on its way.
                 </DialogDescription>
               </div>
             </div>
@@ -1185,12 +1287,12 @@ function SibatBatchesVerificationContent() {
             <div className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
               <AlertTriangle className="size-8 text-rose-600" />
               <div className="space-y-1">
-                <DialogTitle className="text-base font-black text-slate-900">Could not load herd details</DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  The individual animal roster could not be retrieved. Check your connection and try again.
+                <DialogTitle className="text-lg font-bold text-slate-900">We could not open this herd</DialogTitle>
+                <DialogDescription className="text-base leading-6 text-slate-600">
+                  Check your internet connection, then try again.
                 </DialogDescription>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => void detailQuery.refetch()} className="rounded-xl font-bold">
+              <Button type="button" variant="outline" size="lg" onClick={() => void detailQuery.refetch()} className="min-h-12 rounded-xl px-5 text-base font-bold">
                 Try again
               </Button>
             </div>
@@ -1201,7 +1303,7 @@ function SibatBatchesVerificationContent() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                      {selectedBatch.livestock_type_name} Herd
+                      {selectedBatch.livestock_type_name} herd
                     </span>
                     <span className="font-mono text-xs font-bold text-sky-200">
                       {selectedBatch.batch_code}
@@ -1327,30 +1429,70 @@ function SibatBatchesVerificationContent() {
 
               {/* Individual Animals Drilldown Section */}
               <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3">
+                <section className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-4 sm:p-5" aria-label="How to verify animals">
+                  <div className="flex items-start gap-3">
+                    <div className="grid size-11 shrink-0 place-items-center rounded-full bg-sky-700 text-white" aria-hidden="true">
+                      <Info className="size-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-bold text-slate-900">How to verify animals</h3>
+                      <ol className="mt-2 space-y-1.5 text-base leading-6 text-slate-800">
+                        <li><strong>1.</strong> Check the animal details and ear tag.</li>
+                        <li><strong>2.</strong> Tick the box beside each animal you checked.</li>
+                        <li><strong>3.</strong> Press <strong>Verify selected animals</strong>.</li>
+                      </ol>
+                      <p className="mt-2 flex items-start gap-2 text-sm leading-5 text-slate-700">
+                        <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                        Select only animals you checked in the field. Verified animals go to MAO for final approval.
+                      </p>
+                    </div>
+                  </div>
+                </section>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                       <Tag className="w-4 h-4 text-sky-700" />
-                      Individual Animal Roster ({filteredChildAnimals.length} Heads)
+                      Animals in this herd ({filteredChildAnimals.length})
                     </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Verify each ear tag, breed consistency, and health biometric log before forwarding
+                    <p className="text-sm leading-5 text-slate-600">
+                      Check each animal's tag and details before marking it verified.
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => setBulkVerifyOpen(true)}
+                      disabled={selectedAnimalIds.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length}
+                      className="min-h-12 rounded-xl bg-sky-700 px-5 text-base font-bold text-white hover:bg-sky-800 disabled:bg-slate-300 disabled:text-slate-600"
+                    >
+                      <ShieldCheck className="mr-2 size-5" />
+                      Verify selected animals ({selectedAnimalIds.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="outline"
+                      onClick={() => toggleVisiblePendingAnimals(!allVisiblePendingAnimalsSelected)}
+                      disabled={visiblePendingAnimalIds.length === 0}
+                      className="min-h-12 rounded-xl border-slate-300 px-4 text-base font-semibold"
+                    >
+                      <CheckSquare className="mr-2 size-5" />
+                      {allVisiblePendingAnimalsSelected ? "Unselect this page" : "Select pending on this page"}
+                    </Button>
                     <div className="relative flex-1 sm:w-56">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                       <Input
-                        placeholder="Search ear tag, breed..."
+                        placeholder="Find an animal by tag or breed"
                         value={animalSearchQuery}
                         onChange={(e) => setAnimalSearchQuery(e.target.value)}
-                        className="pl-8 h-8 rounded-xl border-slate-200 text-xs"
+                        className="pl-9 min-h-11 rounded-xl border-slate-200 text-base"
                       />
                     </div>
 
                     <Select value={animalStatusFilter} onValueChange={setAnimalStatusFilter}>
-                      <SelectTrigger className="h-8 rounded-xl border-slate-200 text-xs w-32">
+                      <SelectTrigger className="min-h-11 w-full rounded-xl border-slate-200 text-base sm:w-40">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
@@ -1364,11 +1506,59 @@ function SibatBatchesVerificationContent() {
                   </div>
                 </div>
 
-                {/* Animals Table */}
-                <div className="border border-slate-200 rounded-2xl overflow-x-auto w-full no-scrollbar bg-white">
+                {/* Stacked animal cards keep every field and action readable on phones. */}
+                <div className="space-y-3 md:hidden">
+                  {filteredChildAnimals.length === 0 ? (
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 text-center text-base text-slate-600">No animals match this search or status.</div>
+                  ) : pagedChildAnimals.map((animal) => {
+                    const mobileWeight = animal.weight == null ? null : Number(animal.weight);
+                    const isPending = (animal.status || "PENDING").toUpperCase() === "PENDING";
+                    return (
+                      <article key={animal.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl pr-1">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for field verification`}
+                              checked={selectedAnimalIds.includes(animal.id)}
+                              disabled={!isPending}
+                              onChange={(event) => setSelectedAnimalIds((current) => event.target.checked
+                                ? Array.from(new Set([...current, animal.id]))
+                                : current.filter((id) => id !== animal.id))}
+                              className="size-6 shrink-0 rounded border-slate-400 accent-sky-700 disabled:opacity-40"
+                            />
+                            <span className="min-w-0">
+                              <span className="block break-all font-mono text-base font-bold text-slate-900">{animal.tag_number || `Animal #${animal.id}`}</span>
+                              <span className="block text-sm text-slate-600">Tap to select for checking</span>
+                            </span>
+                          </label>
+                          <div className="shrink-0">{getStatusBadge(animal.status)}</div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+                          <div><span className="block text-xs font-semibold text-slate-500">Breed</span><span className="break-words font-semibold text-slate-900">{animal.breed || "Not recorded"}</span></div>
+                          <div><span className="block text-xs font-semibold text-slate-500">Sex</span><span className="font-semibold text-slate-900">{animal.sex || "Not recorded"}</span></div>
+                          <div><span className="block text-xs font-semibold text-slate-500">Weight</span><span className="font-semibold text-slate-900">{mobileWeight == null ? "Not recorded" : `${mobileWeight} kg`}</span></div>
+                          <div><span className="block text-xs font-semibold text-slate-500">Last vaccination</span><span className="font-semibold text-slate-900">{animal.last_vaccination_date || "No date recorded"}</span></div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => openAnimalReview(selectedBatch, animal)}
+                          className="mt-3 min-h-12 w-full rounded-xl border-sky-200 text-base font-semibold text-sky-900"
+                        >
+                          <Eye className="mr-2 size-5" /> {isPending ? "Review animal details" : "View animal details"}
+                        </Button>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                {/* Wider screens use a table; phones use the stacked cards above. */}
+                <div className="hidden w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white md:block">
                   <Table className="min-w-[460px] md:min-w-[650px]">
                     <TableHeader className="bg-slate-50">
                       <TableRow>
+                        <TableHead className="w-12 text-sm font-bold text-slate-700">Select</TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                           Ear Tag #
                         </TableHead>
@@ -1382,7 +1572,7 @@ function SibatBatchesVerificationContent() {
                           Vaccination
                         </TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                          Review Status
+                          Status
                         </TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500 text-right sticky right-0 z-10 bg-slate-50 border-l border-slate-200 shadow-[-4px_0_8px_-8px_rgba(0,0,0,0.25)]">
                           Actions
@@ -1392,7 +1582,7 @@ function SibatBatchesVerificationContent() {
                     <TableBody>
                       {filteredChildAnimals.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-400">
+                          <TableCell colSpan={7} className="text-center py-8 text-base text-slate-600">
                             No individual animals found matching filter criteria.
                           </TableCell>
                         </TableRow>
@@ -1405,6 +1595,18 @@ function SibatBatchesVerificationContent() {
 
                           return (
                             <TableRow key={animal.id} className="hover:bg-slate-50/70 transition-colors">
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for field verification`}
+                                  checked={selectedAnimalIds.includes(animal.id)}
+                                  disabled={(animal.status || "PENDING").toUpperCase() !== "PENDING"}
+                                  onChange={(event) => setSelectedAnimalIds((current) => event.target.checked
+                                    ? Array.from(new Set([...current, animal.id]))
+                                    : current.filter((id) => id !== animal.id))}
+                                  className="size-5 rounded border-slate-400 accent-sky-700 disabled:opacity-40"
+                                />
+                              </TableCell>
                               {/* Tag Number */}
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -1551,7 +1753,7 @@ function SibatBatchesVerificationContent() {
                   onClick={() => setIsDrilldownOpen(false)}
                   className="rounded-xl font-bold text-xs w-full sm:w-auto"
                 >
-                  Close Drilldown
+                  Close herd
                 </Button>
               </div>
             </div>
@@ -1569,8 +1771,31 @@ function SibatBatchesVerificationContent() {
         }}
       />
 
+      <AlertDialog open={bulkVerifyOpen} onOpenChange={setBulkVerifyOpen}>
+        <AlertDialogContent className="max-w-lg rounded-2xl p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl">
+              Verify {selectedPendingAnimals.length} selected animal{selectedPendingAnimals.length === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base leading-6 text-slate-700">
+              This records that you checked these animals. They will be sent to MAO for final approval. Continue only if you completed the field check.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel className="min-h-12 rounded-xl px-5 text-base">Go back</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => { event.preventDefault(); void verifySelectedAnimals(); }}
+              disabled={bulkVerifying || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length}
+              className="min-h-12 rounded-xl bg-sky-700 px-5 text-base font-bold hover:bg-sky-800"
+            >
+              {bulkVerifying ? "Saving verification…" : "Yes, verify animals"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ──────────────────────────────────────────────────────────────────────────
-          BATCH REVIEW CONFIRMATION MODAL (SIBAT VERIFICATION)
+          HERD REVIEW CONFIRMATION
       ────────────────────────────────────────────────────────────────────────── */}
 
     </>
@@ -1579,7 +1804,15 @@ function SibatBatchesVerificationContent() {
 
 export default function SibatBatchesVerificationPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading herds and animals...</div>}>
+    <Suspense fallback={
+      <div role="status" aria-live="polite" className="flex min-h-[60vh] flex-col items-center justify-center px-5 text-center">
+        <div className="mb-4 grid size-16 place-items-center rounded-full bg-sky-50">
+          <RefreshCw className="size-8 animate-spin text-sky-700" />
+        </div>
+        <p className="text-xl font-bold text-slate-900">Opening the herd list</p>
+        <p className="mt-2 max-w-md text-base leading-6 text-slate-600">Please wait while we prepare the herds and animal records.</p>
+      </div>
+    }>
       <SibatBatchesVerificationContent />
     </Suspense>
   );

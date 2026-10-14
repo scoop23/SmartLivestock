@@ -365,9 +365,9 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
     photoUrl: resolvedPhotoUrl,
     photoName: resolvedPhotoName,
     status: statusNorm,
-    inspection: dc.reviewed_by_name
+    inspection: dc.reviewed_by_name || dc.inspector_photo_url || dc.inspector_photo
       ? {
-          verifiedBy: dc.reviewed_by_name,
+          verifiedBy: dc.reviewed_by_name || "SIBAT field officer",
           verifiedAt: dc.reviewed_at ? dc.reviewed_at.replace("T", " ").slice(0, 16) : "",
           tagConfirmed: true,
           countConfirmed: true,
@@ -376,6 +376,7 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
           severity: "MODERATE" as SeverityLevel,
           biosecurityAction: "PEN_ISOLATION" as BiosecurityAction,
           remarks: dc.review_remarks || "Verified on-farm by SIBAT field inspector.",
+          inspectorPhotoUrl: dc.inspector_photo_url || dc.inspector_photo || undefined,
         }
       : undefined,
   };
@@ -405,9 +406,9 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
     photoUrl: resolvedPhotoUrl,
     photoName: resolvedPhotoName,
     status: statusNorm,
-    inspection: m.reviewed_by_name
+    inspection: m.reviewed_by_name || m.inspector_photo_url || m.inspector_photo
       ? {
-          verifiedBy: m.reviewed_by_name,
+          verifiedBy: m.reviewed_by_name || "SIBAT field officer",
           verifiedAt: m.reviewed_at ? m.reviewed_at.replace("T", " ").slice(0, 16) : "",
           tagConfirmed: true,
           countConfirmed: true,
@@ -416,6 +417,7 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
           severity: "CRITICAL" as SeverityLevel,
           biosecurityAction: "BIOSECURE_BURIAL" as BiosecurityAction,
           remarks: m.review_remarks || "Verified on-farm by SIBAT field inspector.",
+          inspectorPhotoUrl: m.inspector_photo_url || m.inspector_photo || undefined,
         }
       : undefined,
   };
@@ -542,8 +544,39 @@ export async function fetchRawBatches(): Promise<any[]> {
 }
 
 export async function fetchRawInventory(): Promise<RawInventoryRecord[]> {
-  const response = await api.get("livestock/inventory/?include_inactive=true");
-  return response.data as RawInventoryRecord[];
+  const pageSize = 100;
+  const firstResponse = await api.get<RawInventoryRecord[] | { count: number; results: RawInventoryRecord[] }>(
+    "livestock/inventory/",
+    { params: { include_inactive: true, page: 1, page_size: pageSize } },
+  );
+  const firstPage = firstResponse.data;
+
+  // Keep the old array response compatible while the API is being migrated.
+  if (Array.isArray(firstPage)) return firstPage;
+  if (!firstPage || !Array.isArray(firstPage.results) || !Number.isFinite(firstPage.count)) {
+    throw new Error("Livestock registrations response was not a valid list.");
+  }
+
+  // The field dashboard needs every record for its counts and filters, but
+  // smaller responses avoid serializing the entire municipal inventory at once.
+  const pageCount = Math.ceil(firstPage.count / pageSize);
+  const remainingPages = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+      api.get<{ results: RawInventoryRecord[] }>("livestock/inventory/", {
+        params: { include_inactive: true, page: index + 2, page_size: pageSize },
+      }),
+    ),
+  );
+
+  return [
+    ...firstPage.results,
+    ...remainingPages.flatMap((response) => {
+      if (!Array.isArray(response.data?.results)) {
+        throw new Error("A livestock registrations page was not a valid list.");
+      }
+      return response.data.results;
+    }),
+  ];
 }
 
 export async function fetchDiseaseCases(): Promise<RawDiseaseCase[]> {

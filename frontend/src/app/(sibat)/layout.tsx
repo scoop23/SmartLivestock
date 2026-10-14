@@ -17,12 +17,14 @@ export default function SibatLayout({
   const { user, isLoading, logout } = useAuth();
 
   const isMapPage = pathname === "/sibat-monitoring" || pathname.startsWith("/sibat-monitoring");
+  const role = user?.role?.toUpperCase();
+  const isFieldReviewer = role === "SIBAT" || role === "CBAT";
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role?.toUpperCase() !== "SIBAT")) {
+    if (!isLoading && (!user || !isFieldReviewer)) {
       router.replace("/login");
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, isFieldReviewer, router]);
 
   if (isLoading) {
     return (
@@ -32,7 +34,7 @@ export default function SibatLayout({
     );
   }
 
-  if (!user || user.role?.toUpperCase() !== "SIBAT") {
+  if (!user || !isFieldReviewer) {
     return null;
   }
 
@@ -44,8 +46,8 @@ export default function SibatLayout({
       />
 
       <main className={cn("flex-1 min-w-0 flex flex-col", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto")}>
-        <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-sm text-emerald-950 shrink-0">
-          Access: <strong>{user.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user.assignedBarangayName || "Unassigned — contact MAO/Admin"}</strong>
+        <div className="border-b border-emerald-100 bg-emerald-50 px-3 py-3 text-sm leading-relaxed text-emerald-950 sm:px-4 sm:py-2.5 sm:text-base shrink-0">
+          {role === "CBAT" ? "CBAT area" : "Access"}: <strong>{user.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user.assignedBarangayName || "Unassigned — contact MAO/Admin"}</strong>
           {user.accessScope === "ALL_BARANGAYS" && user.assignedBarangayName && <span> · Primary barangay: {user.assignedBarangayName}</span>}
         </div>
         <div className={cn("flex-1 min-h-0", isMapPage ? "h-full overflow-hidden" : "")}>

@@ -127,18 +127,18 @@ const farmerLinks: SidebarLink[] = [
 const sibatLinks: SidebarLink[] = [
   {
     path: '/sibat',
-    label: 'Field Inspection Center',
+    label: 'Field Tasks',
     icon: ClipboardCheck,
     subLinks: [
-      { path: '/sibat', label: 'Overview & Field Queues' },
-        { path: '/sibat/livestock-registry', label: 'Livestock Registry' },
-      { path: '/sibat/batches', label: 'Herd Verification', badge: 'Herds' },
+      { path: '/sibat', label: 'Overview' },
+      { path: '/sibat/livestock-registry', label: 'Animals' },
+      { path: '/sibat/batches', label: 'Herds', badge: 'Herds' },
     ],
   },
-  { path: '/sibat-monitoring', label: 'Field Monitoring & GIS Map', icon: Map },
-  { path: '/sibat-alerts', label: 'Outbreak Alerts & Flags', icon: Bell },
-  { path: '/sibat-announcement', label: 'Activities', icon: Megaphone },
-  { path: '/sibat-scheduling', label: 'Field Scheduling', icon: CalendarDays },
+  { path: '/sibat-monitoring', label: 'Map', icon: Map },
+  { path: '/sibat-alerts', label: 'Health Reports', icon: Bell },
+  { path: '/sibat-announcement', label: 'Announcements', icon: Megaphone },
+  { path: '/sibat-scheduling', label: 'Schedule', icon: CalendarDays },
 ];
 
 const auctionLinks: SidebarLink[] = [
@@ -320,7 +320,8 @@ function SidebarNav({
               <div key={link.path} className="space-y-1">
                 <div
                   className={cn(
-                    "group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150",
+                    "group relative flex items-center justify-between px-3 rounded-xl font-semibold transition-all duration-150",
+                    role === "sibat" || role === "farmer" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
                     isActive
                       ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs"
                       : "text-emerald-100/75 hover:bg-white/10 hover:text-white"
@@ -360,7 +361,8 @@ function SidebarNav({
                           href={sub.path}
                           onClick={() => onNavigate?.()}
                           className={cn(
-                            "flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150",
+                            "flex min-h-12 items-center justify-between px-3 rounded-lg font-semibold transition-all duration-150",
+                            role === "sibat" || role === "farmer" ? "py-2.5 text-sm" : "py-1.5 text-xs",
                             isSubActive
                               ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30"
                               : "text-emerald-100/70 hover:bg-white/10 hover:text-white"
@@ -388,7 +390,8 @@ function SidebarNav({
               title={collapsed ? link.label : undefined}
               onClick={() => onNavigate?.()}
               className={cn(
-                "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150",
+                "group relative flex min-h-12 items-center gap-3 px-3 rounded-xl font-semibold transition-all duration-150",
+                role === "sibat" || role === "farmer" ? "py-3 text-base" : "py-2.5 text-sm",
                 isActive
                   ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs"
                   : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:translate-x-0.5"
@@ -732,7 +735,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
 
       {/* Mobile — slide-over sheet drawer (Elevated to z-[var(--z-sidebar)] to sit cleanly above mobile map views) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent ref={setMobileSheetContent} side="left" className="w-72 p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:text-white [&>button]:top-4 [&>button]:right-4">
+        <SheetContent ref={setMobileSheetContent} side="left" className="w-[min(20rem,88vw)] p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:text-white [&>button]:top-4 [&>button]:right-4 [&>button]:size-11">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav
             collapsed={false}

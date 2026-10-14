@@ -119,7 +119,7 @@ export function SibatWorkspaceSummary({
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3 sm:gap-3 lg:grid-cols-4">
         {taskMetrics.map((metric) => (
           <KpiCard
             key={metric.title}
@@ -135,11 +135,11 @@ export function SibatWorkspaceSummary({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Button type="button" onClick={onReviewRecords} className="min-h-12 justify-start gap-2 bg-[#1A365D] text-white hover:bg-[#142a4a]"><ClipboardCheck className="size-4" />Review records</Button>
-        <Button type="button" variant="outline" onClick={onFindFarmer} className="min-h-12 justify-start gap-2"><Search className="size-4" />Find a farmer</Button>
-        <Button type="button" variant="outline" onClick={onScan} className="min-h-12 justify-start gap-2"><QrCode className="size-4" />Scan livestock QR</Button>
-        <Button type="button" variant="outline" onClick={onNewCensus} className="min-h-12 justify-start gap-2"><CalendarDays className="size-4" />Record census</Button>
+      <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-2.5 sm:gap-3">
+        <Button type="button" onClick={onReviewRecords} className="min-h-14 justify-start gap-3 px-4 text-base bg-[#1A365D] text-white hover:bg-[#142a4a]"><ClipboardCheck className="size-5" />Review records</Button>
+        <Button type="button" variant="outline" onClick={onFindFarmer} className="min-h-14 justify-start gap-3 px-4 text-base"><Search className="size-5" />Find a farmer</Button>
+        <Button type="button" variant="outline" onClick={onScan} className="min-h-14 justify-start gap-3 px-4 text-base"><QrCode className="size-5" />Scan livestock QR</Button>
+        <Button type="button" variant="outline" onClick={onNewCensus} className="min-h-14 justify-start gap-3 px-4 text-base"><CalendarDays className="size-5" />Record census</Button>
       </div>
 
       </div>

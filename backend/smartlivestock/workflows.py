@@ -17,10 +17,11 @@ ROLE_MATRIX = {
     "disease": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
     "mortality": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
     "production": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
-    "inventory": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
+    # CBAT officers use the same barangay-scoped field verification step as SIBAT.
+    "inventory": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "review": {SIBAT, "CBAT", MAO, ADMIN}, "edit_own": {FARMER}},
     "sales": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, MAO, ADMIN}, "delete_own": {FARMER}},
     "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
-    "batches": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
+    "batches": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
     "inspections": {"create": {AUCTION}, "read_all": {AUCTION, MAO, ADMIN}, "edit_own": {AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
     # Auction encodes the certificate; farmers and reviewers retain access to their own or scoped records.
@@ -46,6 +47,11 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
     )
     for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality")
 }
+
+# CBAT may verify livestock inventory within its existing reviewer scope.
+REVIEW_TRANSITIONS["inventory"] = REVIEW_TRANSITIONS["inventory"] + (
+    TransitionRule("CBAT", "PENDING", frozenset({"VERIFIED", "SUBJECT_TO_REVISION"})),
+)
 
 # Auction encodes the completed transfer certificate; MAO is the sole reviewer.
 REVIEW_TRANSITIONS["ownership_transfers"] = (

@@ -515,7 +515,7 @@ function SibatPortalContent() {
           </div>
         )}
 
-        <div role="tablist" aria-label="Field review tasks" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div role="tablist" aria-label="Field review tasks" className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
           {([
             { id: "inventory", label: "Livestock registration", count: pendingInvCount },
             { id: "production", label: "Production & sales", count: pendingProdCount },
@@ -529,7 +529,7 @@ function SibatPortalContent() {
               role="tab"
               aria-selected={activeTab === tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`flex min-h-12 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-colors sm:text-sm ${activeTab === tab.id ? "border-[#1A365D] bg-[#1A365D] text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
+              className={`flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-base font-semibold leading-snug transition-colors ${activeTab === tab.id ? "border-[#1A365D] bg-[#1A365D] text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
             >
               <span className="min-w-0 break-words">{tab.label}</span>
               {tab.count > 0 && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${activeTab === tab.id ? "bg-white/15" : "bg-slate-100 text-slate-700"}`}>{tab.count}</span>}

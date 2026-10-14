@@ -39,8 +39,8 @@ import {
 
 type TabKey = "pending" | "verified";
 const TAB_PILLS: { value: TabKey; label: string }[] = [
-  { value: "pending", label: "Active Field Alerts" },
-  { value: "verified", label: "Verified / Resolved" },
+  { value: "pending", label: "Needs review" },
+  { value: "verified", label: "Reviewed reports" },
 ];
 
 function SibatAlertsContent() {
@@ -134,8 +134,8 @@ function SibatAlertsContent() {
   return (
     <>
       <PageHeader
-        title="Outbreak Alerts & Health Flags"
-        subtitle="Real-time farmer illness reports, suspected disease outbreaks, and on-farm biosecurity verifications"
+        title="Health Reports"
+        subtitle="Review disease and mortality reports from farmers, with field inspection photos when available."
         icon={<Bell className="h-5 w-5 text-amber-400" />}
         variant="sibat"
         maxWidthClass="w-full"
@@ -224,13 +224,13 @@ function SibatAlertsContent() {
         </div>
 
         {/* Results count */}
-        <div className="px-1">
-          <p className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
+          <p className="text-sm font-semibold text-slate-700">
             Showing{" "}
             <span className="text-slate-900 font-extrabold tabular-nums">
               {filtered.length}
             </span>{" "}
-            alert{filtered.length !== 1 ? "s" : ""}
+            report{filtered.length !== 1 ? "s" : ""}
           </p>
         </div>
 
@@ -257,13 +257,13 @@ function SibatAlertsContent() {
                   </div>
                   <p className="text-sm font-bold text-slate-700">
                     {activeTab === "pending"
-                      ? "No active outbreak alerts to validate"
-                      : "No verified alerts history yet"}
+                      ? "No reports need review"
+                      : "No reviewed reports yet"}
                   </p>
                   <p className="text-xs text-slate-500 max-w-xs font-medium">
                     {activeTab === "pending"
-                      ? "All farmer clinical health alerts are up to date."
-                      : "Verified alerts will be archived here."}
+                      ? "New disease and mortality reports from farmers will appear here."
+                      : "Reports you have reviewed will appear here."}
                   </p>
                 </div>
               </Card>
@@ -271,13 +271,15 @@ function SibatAlertsContent() {
               filtered.map((alert) => {
                 const isDisease = alert.reportType === "DISEASE";
                 const isPending = alert.status === "PENDING";
+                const farmerPhotoUrl = alert.photoUrl;
+                const sibatPhotoUrl = alert.inspection?.inspectorPhotoUrl;
 
                 return (
                   <Card
                     key={alert.id}
                     className="border border-slate-200 bg-white hover:border-[#1A365D]/30 shadow-2xs hover:shadow-xs rounded-2xl transition-all duration-200 overflow-hidden"
                   >
-                    <CardContent className="p-5 space-y-4">
+                    <CardContent className="p-4 sm:p-5 space-y-4">
                       {/* Header */}
                       <div className="flex justify-between items-start gap-3 flex-wrap">
                         <div className="space-y-1.5 flex-1">
@@ -289,7 +291,7 @@ function SibatAlertsContent() {
                                   : "bg-slate-800 text-amber-300 border-slate-700"
                               }`}
                             >
-                              {alert.id} • {isDisease ? "Illness Alert" : "Mortality"}
+                              {isDisease ? "Disease report" : "Mortality report"} · {alert.id}
                             </Badge>
                             <span className="text-[10px] font-bold text-slate-400">•</span>
                             <span className="text-xs font-bold text-slate-700">{alert.farmerName}</span>
@@ -349,42 +351,55 @@ function SibatAlertsContent() {
                         )}
                       </div>
 
-                      {/* Description & Photo Thumbnail */}
-                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-slate-700 leading-relaxed">
-                            <strong className="text-slate-900">Farmer Observation: </strong>
-                            {alert.farmerDescription}
+                      {/* Keep farmer evidence and SIBAT field photos separate so each image has clear context. */}
+                      <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">Report details</h4>
+                          <p className="mt-1 text-sm leading-6 text-slate-700">
+                            <strong>Farmer&apos;s description: </strong>{alert.farmerDescription || "No description was provided."}
                           </p>
-                          {alert.photoName && (
-                            <p className="text-[10px] text-slate-400 font-mono mt-1.5 flex items-center gap-1">
-                              <Camera className="size-3 text-emerald-600" />
-                              <span>Attached Evidence: {alert.photoName}</span>
-                            </p>
-                          )}
+                          {alert.photoName ? <p className="mt-1 text-xs text-slate-500">Farmer photo: {alert.photoName}</p> : null}
                         </div>
 
-                        {alert.photoUrl && (
-                          <div
-                            onClick={() => handleOpenInspection(alert)}
-                            className="relative group shrink-0 w-20 h-16 sm:w-24 sm:h-18 rounded-xl overflow-hidden border border-slate-200 shadow-2xs cursor-pointer bg-slate-900"
-                            title="Click to inspect attached photo"
-                          >
-                            <img
-                              src={alert.photoUrl}
-                              alt={`Photo for ${alert.name}`}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Camera className="size-4" />
-                            </div>
+                        {(farmerPhotoUrl || sibatPhotoUrl) ? (
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {farmerPhotoUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenInspection(alert)}
+                                className="group min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-white text-left shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                                aria-label="Open farmer's report photo"
+                              >
+                                <div className="relative aspect-[4/3] bg-slate-200">
+                                  <img src={farmerPhotoUrl} alt={`Farmer-provided photo for ${alert.name}`} className="size-full object-cover transition-transform group-hover:scale-[1.02]" loading="lazy" />
+                                  <span className="absolute bottom-2 left-2 rounded-lg bg-emerald-900/90 px-3 py-1.5 text-sm font-bold text-white">Farmer photo</span>
+                                </div>
+                                <span className="flex min-h-11 items-center gap-2 px-3 text-sm font-semibold text-slate-800"><Camera className="size-4 text-emerald-700" /> Tap to view report photo</span>
+                              </button>
+                            ) : null}
+                            {sibatPhotoUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenInspection(alert)}
+                                className="group min-w-0 overflow-hidden rounded-xl border border-sky-200 bg-white text-left shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+                                aria-label="Open SIBAT field inspection photo"
+                              >
+                                <div className="relative aspect-[4/3] bg-slate-200">
+                                  <img src={sibatPhotoUrl} alt={`SIBAT field inspection photo for ${alert.name}`} className="size-full object-cover transition-transform group-hover:scale-[1.02]" loading="lazy" />
+                                  <span className="absolute bottom-2 left-2 rounded-lg bg-sky-900/90 px-3 py-1.5 text-sm font-bold text-white">SIBAT photo</span>
+                                </div>
+                                <span className="flex min-h-11 items-center gap-2 px-3 text-sm font-semibold text-slate-800"><Camera className="size-4 text-sky-700" /> Tap to view field photo</span>
+                              </button>
+                            ) : null}
                           </div>
+                        ) : (
+                          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600">No photos were attached to this report.</p>
                         )}
-                      </div>
+                      </section>
 
                       {alert.inspection && (
                         <div className="text-xs bg-sky-50 text-sky-950 p-3 rounded-xl border border-sky-200">
-                          <p className="font-bold">SIBAT Inspection Findings: {alert.inspection.remarks}</p>
+                          <p className="font-bold">Field inspection findings: {alert.inspection.remarks}</p>
                           <p className="text-[11px] text-sky-700 mt-0.5">
                             Severity: {alert.inspection.severity} • Action: {alert.inspection.biosecurityAction} • Inspector: {alert.inspection.verifiedBy}
                           </p>
@@ -402,7 +417,7 @@ function SibatAlertsContent() {
                           }`}
                         >
                           <ShieldAlert className="w-4 h-4 text-amber-300" />
-                          {isPending ? "Conduct On-Site Field Inspection" : "View Inspection Protocol & Findings"}
+                          {isPending ? "Review report and record field check" : "View report and field check"}
                         </Button>
                       </div>
                     </CardContent>

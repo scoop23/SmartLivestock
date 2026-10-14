@@ -519,13 +519,13 @@ export default function LivestockRecordList({
       {/* ═══ 3. Sub-Header & Controls Bar ═══ */}
       <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
         {/* Clean Search Bar */}
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative w-full min-w-0 flex-1 sm:min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <Input
             placeholder="Search by ear tag, breed, or species..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-8 bg-slate-50/80 border-slate-200 rounded-lg h-9 text-xs focus-visible:ring-[#1E4D2B]/30"
+            className="pl-10 pr-10 bg-slate-50/80 border-slate-200 rounded-lg h-12 text-base focus-visible:ring-[#1E4D2B]/30"
           />
           {searchQuery && (
             <button
@@ -539,11 +539,11 @@ export default function LivestockRecordList({
         </div>
 
         {/* Inline Dropdown Filters & Actions */}
-        <div className="flex flex-1 min-w-0 items-center justify-end gap-2 flex-wrap">
+        <div className="grid w-full flex-1 min-w-0 grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap sm:justify-end">
           {/* Species Dropdown */}
           {livestockTypes && (
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[125px] rounded-lg h-9 border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700">
+              <SelectTrigger aria-label="Filter by livestock type" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[150px]">
                 <SelectValue placeholder="All Species" />
               </SelectTrigger>
               <SelectContent>
@@ -562,7 +562,7 @@ export default function LivestockRecordList({
             value={statusFilter}
             onValueChange={(v) => setStatusFilter(v as StatusType | "ALL")}
           >
-            <SelectTrigger className="w-[155px] rounded-lg h-9 border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700">
+            <SelectTrigger aria-label="Filter by review status" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[170px]">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -579,7 +579,7 @@ export default function LivestockRecordList({
             value={operationalFilter}
             onValueChange={(value) => setOperationalFilter(value as OperationalStatus | "ALL")}
           >
-            <SelectTrigger className="w-[145px] rounded-lg h-9 border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700">
+            <SelectTrigger aria-label="Filter by livestock status" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[160px]">
               <SelectValue placeholder="Herd Lifecycle" />
             </SelectTrigger>
             <SelectContent>
@@ -594,7 +594,7 @@ export default function LivestockRecordList({
 
           {/* Sorting Dropdown */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-            <SelectTrigger className="w-[135px] rounded-lg h-9 border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700">
+            <SelectTrigger aria-label="Sort livestock records" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[150px]">
               <div className="flex items-center gap-1.5 truncate">
                 <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <SelectValue placeholder="Sort by" />
@@ -610,13 +610,15 @@ export default function LivestockRecordList({
           </Select>
 
           {/* Grid / List View Toggle */}
-          <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 shrink-0">
+          <div className="col-span-2 flex min-h-11 items-center justify-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 shrink-0 sm:col-span-1">
             <button
               type="button"
               onClick={() => setViewMode("grid")}
+              aria-label="Show livestock as cards"
+              aria-pressed={viewMode === "grid"}
               title="Cards Grid"
               className={cn(
-                "p-1.5 rounded-md transition-all",
+                "size-10 rounded-md transition-all",
                 viewMode === "grid"
                   ? "bg-white text-slate-900 shadow-2xs font-bold"
                   : "text-slate-500 hover:text-slate-800"
@@ -627,9 +629,11 @@ export default function LivestockRecordList({
             <button
               type="button"
               onClick={() => setViewMode("table")}
+              aria-label="Show livestock as a table"
+              aria-pressed={viewMode === "table"}
               title="Table View"
               className={cn(
-                "p-1.5 rounded-md transition-all",
+                "size-10 rounded-md transition-all",
                 viewMode === "table"
                   ? "bg-white text-slate-900 shadow-2xs font-bold"
                   : "text-slate-500 hover:text-slate-800"
@@ -647,7 +651,7 @@ export default function LivestockRecordList({
                   type="button"
                   variant="outline"
                   onClick={handleExportCSV}
-                  className="h-9 px-3 rounded-lg border-slate-200 bg-slate-50/80 hover:bg-slate-100 text-slate-700 font-bold text-xs gap-1.5 shrink-0"
+                  className="min-h-11 w-full sm:w-auto px-3 rounded-lg border-slate-200 bg-slate-50/80 hover:bg-slate-100 text-slate-700 font-bold text-sm gap-2 shrink-0"
                 >
                   <Download className="w-3.5 h-3.5 text-slate-600" />
                   <span className="hidden sm:inline">Export</span>
@@ -669,7 +673,7 @@ export default function LivestockRecordList({
                 router.push("/livestock-inventory");
               }
             }}
-            className="h-9 px-3.5 rounded-lg bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-xs gap-1.5 shrink-0 shadow-2xs transition-all active:scale-95"
+            className="min-h-11 w-full sm:w-auto px-3.5 rounded-lg bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-sm gap-2 shrink-0 shadow-2xs transition-all active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Record</span>
@@ -683,9 +687,9 @@ export default function LivestockRecordList({
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                    className="col-span-2 min-h-11 w-full rounded-lg text-sm font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 transition-colors shrink-0 sm:col-span-1 sm:w-auto sm:px-3"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="inline-flex items-center justify-center gap-2"><RotateCcw className="size-4" /> Reset filters</span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">

@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DataTableSection } from "@/components/ui/data-table-section";
 import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
-import { ArrowUpDown, CheckCircle2, Clock, Eye, Layers, RotateCcw, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, CheckCircle2, Clock, Eye, Layers, RotateCcw, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import SibatStatusBadge from "../components/sibat-status-badge";
 import SibatReviewDialog from "../components/sibat-review-dialog";
 
@@ -128,6 +128,13 @@ function SibatLivestockRegistryContent() {
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
           <p className="font-bold">Livestock review registry</p>
           <p className="mt-1 text-emerald-900/80">{batchId ? `Showing individual animals in herd #${batchId}.` : `Showing individual animals and herd containers for ${registryScopeLabel}. Choose a review status to narrow the registry.`}</p>
+          {batchId ? (
+            <Button asChild type="button" variant="outline" className="mt-3 min-h-11 rounded-xl border-emerald-300 bg-white px-4 text-base font-semibold text-emerald-950">
+              <Link href={`/sibat/batches?batchId=${encodeURIComponent(batchId)}`}>
+                <ArrowLeft className="mr-2 size-5" /> Back to this herd
+              </Link>
+            </Button>
+          ) : null}
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -139,11 +146,11 @@ function SibatLivestockRegistryContent() {
                 onChange={(event) => { setSearch(event.target.value); setPage(1); }}
                 placeholder="Search tag, farmer, barangay, or livestock…"
                 aria-label="Search livestock records"
-                className="border-slate-200 bg-slate-50/50 pl-9"
+                className="h-12 border-slate-200 bg-slate-50/50 pl-9 text-base"
               />
             </div>
             <Select value={sortBy} onValueChange={(value: "newest" | "oldest") => setSortBy(value)}>
-              <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-slate-50/60 text-sm sm:w-[165px]">
+              <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 bg-slate-50/60 text-base sm:w-[165px]">
                 <div className="flex items-center gap-2"><ArrowUpDown className="size-3.5 shrink-0 text-slate-400" /><SelectValue placeholder="Sort by" /></div>
               </SelectTrigger>
               <SelectContent>
@@ -164,7 +171,7 @@ function SibatLivestockRegistryContent() {
                 type="button"
                 aria-pressed={statusFilter === filter.value}
                 onClick={() => { setStatusFilter(filter.value); setPage(1); }}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 ${statusFilter === filter.value ? filter.activeClass : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50"}`}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-bold transition-all duration-200 active:scale-95 ${statusFilter === filter.value ? filter.activeClass : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"}`}
               >
                 {statusFilter !== filter.value ? <span className={`size-1.5 rounded-full ${filter.dotClass}`} /> : null}
                 <filter.icon className="size-3.5" />
@@ -172,7 +179,7 @@ function SibatLivestockRegistryContent() {
               </button>
             ))}
             </div>
-            <p className="ml-auto shrink-0 text-xs font-bold uppercase tracking-wider text-slate-500">Showing {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"}</p>
+            <p className="text-sm font-semibold text-slate-600 sm:ml-auto">Showing {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"}</p>
           </div>
         </section>
 
@@ -216,7 +223,42 @@ function SibatLivestockRegistryContent() {
                 pageSizeOptions={[PAGE_SIZE]}
               /> : undefined}
             >
-              <div className="h-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs">
+              <div className="space-y-3 md:hidden">
+                {pageRecords.map((record: UnifiedSubmissionItem) => (
+                  <article key={`mobile-${record.sourceType}-${record.rawId}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="break-words font-mono text-base font-bold text-slate-900">{record.tagNumber || record.batchCode || `Record #${record.rawId}`}</p>
+                        <p className="mt-1 text-sm text-slate-600">{record.entryType === "BATCH" ? record.batchName || "Herd" : record.livestockTypeName}</p>
+                      </div>
+                      <SibatStatusBadge status={record.status as UnifiedStatus} />
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+                      <div><span className="block text-xs font-semibold text-slate-500">Farmer</span><span className="break-words font-semibold text-slate-900">{record.farmerName}</span></div>
+                      <div><span className="block text-xs font-semibold text-slate-500">Barangay</span><span className="break-words font-semibold text-slate-900">{record.barangayName}</span></div>
+                      <div><span className="block text-xs font-semibold text-slate-500">Animal type</span><span className="font-semibold text-slate-900">{record.livestockTypeName}</span></div>
+                      <div><span className="block text-xs font-semibold text-slate-500">Breed / count</span><span className="font-semibold text-slate-900">{record.entryType === "BATCH" ? `${record.quantity.toLocaleString()} animals` : record.breed || "Not recorded"}</span></div>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2">
+                      {record.sourceType === "INVENTORY" && (record.status === "PENDING" || record.status === "VERIFIED") ? (
+                        <Button type="button" variant="outline" className="min-h-11 w-full rounded-xl border-sky-200 text-base font-semibold text-sky-900" onClick={() => setSelectedSubmission(record)}>
+                          <Eye className="mr-2 size-5" /> {record.status === "PENDING" ? "Review animal" : "View review"}
+                        </Button>
+                      ) : null}
+                      {record.sourceType === "BATCH" ? (
+                        <Button asChild type="button" variant="outline" className="min-h-11 w-full rounded-xl border-sky-200 text-base font-semibold text-sky-900">
+                          <Link href={`/sibat/batches?batchId=${record.rawId}`}><Layers className="mr-2 size-5" /> Open herd</Link>
+                        </Button>
+                      ) : record.batchId ? (
+                        <Button asChild type="button" variant="outline" className="min-h-11 w-full rounded-xl border-slate-200 text-base font-semibold text-slate-800">
+                          <Link href={`/sibat/batches?batchId=${record.batchId}`}><Layers className="mr-2 size-5" /> View this animal's herd</Link>
+                        </Button>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="hidden h-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs md:block">
                 <div className="overflow-x-auto">
                   <Table className="min-w-[900px]">
                     <TableHeader>

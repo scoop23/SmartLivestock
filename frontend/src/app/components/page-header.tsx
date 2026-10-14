@@ -82,7 +82,7 @@ export function PageHeader({
                 {title}
               </h1>
               {subtitle && (
-                <p className={`text-xs sm:text-sm font-medium opacity-85 mt-0.5 ${variant === "farmer" || wrapSubtitleOnMobile ? "whitespace-normal break-words" : "truncate"}`}>
+              <p className={`${variant === "sibat" ? "text-base sm:text-sm" : "text-xs sm:text-sm"} font-medium opacity-90 mt-1 leading-relaxed ${variant === "farmer" || variant === "sibat" || wrapSubtitleOnMobile ? "whitespace-normal break-words" : "truncate"}`}>
                   {subtitle}
                 </p>
               )}
