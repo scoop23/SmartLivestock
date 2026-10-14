@@ -10,12 +10,14 @@ export type ProgramSchedule = {
   date: string;
   program: string;
   location: string;
+  farmer_notes: string;
   is_open: boolean;
   booked_times: string[];
   booking_count: number;
   capacity: number;
   remaining_slots: number;
   registration_status: ScheduleStatus;
+  deleted_at?: string | null;
   created_at: string;
 };
 
@@ -93,15 +95,15 @@ export function apiError(error: unknown): string {
     };
 
     if (process.env.NODE_ENV !== "production") {
-      console.error("[SmartLivestock API Error]", {
-        url: axiosErr.config?.url,
-        method: axiosErr.config?.method?.toUpperCase(),
-        baseURL: axiosErr.config?.baseURL,
-        status: axiosErr.response?.status,
-        code: axiosErr.code,
-        message: axiosErr.message,
-        data: axiosErr.response?.data,
-      });
+      // Log scalar diagnostics: browser consoles can render an Axios error's
+      // nested objects as `{}`, which hides the failed endpoint and status.
+      // Avoid dumping response bodies because they may contain user data.
+      const requestUrl = [axiosErr.config?.baseURL, axiosErr.config?.url]
+        .filter(Boolean)
+        .join("") || "unknown endpoint";
+      console.error(
+        `[SmartLivestock API Error] ${axiosErr.config?.method?.toUpperCase() || "REQUEST"} ${requestUrl} | HTTP ${axiosErr.response?.status ?? "no response"} | ${axiosErr.code || "no error code"} | ${axiosErr.message || String(error)}`,
+      );
     }
 
     const data = axiosErr.response?.data;

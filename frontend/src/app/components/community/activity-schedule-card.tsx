@@ -1,7 +1,19 @@
+"use client";
+
 import Link from "next/link";
-import { CalendarDays, Clock, MapPin } from "lucide-react";
+import { useState } from "react";
+import { CalendarDays, ClipboardList, Clock, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { CommunityRole } from "./community-ui";
 import { formatLongDate, formatTimeWindow } from "./community-ui";
 import type { ProgramSchedule } from "@/lib/community-api";
@@ -13,6 +25,9 @@ export function ActivityScheduleCard({
   schedule: ProgramSchedule;
   role: CommunityRole;
 }) {
+  const [expiredDialogOpen, setExpiredDialogOpen] = useState(false);
+  const isExpired =
+    schedule.deleted_at != null || schedule.registration_status === "COMPLETED";
   const statusLabel = {
     AVAILABLE: "Registration open",
     FULL: "Fully booked",
@@ -74,9 +89,49 @@ export function ActivityScheduleCard({
         ) : null}
       </div>
 
+      {role === "farmer" && schedule.farmer_notes ? (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
+          <ClipboardList className="mt-0.5 size-4 shrink-0 text-amber-700" />
+          <div><p className="font-bold">Reminder for farmers</p><p className="mt-0.5 whitespace-pre-wrap">{schedule.farmer_notes}</p></div>
+        </div>
+      ) : null}
+
       {role === "auction" ? (
         <div className="pt-1.5 flex items-center gap-2 text-xs font-semibold text-purple-700 bg-purple-50/80 px-3 py-2 rounded-xl border border-purple-200">
-          <span>Municipal program bulletin · Informational operational notice for auction personnel</span>
+          <span>
+            {isExpired ? "Program expired · " : ""}
+            Municipal program bulletin · Informational operational notice for auction personnel
+          </span>
+        </div>
+      ) : isExpired ? (
+        <div className="pt-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setExpiredDialogOpen(true)}
+            className="h-10 w-full rounded-xl border-slate-300 px-5 text-sm font-bold text-slate-700 sm:w-auto"
+          >
+            Program Expired
+          </Button>
+          <AlertDialog open={expiredDialogOpen} onOpenChange={setExpiredDialogOpen}>
+            <AlertDialogContent className="z-[var(--z-critical)]">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Program already expired</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This announcement is still available for reference, but its linked program
+                  on {formatLongDate(schedule.date)} has already passed
+                  {schedule.deleted_at ? " and was removed from Field Scheduling" : ""}.
+                  New bookings are no longer available.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setExpiredDialogOpen(false)}>
+                  Got it
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ) : canViewSchedule ? (
         <div className="pt-1.5">

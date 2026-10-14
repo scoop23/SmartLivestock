@@ -37,12 +37,14 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             "date",
             "program",
             "location",
+            "farmer_notes",
             "is_open",
             "capacity",
             "booked_times",
             "booking_count",
             "remaining_slots",
             "registration_status",
+            "deleted_at",
             "created_at",
         ]
         read_only_fields = [
@@ -51,6 +53,7 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             "booking_count",
             "remaining_slots",
             "registration_status",
+            "deleted_at",
         ]
 
     def _confirmed_bookings(self, obj):

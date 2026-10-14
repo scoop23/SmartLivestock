@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { CalendarDays, Clock3, LockKeyhole, MapPin, Pencil, Plus, RefreshCw, Trash2, UnlockKeyhole, Users } from "lucide-react";
+import { CalendarDays, Clock3, ClipboardList, LockKeyhole, MapPin, Pencil, Plus, RefreshCw, Trash2, UnlockKeyhole, Users } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -21,9 +22,9 @@ import { PROGRAM_TIME_SLOTS, CommunityEmptyState, CommunityErrorCard, CommunityS
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
 type ScheduleAction = "close" | "reopen" | "delete";
 type PendingAction = { schedule: ProgramSchedule; action: ScheduleAction };
-type ScheduleForm = { date: string; program: string; location: string; capacity: string };
-type SchedulePayload = { date: string; program: string; location: string; capacity: number };
-const emptyForm: ScheduleForm = { date: "", program: "", location: "", capacity: "4" };
+type ScheduleForm = { date: string; program: string; location: string; farmer_notes: string; capacity: string };
+type SchedulePayload = { date: string; program: string; location: string; farmer_notes: string; capacity: number };
+const emptyForm: ScheduleForm = { date: "", program: "", location: "", farmer_notes: "", capacity: "4" };
 
 export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
@@ -94,9 +95,18 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     return grouped;
   }, [bookings]);
 
-  const confirmedCount = bookings.filter((booking) => booking.status === "CONFIRMED").length;
+  // The bookings endpoint retains rows for soft-deleted programs so history stays intact.
+  // Scheduling KPIs should only count bookings attached to schedules still in the registry.
+  const visibleScheduleIds = useMemo(
+    () => new Set(schedules.map((schedule) => schedule.id)),
+    [schedules],
+  );
+  const visibleConfirmedBookings = bookings.filter(
+    (booking) => booking.status === "CONFIRMED" && visibleScheduleIds.has(booking.schedule),
+  );
+  const confirmedCount = visibleConfirmedBookings.length;
   const openCount = schedules.filter((schedule) => schedule.is_open).length;
-  const uniqueFarmers = new Set(bookings.filter((booking) => booking.status === "CONFIRMED").map((booking) => booking.farmer_name)).size;
+  const uniqueFarmers = new Set(visibleConfirmedBookings.map((booking) => booking.farmer_name)).size;
 
   function startCreate() {
     setEditing(null);
@@ -106,7 +116,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   function startEdit(schedule: ProgramSchedule) {
     setEditing(schedule);
-    setForm({ date: schedule.date, program: schedule.program, location: schedule.location, capacity: String(schedule.capacity) });
+    setForm({ date: schedule.date, program: schedule.program, location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity) });
     setFormOpen(true);
   }
 
@@ -134,7 +144,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   function saveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    const payload: SchedulePayload = { ...form, capacity: Number(form.capacity), program: form.program.trim(), location: form.location.trim() };
+    const payload: SchedulePayload = { ...form, capacity: Number(form.capacity), program: form.program.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim() };
     if (!Number.isInteger(payload.capacity) || payload.capacity < 1 || payload.capacity > 10000) {
       setError("Capacity must be a whole number from 1 to 10,000.");
       return;
@@ -161,7 +171,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   async function performAction() {
     if (!pendingAction) return;
     const { schedule, action } = pendingAction;
-    if (action === "delete" && (bookingsBySchedule.get(schedule.id)?.length ?? 0) > 0) return;
+    if (action === "delete" && (bookingsBySchedule.get(schedule.id)?.length ?? 0) > 0 && schedule.date >= todayIso()) return;
     setBusy(true);
     setError("");
     try {
@@ -179,6 +189,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   const selectedBookings = selected ? (bookingsBySchedule.get(selected.id) ?? []).slice().sort((a, b) => a.time.localeCompare(b.time)) : [];
   const selectedHasBookingHistory = pendingAction ? (bookingsBySchedule.get(pendingAction.schedule.id)?.length ?? 0) > 0 : false;
+  const selectedIsPast = pendingAction ? pendingAction.schedule.date < todayIso() : false;
   const accent = role === "sibat" ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]";
   const pageTitle = "Field Scheduling";
 
@@ -236,7 +247,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             title="Confirmed bookings"
             value={confirmedCount}
             icon={<Users className="size-4" />}
-            description="Across all schedules"
+            description="Across listed programs"
             variant="sky"
             isLoading={loading}
           />
@@ -275,6 +286,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             {schedules.map((schedule) => {
               const roster = bookingsBySchedule.get(schedule.id) ?? [];
               const hasHistory = roster.length > 0;
+              const isPastSchedule = schedule.date < todayIso();
               const status = schedule.registration_status;
               const statusConfig = {
                 AVAILABLE: { label: "OPEN", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
@@ -326,6 +338,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   </CardHeader>
 
                   <CardContent className="space-y-3 px-4 pb-4 sm:px-4.5">
+                    {schedule.farmer_notes ? (
+                      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
+                        <ClipboardList className="mt-0.5 size-4 shrink-0 text-amber-700" />
+                        <div><p className="font-bold">Farmer reminder</p><p className="mt-0.5 whitespace-pre-wrap">{schedule.farmer_notes}</p></div>
+                      </div>
+                    ) : null}
                     {/* Capacity Display & Progress Bar */}
                     <div className="space-y-1.5 rounded-lg bg-slate-50/80 p-2.5 border border-slate-100">
                       <div className="flex items-center justify-between text-xs sm:text-sm">
@@ -415,8 +433,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         type="button"
                         size="sm"
                         variant="ghost"
-                        title={hasHistory ? "Programs with booking records cannot be deleted; close the program instead." : "Delete program"}
-                        disabled={hasHistory}
+                        title={hasHistory && !isPastSchedule ? "Schedules with bookings can be deleted after their date." : isPastSchedule ? "Remove completed schedule; booking history will be preserved." : "Delete program"}
+                        disabled={hasHistory && !isPastSchedule}
                         onClick={() => setPendingAction({ schedule, action: "delete" })}
                         className="h-8 gap-1 rounded-lg px-2 text-xs font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
                       >
@@ -508,6 +526,20 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   placeholder="e.g. Municipal Agriculture Office, Padre Garcia"
                   className="h-10 text-sm font-medium"
                 />
+              </label>
+
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-farmer-notes">
+                Reminders for Farmers <span className="font-normal text-slate-400">(optional)</span>
+                <Textarea
+                  id="schedule-farmer-notes"
+                  maxLength={1000}
+                  rows={3}
+                  value={form.farmer_notes}
+                  onChange={(event) => setForm({ ...form, farmer_notes: event.target.value })}
+                  placeholder="e.g. Bring your vaccination card and arrive 15 minutes early."
+                  className="min-h-24 resize-y text-sm font-medium"
+                />
+                <span className="block text-[11px] font-normal text-slate-500">These notes will be visible to farmers viewing this schedule.</span>
               </label>
             </div>
           </form>
@@ -686,18 +718,18 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-600">
               {pendingAction?.action === "delete"
-                ? selectedHasBookingHistory ? "This program has existing booking records. The system protects those records, so it cannot be deleted. Close the program instead to prevent new bookings while preserving registration history." : "This will permanently remove the program. It has no booking records." 
+                ? selectedHasBookingHistory && selectedIsPast ? "This completed schedule will be removed from Field Scheduling. Existing booking records will be preserved for history." : selectedHasBookingHistory ? "This program has bookings, so it cannot be deleted before its scheduled date. You can close it to prevent new bookings." : "This will permanently remove the program. It has no booking records."
                 : pendingAction?.action === "close" ? "Farmers will no longer be able to book this program. All existing registrations will be preserved." : "Farmers will be able to book open slots for this program again."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy} className="h-9 text-xs">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={busy || (pendingAction?.action === "delete" && selectedHasBookingHistory)}
+              disabled={busy || (pendingAction?.action === "delete" && selectedHasBookingHistory && !selectedIsPast)}
               onClick={(event) => { event.preventDefault(); void performAction(); }}
               className={`h-9 text-xs ${pendingAction?.action === "delete" ? "bg-rose-700 text-white hover:bg-rose-800" : ""}`}
             >
-              {busy ? "Working…" : pendingAction?.action === "delete" ? "Delete program" : pendingAction?.action === "close" ? "Close program" : "Reopen program"}
+              {busy ? "Working…" : pendingAction?.action === "delete" ? selectedIsPast ? "Delete completed program" : "Delete program" : pendingAction?.action === "close" ? "Close program" : "Reopen program"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

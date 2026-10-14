@@ -182,7 +182,9 @@ def schedules(request):
                     to_attr="scoped_bookings",
                 )
             )
-        qs = ProgramSchedule.objects.prefetch_related(*prefetch_items)
+        # Soft-deleted completed schedules stay in the database for booking history,
+        # but are omitted from the active scheduling registry.
+        qs = ProgramSchedule.objects.filter(deleted_at__isnull=True).prefetch_related(*prefetch_items)
         if role == Role.UserRoles.FARMER:
             qs = qs.filter(is_open=True, date__gte=date.today())
         return Response(ProgramScheduleSerializer(qs, many=True, context={"request": request}).data)
@@ -209,14 +211,31 @@ def schedule_detail(request, pk):
     denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
     if denied:
         return denied
-    schedule = get_object_or_404(ProgramSchedule, pk=pk)
     if request.method == "DELETE":
-        if schedule.bookings.exists():
-            return Response({"detail": "Close this schedule instead; bookings must be retained."}, status=400)
-        schedule.delete()
+        with transaction.atomic():
+            schedule = get_object_or_404(
+                ProgramSchedule.objects.select_for_update().filter(deleted_at__isnull=True),
+                pk=pk,
+            )
+            has_bookings = schedule.bookings.exists()
+            if schedule.date < timezone.localdate():
+                if has_bookings:
+                    # Keep booked schedule rows so existing bookings retain a
+                    # valid schedule reference, while removing it from the registry.
+                    schedule.deleted_at = timezone.now()
+                    schedule.save(update_fields=["deleted_at"])
+                else:
+                    schedule.delete()
+            elif has_bookings:
+                return Response({"detail": "Schedules with bookings cannot be deleted before their date."}, status=400)
+            else:
+                schedule.delete()
         return Response(status=204)
     with transaction.atomic():
-        schedule = ProgramSchedule.objects.select_for_update().get(pk=pk)
+        schedule = get_object_or_404(
+            ProgramSchedule.objects.select_for_update().filter(deleted_at__isnull=True),
+            pk=pk,
+        )
         serializer = ProgramScheduleSerializer(schedule, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         if "date" in serializer.validated_data and serializer.validated_data["date"] < date.today():

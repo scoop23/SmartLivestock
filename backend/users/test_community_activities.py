@@ -224,6 +224,27 @@ class FieldSchedulingPermissionApiTests(APITestCase):
             status.HTTP_204_NO_CONTENT,
         )
 
+    def test_sibat_can_remove_expired_schedule_without_losing_booking_history(self):
+        schedule = ProgramSchedule.objects.create(
+            date=timezone.localdate() - timedelta(days=13),
+            program="Completed Outreach",
+            is_open=False,
+            created_by=self.mao,
+        )
+        booking = ProgramBooking.objects.create(schedule=schedule, farmer=self.farmer, time="08:00")
+        self.client.force_authenticate(self.sibat)
+
+        response = self.client.delete(f"/community/schedules/{schedule.pk}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        schedule.refresh_from_db()
+        booking.refresh_from_db()
+        self.assertIsNotNone(schedule.deleted_at)
+        self.assertEqual(booking.schedule_id, schedule.pk)
+        self.assertTrue(ProgramBooking.objects.filter(pk=booking.pk).exists())
+        listed = self.client.get("/community/schedules/")
+        self.assertNotIn(schedule.pk, [row["id"] for row in listed.data])
+
     def test_farmer_cannot_manage_schedules_or_see_another_farmers_booking(self):
         schedule = ProgramSchedule.objects.create(
             date=timezone.localdate() + timedelta(days=21),

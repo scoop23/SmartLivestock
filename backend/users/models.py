@@ -253,7 +253,11 @@ class ProgramSchedule(models.Model):
     capacity = models.PositiveIntegerField(default=4)
     program = models.CharField(max_length=100)
     location = models.CharField(max_length=200, blank=True)
+    farmer_notes = models.TextField(blank=True, default="", max_length=1000)
     is_open = models.BooleanField(default=True)
+    # Expired schedules with bookings are hidden from management but retained
+    # so their protected booking records remain valid for audit/history.
+    deleted_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="program_schedules")
     created_at = models.DateTimeField(auto_now_add=True)
 

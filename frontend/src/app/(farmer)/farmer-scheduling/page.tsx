@@ -523,6 +523,12 @@ export default function FarmerSchedulingPage() {
                                     <span className="truncate">{schedule.location}</span>
                                   </div>
                                 ) : null}
+                                {schedule.farmer_notes ? (
+                                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                                    <Info className="mt-0.5 size-4 shrink-0 text-amber-700" />
+                                    <div><p className="font-bold">Reminder</p><p className="mt-0.5 whitespace-pre-wrap font-normal">{schedule.farmer_notes}</p></div>
+                                  </div>
+                                ) : null}
                               </div>
 
                               {/* Capacity Bar */}
