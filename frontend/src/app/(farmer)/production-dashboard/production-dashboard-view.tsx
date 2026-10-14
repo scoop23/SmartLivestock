@@ -118,6 +118,9 @@ export default function ProductionDashboardView({
     "production" | "calving" | "weights" | "sales" | "forecasts"
   >(initialActivity ? activityTabs[initialActivity] ?? "production" : "production");
 
+  const shouldRenderFocusedTab = !focusedActivity
+    || focusedMode === "history"
+    || (focusedMode === "record" && ["calving", "weights", "sales", "intent"].includes(focusedActivity));
   // Fetch Inventory with standard hook & mapper
   const { data: inventories = [], isLoading: isInventoryLoading } = useUserInventory();
 
@@ -130,6 +133,8 @@ export default function ProductionDashboardView({
   } = useQuery<ProductionRecordItem[]>({
     queryKey: ["production_records"],
     queryFn: fetchProductionRecords,
+    // Focused record forms do not render production history, so avoid loading the full list here.
+    enabled: !(focusedActivity && focusedMode === "record"),
   });
 
   // Fetch Calving Records
@@ -590,7 +595,7 @@ export default function ProductionDashboardView({
       </div>
       </div>
 
-      {(!focusedActivity || focusedMode === "history") && <>
+      {shouldRenderFocusedTab && <>
       {/* Tab 1: Daily Yield Logs */}
       {activeMainTab === "production" && (
         <div className="space-y-6">
