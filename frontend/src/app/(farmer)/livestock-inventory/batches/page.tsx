@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isAxiosError } from "axios";
 import {
-  Layers,
   ArrowLeft,
   Plus,
   Scale,
@@ -13,13 +14,21 @@ import {
   Search,
   Eye,
   CheckCircle2,
-  ChevronRight,
   ClipboardList,
-  Beef,
   RefreshCw,
   Tag,
   Clock,
   QrCode,
+  LayoutGrid,
+  Table as TableIcon,
+  Layers,
+  Users,
+  Sparkles,
+  ArrowRight,
+  HelpCircle,
+  FileText,
+  Activity,
+  Check,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -93,21 +102,44 @@ export interface EnrichedBatch {
   individuals: BatchIndividual[];
 }
 
-// Helper to render official regulatory review badge for herds
+type BatchActionErrorResponse = {
+  error?: string;
+  detail?: string;
+  livestock?: string[];
+  animals?: string[];
+  tag_number?: string[];
+};
+
+// High-contrast, Senior-Citizen Friendly Regulatory Review Badge
 function getReviewStatusBadge(status?: string) {
   if (status === "MIXED") {
-    return <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-black px-1.5 py-0">Mixed animal statuses</Badge>;
+    return (
+      <Badge
+        variant="outline"
+        className="min-h-9 border-2 border-slate-300 bg-slate-100 px-3.5 text-xs sm:text-sm font-bold text-slate-900"
+      >
+        May Iba-ibang Katayuan (Mixed)
+      </Badge>
+    );
   }
   if (status === "NO_ANIMALS") {
-    return <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-300 text-[10px] font-black px-1.5 py-0">No animals</Badge>;
+    return (
+      <Badge
+        variant="outline"
+        className="min-h-9 border-2 border-slate-300 bg-slate-100 px-3.5 text-xs sm:text-sm font-bold text-slate-700"
+      >
+        Wala pang hayop (No animals)
+      </Badge>
+    );
   }
   if (status === "APPROVED") {
     return (
       <Badge
         variant="outline"
-        className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+        className="min-h-9 gap-1.5 border-2 border-emerald-400 bg-emerald-50 px-3.5 text-xs sm:text-sm font-black text-emerald-950"
       >
-        <ShieldCheck className="size-3 text-emerald-600" /> All animals approved
+        <ShieldCheck className="size-4.5 text-emerald-700" />
+        Aprubado (Approved)
       </Badge>
     );
   }
@@ -115,9 +147,10 @@ function getReviewStatusBadge(status?: string) {
     return (
       <Badge
         variant="outline"
-        className="bg-sky-50 text-sky-800 border-sky-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+        className="min-h-9 gap-1.5 border-2 border-sky-400 bg-sky-50 px-3.5 text-xs sm:text-sm font-black text-sky-950"
       >
-        <CheckCircle2 className="size-3 text-sky-600" /> All animals SIBAT verified
+        <CheckCircle2 className="size-4.5 text-sky-700" />
+        Na-inspeksyon (Field Checked)
       </Badge>
     );
   }
@@ -125,25 +158,31 @@ function getReviewStatusBadge(status?: string) {
     return (
       <Badge
         variant="outline"
-        className="bg-rose-50 text-rose-800 border-rose-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+        className="min-h-9 gap-1.5 border-2 border-amber-400 bg-amber-50 px-3.5 text-xs sm:text-sm font-black text-amber-950"
       >
-        <AlertTriangle className="size-3 text-rose-600" /> Animals need revision
+        <AlertTriangle className="size-4.5 text-amber-700" />
+        May Pagwawasto (Revision Needed)
       </Badge>
     );
   }
   if (status === "REJECTED") {
     return (
-      <Badge variant="outline" className="bg-rose-50 text-rose-800 border-rose-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0">
-        Rejected
+      <Badge
+        variant="outline"
+        className="min-h-9 gap-1.5 border-2 border-rose-400 bg-rose-50 px-3.5 text-xs sm:text-sm font-black text-rose-950"
+      >
+        <AlertTriangle className="size-4.5 text-rose-700" />
+        Tinanggihan (Rejected)
       </Badge>
     );
   }
   return (
     <Badge
       variant="outline"
-      className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-black px-1.5 py-0 gap-1 shrink-0"
+      className="min-h-9 gap-1.5 border-2 border-amber-300 bg-amber-50 px-3.5 text-xs sm:text-sm font-black text-amber-950"
     >
-      <Clock className="size-3 text-amber-600" /> Pending Review
+      <Clock className="size-4.5 text-amber-700" />
+      Nire-rebyu (Waiting for Review)
     </Badge>
   );
 }
@@ -156,6 +195,7 @@ export default function BatchOverviewPage() {
   const livestockReturnUrl = livestockTypeReturn
     ? `/livestock-inventory?livestockType=${encodeURIComponent(livestockTypeReturn)}`
     : "/livestock-inventory";
+
   const {
     data: backendBatches = [],
     error: batchesError,
@@ -163,21 +203,27 @@ export default function BatchOverviewPage() {
     isError: isBatchesError,
     refetch: refetchBatches,
   } = useLivestockBatches();
+
   const herdLoadStatus =
     typeof batchesError === "object" && batchesError !== null && "response" in batchesError
       ? (batchesError as { response?: { status?: number } }).response?.status
       : undefined;
-  const herdLoadMessage = herdLoadStatus === 401
-    ? "Your session has expired. Sign in again to view herd records."
-    : herdLoadStatus === 403
-      ? "You don't have permission to view herd records."
-      : "Unable to load herd records. Please try again.";
+
+  const herdLoadMessage =
+    herdLoadStatus === 401
+      ? "Nag-expire ang iyong sesyon. Mag-sign in muli upang makita ang iyong mga pangkat."
+      : herdLoadStatus === 403
+        ? "Wala kang pahintulot na tingnan ang talaan ng pangkat."
+        : "Hindi ma-load ang mga talaan ng pangkat. Paki-subukan muli.";
 
   // Local state for interactive enhancements
-  const [selectedBatchId, setSelectedBatchId] = useState<string>("");
-  const [rosterScrollRequest, setRosterScrollRequest] = useState(0);
-  const livestockRosterRef = useRef<HTMLDivElement>(null);
+  const initialBatchId = searchParams?.get("batch") || "";
+  const [selectedBatchId, setSelectedBatchId] = useState<string>(initialBatchId);
+  const [isHerdDetailsOpen, setIsHerdDetailsOpen] = useState(Boolean(initialBatchId));
+  // Default to cards on smaller viewports for easier senior citizen reading
+  const [rosterView, setRosterView] = useState<"cards" | "table">("cards");
   const [searchQuery, setSearchQuery] = useState("");
+  const [herdSearchQuery, setHerdSearchQuery] = useState("");
   const [genderFilter, setGenderFilter] = useState<string>("ALL");
 
   // Dialog States
@@ -199,42 +245,70 @@ export default function BatchOverviewPage() {
     lastVaccinationDate: "",
   });
 
-  // Auto-select batch from ?batch=<id> query param (e.g. coming from livestock profile)
-  useEffect(() => {
-    const batchFromQuery = searchParams?.get("batch");
-    if (batchFromQuery) {
-      setSelectedBatchId(batchFromQuery);
-    }
-  }, [searchParams]);
-
-  // This page lists persisted herd records only; it never synthesizes demo herds or animals.
+  // Mapped Persisted Herds
   const batches: EnrichedBatch[] = useMemo(() => {
     return backendBatches.map((b) => ({
-        id: String(b.id),
-        batchCode: b.batchCode,
-        batchName: b.batchName,
-        photoUrl: b.photoUrl || null,
-        species: b.livestockTypeName,
-        breed: b.animals?.find((animal) => animal.breed)?.breed || null,
-        activeCount: b.totalAnimals,
-        targetWeightKg: b.targetWeight,
-        averageWeightKg: b.averageWeight,
-        status: b.status,
-        reviewStatus: b.reviewStatus,
-        reviewRemarks: b.reviewRemarks,
-        notes: b.notes,
-        individuals: (b.animals || []).map((animal) => ({
-          id: String(animal.id),
-          tagNumber: animal.tagNumber || null,
-          sex: animal.sex || "Not recorded",
-          weightKg: animal.weight == null ? null : Number(animal.weight),
-          lastVaccinationDate: animal.lastVaccinationDate,
-          operationalStatus: animal.operationalStatus,
-          reviewStatus: animal.status,
-          isPostApprovalAddition: animal.isPostApprovalAddition,
-        })),
-      }));
+      id: String(b.id),
+      batchCode: b.batchCode,
+      batchName: b.batchName,
+      photoUrl: b.photoUrl || null,
+      species: b.livestockTypeName,
+      breed: b.animals?.find((animal) => animal.breed)?.breed || null,
+      activeCount: b.totalAnimals,
+      targetWeightKg: b.targetWeight,
+      averageWeightKg: b.averageWeight,
+      status: b.status,
+      reviewStatus: b.reviewStatus,
+      reviewRemarks: b.reviewRemarks,
+      notes: b.notes,
+      individuals: (b.animals || []).map((animal) => ({
+        id: String(animal.id),
+        tagNumber: animal.tagNumber || null,
+        sex: animal.sex || "Not recorded",
+        weightKg: animal.weight == null ? null : Number(animal.weight),
+        lastVaccinationDate: animal.lastVaccinationDate,
+        operationalStatus: animal.operationalStatus,
+        reviewStatus: animal.status,
+        isPostApprovalAddition: animal.isPostApprovalAddition,
+      })),
+    }));
   }, [backendBatches]);
+
+  // Overall Statistics for Telemetry Ribbon
+  const totalHerdsCount = batches.length;
+  const totalAnimalsInHerds = useMemo(
+    () => batches.reduce((sum, b) => sum + b.activeCount, 0),
+    [batches]
+  );
+  const approvedHerdsCount = useMemo(
+    () => batches.filter((b) => b.reviewStatus === "APPROVED").length,
+    [batches]
+  );
+  const totalWeighedInHerds = useMemo(
+    () =>
+      batches.reduce(
+        (sum, b) =>
+          sum +
+          b.individuals.filter(
+            (i) => i.operationalStatus === "ACTIVE" && i.weightKg !== null
+          ).length,
+        0
+      ),
+    [batches]
+  );
+
+  // Filtered Herds
+  const filteredBatches = useMemo(() => {
+    if (!herdSearchQuery.trim()) return batches;
+    const query = herdSearchQuery.toLowerCase();
+    return batches.filter(
+      (b) =>
+        b.batchName.toLowerCase().includes(query) ||
+        b.batchCode.toLowerCase().includes(query) ||
+        b.species.toLowerCase().includes(query) ||
+        (b.breed && b.breed.toLowerCase().includes(query))
+    );
+  }, [batches, herdSearchQuery]);
 
   // Active selected batch
   const currentBatch = useMemo(() => {
@@ -245,70 +319,81 @@ export default function BatchOverviewPage() {
 
   const handleBatchSelect = (batchId: string) => {
     setSelectedBatchId(batchId);
-    if (window.matchMedia("(max-width: 767px)").matches) {
-      setRosterScrollRequest((request) => request + 1);
-    }
+    setIsHerdDetailsOpen(true);
   };
 
-  useEffect(() => {
-    if (rosterScrollRequest === 0 || !currentBatch) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      livestockRosterRef.current?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-        block: "start",
-      });
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [rosterScrollRequest, currentBatch]);
-
-  // Animal approval is independent of herd membership; only the herd's operational state controls additions.
   const canAddAnimalsToCurrentBatch = currentBatch?.status === "ACTIVE";
-  const individualReviewSummary = currentBatch?.individuals.reduce((summary, animal) => {
-    const status = (animal.reviewStatus || "PENDING").toUpperCase();
-    if (status === "APPROVED") summary.approved += 1;
-    else if (status === "VERIFIED") summary.awaitingMao += 1;
-    else if (status === "SUBJECT_TO_REVISION" || status === "SUBJECT_FOR_REVISION") summary.returned += 1;
-    else if (status === "REJECTED") summary.rejected += 1;
-    else summary.awaitingSibat += 1;
-    return summary;
-  }, { approved: 0, awaitingMao: 0, awaitingSibat: 0, returned: 0, rejected: 0 });
+
+  const individualReviewSummary = currentBatch?.individuals.reduce(
+    (summary, animal) => {
+      const status = (animal.reviewStatus || "PENDING").toUpperCase();
+      if (status === "APPROVED") summary.approved += 1;
+      else if (status === "VERIFIED") summary.awaitingMao += 1;
+      else if (
+        status === "SUBJECT_TO_REVISION" ||
+        status === "SUBJECT_FOR_REVISION"
+      )
+        summary.returned += 1;
+      else if (status === "REJECTED") summary.rejected += 1;
+      else summary.awaitingSibat += 1;
+      return summary;
+    },
+    { approved: 0, awaitingMao: 0, awaitingSibat: 0, returned: 0, rejected: 0 }
+  );
 
   // Filter individuals inside current batch
   const filteredIndividuals = useMemo(() => {
     if (!currentBatch) return [];
-    // The herd roster represents animals that are still active. Sold, deceased,
-    // slaughtered, and moved animals remain in the database and are shown in History.
     return currentBatch.individuals.filter((animal) => {
       if (animal.operationalStatus !== "ACTIVE") return false;
       const matchSearch =
-        (animal.tagNumber || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (animal.tagNumber || "")
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
         animal.id.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchGender = genderFilter === "ALL" || animal.sex.toUpperCase() === genderFilter.toUpperCase();
+      const matchGender =
+        genderFilter === "ALL" ||
+        animal.sex.toUpperCase() === genderFilter.toUpperCase();
       return matchSearch && matchGender;
     });
   }, [currentBatch, searchQuery, genderFilter]);
 
   // Calculations for Batch Yield
   const yieldMetrics = useMemo(() => {
-    if (!currentBatch) return { totalBiomass: null, readinessPct: null, weighedAnimalCount: 0 };
+    if (!currentBatch)
+      return { totalBiomass: null, readinessPct: null, weighedAnimalCount: 0 };
     const weighedActiveAnimals = currentBatch.individuals.filter(
-      (animal) => animal.operationalStatus === "ACTIVE" && animal.weightKg !== null,
+      (animal) =>
+        animal.operationalStatus === "ACTIVE" && animal.weightKg !== null
     );
-    const totalBiomass = weighedActiveAnimals.length > 0
-      ? Math.round(weighedActiveAnimals.reduce((acc, animal) => acc + (animal.weightKg || 0), 0) * 10) / 10
-      : null;
+    const totalBiomass =
+      weighedActiveAnimals.length > 0
+        ? Math.round(
+            weighedActiveAnimals.reduce(
+              (acc, animal) => acc + (animal.weightKg || 0),
+              0
+            ) * 10
+          ) / 10
+        : null;
 
-    const readinessPct = currentBatch.averageWeightKg !== null && currentBatch.targetWeightKg
-      ? Math.min(Math.round((currentBatch.averageWeightKg / currentBatch.targetWeightKg) * 100), 100)
-      : null;
+    const readinessPct =
+      currentBatch.averageWeightKg !== null && currentBatch.targetWeightKg
+        ? Math.min(
+            Math.round(
+              (currentBatch.averageWeightKg / currentBatch.targetWeightKg) * 100
+            ),
+            100
+          )
+        : null;
 
-    return { totalBiomass, readinessPct, weighedAnimalCount: weighedActiveAnimals.length };
+    return {
+      totalBiomass,
+      readinessPct,
+      weighedAnimalCount: weighedActiveAnimals.length,
+    };
   }, [currentBatch]);
 
   // Handlers
-
   const handleOpenWeighModal = (animal: BatchIndividual) => {
     setWeighTarget(animal);
     setNewWeightInput(animal.weightKg === null ? "" : String(animal.weightKg));
@@ -319,7 +404,7 @@ export default function BatchOverviewPage() {
     if (!weighTarget || !currentBatch) return;
     const weightNum = parseFloat(newWeightInput);
     if (isNaN(weightNum) || weightNum <= 0) {
-      toast.error("Please enter a valid weight in kilograms.");
+      toast.error("Maglagay ng wastong timbang sa kilo (hal. 65.5).");
       return;
     }
 
@@ -331,12 +416,25 @@ export default function BatchOverviewPage() {
         weighing_date: new Date().toISOString().split("T")[0],
       });
       await queryClient.invalidateQueries({ queryKey: ["weight_records"] });
-      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
-      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
-      toast.success(`Weight recorded for ${weighTarget.tagNumber}: ${weightNum} kg`);
+      await queryClient.invalidateQueries({
+        queryKey: INVENTORY_QUERY_KEYS.inventory,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: INVENTORY_QUERY_KEYS.batches,
+      });
+      toast.success(
+        `Matagumpay na naitabi ang timbang para sa ${weighTarget.tagNumber || "hayop"}: ${weightNum} kg`
+      );
       setIsWeighModalOpen(false);
-    } catch (error: any) {
-      toast.error(error.response?.data?.livestock?.[0] || error.response?.data?.detail || "Could not save the weight record.");
+    } catch (error: unknown) {
+      const response = isAxiosError<BatchActionErrorResponse>(error)
+        ? error.response?.data
+        : undefined;
+      toast.error(
+        response?.livestock?.[0] ||
+          response?.detail ||
+          "Hindi maitala ang timbang. Subukan muli."
+      );
     } finally {
       setIsSavingWeight(false);
     }
@@ -347,29 +445,37 @@ export default function BatchOverviewPage() {
     if (!currentBatch) return;
 
     if (!newAnimalData.tagNumber.trim()) {
-      toast.error("Ear Tag Number is required.");
+      toast.error("Kinakailangan ang Ear Tag Number ng hayop.");
       return;
     }
     if (!newAnimalData.breed.trim()) {
-      toast.error("Breed is required.");
+      toast.error("Kinakailangan ang Lahi (Breed) ng hayop.");
       return;
     }
 
     setIsSavingAnimal(true);
     try {
       await api.post(`livestock/batches/${currentBatch.id}/animals/`, {
-        animals: [{
-          tag_number: newAnimalData.tagNumber.trim().toUpperCase(),
-          breed: newAnimalData.breed.trim(),
-          sex: newAnimalData.sex,
-          weight: newAnimalData.weight || null,
-          birth_date: newAnimalData.birthDate || null,
-          last_vaccination_date: newAnimalData.lastVaccinationDate || null,
-        }],
+        animals: [
+          {
+            tag_number: newAnimalData.tagNumber.trim().toUpperCase(),
+            breed: newAnimalData.breed.trim(),
+            sex: newAnimalData.sex,
+            weight: newAnimalData.weight || null,
+            birth_date: newAnimalData.birthDate || null,
+            last_vaccination_date: newAnimalData.lastVaccinationDate || null,
+          },
+        ],
       });
-      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
-      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
-      toast.success(`Animal ${newAnimalData.tagNumber.trim().toUpperCase()} registered to ${currentBatch.batchCode}.`);
+      await queryClient.invalidateQueries({
+        queryKey: INVENTORY_QUERY_KEYS.batches,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: INVENTORY_QUERY_KEYS.inventory,
+      });
+      toast.success(
+        `Naidagdag ang hayop (${newAnimalData.tagNumber.trim().toUpperCase()}) sa pangkat ${currentBatch.batchName || currentBatch.batchCode}.`
+      );
       setIsAddIndividualOpen(false);
       setNewAnimalData({
         tagNumber: "",
@@ -379,13 +485,16 @@ export default function BatchOverviewPage() {
         birthDate: "",
         lastVaccinationDate: "",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const response = isAxiosError<BatchActionErrorResponse>(error)
+        ? error.response?.data
+        : undefined;
       toast.error(
-        error.response?.data?.error ||
-        error.response?.data?.detail ||
-        error.response?.data?.animals?.[0] ||
-        error.response?.data?.tag_number?.[0] ||
-        "Could not add the animal to this herd."
+        response?.error ||
+          response?.detail ||
+          response?.animals?.[0] ||
+          response?.tag_number?.[0] ||
+          "Hindi maidagdag ang hayop sa pangkat na ito."
       );
     } finally {
       setIsSavingAnimal(false);
@@ -395,771 +504,1323 @@ export default function BatchOverviewPage() {
   return (
     <>
       <PageHeader
-        title="My Herds"
-        subtitle="View your herds and the animals in each group."
+        title="Pamamahala ng Pangkat (My Herds)"
+        subtitle="Subaybayan ang iyong mga kawan, timbang, at kalusugan ng bawat grupo ng hayop."
         variant="farmer"
         maxWidthClass="w-full"
       />
 
-      <div className="w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8">
-        {/* Top Navigation Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center gap-2">
-            <Link href={livestockReturnUrl}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl border-slate-300 font-bold text-xs gap-1.5 text-slate-700 hover:bg-slate-100"
-              >
-                <ArrowLeft className="size-3.5" /> Back to Herd
-              </Button>
-            </Link>
-            <span className="text-xs font-semibold text-slate-400">|</span>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-              <Layers className="size-4 text-emerald-600" />
-              <span>{batches.length} Herds on Record</span>
+      <div className="mx-auto w-full max-w-[1600px] space-y-6 sm:space-y-8 p-3 sm:p-6 xl:p-8">
+        {/* ── 1. PREMIUM HERO BANNER (Consistent with Inventory) ───────────── */}
+        <section className="relative overflow-hidden rounded-3xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-5 sm:p-7 text-white shadow-xl">
+          <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 size-96 rounded-full bg-teal-500/10 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-3xl space-y-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Badge className="rounded-full border-emerald-400/30 bg-emerald-500/20 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-emerald-300 backdrop-blur-md">
+                  <Layers className="mr-1.5 size-4 text-emerald-400" />
+                  Pangkat at Kawan · Herd Management
+                </Badge>
+                <span className="text-xs sm:text-sm font-bold text-emerald-200">
+                  • {totalHerdsCount} {totalHerdsCount === 1 ? "Pangkat" : "mga Pangkat"} nakatala
+                </span>
+              </div>
+
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
+                  Talaan ng mga Pangkat ng Hayop
+                </h1>
+                <p className="mt-1.5 text-sm sm:text-base font-medium leading-relaxed text-emerald-100/90">
+                  Madaling masusubaybayan ang paglaki, timbang, at indibidwal na impormasyon ng bawat hayop sa iyong mga kawan.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href={livestockReturnUrl} className="w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  className="min-h-12 w-full sm:w-auto gap-2.5 rounded-2xl border-2 border-emerald-400/30 bg-white/10 px-5 text-sm sm:text-base font-black text-white hover:bg-white/20 hover:text-white"
+                >
+                  <ArrowLeft className="size-5" />
+                  Bumalik sa Talaan (Inventory)
+                </Button>
+              </Link>
             </div>
           </div>
+        </section>
 
-          {currentBatch && backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                <Button
-                  onClick={() => setIsAddIndividualOpen(true)}
-                  disabled={!canAddAnimalsToCurrentBatch}
-                  size="sm"
-                  className="min-h-11 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none sm:w-auto"
-                >
-                  <Plus className="size-4" /> Add Animal to Herd
-                </Button>
-                {!canAddAnimalsToCurrentBatch && (
-                  <p className="self-center text-xs text-slate-500 sm:max-w-64">
-                    Animals can be added while the herd is active. Each new animal starts pending its own SIBAT and MAO review.
-                  </p>
-                )}
+        {/* ── 2. SENIOR CITIZEN FRIENDLY TELEMETRY RIBBON ──────────────────── */}
+        <section
+          aria-label="Buod ng Pangkat"
+          className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+        >
+          {/* Card 1: Kabuuang Pangkat */}
+          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                Kabuuang Pangkat
+              </span>
+              <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+                <Layers className="size-5" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
+              {totalHerdsCount}
+            </p>
+            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
+              {totalHerdsCount === 1 ? "Aktibong grupo" : "Mga aktibong grupo"}
+            </p>
+          </Card>
+
+          {/* Card 2: Kabuuang Hayop */}
+          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                Kabuuang Hayop
+              </span>
+              <div className="flex size-10 items-center justify-center rounded-xl bg-teal-100 text-teal-800">
+                <Users className="size-5" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl sm:text-4xl font-black text-emerald-900">
+              {totalAnimalsInHerds}
+            </p>
+            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
+              Ulo ng hayop sa kawan
+            </p>
+          </Card>
+
+          {/* Card 3: Aprubadong Pangkat */}
+          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                Aprubado ng MAO
+              </span>
+              <div className="flex size-10 items-center justify-center rounded-xl bg-sky-100 text-sky-800">
+                <ShieldCheck className="size-5" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl sm:text-4xl font-black text-sky-950">
+              {approvedHerdsCount}
+            </p>
+            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
+              Opisyal na rehistrado
+            </p>
+          </Card>
+
+          {/* Card 4: May Tala ng Timbang */}
+          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                May Tala ng Timbang
+              </span>
+              <div className="flex size-10 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                <Scale className="size-5" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl sm:text-4xl font-black text-amber-950">
+              {totalWeighedInHerds}
+            </p>
+            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
+              Hayop na natimbang na
+            </p>
+          </Card>
+        </section>
+
+        {/* ── 3. HERD LISTING SECTION ──────────────────────────────────────── */}
+        <section aria-labelledby="herd-list-title" className="space-y-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2
+                id="herd-list-title"
+                className="text-xl sm:text-3xl font-black tracking-tight text-slate-950"
+              >
+                Pumili ng Pangkat (Select a Herd)
+              </h2>
+              <p className="mt-1 text-sm sm:text-base leading-relaxed text-slate-700">
+                Pindutin ang alinmang kahon sa ibaba upang makita ang buong talaan ng mga hayop at timbang.
+              </p>
+            </div>
+
+            {/* Quick Search for Herds */}
+            {batches.length > 3 && (
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Maghanap ng pangkat..."
+                  value={herdSearchQuery}
+                  onChange={(e) => setHerdSearchQuery(e.target.value)}
+                  className="min-h-12 rounded-2xl border-2 border-slate-300 pl-11 text-sm sm:text-base font-semibold"
+                />
               </div>
             )}
-        </div>
+          </div>
 
-        {/* On desktop, keep herd selection beside its details to use the wide page area. */}
-        <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(17rem,0.8fr)_minmax(0,2fr)]">
-        {/* ── BATCH SELECTOR CARDS ────────────────────────────────────────── */}
-        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
-          {isBatchesLoading && <Card className="rounded-2xl border-slate-200 p-6 text-sm text-slate-500">Loading your herd records…</Card>}
+          {/* Loading / Error States */}
+          {isBatchesLoading && (
+            <Card className="rounded-3xl border-2 border-slate-200 p-8 text-center">
+              <RefreshCw className="mx-auto size-8 animate-spin text-emerald-700" />
+              <p className="mt-3 text-base sm:text-lg font-bold text-slate-700">
+                Ikinakarga ang iyong mga pangkat ng hayop...
+              </p>
+            </Card>
+          )}
+
           {!isBatchesLoading && isBatchesError && (
-            <Card className="rounded-2xl border-rose-200 p-6 text-sm text-rose-700">
-              <p role="alert">{herdLoadMessage}</p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void refetchBatches()}
-                className="mt-3 min-h-10 border-rose-200 text-rose-800 hover:bg-rose-50"
-              >
-                <RefreshCw className="mr-2 size-4" /> Try again
-              </Button>
-            </Card>
-          )}
-          {!isBatchesLoading && !isBatchesError && batches.length === 0 && (
-            <Card className="rounded-2xl border-slate-200 p-6">
-              <h2 className="font-bold text-slate-900">No herds recorded</h2>
-              <p className="mt-1 text-sm text-slate-600">Registered herds will appear here with their saved livestock records.</p>
-              <Link href="/livestock-inventory" className="mt-3 inline-flex text-sm font-semibold text-emerald-700 hover:underline">Open Livestock Inventory</Link>
-            </Card>
-          )}
-          {batches.map((batch) => {
-            const isSelected = currentBatch?.id === batch.id;
-            const avatar = getDefaultAvatarForSpecies(batch.species);
-            const headCount = batch.activeCount;
-            return (
-              <Card
-                key={batch.id}
-                onClick={() => handleBatchSelect(batch.id)}
-                className={`group cursor-pointer overflow-hidden rounded-xl border transition-colors ${isSelected
-                  ? "border-emerald-600 bg-emerald-50/40 shadow-sm ring-1 ring-emerald-500/20"
-                  : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/50"
-                  }`}
-              >
-                <CardContent className="flex min-w-0 items-center gap-3 p-3">
-                  {batch.photoUrl ? (
-                    <img src={batch.photoUrl} alt={`${batch.batchName} herd`} className="size-11 shrink-0 rounded-lg border border-slate-200 object-cover" />
+            <Card className="rounded-3xl border-2 border-rose-300 bg-rose-50/70 p-6 sm:p-8">
+              <div className="flex items-start gap-4">
+                <AlertTriangle className="size-8 shrink-0 text-rose-600" />
+                <div>
+                  <h3 className="text-lg font-black text-rose-950">Hindi ma-load ang talaan</h3>
+                  <p className="mt-1 text-base text-rose-900">{herdLoadMessage}</p>
+                  {herdLoadStatus === 401 ? (
+                    <Button
+                      type="button"
+                      onClick={() => router.push("/login")}
+                      className="mt-4 min-h-12 rounded-2xl bg-emerald-700 px-6 text-base font-bold text-white hover:bg-emerald-800"
+                    >
+                      Mag-sign in muli
+                    </Button>
                   ) : (
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-2xl" aria-hidden="true">{avatar.emoji}</div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void refetchBatches()}
+                      className="mt-4 min-h-12 rounded-2xl border-2 border-rose-400 px-6 text-base font-bold text-rose-900 hover:bg-rose-100"
+                    >
+                      <RefreshCw className="mr-2 size-5" /> Subukan muli
+                    </Button>
                   )}
+                </div>
+              </div>
+            </Card>
+          )}
 
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <div className="flex min-w-0 items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h2 className="break-words text-sm font-black leading-snug text-slate-900 group-hover:text-emerald-800">
-                          {batch.batchName || "Unnamed herd"}
-                        </h2>
-                        <p className="mt-0.5 break-all font-mono text-[10px] font-semibold text-slate-500">{batch.batchCode}</p>
-                      </div>
-                      <div className="shrink-0 rounded-lg bg-emerald-50 px-2 py-1 text-center">
-                        <p className="text-base font-black leading-none text-emerald-900">{headCount}</p>
-                        <p className="mt-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Active</p>
+          {!isBatchesLoading && !isBatchesError && batches.length === 0 && (
+            <Card className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-8 sm:p-12 text-center">
+              <div className="mx-auto flex size-20 items-center justify-center rounded-3xl bg-emerald-100 text-4xl">
+                🐄
+              </div>
+              <h3 className="mt-4 text-xl sm:text-2xl font-black text-slate-900">
+                Wala pang nakatalang pangkat (No Herds Found)
+              </h3>
+              <p className="mx-auto mt-2 max-w-lg text-sm sm:text-base leading-relaxed text-slate-600">
+                Kapag nagrehistro ka ng kawan o pangkat sa Talaan ng Hayop, awtomatiko itong lalabas dito kasama ang mga detalye.
+              </p>
+              <div className="mt-6">
+                <Link href="/livestock-inventory">
+                  <Button className="min-h-12 rounded-2xl bg-emerald-700 px-6 text-base font-black text-white hover:bg-emerald-800">
+                    Buksan ang Talaan ng Hayop
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          )}
+
+          {/* Herd Cards Grid */}
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredBatches.map((batch) => {
+              const isSelected = currentBatch?.id === batch.id;
+              const avatar = getDefaultAvatarForSpecies(batch.species);
+              const readiness =
+                batch.averageWeightKg !== null && batch.targetWeightKg
+                  ? Math.min(
+                      Math.round(
+                        (batch.averageWeightKg / batch.targetWeightKg) * 100
+                      ),
+                      100
+                    )
+                  : null;
+
+              return (
+                <Card
+                  key={batch.id}
+                  className={`group relative overflow-hidden rounded-3xl border-2 transition-all shadow-sm ${
+                    isSelected
+                      ? "border-emerald-600 bg-emerald-50/60 ring-4 ring-emerald-500/20 shadow-md"
+                      : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    aria-pressed={isSelected}
+                    aria-label={`Piliin ang ${batch.batchName || "pangkat"}, ${batch.activeCount} hayop`}
+                    onClick={() => handleBatchSelect(batch.id)}
+                    className="flex min-h-[170px] w-full flex-col justify-between p-4 sm:p-6 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/40"
+                  >
+                    {/* Top Row: Avatar + Titles + Animal Count Box */}
+                    <div className="flex items-start gap-4">
+                      {batch.photoUrl ? (
+                        <Image
+                          src={batch.photoUrl}
+                          alt=""
+                          width={88}
+                          height={88}
+                          unoptimized
+                          className="size-16 sm:size-20 shrink-0 rounded-2xl border-2 border-slate-200 object-cover shadow-xs"
+                        />
+                      ) : (
+                        <div
+                          className="flex size-16 sm:size-20 shrink-0 items-center justify-center rounded-2xl border-2 border-emerald-200 bg-emerald-100 text-3xl sm:text-4xl shadow-xs"
+                          aria-hidden="true"
+                        >
+                          {avatar.emoji}
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="break-words text-lg sm:text-xl font-black leading-snug text-slate-950">
+                              {batch.batchName || "Walang Pangalang Pangkat"}
+                            </h3>
+                            <p className="mt-0.5 inline-block rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">
+                              {batch.batchCode}
+                            </p>
+                          </div>
+
+                          {/* Large Animal Count Pill */}
+                          <div className="shrink-0 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-1.5 text-center shadow-xs">
+                            <span className="block text-xl sm:text-2xl font-black leading-none text-emerald-950">
+                              {batch.activeCount}
+                            </span>
+                            <span className="mt-0.5 block text-[11px] font-bold text-emerald-800 uppercase tracking-tight">
+                              ulo / animals
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="mt-2 text-sm sm:text-base font-bold text-slate-800">
+                          {batch.species}
+                          {batch.breed ? (
+                            <span className="font-semibold text-slate-600"> · {batch.breed}</span>
+                          ) : (
+                            <span className="font-normal text-slate-500"> · Walang lahi</span>
+                          )}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-600">
-                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
-                        <span aria-hidden="true">{avatar.emoji}</span>{batch.species}
-                      </span>
-                      <span aria-hidden="true" className="text-slate-300">•</span>
-                      <span className="break-words">
-                        {batch.breed || <span className="text-rose-600">Breed not recorded</span>}
-                      </span>
-                    </div>
+                    {/* Progress to target weight if set */}
+                    {readiness !== null && (
+                      <div className="mt-4 w-full rounded-2xl border border-emerald-200/60 bg-emerald-50/50 p-2.5">
+                        <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-emerald-950">
+                          <span>Pag-unlad sa Target na Timbang</span>
+                          <span className="font-black">{readiness}%</span>
+                        </div>
+                        <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-emerald-200/60">
+                          <div
+                            className="h-full rounded-full bg-emerald-600 transition-all"
+                            style={{ width: `${readiness}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 pt-2">
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <Badge variant="outline" className={`max-w-full whitespace-normal break-words px-1.5 py-0 text-[9px] ${batch.status ? "" : "text-rose-600"}`}>
-                          {batch.status || "Status not recorded"}
-                        </Badge>
+                    {/* Bottom Row: Status Badge & Open Button */}
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         {getReviewStatusBadge(batch.reviewStatus)}
                       </div>
+
+                      <span
+                        className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-black transition-colors ${
+                          isSelected
+                            ? "bg-emerald-700 text-white shadow-xs"
+                            : "bg-slate-100 text-slate-900 group-hover:bg-emerald-100 group-hover:text-emerald-950"
+                        }`}
+                      >
+                        {isSelected ? "Naka-select" : "Tingnan ang Pangkat"}
+                        {isSelected ? (
+                          <Check className="size-4.5 stroke-[3]" />
+                        ) : (
+                          <ArrowRight className="size-4.5" />
+                        )}
+                      </span>
+                    </div>
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── 4. HERD DETAILS DIALOG (MOBILE & SENIOR FRIENDLY MODAL) ─────── */}
+        <Dialog open={isHerdDetailsOpen} onOpenChange={setIsHerdDetailsOpen}>
+          {currentBatch && (
+            <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-slate-200 bg-slate-50 p-0 shadow-2xl sm:h-[92dvh] sm:max-h-[92dvh] sm:w-[94vw] sm:max-w-5xl sm:rounded-3xl">
+              {/* Sticky Header with high contrast */}
+              <DialogHeader className="shrink-0 border-b-2 border-slate-200 bg-white px-4 py-4 pr-14 text-left sm:px-6">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-bold text-xs uppercase">
+                    Pangkat ng Hayop
+                  </Badge>
+                  <span className="font-mono text-xs font-bold text-slate-500">
+                    ID: {currentBatch.batchCode}
+                  </span>
+                </div>
+                <DialogTitle className="mt-1 text-xl sm:text-2xl font-black text-slate-950">
+                  {currentBatch.batchName || "Mga Detalye ng Pangkat"}
+                </DialogTitle>
+                <DialogDescription className="text-sm sm:text-base font-medium text-slate-700">
+                  {currentBatch.species} · {currentBatch.breed || "Lahi hindi naitala"} · {currentBatch.activeCount} aktibong hayop
+                </DialogDescription>
+              </DialogHeader>
+
+              {/* Scrollable Modal Body */}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 space-y-5">
+                {/* Header Action Card */}
+                <Card className="rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-6 shadow-xs">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-4">
+                      {currentBatch.photoUrl ? (
+                        <Image
+                          src={currentBatch.photoUrl}
+                          alt={`${currentBatch.batchName} herd`}
+                          width={100}
+                          height={100}
+                          unoptimized
+                          className="size-20 sm:size-24 shrink-0 rounded-2xl border-2 border-slate-200 object-cover shadow-xs"
+                        />
+                      ) : (
+                        <div
+                          className="flex size-20 sm:size-24 shrink-0 items-center justify-center rounded-2xl border-2 border-emerald-200 bg-emerald-100 text-4xl sm:text-5xl shadow-xs"
+                          aria-hidden="true"
+                        >
+                          {getDefaultAvatarForSpecies(currentBatch.species).emoji}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <span className="inline-block text-xs font-black uppercase tracking-wider text-emerald-800">
+                          Naka-select na Pangkat
+                        </span>
+                        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
+                          {currentBatch.batchName || "Walang Pangalan"}
+                        </h2>
+                        <p className="mt-1 text-sm sm:text-base font-bold text-slate-700">
+                          {currentBatch.species} · {currentBatch.breed || "Lahi hindi naitala"}
+                        </p>
+                        <p className="font-mono text-xs font-semibold text-slate-500">
+                          Herd Code: {currentBatch.batchCode}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Big Easy-to-Tap Action Buttons */}
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap lg:justify-end">
                       <Button
                         type="button"
-                        variant={isSelected ? "default" : "outline"}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleBatchSelect(batch.id);
-                        }}
-                        className={`min-h-8 shrink-0 rounded-lg px-2 text-[10px] font-bold ${isSelected ? "bg-emerald-700 text-white hover:bg-emerald-800" : "border-emerald-200 text-emerald-800 hover:bg-emerald-50"}`}
+                        variant="outline"
+                        onClick={() => setIsHerdQrOpen(true)}
+                        className="min-h-12 gap-2 rounded-2xl border-2 border-slate-300 px-4 text-base font-bold text-slate-800 hover:bg-slate-100"
                       >
-                        {isSelected ? "Viewing" : "View"}
-                        <ChevronRight className="ml-0.5 size-3.5" />
+                        <QrCode className="size-5 text-emerald-700" /> Herd QR Code
                       </Button>
+
+                      {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
+                        <LivestockPhotoManager
+                          title="Litrato ng Pangkat"
+                          subject="herd"
+                          currentPhotoUrl={currentBatch.photoUrl}
+                          allowAvatar={false}
+                          fallback={
+                            <div className="flex size-36 items-center justify-center rounded-2xl bg-emerald-50 text-6xl">
+                              {getDefaultAvatarForSpecies(currentBatch.species).emoji}
+                            </div>
+                          }
+                          onSave={async ({ file, removePhoto }) => {
+                            let payload: FormData | { photo?: null };
+                            if (file) {
+                              const formData = new FormData();
+                              formData.append("photo", file);
+                              payload = formData;
+                            } else {
+                              payload = removePhoto ? { photo: null } : {};
+                            }
+                            await api.patch(`livestock/batches/${currentBatch.id}/`, payload);
+                            await queryClient.invalidateQueries({
+                              queryKey: INVENTORY_QUERY_KEYS.batches,
+                            });
+                            toast.success("Nai-update ang litrato ng pangkat.");
+                          }}
+                        />
+                      )}
+
+                      {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
+                        <Button
+                          type="button"
+                          onClick={() => setIsAddIndividualOpen(true)}
+                          disabled={!canAddAnimalsToCurrentBatch}
+                          className="min-h-12 gap-2 rounded-2xl bg-emerald-700 px-5 text-base font-black text-white hover:bg-emerald-800 shadow-md disabled:bg-slate-300"
+                        >
+                          <Plus className="size-5 stroke-[3]" /> Magdagdag ng Hayop
+                        </Button>
+                      )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
 
-        {/* ── ACTIVE BATCH OVERVIEW HERO & KPIS ───────────────────────────── */}
-        {currentBatch && (
-          <div className="min-w-0 space-y-6">
-            {/* Banner Header */}
-            <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-6 rounded-3xl shadow-lg border border-emerald-800/40 relative overflow-hidden">
-              <div className="relative z-10 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <div className="flex min-w-0 items-start gap-3 pr-24 sm:gap-4 sm:pr-24">
-                  {currentBatch.photoUrl ? (
-                    <img src={currentBatch.photoUrl} alt={`${currentBatch.batchName} herd`} className="size-16 shrink-0 rounded-2xl border-2 border-white/30 object-cover sm:size-24" />
-                  ) : (
-                    <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl border-2 border-white/20 bg-white/10 text-4xl sm:size-24 sm:text-5xl" aria-hidden="true">{getDefaultAvatarForSpecies(currentBatch.species).emoji}</div>
-                  )}
-                  <div className="min-w-0 space-y-1.5">
-                  <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200 backdrop-blur-xs sm:px-3 sm:text-xs">
-                    <Beef className="size-3.5" />
-                    <span className="break-all">Herd Code: {currentBatch.batchCode}</span>
+                  {/* Status Strip & Official Notes */}
+                  <div className="mt-5 flex flex-wrap items-center gap-3 border-t-2 border-slate-100 pt-4">
+                    <Badge variant="outline" className="min-h-9 px-3.5 text-sm font-bold border-2">
+                      {currentBatch.status === "ACTIVE"
+                        ? "Aktibong Kawan"
+                        : currentBatch.status || "Katayuan hindi naitala"}
+                    </Badge>
+                    {getReviewStatusBadge(currentBatch.reviewStatus)}
+                    {!canAddAnimalsToCurrentBatch && (
+                      <p className="text-sm font-medium text-slate-600">
+                        Maaaring magdagdag ng hayop kapag aktibo ang pangkat.
+                      </p>
+                    )}
                   </div>
-                  <h2 className="break-words text-xl font-black tracking-tight text-white sm:text-2xl md:text-3xl">
-                    {currentBatch.batchName || "Unnamed herd"}
-                  </h2>
-                  <p className="break-words text-xs font-medium text-emerald-100/80">
-                    {currentBatch.batchCode} &bull; {currentBatch.species} &bull; {currentBatch.breed || <span className="font-semibold text-rose-300">Breed not recorded</span>}
-                  </p>
+
                   {currentBatch.reviewRemarks && (
-                    <div className="inline-block mt-1">
-                      <p className="text-[11px] text-emerald-200/90 italic bg-black/25 px-2.5 py-1 rounded-lg border border-white/10 max-w-xl">
-                        Official LGU Note: &ldquo;{currentBatch.reviewRemarks}&rdquo;
+                    <div className="mt-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+                      <p className="text-sm font-black text-amber-950">
+                        Opisyal na Tala ng Tagasuri (Review Remarks):
+                      </p>
+                      <p className="mt-1 text-sm font-medium leading-relaxed text-amber-900">
+                        {currentBatch.reviewRemarks}
                       </p>
                     </div>
                   )}
+
+                  {/* Animal Review Progress Tiles */}
+                  <div className="mt-5 rounded-2xl border-2 border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3">
+                      <h4 className="text-sm sm:text-base font-black text-slate-950">
+                        Katayuan ng Rebyu ng mga Hayop sa Pangkat
+                      </h4>
+                      <p className="text-xs sm:text-sm font-medium text-slate-600">
+                        Bilang ng mga hayop sa bawat hakbang ng pagpapatunay.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                      {[
+                        {
+                          label: "Aprubado (Approved)",
+                          count: individualReviewSummary?.approved ?? 0,
+                          color: "bg-emerald-600",
+                          text: "text-emerald-950",
+                          border: "border-emerald-300",
+                        },
+                        {
+                          label: "Pagsusuri sa Bukid (SIBAT)",
+                          count: individualReviewSummary?.awaitingSibat ?? 0,
+                          color: "bg-sky-600",
+                          text: "text-sky-950",
+                          border: "border-sky-300",
+                        },
+                        {
+                          label: "Opisina ng Agrikultura (MAO)",
+                          count: individualReviewSummary?.awaitingMao ?? 0,
+                          color: "bg-amber-600",
+                          text: "text-amber-950",
+                          border: "border-amber-300",
+                        },
+                        {
+                          label: "Kailangang Iwasto",
+                          count: individualReviewSummary?.returned ?? 0,
+                          color: "bg-orange-600",
+                          text: "text-orange-950",
+                          border: "border-orange-300",
+                        },
+                        {
+                          label: "Tinanggihan (Rejected)",
+                          count: individualReviewSummary?.rejected ?? 0,
+                          color: "bg-rose-600",
+                          text: "text-rose-950",
+                          border: "border-rose-300",
+                        },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className={`flex min-h-20 items-start gap-2.5 rounded-2xl border-2 ${item.border} bg-white p-3 shadow-2xs`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`mt-1 size-3 shrink-0 rounded-full ${item.color}`}
+                          />
+                          <div className="min-w-0">
+                            <p className={`text-xl sm:text-2xl font-black tabular-nums leading-none ${item.text}`}>
+                              {item.count}
+                            </p>
+                            <p className="mt-1 text-xs font-bold leading-tight text-slate-700">
+                              {item.label}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </Card>
 
-                <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto md:justify-end md:pt-12">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsHerdQrOpen(true)}
-                    className="absolute right-1 top-1 min-h-11 gap-2 border-white/30 bg-white/10 px-2.5 text-white hover:bg-white/20 hover:text-white sm:right-0 sm:top-0 sm:px-4"
-                  >
-                    <QrCode className="size-4" />
-                  </Button>
-                  {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
-                    <LivestockPhotoManager
-                      title="Herd Photo"
-                      subject="herd"
-                      currentPhotoUrl={currentBatch.photoUrl}
-                      allowAvatar={false}
-                      fallback={<div className="flex size-36 items-center justify-center rounded-2xl bg-emerald-50 text-6xl">{getDefaultAvatarForSpecies(currentBatch.species).emoji}</div>}
-                      onSave={async ({ file, removePhoto }) => {
-                        let payload: FormData | { photo?: null };
-                        if (file) {
-                          const formData = new FormData();
-                          formData.append("photo", file);
-                          payload = formData;
-                        } else {
-                          payload = removePhoto ? { photo: null } : {};
-                        }
-                        await api.patch(`livestock/batches/${currentBatch.id}/`, payload);
-                        await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
-                        toast.success("Herd photo updated.");
-                      }}
-                    />
-                  )}
-                  {/* Herd Lifecycle Status (Active in pen vs harvested/sold) */}
-                  <Badge className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-sm">
-                    <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                    Herd: {currentBatch.status || "ACTIVE"}
-                  </Badge>
-
-                  {/* This is an aggregate view only; approval remains on each animal record. */}
-                  <Badge className="h-auto min-w-0 max-w-full items-start whitespace-normal break-words border border-white/20 bg-white/15 px-3 py-1.5 text-left text-xs font-bold leading-relaxed text-white sm:items-center">
-                    <span className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-0.5">
-                      <span className="whitespace-nowrap">Animals:</span>
-                      <span className="whitespace-nowrap">{individualReviewSummary?.approved ?? 0} approved</span>
-                      <span aria-hidden="true" className="hidden sm:inline">·</span>
-                      <span className="whitespace-nowrap">{individualReviewSummary?.awaitingSibat ?? 0} awaiting SIBAT</span>
-                      <span aria-hidden="true" className="hidden sm:inline">·</span>
-                      <span className="whitespace-nowrap">{individualReviewSummary?.awaitingMao ?? 0} awaiting MAO</span>
-                      <span aria-hidden="true" className="hidden sm:inline">·</span>
-                      <span className="whitespace-nowrap">{individualReviewSummary?.returned ?? 0} returned</span>
+                {/* 4 Metric Cards */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* Metric 1 */}
+                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                      Aktibong Hayop
                     </span>
-                  </Badge>
-
-
-                </div>
-              </div>
-            </div>
-
-            {/* Batch Notes (audit trail from farmer + SIBAT/MAO reviewers) */}
-            <Card className="rounded-2xl border-slate-200 shadow-xs bg-white overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                  <ClipboardList className="size-3.5 text-emerald-600" /> Batch Notes
-                </CardTitle>
-                <CardDescription className="text-[11px] text-slate-400">
-                  Registration details and official audit trail from SIBAT / MAO.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-2">
-                <pre className="text-xs text-slate-600 font-sans whitespace-pre-wrap leading-relaxed">
-                  {currentBatch.notes || "No notes recorded for this batch yet."}
-                </pre>
-              </CardContent>
-            </Card>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="rounded-2xl border-slate-200 shadow-xs bg-white">
-                <CardContent className="p-4 space-y-1">
-                  <span className="text-[10px] font-black uppercase text-slate-400">Head Count</span>
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-2xl font-black text-slate-900">
+                    <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
                       {currentBatch.activeCount}
                     </p>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Active animals in the herd</p>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-slate-200 shadow-xs bg-white">
-                <CardContent className="p-4 space-y-1">
-                  <span className="text-[10px] font-black uppercase text-slate-400">Average Weight</span>
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-2xl font-black text-slate-900">
-                      {currentBatch.averageWeightKg === null ? <span className="text-rose-600">Not recorded</span> : <>{currentBatch.averageWeightKg} <span className="text-sm font-semibold text-slate-400">kg</span></>}
+                    <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
+                      Nasa pangkat sa kasalukuyan
                     </p>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Target: {currentBatch.targetWeightKg == null ? <span className="text-rose-600">Not recorded</span> : `${currentBatch.targetWeightKg} kg`}</p>
-                </CardContent>
-              </Card>
+                  </Card>
 
-              <Card className="rounded-2xl border-slate-200 shadow-xs bg-white">
-                <CardContent className="p-4 space-y-1">
-                  <span className="text-[10px] font-black uppercase text-slate-400">Total Live Biomass</span>
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-2xl font-black text-emerald-700">
-                      {yieldMetrics.totalBiomass === null ? <span className="text-rose-600">Not recorded</span> : <>{yieldMetrics.totalBiomass} <span className="text-sm font-semibold text-slate-400">kg</span></>}
-                    </p>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">From {yieldMetrics.weighedAnimalCount} active animals with weight records</p>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-slate-200 shadow-xs bg-white">
-                <CardContent className="p-4 space-y-1">
-                  <span className="text-[10px] font-black uppercase text-slate-400">Harvest Readiness</span>
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-2xl font-black text-slate-900">
-                      {yieldMetrics.readinessPct === null ? <span className="text-rose-600">Not recorded</span> : `${yieldMetrics.readinessPct}%`}
-                    </p>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-                    <div
-                      className="bg-emerald-600 h-1.5 rounded-full"
-                      style={{ width: `${yieldMetrics.readinessPct ?? 0}%` }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500">Based on recorded average and target weights</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* ── INDIVIDUAL LIVESTOCK ROSTER (ADVISOR REQUIREMENT) ───────── */}
-            <Card ref={livestockRosterRef} className="scroll-mt-4 rounded-3xl border-slate-200 bg-white shadow-sm overflow-hidden">
-              <CardHeader className="flex flex-col items-center justify-between gap-3 border-b border-slate-100 p-4 pb-3 text-center sm:items-start sm:p-5 md:flex-row md:items-center md:p-6">
-                <div className="w-full min-w-0 sm:text-left">
-                  <CardTitle className="flex items-center justify-center gap-2 text-base font-black text-slate-900 sm:justify-start sm:text-lg">
-                    <span>Individual Livestock in {currentBatch.batchCode}</span>
-                    <Badge variant="outline" className="text-xs font-bold border-slate-300">
-                      {filteredIndividuals.length} active
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription className="text-xs font-medium text-slate-500">
-                    Active animals linked to this herd. Inactive animals remain available in livestock history.
-                  </CardDescription>
-                </div>
-
-                {/* Filters */}
-                <div className="flex w-full flex-col items-center justify-center gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap md:justify-end">
-                  <div className="relative w-full max-w-sm sm:w-44">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
-                    <Input
-                      placeholder="Search ear tag..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8 h-8 text-xs rounded-xl border-slate-200"
-                    />
-                  </div>
-
-                  <Select value={genderFilter} onValueChange={setGenderFilter}>
-                    <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 text-xs font-bold sm:h-8 sm:w-32">
-                      <SelectValue placeholder="Gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Genders</SelectItem>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-
-                    </SelectContent>
-                  </Select>
-
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-0">
-                <div className="mx-auto max-w-xl space-y-3 p-3 md:hidden">
-                  {filteredIndividuals.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-                      {currentBatch.individuals.length === 0
-                        ? "No individual livestock records are linked to this herd."
-                        : currentBatch.individuals.some((animal) => animal.operationalStatus !== "ACTIVE")
-                          ? "No active animals match this view. Inactive animals are available in Livestock History."
-                          : "No livestock records matched the current filters."}
-                    </div>
-                  ) : filteredIndividuals.map((animal) => {
-                    const hasInventoryRecord = /^\d+$/.test(animal.id);
-                    const reviewLabel = animal.reviewStatus === "SUBJECT_TO_REVISION"
-                      ? "For Revision"
-                      : animal.reviewStatus === "REJECTED"
-                        ? "Rejected"
-                        : animal.reviewStatus === "VERIFIED"
-                          ? "Verified"
-                          : animal.reviewStatus === "APPROVED"
-                            ? "Approved"
-                            : "Pending";
-                    const reviewColor = animal.reviewStatus === "APPROVED"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : animal.reviewStatus === "VERIFIED"
-                        ? "bg-blue-100 text-blue-800"
-                        : animal.reviewStatus === "REJECTED"
-                          ? "bg-rose-100 text-rose-800"
-                          : animal.reviewStatus === "SUBJECT_TO_REVISION"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-slate-100 text-slate-600";
-                    return (
-                      <div key={animal.id} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            {hasInventoryRecord ? (
-                              <Link href={`/livestock-inventory/${animal.id}`} className="break-all font-bold text-emerald-800 hover:underline">
-                                <Tag className="mr-1.5 inline size-3.5" />{animal.tagNumber || "No tag recorded"}
-                              </Link>
-                            ) : (
-                              <p className="break-all font-bold text-slate-600"><Tag className="mr-1.5 inline size-3.5" />{animal.tagNumber || "No tag recorded"}</p>
-                            )}
-                            {animal.isPostApprovalAddition && <p className="mt-1 text-xs font-medium text-indigo-700">New animal · reviewed separately</p>}
-                          </div>
-                          <Badge variant="secondary" className={`shrink-0 text-[10px] font-black uppercase ${animal.sex === "Not recorded" ? "bg-rose-50 text-rose-700" : animal.sex.toUpperCase() === "FEMALE" ? "bg-rose-50 text-rose-700" : animal.sex.toUpperCase() === "MALE" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>
-                            {animal.sex}
-                          </Badge>
-                        </div>
-                        <dl className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm">
-                          <div className="flex justify-between gap-3"><dt className="text-slate-500">Weight</dt><dd className={animal.weightKg === null ? "font-semibold text-rose-600" : "font-semibold text-slate-800"}>{animal.weightKg === null ? "Not recorded" : `${animal.weightKg} kg`}</dd></div>
-                          <div className="flex justify-between gap-3"><dt className="text-slate-500">Last Vaccination</dt><dd className={animal.lastVaccinationDate ? "text-right font-semibold text-slate-800" : "text-right font-semibold text-rose-600"}>{animal.lastVaccinationDate || "Not recorded"}</dd></div>
-                          <div className="flex justify-between gap-3"><dt className="text-slate-500">Review</dt><dd><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${reviewColor}`}>{reviewLabel}</span></dd></div>
-                        </dl>
-                        <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3">
-                          {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
-                            <Button onClick={() => handleOpenWeighModal(animal)} size="sm" variant="outline" className="min-h-10 flex-1 rounded-lg font-bold">
-                              <Scale className="mr-1.5 size-4 text-emerald-600" /> Weigh
-                            </Button>
-                          )}
-                          {hasInventoryRecord ? (
-                            <Link href={`/livestock-inventory/${animal.id}`} className="flex-1">
-                              <Button size="sm" variant="ghost" className="min-h-10 w-full rounded-lg font-bold text-slate-700">
-                                <Eye className="mr-1.5 size-4 text-slate-500" /> See Profile
-                              </Button>
-                            </Link>
-                          ) : (
-                            <Button size="sm" variant="ghost" disabled title="No saved individual animal record is linked to this herd." className="min-h-10 flex-1 rounded-lg font-bold">
-                              <Eye className="mr-1.5 size-4" /> See Profile
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="hidden overflow-x-auto md:block">
-                  <Table>
-                    <TableHeader className="bg-slate-50/70">
-                      <TableRow>
-                        <TableHead className="font-bold text-xs text-slate-600">Tag / Ear ID</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Gender</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Weight (kg)</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Last Vaccination</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600">Review Status</TableHead>
-                        <TableHead className="font-bold text-xs text-slate-600 text-right pr-6">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredIndividuals.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-10 text-xs text-slate-400 font-medium">
-                            {currentBatch.individuals.length === 0
-                              ? "No individual livestock records are linked to this herd."
-                              : currentBatch.individuals.some((animal) => animal.operationalStatus !== "ACTIVE")
-                                ? "No active animals match this view. Inactive animals are available in Livestock History."
-                                : "No livestock records matched the current filters."}
-                          </TableCell>
-                        </TableRow>
+                  {/* Metric 2 */}
+                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                      Katamtamang Timbang
+                    </span>
+                    <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
+                      {currentBatch.averageWeightKg === null ? (
+                        <span className="text-slate-400 text-lg">Wala pa</span>
                       ) : (
-                        filteredIndividuals.map((animal) => {
-                          const hasInventoryRecord = /^\d+$/.test(animal.id);
-                          return (
-                            <TableRow
-                              key={animal.id}
-                              onClick={(event) => {
-                                const target = event.target as HTMLElement;
-                                if (hasInventoryRecord && !target.closest("a, button")) {
-                                  router.push(`/livestock-inventory/${animal.id}`);
-                                }
-                              }}
-                              className={`transition-colors hover:bg-slate-50/60 ${hasInventoryRecord ? "cursor-pointer" : ""}`}
-                            >
-                              <TableCell className="font-black text-xs text-slate-900">
-                                {hasInventoryRecord ? <Link
-                                  href={`/livestock-inventory/${animal.id}`}
-                                  className="text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1.5"
-                                >
-                                  <Tag className="size-3 text-emerald-600" />
-                                  <span>{animal.tagNumber || "No tag recorded"}</span>
-                                </Link> : <span className="flex items-center gap-1.5 text-slate-500">
-                                  <Tag className="size-3 text-slate-400" />
-                                  <span>{animal.tagNumber || "No tag recorded"}</span>
-                                </span>}
-                              </TableCell>
-
-                              <TableCell>
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-[10px] font-black uppercase ${animal.sex === "Not recorded"
-                                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                                    : animal.sex.toUpperCase() === "FEMALE"
-                                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                                    : animal.sex.toUpperCase() === "MALE"
-                                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200"
-                                    }`}
-                                >
-                                  {animal.sex}
-                                </Badge>
-                              </TableCell>
-
-                              <TableCell className={`text-xs font-medium ${animal.weightKg === null ? "text-rose-600" : "text-slate-600"}`}>
-                                {animal.weightKg === null ? "Not recorded" : `${animal.weightKg} kg`}
-                              </TableCell>
-
-                              <TableCell className={`text-xs font-medium ${animal.lastVaccinationDate ? "text-slate-600" : "text-rose-600"}`}>
-                                {animal.lastVaccinationDate || "Not recorded"}
-                              </TableCell>
-
-                              <TableCell>
-                                <div className="flex flex-col items-start gap-1">
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                      animal.reviewStatus === "APPROVED"
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : animal.reviewStatus === "VERIFIED"
-                                          ? "bg-blue-100 text-blue-800"
-                                        : animal.reviewStatus === "REJECTED"
-                                          ? "bg-rose-100 text-rose-800"
-                                          : animal.reviewStatus === "SUBJECT_TO_REVISION"
-                                            ? "bg-amber-100 text-amber-800"
-                                            : "bg-slate-100 text-slate-600"
-                                    }`}
-                                  >
-                                    <span className="size-1.5 rounded-full bg-current" />
-                                    {animal.reviewStatus === "SUBJECT_TO_REVISION"
-                                      ? "For Revision"
-                                        : animal.reviewStatus === "REJECTED"
-                                          ? "Rejected"
-                                          : animal.reviewStatus === "VERIFIED"
-                                            ? "Verified"
-                                            : animal.reviewStatus === "APPROVED"
-                                              ? "Approved"
-                                              : "Pending"}
-                                  </span>
-                                  {animal.isPostApprovalAddition && (
-                                    <span className="text-[10px] font-semibold text-indigo-700">New animal · reviewed separately</span>
-                                  )}
-                                </div>
-                              </TableCell>
-
-                              <TableCell className="text-right pr-6">
-                                <div className="inline-flex items-center gap-1.5">
-                                  {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && <Button
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleOpenWeighModal(animal);
-                                    }}
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 px-2 text-[11px] rounded-lg font-bold border-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
-                                    title="Quick Log Weight"
-                                  >
-                                    <Scale className="size-3 mr-1 text-emerald-600" /> Weigh
-                                  </Button>}
-
-                                  {hasInventoryRecord ? <Link href={`/livestock-inventory/${animal.id}`} onClick={(event) => event.stopPropagation()}>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 px-2 text-[11px] rounded-lg font-bold text-slate-700 hover:bg-slate-100"
-                                    >
-                                      <Eye className="size-3 mr-1 text-slate-500" /> Profile
-                                    </Button>
-                                  </Link> : <Button size="sm" variant="ghost" disabled title="No saved individual animal record is linked to this herd row.">
-                                    <Eye className="size-3 mr-1" /> Details
-                                  </Button>}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
+                        <>
+                          {currentBatch.averageWeightKg} <span className="text-base font-bold text-slate-500">kg</span>
+                        </>
                       )}
-                    </TableBody>
-                  </Table>
+                    </p>
+                    <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
+                      Target: {currentBatch.targetWeightKg == null ? "Hindi naitala" : `${currentBatch.targetWeightKg} kg`}
+                    </p>
+                  </Card>
+
+                  {/* Metric 3 */}
+                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                      Kabuuang Timbang
+                    </span>
+                    <p className="mt-2 text-2xl sm:text-4xl font-black text-emerald-900">
+                      {yieldMetrics.totalBiomass === null ? (
+                        <span className="text-slate-400 text-lg">Wala pa</span>
+                      ) : (
+                        <>
+                          {yieldMetrics.totalBiomass} <span className="text-base font-bold text-slate-500">kg</span>
+                        </>
+                      )}
+                    </p>
+                    <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
+                      Mula sa {yieldMetrics.weighedAnimalCount} natimbang na hayop
+                    </p>
+                  </Card>
+
+                  {/* Metric 4 */}
+                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                      Target Readiness
+                    </span>
+                    <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
+                      {yieldMetrics.readinessPct === null ? (
+                        <span className="text-slate-400 text-lg">—</span>
+                      ) : (
+                        `${yieldMetrics.readinessPct}%`
+                      )}
+                    </p>
+                    <div className="mt-2 h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-emerald-600"
+                        style={{ width: `${yieldMetrics.readinessPct ?? 0}%` }}
+                      />
+                    </div>
+                  </Card>
                 </div>
-              </CardContent>
-              {currentBatch.individuals.some((animal) => animal.operationalStatus !== "ACTIVE") && (
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 text-xs text-slate-600">
-                  <span>
-                    {currentBatch.individuals.filter((animal) => animal.operationalStatus !== "ACTIVE").length} inactive animal(s) are kept in history.
-                  </span>
-                  <Link href="/livestock-inventory/history" className="font-bold text-emerald-800 hover:underline">
-                    View Livestock History
-                  </Link>
-                </div>
-              )}
-            </Card>
-          </div>
-        )}
-        </div>
+
+                {/* Optional Notes */}
+                {currentBatch.notes && (
+                  <Card className="rounded-3xl border-2 border-slate-200 bg-white shadow-xs">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900">
+                        <ClipboardList className="size-5 text-emerald-700" />
+                        Mga Tala ukol sa Pangkat (Notes)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="whitespace-pre-wrap text-sm sm:text-base font-medium leading-relaxed text-slate-800">
+                        {currentBatch.notes}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── INDIVIDUAL ROSTER CARD ───────────────────────────────── */}
+                <Card className="rounded-3xl border-2 border-slate-200 bg-white shadow-xs overflow-hidden">
+                  <CardHeader className="flex flex-col gap-4 border-b-2 border-slate-100 p-4 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <CardTitle className="text-xl sm:text-2xl font-black text-slate-950">
+                          Talaan ng mga Hayop sa Pangkat
+                        </CardTitle>
+                        <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 font-bold text-sm px-3">
+                          {filteredIndividuals.length} hayop
+                        </Badge>
+                      </div>
+                      <CardDescription className="mt-1 text-sm sm:text-base font-medium text-slate-600">
+                        Maghanap gamit ang Ear Tag o i-filter ayon sa kasarian.
+                      </CardDescription>
+                    </div>
+
+                    {/* View Controls & Filters */}
+                    <div className="flex flex-col gap-3 w-full lg:w-auto sm:flex-row sm:items-center">
+                      {/* View Switcher: Cards vs Table */}
+                      <div
+                        role="group"
+                        aria-label="Talaan view"
+                        className="grid grid-cols-2 gap-1 rounded-2xl border-2 border-slate-200 bg-slate-100 p-1"
+                      >
+                        <Button
+                          type="button"
+                          variant={rosterView === "cards" ? "default" : "ghost"}
+                          onClick={() => setRosterView("cards")}
+                          className={`min-h-11 gap-2 rounded-xl text-sm font-bold ${
+                            rosterView === "cards"
+                              ? "bg-white text-emerald-950 shadow-xs border border-slate-200"
+                              : "text-slate-700 hover:text-slate-950"
+                          }`}
+                        >
+                          <LayoutGrid className="size-4.5 text-emerald-700" /> Cards
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={rosterView === "table" ? "default" : "ghost"}
+                          onClick={() => setRosterView("table")}
+                          className={`min-h-11 gap-2 rounded-xl text-sm font-bold ${
+                            rosterView === "table"
+                              ? "bg-white text-emerald-950 shadow-xs border border-slate-200"
+                              : "text-slate-700 hover:text-slate-950"
+                          }`}
+                        >
+                          <TableIcon className="size-4.5 text-teal-700" /> Table
+                        </Button>
+                      </div>
+
+                      {/* Search Input */}
+                      <div className="relative flex-1 sm:w-60">
+                        <Search className="absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          placeholder="Hanapin ang Tag #..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="min-h-11 rounded-2xl border-2 border-slate-300 pl-10 text-sm font-semibold"
+                        />
+                      </div>
+
+                      {/* Sex Filter */}
+                      <div className="w-full sm:w-44">
+                        <Select value={genderFilter} onValueChange={setGenderFilter}>
+                          <SelectTrigger className="min-h-11 rounded-2xl border-2 border-slate-300 text-sm font-bold text-slate-900">
+                            <SelectValue placeholder="Lahat ng Kasarian" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ALL">Lahat (All Sexes)</SelectItem>
+                            <SelectItem value="FEMALE">Babae (Female)</SelectItem>
+                            <SelectItem value="MALE">Lalaki (Male)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-0">
+                    {/* ── OPTION A: CARDS VIEW (SENIOR CITIZEN & MOBILE OPTIMIZED) ─ */}
+                    {rosterView === "cards" && (
+                      <div className="p-4 sm:p-6 space-y-4">
+                        {filteredIndividuals.length === 0 ? (
+                          <div className="rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center text-base font-semibold text-slate-600">
+                            Walang hayop na tumutugma sa iyong paghahanap.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            {filteredIndividuals.map((animal) => {
+                              const hasInventoryRecord = /^\d+$/.test(animal.id);
+                              const reviewColor =
+                                animal.reviewStatus === "APPROVED"
+                                  ? "bg-emerald-100 text-emerald-950 border-emerald-300"
+                                  : animal.reviewStatus === "VERIFIED"
+                                    ? "bg-sky-100 text-sky-950 border-sky-300"
+                                    : animal.reviewStatus === "REJECTED"
+                                      ? "bg-rose-100 text-rose-950 border-rose-300"
+                                      : animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                        ? "bg-amber-100 text-amber-950 border-amber-300"
+                                        : "bg-slate-100 text-slate-800 border-slate-300";
+
+                              const reviewLabel =
+                                animal.reviewStatus === "APPROVED"
+                                  ? "Aprubado (Approved)"
+                                  : animal.reviewStatus === "VERIFIED"
+                                    ? "Na-inspeksyon (Field Checked)"
+                                    : animal.reviewStatus === "REJECTED"
+                                      ? "Tinanggihan (Rejected)"
+                                      : animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                        ? "Kailangang Iwasto"
+                                        : "Nire-rebyu (Pending)";
+
+                              return (
+                                <div
+                                  key={animal.id}
+                                  className="rounded-3xl border-2 border-slate-200 bg-white p-5 shadow-xs transition-all hover:border-emerald-300 hover:shadow-md"
+                                >
+                                  {/* Top Line: Tag & Sex */}
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      {hasInventoryRecord ? (
+                                        <Link
+                                          href={`/livestock-inventory/${animal.id}`}
+                                          className="flex items-center gap-2 text-lg sm:text-xl font-black text-emerald-800 hover:text-emerald-950 hover:underline"
+                                        >
+                                          <Tag className="size-5 text-emerald-600 shrink-0" />
+                                          <span className="break-all">{animal.tagNumber || "Walang Tag #"}</span>
+                                        </Link>
+                                      ) : (
+                                        <div className="flex items-center gap-2 text-lg sm:text-xl font-black text-slate-800">
+                                          <Tag className="size-5 text-slate-400 shrink-0" />
+                                          <span className="break-all">{animal.tagNumber || "Walang Tag #"}</span>
+                                        </div>
+                                      )}
+                                      {animal.isPostApprovalAddition && (
+                                        <span className="mt-1 inline-block text-xs font-bold text-indigo-700">
+                                          Bagong Hayop · Naka-hiwalay ang Rebyu
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <Badge
+                                      variant="secondary"
+                                      className={`min-h-8 shrink-0 px-3 text-xs font-black uppercase ${
+                                        animal.sex.toUpperCase() === "FEMALE"
+                                          ? "bg-rose-100 text-rose-900 border-rose-300"
+                                          : animal.sex.toUpperCase() === "MALE"
+                                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                                            : "bg-slate-100 text-slate-800 border-slate-300"
+                                      }`}
+                                    >
+                                      {animal.sex === "FEMALE"
+                                        ? "Babae (Female)"
+                                        : animal.sex === "MALE"
+                                          ? "Lalaki (Male)"
+                                          : animal.sex}
+                                    </Badge>
+                                  </div>
+
+                                  {/* Data Grid: High Contrast */}
+                                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border-2 border-slate-100 bg-slate-50/70 p-3 text-sm">
+                                    <div>
+                                      <span className="block text-xs font-bold text-slate-500 uppercase">
+                                        Timbang (Weight)
+                                      </span>
+                                      <span className="text-base font-black text-slate-950">
+                                        {animal.weightKg === null ? (
+                                          <span className="text-rose-700">Wala pa</span>
+                                        ) : (
+                                          `${animal.weightKg} kg`
+                                        )}
+                                      </span>
+                                    </div>
+
+                                    <div>
+                                      <span className="block text-xs font-bold text-slate-500 uppercase">
+                                        Huling Bakuna (Vaccine)
+                                      </span>
+                                      <span className="text-base font-bold text-slate-900">
+                                        {animal.lastVaccinationDate || (
+                                          <span className="text-slate-500">Wala</span>
+                                        )}
+                                      </span>
+                                    </div>
+
+                                    <div className="col-span-2 mt-1 pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                                      <span className="text-xs font-bold text-slate-600 uppercase">
+                                        Rebyu:
+                                      </span>
+                                      <span
+                                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black border ${reviewColor}`}
+                                      >
+                                        <span className="size-2 rounded-full bg-current" />
+                                        {reviewLabel}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Easy Touch Action Buttons */}
+                                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                    {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
+                                      <Button
+                                        onClick={() => handleOpenWeighModal(animal)}
+                                        variant="outline"
+                                        className="min-h-12 flex-1 rounded-2xl border-2 border-emerald-300 bg-emerald-50 text-sm sm:text-base font-bold text-emerald-950 hover:bg-emerald-100"
+                                      >
+                                        <Scale className="mr-2 size-5 text-emerald-700" />
+                                        Itala ang Timbang
+                                      </Button>
+                                    )}
+
+                                    {hasInventoryRecord ? (
+                                      <Link href={`/livestock-inventory/${animal.id}`} className="flex-1">
+                                        <Button
+                                          variant="ghost"
+                                          className="min-h-12 w-full rounded-2xl bg-slate-100 text-sm sm:text-base font-bold text-slate-900 hover:bg-slate-200"
+                                        >
+                                          <Eye className="mr-2 size-5 text-slate-700" />
+                                          Tingnan ang Profile
+                                        </Button>
+                                      </Link>
+                                    ) : (
+                                      <Button
+                                        variant="ghost"
+                                        disabled
+                                        className="min-h-12 flex-1 rounded-2xl bg-slate-100 text-sm font-bold text-slate-500"
+                                      >
+                                        Walang Profile
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── OPTION B: TABLE VIEW (DESKTOP FRIENDLY) ─────────────── */}
+                    {rosterView === "table" && (
+                      <div className="overflow-x-auto">
+                        <Table className="min-w-[850px]">
+                          <TableHeader className="bg-slate-100 border-b-2 border-slate-200">
+                            <TableRow>
+                              <TableHead className="py-4 text-sm font-black text-slate-900">
+                                Ear Tag / ID
+                              </TableHead>
+                              <TableHead className="py-4 text-sm font-black text-slate-900">
+                                Kasarian (Sex)
+                              </TableHead>
+                              <TableHead className="py-4 text-sm font-black text-slate-900">
+                                Timbang (Weight)
+                              </TableHead>
+                              <TableHead className="py-4 text-sm font-black text-slate-900">
+                                Huling Bakuna
+                              </TableHead>
+                              <TableHead className="py-4 text-sm font-black text-slate-900">
+                                Rebyu ng Tanggapan
+                              </TableHead>
+                              <TableHead className="py-4 pr-6 text-right text-sm font-black text-slate-900">
+                                Aksyon
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredIndividuals.length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={6}
+                                  className="py-12 text-center text-base font-bold text-slate-600"
+                                >
+                                  Walang hayop na tumutugma sa kasalukuyang filter.
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredIndividuals.map((animal) => {
+                                const hasInventoryRecord = /^\d+$/.test(animal.id);
+                                return (
+                                  <TableRow
+                                    key={animal.id}
+                                    onClick={(event) => {
+                                      const target = event.target as HTMLElement;
+                                      if (hasInventoryRecord && !target.closest("a, button")) {
+                                        router.push(`/livestock-inventory/${animal.id}`);
+                                      }
+                                    }}
+                                    className={`transition-colors hover:bg-emerald-50/50 ${
+                                      hasInventoryRecord ? "cursor-pointer" : ""
+                                    }`}
+                                  >
+                                    <TableCell className="py-4 text-base font-black text-slate-950">
+                                      {hasInventoryRecord ? (
+                                        <Link
+                                          href={`/livestock-inventory/${animal.id}`}
+                                          className="flex items-center gap-2 text-emerald-800 hover:text-emerald-950 hover:underline"
+                                        >
+                                          <Tag className="size-4 text-emerald-600" />
+                                          <span>{animal.tagNumber || "Walang Tag #"}</span>
+                                        </Link>
+                                      ) : (
+                                        <span className="flex items-center gap-2 text-slate-500">
+                                          <Tag className="size-4 text-slate-400" />
+                                          <span>{animal.tagNumber || "Walang Tag #"}</span>
+                                        </span>
+                                      )}
+                                    </TableCell>
+
+                                    <TableCell className="py-4">
+                                      <Badge
+                                        variant="secondary"
+                                        className={`px-3 py-1 text-xs font-black uppercase ${
+                                          animal.sex.toUpperCase() === "FEMALE"
+                                            ? "bg-rose-100 text-rose-900 border-rose-300"
+                                            : animal.sex.toUpperCase() === "MALE"
+                                              ? "bg-blue-100 text-blue-900 border-blue-300"
+                                              : "bg-slate-100 text-slate-800 border-slate-300"
+                                        }`}
+                                      >
+                                        {animal.sex === "FEMALE"
+                                          ? "Babae"
+                                          : animal.sex === "MALE"
+                                            ? "Lalaki"
+                                            : animal.sex}
+                                      </Badge>
+                                    </TableCell>
+
+                                    <TableCell className="py-4 text-base font-black text-slate-950">
+                                      {animal.weightKg === null ? (
+                                        <span className="text-rose-700 font-bold">Wala pa</span>
+                                      ) : (
+                                        `${animal.weightKg} kg`
+                                      )}
+                                    </TableCell>
+
+                                    <TableCell className="py-4 text-sm font-bold text-slate-800">
+                                      {animal.lastVaccinationDate || (
+                                        <span className="text-slate-400">Hindi naitala</span>
+                                      )}
+                                    </TableCell>
+
+                                    <TableCell className="py-4">
+                                      <span
+                                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black border ${
+                                          animal.reviewStatus === "APPROVED"
+                                            ? "bg-emerald-100 text-emerald-950 border-emerald-300"
+                                            : animal.reviewStatus === "VERIFIED"
+                                              ? "bg-sky-100 text-sky-950 border-sky-300"
+                                              : animal.reviewStatus === "REJECTED"
+                                                ? "bg-rose-100 text-rose-950 border-rose-300"
+                                                : animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                                  ? "bg-amber-100 text-amber-950 border-amber-300"
+                                                  : "bg-slate-100 text-slate-800 border-slate-300"
+                                        }`}
+                                      >
+                                        <span className="size-2 rounded-full bg-current" />
+                                        {animal.reviewStatus === "APPROVED"
+                                          ? "Aprubado"
+                                          : animal.reviewStatus === "VERIFIED"
+                                            ? "Field Checked"
+                                            : animal.reviewStatus === "REJECTED"
+                                              ? "Tinanggihan"
+                                              : animal.reviewStatus === "SUBJECT_TO_REVISION"
+                                                ? "Pagwawasto"
+                                                : "Pending"}
+                                      </span>
+                                    </TableCell>
+
+                                    <TableCell className="py-4 text-right pr-6">
+                                      <div className="inline-flex items-center gap-2">
+                                        {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
+                                          <Button
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              handleOpenWeighModal(animal);
+                                            }}
+                                            variant="outline"
+                                            className="min-h-11 px-3.5 text-sm rounded-xl font-bold border-2 border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100"
+                                          >
+                                            <Scale className="size-4 mr-1.5 text-emerald-700" />
+                                            Magtala ng Timbang
+                                          </Button>
+                                        )}
+
+                                        {hasInventoryRecord && (
+                                          <Link
+                                            href={`/livestock-inventory/${animal.id}`}
+                                            onClick={(event) => event.stopPropagation()}
+                                          >
+                                            <Button
+                                              variant="ghost"
+                                              className="min-h-11 px-3.5 text-sm rounded-xl font-bold text-slate-800 hover:bg-slate-200"
+                                            >
+                                              <Eye className="size-4 mr-1.5 text-slate-600" />
+                                              Tingnan
+                                            </Button>
+                                          </Link>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </DialogContent>
+          )}
+        </Dialog>
       </div>
 
-      {/* ── DIALOG: QUICK WEIGH ANIMAL ────────────────────────────────────── */}
+      {/* ── DIALOG: HERD QR CODE (SENIOR & MOBILE FRIENDLY) ──────────────── */}
       <Dialog open={isHerdQrOpen} onOpenChange={setIsHerdQrOpen}>
-        <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:max-w-md sm:p-6">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl bg-white p-5 sm:p-7 shadow-2xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
-              <QrCode className="size-5 text-emerald-700" /> Herd QR - {currentBatch?.batchCode}
+            <DialogTitle className="flex items-center gap-2.5 text-xl sm:text-2xl font-black text-slate-950">
+              <QrCode className="size-6 text-emerald-700" />
+              <span>Opisyal na QR Code ng Pangkat</span>
             </DialogTitle>
-            <DialogDescription>
-              Scan this code to look up the herd&apos;s current registry record. It identifies the herd and does not approve movement or inspection.
+            <DialogDescription className="text-sm sm:text-base font-medium leading-relaxed text-slate-700">
+              I-scan ang code na ito upang mabilis na matukoy ang talaan ng pangkat ({currentBatch?.batchName || "kawan"}).
             </DialogDescription>
           </DialogHeader>
           {currentBatch && (
-            <QrCodePass
-              code={currentBatch.batchCode || currentBatch.id}
-              qrPayload={livestockBatchQrPayload(currentBatch.id)}
-              title={currentBatch.batchName || "Livestock herd"}
-              subtitle="Canonical herd identity"
-              specie={currentBatch.species}
-              headCount={currentBatch.activeCount}
-              status={currentBatch.status}
-              compact
-            />
+            <div className="py-2">
+              <QrCodePass
+                code={currentBatch.batchCode || currentBatch.id}
+                qrPayload={livestockBatchQrPayload(currentBatch.id)}
+                title={currentBatch.batchName || "Livestock herd"}
+                subtitle="Canonical herd identity"
+                specie={currentBatch.species}
+                headCount={currentBatch.activeCount}
+                status={currentBatch.status}
+                compact
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
 
+      {/* ── DIALOG: RECORD WEIGHT (SENIOR FRIENDLY INPUT) ─────────────────── */}
       <Dialog open={isWeighModalOpen} onOpenChange={setIsWeighModalOpen}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] rounded-3xl border-2 border-slate-200 bg-white p-5 sm:p-7 shadow-2xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Scale className="size-5 text-emerald-600" />
-              <span>Record New Weight for {weighTarget?.tagNumber}</span>
+            <DialogTitle className="flex items-center gap-2.5 text-xl sm:text-2xl font-black text-slate-950">
+              <Scale className="size-6 text-emerald-700" />
+              <span>Itala ang Bagong Timbang</span>
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              This creates a weight record and updates the animal&apos;s current weight.
+            <DialogDescription className="text-sm sm:text-base font-medium leading-relaxed text-slate-700">
+              Ilagay ang kasalukuyang timbang sa kilo (kg) para sa hayop na may tag{" "}
+              <strong className="font-bold text-slate-950">{weighTarget?.tagNumber || "na ito"}</strong>.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-3">
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs flex justify-between items-center">
-              <span className="font-bold text-slate-600">Previous Recorded Weight:</span>
-              <span className={`font-black ${weighTarget?.weightKg == null ? "text-rose-600" : "text-slate-900"}`}>{weighTarget?.weightKg == null ? "Not recorded" : `${weighTarget.weightKg} kg`}</span>
+            <div className="flex items-center justify-between gap-4 rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 text-base">
+              <span className="font-bold text-slate-700">Dating Timbang:</span>
+              <span
+                className={`text-lg font-black ${
+                  weighTarget?.weightKg == null ? "text-rose-700" : "text-slate-950"
+                }`}
+              >
+                {weighTarget?.weightKg == null ? "Wala pang tala" : `${weighTarget.weightKg} kg`}
+              </span>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">New Live Weight (kg)</Label>
+            <div className="space-y-2">
+              <Label
+                htmlFor="new-herd-animal-weight"
+                className="text-base font-black text-slate-900"
+              >
+                Bagong Timbang (sa Kilograms / kg)
+              </Label>
               <Input
+                id="new-herd-animal-weight"
                 type="number"
                 step="0.1"
+                min="0.1"
                 value={newWeightInput}
                 onChange={(e) => setNewWeightInput(e.target.value)}
-                placeholder="e.g. 72.5"
-                className="rounded-xl border-slate-300 font-black text-lg h-11"
+                placeholder="Halimbawa: 72.5"
+                className="min-h-13 rounded-2xl border-2 border-slate-300 text-lg sm:text-xl font-black text-slate-950 focus:border-emerald-600"
+                autoFocus
               />
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsWeighModalOpen(false)}
-              className="rounded-xl font-bold text-xs"
+              className="min-h-12 flex-1 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-800 hover:bg-slate-100"
             >
-              Cancel
+              Kanselahin (Cancel)
             </Button>
             <Button
               type="button"
               onClick={handleSaveWeight}
               disabled={isSavingWeight}
-              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
+              className="min-h-12 flex-1 rounded-2xl bg-emerald-700 text-base font-black text-white hover:bg-emerald-800 shadow-md"
             >
-              {isSavingWeight ? "Saving…" : "Save Weigh Record"}
+              {isSavingWeight ? "Itinatabi..." : "I-save ang Timbang"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── DIALOG: ADD INDIVIDUAL TO BATCH ───────────────────────────────── */}
+      {/* ── DIALOG: ADD ANIMAL TO BATCH (SENIOR & MOBILE FRIENDLY FORM) ───── */}
       <Dialog open={isAddIndividualOpen} onOpenChange={setIsAddIndividualOpen}>
-        <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:max-h-[90dvh] sm:max-w-lg sm:p-6">
-          <form onSubmit={handleAddIndividual}>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl bg-white p-5 sm:p-7 shadow-2xl sm:max-h-[92dvh] sm:max-w-lg">
+          <form onSubmit={handleAddIndividual} className="space-y-4">
             <DialogHeader>
-              <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <Plus className="size-5 text-emerald-600" />
-                <span>Add Animal to Herd {currentBatch?.batchCode}</span>
+              <DialogTitle className="flex items-center gap-2.5 text-xl sm:text-2xl font-black text-slate-950">
+                <Plus className="size-6 text-emerald-700" />
+                <span>Magdagdag ng Hayop sa Pangkat</span>
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
-                Add an individual animal to this active herd. It starts pending its own SIBAT and MAO review; existing animal statuses stay unchanged.
+              <DialogDescription className="text-sm sm:text-base font-medium leading-relaxed text-slate-700">
+                Idagdag ang impormasyon ng hayop sa pangkat na{" "}
+                <strong className="text-slate-950">{currentBatch?.batchName || "ito"}</strong>.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 gap-3.5 py-4 text-xs sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 py-2 text-base sm:grid-cols-2">
+              {/* Tag Number */}
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="font-bold text-slate-700">Ear Tag Number</Label>
+                <Label
+                  htmlFor="new-herd-animal-tag"
+                  className="text-base font-black text-slate-900"
+                >
+                  Numero ng Ear Tag <span className="text-rose-600">*</span>
+                </Label>
                 <Input
+                  id="new-herd-animal-tag"
                   value={newAnimalData.tagNumber}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, tagNumber: e.target.value })}
-                  placeholder="e.g. NAME-001"
-                  className="rounded-xl border-slate-300 font-bold"
+                  onChange={(e) =>
+                    setNewAnimalData({ ...newAnimalData, tagNumber: e.target.value })
+                  }
+                  placeholder="Halimbawa: TAG-001"
+                  className="min-h-12 rounded-2xl border-2 border-slate-300 text-base font-bold uppercase"
                   required
                 />
               </div>
 
+              {/* Sex */}
               <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Sex</Label>
+                <Label
+                  htmlFor="new-herd-animal-sex"
+                  className="text-base font-black text-slate-900"
+                >
+                  Kasarian (Sex) <span className="text-rose-600">*</span>
+                </Label>
                 <Select
                   value={newAnimalData.sex}
                   onValueChange={(sex) => setNewAnimalData({ ...newAnimalData, sex })}
                 >
-                  <SelectTrigger className="rounded-xl border-slate-300 font-bold">
+                  <SelectTrigger
+                    id="new-herd-animal-sex"
+                    className="min-h-12 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-900"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="FEMALE">Female</SelectItem>
-                    <SelectItem value="MALE">Male</SelectItem>
+                    <SelectItem value="FEMALE">Babae (Female)</SelectItem>
+                    <SelectItem value="MALE">Lalaki (Male)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Breed */}
               <LivestockBreedField
-                  id="batch-animal-breed"
-                  species={currentBatch?.species}
-                  value={newAnimalData.breed}
-                  onChange={(breed) => setNewAnimalData({ ...newAnimalData, breed })}
-                  required
-                  className="font-bold"
+                id="batch-animal-breed"
+                species={currentBatch?.species}
+                value={newAnimalData.breed}
+                onChange={(breed) => setNewAnimalData({ ...newAnimalData, breed })}
+                required
+                className="text-base font-bold"
               />
 
+              {/* Weight */}
               <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Weight (kg, optional)</Label>
+                <Label
+                  htmlFor="new-herd-animal-weight-optional"
+                  className="text-sm font-bold text-slate-800"
+                >
+                  Timbang sa kilo (Opsiyonal)
+                </Label>
                 <Input
+                  id="new-herd-animal-weight-optional"
                   type="number"
                   min="0.1"
                   step="0.1"
                   value={newAnimalData.weight}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, weight: e.target.value })}
-                  placeholder="e.g. 65"
-                  className="min-w-0 rounded-xl border-slate-300"
+                  onChange={(e) =>
+                    setNewAnimalData({ ...newAnimalData, weight: e.target.value })
+                  }
+                  placeholder="Hal. 65"
+                  className="min-h-12 rounded-2xl border-2 border-slate-300 text-base font-semibold"
                 />
               </div>
 
+              {/* Birth Date */}
               <div className="space-y-1.5">
-                <Label className="font-bold text-slate-700">Birth Date (optional)</Label>
+                <Label
+                  htmlFor="new-herd-animal-birth-date"
+                  className="text-sm font-bold text-slate-800"
+                >
+                  Kaarawan (Opsiyonal)
+                </Label>
                 <Input
+                  id="new-herd-animal-birth-date"
                   type="date"
                   max={localCalendarDateToday()}
                   value={newAnimalData.birthDate}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, birthDate: e.target.value })}
-                  className="h-11 min-w-0 w-full rounded-xl border-slate-300"
+                  onChange={(e) =>
+                    setNewAnimalData({ ...newAnimalData, birthDate: e.target.value })
+                  }
+                  className="min-h-12 w-full rounded-2xl border-2 border-slate-300 text-base font-semibold"
                 />
               </div>
 
+              {/* Vaccination Date */}
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="font-bold text-slate-700">Last Vaccination Date (optional)</Label>
+                <Label
+                  htmlFor="new-herd-animal-vaccination-date"
+                  className="text-sm font-bold text-slate-800"
+                >
+                  Huling Petsa ng Bakuna (Opsiyonal)
+                </Label>
                 <Input
+                  id="new-herd-animal-vaccination-date"
                   type="date"
                   max={localCalendarDateToday()}
                   value={newAnimalData.lastVaccinationDate}
-                  onChange={(e) => setNewAnimalData({ ...newAnimalData, lastVaccinationDate: e.target.value })}
-                  className="h-11 min-w-0 w-full rounded-xl border-slate-300"
+                  onChange={(e) =>
+                    setNewAnimalData({
+                      ...newAnimalData,
+                      lastVaccinationDate: e.target.value,
+                    })
+                  }
+                  className="min-h-12 w-full rounded-2xl border-2 border-slate-300 text-base font-semibold"
                 />
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="gap-2 sm:gap-3 pt-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsAddIndividualOpen(false)}
-                className="rounded-xl font-bold text-xs"
+                className="min-h-12 flex-1 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-800 hover:bg-slate-100"
               >
-                Cancel
+                Kanselahin
               </Button>
               <Button
                 type="submit"
                 disabled={isSavingAnimal}
-                className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
+                className="min-h-12 flex-1 rounded-2xl bg-emerald-700 text-base font-black text-white hover:bg-emerald-800 shadow-md"
               >
-                {isSavingAnimal ? "Saving…" : "Save to Herd"}
+                {isSavingAnimal ? "Itinatabi..." : "I-save ang Hayop"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
     </>
   );
 }

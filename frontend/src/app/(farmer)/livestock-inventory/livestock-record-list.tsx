@@ -883,7 +883,7 @@ export default function LivestockRecordList({
 
                   <div className="mt-auto space-y-2 border-t border-slate-100 pt-3">
                     <Button type="button" onClick={() => onView(item)} className="min-h-12 w-full rounded-xl bg-emerald-700 font-bold text-white hover:bg-emerald-800">
-                      <Eye className="mr-2 size-4" /> View Livestock
+                      <Eye className="mr-2 size-4" /> View Profile
                     </Button>
                     <div className="grid grid-cols-3 gap-2">
                       <Button type="button" variant="outline" disabled={!item.tagNumber} onClick={() => item.tagNumber && handleCopyTag(item.tagNumber)} aria-label="Copy livestock tag" title="Copy tag" className="min-h-11 rounded-xl">
@@ -1074,13 +1074,14 @@ export default function LivestockRecordList({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="See Profile"
+                              variant="outline"
+                              size="sm"
+                              aria-label={`View profile for ${item.tagNumber || `livestock ${item.id}`}`}
                               onClick={() => onView(item)}
-                              className="h-7 w-7 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                              className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900"
                             >
                               <Eye className="w-3.5 h-3.5" />
+                              <span>Profile</span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-xs">
@@ -1300,13 +1301,14 @@ export default function LivestockRecordList({
                     <TableCell className="text-right pr-4">
                       <div className="flex items-center justify-end gap-1">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="See Profile"
+                          variant="outline"
+                          size="sm"
+                          aria-label={`View profile for ${item.tagNumber || `livestock ${item.id}`}`}
                           onClick={() => onView(item)}
-                          className="h-7 w-7 rounded-lg text-slate-600 hover:bg-slate-100"
+                          className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900"
                         >
                           <Eye className="w-3.5 h-3.5" />
+                          <span>Profile</span>
                         </Button>
                         <Button
                           variant="ghost"

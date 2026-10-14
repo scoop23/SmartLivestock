@@ -129,14 +129,14 @@ export function LivestockPhotoManager({
         {!triggerImage && (
           <Button
             type="button"
-            size="sm"
+            size="default"
             variant="outline"
             onClick={() => setOpen(true)}
             title={`Change ${subject} photo`}
             aria-label={`Change ${subject} photo`}
-            className={`min-h-11 rounded-xl border-emerald-200 bg-white/10 text-white hover:bg-white/20 ${compactOnMobile ? "min-w-11 px-0 sm:min-h-10 sm:min-w-0 sm:px-3" : ""}`}
+            className={`min-h-11 rounded-xl border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-sm font-bold text-emerald-950 shadow-sm hover:border-emerald-400 hover:from-emerald-100 hover:to-teal-100 focus-visible:ring-emerald-600 ${compactOnMobile ? "min-w-11 px-0" : ""}`}
           >
-            <Camera className={`${compactOnMobile ? "size-5 sm:mr-2 sm:size-4" : "mr-2 size-4"}`} />
+            <Camera className={`${compactOnMobile ? "size-4 sm:mr-2" : "mr-2 size-4"}`} />
             <span className={compactOnMobile ? "hidden sm:inline" : ""}>Change {subject} photo</span>
           </Button>
         )}
