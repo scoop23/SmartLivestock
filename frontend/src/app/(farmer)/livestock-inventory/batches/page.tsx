@@ -152,6 +152,10 @@ export default function BatchOverviewPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const livestockTypeReturn = searchParams?.get("livestockType");
+  const livestockReturnUrl = livestockTypeReturn
+    ? `/livestock-inventory?livestockType=${encodeURIComponent(livestockTypeReturn)}`
+    : "/livestock-inventory";
   const {
     data: backendBatches = [],
     error: batchesError,
@@ -376,7 +380,13 @@ export default function BatchOverviewPage() {
         lastVaccinationDate: "",
       });
     } catch (error: any) {
-      toast.error(error.response?.data?.error || error.response?.data?.detail || "Could not add the animal to this herd.");
+      toast.error(
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        error.response?.data?.animals?.[0] ||
+        error.response?.data?.tag_number?.[0] ||
+        "Could not add the animal to this herd."
+      );
     } finally {
       setIsSavingAnimal(false);
     }
@@ -395,7 +405,7 @@ export default function BatchOverviewPage() {
         {/* Top Navigation Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center gap-2">
-            <Link href="/livestock-inventory">
+            <Link href={livestockReturnUrl}>
               <Button
                 variant="outline"
                 size="sm"
@@ -419,7 +429,7 @@ export default function BatchOverviewPage() {
                   size="sm"
                   className="min-h-11 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none sm:w-auto"
                 >
-                  <Plus className="size-4" /> Add Animal to Batch
+                  <Plus className="size-4" /> Add Animal to Herd
                 </Button>
                 {!canAddAnimalsToCurrentBatch && (
                   <p className="self-center text-xs text-slate-500 sm:max-w-64">
@@ -566,7 +576,7 @@ export default function BatchOverviewPage() {
                     onClick={() => setIsHerdQrOpen(true)}
                     className="absolute right-1 top-1 min-h-11 gap-2 border-white/30 bg-white/10 px-2.5 text-white hover:bg-white/20 hover:text-white sm:right-0 sm:top-0 sm:px-4"
                   >
-                    <QrCode className="size-4" /> <span className="hidden sm:inline">Herd QR</span><span className="sr-only sm:hidden">Herd QR</span>
+                    <QrCode className="size-4" /> <span className="hidden sm:inline"></span>
                   </Button>
                   {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
                     <LivestockPhotoManager
@@ -933,7 +943,7 @@ export default function BatchOverviewPage() {
                                       variant="ghost"
                                       className="h-7 px-2 text-[11px] rounded-lg font-bold text-slate-700 hover:bg-slate-100"
                                     >
-                                      <Eye className="size-3 mr-1 text-slate-500" /> Details
+                                      <Eye className="size-3 mr-1 text-slate-500" /> Profile
                                     </Button>
                                   </Link> : <Button size="sm" variant="ghost" disabled title="No saved individual animal record is linked to this herd row.">
                                     <Eye className="size-3 mr-1" /> Details
@@ -1049,7 +1059,7 @@ export default function BatchOverviewPage() {
             <DialogHeader>
               <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <Plus className="size-5 text-emerald-600" />
-                <span>Add Animal to {currentBatch?.batchCode}</span>
+                <span>Add Animal to Herd {currentBatch?.batchCode}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
                 Add an individual animal to this active herd. It starts pending its own SIBAT and MAO review; existing animal statuses stay unchanged.

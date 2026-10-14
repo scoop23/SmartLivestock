@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -93,6 +93,7 @@ import { OperationalStatusBadge } from "../operational-status-badge";
 import { OwnershipTransferPanel } from "../ownership-transfer-panel";
 import { LivestockPhotoManager } from "../livestock-photo-manager";
 import { LivestockMilkForecastTab } from "../livestock-milk-forecast-tab";
+import ProductionSubmissionSuccessDialog from "../../production-dashboard/production-submission-success-dialog";
 import LivestockEditDialog from "../livestock-edit-dialog";
 import { useLivestockTypes, type UpdateInventoryPayload } from "../livestock-inventory";
 import {
@@ -183,6 +184,7 @@ interface ApiDiseaseCase {
 
 export default function LivestockDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const rawId = params?.id ? decodeURIComponent(String(params.id)) : "";
   const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
@@ -476,6 +478,8 @@ export default function LivestockDetailPage() {
   const [isWeighDialogOpen, setIsWeighDialogOpen] = useState(false);
   const [isPassportDialogOpen, setIsPassportDialogOpen] = useState(false);
   const [isProductionDialogOpen, setIsProductionDialogOpen] = useState(false);
+  const [isProductionSuccessOpen, setIsProductionSuccessOpen] = useState(false);
+  const [submittedProductionId, setSubmittedProductionId] = useState<number | string | null>(null);
   const [isCalvingDialogOpen, setIsCalvingDialogOpen] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState("growth");
   const [isOwnershipFormOpen, setIsOwnershipFormOpen] = useState(false);
@@ -610,11 +614,11 @@ export default function LivestockDetailPage() {
       return res.data;
     },
     onSuccess: (data) => {
-      toast.success(`Production record of ${data.quantity} ${data.unit} logged successfully!`, {
-        description: "Production record submitted for review.",
-      });
+      setSubmittedProductionId(data?.id ?? null);
+      setIsProductionSuccessOpen(true);
       setIsProductionDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["production_records"] });
+      queryClient.invalidateQueries({ queryKey: ["production"] });
     },
     onError: (error: unknown) => {
       toast.error(getApiErrorMessage(error, "Failed to save production record."));
@@ -1762,6 +1766,12 @@ export default function LivestockDetailPage() {
         onClose={() => setIsProductionDialogOpen(false)}
         mode="create"
         editingRecord={null}
+      />
+
+      <ProductionSubmissionSuccessDialog
+        open={isProductionSuccessOpen}
+        onOpenChange={setIsProductionSuccessOpen}
+        recordId={submittedProductionId}
       />
 
       <Dialog open={isCalvingDialogOpen} onOpenChange={setIsCalvingDialogOpen}>

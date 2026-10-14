@@ -50,8 +50,17 @@ export default function LivestockInventoryPage() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [handledActivityLink, setHandledActivityLink] = useState(false);
 
+  // Herd links preserve the livestock type so Back returns to the same
+  // Manage Cattle (or other type) drilldown instead of the overview cards.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const livestockType = new URLSearchParams(window.location.search).get("livestockType");
+    if (livestockType) setSelectedType(livestockType);
+  }, []);
+
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading, isError, refetch, isFetching } = useUserInventory();
+  const { data: allTagInventory = [] } = useUserInventory({ includeInactive: true });
   const { data: userBatches = [], isLoading: isBatchesLoading } = useLivestockBatches({ includeRoster: false });
 
   // Recent-activity links contain only a livestock ID. Resolve it from the
@@ -208,11 +217,13 @@ export default function LivestockInventoryPage() {
 
       <div className="p-4 md:p-8 w-full space-y-2">
         {/* Livestock overview and inventory actions */}
-        <InventoryHeroBanner
-          totalRecords={inventories.length}
-          onExportCsv={exportCSV}
-          onOpenRegister={() => setIsAddOpen(true)}
-        />
+        {!selectedType && (
+          <InventoryHeroBanner
+            totalRecords={inventories.length}
+            onExportCsv={exportCSV}
+            onOpenRegister={() => setIsAddOpen(true)}
+          />
+        )}
 
         {/* Registration Modal Dialog */}
         <RegisterLivestockDialog
@@ -220,6 +231,7 @@ export default function LivestockInventoryPage() {
           onOpenChange={setIsAddOpen}
           livestockTypes={livestockTypes}
           userBatches={userBatches}
+          existingTags={allTagInventory.map((item) => item.tagNumber).filter(Boolean)}
         />
 
         {!selectedType && activeTab === "types" && (
@@ -232,63 +244,69 @@ export default function LivestockInventoryPage() {
           </details>
         )}
 
-        {/* Main Content: Species Drill-Down or Tabbed Roster */}
-        {selectedType ? (
-          <SpeciesDrilldownView
-            selectedType={selectedType}
-            items={typeFilteredInventories}
-            batches={typeFilteredBatches}
-            isLoading={isLoading}
-            livestockTypes={livestockTypes}
-            onBack={() => setSelectedType(null)}
-            onView={(item) => setDetailTarget(item)}
-            onEdit={(item) => setEditTarget(item)}
-            onDelete={(item) => setDeleteTarget(item)}
-            onAddRecord={() => setIsAddOpen(true)}
-          />
-        ) : (
-          <Tabs
-            value={activeTab}
-            onValueChange={(val) => setActiveTab(val as "types" | "all" | "health")}
-            className="-space-y-2 pt-2"
-          >
-            {/* Segmented Tab Navigation Strip */}
+        {/* Keep the category tabs visible above both the type cards and drilldown. */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => {
+            const nextTab = val as "types" | "all" | "health";
+            setActiveTab(nextTab);
+            if (nextTab !== "types") setSelectedType(null);
+          }}
+          className="-space-y-2 pt-2"
+        >
+          {!selectedType && (
             <InventoryTabsNav
               speciesCount={speciesCount}
               totalRecords={inventories.length}
               vaxRate={vaxRate}
             />
+          )}
 
-            <TabsContent value="types" className="space-y-4 pt-2 outline-hidden w-full">
-              <LivestockTypeCards
-                inventories={inventories}
-                isLoading={isLoading}
-                onSelectType={setSelectedType}
-              />
-            </TabsContent>
-
-            <TabsContent value="all" className="space-y-4 pt-2 outline-hidden">
-              <LivestockRecordList
-                items={inventories}
+          <TabsContent value="types" className="space-y-4 pt-2 outline-hidden w-full">
+            {selectedType ? (
+              <SpeciesDrilldownView
+                selectedType={selectedType}
+                items={typeFilteredInventories}
+                batches={typeFilteredBatches}
                 isLoading={isLoading}
                 livestockTypes={livestockTypes}
+                onBack={() => setSelectedType(null)}
                 onView={(item) => setDetailTarget(item)}
                 onEdit={(item) => setEditTarget(item)}
                 onDelete={(item) => setDeleteTarget(item)}
                 onAddRecord={() => setIsAddOpen(true)}
               />
-            </TabsContent>
-
-            <TabsContent value="health" className="space-y-4 pt-2 outline-hidden">
-              <HealthTrackerTab
+            ) : (
+              <LivestockTypeCards
                 inventories={inventories}
-                isLoading={isLoading}
-                onView={(item) => setDetailTarget(item)}
-                onEdit={(item) => setEditTarget(item)}
+                batches={userBatches}
+                isLoading={isLoading || isBatchesLoading}
+                onSelectType={setSelectedType}
               />
-            </TabsContent>
-          </Tabs>
-        )}
+            )}
+          </TabsContent>
+
+          <TabsContent value="all" className="space-y-4 pt-2 outline-hidden">
+            <LivestockRecordList
+              items={inventories}
+              isLoading={isLoading}
+              livestockTypes={livestockTypes}
+              onView={(item) => setDetailTarget(item)}
+              onEdit={(item) => setEditTarget(item)}
+              onDelete={(item) => setDeleteTarget(item)}
+              onAddRecord={() => setIsAddOpen(true)}
+            />
+          </TabsContent>
+
+          <TabsContent value="health" className="space-y-4 pt-2 outline-hidden">
+            <HealthTrackerTab
+              inventories={inventories}
+              isLoading={isLoading}
+              onView={(item) => setDetailTarget(item)}
+              onEdit={(item) => setEditTarget(item)}
+            />
+          </TabsContent>
+        </Tabs>
 
         {/* Confirm Delete Dialog */}
         <DeleteLivestockDialog

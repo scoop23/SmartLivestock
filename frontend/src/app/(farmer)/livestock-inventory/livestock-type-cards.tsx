@@ -5,6 +5,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { LivestockInventoryItem } from "./page";
+import type { LivestockBatchItem } from "./livestock-inventory";
 import {
   Layers,
   LayoutGrid,
@@ -32,6 +33,7 @@ import Link from "next/link";
 
 interface LivestockTypeCardsProps {
   inventories: LivestockInventoryItem[];
+  batches: LivestockBatchItem[];
   isLoading: boolean;
   onSelectType: (name: string) => void;
 }
@@ -128,34 +130,57 @@ function getSpeciesConfig(name: string): SpeciesVisualConfig {
   return key ? SPECIES_CONFIG[key] : DEFAULT_SPECIES_CONFIG;
 }
 
-const buildTypeSummaries = (inventories: LivestockInventoryItem[]): TypeSummary[] =>
-  Object.values(
-    inventories.reduce<Record<string, TypeSummary>>((acc, item) => {
-      const name = item.livestockTypeName;
-      const entry = (acc[name] ??= {
-        name,
-        heads: 0,
-        batches: 0,
-        individuals: 0,
-        approved: 0,
-        pending: 0,
-      });
-      entry.heads += item.quantity;
-      if (item.entryType === "BATCH") entry.batches += 1;
-      else entry.individuals += 1;
-      if (item.status === "APPROVED") entry.approved += item.quantity;
-      else if (item.status === "PENDING") entry.pending += item.quantity;
-      return acc;
-    }, {})
-  ).sort((a, b) => b.heads - a.heads);
+const buildTypeSummaries = (
+  inventories: LivestockInventoryItem[],
+  batches: LivestockBatchItem[],
+): TypeSummary[] => {
+  const summaries = inventories.reduce<Record<string, TypeSummary>>((acc, item) => {
+    const name = item.livestockTypeName?.trim() || "Livestock";
+    const key = name.toLowerCase();
+    const entry = (acc[key] ??= {
+      name,
+      heads: 0,
+      batches: 0,
+      individuals: 0,
+      approved: 0,
+      pending: 0,
+    });
+    entry.heads += item.quantity;
+    // Keep legacy aggregate inventory entries visible as groups too.
+    if (item.entryType === "BATCH") entry.batches += 1;
+    else entry.individuals += 1;
+    if (item.status === "APPROVED") entry.approved += item.quantity;
+    else if (item.status === "PENDING") entry.pending += item.quantity;
+    return acc;
+  }, {});
+
+  // A real herd is a LivestockBatch row whose roster contains individual
+  // inventory records; those members do not have entry_type="BATCH".
+  for (const batch of batches) {
+    const name = batch.livestockTypeName?.trim() || "Livestock";
+    const key = name.toLowerCase();
+    const entry = (summaries[key] ??= {
+      name,
+      heads: 0,
+      batches: 0,
+      individuals: 0,
+      approved: 0,
+      pending: 0,
+    });
+    entry.batches += 1;
+  }
+
+  return Object.values(summaries).sort((a, b) => b.heads - a.heads);
+};
 
 export default function LivestockTypeCards({
   inventories,
+  batches,
   isLoading,
   onSelectType,
 }: LivestockTypeCardsProps) {
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
-  const typeSummaries = buildTypeSummaries(inventories);
+  const typeSummaries = buildTypeSummaries(inventories, batches);
 
   return (
     <div className="py-2 space-y-4">

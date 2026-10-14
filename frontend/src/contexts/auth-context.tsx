@@ -12,6 +12,7 @@ import { jwtDecode } from "jwt-decode";
 import api from "@/lib/axios";
 
 export interface User {
+  username?: string | null;
   firstName: string | null;
   lastName: string | null;
   email: string | null;
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         typeof window !== "undefined" ? localStorage.getItem("access") : token;
 
       setUser({
+        username: data.username || null,
         firstName: data.first_name || null,
         lastName: data.last_name || null,
         email: data.email,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -39,13 +39,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
 
 import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import {
   type EntryType,
   getSpeciesPreset,
-  generateSuggestedTag,
   LIVESTOCK_AVATAR_PRESETS,
   getDefaultAvatarForSpecies,
   getAvatarById,
@@ -66,6 +66,7 @@ interface RegisterLivestockDialogProps {
   onOpenChange: (open: boolean) => void;
   livestockTypes: Record<string, number>;
   userBatches?: any[];
+  existingTags?: string[];
   onSuccess?: () => void;
 }
 
@@ -92,28 +93,99 @@ const initialFormData = {
   avatarKey: "cow-brahman",
 };
 
+function normalizeTagName(name: string) {
+  return name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function nextOwnerTag(prefix: string, usedTags: string[]) {
+  // The prefix is normalized to letters, digits, and hyphens, so it is safe in this pattern.
+  const pattern = new RegExp(`^${prefix}-(\\d{3,})$`, "i");
+  const highest = usedTags.reduce((max, tag) => {
+    const match = tag.trim().match(pattern);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `${prefix}-${String(highest + 1).padStart(3, "0")}`;
+}
+
+function createDefaultBatchAnimals(prefix: string, usedTags: string[]): BatchAnimalFormRow[] {
+  const used = [...usedTags];
+  const defaults: BatchAnimalFormRow[] = [
+    { id: "1", tagNumber: "", breed: "Large White", sex: "Female", weight: "65.0", lastVaccinationDate: "" },
+    { id: "2", tagNumber: "", breed: "Large White", sex: "Male", weight: "68.5", lastVaccinationDate: "" },
+    { id: "3", tagNumber: "", breed: "Large White", sex: "Female", weight: "64.0", lastVaccinationDate: "" },
+  ];
+  return defaults.map((animal) => {
+    const tagNumber = prefix ? nextOwnerTag(prefix, used) : "";
+    used.push(tagNumber);
+    return { ...animal, tagNumber };
+  });
+}
+
 export function RegisterLivestockDialog({
   open,
   onOpenChange,
   livestockTypes,
   userBatches = [],
+  existingTags = [],
   onSuccess,
 }: RegisterLivestockDialogProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const ownerTagPrefix = normalizeTagName(
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || ""
+  );
 
   const [formError, setFormError] = useState("");
+  const [submittedLivestock, setSubmittedLivestock] = useState<{ id: string; tagNumber: string } | null>(null);
   const [formData, setFormData] = useState(initialFormData);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showAllAvatars, setShowAllAvatars] = useState(false);
 
   // Batch individual animals state for Add Modal
-  const [batchAnimals, setBatchAnimals] = useState<BatchAnimalFormRow[]>([
-    { id: "1", tagNumber: "SWN-B1-01", breed: "Large White", sex: "Female", weight: "65.0", lastVaccinationDate: "" },
-    { id: "2", tagNumber: "SWN-B1-02", breed: "Large White", sex: "Male", weight: "68.5", lastVaccinationDate: "" },
-    { id: "3", tagNumber: "SWN-B1-03", breed: "Large White", sex: "Female", weight: "64.0", lastVaccinationDate: "" },
-  ]);
+  const [batchAnimals, setBatchAnimals] = useState<BatchAnimalFormRow[]>(() =>
+    createDefaultBatchAnimals(ownerTagPrefix, existingTags)
+  );
+
+  // A new individual starts with the next unused tag for this farmer.
+  useEffect(() => {
+    if (open && ownerTagPrefix && !formData.tagNumber) {
+      setFormData((previous) => ({
+        ...previous,
+        tagNumber: nextOwnerTag(ownerTagPrefix, existingTags),
+      }));
+    }
+    if (open && ownerTagPrefix) {
+      setBatchAnimals((previous) => {
+        if (!previous.some((animal) => !animal.tagNumber)) return previous;
+        const used = [...existingTags, ...previous.map((animal) => animal.tagNumber).filter(Boolean)];
+        return previous.map((animal) => {
+          if (animal.tagNumber) return animal;
+          const tagNumber = nextOwnerTag(ownerTagPrefix, used);
+          used.push(tagNumber);
+          return { ...animal, tagNumber };
+        });
+      });
+    }
+  }, [open, ownerTagPrefix, existingTags, formData.tagNumber]);
+
+  const tagError = (tag: string, otherTags: string[] = []) => {
+    const normalizedTag = tag.trim().toUpperCase();
+    if (!ownerTagPrefix) return "Your account name is unavailable. Refresh the page and try again.";
+    if (!new RegExp(`^${ownerTagPrefix}-\\d{3,}$`).test(normalizedTag)) {
+      return `Use ${ownerTagPrefix}-001 format for your ear tag.`;
+    }
+    if ([...existingTags, ...otherTags].some((existing) => existing.trim().toUpperCase() === normalizedTag)) {
+      return "This ear tag is already registered, including pending or approved records. Please change it.";
+    }
+    return "";
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,10 +245,13 @@ export function RegisterLivestockDialog({
     setBatchAnimals((prev) => {
       const next = [...prev];
       if (clamped > next.length) {
+        const usedTags = [...existingTags, ...next.map((animal) => animal.tagNumber)];
         for (let i = next.length + 1; i <= clamped; i++) {
+          const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, usedTags) : "";
+          usedTags.push(tagNumber);
           next.push({
             id: String(i),
-            tagNumber: `${preset.tagPrefix}-B1-${i.toString().padStart(2, "0")}`,
+            tagNumber,
             breed: defaultBreed,
             sex: i % 2 === 0 ? "Female" : i % 3 === 0 ? "Castrated" : "Male",
             weight: defaultWeight,
@@ -207,7 +282,9 @@ export function RegisterLivestockDialog({
     const preset = getSpeciesPreset(formData.livestockType);
     const newAnimal: BatchAnimalFormRow = {
       id: String(Date.now()),
-      tagNumber: `${preset.tagPrefix}-B1-${nextIdx.toString().padStart(2, "0")}`,
+      tagNumber: ownerTagPrefix
+        ? nextOwnerTag(ownerTagPrefix, [...existingTags, ...batchAnimals.map((animal) => animal.tagNumber)])
+        : "",
       breed: batchAnimals[0]?.breed || preset.commonBreeds?.[0] || "Standard",
       sex: nextIdx % 2 === 0 ? "Female" : "Male",
       weight: batchAnimals[0]?.weight || "65",
@@ -248,28 +325,30 @@ export function RegisterLivestockDialog({
   };
 
   const reTagAllBatchAnimals = () => {
-    const preset = getSpeciesPreset(formData.livestockType);
-    const prefix = preset.tagPrefix || formData.livestockType.slice(0, 3).toUpperCase();
-    const batchCode = Math.floor(100 + Math.random() * 900);
-    setBatchAnimals((prev) =>
-      prev.map((a, idx) => ({
-        ...a,
-        tagNumber: `${prefix}-B${batchCode}-${(idx + 1).toString().padStart(2, "0")}`,
-      }))
-    );
+    const used = [...existingTags];
+    setBatchAnimals((previous) => previous.map((animal) => {
+      const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
+      used.push(tagNumber);
+      return { ...animal, tagNumber };
+    }));
     toast.success(`Auto-generated sequential tags for ${batchAnimals.length} animals.`);
   };
 
   const resetBatchAnimalsToPreset = (species: string = "Swine") => {
     const preset = getSpeciesPreset(species);
-    const prefix = preset.tagPrefix || species.slice(0, 3).toUpperCase();
+    const used = [...existingTags];
     const defBreed = preset.commonBreeds?.[0] || "Standard";
     const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
-    setBatchAnimals([
-      { id: "1", tagNumber: `${prefix}-B1-01`, breed: defBreed, sex: "Female", weight: defWeight, lastVaccinationDate: "" },
-      { id: "2", tagNumber: `${prefix}-B1-02`, breed: defBreed, sex: "Male", weight: defWeight, lastVaccinationDate: "" },
-      { id: "3", tagNumber: `${prefix}-B1-03`, breed: defBreed, sex: "Female", weight: defWeight, lastVaccinationDate: "" },
-    ]);
+    const defaultAnimals: BatchAnimalFormRow[] = [
+      { id: "1", tagNumber: "", breed: defBreed, sex: "Female", weight: defWeight, lastVaccinationDate: "" },
+      { id: "2", tagNumber: "", breed: defBreed, sex: "Male", weight: defWeight, lastVaccinationDate: "" },
+      { id: "3", tagNumber: "", breed: defBreed, sex: "Female", weight: defWeight, lastVaccinationDate: "" },
+    ];
+    setBatchAnimals(defaultAnimals.map((animal) => {
+      const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
+      used.push(tagNumber);
+      return { ...animal, tagNumber };
+    }));
   };
 
   const batchMetrics = useMemo(() => {
@@ -416,7 +495,7 @@ export function RegisterLivestockDialog({
         return response.data;
       }
     },
-    onSuccess: () => {
+    onSuccess: (createdRecord) => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] }); // refresh
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] }); // refresh
       const wasBatch = formData.entryType === "BATCH";
@@ -433,7 +512,13 @@ export function RegisterLivestockDialog({
           },
         });
       } else {
-        toast.success("Livestock entry submitted for official review");
+        toast.success("Your livestock is now pending for review.");
+        if (createdRecord?.id) {
+          setSubmittedLivestock({
+            id: String(createdRecord.id),
+            tagNumber: createdRecord.tag_number || formData.tagNumber,
+          });
+        }
       }
       onSuccess?.();
     },
@@ -442,6 +527,7 @@ export function RegisterLivestockDialog({
       const msg =
         err?.response?.data?.detail ||
         err?.response?.data?.tag_number?.[0] ||
+        err?.response?.data?.animals?.[0] ||
         "Failed to add livestock entry. Please check required fields.";
       toast.error(msg);
       setFormError(msg);
@@ -453,6 +539,11 @@ export function RegisterLivestockDialog({
     setFormError("");
 
     if (formData.entryType === "INDIVIDUAL") {
+      const earTagError = tagError(formData.tagNumber);
+      if (earTagError) {
+        setFormError(earTagError);
+        return;
+      }
       if (!formData.tagNumber.trim()) {
         setFormError("Ear Tag number is required for individual animals.");
         return;
@@ -471,12 +562,24 @@ export function RegisterLivestockDialog({
         return;
       }
       for (let i = 0; i < batchAnimals.length; i++) {
+        const otherTags = batchAnimals
+          .filter((_, index) => index !== i)
+          .map((animal) => animal.tagNumber);
+        const earTagError = tagError(batchAnimals[i].tagNumber, otherTags);
+        if (earTagError) {
+          setFormError(`Animal #${i + 1}: ${earTagError}`);
+          return;
+        }
         if (!batchAnimals[i].tagNumber.trim()) {
           setFormError(`Ear Tag is required for Animal #${i + 1}.`);
           return;
         }
         if (!batchAnimals[i].breed.trim()) {
           setFormError(`Breed is required for Animal #${i + 1}.`);
+          return;
+        }
+        if (batchAnimals[i].lastVaccinationDate > localCalendarDateToday()) {
+          setFormError(`Vaccination date for Animal #${i + 1} cannot be in the future.`);
           return;
         }
       }
@@ -495,6 +598,7 @@ export function RegisterLivestockDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleModalClose}>
       <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl h-[90vh] sm:h-[86vh] max-h-[850px] flex flex-col rounded-3xl p-0 border-0 shadow-2xl overflow-hidden bg-white">
         {/* Modal Header */}
@@ -587,21 +691,18 @@ export function RegisterLivestockDialog({
                           avatarKey: prev.photoDataUrl ? prev.avatarKey : defAvatar.id,
                           tagNumber:
                             prev.entryType === "INDIVIDUAL" && !prev.tagNumber
-                              ? generateSuggestedTag(name)
+                              ? ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : ""
                               : prev.tagNumber,
                           batchName: prev.batchName ? prev.batchName : `${name} Herd #${Math.floor(100 + Math.random() * 900)}`,
                         }));
                         if (formData.entryType === "BATCH") {
-                          const prefix = preset.tagPrefix || name.slice(0, 3).toUpperCase();
                           const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
-                          setBatchAnimals((prev) =>
-                            prev.map((a, idx) => ({
-                              ...a,
-                              tagNumber: `${prefix}-B1-${(idx + 1).toString().padStart(2, "0")}`,
-                              breed: defBreed,
-                              weight: defWeight,
-                            }))
-                          );
+                          const used = [...existingTags];
+                          setBatchAnimals((prev) => prev.map((animal) => {
+                            const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
+                            used.push(tagNumber);
+                            return { ...animal, tagNumber, breed: defBreed, weight: defWeight };
+                          }));
                         }
                       }}
                       className={`p-2.5 rounded-2xl border text-center transition-all ${isSelected
@@ -633,7 +734,7 @@ export function RegisterLivestockDialog({
                       onClick={() =>
                         setFormData({
                           ...formData,
-                          tagNumber: generateSuggestedTag(formData.livestockType),
+                          tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
                         })
                       }
                       className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
@@ -645,10 +746,17 @@ export function RegisterLivestockDialog({
                     id="tagNumber"
                     placeholder="e.g. NAME-001"
                     value={formData.tagNumber}
-                    onChange={(e) => setFormData({ ...formData, tagNumber: e.target.value })}
-                    className="h-11 rounded-xl font-mono font-bold"
+                    onChange={(e) => setFormData({ ...formData, tagNumber: e.target.value.toUpperCase() })}
+                    className={`h-11 rounded-xl font-mono font-bold ${tagError(formData.tagNumber) ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
                     required
                   />
+                  {tagError(formData.tagNumber) ? (
+                    <p className="text-xs font-medium text-rose-700" role="alert">{tagError(formData.tagNumber)}</p>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      Use your name followed by a number, such as {ownerTagPrefix || "YOUR-NAME"}-001. The next number is generated for you.
+                    </p>
+                  )}
                 </div>
 
                 {/* Animal Photo & Avatar Selector */}
@@ -1117,64 +1225,6 @@ export function RegisterLivestockDialog({
                     </div>
                   </div>
 
-                  {/* Batch Primary Breed Dropdown with Others */}
-                  <div className="pt-2 border-t border-slate-200/60 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="batchPrimaryBreed" className="text-xs font-black uppercase tracking-wider text-slate-600">
-                        Primary Herd Breed
-                      </Label>
-                      <span className="text-[10px] text-slate-400 font-semibold">
-                        Applies to all animals in this herd
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <div className="flex-1">
-                        <Select
-                          value={formData.isOtherBreed ? "OTHER" : (formData.breed || (currentPreset?.commonBreeds?.[0] ?? ""))}
-                          onValueChange={(val) => {
-                            if (val === "OTHER") {
-                              setFormData((prev) => ({ ...prev, isOtherBreed: true }));
-                            } else {
-                              setFormData((prev) => ({ ...prev, breed: val, isOtherBreed: false, customBreed: "" }));
-                              setBatchAnimals((prev) => prev.map((a) => ({ ...a, breed: val })));
-                            }
-                          }}
-                        >
-                          <SelectTrigger id="batchPrimaryBreed" className="h-10 rounded-xl bg-white text-xs font-medium">
-                            <SelectValue placeholder="Select common herd breed..." />
-                          </SelectTrigger>
-                          <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
-                            {currentPreset?.commonBreeds?.map((b) => (
-                              <SelectItem key={b} value={b} className="text-xs">
-                                {b}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
-                              ➕ Others (Specify custom breed)
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {formData.isOtherBreed && (
-                        <div className="flex-1 animate-in fade-in-50 duration-200">
-                          <Input
-                            placeholder="Specify custom breed name..."
-                            value={formData.customBreed}
-                            onChange={(e) => {
-                              const custom = e.target.value;
-                              setFormData((prev) => ({ ...prev, customBreed: custom }));
-                              setBatchAnimals((prev) => prev.map((a) => ({ ...a, breed: custom || "Others" })));
-                            }}
-                            className="h-10 rounded-xl bg-white border-emerald-300 text-xs font-medium"
-                            required
-                            autoFocus
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Batch Head Count Stepper & Quick Chips */}
@@ -1326,11 +1376,16 @@ export function RegisterLivestockDialog({
                             </Label>
                             <Input
                               value={animal.tagNumber}
-                              onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value)}
+                              onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value.toUpperCase())}
                               placeholder="e.g. NAME-001"
-                              className="h-8 text-xs font-mono font-bold rounded-lg"
+                              className={`h-8 text-xs font-mono font-bold rounded-lg ${tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber)) ? "border-rose-500" : ""}`}
                               required
                             />
+                            {tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber)) && (
+                              <p className="text-[10px] font-medium text-rose-700" role="alert">
+                                {tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber))}
+                              </p>
+                            )}
                           </div>
 
                           <div className="space-y-1">
@@ -1420,7 +1475,7 @@ export function RegisterLivestockDialog({
                           </span>
                           <Input
                             type="date"
-                            max={new Date().toISOString().split("T")[0]}
+                            max={localCalendarDateToday()}
                             value={animal.lastVaccinationDate}
                             onChange={(e) =>
                               updateBatchAnimalField(idx, "lastVaccinationDate", e.target.value)
@@ -1482,7 +1537,7 @@ export function RegisterLivestockDialog({
                     </Badge>
                   </div>
                   <p className="text-slate-600 mt-0.5 font-medium">
-                    Primary Breed: <strong>{batchAnimals[0]?.breed || "Mixed Hybrid"}</strong> • Avg Weight:{" "}
+                    Avg Weight:{" "}
                     <strong>~{batchMetrics.avgWeight} kg</strong> • Biomass: <strong>~{batchMetrics.totalWeight} kg</strong>
                   </p>
                   <p className="text-[11px] text-slate-500 font-mono mt-1 truncate">
@@ -1514,5 +1569,43 @@ export function RegisterLivestockDialog({
         </form>
       </DialogContent>
     </Dialog>
+    <Dialog
+      open={Boolean(submittedLivestock)}
+      onOpenChange={(nextOpen) => !nextOpen && setSubmittedLivestock(null)}
+    >
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-6">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+          <Check className="size-7" aria-hidden="true" />
+        </div>
+        <div className="space-y-2 text-center">
+          <DialogTitle className="text-xl font-bold text-slate-900">Your livestock is pending for review</DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-slate-600">
+            Ear tag <span className="font-semibold text-slate-900">{submittedLivestock?.tagNumber}</span> was submitted and is waiting for official review.
+          </DialogDescription>
+        </div>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 rounded-xl"
+            onClick={() => setSubmittedLivestock(null)}
+          >
+            Close
+          </Button>
+          <Button
+            type="button"
+            className="min-h-11 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-800"
+            onClick={() => {
+              const livestockId = submittedLivestock?.id;
+              setSubmittedLivestock(null);
+              if (livestockId) router.push(`/livestock-inventory/${livestockId}`);
+            }}
+          >
+            View Livestock
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

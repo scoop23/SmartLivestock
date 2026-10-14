@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
 from rest_framework.relations import PrimaryKeyRelatedField
@@ -18,6 +21,34 @@ from smartlivestock.workflows import role_name
 
 MAX_LIVESTOCK_PHOTO_BYTES = 5 * 1024 * 1024
 ALLOWED_LIVESTOCK_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def livestock_tag_prefix_for_user(user):
+    """Build the stable name prefix used by that user's registered animal tags."""
+    display_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or user.username
+    ascii_name = unicodedata.normalize("NFKD", display_name).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^A-Z0-9]+", "-", ascii_name.upper()).strip("-")
+
+
+def validate_livestock_tag(tag_number, user, *, exclude_pk=None):
+    """Enforce the owner's NAME-001 tag pattern and reject reused identities."""
+    normalized_tag = (tag_number or "").strip()
+    if not normalized_tag:
+        return
+
+    expected_prefix = livestock_tag_prefix_for_user(user)
+    if not expected_prefix or not re.fullmatch(rf"{re.escape(expected_prefix)}-\d{{3,}}", normalized_tag, re.IGNORECASE):
+        raise serializers.ValidationError({
+            "tag_number": f"Use your name followed by a hyphen and number, for example {expected_prefix or 'YOUR-NAME'}-001."
+        })
+
+    existing_animals = LivestockInventory.objects.filter(tag_number__iexact=normalized_tag)
+    if exclude_pk is not None:
+        existing_animals = existing_animals.exclude(pk=exclude_pk)
+    if existing_animals.exists():
+        raise serializers.ValidationError(
+            {"tag_number": "This ear tag is already in use. Please enter a different ear tag."}
+        )
 
 
 class LivestockPhotoField(serializers.ImageField):
@@ -218,7 +249,20 @@ class LivestockInventorySerializer(serializers.Serializer):
         if farmer is None:
             raise serializers.ValidationError("A farmer profile is required.")
 
+        # Ear tags identify animals across review states, so pending and approved
+        # records both reserve the tag instead of allowing a duplicate identity.
         entry_type = attrs.get("entry_type", self.instance.entry_type if self.instance else "INDIVIDUAL")
+        if not self.instance or "tag_number" in attrs:
+            tag_number = attrs.get("tag_number", "").strip()
+            attrs["tag_number"] = tag_number
+            if entry_type == "INDIVIDUAL" and not tag_number:
+                raise serializers.ValidationError({"tag_number": "An ear tag is required for each individual animal."})
+            validate_livestock_tag(
+                tag_number,
+                user,
+                exclude_pk=self.instance.pk if self.instance else None,
+            )
+
         quantity = attrs.get("quantity", self.instance.quantity if self.instance else 1)
         if entry_type == "INDIVIDUAL" and quantity != 1:
             raise serializers.ValidationError({"quantity": "An individual animal must represent exactly one head."})

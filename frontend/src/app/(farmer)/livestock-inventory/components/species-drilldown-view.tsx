@@ -90,7 +90,10 @@ export function SpeciesDrilldownView({
                 {speciesBatches.length}
               </span>
             </div>
-            <Link href="/livestock-inventory/batches" className="shrink-0">
+            <Link
+              href={`/livestock-inventory/batches?livestockType=${encodeURIComponent(selectedType)}`}
+              className="shrink-0"
+            >
               <Button
                 type="button"
                 variant="outline"
@@ -108,6 +111,7 @@ export function SpeciesDrilldownView({
         items={items}
         isLoading={isLoading}
         livestockTypes={livestockTypes}
+        showMetrics={false}
         onView={onView}
         onEdit={onEdit}
         onDelete={onDelete}

@@ -19,7 +19,6 @@ import LivestockDetailsDialog from "../livestock-details-dialog";
 import LivestockEditDialog, { type UpdateInventoryPayload } from "../livestock-edit-dialog";
 import LivestockRecordList from "../livestock-record-list";
 import api from "@/lib/axios";
-import { useRouter } from "next/navigation";
 import {
   type LivestockInventoryItem,
   useLivestockTypes,
@@ -27,7 +26,6 @@ import {
 } from "../livestock-inventory";
 
 export default function AllLivestockInventoryPage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
@@ -95,8 +93,10 @@ export default function AllLivestockInventoryPage() {
           onView={(item) => setDetailTarget(item)}
           onEdit={(item) => setEditTarget(item)}
           onDelete={(item) => setDeleteTarget(item)}
-          onAddRecord={() => router.push("/livestock-inventory")}
           showMetrics={false}
+          showExport={false}
+          showAddRecord={false}
+          centerViewToggle
         />
       </div>
 

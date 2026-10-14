@@ -239,6 +239,9 @@ export interface LivestockRecordListProps {
   onDelete: (item: LivestockInventoryItem) => void;
   onAddRecord?: () => void;
   showMetrics?: boolean;
+  showExport?: boolean;
+  showAddRecord?: boolean;
+  centerViewToggle?: boolean;
 }
 
 export default function LivestockRecordList({
@@ -250,6 +253,9 @@ export default function LivestockRecordList({
   onDelete,
   onAddRecord,
   showMetrics = true,
+  showExport = true,
+  showAddRecord = true,
+  centerViewToggle = false,
 }: LivestockRecordListProps) {
   const router = useRouter();
 
@@ -437,6 +443,41 @@ export default function LivestockRecordList({
     });
   };
 
+  const viewToggle = (
+    <div className="flex min-h-11 items-center justify-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 shrink-0">
+      <button
+        type="button"
+        onClick={() => setViewMode("grid")}
+        aria-label="Show livestock as cards"
+        aria-pressed={viewMode === "grid"}
+        title="Cards Grid"
+        className={cn(
+          "inline-flex size-10 items-center justify-center rounded-md transition-all",
+          viewMode === "grid"
+            ? "bg-white text-slate-900 shadow-2xs font-bold"
+            : "text-slate-500 hover:text-slate-800"
+        )}
+      >
+        <LayoutGrid className="w-3.5 h-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setViewMode("table")}
+        aria-label="Show livestock as a table"
+        aria-pressed={viewMode === "table"}
+        title="Table View"
+        className={cn(
+          "inline-flex size-10 items-center justify-center rounded-md transition-all",
+          viewMode === "table"
+            ? "bg-white text-slate-900 shadow-2xs font-bold"
+            : "text-slate-500 hover:text-slate-800"
+        )}
+      >
+        <List className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-3.5">
       {/* Keep summary counts on the main inventory view; management lists can focus on records. */}
@@ -541,11 +582,18 @@ export default function LivestockRecordList({
         </div>
 
         {/* Inline Dropdown Filters & Actions */}
-        <div className="grid w-full flex-1 min-w-0 grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap sm:justify-end">
+        <div
+          className={cn(
+            "w-full flex-1 min-w-0 items-center gap-2",
+            centerViewToggle
+              ? "flex flex-nowrap overflow-x-auto pb-1"
+              : "grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end",
+          )}
+        >
           {/* Species Dropdown */}
           {livestockTypes && (
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger aria-label="Filter by livestock type" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[150px]">
+              <SelectTrigger aria-label="Filter by livestock type" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[150px] shrink-0" : "w-full sm:w-[150px]")}>
                 <SelectValue placeholder="All Species" />
               </SelectTrigger>
               <SelectContent>
@@ -564,7 +612,7 @@ export default function LivestockRecordList({
             value={statusFilter}
             onValueChange={(v) => setStatusFilter(v as StatusType | "ALL")}
           >
-            <SelectTrigger aria-label="Filter by review status" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[170px]">
+            <SelectTrigger aria-label="Filter by review status" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[170px] shrink-0" : "w-full sm:w-[170px]")}>
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -581,7 +629,7 @@ export default function LivestockRecordList({
             value={operationalFilter}
             onValueChange={(value) => setOperationalFilter(value as OperationalStatus | "ALL")}
           >
-            <SelectTrigger aria-label="Filter by livestock status" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[160px]">
+            <SelectTrigger aria-label="Filter by livestock status" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[160px] shrink-0" : "w-full sm:w-[160px]")}>
               <SelectValue placeholder="Herd Lifecycle" />
             </SelectTrigger>
             <SelectContent>
@@ -596,7 +644,7 @@ export default function LivestockRecordList({
 
           {/* Sorting Dropdown */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-            <SelectTrigger aria-label="Sort livestock records" className="w-full min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 sm:w-[150px]">
+            <SelectTrigger aria-label="Sort livestock records" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[150px] shrink-0" : "w-full sm:w-[150px]")}>
               <div className="flex items-center gap-1.5 truncate">
                 <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <SelectValue placeholder="Sort by" />
@@ -611,42 +659,13 @@ export default function LivestockRecordList({
             </SelectContent>
           </Select>
 
-          {/* Grid / List View Toggle */}
-          <div className="col-span-2 flex min-h-11 items-center justify-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 shrink-0 sm:col-span-1">
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
-              aria-label="Show livestock as cards"
-              aria-pressed={viewMode === "grid"}
-              title="Cards Grid"
-              className={cn(
-                "size-10 rounded-md transition-all",
-                viewMode === "grid"
-                  ? "bg-white text-slate-900 shadow-2xs font-bold"
-                  : "text-slate-500 hover:text-slate-800"
-              )}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              aria-label="Show livestock as a table"
-              aria-pressed={viewMode === "table"}
-              title="Table View"
-              className={cn(
-                "size-10 rounded-md transition-all",
-                viewMode === "table"
-                  ? "bg-white text-slate-900 shadow-2xs font-bold"
-                  : "text-slate-500 hover:text-slate-800"
-              )}
-            >
-              <List className="w-3.5 h-3.5" />
-            </button>
+          {/* On the All Livestock page, center the switcher within the search/filter bar. */}
+          <div className={cn(centerViewToggle ? "shrink-0" : "col-span-2 sm:col-span-1")}>
+            {viewToggle}
           </div>
 
           {/* Export Button */}
-          <TooltipProvider delayDuration={200}>
+          {showExport && <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -663,10 +682,10 @@ export default function LivestockRecordList({
                 Export filtered records as CSV spreadsheet
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
+          </TooltipProvider>}
 
           {/* Add Record Button */}
-          <Button
+          {showAddRecord && <Button
             type="button"
             onClick={() => {
               if (onAddRecord) {
@@ -679,7 +698,7 @@ export default function LivestockRecordList({
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Record</span>
-          </Button>
+          </Button>}
 
           {/* Reset Filters Icon */}
           {activeFilterCount > 0 && (
@@ -689,7 +708,12 @@ export default function LivestockRecordList({
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    className="col-span-2 min-h-11 w-full rounded-lg text-sm font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 transition-colors shrink-0 sm:col-span-1 sm:w-auto sm:px-3"
+                    className={cn(
+                      "min-h-11 rounded-lg text-sm font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 transition-colors shrink-0",
+                      centerViewToggle
+                        ? "w-auto px-3"
+                        : "col-span-2 w-full sm:col-span-1 sm:w-auto sm:px-3",
+                    )}
                   >
                     <span className="inline-flex items-center justify-center gap-2"><RotateCcw className="size-4" /> Reset filters</span>
                   </button>

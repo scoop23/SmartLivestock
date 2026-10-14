@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from livestock.models import LivestockBatch, LivestockInventory, LivestockType
 from livestock.list_queries import LivestockListPagination, batch_list_annotations, filter_livestock_list
@@ -17,6 +18,7 @@ from livestock.serializer import (
     LivestockBatchPhotoUpdateSerializer,
     LivestockBatchSerializer,
     LivestockInventorySerializer,
+    validate_livestock_tag,
 )
 from users.models import Notification
 from users.notification_views import create_notification, notify_role, notify_review_revision
@@ -26,6 +28,26 @@ from smartlivestock.workflows import (
     validate_batch_lifecycle,
     validate_review_transition,
 )
+
+
+def _validate_roster_tags(animals_data, user):
+    """Validate existing and within-request ear tags before creating any roster rows."""
+    seen_tags = set()
+    for index, animal in enumerate(animals_data):
+        if not isinstance(animal, dict):
+            raise ValidationError({"animals": f"Animal row {index + 1} must be an object."})
+        tag = str(animal.get("tag_number") or "").strip()
+        animal["tag_number"] = tag
+        if not tag:
+            raise ValidationError({"animals": f"Ear tag is required for animal row {index + 1}."})
+        normalized_tag = tag.casefold()
+        if normalized_tag in seen_tags:
+            raise ValidationError({"animals": f"Ear tag {tag} appears more than once in this submission."})
+        seen_tags.add(normalized_tag)
+        try:
+            validate_livestock_tag(tag, user)
+        except ValidationError as error:
+            raise ValidationError({"animals": f"Row {index + 1}: {error.detail['tag_number'][0]}"}) from error
 
 
 @api_view(["GET", "POST"])
@@ -61,6 +83,12 @@ def batch_list_create(request):
                 {"error": "Farmer profile not found for current user."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if isinstance(animals_data, list):
+            try:
+                _validate_roster_tags(animals_data, farmer_profile.user)
+            except ValidationError as error:
+                return Response(error.detail, status=status.HTTP_400_BAD_REQUEST)
 
         # Batch code auto-generation if omitted
         if not data.get("batch_code"):
@@ -403,6 +431,11 @@ def batch_add_animals(request, pk):
             {"error": "No animal data provided in 'animals' list."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    try:
+        _validate_roster_tags(animals_data, batch.farmer.user)
+    except ValidationError as error:
+        return Response(error.detail, status=status.HTTP_400_BAD_REQUEST)
 
     default_animal_status = LivestockInventory.StatusType.PENDING
 
