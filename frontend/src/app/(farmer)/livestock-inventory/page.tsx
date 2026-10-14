@@ -51,7 +51,7 @@ export default function LivestockInventoryPage() {
 
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading, refetch, isFetching } = useUserInventory();
-  const { data: userBatches = [], isLoading: isBatchesLoading } = useLivestockBatches();
+  const { data: userBatches = [], isLoading: isBatchesLoading } = useLivestockBatches({ includeRoster: false });
 
   // Herd Telemetry calculations
   const totalHeads = useMemo(

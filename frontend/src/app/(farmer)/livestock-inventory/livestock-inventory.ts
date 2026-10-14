@@ -523,10 +523,10 @@ export async function deleteInventoryRecord(id: string) {
 
 // ── Livestock Batches API ──────────────────────────────────────────────────
 
-export async function fetchLivestockBatches(): Promise<LivestockBatchItem[]> {
-  // The batch list is a summary by default; request its real inventory rows so
-  // herd links use canonical livestock IDs instead of generated display labels.
-  const res = await api.get<any[]>("livestock/batches/", { params: { include_roster: true } });
+export async function fetchLivestockBatches(includeRoster = true): Promise<LivestockBatchItem[]> {
+  // Detailed herd screens need canonical animal rows; inventory overview and
+  // registration only need the fast summary fields.
+  const res = await api.get<any[]>("livestock/batches/", includeRoster ? { params: { include_roster: true } } : undefined);
   return res.data.map((b) => ({
     id: b.id,
     farmer: b.farmer,
@@ -606,10 +606,11 @@ export function useDeleteInventory() {
   });
 }
 
-export function useLivestockBatches() {
+export function useLivestockBatches(options: { includeRoster?: boolean } = {}) {
+  const includeRoster = options.includeRoster ?? true;
   return useQuery<LivestockBatchItem[]>({
-    queryKey: INVENTORY_QUERY_KEYS.batches,
-    queryFn: fetchLivestockBatches,
+    queryKey: [...INVENTORY_QUERY_KEYS.batches, includeRoster ? "roster" : "summary"],
+    queryFn: () => fetchLivestockBatches(includeRoster),
   });
 }
 
