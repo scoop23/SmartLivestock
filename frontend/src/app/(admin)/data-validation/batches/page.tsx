@@ -35,6 +35,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -78,6 +88,7 @@ import {
 } from "lucide-react";
 import { PADRE_GARCIA_BARANGAYS } from "../../admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import { RecordDetailDialog, type DetailRecordData } from "../record-detail-dialog";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -197,6 +208,10 @@ function AdminBatchesDrilldownContent() {
   // Selected batch for drilldown inspection
   const [selectedBatch, setSelectedBatch] = useState<BatchItem | null>(null);
   const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
+  const [reviewAnimal, setReviewAnimal] = useState<DetailRecordData | null>(null);
+  const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>([]);
+  const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
+  const [bulkApproving, setBulkApproving] = useState(false);
   const [animalSearchQuery, setAnimalSearchQuery] = useState("");
   const [animalStatusFilter, setAnimalStatusFilter] = useState<string>("ALL");
 
@@ -294,9 +309,19 @@ function AdminBatchesDrilldownContent() {
     (animalPage - 1) * ANIMAL_PAGE_SIZE,
     animalPage * ANIMAL_PAGE_SIZE,
   );
+  const visibleVerifiedAnimalIds = pagedChildAnimals
+    .filter((animal) => animal.status === "VERIFIED")
+    .map((animal) => animal.id);
+  const selectedVerifiedAnimals = (selectedBatch?.animals ?? []).filter(
+    (animal) => selectedAnimalIds.includes(animal.id) && animal.status === "VERIFIED",
+  );
+  const allVisibleVerifiedAnimalsSelected =
+    visibleVerifiedAnimalIds.length > 0 &&
+    visibleVerifiedAnimalIds.every((id) => selectedAnimalIds.includes(id));
 
   useEffect(() => {
     setAnimalPage(1);
+    setSelectedAnimalIds([]);
   }, [selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
 
   useEffect(() => {
@@ -305,6 +330,121 @@ function AdminBatchesDrilldownContent() {
 
   // ── Mutations: Batch Review ──────────────────────────────────────────────
   // Individual animals are reviewed from the inventory queue.
+
+  function openDrilldown(batch: BatchItem) {
+    // The list response omits animal rosters. Reuse cached detail when reopening
+    // the same herd so a roster-free list row cannot replace its loaded animals.
+    const cachedDetail = queryClient.getQueryData<BatchItem>([
+      "admin-batch-detail",
+      batch.id,
+    ]);
+    setSelectedBatch(cachedDetail ?? batch);
+    setIsDrilldownOpen(true);
+  }
+
+  function toggleVisibleVerifiedAnimals(checked: boolean) {
+    setSelectedAnimalIds((current) => {
+      if (checked) return Array.from(new Set([...current, ...visibleVerifiedAnimalIds]));
+      return current.filter((id) => !visibleVerifiedAnimalIds.includes(id));
+    });
+  }
+
+  function openAnimalDetail(animal: ChildAnimal) {
+    if (!selectedBatch) return;
+    // Use the shared MAO record dialog so the herd roster and Data Validation
+    // expose the same animal fields and review actions without route changes.
+    setReviewAnimal({
+      kind: "inventory",
+      id: animal.id,
+      rawId: animal.id,
+      isBatch: false,
+      farmerName: selectedBatch.farmer_name,
+      barangayName: selectedBatch.barangay_name,
+      livestockType: selectedBatch.livestock_type_name,
+      tagNumber: animal.tag_number || `#${animal.id}`,
+      breed: animal.breed || "",
+      sex: animal.sex || "Unspecified",
+      weight: animal.weight == null ? null : Number(animal.weight),
+      entryType: "INDIVIDUAL",
+      quantity: 1,
+      lastVaccinationDate: animal.last_vaccination_date || null,
+      status: animal.status,
+      reviewRemarks: animal.review_remarks || null,
+      reviewedByName: animal.reviewed_by_name || null,
+      reviewedAt: animal.reviewed_at || null,
+      createdAt: animal.created_at || selectedBatch.created_at,
+      batchId: selectedBatch.id,
+      batchCode: selectedBatch.batch_code,
+      batchName: selectedBatch.batch_name,
+      photoUrl: animal.photo_url || undefined,
+    });
+  }
+
+  async function reviewAnimalRecord(
+    action: "APPROVED" | "SUBJECT_TO_REVISION",
+    remarks: string,
+    recordIds: (string | number)[],
+  ) {
+    const animalId = Number(recordIds[0]);
+    if (!Number.isInteger(animalId)) throw new Error("Invalid livestock record.");
+    try {
+      await api.post(`livestock/inventory/${animalId}/review/`, { status: action, remarks });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-batch-detail", selectedBatch?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+        queryClient.invalidateQueries({ queryKey: ["livestock-batches"] }),
+      ]);
+      await detailQuery.refetch();
+      toast.success(action === "APPROVED" ? "Animal approved by MAO." : "Animal returned for revision.");
+    } catch (error) {
+      toast.error("Could not update this animal's review status. Please try again.");
+      throw error;
+    }
+  }
+
+  async function approveSelectedAnimals() {
+    if (!selectedBatch || selectedVerifiedAnimals.length === 0 || selectedVerifiedAnimals.length !== selectedAnimalIds.length) return;
+
+    setBulkApproving(true);
+    try {
+      const results = await Promise.allSettled(selectedVerifiedAnimals.map((animal) => {
+        const remarks = animal.review_remarks
+          ? `MAO approved following SIBAT verification. Previous SIBAT remarks: ${animal.review_remarks}`
+          : "MAO approved following SIBAT verification.";
+        return api.post(`livestock/inventory/${animal.id}/review/`, {
+          status: "APPROVED",
+          remarks,
+        });
+      }));
+      const approvedCount = results.filter((result) => result.status === "fulfilled").length;
+      const failedCount = results.length - approvedCount;
+
+      setSelectedAnimalIds([]);
+      setBulkApproveOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-batch-detail", selectedBatch.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+        queryClient.invalidateQueries({ queryKey: ["livestock-batches"] }),
+      ]);
+      await detailQuery.refetch();
+
+      if (failedCount > 0) {
+        toast.error(`${approvedCount} animal(s) approved; ${failedCount} could not be approved.`, {
+          description: "The server revalidated each animal. Refresh the herd and review any remaining verified records.",
+        });
+      } else {
+        toast.success(`${approvedCount} verified animal(s) approved by MAO.`);
+      }
+    } catch {
+      toast.error("Could not refresh the herd after approval. Please reload the roster.");
+    } finally {
+      setBulkApproving(false);
+    }
+  }
 
   const addBatchNoteMutation = useMutation({
     mutationFn: async ({ batchId, text }: { batchId: number; text: string }) => {
@@ -387,7 +527,7 @@ function AdminBatchesDrilldownContent() {
     <>
       <PageHeader
         title="Municipal Herd Registry"
-        subtitle="Browse herd containers and their animal status summaries. Review each livestock record separately in Data Validation."
+        subtitle="Browse herd containers, inspect individual livestock records, and approve SIBAT-verified animals."
         variant="admin"
         maxWidthClass="w-full"
         icon={<Layers className="size-5 text-slate-800" />}
@@ -816,8 +956,7 @@ function AdminBatchesDrilldownContent() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          setSelectedBatch(batch);
-                          setIsDrilldownOpen(true);
+                          openDrilldown(batch);
                         }}
                         className="h-8 rounded-lg bg-slate-900 hover:bg-emerald-800 text-white font-bold text-[10px] gap-1.5 shadow-2xs"
                       >
@@ -954,8 +1093,7 @@ function AdminBatchesDrilldownContent() {
                             <Button
                               size="sm"
                               onClick={() => {
-                                setSelectedBatch(batch);
-                                setIsDrilldownOpen(true);
+                                openDrilldown(batch);
                               }}
                               className="h-8 rounded-xl bg-slate-900 hover:bg-emerald-800 text-white font-bold text-xs gap-1 shadow-2xs"
                             >
@@ -1175,7 +1313,27 @@ function AdminBatchesDrilldownContent() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setBulkApproveOpen(true)}
+                      disabled={selectedAnimalIds.length === 0 || selectedVerifiedAnimals.length !== selectedAnimalIds.length}
+                      className="h-8 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-500"
+                    >
+                      <ShieldCheck className="mr-1.5 size-3.5" />
+                      Approve selected verified ({selectedAnimalIds.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toggleVisibleVerifiedAnimals(!allVisibleVerifiedAnimalsSelected)}
+                      disabled={visibleVerifiedAnimalIds.length === 0}
+                      className="h-8 rounded-xl text-xs font-bold"
+                    >
+                      {allVisibleVerifiedAnimalsSelected ? "Clear page selection" : "Select verified on page"}
+                    </Button>
                     <div className="relative flex-1 sm:w-56">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                       <Input
@@ -1206,6 +1364,17 @@ function AdminBatchesDrilldownContent() {
                   <Table className="min-w-[460px] md:min-w-[650px]">
                     <TableHeader className="bg-slate-50">
                       <TableRow>
+                        <TableHead className="w-10">
+                          <input
+                            type="checkbox"
+                            aria-label="Select all verified animals on this page"
+                            title="Select all verified animals on this page"
+                            checked={allVisibleVerifiedAnimalsSelected}
+                            disabled={visibleVerifiedAnimalIds.length === 0}
+                            onChange={(event) => toggleVisibleVerifiedAnimals(event.target.checked)}
+                            className="size-4 rounded border-slate-300 accent-emerald-700 disabled:cursor-not-allowed"
+                          />
+                        </TableHead>
                         <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                           Ear Tag #
                         </TableHead>
@@ -1229,7 +1398,7 @@ function AdminBatchesDrilldownContent() {
                     <TableBody>
                       {filteredChildAnimals.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-400">
+                          <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-400">
                             No individual animals found matching filter criteria.
                           </TableCell>
                         </TableRow>
@@ -1242,6 +1411,20 @@ function AdminBatchesDrilldownContent() {
 
                           return (
                             <TableRow key={animal.id} className="hover:bg-slate-50/70 transition-colors">
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for approval`}
+                                  checked={selectedAnimalIds.includes(animal.id)}
+                                  disabled={animal.status !== "VERIFIED"}
+                                  onChange={(event) => {
+                                    setSelectedAnimalIds((current) => event.target.checked
+                                      ? Array.from(new Set([...current, animal.id]))
+                                      : current.filter((id) => id !== animal.id));
+                                  }}
+                                  className="size-4 rounded border-slate-300 accent-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                />
+                              </TableCell>
                               {/* Tag Number */}
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -1336,8 +1519,17 @@ function AdminBatchesDrilldownContent() {
                                     <QrCode className="w-3 h-3 text-emerald-700" />
                                     Passport
                                   </Button>
-
-                                  <Badge variant="outline" className="text-[10px]">Individual review</Badge>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openAnimalDetail(animal)}
+                                    className="h-7 px-2 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-100 gap-1"
+                                    aria-label={`Review details for ${animal.tag_number || `animal ${animal.id}`}`}
+                                  >
+                                    <Eye className="size-3 text-blue-700" />
+                                    Review
+                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1370,6 +1562,39 @@ function AdminBatchesDrilldownContent() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={bulkApproveOpen} onOpenChange={(open) => {
+        if (!bulkApproving) setBulkApproveOpen(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve verified animals?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will submit {selectedVerifiedAnimals.length} selected SIBAT-verified animal record(s) for MAO approval in this herd. Each animal is reviewed separately, and the server will recheck its current status and your permissions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkApproving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkApproving || selectedVerifiedAnimals.length === 0 || selectedVerifiedAnimals.length !== selectedAnimalIds.length}
+              onClick={(event) => {
+                event.preventDefault();
+                void approveSelectedAnimals();
+              }}
+              className="bg-emerald-700 hover:bg-emerald-800"
+            >
+              {bulkApproving ? "Approving..." : `Approve ${selectedVerifiedAnimals.length} animal(s)`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <RecordDetailDialog
+        record={reviewAnimal}
+        open={reviewAnimal !== null}
+        onOpenChange={(open) => { if (!open) setReviewAnimal(null); }}
+        onConfirmAction={reviewAnimalRecord}
+      />
 
       {/* ──────────────────────────────────────────────────────────────────────────
           BATCH REVIEW CONFIRMATION MODAL

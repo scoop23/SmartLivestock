@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { mapInventoryToUnified, mapBatchToUnified, type RawInventoryRecord, type UnifiedStatus } from "../sibat-analytics";
@@ -231,7 +232,12 @@ function SibatLivestockRegistryContent() {
                         <TableRow key={`${record.sourceType}-${record.rawId}`} className="transition-colors hover:bg-slate-50/90">
                           <TableCell className="px-3.5 py-2.5">
                             <span className="font-mono text-xs font-bold text-slate-900">{record.tagNumber || record.batchCode || `Record #${record.rawId}`}</span>
-                            <span className="block text-xs text-slate-500">{record.isPostApprovalAddition ? "Added to approved herd · reviewed separately" : record.entryType === "BATCH" ? record.batchName || "Herd" : record.sex || "Individual animal"}</span>
+                            <span className="block text-xs text-slate-500">{record.isPostApprovalAddition ? "Added to approved herd · reviewed separately" : record.entryType === "BATCH" ? record.batchName || "Herd container" : record.sex || "Individual animal"}</span>
+                            {record.entryType === "INDIVIDUAL" ? (
+                              <span className="mt-0.5 block text-[11px] text-slate-500">
+                                Container: {record.batchName || record.batchCode || "Not assigned to a herd"}
+                              </span>
+                            ) : null}
                           </TableCell>
                           <TableCell className="px-3.5 py-2.5 text-xs font-bold text-slate-800">{record.farmerName}</TableCell>
                           <TableCell className="px-3.5 py-2.5 text-xs font-semibold text-slate-700">{record.barangayName}</TableCell>
@@ -243,11 +249,31 @@ function SibatLivestockRegistryContent() {
                             <span className="mt-1 block text-xs font-medium text-slate-500">{record.reviewedAt ? new Date(record.reviewedAt).toLocaleDateString() : "Date not recorded"}</span>
                           </TableCell>
                           <TableCell className="px-3.5 py-2.5">
-                            {record.sourceType === "INVENTORY" && record.status === "PENDING" ? (
-                              <Button type="button" size="sm" variant="outline" className="gap-1.5 border-sky-200 text-sky-800 hover:bg-sky-50" onClick={() => setSelectedSubmission(record)}>
-                                <Eye className="size-3.5" /> Details / Validate
-                              </Button>
-                            ) : record.sourceType === "BATCH" ? <span className="text-xs font-medium text-slate-500">Grouping container</span> : <span className="text-xs text-slate-400">—</span>}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {record.sourceType === "INVENTORY" && record.status === "PENDING" ? (
+                                <Button type="button" size="sm" variant="outline" className="gap-1.5 border-sky-200 text-sky-800 hover:bg-sky-50" onClick={() => setSelectedSubmission(record)}>
+                                  <Eye className="size-3.5" /> Details / Validate
+                                </Button>
+                              ) : record.sourceType === "INVENTORY" && record.status === "VERIFIED" ? (
+                                <Button type="button" size="sm" variant="outline" className="gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50" onClick={() => setSelectedSubmission(record)}>
+                                  <Eye className="size-3.5" /> View review
+                                </Button>
+                              ) : null}
+                              {record.sourceType === "BATCH" ? (
+                                <Button asChild type="button" size="sm" variant="outline" className="gap-1.5 border-sky-200 text-sky-800 hover:bg-sky-50">
+                                  <Link href={`/sibat/batches?batchId=${record.rawId}`} aria-label={`Open animal roster for ${record.batchCode || record.batchName || `herd ${record.rawId}`}`}>
+                                    <Layers className="size-3.5" /> Open herd
+                                  </Link>
+                                </Button>
+                              ) : record.batchId ? (
+                                <Button asChild type="button" size="sm" variant="outline" className="gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50">
+                                  <Link href={`/sibat/batches?batchId=${record.batchId}`} aria-label={`Open herd container ${record.batchCode || record.batchId}`}>
+                                    <Layers className="size-3.5" /> View herd
+                                  </Link>
+                                </Button>
+                              ) : null}
+                              {record.sourceType !== "BATCH" && record.sourceType !== "INVENTORY" ? <span className="text-xs text-slate-400">—</span> : null}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

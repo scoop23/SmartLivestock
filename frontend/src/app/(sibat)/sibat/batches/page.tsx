@@ -72,6 +72,8 @@ import {
 } from "lucide-react";
 import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import SibatReviewDialog from "../components/sibat-review-dialog";
+import type { UnifiedSubmissionItem } from "../sibat-analytics";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -226,6 +228,7 @@ function SibatBatchesVerificationContent() {
 
   const [selectedBatch, setSelectedBatch] = useState<BatchItem | null>(null);
   const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
+  const [selectedAnimalReview, setSelectedAnimalReview] = useState<UnifiedSubmissionItem | null>(null);
   const [animalSearchQuery, setAnimalSearchQuery] = useState("");
   const [animalStatusFilter, setAnimalStatusFilter] = useState<string>("ALL");
 
@@ -246,13 +249,17 @@ function SibatBatchesVerificationContent() {
     data: batchSummaryPage,
     isLoading,
     isRefetching,
+    isError,
     refetch,
   } = useQuery<BatchSummaryPage>({
     queryKey: ["sibat-batches-drilldown"],
     queryFn: fetchAllHerdSummaries,
-    staleTime: 5 * 60 * 1000,
+    // Herds may be created or reviewed by another user while this page is open.
+    // Refresh on entry so a cached empty list does not hide newly available herds.
+    staleTime: 30_000,
     gcTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const batches = batchSummaryPage?.results ?? [];
 
@@ -432,6 +439,52 @@ function SibatBatchesVerificationContent() {
     toast.success(`Tag copied: ${tag}`);
     setTimeout(() => setCopiedTag(null), 2000);
   };
+
+  function openHerdDrilldown(batch: BatchItem) {
+    // Summary rows omit `animals`; keep cached detail when reopening a herd so
+    // the roster does not disappear while React Query serves its cached result.
+    const cachedDetail = queryClient.getQueryData<BatchItem>([
+      "sibat-batch-detail",
+      batch.id,
+    ]);
+    setSelectedBatch(cachedDetail ?? batch);
+    setIsDrilldownOpen(true);
+  }
+
+  function openAnimalReview(batch: BatchItem, animal: ChildAnimal) {
+    // The herd roster contains enough animal and farmer context to open the same
+    // individual review dialog used by the SIBAT registry.
+    setSelectedAnimalReview({
+      id: `inv-${animal.id}`,
+      rawId: animal.id,
+      sourceType: "INVENTORY",
+      submissionTypeLabel: "Livestock Inventory",
+      farmerName: batch.farmer_name,
+      barangayName: batch.barangay_name,
+      livestockTypeName: batch.livestock_type_name,
+      detailsTitle: `${animal.tag_number || `Animal #${animal.id}`} (${batch.livestock_type_name})`,
+      quantityDisplay: "1 head",
+      quantity: 1,
+      unit: "head",
+      recordDate: animal.created_at || batch.created_at,
+      status: animal.status,
+      notes: animal.review_remarks || "",
+      breed: animal.breed,
+      tagNumber: animal.tag_number,
+      sex: animal.sex,
+      weight: animal.weight == null ? null : Number(animal.weight),
+      entryType: "INDIVIDUAL",
+      batchId: batch.id,
+      batchCode: batch.batch_code,
+      batchName: batch.batch_name,
+      photoUrl: animal.photo_url,
+      lastVaccinationDate: animal.last_vaccination_date || null,
+      reviewRemarks: animal.review_remarks || null,
+      reviewedAt: animal.reviewed_at || null,
+      reviewedByName: animal.reviewed_by_name || null,
+      createdAt: animal.created_at || batch.created_at,
+    });
+  }
 
   const getStatusBadge = (status?: string) => {
     const s = (status || "PENDING").toUpperCase();
@@ -770,6 +823,16 @@ function SibatBatchesVerificationContent() {
             <p className="text-sm font-black text-slate-800">Loading farm herds...</p>
             <p className="text-xs text-slate-500 mt-1">Retrieving batch records and individual animal rosters from backend</p>
           </div>
+        ) : isError && !batchSummaryPage ? (
+          <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center shadow-2xs">
+            <p className="text-sm font-black text-rose-900">Could not load SIBAT herds</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-rose-800">
+              The herd request failed. Check your session and SIBAT barangay access, then try again.
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} className="mt-3 rounded-xl border-rose-300 font-bold text-rose-900 hover:bg-rose-100">
+              <RefreshCw className="mr-1.5 size-3.5" /> Retry loading herds
+            </Button>
+          </div>
         ) : filteredBatches.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
             <Layers className="w-10 h-10 mx-auto text-slate-300 mb-3" />
@@ -921,8 +984,7 @@ function SibatBatchesVerificationContent() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          setSelectedBatch(batch);
-                          setIsDrilldownOpen(true);
+                          openHerdDrilldown(batch);
                         }}
                         className="h-8 rounded-lg bg-[#1A365D] hover:bg-[#132742] text-white font-bold text-[10px] gap-1.5 shadow-2xs"
                       >
@@ -1042,8 +1104,7 @@ function SibatBatchesVerificationContent() {
                           <Button
                             size="sm"
                             onClick={() => {
-                              setSelectedBatch(batch);
-                              setIsDrilldownOpen(true);
+                                openHerdDrilldown(batch);
                             }}
                             className="h-8 rounded-xl bg-[#1A365D] hover:bg-[#132742] text-white font-bold text-xs gap-1 shadow-2xs"
                           >
@@ -1104,7 +1165,36 @@ function SibatBatchesVerificationContent() {
         }}
       >
         <DialogContent className="w-full max-w-[98vw] sm:max-w-5xl md:max-w-6xl lg:max-w-7xl xl:max-w-[1440px] rounded-2xl sm:rounded-3xl bg-white p-0 overflow-hidden shadow-2xl border-slate-200 max-h-[94vh] flex flex-col">
-          {selectedBatch && (
+          {detailQuery.isLoading ? (
+            <div
+              className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                <RefreshCw className="size-6 animate-spin" />
+              </div>
+              <div className="space-y-1">
+                <DialogTitle className="text-base font-black text-slate-900">Loading herd details</DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Retrieving the herd record and individual animal roster.
+                </DialogDescription>
+              </div>
+            </div>
+          ) : detailQuery.isError ? (
+            <div className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+              <AlertTriangle className="size-8 text-rose-600" />
+              <div className="space-y-1">
+                <DialogTitle className="text-base font-black text-slate-900">Could not load herd details</DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  The individual animal roster could not be retrieved. Check your connection and try again.
+                </DialogDescription>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => void detailQuery.refetch()} className="rounded-xl font-bold">
+                Try again
+              </Button>
+            </div>
+          ) : selectedBatch && (
             <div className="flex flex-col max-h-[94vh]">
               {/* Modal Header */}
               <div className="p-4 sm:p-5 bg-gradient-to-r from-[#1A365D] via-slate-900 to-[#1E4E8C] text-white border-b border-sky-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pr-12 sm:pr-14">
@@ -1237,8 +1327,6 @@ function SibatBatchesVerificationContent() {
 
               {/* Individual Animals Drilldown Section */}
               <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3">
-                {detailQuery.isLoading ? <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">Loading this herd?s individual animal records?</p> : null}
-                {detailQuery.isError ? <p role="alert" className="rounded-xl bg-rose-50 p-4 text-xs text-rose-800">Could not load this herd?s animal records. <button className="underline" onClick={() => void detailQuery.refetch()}>Retry</button></p> : null}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
@@ -1398,7 +1486,17 @@ function SibatBatchesVerificationContent() {
                               {/* Row Actions */}
                               <TableCell className="sticky right-0 z-10 bg-white border-l border-slate-200 text-right">
                                 <div className="flex items-center justify-end gap-1.5">
-                                  <Badge variant="outline" className="text-[10px]">Individual review</Badge>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openAnimalReview(selectedBatch, animal)}
+                                    className="h-8 gap-1.5 rounded-lg border-sky-200 px-2.5 text-[10px] font-bold text-sky-800 hover:bg-sky-50"
+                                    aria-label={`${animal.status === "PENDING" ? "Review" : "View"} individual animal ${animal.tag_number || animal.id}`}
+                                  >
+                                    <Eye className="size-3.5" />
+                                    {animal.status === "PENDING" ? "Review animal" : "View review"}
+                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1460,6 +1558,16 @@ function SibatBatchesVerificationContent() {
           )}
         </DialogContent>
       </Dialog>
+
+      <SibatReviewDialog
+        submission={selectedAnimalReview}
+        open={selectedAnimalReview !== null}
+        onOpenChange={(open) => { if (!open) setSelectedAnimalReview(null); }}
+        onReviewSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
+          void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
+        }}
+      />
 
       {/* ──────────────────────────────────────────────────────────────────────────
           BATCH REVIEW CONFIRMATION MODAL (SIBAT VERIFICATION)

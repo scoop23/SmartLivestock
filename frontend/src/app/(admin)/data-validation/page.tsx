@@ -598,6 +598,29 @@ function AdminDataValidationContent() {
         }));
     }
 
+    // Bulk approval is an MAO step: require every selected item to have completed
+    // SIBAT verification instead of silently reviewing only the verified subset.
+    const selectedAreAllVerified = selectedIds.every((id) => {
+      if (activeDomain === "census") {
+        return censusSubmissions.find((item) => item.id === id)?.status.toUpperCase() === "VERIFIED";
+      }
+      if (activeDomain === "production") {
+        return productionRecords.find((item) => item.id === id)?.status.toUpperCase() === "VERIFIED";
+      }
+      if (activeDomain === "inventory") {
+        const item = inventoryRecords.find((record) => record.id === id);
+        return item?.status.toUpperCase() === "VERIFIED" && !item.isBatch && item.entryType === "INDIVIDUAL";
+      }
+      return incidents.find((item) => item.id === id)?.status.toUpperCase() === "VERIFIED";
+    });
+
+    if (!selectedAreAllVerified || targets.length !== selectedIds.length) {
+      toast.info("Bulk approval requires every selected record to be SIBAT verified.", {
+        description: "Clear the selection and choose only verified records awaiting MAO review.",
+      });
+      return;
+    }
+
     setReviewTargetItems(targets);
     setReviewDialogOpen(true);
   };
