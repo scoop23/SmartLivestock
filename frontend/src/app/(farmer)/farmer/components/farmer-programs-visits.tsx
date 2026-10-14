@@ -5,6 +5,14 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, Clock3, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getSchedules,
@@ -39,6 +47,7 @@ export default function FarmerProgramsVisits() {
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [detailsSchedule, setDetailsSchedule] = useState<ProgramSchedule | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -77,6 +86,13 @@ export default function FarmerProgramsVisits() {
     .filter((s) => isUpcoming(s.date) || s.is_open)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 4);
+
+  const detailsBooking = detailsSchedule
+    ? bookings.find(
+        (booking) =>
+          booking.schedule === detailsSchedule.id && booking.status === "CONFIRMED",
+      )
+    : undefined;
 
   return (
     <section aria-label="Upcoming Programs and Visits" className="space-y-3">
@@ -190,23 +206,132 @@ export default function FarmerProgramsVisits() {
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-100">
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="w-full h-7.5 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800"
-                  >
-                    <Link href={`/farmer-scheduling?schedule=${schedule.id}`}>
-                      {isBooked ? "View Details" : isFull || isClosed ? "View Schedule" : "Book Program"}
+                  {isBooked ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDetailsSchedule(schedule)}
+                      className="w-full h-9 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800"
+                    >
+                      View Details
                       <ArrowRight className="ml-1 size-3" />
-                    </Link>
-                  </Button>
+                    </Button>
+                  ) : (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-9 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800"
+                    >
+                      <Link href={`/farmer-scheduling?schedule=${schedule.id}`}>
+                        {isFull || isClosed ? "View Schedule" : "Book Program"}
+                        <ArrowRight className="ml-1 size-3" />
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <Dialog
+        open={detailsSchedule !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailsSchedule(null);
+        }}
+      >
+        {detailsSchedule ? (
+          <DialogContent className="w-[calc(100%-2rem)] max-h-[88dvh] overflow-y-auto rounded-2xl sm:max-w-lg">
+            <DialogHeader className="pr-6 text-left">
+              <Badge
+                variant="outline"
+                className={`w-fit text-[10px] font-semibold uppercase tracking-wider ${getProgramBadge(detailsSchedule.program).badge}`}
+              >
+                {getProgramBadge(detailsSchedule.program).label}
+              </Badge>
+              <DialogTitle className="text-xl leading-snug text-slate-900">
+                {detailsSchedule.program}
+              </DialogTitle>
+              <DialogDescription>
+                Details for this scheduled program or field visit.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+                <div className="flex items-start gap-2.5">
+                  <CalendarDays className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Date</p>
+                    <p className="mt-0.5 text-sm font-medium text-slate-900">
+                      {formatShortDate(detailsSchedule.date)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Clock3 className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Available time</p>
+                    <p className="mt-0.5 text-sm font-medium text-slate-900">
+                      {formatTimeWindow(detailsSchedule.available_times)}
+                    </p>
+                    {detailsBooking ? (
+                      <p className="mt-1 text-xs text-emerald-800">
+                        Your booking: {detailsBooking.time}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                {detailsSchedule.location ? (
+                  <div className="flex items-start gap-2.5 sm:col-span-2">
+                    <MapPin className="mt-0.5 size-4 shrink-0 text-rose-600" />
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500">Location</p>
+                      <p className="mt-0.5 break-words text-sm font-medium text-slate-900">
+                        {detailsSchedule.location}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">Your registration</p>
+                  <p className="mt-0.5 text-sm font-medium text-emerald-800">
+                    {detailsBooking ? "Confirmed" : detailsSchedule.registration_status}
+                  </p>
+                </div>
+                <Badge className="shrink-0 border-emerald-200 bg-emerald-50 text-emerald-800">
+                  {detailsSchedule.remaining_slots} slot{detailsSchedule.remaining_slots === 1 ? "" : "s"} left
+                </Badge>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-xs font-semibold text-amber-950">Reminder for farmers</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-amber-900">
+                  {detailsSchedule.farmer_notes?.trim() || "No additional reminders were provided for this program."}
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:flex-row">
+              <Button type="button" variant="outline" onClick={() => setDetailsSchedule(null)}>
+                Close
+              </Button>
+              <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
+                <Link href={`/farmer-scheduling?schedule=${detailsSchedule.id}`}>
+                  Open scheduling
+                  <ArrowRight className="ml-1 size-4" />
+                </Link>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        ) : null}
+      </Dialog>
     </section>
   );
 }

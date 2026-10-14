@@ -391,7 +391,7 @@ export default function FarmerSchedulingPage() {
               </div>
             </div>
 
-            <CardContent className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+            <CardContent className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(400px,0.95fr)_minmax(0,1.35fr)] xl:grid-cols-[minmax(440px,0.9fr)_minmax(0,1.25fr)]">
               {loading ? (
                 <div className="lg:col-span-2">
                   <CommunitySkeleton cards={3} />
@@ -417,7 +417,7 @@ export default function FarmerSchedulingPage() {
                       </span>
                     </div>
 
-                    <div className="flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50/60 p-3 shadow-2xs">
+                    <div className="flex flex-col items-stretch rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4 shadow-2xs">
                       <Calendar
                         mode="single"
                         selected={calendarDate ?? undefined}
@@ -434,7 +434,7 @@ export default function FarmerSchedulingPage() {
                           programDate:
                             "bg-emerald-100/90 font-black text-emerald-950 hover:bg-emerald-200 transition-colors",
                         }}
-                        className="w-full"
+                        className="w-full [--cell-size:2.25rem] sm:[--cell-size:2.75rem] lg:[--cell-size:3rem] xl:[--cell-size:3.25rem]"
                       />
 
                       {/* Legend Bar */}
