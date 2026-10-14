@@ -91,6 +91,10 @@ function ReportIllnessDialogContent({
   });
   const [selectedInventoryIds, setSelectedInventoryIds] = useState<string[]>(() => {
     if (isEditMode && existingReport) {
+      const affected = existingReport.rawItem?.affected_animals;
+      if (Array.isArray(affected) && affected.length) {
+        return affected.map((animal: { id: number }) => String(animal.id));
+      }
       const id = existingReport.inventoryId || existingReport.rawItem?.livestock || defaultInventoryId;
       return id ? [String(id)] : [];
     }
@@ -130,9 +134,17 @@ function ReportIllnessDialogContent({
   }, [inventories, selectedInventoryId]);
 
   const selectableAnimals = useMemo(
-    () => inventories.filter((inventory) => inventory.entryType === "INDIVIDUAL" && inventory.quantity === 1),
-    [inventories],
+    () =>
+      inventories.filter(
+        (inventory) =>
+          inventory.entryType === "INDIVIDUAL" &&
+          inventory.quantity === 1 &&
+          (reportType !== "MORTALITY" ||
+            (inventory.status === "APPROVED" && inventory.operationalStatus === "ACTIVE")),
+      ),
+    [inventories, reportType],
   );
+  const editableInventoryOptions = reportType === "MORTALITY" ? selectableAnimals : inventories;
   const selectedAnimals = useMemo(
     () => selectableAnimals.filter((inventory) => selectedInventoryIds.includes(String(inventory.id))),
     [selectableAnimals, selectedInventoryIds],
@@ -170,11 +182,17 @@ function ReportIllnessDialogContent({
     e.preventDefault();
 
     const targetInventoryIds = isEditMode
-      ? effectiveInventoryId ? [effectiveInventoryId] : []
-      : selectedInventoryIds;
+      ? reportType === "MORTALITY"
+        ? selectedAnimals.map((animal) => String(animal.id))
+        : effectiveInventoryId ? [effectiveInventoryId] : []
+      : selectedAnimals.map((animal) => String(animal.id));
 
     if (targetInventoryIds.length === 0) {
-      toast.error("Select at least one individual animal from your livestock.");
+      toast.error(
+        reportType === "MORTALITY"
+          ? "Select an approved, active individual animal to report as deceased."
+          : "Select at least one individual animal from your livestock.",
+      );
       return;
     }
 
@@ -200,17 +218,27 @@ function ReportIllnessDialogContent({
 
     setIsSubmitting(true);
     let submittedCount = 0;
+    const submittedInventoryIds: string[] = [];
 
     try {
-      for (const inventoryId of targetInventoryIds) {
+      // A shared death event is one reviewable report; disease cases retain
+      // their existing one-report-per-animal behavior.
+      const submissionGroups = reportType === "MORTALITY"
+        ? [targetInventoryIds]
+        : targetInventoryIds.map((inventoryId) => [inventoryId]);
+      for (const inventoryGroup of submissionGroups) {
         const requestData = new FormData();
-        requestData.append("livestock", inventoryId);
+        if (reportType === "MORTALITY") {
+          inventoryGroup.forEach((inventoryId) => requestData.append("livestocks", inventoryId));
+        } else {
+          requestData.append("livestock", inventoryGroup[0]);
+        }
         if (reportType === "DISEASE") {
           requestData.append("name", mainName);
           requestData.append("affected_count", String(isEditMode ? affectedCount : 1));
         } else {
           requestData.append("cause", mainName);
-          requestData.append("death_count", String(isEditMode ? affectedCount : 1));
+          requestData.append("death_count", String(inventoryGroup.length));
         }
         requestData.append("record_date", recordDate);
         if (description.trim()) requestData.append("description", description.trim());
@@ -231,7 +259,8 @@ function ReportIllnessDialogContent({
             headers: { "Content-Type": "multipart/form-data" },
           });
         }
-        submittedCount += 1;
+        submittedCount += reportType === "MORTALITY" ? inventoryGroup.length : 1;
+        submittedInventoryIds.push(...inventoryGroup);
 
         const activeUrl = response.data?.photo_url || response.data?.photo || photoDataUrl;
         if (activeUrl && response.data?.id) {
@@ -262,7 +291,7 @@ function ReportIllnessDialogContent({
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
         toast.success(isEditMode
           ? "Mortality report resubmitted successfully. Your report has been returned to the validation queue."
-          : `${submittedCount} mortality report${submittedCount === 1 ? "" : "s"} logged. SIBAT and MAO will review them.`);
+          : `One mortality report logged for ${submittedCount} animal${submittedCount === 1 ? "" : "s"}. SIBAT and MAO will review the shared incident.`);
       }
 
       setConditionName(defaultType === "MORTALITY" ? DEFAULT_MORTALITY_CAUSE : "");
@@ -276,8 +305,26 @@ function ReportIllnessDialogContent({
       onOpenChange(false);
     } catch (err: unknown) {
       console.error("Failed to submit observation:", err);
-      const axiosErr = err as { response?: { data?: { error?: string; detail?: string } } };
-      const msg = axiosErr.response?.data?.error || axiosErr.response?.data?.detail || "Submission failed.";
+      const axiosErr = err as {
+        response?: { data?: Record<string, unknown> };
+      };
+      const responseData = axiosErr.response?.data;
+      const validationMessages = responseData
+        ? Object.entries(responseData)
+            .filter(([key]) => key !== "error" && key !== "detail")
+            .flatMap(([field, value]) => {
+              const messages = Array.isArray(value) ? value : [value];
+              return messages
+                .filter((message): message is string => typeof message === "string")
+                .map((message) => (field === "non_field_errors" ? message : `${field}: ${message}`));
+            })
+            .join(" ")
+        : "";
+      const msg =
+        (typeof responseData?.error === "string" && responseData.error) ||
+        (typeof responseData?.detail === "string" && responseData.detail) ||
+        validationMessages ||
+        "Submission failed.";
       if (submittedCount > 0) {
         if (reportType === "DISEASE") {
           queryClient.invalidateQueries({ queryKey: ["farmer-disease-cases"] });
@@ -290,9 +337,15 @@ function ReportIllnessDialogContent({
         }
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
+        // Keep the form open after a partial batch so the farmer can retry only
+        // the animals whose requests failed, without duplicating saved reports.
+        setSelectedInventoryIds((current) =>
+          current.filter((id) => !submittedInventoryIds.includes(id)),
+        );
         onSuccess?.();
-        onOpenChange(false);
-        toast.error(`${submittedCount} of ${targetInventoryIds.length} reports were submitted before an error. Check report history before retrying. ${msg}`);
+        toast.error(
+          `${submittedCount} animal${submittedCount === 1 ? "" : "s"} saved before a submission failed. Review the message and retry only animals not yet submitted. ${msg}`,
+        );
       } else {
         toast.error(msg);
       }
@@ -388,7 +441,7 @@ function ReportIllnessDialogContent({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
-          {/* Each selected individual receives its own report, matching the backend's one-animal-per-record model. */}
+          {/* Mortality groups affected animals into one incident; disease remains per-animal. */}
           <div className="space-y-1.5">
             <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -402,13 +455,13 @@ function ReportIllnessDialogContent({
               )}
             </Label>
 
-            {isEditMode ? (
+            {isEditMode && isDisease ? (
               <Select value={effectiveInventoryId} onValueChange={setSelectedInventoryId}>
                 <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]">
                   <SelectValue placeholder="Select livestock from your herd..." />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl max-h-56">
-                  {inventories.map((inv) => (
+                  {editableInventoryOptions.map((inv) => (
                     <SelectItem key={inv.id} value={String(inv.id)} className="text-xs font-semibold py-2 cursor-pointer">
                       #{inv.tagNumber || `TAG-${inv.id}`} • {inv.livestockTypeName || "Livestock"} ({inv.breed || "Standard"}, {inv.sex || "Female"})
                       {inv.batchCode ? ` • [Herd: ${inv.batchCode}]` : ""}
@@ -419,7 +472,11 @@ function ReportIllnessDialogContent({
             ) : (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                 {selectableAnimals.length === 0 ? (
-                  <p className="p-3 text-xs text-slate-600">No individual animals are available to select.</p>
+                  <p className="p-3 text-xs text-slate-600">
+                    {reportType === "MORTALITY"
+                      ? "No approved, active individual animals are available to report as deceased."
+                      : "No individual animals are available to select."}
+                  </p>
                 ) : (
                   <div className="max-h-48 divide-y divide-slate-200 overflow-y-auto">
                     {selectableAnimals.map((animal) => {
@@ -443,13 +500,15 @@ function ReportIllnessDialogContent({
                   </div>
                 )}
                 <p className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
-                  {selectedInventoryIds.length} animal{selectedInventoryIds.length === 1 ? "" : "s"} selected
+                  {selectedAnimals.length} animal{selectedAnimals.length === 1 ? "" : "s"} selected
                 </p>
               </div>
             )}
             {!isEditMode && (
               <p className="text-xs leading-relaxed text-slate-500">
-                A separate report is created for each selected animal. The animal count comes from your selection.
+                {isDisease
+                  ? "A separate disease report is created for each selected animal."
+                  : "Animals from the same death event are grouped into one report. Select each ear tag involved."}
               </p>
             )}
           </div>
@@ -610,7 +669,7 @@ function ReportIllnessDialogContent({
 
             <Button
               type="submit"
-              disabled={isSubmitting || (isEditMode ? !effectiveInventoryId : selectedInventoryIds.length === 0)}
+              disabled={isSubmitting || selectedAnimals.length === 0}
               className={`rounded-xl text-white text-xs font-black h-10 px-6 gap-2 shadow-sm cursor-pointer ${
                 isDisease
                   ? "bg-[#2D5A27] hover:bg-[#22441d]"

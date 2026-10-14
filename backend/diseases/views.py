@@ -239,7 +239,12 @@ def _notify_mortality_record_created(instance, user):
         reporter_name = f"{user.first_name} {user.last_name}".strip() or user.username
         if instance.livestock:
             species_str = getattr(instance.livestock.livestock_type, "name", "Livestock")
-            tag_str = instance.livestock.tag_number or f"Animal #{instance.livestock.id}"
+            animals = list(instance.affected_livestock.all())
+            if not animals:
+                animals = [instance.livestock]
+            tag_str = ", ".join(
+                animal.tag_number or f"Animal #{animal.pk}" for animal in animals
+            )
             animal_tag = f"{species_str} [{tag_str}]"
         elif instance.batch:
             species_str = getattr(instance.batch.livestock_type, "name", "Livestock")
@@ -517,7 +522,9 @@ def mortality_record_list_create(request):
 
     if role_name == "FARMER":
         records = MortalityRecord.objects.filter(
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
+            Q(livestock__farmer__user=user)
+            | Q(affected_livestock__farmer__user=user)
+            | Q(batch__farmer__user=user)
         ).distinct()
     else:
         # MAO, SIBAT: list all municipal mortality records
@@ -531,7 +538,9 @@ def mortality_record_list_create(request):
 
     livestock_param = request.query_params.get("livestock")
     if livestock_param:
-        records = records.filter(livestock_id=livestock_param)
+        records = records.filter(
+            Q(livestock_id=livestock_param) | Q(affected_livestock__id=livestock_param)
+        )
 
     disease_param = request.query_params.get("disease_case")
     if disease_param:
@@ -547,7 +556,7 @@ def mortality_record_list_create(request):
         "batch__livestock_type",
         "created_by",
         "reviewed_by",
-    ).order_by("-record_date", "-created_at")
+    ).prefetch_related("affected_livestock__livestock_type").distinct().order_by("-record_date", "-created_at")
 
     serializer = MortalityRecordSerializer(records, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -569,12 +578,18 @@ def mortality_record_detail(request, pk):
     if role_name == "FARMER":
         record = get_object_or_404(
             MortalityRecord.objects.select_for_update(of=("self",)),
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
+            Q(livestock__farmer__user=user)
+            | Q(affected_livestock__farmer__user=user)
+            | Q(batch__farmer__user=user),
             pk=pk,
         )
     else:
         require_action(user, "mortality", "read_all")
-        record = get_object_or_404(scope_reviewer_queryset(MortalityRecord.objects.all(), request.user), pk=pk)
+        record = get_object_or_404(
+            scope_reviewer_queryset(MortalityRecord.objects.all(), request.user)
+            .prefetch_related("affected_livestock__livestock_type"),
+            pk=pk,
+        )
 
     if request.method in {"PUT", "PATCH", "DELETE"}:
         require_action(user, "mortality", "edit_own")
@@ -632,7 +647,12 @@ def review_mortality_record(request, pk):
     - MAO: Final municipal approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
     # Scope joins optional animal/herd sources; PostgreSQL must lock only the event row.
-    record = get_object_or_404(scope_reviewer_queryset(MortalityRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
+    record = get_object_or_404(
+        scope_reviewer_queryset(
+            MortalityRecord.objects.select_for_update(of=("self",)), request.user
+        ).prefetch_related("affected_livestock__livestock_type"),
+        pk=pk,
+    )
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 

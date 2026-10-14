@@ -110,25 +110,40 @@ def reconcile_approved_sale(sale):
 
 @transaction.atomic
 def reconcile_approved_mortality(record):
-    """Mark one specifically identified animal deceased exactly once."""
+    """Mark every specifically identified animal deceased exactly once."""
     record = type(record).objects.select_for_update().get(pk=record.pk)
     if record.inventory_reconciled_at:
         return record
     if record.status != record.MortalityRecordStatus.APPROVED:
         raise ValidationError({"status": "Only an approved mortality record can update inventory."})
-    if not record.livestock_id:
+    animals_qs = record.affected_livestock.all()
+    if animals_qs.exists():
+        animal_ids = list(animals_qs.values_list("pk", flat=True))
+    elif record.livestock_id:
+        # Preserve behavior for mortality records created before grouped reports.
+        animal_ids = [record.livestock_id]
+    else:
         raise ValidationError(
-            {"batch": "Batch mortality reconciliation requires selecting the exact deceased animals."}
+            {"batch": "Mortality reconciliation requires selecting the exact deceased animals."}
         )
-    if record.death_count != 1:
-        raise ValidationError({"death_count": "An individual mortality record must have a death count of 1."})
+    if len(animal_ids) != record.death_count:
+        raise ValidationError({"death_count": "Death count must match the number of identified animals."})
 
-    inventory = LivestockInventory.objects.select_for_update().get(pk=record.livestock_id)
-    _require_active(inventory, "Mortality")
+    # Lock in a stable order so concurrent review cannot partially reconcile
+    # a grouped event or deadlock with another inventory operation.
+    inventories = list(
+        LivestockInventory.objects.select_for_update().filter(pk__in=animal_ids).order_by("pk")
+    )
+    if len(inventories) != len(animal_ids):
+        raise ValidationError({"livestocks": "One or more reported animals no longer exist."})
+    for inventory in inventories:
+        _require_active(inventory, "Mortality")
+
     changed_at = timezone.now()
-    inventory.operational_status = LivestockInventory.OperationalStatus.DECEASED
-    inventory.operational_status_changed_at = changed_at
-    inventory.save(update_fields=["operational_status", "operational_status_changed_at"])
+    LivestockInventory.objects.filter(pk__in=animal_ids).update(
+        operational_status=LivestockInventory.OperationalStatus.DECEASED,
+        operational_status_changed_at=changed_at,
+    )
     record.inventory_reconciled_at = changed_at
     record.save(update_fields=["inventory_reconciled_at"])
     return record

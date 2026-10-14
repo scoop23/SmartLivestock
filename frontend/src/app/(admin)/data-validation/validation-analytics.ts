@@ -376,7 +376,12 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
       const inspUrl = (m as any).inspector_photo_url || (m as any).inspector_photo || undefined;
       const isSibatDone = !!(m.reviewed_by_name || m.review_remarks || inspUrl || (m.status || "").toUpperCase() === "VERIFIED");
 
-      const targetIdentifier = m.tag_number || (m.batch_code ? `Batch ${m.batch_code}` : "N/A");
+      const affectedTags = Array.isArray(m.affected_animals)
+        ? m.affected_animals.map((animal: { tag_number?: string }) => animal.tag_number).filter(Boolean)
+        : [];
+      const targetIdentifier = affectedTags.length
+        ? affectedTags.join(", ")
+        : m.tag_number || (m.batch_code ? `Batch ${m.batch_code}` : "N/A");
 
       incidents.push({
         id: `mor-${m.id}`,
@@ -389,7 +394,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         status: (m.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
         reviewRemarks: m.review_remarks || null,
         headCount: m.death_count || 1,
-        tagNumber: m.tag_number || (m.batch_code ? `Batch ${m.batch_code}` : undefined),
+        tagNumber: targetIdentifier,
         livestockBreed: m.breed || (m.batch_code ? "Herd / Batch" : undefined),
         livestockType: m.livestock_type_name || "Livestock",
         conditionName: m.cause || "Mortality Record",

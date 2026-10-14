@@ -276,6 +276,16 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
     reviewed_by_name = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()
     inspector_photo_url = serializers.SerializerMethodField()
+    # `livestocks` is the write format for a shared death event. The legacy
+    # `livestock` FK remains the first animal so older screens and scoping
+    # code continue to understand existing records.
+    livestocks = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=LivestockInventory.objects.all(),
+        write_only=True,
+        required=False,
+    )
+    affected_animals = serializers.SerializerMethodField()
 
     class Meta:
         model = MortalityRecord
@@ -289,6 +299,8 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "livestock_type_name",
             "tag_number",
             "breed",
+            "livestocks",
+            "affected_animals",
             "death_count",
             "cause",
             "source_disease_case",
@@ -326,6 +338,22 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         if obj.batch and obj.batch.livestock_type:
             return obj.batch.livestock_type.name
         return "Livestock"
+
+    def get_affected_animals(self, obj):
+        # Older single-animal records predate the M2M relation, so fall back
+        # to their original FK and expose one consistent response shape.
+        animals = list(obj.affected_livestock.all())
+        if not animals and obj.livestock_id:
+            animals = [obj.livestock]
+        return [
+            {
+                "id": animal.pk,
+                "tag_number": animal.tag_number,
+                "breed": animal.breed,
+                "livestock_type_name": animal.livestock_type.name if animal.livestock_type else "Livestock",
+            }
+            for animal in animals
+        ]
 
     def get_barangay_name(self, obj):
         if obj.livestock and obj.livestock.farmer and obj.livestock.farmer.barangay:
@@ -369,10 +397,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             return full_name if full_name else obj.reviewed_by.username
         return None
 
-    def validate_livestock(self, value):
-        if not value:
-            return value
-        user = self.context["request"].user
+    def _validate_animal(self, value, user):
         if value.farmer.user_id != user.pk:
             raise ValidationError(
                 "You can only log mortality records against your own livestock inventory."
@@ -397,55 +422,77 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        if self.instance is None:
-            livestock = attrs.get("livestock")
-            batch = attrs.get("batch")
-            death_count = attrs.get("death_count", 1)
-            source_disease = attrs.get("source_disease_case")
+        explicit_animals = "livestocks" in attrs
+        if explicit_animals:
+            animals = attrs["livestocks"]
+        elif self.instance:
+            animals = list(self.instance.affected_livestock.all())
+            if not animals and self.instance.livestock_id:
+                animals = [self.instance.livestock]
         else:
-            livestock = attrs.get("livestock", self.instance.livestock)
-            batch = attrs.get("batch", self.instance.batch)
-            death_count = attrs.get("death_count", self.instance.death_count)
-            source_disease = attrs.get("source_disease_case", self.instance.source_disease_case)
+            animals = [attrs["livestock"]] if attrs.get("livestock") else []
 
-        if bool(livestock) == bool(batch):
-            raise ValidationError("Specify exactly one individual animal or herd.")
-        if livestock and "livestock" not in attrs:
-            self.validate_livestock(livestock)
-        if batch and "batch" not in attrs:
-            self.validate_batch(batch)
+        # A report is one incident shared by animals under the same farmer
+        # and livestock type. This keeps reviewer scoping and type aggregates
+        # accurate while still allowing several ear tags in one submission.
+        if not animals:
+            raise ValidationError({"livestocks": "Select at least one individual animal."})
+        if len({animal.pk for animal in animals}) != len(animals):
+            raise ValidationError({"livestocks": "An animal can only appear once in this report."})
+
+        user = self.context["request"].user
+        for animal in animals:
+            self._validate_animal(animal, user)
+        if len({animal.farmer_id for animal in animals}) != 1:
+            raise ValidationError({"livestocks": "All animals in one mortality report must belong to the same farmer."})
+        if len({animal.livestock_type_id for animal in animals}) != 1:
+            raise ValidationError({"livestocks": "All animals in one mortality report must have the same livestock type."})
+
+        batch = attrs.get("batch", self.instance.batch if self.instance else None)
+        if batch:
+            raise ValidationError({"batch": "Select the exact individual deceased animals; herd-only mortality cannot reconcile inventory."})
+        if "livestock" in attrs and explicit_animals:
+            raise ValidationError({"livestock": "Submit either livestock or livestocks, not both."})
+
+        death_count = attrs.get("death_count", len(animals))
+        source_disease = attrs.get(
+            "source_disease_case",
+            self.instance.source_disease_case if self.instance else None,
+        )
 
         if death_count is not None and death_count <= 0:
             raise ValidationError({"death_count": "Death count must be at least 1."})
 
-        if livestock and death_count is not None:
-            if death_count > livestock.quantity:
-                raise ValidationError(
-                    {
-                        "death_count": f"Death count ({death_count}) cannot exceed livestock quantity ({livestock.quantity})."
-                    }
-                )
+        if death_count != len(animals):
+            raise ValidationError({"death_count": "Death count must match the number of selected animals."})
+        if source_disease and any(
+            source_disease.livestock_id != animal.pk
+            and not (source_disease.livestock_id is None and source_disease.batch_id and source_disease.batch_id == animal.batch_id_id)
+            for animal in animals
+        ):
+            raise ValidationError({"source_disease_case": "Disease must refer to each selected animal or its herd."})
 
-        # An aggregate herd count cannot identify which animals must become DECEASED.
-        if batch:
-            raise ValidationError({"batch": "Select the exact individual deceased animal; aggregate herd mortality cannot reconcile inventory."})
-        if death_count != 1:
-            raise ValidationError({"death_count": "An individual mortality declaration must have a death count of 1."})
-        if source_disease and (source_disease.livestock_id != livestock.pk and
-                not (source_disease.livestock_id is None and source_disease.batch_id and source_disease.batch_id == livestock.batch_id)):
-            raise ValidationError({"source_disease_case": "Disease must refer to this animal or its own herd."})
+        attrs["livestocks"] = animals
+        attrs.pop("livestock", None)
+        attrs["death_count"] = len(animals)
+        attrs["batch"] = None
 
         return attrs
 
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
-        return MortalityRecord.objects.create(**validated_data)
+        animals = validated_data.pop("livestocks")
+        # Keep the first-animal FK as a compatibility anchor; the M2M relation
+        # is the complete list and is what approval reconciliation processes.
+        record = MortalityRecord.objects.create(livestock=animals[0], **validated_data)
+        record.affected_livestock.set(animals)
+        return record
 
     def update(self, instance, validated_data):
         was_revision = (instance.status == MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION)
+        animals = validated_data.pop("livestocks", None)
         allowed = [
-            "livestock",
             "batch",
             "death_count",
             "cause",
@@ -462,6 +509,11 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+
+        if animals is not None:
+            instance.livestock = animals[0]
+            instance.death_count = len(animals)
+            instance.affected_livestock.set(animals)
 
         # Automatic status transition on resubmission:
         # If the declaration was SUBJECT_TO_REVISION, return it to review queue as PENDING

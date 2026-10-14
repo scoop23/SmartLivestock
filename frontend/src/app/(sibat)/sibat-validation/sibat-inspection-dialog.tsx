@@ -697,7 +697,7 @@ export function SibatInspectionDialog({
                     Physical Ear Tag Match Verified
                   </p>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Confirmed physical ear tag #{record.livestockTag} on animal in pen.
+                    Confirmed reported ear tag{record.reportedCount === 1 ? "" : "s"}: {record.livestockTag}.
                   </p>
                 </div>
               </label>

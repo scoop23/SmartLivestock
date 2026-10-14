@@ -139,6 +139,9 @@ export default function ReportObservationPage() {
     });
 
     mortalityRecords.forEach((m: any) => {
+      const affectedTags = Array.isArray(m.affected_animals)
+        ? m.affected_animals.map((animal: { tag_number?: string }) => animal.tag_number).filter(Boolean)
+        : [];
       const attached = getAttachedPhoto(`MOR-${m.id}`, m.tag_number);
       const photoUrl = m.photo_url || m.photo || (attached.isFarmerUpload ? attached.photoUrl : undefined);
       const photoName = (m.photo_url || m.photo) ? "Mortality Photo Evidence" : (attached.isFarmerUpload ? attached.photoName : undefined);
@@ -146,7 +149,7 @@ export default function ReportObservationPage() {
         id: `MOR-${m.id}`,
         reportType: "MORTALITY",
         inventoryId: String(m.livestock),
-        cattleTag: m.tag_number || `Animal #${m.livestock}`,
+        cattleTag: affectedTags.length ? affectedTags.join(", ") : m.tag_number || `Animal #${m.livestock}`,
         cattleBreed: m.breed || "Standard",
         cattleType: m.livestock_type_name || "Livestock",
         name: m.cause || "Mortality Record",

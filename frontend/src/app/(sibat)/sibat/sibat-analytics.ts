@@ -164,6 +164,7 @@ export interface RawMortalityRecord {
   livestock: number;
   farmer_name?: string;
   tag_number?: string;
+  affected_animals?: Array<{ id: number; tag_number?: string; breed?: string }>;
   livestock_type_name?: string;
   breed?: string;
   barangay_name?: string;
@@ -388,12 +389,13 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
   const resolvedPhotoUrl = m.photo_url || m.photo || (photo.isFarmerUpload ? photo.photoUrl : undefined);
   const resolvedPhotoName = m.photo_url ? "mortality_evidence_photo.jpg" : (photo.isFarmerUpload ? photo.photoName : undefined);
 
+  const affectedTags = m.affected_animals?.map((animal) => animal.tag_number).filter(Boolean) as string[] | undefined;
   return {
     id: `MOR-${m.id}`,
     reportType: "MORTALITY",
     farmerName: m.farmer_name || "Registered Farmer",
     barangayName: m.barangay_name || "Padre Garcia",
-    livestockTag: m.tag_number || `TAG-${m.livestock}`,
+    livestockTag: affectedTags?.length ? affectedTags.join(", ") : m.tag_number || `TAG-${m.livestock}`,
     livestockBreed: m.breed || "Standard Breed",
     livestockType: m.livestock_type_name || "Livestock",
     inventoryId: String(m.livestock),

@@ -92,11 +92,14 @@ export default function FarmerReportsListDialog({
     });
 
     mortalityRecords.forEach((m: any) => {
+      const affectedTags = Array.isArray(m.affected_animals)
+        ? m.affected_animals.map((animal: { tag_number?: string }) => animal.tag_number).filter(Boolean)
+        : [];
       list.push({
         id: `MOR-${m.id}`,
         reportType: "MORTALITY",
         inventoryId: String(m.livestock),
-        cattleTag: m.tag_number || `Animal #${m.livestock}`,
+        cattleTag: affectedTags.length ? affectedTags.join(", ") : m.tag_number || `Animal #${m.livestock}`,
         cattleBreed: m.breed || "Standard",
         cattleType: m.livestock_type_name || "Livestock",
         name: m.cause || "Mortality Record",

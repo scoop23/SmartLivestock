@@ -89,6 +89,14 @@ class MortalityRecord(models.Model):
         null=True,
         blank=True,
     )
+    # Keep `livestock` as the first/legacy animal reference, while this relation
+    # records every tagged animal included in one shared mortality incident.
+    affected_livestock = models.ManyToManyField(
+        "livestock.LivestockInventory",
+        related_name="affected_mortality_records",
+        blank=True,
+        help_text="Individually identified animals covered by this mortality report.",
+    )
     batch = models.ForeignKey(
         "livestock.LivestockBatch",
         on_delete=models.SET_NULL,
