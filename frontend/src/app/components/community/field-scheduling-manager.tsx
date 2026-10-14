@@ -22,9 +22,14 @@ import { PROGRAM_TIME_SLOTS, CommunityEmptyState, CommunityErrorCard, CommunityS
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
 type ScheduleAction = "close" | "reopen" | "delete";
 type PendingAction = { schedule: ProgramSchedule; action: ScheduleAction };
-type ScheduleForm = { date: string; program: string; location: string; farmer_notes: string; capacity: string };
-type SchedulePayload = { date: string; program: string; location: string; farmer_notes: string; capacity: number };
-const emptyForm: ScheduleForm = { date: "", program: "", location: "", farmer_notes: "", capacity: "4" };
+type ScheduleForm = { date: string; program: string; location: string; farmer_notes: string; capacity: string; available_times: string[] };
+type SchedulePayload = { date: string; program: string; location: string; farmer_notes: string; capacity: number; available_times: string[] };
+const emptyForm: ScheduleForm = { date: "", program: "", location: "", farmer_notes: "", capacity: "4", available_times: [...PROGRAM_TIME_SLOTS] };
+
+function localTimeNow(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
 
 export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
@@ -36,6 +41,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProgramSchedule | null>(null);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
+  const [timeToAdd, setTimeToAdd] = useState("");
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [conflictPayload, setConflictPayload] = useState<SchedulePayload | null>(null);
@@ -110,13 +116,15 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   function startCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS] });
+    setTimeToAdd("");
     setFormOpen(true);
   }
 
   function startEdit(schedule: ProgramSchedule) {
     setEditing(schedule);
-    setForm({ date: schedule.date, program: schedule.program, location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity) });
+    setForm({ date: schedule.date, program: schedule.program, location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS] });
+    setTimeToAdd("");
     setFormOpen(true);
   }
 
@@ -133,6 +141,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       setFormOpen(false);
       setEditing(null);
       setForm(emptyForm);
+      setTimeToAdd("");
       await refresh();
     } catch (e) {
       setError(apiError(e));
@@ -144,7 +153,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   function saveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    const payload: SchedulePayload = { ...form, capacity: Number(form.capacity), program: form.program.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim() };
+    const payload: SchedulePayload = { ...form, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim() };
     if (!Number.isInteger(payload.capacity) || payload.capacity < 1 || payload.capacity > 10000) {
       setError("Capacity must be a whole number from 1 to 10,000.");
       return;
@@ -153,13 +162,27 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       setError(`Capacity cannot be lower than the ${editing.booking_count} confirmed bookings.`);
       return;
     }
+    if (payload.available_times.length === 0) {
+      setError("Add at least one appointment time for farmers to choose.");
+      return;
+    }
+    if (payload.date === todayIso()) {
+      const now = localTimeNow();
+      const pastTimes = payload.available_times.filter(
+        (time) => time <= now && !editing?.booked_times.includes(time),
+      );
+      if (pastTimes.length > 0) {
+        setError("For today's schedule, remove past appointment times and choose a later time.");
+        return;
+      }
+    }
     const normalizedLocation = payload.location.trim().toLocaleLowerCase();
-    // Every schedule offers the same appointment windows, so matching date and venue means those windows overlap.
     const conflict = schedules.find((schedule) =>
       schedule.id !== editing?.id &&
       schedule.date === payload.date &&
       normalizedLocation !== "" &&
-      schedule.location.trim().toLocaleLowerCase() === normalizedLocation
+      schedule.location.trim().toLocaleLowerCase() === normalizedLocation &&
+      (schedule.available_times || PROGRAM_TIME_SLOTS).some((time) => payload.available_times.includes(time))
     );
     if (conflict) {
       setConflictPayload(payload);
@@ -285,6 +308,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {schedules.map((schedule) => {
               const roster = bookingsBySchedule.get(schedule.id) ?? [];
+              const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
               const hasHistory = roster.length > 0;
               const isPastSchedule = schedule.date < todayIso();
               const status = schedule.registration_status;
@@ -317,7 +341,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                           </span>
                           <span className="inline-flex items-center gap-1.5">
                             <Clock3 className="size-3.5 text-slate-400" />
-                            {formatTime(PROGRAM_TIME_SLOTS[0])} – {formatTime(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1])}
+                            {scheduleTimes.length > 1
+                              ? `${formatTime(scheduleTimes[0])} – ${formatTime(scheduleTimes[scheduleTimes.length - 1])}`
+                              : formatTime(scheduleTimes[0])}
                           </span>
                           {schedule.location ? (
                             <span className="inline-flex items-center gap-1.5 text-slate-600">
@@ -367,7 +393,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
                     {/* Time slots breakdown */}
                     <div className="flex flex-wrap gap-1.5">
-                      {PROGRAM_TIME_SLOTS.map((slot) => {
+                      {scheduleTimes.map((slot) => {
                         const slotBookings = schedule.booked_times.filter((t) => t === slot).length;
                         return (
                           <span
@@ -492,7 +518,15 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     value={form.date}
                     min={editing && editing.date < todayIso() ? undefined : todayIso()}
                     disabled={Boolean(editing && editing.date < todayIso())}
-                    onChange={(event) => setForm({ ...form, date: event.target.value })}
+                    onChange={(event) => {
+                      const nextDate = event.target.value;
+                      const nextTimes = nextDate === todayIso()
+                        ? form.available_times.filter(
+                            (time) => time > localTimeNow() || Boolean(editing?.booked_times.includes(time)),
+                          )
+                        : form.available_times;
+                      setForm({ ...form, date: nextDate, available_times: nextTimes });
+                    }}
                     className="h-10 text-sm font-medium"
                   />
                   {editing && editing.date < todayIso() ? (
@@ -514,6 +548,63 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     className="h-10 text-sm font-medium"
                   />
                 </label>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-available-time">
+                  Appointment Times
+                  <span className="block text-[11px] font-normal text-slate-500">Choose the times farmers can book for this program.</span>
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id="schedule-available-time"
+                    type="time"
+                    min={form.date === todayIso() ? localTimeNow() : undefined}
+                    value={timeToAdd}
+                    onChange={(event) => setTimeToAdd(event.target.value)}
+                    className="h-10 min-w-0 text-sm font-medium"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={
+                      !timeToAdd ||
+                      form.available_times.includes(timeToAdd) ||
+                      (form.date === todayIso() && timeToAdd <= localTimeNow())
+                    }
+                    onClick={() => {
+                      setForm({ ...form, available_times: [...form.available_times, timeToAdd].sort() });
+                      setTimeToAdd("");
+                    }}
+                    className="h-10 shrink-0 gap-1.5"
+                  >
+                    <Plus className="size-4" /> Add time
+                  </Button>
+                </div>
+                {form.date === todayIso() ? (
+                  <p className="text-[11px] font-medium text-amber-800">For today, only times later than {formatTime(localTimeNow())} can be added.</p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {form.available_times.map((time) => {
+                    const hasBooking = Boolean(editing?.booked_times.includes(time));
+                    return (
+                      <Badge key={time} variant="outline" className="gap-1.5 border-slate-200 bg-white px-2.5 py-1.5 text-xs">
+                        <Clock3 className="size-3 text-slate-500" />
+                        {formatTime(time)}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${formatTime(time)}`}
+                          title={hasBooking ? "Confirmed bookings use this time" : "Remove time"}
+                          disabled={hasBooking}
+                          onClick={() => setForm({ ...form, available_times: form.available_times.filter((value) => value !== time) })}
+                          className="ml-1 rounded-full text-slate-500 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
               </div>
 
               <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-location">

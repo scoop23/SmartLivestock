@@ -4,6 +4,12 @@ import Link from "next/link";
 import { Activity, Archive, FileDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface InventoryHeroBannerProps {
   totalRecords: number;
@@ -51,22 +57,32 @@ export function InventoryHeroBanner({
             <Plus className="size-5 stroke-[2.5]" />
             Register livestock
           </Button>
-          <details className="group relative">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-xl border border-emerald-700/50 bg-white/10 px-4 text-sm font-semibold text-white outline-none transition hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-emerald-300 [&::-webkit-details-marker]:hidden">
-              More tools
-            </summary>
-            <div className="mt-2 flex min-w-52 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 text-slate-900 shadow-lg">
-              <Button asChild variant="ghost" className="justify-start rounded-lg text-sm">
-                <Link href="/livestock-inventory/history"><Archive className="mr-2 size-4 text-emerald-700" />Livestock history</Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 rounded-xl border-emerald-700/50 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                More
               </Button>
-              <Button asChild variant="ghost" className="justify-start rounded-lg text-sm">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-1.5">
+              <DropdownMenuItem asChild className="min-h-11 cursor-pointer text-sm">
+                <Link href="/livestock-inventory/history">
+                  <Archive className="size-4 text-emerald-700" />
+                  Livestock history
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="min-h-11 cursor-pointer text-sm">
                 <Link href="/livestock-inventory/ownership-history">Ownership history</Link>
-              </Button>
-              <Button type="button" variant="ghost" onClick={onExportCsv} className="justify-start rounded-lg text-sm">
-                <FileDown className="mr-2 size-4 text-emerald-700" />Export CSV
-              </Button>
-            </div>
-          </details>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportCsv} className="min-h-11 cursor-pointer text-sm">
+                <FileDown className="size-4 text-emerald-700" />
+                Export CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </section>

@@ -12,8 +12,6 @@ from .community_serializer import AnnouncementSerializer, ProgramScheduleSeriali
 from .notification_views import notify_role, create_notification
 from smartlivestock.workflows import scope_reviewer_queryset, has_all_barangay_access
 
-TIMES = set(PROGRAM_TIME_SLOTS)
-
 def role_of(user):
     return user.role.role_name
 
@@ -170,11 +168,11 @@ def announcement_detail(request, pk):
 @permission_classes([IsAuthenticated])
 def schedules(request):
     role = role_of(request.user)
-    if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
+    if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
         return Response({"detail": "Forbidden."}, status=403)
     if request.method == "GET":
         prefetch_items = ["bookings"]
-        if role == Role.UserRoles.SIBAT:
+        if role in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
             prefetch_items.append(
                 Prefetch(
                     "bookings",
@@ -188,7 +186,7 @@ def schedules(request):
         if role == Role.UserRoles.FARMER:
             qs = qs.filter(is_open=True, date__gte=date.today())
         return Response(ProgramScheduleSerializer(qs, many=True, context={"request": request}).data)
-    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT, Role.UserRoles.CBAT)
     if denied:
         return denied
     serializer = ProgramScheduleSerializer(data=request.data)
@@ -208,7 +206,7 @@ def schedules(request):
 @api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def schedule_detail(request, pk):
-    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT, Role.UserRoles.CBAT)
     if denied:
         return denied
     if request.method == "DELETE":
@@ -247,7 +245,7 @@ def schedule_detail(request, pk):
 @permission_classes([IsAuthenticated])
 def bookings(request):
     role = role_of(request.user)
-    if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT):
+    if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
         return Response({"detail": "Forbidden."}, status=403)
     if request.method == "GET":
         qs = ProgramBooking.objects.select_related("schedule", "farmer", "farmer__farmer_profile__barangay")
@@ -263,12 +261,17 @@ def bookings(request):
     serializer.is_valid(raise_exception=True)
     schedule = serializer.validated_data["schedule"]
     chosen_time = serializer.validated_data["time"]
-    if chosen_time.strftime("%H:%M") not in TIMES:
-        return Response({"time": ["Choose an offered time."]}, status=400)
     try:
         with transaction.atomic():
             schedule = ProgramSchedule.objects.select_for_update().get(pk=schedule.pk)
-            if not schedule.is_open or schedule.date < date.today():
+            # Validate against this program's own times, not a global preset list.
+            offered_times = schedule.available_times or list(PROGRAM_TIME_SLOTS)
+            if chosen_time.strftime("%H:%M") not in offered_times:
+                return Response({"time": ["Choose one of this program's offered times."]}, status=400)
+            current_local_time = timezone.localtime().time().replace(tzinfo=None)
+            if schedule.date == timezone.localdate() and chosen_time <= current_local_time:
+                return Response({"time": ["This appointment time has already passed. Choose a later time."]}, status=400)
+            if not schedule.is_open or schedule.date < timezone.localdate():
                 return Response({"detail": "This program is no longer available."}, status=400)
             confirmed_count = schedule.bookings.filter(status=ProgramBooking.Status.CONFIRMED).count()
             if confirmed_count >= schedule.capacity:
@@ -288,16 +291,54 @@ def booking_detail(request, pk):
     denied = require_role(request, Role.UserRoles.FARMER)
     if denied:
         return denied
-    booking = get_object_or_404(ProgramBooking, pk=pk, farmer=request.user)
-    if request.data.get("status") != ProgramBooking.Status.CANCELLED:
-        return Response({"status": ["Only cancellation is allowed."]}, status=400)
-    if booking.schedule.date < date.today():
-        return Response({"detail": "Past bookings cannot be cancelled."}, status=400)
-    booking.status = ProgramBooking.Status.CANCELLED
-    booking.save(update_fields=["status"])
+    if set(request.data.keys()) not in ({"status"}, {"time"}):
+        return Response({"detail": "Update either the booking time or cancel the booking."}, status=400)
+
+    with transaction.atomic():
+        booking = get_object_or_404(
+            ProgramBooking.objects.select_for_update().select_related("schedule"),
+            pk=pk,
+            farmer=request.user,
+        )
+        if booking.status != ProgramBooking.Status.CONFIRMED:
+            return Response({"detail": "Only confirmed bookings can be changed."}, status=400)
+
+        if request.data.get("status") == ProgramBooking.Status.CANCELLED:
+            if booking.schedule.date < timezone.localdate():
+                return Response({"detail": "Past bookings cannot be cancelled."}, status=400)
+            booking.status = ProgramBooking.Status.CANCELLED
+            booking.save(update_fields=["status"])
+            change_type = "cancelled"
+        elif "time" in request.data:
+            if booking.schedule.date < timezone.localdate():
+                return Response({"detail": "Past bookings cannot be changed."}, status=400)
+            serializer = ProgramBookingSerializer(booking, data={"time": request.data["time"]}, partial=True)
+            serializer.is_valid(raise_exception=True)
+            chosen_time = serializer.validated_data["time"]
+            offered_times = booking.schedule.available_times or list(PROGRAM_TIME_SLOTS)
+            if chosen_time.strftime("%H:%M") not in offered_times:
+                return Response({"time": ["Choose one of this program's offered times."]}, status=400)
+            current_local_time = timezone.localtime().time().replace(tzinfo=None)
+            if booking.schedule.date == timezone.localdate() and chosen_time <= current_local_time:
+                return Response({"time": ["This appointment time has already passed. Choose a later time."]}, status=400)
+            booking.time = chosen_time
+            booking.save(update_fields=["time"])
+            change_type = "time_changed"
+        else:
+            return Response({"status": ["Set status to CANCELLED or provide a new time."]}, status=400)
+
+    if change_type == "cancelled":
+        notify_message = f"A farmer cancelled {booking.schedule.program} on {booking.schedule.date}."
+        farmer_message = "Your program booking was cancelled."
+        notify_title = "Program booking cancelled"
+    else:
+        notify_message = f"A farmer changed their time for {booking.schedule.program} on {booking.schedule.date} to {booking.time.strftime('%H:%M')}."
+        farmer_message = f"Your arrival time is now {booking.time.strftime('%H:%M')}."
+        notify_title = "Program booking time changed"
+
+    create_notification(request.user, title=notify_title, message=farmer_message, link="/farmer-scheduling")
     notify_role(Role.UserRoles.SIBAT,
                 barangay_id=getattr(getattr(request.user, "farmer_profile", None), "barangay_id", None),
-                title="Program booking cancelled", message=f"A farmer cancelled {booking.schedule.program} on {booking.schedule.date}.", link="/sibat-scheduling")
-    notify_role(Role.UserRoles.MAO, title="Program booking cancelled",
-                message=f"A farmer cancelled {booking.schedule.program} on {booking.schedule.date}.", link="/schedules")
+                title=notify_title, message=notify_message, link="/sibat-scheduling")
+    notify_role(Role.UserRoles.MAO, title=notify_title, message=notify_message, link="/schedules")
     return Response(ProgramBookingSerializer(booking).data)

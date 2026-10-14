@@ -494,12 +494,14 @@ export default function BatchOverviewPage() {
                         <span aria-hidden="true">{avatar.emoji}</span>{batch.species}
                       </span>
                       <span aria-hidden="true" className="text-slate-300">•</span>
-                      <span className="break-words">{batch.breed || "Breed not recorded"}</span>
+                      <span className="break-words">
+                        {batch.breed || <span className="text-rose-600">Breed not recorded</span>}
+                      </span>
                     </div>
 
                     <div className="flex min-w-0 flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 pt-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <Badge variant="outline" className="max-w-full whitespace-normal break-words px-1.5 py-0 text-[9px]">
+                        <Badge variant="outline" className={`max-w-full whitespace-normal break-words px-1.5 py-0 text-[9px] ${batch.status ? "" : "text-rose-600"}`}>
                           {batch.status || "Status not recorded"}
                         </Badge>
                         {getReviewStatusBadge(batch.reviewStatus)}
@@ -529,23 +531,23 @@ export default function BatchOverviewPage() {
           <div className="min-w-0 space-y-6">
             {/* Banner Header */}
             <div className="bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425] text-white p-6 rounded-3xl shadow-lg border border-emerald-800/40 relative overflow-hidden">
-              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-start gap-4">
+              <div className="relative z-10 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+                <div className="flex min-w-0 items-start gap-3 pr-24 sm:gap-4 sm:pr-24">
                   {currentBatch.photoUrl ? (
-                    <img src={currentBatch.photoUrl} alt={`${currentBatch.batchName} herd`} className="size-20 shrink-0 rounded-2xl border-2 border-white/30 object-cover sm:size-24" />
+                    <img src={currentBatch.photoUrl} alt={`${currentBatch.batchName} herd`} className="size-16 shrink-0 rounded-2xl border-2 border-white/30 object-cover sm:size-24" />
                   ) : (
-                    <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl border-2 border-white/20 bg-white/10 text-5xl sm:size-24" aria-hidden="true">{getDefaultAvatarForSpecies(currentBatch.species).emoji}</div>
+                    <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl border-2 border-white/20 bg-white/10 text-4xl sm:size-24 sm:text-5xl" aria-hidden="true">{getDefaultAvatarForSpecies(currentBatch.species).emoji}</div>
                   )}
                   <div className="min-w-0 space-y-1.5">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-200 text-xs font-bold uppercase tracking-wider backdrop-blur-xs border border-white/10">
+                  <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200 backdrop-blur-xs sm:px-3 sm:text-xs">
                     <Beef className="size-3.5" />
-                    <span>Herd Code: {currentBatch.batchCode}</span>
+                    <span className="break-all">Herd Code: {currentBatch.batchCode}</span>
                   </div>
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                  <h2 className="break-words text-xl font-black tracking-tight text-white sm:text-2xl md:text-3xl">
                     {currentBatch.batchName || "Unnamed herd"}
                   </h2>
-                  <p className="text-xs text-emerald-100/80 font-medium">
-                    {currentBatch.batchCode} &bull; {currentBatch.species} &bull; {currentBatch.breed || "Breed not recorded"}
+                  <p className="break-words text-xs font-medium text-emerald-100/80">
+                    {currentBatch.batchCode} &bull; {currentBatch.species} &bull; {currentBatch.breed || <span className="font-semibold text-rose-300">Breed not recorded</span>}
                   </p>
                   {currentBatch.reviewRemarks && (
                     <div className="inline-block mt-1">
@@ -557,14 +559,14 @@ export default function BatchOverviewPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto md:justify-end md:pt-12">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsHerdQrOpen(true)}
-                    className="min-h-11 gap-2 border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                    className="absolute right-1 top-1 min-h-11 gap-2 border-white/30 bg-white/10 px-2.5 text-white hover:bg-white/20 hover:text-white sm:right-0 sm:top-0 sm:px-4"
                   >
-                    <QrCode className="size-4" /> Herd QR
+                    <QrCode className="size-4" /> <span className="hidden sm:inline">Herd QR</span><span className="sr-only sm:hidden">Herd QR</span>
                   </Button>
                   {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
                     <LivestockPhotoManager
@@ -595,8 +597,17 @@ export default function BatchOverviewPage() {
                   </Badge>
 
                   {/* This is an aggregate view only; approval remains on each animal record. */}
-                  <Badge className="bg-white/15 text-white border border-white/20 font-bold px-3 py-1.5 text-xs">
-                    Animals: {individualReviewSummary?.approved ?? 0} approved ? {individualReviewSummary?.awaitingSibat ?? 0} awaiting SIBAT ? {individualReviewSummary?.awaitingMao ?? 0} awaiting MAO ? {individualReviewSummary?.returned ?? 0} returned
+                  <Badge className="h-auto min-w-0 max-w-full items-start whitespace-normal break-words border border-white/20 bg-white/15 px-3 py-1.5 text-left text-xs font-bold leading-relaxed text-white sm:items-center">
+                    <span className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-0.5">
+                      <span className="whitespace-nowrap">Animals:</span>
+                      <span className="whitespace-nowrap">{individualReviewSummary?.approved ?? 0} approved</span>
+                      <span aria-hidden="true" className="hidden sm:inline">·</span>
+                      <span className="whitespace-nowrap">{individualReviewSummary?.awaitingSibat ?? 0} awaiting SIBAT</span>
+                      <span aria-hidden="true" className="hidden sm:inline">·</span>
+                      <span className="whitespace-nowrap">{individualReviewSummary?.awaitingMao ?? 0} awaiting MAO</span>
+                      <span aria-hidden="true" className="hidden sm:inline">·</span>
+                      <span className="whitespace-nowrap">{individualReviewSummary?.returned ?? 0} returned</span>
+                    </span>
                   </Badge>
 
 
@@ -640,10 +651,10 @@ export default function BatchOverviewPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400">Average Weight</span>
                   <div className="flex items-baseline justify-between">
                     <p className="text-2xl font-black text-slate-900">
-                      {currentBatch.averageWeightKg ?? "Not recorded"} {currentBatch.averageWeightKg !== null && <span className="text-sm font-semibold text-slate-400">kg</span>}
+                      {currentBatch.averageWeightKg === null ? <span className="text-rose-600">Not recorded</span> : <>{currentBatch.averageWeightKg} <span className="text-sm font-semibold text-slate-400">kg</span></>}
                     </p>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Target: {currentBatch.targetWeightKg == null ? "Not recorded" : `${currentBatch.targetWeightKg} kg`}</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Target: {currentBatch.targetWeightKg == null ? <span className="text-rose-600">Not recorded</span> : `${currentBatch.targetWeightKg} kg`}</p>
                 </CardContent>
               </Card>
 
@@ -652,7 +663,7 @@ export default function BatchOverviewPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400">Total Live Biomass</span>
                   <div className="flex items-baseline justify-between">
                     <p className="text-2xl font-black text-emerald-700">
-                      {yieldMetrics.totalBiomass ?? "Not recorded"} {yieldMetrics.totalBiomass !== null && <span className="text-sm font-semibold text-slate-400">kg</span>}
+                      {yieldMetrics.totalBiomass === null ? <span className="text-rose-600">Not recorded</span> : <>{yieldMetrics.totalBiomass} <span className="text-sm font-semibold text-slate-400">kg</span></>}
                     </p>
                   </div>
                   <p className="text-[11px] text-slate-500 font-medium">From {yieldMetrics.weighedAnimalCount} active animals with weight records</p>
@@ -664,7 +675,7 @@ export default function BatchOverviewPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400">Harvest Readiness</span>
                   <div className="flex items-baseline justify-between">
                     <p className="text-2xl font-black text-slate-900">
-                      {yieldMetrics.readinessPct === null ? "Not recorded" : `${yieldMetrics.readinessPct}%`}
+                      {yieldMetrics.readinessPct === null ? <span className="text-rose-600">Not recorded</span> : `${yieldMetrics.readinessPct}%`}
                     </p>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
@@ -680,22 +691,22 @@ export default function BatchOverviewPage() {
 
             {/* ── INDIVIDUAL LIVESTOCK ROSTER (ADVISOR REQUIREMENT) ───────── */}
             <Card ref={livestockRosterRef} className="scroll-mt-4 rounded-3xl border-slate-200 bg-white shadow-sm overflow-hidden">
-              <CardHeader className="p-5 md:p-6 pb-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <CardHeader className="flex flex-col items-center justify-between gap-3 border-b border-slate-100 p-4 pb-3 text-center sm:items-start sm:p-5 md:flex-row md:items-center md:p-6">
+                <div className="w-full min-w-0 sm:text-left">
+                  <CardTitle className="flex items-center justify-center gap-2 text-base font-black text-slate-900 sm:justify-start sm:text-lg">
                     <span>Individual Livestock in {currentBatch.batchCode}</span>
                     <Badge variant="outline" className="text-xs font-bold border-slate-300">
                       {filteredIndividuals.length} active
                     </Badge>
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-500 font-medium">
+                  <CardDescription className="text-xs font-medium text-slate-500">
                     Active animals linked to this herd. Inactive animals remain available in livestock history.
                   </CardDescription>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="relative w-44">
+                <div className="flex w-full flex-col items-center justify-center gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap md:justify-end">
+                  <div className="relative w-full max-w-sm sm:w-44">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
                     <Input
                       placeholder="Search ear tag..."
@@ -706,7 +717,7 @@ export default function BatchOverviewPage() {
                   </div>
 
                   <Select value={genderFilter} onValueChange={setGenderFilter}>
-                    <SelectTrigger className="h-8 text-xs rounded-xl border-slate-200 w-28 font-bold">
+                    <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 text-xs font-bold sm:h-8 sm:w-32">
                       <SelectValue placeholder="Gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -721,7 +732,81 @@ export default function BatchOverviewPage() {
               </CardHeader>
 
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="mx-auto max-w-xl space-y-3 p-3 md:hidden">
+                  {filteredIndividuals.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+                      {currentBatch.individuals.length === 0
+                        ? "No individual livestock records are linked to this herd."
+                        : currentBatch.individuals.some((animal) => animal.operationalStatus !== "ACTIVE")
+                          ? "No active animals match this view. Inactive animals are available in Livestock History."
+                          : "No livestock records matched the current filters."}
+                    </div>
+                  ) : filteredIndividuals.map((animal) => {
+                    const hasInventoryRecord = /^\d+$/.test(animal.id);
+                    const reviewLabel = animal.reviewStatus === "SUBJECT_TO_REVISION"
+                      ? "For Revision"
+                      : animal.reviewStatus === "REJECTED"
+                        ? "Rejected"
+                        : animal.reviewStatus === "VERIFIED"
+                          ? "Verified"
+                          : animal.reviewStatus === "APPROVED"
+                            ? "Approved"
+                            : "Pending";
+                    const reviewColor = animal.reviewStatus === "APPROVED"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : animal.reviewStatus === "VERIFIED"
+                        ? "bg-blue-100 text-blue-800"
+                        : animal.reviewStatus === "REJECTED"
+                          ? "bg-rose-100 text-rose-800"
+                          : animal.reviewStatus === "SUBJECT_TO_REVISION"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-slate-100 text-slate-600";
+                    return (
+                      <div key={animal.id} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            {hasInventoryRecord ? (
+                              <Link href={`/livestock-inventory/${animal.id}`} className="break-all font-bold text-emerald-800 hover:underline">
+                                <Tag className="mr-1.5 inline size-3.5" />{animal.tagNumber || "No tag recorded"}
+                              </Link>
+                            ) : (
+                              <p className="break-all font-bold text-slate-600"><Tag className="mr-1.5 inline size-3.5" />{animal.tagNumber || "No tag recorded"}</p>
+                            )}
+                            {animal.isPostApprovalAddition && <p className="mt-1 text-xs font-medium text-indigo-700">New animal · reviewed separately</p>}
+                          </div>
+                          <Badge variant="secondary" className={`shrink-0 text-[10px] font-black uppercase ${animal.sex === "Not recorded" ? "bg-rose-50 text-rose-700" : animal.sex.toUpperCase() === "FEMALE" ? "bg-rose-50 text-rose-700" : animal.sex.toUpperCase() === "MALE" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>
+                            {animal.sex}
+                          </Badge>
+                        </div>
+                        <dl className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm">
+                          <div className="flex justify-between gap-3"><dt className="text-slate-500">Weight</dt><dd className={animal.weightKg === null ? "font-semibold text-rose-600" : "font-semibold text-slate-800"}>{animal.weightKg === null ? "Not recorded" : `${animal.weightKg} kg`}</dd></div>
+                          <div className="flex justify-between gap-3"><dt className="text-slate-500">Last Vaccination</dt><dd className={animal.lastVaccinationDate ? "text-right font-semibold text-slate-800" : "text-right font-semibold text-rose-600"}>{animal.lastVaccinationDate || "Not recorded"}</dd></div>
+                          <div className="flex justify-between gap-3"><dt className="text-slate-500">Review</dt><dd><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${reviewColor}`}>{reviewLabel}</span></dd></div>
+                        </dl>
+                        <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3">
+                          {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
+                            <Button onClick={() => handleOpenWeighModal(animal)} size="sm" variant="outline" className="min-h-10 flex-1 rounded-lg font-bold">
+                              <Scale className="mr-1.5 size-4 text-emerald-600" /> Weigh
+                            </Button>
+                          )}
+                          {hasInventoryRecord ? (
+                            <Link href={`/livestock-inventory/${animal.id}`} className="flex-1">
+                              <Button size="sm" variant="ghost" className="min-h-10 w-full rounded-lg font-bold text-slate-700">
+                                <Eye className="mr-1.5 size-4 text-slate-500" /> See Profile
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Button size="sm" variant="ghost" disabled title="No saved individual animal record is linked to this herd." className="min-h-10 flex-1 rounded-lg font-bold">
+                              <Eye className="mr-1.5 size-4" /> See Profile
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                   <Table>
                     <TableHeader className="bg-slate-50/70">
                       <TableRow>
@@ -774,7 +859,9 @@ export default function BatchOverviewPage() {
                               <TableCell>
                                 <Badge
                                   variant="secondary"
-                                  className={`text-[10px] font-black uppercase ${animal.sex.toUpperCase() === "FEMALE"
+                                  className={`text-[10px] font-black uppercase ${animal.sex === "Not recorded"
+                                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                                    : animal.sex.toUpperCase() === "FEMALE"
                                     ? "bg-rose-50 text-rose-700 border-rose-200"
                                     : animal.sex.toUpperCase() === "MALE"
                                       ? "bg-blue-50 text-blue-700 border-blue-200"
@@ -785,11 +872,11 @@ export default function BatchOverviewPage() {
                                 </Badge>
                               </TableCell>
 
-                              <TableCell className="text-xs text-slate-600 font-medium">
+                              <TableCell className={`text-xs font-medium ${animal.weightKg === null ? "text-rose-600" : "text-slate-600"}`}>
                                 {animal.weightKg === null ? "Not recorded" : `${animal.weightKg} kg`}
                               </TableCell>
 
-                              <TableCell className="text-xs text-slate-600 font-medium">
+                              <TableCell className={`text-xs font-medium ${animal.lastVaccinationDate ? "text-slate-600" : "text-rose-600"}`}>
                                 {animal.lastVaccinationDate || "Not recorded"}
                               </TableCell>
 
@@ -918,7 +1005,7 @@ export default function BatchOverviewPage() {
           <div className="space-y-4 py-3">
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs flex justify-between items-center">
               <span className="font-bold text-slate-600">Previous Recorded Weight:</span>
-              <span className="font-black text-slate-900">{weighTarget?.weightKg == null ? "Not recorded" : `${weighTarget.weightKg} kg`}</span>
+              <span className={`font-black ${weighTarget?.weightKg == null ? "text-rose-600" : "text-slate-900"}`}>{weighTarget?.weightKg == null ? "Not recorded" : `${weighTarget.weightKg} kg`}</span>
             </div>
 
             <div className="space-y-1.5">
@@ -975,7 +1062,7 @@ export default function BatchOverviewPage() {
                 <Input
                   value={newAnimalData.tagNumber}
                   onChange={(e) => setNewAnimalData({ ...newAnimalData, tagNumber: e.target.value })}
-                  placeholder="e.g. SWN-01-11"
+                  placeholder="e.g. NAME-001"
                   className="rounded-xl border-slate-300 font-bold"
                   required
                 />

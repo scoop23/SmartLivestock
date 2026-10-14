@@ -2,7 +2,7 @@
 
 import ProductionValuation from "./production-valuation";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AxiosError } from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -76,7 +76,13 @@ const typeClasses: Record<string, string> = {
 const formatUnit = (unit: string) =>
   unit === "LITERS" ? "L" : unit === "KILOGRAMS" ? "kg" : unit === "PIECES" ? "pc" : unit;
 
-export default function ProductionHistory({ initialTypeFilter = "ALL" }: { initialTypeFilter?: "ALL" | ProductionType }) {
+export default function ProductionHistory({
+  initialTypeFilter = "ALL",
+  initialRecordId,
+}: {
+  initialTypeFilter?: "ALL" | ProductionType;
+  initialRecordId?: string | null;
+}) {
   const queryClient = useQueryClient();
 
   const {
@@ -97,6 +103,26 @@ export default function ProductionHistory({ initialTypeFilter = "ALL" }: { initi
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
   const [dialogRecord, setDialogRecord] = useState<ProductionRecordItem | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("newest");
+  const [handledInitialRecord, setHandledInitialRecord] = useState(false);
+
+  // Dashboard activity links carry only the record ID. Resolve it against the
+  // authenticated farmer's existing production query before opening its dialog.
+  useEffect(() => {
+    if (!initialRecordId || isLoading || isError || handledInitialRecord) return;
+
+    const requestedId = Number(initialRecordId);
+    const requestedRecord = Number.isInteger(requestedId)
+      ? userProductions.find((record) => record.id === requestedId)
+      : undefined;
+
+    if (requestedRecord) {
+      setSelected(requestedRecord);
+      setDialogRecord(requestedRecord);
+    } else {
+      toast.error("That production record could not be found in your history.");
+    }
+    setHandledInitialRecord(true);
+  }, [initialRecordId, isLoading, isError, handledInitialRecord, userProductions]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteProductionRecord(id),

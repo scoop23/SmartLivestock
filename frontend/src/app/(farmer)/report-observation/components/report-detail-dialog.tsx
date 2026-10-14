@@ -108,7 +108,7 @@ export default function ReportDetailDialog({
               <div>
                 <div className="flex items-center gap-2">
                   <DialogTitle className="text-lg font-black text-white tracking-tight">
-                    {isMortality ? "Mortality Incident Dossier" : "Health Observation Dossier"}
+                    {isMortality ? "Mortality Incident Details" : "Health Observation Details"}
                   </DialogTitle>
                   <span className="font-mono text-xs px-2 py-0.5 rounded-lg bg-white/20 text-white font-bold">
                     Ref #{report.id}
@@ -355,7 +355,7 @@ export default function ReportDetailDialog({
                 className="rounded-xl text-xs font-bold gap-1.5 h-9"
               >
                 <Printer className="size-3.5 text-slate-500" />
-                <span>Print Dossier</span>
+                <span>Print Details</span>
               </Button>
 
               <Button

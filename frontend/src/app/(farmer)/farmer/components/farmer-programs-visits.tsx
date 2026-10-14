@@ -14,9 +14,8 @@ import {
 } from "@/lib/community-api";
 import {
   formatShortDate,
-  formatTime,
+  formatTimeWindow,
   isUpcoming,
-  PROGRAM_TIME_SLOTS,
 } from "@/app/components/community/community-ui";
 
 function getProgramBadge(title: string): { label: string; badge: string } {
@@ -164,7 +163,7 @@ export default function FarmerProgramsVisits() {
                       <span>{formatShortDate(schedule.date)}</span>
                       <span className="text-slate-300">·</span>
                       <Clock3 className="size-3 text-slate-400 shrink-0" />
-                      <span>{formatTime(PROGRAM_TIME_SLOTS[0])}</span>
+                      <span>{formatTimeWindow(schedule.available_times)}</span>
                     </p>
 
                     {schedule.location ? (

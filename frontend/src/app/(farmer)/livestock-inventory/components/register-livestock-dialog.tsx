@@ -643,7 +643,7 @@ export function RegisterLivestockDialog({
                   </div>
                   <Input
                     id="tagNumber"
-                    placeholder="e.g. CAT-2026-104"
+                    placeholder="e.g. NAME-001"
                     value={formData.tagNumber}
                     onChange={(e) => setFormData({ ...formData, tagNumber: e.target.value })}
                     className="h-11 rounded-xl font-mono font-bold"
@@ -939,7 +939,7 @@ export function RegisterLivestockDialog({
 
                 <div className="space-y-1.5">
                   <Label htmlFor="birthDate" className="text-xs font-black uppercase tracking-wider text-slate-500">Birth Date (optional)</Label>
-                  <Input id="birthDate" type="date" max={localCalendarDateToday()} value={formData.birthDate} onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))} className="h-11 min-w-0 w-full rounded-xl" />
+                  <Input id="birthDate" type="date" max={localCalendarDateToday()} value={formData.birthDate} onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))} className="h-11 min-w-0 w-full rounded-xl px-3 pr-12 text-left [&::-webkit-date-and-time-value]:min-h-[1.5rem] [&::-webkit-date-and-time-value]:text-left" />
                 </div>
 
                 {/* Individual Vaccination */}
@@ -1327,7 +1327,7 @@ export function RegisterLivestockDialog({
                             <Input
                               value={animal.tagNumber}
                               onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value)}
-                              placeholder="e.g. SWN-B1-01"
+                              placeholder="e.g. NAME-001"
                               className="h-8 text-xs font-mono font-bold rounded-lg"
                               required
                             />

@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/auth-context";
 import {
   useClinicalHealthRecords,
   useReviewClinicalHealth,
@@ -45,6 +46,8 @@ const TAB_PILLS: { value: TabKey; label: string }[] = [
 
 function SibatAlertsContent() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const isCbat = user?.role?.toUpperCase() === "CBAT";
   const [activeTab, setActiveTab] = useState<TabKey>("pending");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -417,7 +420,11 @@ function SibatAlertsContent() {
                           }`}
                         >
                           <ShieldAlert className="w-4 h-4 text-amber-300" />
-                          {isPending ? "Review report and record field check" : "View report and field check"}
+                          {isCbat
+                            ? "View report details"
+                            : isPending
+                              ? "Review report and record field check"
+                              : "View report and field check"}
                         </Button>
                       </div>
                     </CardContent>
@@ -441,6 +448,7 @@ function SibatAlertsContent() {
           }
         }}
         onConfirmInspection={handleConfirmInspection}
+        readOnly={isCbat}
       />
     </>
   );

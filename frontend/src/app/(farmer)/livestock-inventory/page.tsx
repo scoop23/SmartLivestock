@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
@@ -48,10 +48,32 @@ export default function LivestockInventoryPage() {
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [handledActivityLink, setHandledActivityLink] = useState(false);
 
   const { data: livestockTypes = {} } = useLivestockTypes();
-  const { data: inventories = [], isLoading, refetch, isFetching } = useUserInventory();
+  const { data: inventories = [], isLoading, isError, refetch, isFetching } = useUserInventory();
   const { data: userBatches = [], isLoading: isBatchesLoading } = useLivestockBatches({ includeRoster: false });
+
+  // Recent-activity links contain only a livestock ID. Resolve it from the
+  // farmer's own inventory query so the existing detail dialog gets the same
+  // complete record object used by the normal inventory buttons.
+  useEffect(() => {
+    if (typeof window === "undefined" || isLoading || isError || handledActivityLink) return;
+
+    const livestockId = new URLSearchParams(window.location.search).get("livestockId");
+    if (!livestockId) {
+      setHandledActivityLink(true);
+      return;
+    }
+
+    const livestock = inventories.find((item) => String(item.id) === livestockId);
+    if (livestock) {
+      setDetailTarget(livestock);
+    } else {
+      toast.error("That livestock record could not be found in your inventory.");
+    }
+    setHandledActivityLink(true);
+  }, [inventories, isLoading, isError, handledActivityLink]);
 
   // Herd Telemetry calculations
   const totalHeads = useMemo(
@@ -200,13 +222,15 @@ export default function LivestockInventoryPage() {
           userBatches={userBatches}
         />
 
-        <details open className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-          <summary className="cursor-pointer list-none rounded-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
-            <span className="flex items-center justify-between gap-3"><span>Cattle and herd KPIs</span><span className="text-sm font-medium text-emerald-800 group-open:hidden">Show</span><span className="hidden text-sm font-medium text-emerald-800 group-open:inline">Hide</span></span>
-            <span className="mt-1 block text-sm font-normal text-slate-600">Cattle head count, sex breakdown, active herds, and vaccination records.</span>
-          </summary>
-          <div className="pt-4"><InventoryTelemetryHeader inventories={inventories} batches={userBatches} isLoading={isLoading || isBatchesLoading} /></div>
-        </details>
+        {!selectedType && activeTab === "types" && (
+          <details open className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <summary className="cursor-pointer list-none rounded-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center justify-between gap-3"><span>Cattle and herd KPIs</span><span className="text-sm font-medium text-emerald-800 group-open:hidden">Show</span><span className="hidden text-sm font-medium text-emerald-800 group-open:inline">Hide</span></span>
+              <span className="mt-1 block text-sm font-normal text-slate-600">Cattle head count, sex breakdown, active herds, and vaccination records.</span>
+            </summary>
+            <div className="pt-4"><InventoryTelemetryHeader inventories={inventories} batches={userBatches} isLoading={isLoading || isBatchesLoading} /></div>
+          </details>
+        )}
 
         {/* Main Content: Species Drill-Down or Tabbed Roster */}
         {selectedType ? (
@@ -288,6 +312,7 @@ export default function LivestockInventoryPage() {
           key={editTarget?.id ?? "closed"}
           item={editTarget}
           open={!!editTarget}
+          hideBirthDate={activeTab === "health"}
           onOpenChange={(open) => {
             if (!open) setEditTarget(null);
           }}

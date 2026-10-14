@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarCheck,
   CalendarDays,
@@ -13,6 +13,7 @@ import {
   Info,
   Loader2,
   MapPin,
+  Pencil,
   RefreshCw,
   Sparkles,
   Users,
@@ -34,6 +35,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import api from "@/lib/axios";
 import {
   ProgramBooking,
@@ -69,29 +78,22 @@ export default function FarmerSchedulingPage() {
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [scheduleId, setScheduleId] = useState("");
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
-  const initializedCalendar = useRef(false);
   const [time, setTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [bookingFilter, setBookingFilter] = useState<"upcoming" | "all">("upcoming");
+  const [bookingFilter, setBookingFilter] = useState<"upcoming" | "past">("upcoming");
   const [cancelingTarget, setCancelingTarget] = useState<ProgramBooking | null>(null);
+  const [editingBooking, setEditingBooking] = useState<ProgramBooking | null>(null);
+  const [editTime, setEditTime] = useState("");
 
   const load = useCallback(async () => {
     try {
       const [open, mine] = await Promise.all([getSchedules(), getBookings()]);
       setSchedules(open);
       setBookings(mine);
-      if (!initializedCalendar.current) {
-        const requestedSchedule = new URLSearchParams(window.location.search).get("schedule");
-        const requested = open.find((schedule) => schedule.id === Number(requestedSchedule));
-        const initialSchedule = requested ?? open[0];
-        if (initialSchedule) setCalendarDate(localDateFromIso(initialSchedule.date));
-        if (requested) setScheduleId(String(requested.id));
-        initializedCalendar.current = true;
-      }
       setError("");
     } catch (e) {
       setError(apiError(e));
@@ -120,7 +122,8 @@ export default function FarmerSchedulingPage() {
     () => new Set(bookings.filter((booking) => booking.status === "CONFIRMED").map((booking) => booking.schedule)),
     [bookings],
   );
-  const availableTimes = useMemo(() => (selected?.remaining_slots ? PROGRAM_TIME_SLOTS : []), [selected]);
+  const selectedAvailableTimes = selected?.available_times?.length ? selected.available_times : PROGRAM_TIME_SLOTS;
+  const availableTimes = useMemo(() => (selected?.remaining_slots ? selectedAvailableTimes : []), [selected, selectedAvailableTimes]);
 
   async function book() {
     if (!scheduleId || !time || confirmedScheduleIds.has(Number(scheduleId))) return;
@@ -164,17 +167,36 @@ export default function FarmerSchedulingPage() {
     }
   }
 
+  async function handleSaveBookingTime() {
+    if (!editingBooking || !editTime) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await api.patch(`/community/bookings/${editingBooking.id}/`, { time: editTime });
+      setMessage(`Your arrival time for ${editingBooking.program} has been updated.`);
+      setEditingBooking(null);
+      setEditTime("");
+      await refresh();
+    } catch (e) {
+      setError(apiError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const confirmed = bookings.filter((b) => b.status === "CONFIRMED");
   const upcoming = confirmed.filter((b) => isUpcoming(b.date));
+  const pastBookings = bookings.filter((booking) => booking.status === "CANCELLED" || !isUpcoming(booking.date));
   const nextVisit = useMemo(() => {
     const list = upcoming.slice().sort((a, b) => a.date.localeCompare(b.date));
     return list[0] ?? null;
   }, [upcoming]);
 
   const displayedBookings = useMemo(() => {
-    const list = bookingFilter === "upcoming" ? upcoming : bookings;
+    const list = bookingFilter === "upcoming" ? upcoming : pastBookings;
     return list.slice().sort((a, b) => b.date.localeCompare(a.date));
-  }, [bookingFilter, upcoming, bookings]);
+  }, [bookingFilter, upcoming, pastBookings]);
 
   return (
     <>
@@ -425,12 +447,13 @@ export default function FarmerSchedulingPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              const firstWithProgram = schedules[0];
-                              if (firstWithProgram) setCalendarDate(localDateFromIso(firstWithProgram.date));
+                              setCalendarDate(null);
+                              setScheduleId("");
+                              setTime("");
                             }}
                             className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer"
                           >
-                            Reset date
+                            Clear date
                           </button>
                         ) : null}
                       </div>
@@ -449,6 +472,16 @@ export default function FarmerSchedulingPage() {
                         </span>
                       ) : null}
                     </div>
+
+                    {!calendarDate ? (
+                      <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/50 p-8 text-center">
+                        <CalendarDays className="mx-auto size-8 text-emerald-600" />
+                        <h4 className="mt-2 text-sm sm:text-base font-bold text-slate-800">Choose a date first</h4>
+                        <p className="mt-1 text-xs sm:text-sm text-slate-600">
+                          Select a highlighted date on the calendar to see programs available for booking.
+                        </p>
+                      </div>
+                    ) : null}
 
                     {/* No programs on this date */}
                     {calendarDate && programsOnDate.length === 0 ? (
@@ -511,10 +544,14 @@ export default function FarmerSchedulingPage() {
                               {/* Details: Venue & Time Window */}
                               <div className="space-y-1.5 text-xs sm:text-sm text-slate-600 font-medium">
                                 <div className="flex items-center gap-2">
+                                  <CalendarDays className="size-3.5 shrink-0 text-emerald-700" />
+                                  <span className="font-semibold text-slate-800">{formatLongDate(schedule.date)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
                                   <Clock3 className="size-3.5 shrink-0 text-slate-400" />
                                   <span>
-                                    {formatTime(PROGRAM_TIME_SLOTS[0])} –{" "}
-                                    {formatTime(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1])}
+                                    {formatTime(selectedAvailableTimes[0])} –{" "}
+                                    {formatTime(selectedAvailableTimes[selectedAvailableTimes.length - 1])}
                                   </span>
                                 </div>
                                 {schedule.location ? (
@@ -624,7 +661,7 @@ export default function FarmerSchedulingPage() {
                             Choose Your Preferred Arrival Time:
                           </label>
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                            {PROGRAM_TIME_SLOTS.map((slot) => {
+                            {availableTimes.map((slot) => {
                               const isSlotActive = time === slot;
                               return (
                                 <Button
@@ -702,7 +739,7 @@ export default function FarmerSchedulingPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2.5 text-base sm:text-xl font-black text-slate-900 tracking-tight">
                     <CalendarCheck className="size-5 text-emerald-700" />
-                    <span>My Scheduled Visits</span>
+                    <span>My Scheduled Programs</span>
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm text-slate-500 font-medium">
                     Review your upcoming confirmed reservations and complete appointment history.
@@ -737,23 +774,23 @@ export default function FarmerSchedulingPage() {
                   <Button
                     type="button"
                     size="sm"
-                    variant={bookingFilter === "all" ? "default" : "outline"}
-                    onClick={() => setBookingFilter("all")}
+                    variant={bookingFilter === "past" ? "default" : "outline"}
+                    onClick={() => setBookingFilter("past")}
                     className={`h-9 rounded-full px-3.5 text-xs sm:text-sm font-bold transition-all ${
-                      bookingFilter === "all"
+                      bookingFilter === "past"
                         ? "bg-emerald-800 text-white hover:bg-emerald-900 shadow-xs"
                         : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    <span>All Bookings</span>
+                    <span>Past Bookings</span>
                     <span
                       className={`ml-1.5 rounded-full px-2 py-0.2 text-xs font-black ${
-                        bookingFilter === "all"
+                        bookingFilter === "past"
                           ? "bg-white/20 text-white"
                           : "bg-slate-200 text-slate-700"
                       }`}
                     >
-                      {bookings.length}
+                      {pastBookings.length}
                     </span>
                   </Button>
                 </div>
@@ -767,11 +804,11 @@ export default function FarmerSchedulingPage() {
                 <div className="py-8">
                   <CommunityEmptyState
                     icon={<CalendarCheck className="size-6 text-slate-400" />}
-                    title={bookingFilter === "upcoming" ? "No upcoming visits" : "No bookings recorded"}
+                    title={bookingFilter === "upcoming" ? "No upcoming visits" : "No past bookings"}
                     description={
                       bookingFilter === "upcoming"
                         ? "You have no upcoming appointment slots reserved. Pick a program from the calendar above to book your visit."
-                        : "No past or active bookings have been made yet."
+                        : "Completed or cancelled program bookings will appear here."
                     }
                   />
                 </div>
@@ -836,7 +873,21 @@ export default function FarmerSchedulingPage() {
 
                         {/* Action Footer */}
                         {canCancel ? (
-                          <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">
+                          <div className="mt-4 flex flex-wrap justify-end gap-1.5 border-t border-slate-100 pt-3">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => {
+                                setEditingBooking(booking);
+                                setEditTime(booking.time.slice(0, 5));
+                              }}
+                              className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm font-bold text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                            >
+                              <Pencil className="size-3.5" />
+                              <span>Edit Time</span>
+                            </Button>
                             <Button
                               type="button"
                               variant="ghost"
@@ -859,6 +910,63 @@ export default function FarmerSchedulingPage() {
           </Card>
         </section>
       </main>
+
+      {/* Only the time can change; the server checks ownership and available slots. */}
+      <Dialog
+        open={editingBooking !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setEditingBooking(null);
+            setEditTime("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900">Edit Appointment Time</DialogTitle>
+            <DialogDescription>
+              Choose an available time for {editingBooking?.program} on {editingBooking ? formatLongDate(editingBooking.date) : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {(editingBooking?.available_times?.length ? editingBooking.available_times : PROGRAM_TIME_SLOTS).map((slot) => (
+              <Button
+                key={slot}
+                type="button"
+                variant={editTime === slot ? "default" : "outline"}
+                disabled={busy}
+                onClick={() => setEditTime(slot)}
+                className={editTime === slot ? "min-h-11 bg-emerald-800 text-white hover:bg-emerald-900" : "min-h-11"}
+              >
+                <Clock className="mr-1.5 size-3.5" />
+                {formatTime(slot)}
+              </Button>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setEditingBooking(null);
+                setEditTime("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={busy || !editTime}
+              onClick={() => void handleSaveBookingTime()}
+              className="bg-emerald-800 text-white hover:bg-emerald-900"
+            >
+              {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Save Time
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog for Cancellation */}
       <AlertDialog

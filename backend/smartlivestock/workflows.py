@@ -14,8 +14,10 @@ SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF"
 
 
 ROLE_MATRIX = {
-    "disease": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
-    "mortality": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
+    # CBAT can view scoped health reports to identify affected animals, but
+    # SIBAT remains responsible for field verification and MAO for approval.
+    "disease": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
+    "mortality": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
     "production": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
     # CBAT officers use the same barangay-scoped field verification step as SIBAT.
     "inventory": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "review": {SIBAT, "CBAT", MAO, ADMIN}, "edit_own": {FARMER}},

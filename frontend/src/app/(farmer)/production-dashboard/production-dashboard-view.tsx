@@ -65,6 +65,7 @@ interface ProductionDashboardViewProps {
   initialActivity?: string | null;
   initialMode?: "record" | "history" | null;
   initialEligibleSpecies?: string[];
+  onReturnToChooser?: () => void;
 }
 
 function productionErrorMessage(error: unknown, fallback: string): string {
@@ -82,6 +83,7 @@ export default function ProductionDashboardView({
   initialActivity = null,
   initialMode = null,
   initialEligibleSpecies = [],
+  onReturnToChooser,
 }: ProductionDashboardViewProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -410,6 +412,23 @@ export default function ProductionDashboardView({
     if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
   };
 
+  const returnToActivityChooser = () => {
+    if (onReturnToChooser) {
+      onReturnToChooser();
+      return;
+    }
+    router.push("/production-dashboard");
+  };
+
+  // A farmer who closes a form opened from the Record activity chooser should
+  // return to that chooser instead of staying on an intermediate activity page.
+  const handleWizardClose = () => {
+    setIsWizardOpen(false);
+    if (focusedActivity && focusedMode === "record") {
+      returnToActivityChooser();
+    }
+  };
+
   const analytics = useMemo(
     () => computeProductionAnalytics(filteredProductionRecords),
     [filteredProductionRecords]
@@ -425,7 +444,7 @@ export default function ProductionDashboardView({
             <h2 className="mt-1 text-lg font-bold text-slate-900">{focusedMode === "record" ? "Record activity" : "Activity records"}</h2>
             <p className="mt-1 text-sm text-slate-600">{focusedMode === "record" ? "Complete the existing form. Choose the animal and review your entry before saving." : "Review the records and their review status for this activity."}</p>
           </div>
-          <Button type="button" variant="outline" className="min-h-11 shrink-0 rounded-xl" onClick={() => router.push("/production-dashboard")}>
+          <Button type="button" variant="outline" className="min-h-11 shrink-0 rounded-xl" onClick={returnToActivityChooser}>
             <ArrowLeft className="mr-2 size-4" /> Choose another activity
           </Button>
         </section>
@@ -775,9 +794,14 @@ export default function ProductionDashboardView({
           }
         }}
         open={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
+        onClose={handleWizardClose}
         mode={editingRecord ? "edit" : "create"}
         editingRecord={editingRecord}
+        fixedProductionType={
+          focusedActivity && ["milk", "meat", "eggs", "wool"].includes(focusedActivity)
+            ? focusedActivity as ProductionType
+            : undefined
+        }
       />
 
       <ProductionDeleteDialog

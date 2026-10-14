@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Layers, Pencil, Tag } from "lucide-react";
+import { Pencil, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { EntryType, LivestockInventoryItem } from "./page";
-import { useLivestockBatches } from "./livestock-inventory";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 
 export interface UpdateInventoryPayload {
@@ -56,7 +54,6 @@ interface FormState {
   sex: string;
   birthDate: string;
   weight: string;
-  isVaccinated: boolean;
   lastVaccinationDate: string;
 }
 
@@ -68,7 +65,6 @@ const toFormState = (item: LivestockInventoryItem): FormState => ({
   sex: item.sex || "Female",
   birthDate: item.birthDate ?? "",
   weight: item.weight != null ? String(item.weight) : "",
-  isVaccinated: !!item.lastVaccinationDate,
   lastVaccinationDate: item.lastVaccinationDate ?? "",
 });
 
@@ -80,13 +76,14 @@ const EMPTY_FORM: FormState = {
   sex: "Female",
   birthDate: "",
   weight: "",
-  isVaccinated: false,
   lastVaccinationDate: "",
 };
 
 interface LivestockEditDialogProps {
   item: LivestockInventoryItem | null;
   open: boolean;
+  /** Hide birth date when this dialog is opened from Health & Vaccinations. */
+  hideBirthDate?: boolean;
   onOpenChange: (open: boolean) => void;
   livestockTypes: Record<string, number>;
   isSubmitting: boolean;
@@ -96,12 +93,12 @@ interface LivestockEditDialogProps {
 export default function LivestockEditDialog({
   item,
   open,
+  hideBirthDate = false,
   onOpenChange,
   livestockTypes,
   isSubmitting,
   onSubmit,
 }: LivestockEditDialogProps) {
-  const { data: batches = [] } = useLivestockBatches();
   const [form, setForm] = useState<FormState>(() =>
     item ? toFormState(item) : EMPTY_FORM
   );
@@ -129,11 +126,6 @@ export default function LivestockEditDialog({
       setFormError("Breed is required.");
       return;
     }
-    if (form.isVaccinated && !form.lastVaccinationDate) {
-      setFormError("Please provide the last vaccination date or uncheck 'Vaccinated'.");
-      return;
-    }
-
     const typeId = livestockTypes[form.livestockType];
     if (!typeId) {
       setFormError("Please select a valid livestock species type.");
@@ -145,6 +137,7 @@ export default function LivestockEditDialog({
       entry_type: "INDIVIDUAL",
       quantity: 1,
       tag_number: form.tagNumber.trim(),
+      // Keep the existing herd relationship when this dialog edits animal details.
       batch: form.batchId ? Number(form.batchId) : null,
       breed: form.breed.trim(),
       sex: form.sex,
@@ -221,14 +214,34 @@ export default function LivestockEditDialog({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="editBirthDate">Birth Date (optional)</Label>
-                  <Input id="editBirthDate" type="date" max={localCalendarDateToday()} value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className="h-11 min-w-0 w-full" />
+                  <Label htmlFor="editVaxDate">Last Vaccination Date (optional)</Label>
+                  <Input
+                    id="editVaxDate"
+                    type="date"
+                    max={localCalendarDateToday()}
+                    value={form.lastVaccinationDate}
+                    onChange={(e) => set({ lastVaccinationDate: e.target.value })}
+                    className="h-11 min-w-0 w-full"
+                  />
                 </div>
+                {!hideBirthDate && (
+                  <div className="space-y-2">
+                    <Label htmlFor="editBirthDate">Birth Date (optional)</Label>
+                    <Input
+                      id="editBirthDate"
+                      type="date"
+                      max={localCalendarDateToday()}
+                      value={form.birthDate}
+                      onChange={(e) => set({ birthDate: e.target.value })}
+                      className="h-11 min-w-0 w-full"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>
                   <Input
                     id="editTagNumber"
-                    placeholder="e.g. TAG-2026-88"
+                    placeholder="e.g. NAME-001"
                     value={form.tagNumber}
                     onChange={(e) => set({ tagNumber: e.target.value })}
                     required
@@ -257,27 +270,6 @@ export default function LivestockEditDialog({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editBatch">Assigned Herd</Label>
-                  <Select
-                    value={form.batchId || "none"}
-                    onValueChange={(val) => set({ batchId: val === "none" ? "" : val })}
-                    disabled={!!item.batchId}
-                  >
-                    <SelectTrigger id="editBatch">
-                      <SelectValue placeholder="Select herd (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Standalone (No Batch)</SelectItem>
-                      {batches.map((b) => (
-                        <SelectItem key={b.id} value={String(b.id)}>
-                          {b.batchCode} ({b.batchName || b.livestockTypeName})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <LivestockBreedField
                     id="editBreed"
                     species={form.livestockType}
@@ -315,43 +307,6 @@ export default function LivestockEditDialog({
                     onChange={(e) => set({ weight: e.target.value })}
                   />
                 </div>
-              </div>
-
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="editIsVaccinated"
-                    checked={form.isVaccinated}
-                    onCheckedChange={(checked) =>
-                      set({
-                        isVaccinated: !!checked,
-                        lastVaccinationDate: checked ? form.lastVaccinationDate : "",
-                      })
-                    }
-                  />
-                  <Label
-                    htmlFor="editIsVaccinated"
-                    className="text-sm font-semibold cursor-pointer"
-                  >
-                    Immunization / Vaccination Recorded
-                  </Label>
-                </div>
-                {form.isVaccinated && (
-                  <div className="space-y-2 pl-6">
-                    <Label htmlFor="editVaxDate" className="text-xs font-bold text-slate-600">
-                      Last Vaccination Date
-                    </Label>
-                    <Input
-                      id="editVaxDate"
-                      type="date"
-                      max={new Date().toISOString().split("T")[0]}
-                      className="flex w-full bg-white"
-                      value={form.lastVaccinationDate}
-                      onChange={(e) => set({ lastVaccinationDate: e.target.value })}
-                      required
-                    />
-                  </div>
-                )}
               </div>
 
               <DialogFooter className="pt-2">

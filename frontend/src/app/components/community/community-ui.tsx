@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Activity, AlertTriangle, CalendarDays, ClipboardCheck, GraduationCap, HeartPulse, Megaphone, MapPin, RotateCw, ShieldAlert, ShoppingBasket, Syringe, Users, type LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** Time slots the backend accepts for a program booking (users/community_views.py TIMES). */
+/** Default appointment times used for new schedules unless staff customize them. */
 export const PROGRAM_TIME_SLOTS = ["08:00", "09:30", "11:00", "13:30"] as const;
 
 export type CommunityRole = "admin" | "sibat" | "farmer" | "auction" | "slaughterhouse";
@@ -145,11 +145,13 @@ export function formatTime(value: string): string {
   return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-/** A program has no single time, it spans every bookable slot, so show first -> last. */
-export function formatTimeWindow(): string {
-  const first = PROGRAM_TIME_SLOTS[0];
-  const last = PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1];
+/** Show the first and last appointment times configured for one program. */
+export function formatTimeWindow(availableTimes: readonly string[] = PROGRAM_TIME_SLOTS): string {
+  const times = availableTimes.length ? availableTimes : PROGRAM_TIME_SLOTS;
+  const first = times[0];
+  const last = times[times.length - 1];
   if (!first || !last) return "—";
+  if (first === last) return formatTime(first);
   return `${formatTime(first)} – ${formatTime(last)}`;
 }
 

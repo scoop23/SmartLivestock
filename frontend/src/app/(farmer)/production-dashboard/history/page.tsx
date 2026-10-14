@@ -26,17 +26,18 @@ function ProductionHistoryPageContent() {
         subtitle={typeFilter === "ALL" ? "All submitted production records across livestock types." : `Your submitted ${typeFilter} production records and review status.`}
         variant="farmer"
         maxWidthClass="w-full"
-        action={
-          <Link href="/production-dashboard">
-            <Button type="button" className="bg-white text-[#2D5A27] hover:bg-white/90 shadow-sm px-4">
-              <ArrowLeft className="size-4" /> Back to activities
-            </Button>
-          </Link>
-        }
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        <ProductionHistory initialTypeFilter={typeFilter} />
+        <Link href="/production-dashboard" className="inline-flex">
+          <Button type="button" variant="outline" className="min-h-11 gap-2 rounded-xl border-slate-300 bg-white px-4 text-slate-700 hover:bg-slate-50">
+            <ArrowLeft className="size-4" /> Back to activities
+          </Button>
+        </Link>
+        <ProductionHistory
+          initialTypeFilter={typeFilter}
+          initialRecordId={searchParams.get("recordId")}
+        />
       </div>
     </>
   );

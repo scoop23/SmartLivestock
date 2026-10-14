@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/app/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +44,8 @@ import ReportIllnessDialog from "./components/report-illness-dialog";
 import ReportDetailDialog from "./components/report-detail-dialog";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 
+type HealthReportFilter = "ALL" | "DISEASE" | "MORTALITY" | "PENDING" | "REVISION" | "APPROVED";
+
 export default function ReportObservationPage() {
   const queryClient = useQueryClient();
 
@@ -64,6 +66,7 @@ export default function ReportObservationPage() {
   const {
     data: diseaseCases = [],
     isLoading: isLoadingDiseases,
+    isError: isDiseaseError,
     refetch: refetchDiseases,
     isFetching: isFetchingDiseases,
   } = useQuery({
@@ -77,6 +80,7 @@ export default function ReportObservationPage() {
   const {
     data: mortalityRecords = [],
     isLoading: isLoadingMortality,
+    isError: isMortalityError,
     refetch: refetchMortality,
     isFetching: isFetchingMortality,
   } = useQuery({
@@ -167,7 +171,7 @@ export default function ReportObservationPage() {
 
   // ── Filter State ──
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [filterType, setFilterType] = useState<string>("ALL");
+  const [filterType, setFilterType] = useState<HealthReportFilter>("ALL");
 
   // Filtered reports
   const filteredReports = useMemo(() => {
@@ -184,14 +188,36 @@ export default function ReportObservationPage() {
       if (filterType === "ALL") return true;
       if (filterType === "DISEASE") return rep.reportType === "DISEASE";
       if (filterType === "MORTALITY") return rep.reportType === "MORTALITY";
+      if (filterType === "PENDING") return rep.status === "PENDING";
       if (filterType === "REVISION") {
         const s = (rep.status || "") as string;
         return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION";
       }
+      if (filterType === "APPROVED") return rep.status === "APPROVED" || rep.status === "VERIFIED";
 
       return true;
     });
   }, [reports, searchQuery, filterType]);
+
+  const [handledRecentActivityLink, setHandledRecentActivityLink] = useState(false);
+  useEffect(() => {
+    if (isLoadingDiseases || isLoadingMortality || isDiseaseError || isMortalityError || handledRecentActivityLink) return;
+
+    const requestedReportId = new URLSearchParams(window.location.search).get("reportId");
+    if (!requestedReportId) {
+      setHandledRecentActivityLink(true);
+      return;
+    }
+
+    const requestedReport = reports.find((report) => report.id === requestedReportId);
+    if (requestedReport) {
+      setSelectedReport(requestedReport);
+      setIsDetailOpen(true);
+    } else {
+      toast.error("That health report could not be found in your reports.");
+    }
+    setHandledRecentActivityLink(true);
+  }, [reports, isLoadingDiseases, isLoadingMortality, isDiseaseError, isMortalityError, handledRecentActivityLink]);
 
   // KPI Metrics
   const totalDiseaseCases = reports.filter((r) => r.reportType === "DISEASE").length;
@@ -330,18 +356,20 @@ export default function ReportObservationPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
               {/* Filter Pills */}
               <div className="flex flex-wrap gap-1.5">
-                {[
+                {([
                   { id: "ALL", label: `All (${reports.length})` },
                   { id: "DISEASE", label: `Sick Animals (${totalDiseaseCases})` },
                   { id: "MORTALITY", label: `Deceased (${totalMortality})` },
-                  { id: "PENDING", label: `Pending Visit (${pendingVerification})` },
+                  { id: "PENDING", label: `Pending (${pendingVerification})` },
                   { id: "REVISION", label: "Needs Revision" },
                   { id: "APPROVED", label: `Approved (${approvedCases})` },
-                ].map((tab) => (
+                ] satisfies ReadonlyArray<{ id: HealthReportFilter; label: string }>).map((tab) => (
                   <button
                     key={tab.id}
+                    type="button"
+                    aria-pressed={filterType === tab.id}
                     onClick={() => setFilterType(tab.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    className={`inline-flex min-h-11 items-center rounded-xl px-3.5 py-2 text-sm font-bold transition-all cursor-pointer ${
                       filterType === tab.id
                         ? "bg-[#2D5A27] text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -494,7 +522,7 @@ export default function ReportObservationPage() {
                         )}
                       </div>
 
-                      {/* Bottom Row: Status Badge & Dossier Button */}
+                      {/* Bottom Row: Status Badge & Details Button */}
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                         <Badge className={`text-[10px] font-extrabold px-2 py-0.5 gap-1 ${statusInfo.badgeClass}`}>
                           {statusInfo.icon}
@@ -502,7 +530,7 @@ export default function ReportObservationPage() {
                         </Badge>
 
                         <span className="text-xs font-black text-[#2D5A27] group-hover:underline flex items-center gap-0.5">
-                          <span>Dossier</span>
+                          <span>Details</span>
                           <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
                         </span>
                       </div>

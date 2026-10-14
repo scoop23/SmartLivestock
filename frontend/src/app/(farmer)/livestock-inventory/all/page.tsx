@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Activity, ArrowLeft, History } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,9 +35,6 @@ export default function AllLivestockInventoryPage() {
 
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading } = useUserInventory({ includeInactive: true });
-  const activeCount = inventories.filter((item) => item.operationalStatus === "ACTIVE").length;
-  const historicalCount = inventories.length - activeCount;
-
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/livestock/inventory/${id}/`);
@@ -78,7 +75,7 @@ export default function AllLivestockInventoryPage() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-start gap-3">
           <Link href="/livestock-inventory">
             <Button
               type="button"
@@ -89,14 +86,6 @@ export default function AllLivestockInventoryPage() {
             </Button>
           </Link>
 
-          <div className="flex items-center gap-2 text-xs font-semibold">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 border border-emerald-200">
-              <Activity className="size-3" /> <strong>{activeCount}</strong> Active
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-slate-700 border border-slate-200">
-              <History className="size-3" /> <strong>{historicalCount}</strong> Reconciled History
-            </span>
-          </div>
         </div>
 
         <LivestockRecordList
@@ -107,6 +96,7 @@ export default function AllLivestockInventoryPage() {
           onEdit={(item) => setEditTarget(item)}
           onDelete={(item) => setDeleteTarget(item)}
           onAddRecord={() => router.push("/livestock-inventory")}
+          showMetrics={false}
         />
       </div>
 

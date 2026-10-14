@@ -67,6 +67,8 @@ interface ProductionWizardProps {
   editingRecord: Partial<ProductionRecordItem> | null;
   /** Start at the details stage when the caller already fixed the animal and production type. */
   profileMode?: boolean;
+  /** Keep a wizard opened from a specific activity on that activity's type. */
+  fixedProductionType?: ProductionType;
 }
 
 const STEP_LABELS = ["Livestock", "Production", "Details", "Review"];
@@ -183,6 +185,7 @@ function ProductionWizardContent({
   mode,
   editingRecord,
   profileMode = false,
+  fixedProductionType,
 }: ProductionWizardProps) {
   const firstStep = profileMode || mode === "edit" ? 2 : 0;
   const minimumStep = profileMode ? 2 : 0;
@@ -194,7 +197,10 @@ function ProductionWizardContent({
   const slaughterCandidates = approvedInventories.filter(item => item.quantity === 1 &&
     (clickedInventory?.batchId ? item.batchId === clickedInventory.batchId : item.id === clickedInventory?.id));
 
-  const availableTypes = getProductionTypesForLivestock(clickedInventory?.livestockTypeName);
+  const livestockProductionTypes = getProductionTypesForLivestock(clickedInventory?.livestockTypeName);
+  const availableTypes = fixedProductionType
+    ? livestockProductionTypes.filter((type) => type === fixedProductionType)
+    : livestockProductionTypes;
   const selectorInventories = productionType === "milk"
     ? approvedInventories.filter((item) => {
         const sex = item.sex?.trim().toLowerCase();
@@ -393,7 +399,7 @@ function ProductionWizardContent({
             })}
           </div>
 
-          <div className="flex items-center gap-3 mb-3.5 sm:mb-4 bg-white border border-slate-200 rounded-2xl p-3 sm:p-3.5 shadow-xs">
+          <div className="flex items-center gap-3 mb-3.5 sm:mb-4 px-1 py-1">
             <div
               className={cn(
                 "p-2 sm:p-2.5 rounded-xl shrink-0",

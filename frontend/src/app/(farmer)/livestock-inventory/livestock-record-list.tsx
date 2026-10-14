@@ -238,6 +238,7 @@ export interface LivestockRecordListProps {
   onEdit: (item: LivestockInventoryItem) => void;
   onDelete: (item: LivestockInventoryItem) => void;
   onAddRecord?: () => void;
+  showMetrics?: boolean;
 }
 
 export default function LivestockRecordList({
@@ -248,6 +249,7 @@ export default function LivestockRecordList({
   onEdit,
   onDelete,
   onAddRecord,
+  showMetrics = true,
 }: LivestockRecordListProps) {
   const router = useRouter();
 
@@ -437,8 +439,8 @@ export default function LivestockRecordList({
 
   return (
     <div className="space-y-3.5">
-      {/* ═══ 2. Top Metrics Summary: Slim Horizontal KPI Bar ═══ */}
-      <div className="bg-white rounded-xl border border-slate-200/90 px-4 py-2.5 flex items-center justify-between gap-4 flex-wrap text-xs shadow-2xs">
+      {/* Keep summary counts on the main inventory view; management lists can focus on records. */}
+      {showMetrics && <div className="bg-white rounded-xl border border-slate-200/90 px-4 py-2.5 flex items-center justify-between gap-4 flex-wrap text-xs shadow-2xs">
         <div className="flex items-center gap-5 sm:gap-7 flex-wrap">
           {/* Total Heads */}
           <div className="flex items-center gap-2">
@@ -514,7 +516,7 @@ export default function LivestockRecordList({
             </span>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ═══ 3. Sub-Header & Controls Bar ═══ */}
       <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
@@ -811,6 +813,11 @@ export default function LivestockRecordList({
                           <span className="break-all">Herd {item.batchCode}</span>
                         </Link>
                       )}
+                      {item.entryType === "INDIVIDUAL" && !item.batchCode && (
+                        <Badge className="mt-2 w-fit border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-100">
+                          INDIVIDUAL
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -907,6 +914,11 @@ export default function LivestockRecordList({
                             <Layers className="w-2.5 h-2.5 text-teal-600" />
                             <span>{item.batchCode}</span>
                           </Link>
+                        )}
+                        {item.entryType === "INDIVIDUAL" && !item.batchCode && (
+                          <Badge className="shrink-0 border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">
+                            INDIVIDUAL
+                          </Badge>
                         )}
                       </div>
 
@@ -1040,6 +1052,7 @@ export default function LivestockRecordList({
                             <Button
                               variant="ghost"
                               size="icon"
+                              aria-label="See Profile"
                               onClick={() => onView(item)}
                               className="h-7 w-7 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                             >
@@ -1047,7 +1060,7 @@ export default function LivestockRecordList({
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-xs">
-                            View full animal details
+                            See Profile
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -1188,6 +1201,11 @@ export default function LivestockRecordList({
                             <span>{item.batchCode}</span>
                           </Link>
                         )}
+                        {item.entryType === "INDIVIDUAL" && !item.batchCode && (
+                          <Badge className="border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">
+                            INDIVIDUAL
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
 
@@ -1260,6 +1278,7 @@ export default function LivestockRecordList({
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="See Profile"
                           onClick={() => onView(item)}
                           className="h-7 w-7 rounded-lg text-slate-600 hover:bg-slate-100"
                         >

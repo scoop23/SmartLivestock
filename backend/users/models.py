@@ -60,6 +60,7 @@ class Role(models.Model):
         FARMER = "FARMER", "Farmer"
         MAO = "MAO", "Municipal Agriculturist Office"
         SIBAT = "SIBAT", "Sibat"
+        CBAT = "CBAT", "CBAT"
         AUCTION = "AUCTION", "Auction"
         SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF", "SlaughterhouseStaff"
 
@@ -251,6 +252,8 @@ class AnnouncementPhoto(models.Model):
 class ProgramSchedule(models.Model):
     date = models.DateField()
     capacity = models.PositiveIntegerField(default=4)
+    # Each program owns its appointment times so staff can match bookings to that event's plan.
+    available_times = models.JSONField(default=list, blank=True)
     program = models.CharField(max_length=100)
     location = models.CharField(max_length=200, blank=True)
     farmer_notes = models.TextField(blank=True, default="", max_length=1000)

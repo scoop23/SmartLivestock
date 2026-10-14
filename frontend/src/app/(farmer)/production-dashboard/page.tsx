@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Info } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/app/components/page-header";
@@ -8,8 +8,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 import RecordActivityChooser from "./record-activity-chooser";
 import EnterpriseEmptyState from "./components/enterprise-empty-state";
+import ProductionDashboardView from "./production-dashboard-view";
+import type { ProductionType } from "./production-analytics";
+
+type SelectedRecordActivity = {
+  id: string;
+  species: string[];
+  productionType?: ProductionType;
+};
 
 export default function ProductionDashboardPage() {
+  const [selectedActivity, setSelectedActivity] = useState<SelectedRecordActivity | null>(null);
   const { data: inventories = [], isLoading } = useUserInventory();
   const approvedInventories = useMemo(
     () => inventories.filter((item) => item.status === "APPROVED" && (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0),
@@ -44,7 +53,22 @@ export default function ProductionDashboardPage() {
         ) : approvedInventories.length === 0 ? (
           <EnterpriseEmptyState />
         ) : (
-          <RecordActivityChooser inventories={approvedInventories} />
+          <>
+            <RecordActivityChooser inventories={approvedInventories} onRecord={setSelectedActivity} />
+            {selectedActivity && (
+              <div className="hidden">
+                <ProductionDashboardView
+                  key={`${selectedActivity.id}-${selectedActivity.species.join("-")}`}
+                  selectedSpecies={selectedActivity.species.length === 1 ? selectedActivity.species[0] : "ALL"}
+                  showEnterpriseSwitch={false}
+                  initialActivity={selectedActivity.id}
+                  initialMode="record"
+                  initialEligibleSpecies={selectedActivity.species}
+                  onReturnToChooser={() => setSelectedActivity(null)}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </>

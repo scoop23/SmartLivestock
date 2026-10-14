@@ -326,7 +326,7 @@ export default function HealthTrackerTab({
                             className="rounded-xl h-8 px-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
                           >
                             <Eye className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                            Profile
+                            View Details
                           </Button>
                           <Button
                             variant="outline"

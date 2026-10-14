@@ -25,7 +25,13 @@ const PRODUCTION_META: Record<ProductionType, { title: string; description: stri
   wool: { title: "Wool shearing", description: "Record wool collected from your sheep.", icon: Scissors },
 };
 
-export default function RecordActivityChooser({ inventories }: { inventories: LivestockInventoryItem[] }) {
+export default function RecordActivityChooser({
+  inventories,
+  onRecord,
+}: {
+  inventories: LivestockInventoryItem[];
+  onRecord: (activity: { id: string; species: string[]; productionType?: ProductionType }) => void;
+}) {
   const router = useRouter();
   const species = useMemo(
     () => Array.from(new Set(inventories.map((item) => item.livestockTypeName?.trim()).filter((value): value is string => Boolean(value)))),
@@ -53,6 +59,10 @@ export default function RecordActivityChooser({ inventories }: { inventories: Li
   }, [species]);
 
   const open = (activity: Activity, mode: "record" | "history") => {
+    if (mode === "record") {
+      onRecord(activity);
+      return;
+    }
     if (mode === "history" && activity.productionType) {
       router.push(`/production-dashboard/history?type=${activity.productionType}`);
       return;
@@ -108,7 +118,7 @@ export default function RecordActivityChooser({ inventories }: { inventories: Li
                   </div>
                 </div>
                 <div className="mt-auto grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/70 p-3 sm:px-4">
-                  <Button onClick={() => open(activity, "record")} className="min-h-10 rounded-xl bg-[#2D5A27] text-white hover:bg-[#23471f]">Record</Button>
+                  <Button type="button" onClick={() => open(activity, "record")} className="min-h-10 rounded-xl bg-[#2D5A27] text-white hover:bg-[#23471f]">Record</Button>
                   <Button onClick={() => open(activity, "history")} variant="outline" className="min-h-10 rounded-xl border-slate-200 bg-white">View records</Button>
                 </div>
               </article>

@@ -214,24 +214,11 @@ export default function LivestockDetailsDialog({
             <div className="flex flex-wrap items-center gap-2">
               {getStatusBadge(livestock?.status)}
               {livestock && <OperationalStatusBadge status={livestock.operationalStatus} />}
-              {livestock && (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    onOpenChange();
-                    router.push(`/livestock-inventory/${livestock.tagNumber || livestock.id}`);
-                  }}
-                  className="hidden sm:inline-flex rounded-xl h-9 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1 cursor-pointer"
-                >
-                  <span>View Details</span>
-                  <ExternalLink className="size-3" />
-                </Button>
-              )}
             </div>
           </div>
         </DialogHeader>
 
-        {/* The mobile preview prioritizes identity and a visible next step; detailed history stays in the full profile. */}
+        {/* The mobile preview keeps key animal information readable in the dialog. */}
         {livestock && (
           <div className="flex min-h-0 flex-1 flex-col sm:hidden">
             <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-5">
@@ -277,17 +264,6 @@ export default function LivestockDetailsDialog({
                   <p className="text-xs text-slate-500">{livestock.batchCode}</p>
                 </div>
               )}
-            </div>
-            <div className="shrink-0 border-t border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <Button
-                onClick={() => {
-                  onOpenChange();
-                  router.push(`/livestock-inventory/${livestock.tagNumber || livestock.id}`);
-                }}
-                className="h-12 w-full rounded-xl bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800"
-              >
-                See Details <ExternalLink className="ml-2 size-4" />
-              </Button>
             </div>
           </div>
         )}

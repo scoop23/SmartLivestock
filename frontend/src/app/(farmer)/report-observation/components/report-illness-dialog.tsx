@@ -89,6 +89,13 @@ function ReportIllnessDialogContent({
     }
     return defaultInventoryId || (inventories[0] ? String(inventories[0].id) : "");
   });
+  const [selectedInventoryIds, setSelectedInventoryIds] = useState<string[]>(() => {
+    if (isEditMode && existingReport) {
+      const id = existingReport.inventoryId || existingReport.rawItem?.livestock || defaultInventoryId;
+      return id ? [String(id)] : [];
+    }
+    return defaultInventoryId ? [String(defaultInventoryId)] : [];
+  });
   const [conditionName, setConditionName] = useState<string>(() => {
     if (isEditMode && existingReport) return existingReport.name || "";
     return defaultType === "MORTALITY" ? DEFAULT_MORTALITY_CAUSE : "";
@@ -122,7 +129,20 @@ function ReportIllnessDialogContent({
     return inventories.find((inv) => String(inv.id) === String(selectedInventoryId));
   }, [inventories, selectedInventoryId]);
 
-  const maxAvailableCount = selectedCattle?.quantity || 1;
+  const selectableAnimals = useMemo(
+    () => inventories.filter((inventory) => inventory.entryType === "INDIVIDUAL" && inventory.quantity === 1),
+    [inventories],
+  );
+  const selectedAnimals = useMemo(
+    () => selectableAnimals.filter((inventory) => selectedInventoryIds.includes(String(inventory.id))),
+    [selectableAnimals, selectedInventoryIds],
+  );
+
+  const toggleAnimal = (id: string) => {
+    setSelectedInventoryIds((current) =>
+      current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id],
+    );
+  };
 
   const toggleSymptom = (label: string) => {
     setSelectedSymptoms((prev) =>
@@ -149,8 +169,12 @@ function ReportIllnessDialogContent({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!effectiveInventoryId) {
-      toast.error("Please select an animal from your livestock first.");
+    const targetInventoryIds = isEditMode
+      ? effectiveInventoryId ? [effectiveInventoryId] : []
+      : selectedInventoryIds;
+
+    if (targetInventoryIds.length === 0) {
+      toast.error("Select at least one individual animal from your livestock.");
       return;
     }
 
@@ -175,55 +199,46 @@ function ReportIllnessDialogContent({
         : DEFAULT_MORTALITY_CAUSE);
 
     setIsSubmitting(true);
+    let submittedCount = 0;
 
     try {
-      const formData = new FormData();
-      formData.append("livestock", effectiveInventoryId);
-      if (reportType === "DISEASE") {
-        formData.append("name", mainName);
-        formData.append("affected_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
-      } else {
-        formData.append("cause", mainName);
-        formData.append("death_count", String(Math.min(Math.max(1, affectedCount), maxAvailableCount)));
-      }
-      formData.append("record_date", recordDate);
-      if (description.trim()) {
-        formData.append("description", description.trim());
-      }
-      if (photoFile) {
-        formData.append("photo", photoFile);
-      }
+      for (const inventoryId of targetInventoryIds) {
+        const requestData = new FormData();
+        requestData.append("livestock", inventoryId);
+        if (reportType === "DISEASE") {
+          requestData.append("name", mainName);
+          requestData.append("affected_count", String(isEditMode ? affectedCount : 1));
+        } else {
+          requestData.append("cause", mainName);
+          requestData.append("death_count", String(isEditMode ? affectedCount : 1));
+        }
+        requestData.append("record_date", recordDate);
+        if (description.trim()) requestData.append("description", description.trim());
+        if (photoFile) requestData.append("photo", photoFile);
 
-      let res;
-      if (isEditMode && existingReport) {
-        const endpointId = existingReport.rawItem?.id ?? existingReport.id.replace(/^DIS-|^MOR-/, "");
-        const endpoint =
-          reportType === "DISEASE"
+        let response;
+        if (isEditMode && existingReport) {
+          const endpointId = existingReport.rawItem?.id ?? existingReport.id.replace(/^DIS-|^MOR-/, "");
+          const endpoint = reportType === "DISEASE"
             ? `diseases/cases/${endpointId}/`
             : `diseases/mortality/${endpointId}/`;
-        res = await api.patch(endpoint, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      } else {
-        const endpoint = reportType === "DISEASE" ? "diseases/cases/" : "diseases/mortality/";
-        res = await api.post(endpoint, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      }
-
-      const activeUrl = res.data?.photo_url || res.data?.photo || photoDataUrl;
-      if (activeUrl && res.data?.id) {
-        if (reportType === "DISEASE") {
-          saveAttachedPhoto(`DIS-${res.data.id}`, {
-            photoUrl: activeUrl,
-            photoName: photoName || "farmer_attached_evidence.jpg",
-            timestamp: new Date().toISOString(),
-            uploaderRole: "FARMER",
+          response = await api.patch(endpoint, requestData, {
+            headers: { "Content-Type": "multipart/form-data" },
           });
         } else {
-          saveAttachedPhoto(`MOR-${res.data.id}`, {
+          const endpoint = reportType === "DISEASE" ? "diseases/cases/" : "diseases/mortality/";
+          response = await api.post(endpoint, requestData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
+        submittedCount += 1;
+
+        const activeUrl = response.data?.photo_url || response.data?.photo || photoDataUrl;
+        if (activeUrl && response.data?.id) {
+          const reportPrefix = reportType === "DISEASE" ? "DIS" : "MOR";
+          saveAttachedPhoto(`${reportPrefix}-${response.data.id}`, {
             photoUrl: activeUrl,
-            photoName: photoName || "mortality_evidence_photo.jpg",
+            photoName: photoName || (isDisease ? "farmer_attached_evidence.jpg" : "mortality_evidence_photo.jpg"),
             timestamp: new Date().toISOString(),
             uploaderRole: "FARMER",
           });
@@ -236,22 +251,18 @@ function ReportIllnessDialogContent({
         queryClient.invalidateQueries({ queryKey: ["sibat-validation-cases"] });
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
-        toast.success(
-          isEditMode
-            ? "Report resubmitted successfully. Your report has been returned to the validation queue."
-            : "Disease report submitted! SIBAT field officers and MAO have been notified."
-        );
+        toast.success(isEditMode
+          ? "Report resubmitted successfully. Your report has been returned to the validation queue."
+          : `${submittedCount} disease report${submittedCount === 1 ? "" : "s"} submitted. SIBAT field officers and MAO have been notified.`);
       } else {
         queryClient.invalidateQueries({ queryKey: ["farmer-mortality-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-mortality-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-validation-mortality"] });
         queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
-        toast.success(
-          isEditMode
-            ? "Mortality report resubmitted successfully. Your report has been returned to the validation queue."
-            : "Mortality record logged! SIBAT & MAO will review this incident."
-        );
+        toast.success(isEditMode
+          ? "Mortality report resubmitted successfully. Your report has been returned to the validation queue."
+          : `${submittedCount} mortality report${submittedCount === 1 ? "" : "s"} logged. SIBAT and MAO will review them.`);
       }
 
       setConditionName(defaultType === "MORTALITY" ? DEFAULT_MORTALITY_CAUSE : "");
@@ -267,7 +278,24 @@ function ReportIllnessDialogContent({
       console.error("Failed to submit observation:", err);
       const axiosErr = err as { response?: { data?: { error?: string; detail?: string } } };
       const msg = axiosErr.response?.data?.error || axiosErr.response?.data?.detail || "Submission failed.";
-      toast.error(msg);
+      if (submittedCount > 0) {
+        if (reportType === "DISEASE") {
+          queryClient.invalidateQueries({ queryKey: ["farmer-disease-cases"] });
+          queryClient.invalidateQueries({ queryKey: ["sibat-disease-cases"] });
+          queryClient.invalidateQueries({ queryKey: ["sibat-validation-cases"] });
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["farmer-mortality-records"] });
+          queryClient.invalidateQueries({ queryKey: ["sibat-mortality-records"] });
+          queryClient.invalidateQueries({ queryKey: ["sibat-validation-mortality"] });
+        }
+        queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+        queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
+        onSuccess?.();
+        onOpenChange(false);
+        toast.error(`${submittedCount} of ${targetInventoryIds.length} reports were submitted before an error. Check report history before retrying. ${msg}`);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -360,38 +388,70 @@ function ReportIllnessDialogContent({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
-          {/* Step 1: Select Animal */}
+          {/* Each selected individual receives its own report, matching the backend's one-animal-per-record model. */}
           <div className="space-y-1.5">
             <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Icon iconNode={cowHead} className="size-3.5 text-[#2D5A27]" />
-                1. Affected Animal
+                1. Affected Animals
               </span>
-              {selectedCattle && (
+              {isEditMode && selectedCattle && (
                 <span className="text-[10px] font-bold text-slate-400">
                   {selectedCattle.batchCode ? `Herd: ${selectedCattle.batchCode}` : "Individual Animal"}
                 </span>
               )}
             </Label>
 
-            <Select value={effectiveInventoryId} onValueChange={setSelectedInventoryId}>
-              <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]">
-                <SelectValue placeholder="Select livestock from your herd..." />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl max-h-56">
-                {inventories.map((inv) => (
-                  <SelectItem
-                    key={inv.id}
-                    value={String(inv.id)}
-                    className="text-xs font-semibold py-2 cursor-pointer"
-                  >
-                    #{inv.tagNumber || `TAG-${inv.id}`} • {inv.livestockTypeName || "Livestock"} (
-                    {inv.breed || "Standard"}, {inv.sex || "Female"})
-                    {inv.batchCode ? ` • [Herd: ${inv.batchCode}]` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isEditMode ? (
+              <Select value={effectiveInventoryId} onValueChange={setSelectedInventoryId}>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]">
+                  <SelectValue placeholder="Select livestock from your herd..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl max-h-56">
+                  {inventories.map((inv) => (
+                    <SelectItem key={inv.id} value={String(inv.id)} className="text-xs font-semibold py-2 cursor-pointer">
+                      #{inv.tagNumber || `TAG-${inv.id}`} • {inv.livestockTypeName || "Livestock"} ({inv.breed || "Standard"}, {inv.sex || "Female"})
+                      {inv.batchCode ? ` • [Herd: ${inv.batchCode}]` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                {selectableAnimals.length === 0 ? (
+                  <p className="p-3 text-xs text-slate-600">No individual animals are available to select.</p>
+                ) : (
+                  <div className="max-h-48 divide-y divide-slate-200 overflow-y-auto">
+                    {selectableAnimals.map((animal) => {
+                      const id = String(animal.id);
+                      const checked = selectedInventoryIds.includes(id);
+                      return (
+                        <label key={id} className="flex min-h-12 cursor-pointer items-center gap-3 bg-white px-3 py-2 hover:bg-emerald-50/60">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleAnimal(id)}
+                            className="size-4 shrink-0 accent-[#2D5A27]"
+                          />
+                          <span className="min-w-0 text-xs font-semibold text-slate-800">
+                            <span className="block break-words">{animal.tagNumber || `Animal #${animal.id}`} · {animal.livestockTypeName || "Livestock"}</span>
+                            <span className="block text-[11px] font-normal text-slate-500">{animal.breed || "Breed not recorded"} · {animal.sex || "Sex not recorded"}{animal.batchCode ? ` · Herd ${animal.batchCode}` : " · Individual"}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
+                  {selectedInventoryIds.length} animal{selectedInventoryIds.length === 1 ? "" : "s"} selected
+                </p>
+              </div>
+            )}
+            {!isEditMode && (
+              <p className="text-xs leading-relaxed text-slate-500">
+                A separate report is created for each selected animal. The animal count comes from your selection.
+              </p>
+            )}
           </div>
 
           {/* Step 2: Symptoms or Cause */}
@@ -463,8 +523,8 @@ function ReportIllnessDialogContent({
             </div>
           )}
 
-          {/* Step 3: Date & Head Count */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Step 3: Date. The number of reported animals comes from the selection above. */}
+          <div className="space-y-1.5">
             <div className="space-y-1.5">
               <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <Calendar className="size-3.5 text-[#2D5A27]" />
@@ -475,20 +535,6 @@ function ReportIllnessDialogContent({
                 value={recordDate}
                 max={localCalendarDateToday()}
                 onChange={(e) => setRecordDate(e.target.value)}
-                className="h-10 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-black uppercase tracking-wider text-slate-700">
-                Number of Heads {isDisease ? "Sick" : "Deceased"}
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                max={maxAvailableCount}
-                value={affectedCount}
-                onChange={(e) => setAffectedCount(Math.max(1, parseInt(e.target.value) || 1))}
                 className="h-10 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]"
               />
             </div>
@@ -564,7 +610,7 @@ function ReportIllnessDialogContent({
 
             <Button
               type="submit"
-              disabled={isSubmitting || !effectiveInventoryId}
+              disabled={isSubmitting || (isEditMode ? !effectiveInventoryId : selectedInventoryIds.length === 0)}
               className={`rounded-xl text-white text-xs font-black h-10 px-6 gap-2 shadow-sm cursor-pointer ${
                 isDisease
                   ? "bg-[#2D5A27] hover:bg-[#22441d]"

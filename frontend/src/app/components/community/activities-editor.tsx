@@ -397,9 +397,9 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="FARMER_AND_SIBAT" className="text-xs sm:text-sm font-medium">FARMER AND SIBAT</SelectItem>
-                      <SelectItem value="FARMER_ONLY" className="text-xs sm:text-sm font-medium">FARMER ONLY</SelectItem>
-                      <SelectItem value="SIBAT_ONLY" className="text-xs sm:text-sm font-medium">SIBAT ONLY</SelectItem>
-                      <SelectItem value="ALL" className="text-xs sm:text-sm font-medium">ALL</SelectItem>
+                      <SelectItem value="FARMER_ONLY" className="text-xs sm:text-sm font-medium">FARMER</SelectItem>
+                      <SelectItem value="SIBAT_ONLY" className="text-xs sm:text-sm font-medium">SIBAT</SelectItem>
+                      <SelectItem value="ALL" className="text-xs sm:text-sm font-medium">ALL with (SLAUGHTERHOUSE AND AUCTION)</SelectItem>
                       <SelectItem value="SIBAT_BARANGAY" className="text-xs sm:text-sm font-medium">SIBAT — THEIR BARANGAY ONLY</SelectItem>
                     </SelectContent>
                   </Select>

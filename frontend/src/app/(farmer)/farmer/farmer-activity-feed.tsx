@@ -23,9 +23,6 @@ import type { FarmerActivityItem } from "./farmer-analytics";
 interface FarmerActivityFeedProps {
   activities?: FarmerActivityItem[];
   isLoading?: boolean;
-  onSelectActivity?: (activity: FarmerActivityItem) => void;
-  onOpenReportIllness?: () => void;
-  onOpenReportsList?: () => void;
 }
 
 const TYPE_ICONS = {
@@ -45,9 +42,6 @@ const TYPE_BG = {
 export default function FarmerActivityFeed({
   activities = [],
   isLoading = false,
-  onSelectActivity,
-  onOpenReportIllness,
-  onOpenReportsList,
 }: FarmerActivityFeedProps) {
   const router = useRouter();
 
@@ -96,43 +90,13 @@ export default function FarmerActivityFeed({
 
   return (
     <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden">
-      <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between">
+      <CardHeader className="p-5 pb-3">
         <CardTitle className="text-base font-black text-slate-900 flex items-center gap-2">
           <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-800">
             <Activity className="size-4" />
           </div>
           Recent Farm Activity
         </CardTitle>
-        <div className="flex items-center gap-1.5">
-          {onOpenReportsList && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenReportsList}
-              className="text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-slate-50 rounded-xl h-8 px-2.5 cursor-pointer"
-            >
-              All Reports
-            </Button>
-          )}
-          {onOpenReportIllness ? (
-            <Button
-              size="sm"
-              onClick={onOpenReportIllness}
-              className="text-xs font-black bg-[#2D5A27] text-white hover:bg-[#23471f] rounded-xl h-8 px-3 gap-1 cursor-pointer"
-            >
-              + Report Sickness
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/report-observation")}
-              className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-50 rounded-xl cursor-pointer"
-            >
-              Animal Health <ChevronRight className="size-3.5 ml-0.5" />
-            </Button>
-          )}
-        </div>
       </CardHeader>
 
       <CardContent className="p-5 pt-1">
@@ -159,20 +123,45 @@ export default function FarmerActivityFeed({
           <div className="divide-y divide-slate-100 max-h-[460px] overflow-y-auto pr-1 [scrollbar-width:thin]">
             {activities.map((item) => {
               const isHealth = item.type === "DISEASE" || item.type === "MORTALITY";
+              const openActivity = () => {
+                if (isHealth) {
+                  const reportId = String(item.id)
+                    .replace(/^dc-/, "DIS-")
+                    .replace(/^mort-/, "MOR-");
+                  router.push(`/report-observation?reportId=${encodeURIComponent(reportId)}`);
+                } else if (item.type === "INVENTORY") {
+                  const livestockId = String(item.id).startsWith("inv-")
+                    ? String(item.id).slice(4)
+                    : null;
+                  router.push(
+                    livestockId
+                      ? `/livestock-inventory?livestockId=${encodeURIComponent(livestockId)}`
+                      : "/livestock-inventory",
+                  );
+                } else if (item.type === "PRODUCTION") {
+                  const recordId = String(item.id).replace(/^prod-/, "");
+                  const productionType = String(item.rawItem?.production_type || "").toLowerCase();
+                  const params = new URLSearchParams({ recordId });
+                  if (["milk", "meat", "eggs", "wool"].includes(productionType)) {
+                    params.set("type", productionType);
+                  }
+                  router.push(`/production-dashboard/history?${params.toString()}`);
+                }
+              };
               return (
                 <div
                   key={item.id}
-                  onClick={() => {
-                    if (isHealth && onSelectActivity) {
-                      onSelectActivity(item);
-                    } else if (item.type === "INVENTORY") {
-                      router.push("/livestock-inventory");
-                    } else if (item.type === "PRODUCTION") {
-                      router.push("/production-dashboard");
+                  role="button"
+                  tabIndex={0}
+                  onClick={openActivity}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openActivity();
                     }
                   }}
-                  className={`py-3 px-2 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all cursor-pointer hover:bg-slate-50/80 border border-transparent hover:border-slate-100 group`}
-                  title={isHealth ? "Click to view full health inspection dossier" : undefined}
+                  className="py-3 px-2 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all cursor-pointer hover:bg-slate-50/80 border border-transparent hover:border-slate-100 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+                  title={isHealth ? "Click to view full health inspection details" : undefined}
                 >
                   <div className="flex items-start gap-3 min-w-0">
                     <div
@@ -189,7 +178,7 @@ export default function FarmerActivityFeed({
                         </p>
                         {isHealth && (
                           <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded-md">
-                            Dossier ↗
+                            Details ↗
                           </span>
                         )}
                       </div>

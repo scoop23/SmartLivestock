@@ -72,7 +72,7 @@ export function ActivityScheduleCard({
         </div>
         <div className="flex items-center gap-2">
           <Clock className="size-4 shrink-0 text-emerald-700" />
-          <span className="font-semibold text-slate-800">{formatTimeWindow()}</span>
+          <span className="font-semibold text-slate-800">{formatTimeWindow(schedule.available_times)}</span>
         </div>
         {schedule.location ? (
           <div className="flex items-center gap-2">

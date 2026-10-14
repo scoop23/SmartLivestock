@@ -112,7 +112,7 @@ export default function SpeciesHeroBanner({
           </div>
         </div>
 
-        {/* Right: Executive Biosecurity & LGU Compliance Dossier */}
+        {/* Right: Executive Biosecurity & LGU Compliance Details */}
         <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-3 min-w-[280px] lg:max-w-sm shadow-xl shrink-0">
           <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-white/10">
             <div className="flex items-center gap-2">

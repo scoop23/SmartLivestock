@@ -1,6 +1,6 @@
 "use client";
 
-import { Beef, CalendarDays, Egg, Milk, Package, Trash2 } from "lucide-react";
+import { Beef, CalendarDays, Egg, Milk, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,22 +49,17 @@ export default function ProductionDeleteDialog({
   return (
     <Dialog open={open} onOpenChange={(val) => !isDeleting && onOpenChange(val)}>
       <DialogContent className="sm:max-w-md p-6 gap-5 rounded-2xl">
-        <DialogHeader className="flex flex-col sm:flex-row items-start gap-4 space-y-0 text-left">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
-            <Trash2 className="size-5" />
-          </div>
-          <div className="space-y-1">
-            <DialogTitle className="text-lg font-semibold text-slate-900">
-              Delete Production Record
-            </DialogTitle>
-            <DialogDescription className="text-sm text-slate-500 leading-normal">
-              Are you sure you want to delete this {record.productionType} record of{" "}
-              <span className="font-semibold text-slate-800">
-                {record.quantity.toLocaleString()} {record.unit.toLowerCase()}
-              </span>
-              ? This action cannot be undone.
-            </DialogDescription>
-          </div>
+        <DialogHeader className="space-y-1 text-left">
+          <DialogTitle className="text-lg font-semibold text-slate-900">
+            Delete Production Record
+          </DialogTitle>
+          <DialogDescription className="text-sm text-slate-500 leading-normal">
+            Are you sure you want to delete this {record.productionType} record of{" "}
+            <span className="font-semibold text-slate-800">
+              {record.quantity.toLocaleString()} {record.unit.toLowerCase()}
+            </span>
+            ? This action cannot be undone.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Record preview card */}
@@ -113,7 +108,7 @@ export default function ProductionDeleteDialog({
             variant="destructive"
             disabled={isDeleting}
             onClick={onConfirm}
-            className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white gap-2 font-medium"
+            className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium"
           >
             {isDeleting ? (
               <>
@@ -121,7 +116,7 @@ export default function ProductionDeleteDialog({
               </>
             ) : (
               <>
-                <Trash2 className="size-4" /> Delete Record
+                Delete Record
               </>
             )}
           </Button>

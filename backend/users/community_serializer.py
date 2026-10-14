@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from smartlivestock.workflows import scope_reviewer_queryset, role_name
@@ -28,6 +30,12 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
     booking_count = serializers.SerializerMethodField()
     remaining_slots = serializers.SerializerMethodField()
     capacity = serializers.IntegerField(min_value=1, max_value=10000, required=False, default=4)
+    available_times = serializers.ListField(
+        child=serializers.RegexField(regex=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
+        min_length=1,
+        max_length=24,
+        required=False,
+    )
     registration_status = serializers.SerializerMethodField()
 
     class Meta:
@@ -40,6 +48,7 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             "farmer_notes",
             "is_open",
             "capacity",
+            "available_times",
             "booked_times",
             "booking_count",
             "remaining_slots",
@@ -59,7 +68,7 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
     def _confirmed_bookings(self, obj):
         request = self.context.get("request")
         bookings = obj.bookings.all()
-        if request and role_name(request.user) == "SIBAT":
+        if request and role_name(request.user) in ("SIBAT", "CBAT"):
             # Prefetched bookings are filtered by the view; no extra query per schedule.
             bookings = obj.scoped_bookings if hasattr(obj, "scoped_bookings") else scope_reviewer_queryset(obj.bookings.all(), request.user)
         return [booking for booking in bookings if booking.status == ProgramBooking.Status.CONFIRMED]
@@ -90,6 +99,52 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
                     f"Capacity cannot be lower than the {confirmed} confirmed bookings."
                 )
         return value
+
+    def validate_available_times(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Choose each appointment time only once.")
+        return sorted(value)
+
+    def validate(self, attrs):
+        # Keep existing booking times available when staff edits a schedule.
+        if self.instance is None and "available_times" not in attrs:
+            attrs["available_times"] = list(PROGRAM_TIME_SLOTS)
+
+        new_times = attrs.get("available_times")
+        schedule_date = attrs.get("date", self.instance.date if self.instance else None)
+        if self.instance is not None and new_times is not None:
+            confirmed_times = {
+                booking.time.strftime("%H:%M")
+                for booking in self.instance.bookings.filter(status=ProgramBooking.Status.CONFIRMED)
+            }
+            removed_booked_times = confirmed_times - set(new_times)
+            if removed_booked_times:
+                formatted = ", ".join(sorted(removed_booked_times))
+                raise serializers.ValidationError({
+                    "available_times": f"Keep times with confirmed bookings ({formatted}) or move those bookings first."
+                })
+
+        # A same-day program must offer only future arrival times. Previously
+        # confirmed past bookings remain in the schedule for history.
+        if schedule_date == timezone.localdate() and new_times is not None:
+            current_time = timezone.localtime().time().replace(tzinfo=None)
+            confirmed_times = (
+                {
+                    booking.time.strftime("%H:%M")
+                    for booking in self.instance.bookings.filter(status=ProgramBooking.Status.CONFIRMED)
+                }
+                if self.instance is not None
+                else set()
+            )
+            past_times = [
+                value for value in new_times
+                if datetime.strptime(value, "%H:%M").time() <= current_time and value not in confirmed_times
+            ]
+            if past_times:
+                raise serializers.ValidationError({
+                    "available_times": "For today's schedule, choose times later than the current time."
+                })
+        return attrs
 
 
 class AnnouncementPhotoSerializer(serializers.ModelSerializer):
@@ -291,10 +346,11 @@ class ProgramBookingSerializer(serializers.ModelSerializer):
     farmer_barangay = serializers.SerializerMethodField()
     date = serializers.DateField(source="schedule.date", read_only=True)
     program = serializers.CharField(source="schedule.program", read_only=True)
+    available_times = serializers.ListField(source="schedule.available_times", read_only=True)
 
     class Meta:
         model = ProgramBooking
-        fields = ["id", "schedule", "farmer_name", "farmer_barangay", "date", "program", "time", "status", "created_at"]
+        fields = ["id", "schedule", "farmer_name", "farmer_barangay", "date", "program", "time", "available_times", "status", "created_at"]
         read_only_fields = ["status", "created_at"]
 
     def get_farmer_name(self, obj):

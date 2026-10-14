@@ -127,6 +127,8 @@ interface SibatInspectionDialogProps {
     inspectionData: SibatInspectionData
   ) => void;
   isSubmitting?: boolean;
+  /** Lets CBAT open report details without receiving SIBAT review controls. */
+  readOnly?: boolean;
 }
 
 export function SibatInspectionDialog({
@@ -135,6 +137,7 @@ export function SibatInspectionDialog({
   onOpenChange,
   onConfirmInspection,
   isSubmitting = false,
+  readOnly = false,
 }: SibatInspectionDialogProps) {
   const [tagConfirmed, setTagConfirmed] = useState<boolean>(record?.inspection?.tagConfirmed ?? false);
   const [countConfirmed, setCountConfirmed] = useState<boolean>(record?.inspection?.countConfirmed ?? false);
@@ -202,7 +205,7 @@ export function SibatInspectionDialog({
     normStatus === "FLAGGED" ||
     normStatus === "SUBJECT_TO_REVISION" ||
     normStatus === "SUBJECT_FOR_REVISION";
-  const isReadOnly = !isPending;
+  const isReadOnly = readOnly || !isPending;
   const isApproved = normStatus === "APPROVED";
   const isVerified = normStatus === "VERIFIED";
 

@@ -12,6 +12,7 @@ export type ProgramSchedule = {
   location: string;
   farmer_notes: string;
   is_open: boolean;
+  available_times: string[];
   booked_times: string[];
   booking_count: number;
   capacity: number;
@@ -64,6 +65,7 @@ export type ProgramBooking = {
   date: string;
   program: string;
   time: string;
+  available_times?: string[];
   status: "CONFIRMED" | "CANCELLED";
   created_at: string;
 };
