@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo, useEffect } from "react";
 import {
   ClipboardCheck,
   Eye,
@@ -34,11 +35,60 @@ export function InspectionsListView({
   onSelectInspection,
   getStatusBadge,
 }: InspectionsListViewProps) {
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(inspections.length / PAGE_SIZE));
+  const pagedInspections = useMemo(
+    () => inspections.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [inspections, page]
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [inspections.length]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
+
+  const paginationControl = inspections.length > PAGE_SIZE && (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">
+      <span className="text-[11px] text-slate-500 font-medium">
+        Showing {(page - 1) * PAGE_SIZE + 1}–
+        {Math.min(page * PAGE_SIZE, inspections.length)} of {inspections.length} records
+      </span>
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+          className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+        >
+          ‹ Prev
+        </Button>
+        <span className="px-2.5 py-1 rounded-xl bg-[#7C3AED] text-white font-black text-[10px]">
+          Page {page} / {pageCount}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page >= pageCount}
+          onClick={() => setPage((p) => p + 1)}
+          className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+        >
+          Next ›
+        </Button>
+      </div>
+    </div>
+  );
+
   // This component formats records only. Selection opens the shared detail view;
   // status permissions and transitions are enforced by the backend API.
   if (viewMode === "table") {
     return (
-      <Card className="border-2 border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
+      <div className="space-y-4">
+        <Card className="border-2 border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-50/80">
@@ -79,7 +129,7 @@ export function InspectionsListView({
                   </TableCell>
                 </TableRow>
               ) : (
-                inspections.map((record) => {
+                pagedInspections.map((record) => {
                   const totalHeads = record.items.reduce(
                     (sum, i) => sum + (Number(i.quantity) || 0),
                     0
@@ -160,13 +210,16 @@ export function InspectionsListView({
           </Table>
         </div>
       </Card>
+      {paginationControl}
+    </div>
     );
   }
 
   // ── CARD GRID VIEW ──
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {inspections.map((record) => {
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {pagedInspections.map((record) => {
         const totalHeads = record.items.reduce(
           (sum, i) => sum + (Number(i.quantity) || 0),
           0
@@ -228,6 +281,8 @@ export function InspectionsListView({
           </Card>
         );
       })}
+      </div>
+      {paginationControl}
     </div>
   );
 }

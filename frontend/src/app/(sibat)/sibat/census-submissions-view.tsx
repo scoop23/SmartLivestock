@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   FileSpreadsheet,
   Plus,
@@ -78,17 +78,35 @@ export default function CensusSubmissionsView({
 }: CensusSubmissionsViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const query = searchQuery.toLowerCase().trim();
-  const filteredCensus = censusSubmissions.filter((cen) => {
-    if (!query) return true;
-    return (
-      cen.barangay.toLowerCase().includes(query) ||
-      `q${cen.reportQuarter}`.includes(query) ||
-      cen.reportYear.toString().includes(query) ||
-      cen.id.toString().toLowerCase().includes(query)
-    );
-  });
+  const filteredCensus = useMemo(() => {
+    return censusSubmissions.filter((cen) => {
+      if (!query) return true;
+      return (
+        cen.barangay.toLowerCase().includes(query) ||
+        `q${cen.reportQuarter}`.includes(query) ||
+        cen.reportYear.toString().includes(query) ||
+        cen.id.toString().toLowerCase().includes(query)
+      );
+    });
+  }, [censusSubmissions, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredCensus.length / PAGE_SIZE));
+  const pagedCensus = useMemo(
+    () => filteredCensus.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredCensus, page]
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
 
   return (
     <div className="space-y-4">
@@ -213,7 +231,7 @@ export default function CensusSubmissionsView({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredCensus.map((census) => {
+                  pagedCensus.map((census) => {
                     const statusBadge = getCensusStatusBadge(census.status);
                     const StatusIcon = statusBadge.Icon;
                     return (
@@ -335,7 +353,7 @@ export default function CensusSubmissionsView({
               </div>
             </Card>
           ) : (
-            filteredCensus.map((census) => {
+            pagedCensus.map((census) => {
               const statusBadge = getCensusStatusBadge(census.status);
               const StatusIcon = statusBadge.Icon;
               return (
@@ -442,6 +460,38 @@ export default function CensusSubmissionsView({
               );
             })
           )}
+        </div>
+      )}
+
+      {filteredCensus.length > PAGE_SIZE && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">
+          <span className="text-[11px] text-slate-500 font-medium">
+            Showing {(page - 1) * PAGE_SIZE + 1}–
+            {Math.min(page * PAGE_SIZE, filteredCensus.length)} of {filteredCensus.length} records
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+            >
+              ‹ Prev
+            </Button>
+            <span className="px-2.5 py-1 rounded-xl bg-[#1A365D] text-white font-black text-[10px]">
+              Page {page} / {pageCount}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= pageCount}
+              onClick={() => setPage((p) => p + 1)}
+              className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+            >
+              Next ›
+            </Button>
+          </div>
         </div>
       )}
     </div>

@@ -2,24 +2,28 @@
 
 
 
-import React, { useEffect, useRef, useState, Suspense } from "react";
+import React, { useEffect, useRef, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 
 import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
+  Calendar,
   CalendarDays,
   Check,
   CheckCircle2,
   ClipboardList,
   Clock3,
   FileSpreadsheet,
+  Info,
   MapPin,
+  Megaphone,
   QrCode,
   RefreshCw,
   RotateCcw,
@@ -28,6 +32,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import { getSchedules, type ProgramSchedule } from "@/lib/community-api";
 
 import { toast } from "sonner";
 
@@ -435,6 +440,50 @@ function SibatPortalContent() {
     allSubmissions.filter((record) => ["SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"].includes(record.status)).length +
     censuses.filter((record) => ["SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"].includes(record.status)).length;
 
+  // Community schedules query for upcoming field activities
+  const { data: schedules = [] } = useQuery<ProgramSchedule[]>({
+    queryKey: ["sibat-community-schedules"],
+    queryFn: getSchedules,
+    staleTime: 60_000,
+  });
+
+  const upcomingSchedule = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return (
+      schedules
+        .filter((s) => s.publication_status === "PUBLISHED" && s.date >= today)
+        .sort((a, b) => a.date.localeCompare(b.date))[0] || schedules[0] || null
+    );
+  }, [schedules]);
+
+  const upcomingSchedulesCount = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return schedules.filter((s) => s.publication_status === "PUBLISHED" && s.date >= today).length;
+  }, [schedules]);
+
+  const pendingDiseaseCases = useMemo(() => {
+    return healthRecords.filter((r) => r.status === "PENDING");
+  }, [healthRecords]);
+
+  const pendingFarmerSubmissions = useMemo(() => {
+    return submissions.filter((s) => s.status === "PENDING");
+  }, [submissions]);
+
+  const recentUpdates = useMemo(() => {
+    return submissions.slice(0, 3).map((item) => ({
+      id: item.id,
+      title: `${item.farmerName} submitted ${item.submissionTypeLabel}`,
+      time: new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    }));
+  }, [submissions]);
+
+  const assignedAreaDescription =
+    user?.accessScope === "ALL_BARANGAYS"
+      ? "All 18 Barangays • Padre Garcia Livestock Verification Hub"
+      : user?.assignedBarangayName
+      ? `Area • ${user.assignedBarangayName}`
+      : "Area 2 • Banaba, Castillo, Pansol, and San Felipe";
+
   const [currentDateStr, setCurrentDateStr] = useState<string>("");
   useEffect(() => {
     setCurrentDateStr(
@@ -537,44 +586,44 @@ function SibatPortalContent() {
         className="bg-white border-b border-slate-200/80"
       />
 
-      <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:px-8 lg:py-7 2xl:px-10">
+      <div className="mx-auto w-full max-w-[1600px] space-y-4 sm:space-y-6 px-3.5 py-4 sm:p-6 lg:px-8 lg:py-7 2xl:px-10">
         {!isLoadingAccount && user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
-          <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+          <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 sm:p-4 text-amber-950 text-xs sm:text-sm">
             <p className="font-semibold">Barangay assignment required</p>
-            <p className="mt-1 text-sm">Private farmer records and review queues are unavailable until MAO/Admin assigns a barangay or access scope.</p>
+            <p className="mt-1">Private farmer records and review queues are unavailable until MAO/Admin assigns a barangay or access scope.</p>
           </div>
         )}
 
         {hasDataError && (
-          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-950 sm:flex-row sm:items-center sm:justify-between">
+          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 sm:p-4 text-rose-950 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm">
             <div>
-              <p className="text-sm font-semibold">Some field data could not be loaded.</p>
-              <p className="mt-1 text-xs">Could not load: {failedDataSources.join(", ")}. Refresh to retry. Failed requests are not counted as empty queues.</p>
+              <p className="font-semibold">Some field data could not be loaded.</p>
+              <p className="mt-1 text-[11px] sm:text-xs">Could not load: {failedDataSources.join(", ")}. Refresh to retry. Failed requests are not counted as empty queues.</p>
             </div>
-            <Button type="button" variant="outline" onClick={handleRefreshQueues} disabled={isRefreshing} className="min-h-11 shrink-0">Try again</Button>
+            <Button type="button" variant="outline" onClick={handleRefreshQueues} disabled={isRefreshing} className="min-h-10 sm:min-h-11 shrink-0 w-full sm:w-auto">Try again</Button>
           </div>
         )}
 
         {/* Header Greeting & Action */}
         <div>
           {currentDateStr && (
-            <p className="text-xs font-bold uppercase tracking-wider text-[#1E3A2F]">
+            <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1E3A2F]">
               {currentDateStr}
             </p>
           )}
-          <div className="mt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="mt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
                 {timeGreeting}, {officerName}
               </h1>
-              <p className="mt-1 text-sm font-medium text-slate-500">
-                Here is what needs your attention today.
+              <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-medium text-slate-500">
+                {assignedAreaDescription}
               </p>
             </div>
             <Button
               type="button"
               onClick={handleReviewRecords}
-              className="bg-[#1E3A2F] hover:bg-[#152e24] text-white font-semibold rounded-xl px-4 py-2.5 h-auto text-sm shrink-0 flex items-center gap-2 shadow-xs transition-colors self-start sm:self-auto"
+              className="bg-[#1E3A2F] hover:bg-[#152e24] text-white font-semibold rounded-xl px-4 py-2.5 h-auto text-xs sm:text-sm shrink-0 flex items-center justify-center gap-2 shadow-xs transition-colors w-full sm:w-auto cursor-pointer"
             >
               <Check className="size-4" />
               Verify farmer records
@@ -582,104 +631,245 @@ function SibatPortalContent() {
           </div>
         </div>
 
-        {/* Attention Banner */}
-        <div className="rounded-2xl border border-[#F4DFB8] bg-[#FFF9EE] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs">
-          <div className="flex items-center gap-3.5">
-            <div className="size-10 rounded-xl bg-white border border-[#E9D4AA] flex items-center justify-center text-[#B45309] shrink-0">
-              <Check className="size-5" />
-            </div>
-            <div>
-              <h2 className="font-bold text-[#78350F] text-base">
-                {waitingForReviewCount} farmer {waitingForReviewCount === 1 ? "record is" : "records are"} waiting for verification
-              </h2>
-              <p className="text-xs sm:text-sm text-[#92400E]/85 mt-0.5">
-                Check the inventory, production, disease, or mortality details before forwarding each record to the MAO.
-              </p>
-            </div>
-          </div>
+        {/* Notice Strip */}
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/70 p-3 sm:px-4 text-xs sm:text-sm text-emerald-950 shadow-2xs">
+          <Info className="size-4.5 sm:size-5 text-emerald-700 shrink-0 mt-0.5 sm:mt-0" />
+          <span className="leading-relaxed">
+            <b className="font-bold">Field Validation Hub:</b> Reviewing records for {assignedAreaDescription}. Verify farmer-submitted livestock data before forwarding each record to the MAO.
+          </span>
+        </div>
+
+        {/* Summary Grid: 4 Clickable Action Cards (2 cols on mobile, 4 on desktop) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          {/* Card 1: Pending Records (Green) */}
           <button
             type="button"
             onClick={handleReviewRecords}
-            className="font-bold text-[#78350F] hover:text-[#92400E] text-sm flex items-center gap-1.5 shrink-0 self-start sm:self-auto transition-colors cursor-pointer"
+            className="group relative flex flex-col justify-between rounded-2xl border border-emerald-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer"
           >
-            Verify now <ArrowRight className="size-4" />
+            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
+              <div className="size-9 sm:size-11 rounded-xl bg-emerald-100/80 text-emerald-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <ClipboardList className="size-4.5 sm:size-5.5" />
+              </div>
+              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                {waitingForReviewCount}
+              </strong>
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Pending Records</h3>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Farmer records waiting for review</p>
+            </div>
+            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-emerald-700 mt-2 sm:mt-3 group-hover:text-emerald-800 group-hover:translate-x-0.5 transition-all">
+              Review records <span>→</span>
+            </span>
           </button>
-        </div>
 
-        {/* Retained KPI Cards */}
-        <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Records to verify */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="size-12 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60 flex items-center justify-center shrink-0">
-              <Check className="size-6" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
-                {waitingForReviewCount.toLocaleString()}
+          {/* Card 2: Disease Reports (Orange / Amber) */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("health")}
+            className="group relative flex flex-col justify-between rounded-2xl border border-amber-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-amber-300 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
+              <div className="size-9 sm:size-11 rounded-xl bg-amber-100/80 text-amber-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <Activity className="size-4.5 sm:size-5.5" />
               </div>
-              <p className="text-sm font-bold text-slate-800 truncate">Records to verify</p>
-              <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
-                {farmersToAssistCount > 0 ? `${farmersToAssistCount} need closer checking` : "All records verified"}
-              </p>
+              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                {pendingDiseaseCases.length}
+              </strong>
             </div>
-          </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Disease Reports</h3>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Reports that need your attention</p>
+            </div>
+            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-amber-700 mt-2 sm:mt-3 group-hover:text-amber-800 group-hover:translate-x-0.5 transition-all">
+              View reports <span>→</span>
+            </span>
+          </button>
 
-          {/* Card 2: Farmers to assist */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="size-12 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center justify-center shrink-0">
-              <UsersRound className="size-6" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
-                {farmersToAssistCount.toLocaleString()}
+          {/* Card 3: Upcoming Activities (Blue / Sky) */}
+          <button
+            type="button"
+            onClick={() => router.push("/sibat-scheduling")}
+            className="group relative flex flex-col justify-between rounded-2xl border border-sky-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-sky-300 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
+              <div className="size-9 sm:size-11 rounded-xl bg-sky-100/80 text-sky-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <CalendarDays className="size-4.5 sm:size-5.5" />
               </div>
-              <p className="text-sm font-bold text-slate-800 truncate">Farmers to assist</p>
-              <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
-                Waiting for field check
-              </p>
+              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                {upcomingSchedulesCount}
+              </strong>
             </div>
-          </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Upcoming Activities</h3>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Scheduled animal health activities</p>
+            </div>
+            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-sky-700 mt-2 sm:mt-3 group-hover:text-sky-800 group-hover:translate-x-0.5 transition-all">
+              View schedule <span>→</span>
+            </span>
+          </button>
 
-          {/* Card 3: Sent to MAO */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="size-12 rounded-xl bg-sky-50 text-sky-700 border border-sky-200/60 flex items-center justify-center shrink-0">
-              <Send className="size-6" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
-                {sentToMaoCount.toLocaleString()}
+          {/* Card 4: Forwarded to MAO (Teal / Soft) */}
+          <button
+            type="button"
+            onClick={() => {
+              setInvStatusFilter("verified");
+              setProdStatusFilter("verified");
+              setHealthStatusFilter("VERIFIED");
+            }}
+            className="group relative flex flex-col justify-between rounded-2xl border border-teal-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-teal-300 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
+              <div className="size-9 sm:size-11 rounded-xl bg-teal-100/80 text-teal-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <Send className="size-4.5 sm:size-5.5" />
               </div>
-              <p className="text-sm font-bold text-slate-800 truncate">Sent to MAO</p>
-              <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
-                Waiting for municipal decision
-              </p>
+              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                {sentToMaoCount}
+              </strong>
             </div>
-          </div>
-
-          {/* Card 4: Needs correction */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-2xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="size-12 rounded-xl bg-rose-50 text-rose-700 border border-rose-200/60 flex items-center justify-center shrink-0">
-              <RotateCcw className="size-6" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Forwarded to MAO</h3>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Records sent for MAO review</p>
             </div>
-            <div className="min-w-0">
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
-                {needsCorrectionCount.toLocaleString()}
-              </div>
-              <p className="text-sm font-bold text-slate-800 truncate">Needs correction</p>
-              <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
-                Returned for revision
-              </p>
-            </div>
-          </div>
+            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-teal-700 mt-2 sm:mt-3 group-hover:text-teal-800 group-hover:translate-x-0.5 transition-all">
+              View records <span>→</span>
+            </span>
+          </button>
         </div>
 
         {/* Main Section: Left = Submission Queues, Right = Sidebar */}
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] gap-6 items-start">
           {/* LEFT COLUMN: Main Queue Content */}
           <div className="min-w-0 space-y-6">
+            {/* Needs Attention Card */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900">Needs Attention</h2>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Review these recently submitted items.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReviewRecords}
+                  className="text-xs font-semibold rounded-xl text-slate-700 hover:text-slate-900 cursor-pointer"
+                >
+                  View All
+                </Button>
+              </div>
+
+              <div className="p-4 sm:p-5 space-y-3">
+                {/* Farmer Pending Records */}
+                {pendingFarmerSubmissions.slice(0, 2).map((item: UnifiedSubmissionItem) => {
+                  const daysWaiting = Math.floor(
+                    (Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                  );
+                  const isResubmitted = Boolean(
+                    item.notes?.toLowerCase().includes("resubmitted") ||
+                    item.notes?.toLowerCase().includes("correction")
+                  );
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 hover:border-slate-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="size-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                          <ClipboardList className="size-5" />
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900 truncate">
+                              {item.submissionTypeLabel}
+                            </h3>
+                            <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black px-2 py-0.5">
+                              Pending Review
+                            </span>
+                            {isResubmitted && (
+                              <span className="rounded-full bg-blue-50 text-blue-800 border border-blue-200/80 text-[10px] font-black px-2 py-0.5">
+                                Correction resubmitted
+                              </span>
+                            )}
+                            {!isResubmitted && daysWaiting >= 2 && (
+                              <span className="rounded-full bg-rose-50 text-rose-800 border border-rose-200/80 text-[10px] font-black px-2 py-0.5">
+                                Waiting for {daysWaiting} days
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            <b className="font-bold text-slate-900">{item.farmerName}</b> • {item.barangayName || "Assigned Barangay"}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            Submitted {new Date(item.createdAt).toLocaleDateString()} • {item.tagNumber || item.detailsTitle || item.id}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenSubmission(item)}
+                        className="w-full sm:w-auto shrink-0 text-xs font-bold rounded-xl text-emerald-800 border-emerald-200 hover:bg-emerald-50 justify-center cursor-pointer"
+                      >
+                        Review Record
+                      </Button>
+                    </div>
+                  );
+                })}
+
+                {/* Urgent Disease Report */}
+                {pendingDiseaseCases.slice(0, 1).map((caseItem: SibatValidationRecord) => (
+                  <div
+                    key={caseItem.id}
+                    className="p-3 sm:p-3.5 rounded-xl border border-rose-200/80 bg-rose-50/50 hover:bg-rose-50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="size-10 rounded-xl bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5">
+                        <Activity className="size-5" />
+                      </div>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <h3 className="text-sm font-bold text-rose-950 truncate">
+                            Disease Report
+                          </h3>
+                          <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-black px-2 py-0.5">
+                            Needs Review
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700">
+                          <b className="font-bold text-slate-900">{caseItem.farmerName}</b> • {caseItem.barangayName}
+                        </p>
+                        <p className="text-[11px] text-rose-800/80">
+                          Reported {new Date(caseItem.reportedAt).toLocaleDateString()} • {caseItem.name || caseItem.livestockTag || caseItem.id}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenInspection(caseItem)}
+                      className="w-full sm:w-auto shrink-0 text-xs font-bold rounded-xl text-rose-900 border-rose-300 hover:bg-rose-100 justify-center cursor-pointer"
+                    >
+                      View Report
+                    </Button>
+                  </div>
+                ))}
+
+                {pendingFarmerSubmissions.length === 0 && pendingDiseaseCases.length === 0 && (
+                  <div className="py-6 text-center text-xs text-slate-400">
+                    No pending items requiring immediate attention. All records are up to date!
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
               {/* Card Header */}
-              <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="p-3.5 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <h2 className="text-base sm:text-lg font-bold text-slate-900">
                     Recent farmer submissions
@@ -688,26 +878,26 @@ function SibatPortalContent() {
                     Verify farmer-submitted livestock records before forwarding them to the MAO.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={handleRefreshQueues}
                     disabled={isRefreshing}
-                    className="h-9 px-3 text-xs font-semibold rounded-xl text-slate-600 hover:text-slate-900"
+                    className="h-8.5 sm:h-9 px-3 text-xs font-semibold rounded-xl text-slate-600 hover:text-slate-900 flex-1 sm:flex-none justify-center cursor-pointer"
                   >
                     <RefreshCw className={`size-3.5 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
                     Refresh
                   </Button>
-                  <span className="inline-flex items-center rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
+                  <span className="inline-flex items-center rounded-xl bg-slate-100 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold text-slate-700 shrink-0">
                     {waitingForReviewCount} pending
                   </span>
                 </div>
               </div>
 
-              {/* Queue Navigation Tabs */}
-              <div className="flex flex-wrap gap-2 border-b border-slate-100 px-4 sm:px-5 py-3 bg-slate-50/50" role="tablist" aria-label="Field review tasks">
+              {/* Queue Navigation Tabs with horizontal touch scroll */}
+              <div className="flex overflow-x-auto no-scrollbar scrollbar-none gap-2 border-b border-slate-100 px-3.5 sm:px-5 py-2.5 sm:py-3 bg-slate-50/50" role="tablist" aria-label="Field review tasks">
                 {([
                   { id: "inventory", label: "Livestock registration", count: pendingInvCount },
                   { id: "production", label: "Production & sales", count: pendingProdCount },
@@ -721,7 +911,7 @@ function SibatPortalContent() {
                     role="tab"
                     aria-selected={activeTab === tab.id}
                     onClick={() => handleTabChange(tab.id)}
-                    className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                       activeTab === tab.id
                         ? "bg-[#1E3A2F] text-white shadow-xs"
                         : "bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
@@ -730,7 +920,7 @@ function SibatPortalContent() {
                     <span>{tab.label}</span>
                     {tab.count > 0 && (
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        className={`rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-bold ${
                           activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
                         }`}
                       >
@@ -742,7 +932,7 @@ function SibatPortalContent() {
               </div>
 
               {/* Active Tab Queue Content */}
-              <div className="p-4 sm:p-5">
+              <div className="p-3.5 sm:p-5">
                 {activeTab === "health" && (
                   <SibatHealthQueue
                     records={healthRecords}
@@ -805,70 +995,138 @@ function SibatPortalContent() {
             )}
           </div>
 
-          {/* RIGHT COLUMN: Sidebar (Workload in sidebar + Quick actions + Next activity) */}
+          {/* RIGHT COLUMN: Sidebar (Next Activity + Quick Actions + Workload + Recent Updates) */}
           <aside className="min-w-0 space-y-6">
+            {/* Next Activity Card */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between mb-1">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Next Activity</h2>
+                  <p className="text-xs text-slate-500">Your next animal health schedule.</p>
+                </div>
+                <span className="rounded-lg bg-[#1E3A2F] text-white font-bold text-[10px] px-2 py-0.5">
+                  Upcoming
+                </span>
+              </div>
+
+              {upcomingSchedule ? (
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center gap-3.5">
+                    <div className="size-13 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex flex-col items-center justify-center text-center shrink-0 shadow-2xs">
+                      <b className="text-lg font-black text-emerald-950 leading-none">
+                        {new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}
+                      </b>
+                      <span className="text-[10px] font-black uppercase text-emerald-700 leading-none mt-1">
+                        {new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-slate-900 truncate">
+                        {upcomingSchedule.program}
+                      </h3>
+                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                        <Clock3 className="size-3.5 text-slate-400 shrink-0" />
+                        <span>
+                          {upcomingSchedule.available_times?.[0] || "8:00 AM"} – {upcomingSchedule.available_times?.[upcomingSchedule.available_times.length - 1] || "11:30 AM"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+                        <MapPin className="size-3.5 text-slate-400 shrink-0" />
+                        <span>{upcomingSchedule.location || (user?.assignedBarangayName ? `${user.assignedBarangayName} Barangay Hall` : "Padre Garcia")}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push("/sibat-scheduling")}
+                    className="w-full text-xs font-semibold rounded-xl text-slate-700 hover:text-slate-900 border-slate-200 cursor-pointer"
+                  >
+                    View Schedule
+                  </Button>
+                </div>
+              ) : (
+                <div className="py-4 text-center text-xs text-slate-400">
+                  No upcoming activity scheduled.
+                </div>
+              )}
+            </div>
+
             {/* Quick Actions Card */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3">
-              <h2 className="text-sm font-bold text-slate-900">Quick actions</h2>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Quick Actions</h2>
+                <p className="text-xs text-slate-500">Start a common task.</p>
+              </div>
               <div className="space-y-1.5">
-                {/* Verify records */}
                 <button
                   type="button"
                   onClick={handleReviewRecords}
-                  className="w-full flex items-center gap-3.5 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
                 >
-                  <div className="size-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <CheckCircle2 className="size-5" />
+                  <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                      <ClipboardList className="size-4" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">Review Farmer Records</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 leading-snug">Verify records</p>
-                    <p className="text-xs text-slate-500 truncate">Check farmer submissions</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all">→</span>
                 </button>
 
-                {/* Find a farmer */}
                 <button
                   type="button"
-                  onClick={() => setIsFarmerFinderOpen(true)}
-                  className="w-full flex items-center gap-3.5 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+                  onClick={() => router.push("/sibat-scheduling")}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
                 >
-                  <div className="size-10 rounded-xl bg-sky-50 text-sky-700 border border-sky-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <UsersRound className="size-5" />
+                  <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+                      <CalendarDays className="size-4" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">Create Schedule</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 leading-snug">Find a farmer</p>
-                    <p className="text-xs text-slate-500 truncate">Search farmer directory & records</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-400 group-hover:text-sky-700 group-hover:translate-x-0.5 transition-all">→</span>
                 </button>
 
-                {/* Scan livestock QR */}
+                <button
+                  type="button"
+                  onClick={() => router.push("/sibat-announcement")}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                      <Megaphone className="size-4" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">Post Announcement</span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-400 group-hover:text-amber-700 group-hover:translate-x-0.5 transition-all">→</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsScannerOpen(true)}
-                  className="w-full flex items-center gap-3.5 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
                 >
-                  <div className="size-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <QrCode className="size-5" />
+                  <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+                      <QrCode className="size-4" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">Scan Livestock QR</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 leading-snug">Scan livestock QR</p>
-                    <p className="text-xs text-slate-500 truncate">Quick scan animal ear tag</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-400 group-hover:text-teal-700 group-hover:translate-x-0.5 transition-all">→</span>
                 </button>
 
-                {/* Record census */}
                 <button
                   type="button"
                   onClick={handleOpenNewCensus}
-                  className="w-full flex items-center gap-3.5 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
                 >
-                  <div className="size-10 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <CalendarDays className="size-5" />
+                  <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0">
+                      <FileSpreadsheet className="size-4" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800">Record Census</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 leading-snug">Record census</p>
-                    <p className="text-xs text-slate-500 truncate">Submit quarterly survey</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-400 group-hover:text-indigo-700 group-hover:translate-x-0.5 transition-all">→</span>
                 </button>
               </div>
             </div>
@@ -888,35 +1146,38 @@ function SibatPortalContent() {
               </section>
             ))}
 
-            {/* Next Activity Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Next Activity
-                </span>
-                <span className="rounded-lg bg-[#1E3A2F] text-white font-bold text-[11px] px-2 py-0.5">
-                  Upcoming
-                </span>
-              </div>
-              <h3 className="text-base font-bold text-slate-900">Field Vaccination & Tagging Drive</h3>
-              <div className="mt-2 space-y-1.5 text-xs text-slate-500">
-                <div className="flex items-center gap-1.5">
-                  <Clock3 className="size-3.5 text-slate-400" />
-                  <span>8:00 AM – 11:30 AM</span>
+            {/* Recent Updates Card */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Recent Updates</h2>
+                  <p className="text-xs text-slate-500">Latest activity in your assigned area.</p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="size-3.5 text-slate-400" />
-                  <span>{user?.assignedBarangayName ? `${user.assignedBarangayName} Barangay Hall` : "Padre Garcia Agricultural Office"}</span>
-                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/sibat-alerts")}
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900 h-8 px-2 cursor-pointer"
+                >
+                  View All
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/sibat-scheduling")}
-                className="mt-4 w-full text-xs font-semibold rounded-xl text-slate-700 hover:text-slate-900 border-slate-200 cursor-pointer"
-              >
-                View activity details
-              </Button>
+
+              <div className="space-y-2.5">
+                {recentUpdates.slice(0, 3).map((item: { id: string; title: string; time: string }) => (
+                  <div key={item.id} className="flex items-start gap-2.5 text-left">
+                    <span className="size-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-800 line-clamp-1">{item.title}</p>
+                      <p className="text-[10px] text-slate-400">{item.time}</p>
+                    </div>
+                  </div>
+                ))}
+                {recentUpdates.length === 0 && (
+                  <p className="text-xs text-slate-400 py-2 text-center">No recent updates.</p>
+                )}
+              </div>
             </div>
           </aside>
         </div>

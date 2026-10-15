@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Stethoscope,
   Skull,
@@ -122,6 +122,22 @@ export default function SibatHealthQueue({
     statusFilter !== "ALL" ||
     typeFilter !== "ALL" ||
     barangayFilter !== "ALL";
+
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const pagedRecords = useMemo(
+    () => filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredRecords, page]
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, typeFilter, barangayFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
 
   return (
     <div className="space-y-4">
@@ -317,7 +333,7 @@ export default function SibatHealthQueue({
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredRecords.map((record) => {
+          {pagedRecords.map((record) => {
             const isDisease = record.reportType === "DISEASE";
             const isPending = record.status === "PENDING";
             const animalEmoji = getAnimalEmoji(record.livestockType);
@@ -407,6 +423,38 @@ export default function SibatHealthQueue({
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {filteredRecords.length > PAGE_SIZE && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-3xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">
+          <span className="text-[11px] text-slate-500 font-medium">
+            Showing {(page - 1) * PAGE_SIZE + 1}–
+            {Math.min(page * PAGE_SIZE, filteredRecords.length)} of {filteredRecords.length} records
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+            >
+              ‹ Prev
+            </Button>
+            <span className="px-2.5 py-1 rounded-xl bg-[#1A365D] text-white font-black text-[10px]">
+              Page {page} / {pageCount}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= pageCount}
+              onClick={() => setPage((p) => p + 1)}
+              className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+            >
+              Next ›
+            </Button>
+          </div>
         </div>
       )}
     </div>

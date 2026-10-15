@@ -1,36 +1,52 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { mapInventoryToUnified, mapBatchToUnified, type RawInventoryRecord, type UnifiedStatus } from "../sibat-analytics";
+import {
+  mapInventoryToUnified,
+  mapBatchToUnified,
+  type RawInventoryRecord,
+  type UnifiedStatus,
+  type UnifiedSubmissionItem,
+} from "../sibat-analytics";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
-import type { UnifiedSubmissionItem } from "../sibat-analytics";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DataTableSection } from "@/components/ui/data-table-section";
-import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
-import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
-import { ArrowLeft, ArrowUpDown, CheckCircle2, Clock, Eye, Layers, RotateCcw, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  MapPin,
+  Search,
+  RotateCcw,
+  Eye,
+  Layers,
+  ArrowLeft,
+  X,
+  FileSpreadsheet,
+} from "lucide-react";
 import SibatStatusBadge from "../components/sibat-status-badge";
 import SibatReviewDialog from "../components/sibat-review-dialog";
 
 const PAGE_SIZE = 10;
 type RegistryStatusFilter = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
-
-const STATUS_FILTERS: Array<{ value: RegistryStatusFilter; label: string; icon: typeof Layers; activeClass: string; dotClass: string }> = [
-  { value: "ALL", label: "All Records", icon: Layers, activeClass: "bg-slate-900 text-white border-slate-900 shadow-sm", dotClass: "bg-slate-400" },
-  { value: "APPROVED", label: "Approved by MAO", icon: CheckCircle2, activeClass: "bg-emerald-700 text-white border-emerald-700 shadow-sm", dotClass: "bg-emerald-500" },
-  { value: "VERIFIED", label: "Verified · Awaiting MAO", icon: ShieldCheck, activeClass: "bg-sky-700 text-white border-sky-700 shadow-sm", dotClass: "bg-sky-500" },
-  { value: "PENDING", label: "Awaiting SIBAT", icon: Clock, activeClass: "bg-amber-600 text-white border-amber-600 shadow-sm", dotClass: "bg-amber-500" },
-  { value: "SUBJECT_TO_REVISION", label: "Needs correction", icon: RotateCcw, activeClass: "bg-rose-700 text-white border-rose-700 shadow-sm", dotClass: "bg-rose-500" },
-];
 
 interface RegistryBatchRecord {
   id: number;
@@ -47,292 +63,622 @@ interface RegistryBatchRecord {
   status?: string;
 }
 
-/** Read-only registry of livestock across the SIBAT-to-MAO review workflow. */
+/**
+ * Farmer Records Registry for SIBAT / CBAT field officers.
+ * Based on the reference RecordsPage pattern with responsive mobile cards and desktop table.
+ */
 function SibatLivestockRegistryContent() {
   const searchParams = useSearchParams();
   const batchId = searchParams.get("batchId");
-  const [statusFilter, setStatusFilter] = useState<RegistryStatusFilter>(() => batchId ? "ALL" : "APPROVED");
-  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
-  const [search, setSearch] = useState("");
+
+  const [query, setQuery] = useState("");
+  const [barangay, setBarangay] = useState("All Barangays");
+  const [recordType, setRecordType] = useState("All Record Types");
+  const [status, setStatus] = useState<RegistryStatusFilter>(() => (batchId ? "ALL" : "ALL"));
   const [page, setPage] = useState(1);
   const [selectedSubmission, setSelectedSubmission] = useState<UnifiedSubmissionItem | null>(null);
+
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const scopeKey = [user?.email, user?.accessScope, user?.assignedBarangayId];
   const hasAllBarangayAccess = user?.accessScope === "ALL_BARANGAYS";
   const assignedBarangayId = user?.assignedBarangayId;
   const barangayFilter = hasAllBarangayAccess ? undefined : assignedBarangayId;
-  // Filter at the API so the registry does not download every pending and returned record.
+
+  // Fetch individual inventory items for this SIBAT's scope
   const inventoryQuery = useQuery({
-    queryKey: ["sibat", "livestock-registry", "inventory", statusFilter, batchId, ...scopeKey],
-    queryFn: async () => (await api.get<RawInventoryRecord[]>("livestock/inventory/", {
-      params: { include_inactive: true, status: statusFilter === "ALL" ? undefined : statusFilter, barangay_id: barangayFilter, batch: batchId || undefined },
-    })).data,
+    queryKey: ["sibat", "livestock-registry", "inventory", status, batchId, ...scopeKey],
+    queryFn: async () =>
+      (
+        await api.get<RawInventoryRecord[]>("livestock/inventory/", {
+          params: {
+            include_inactive: true,
+            status: status === "ALL" ? undefined : status,
+            barangay_id: barangayFilter,
+            batch: batchId || undefined,
+          },
+        })
+      ).data,
     staleTime: 30_000,
     enabled: hasAllBarangayAccess || Boolean(assignedBarangayId),
   });
+
+  // Fetch herd containers
   const batchesQuery = useQuery({
-    queryKey: ["sibat", "livestock-registry", "batches", statusFilter, batchId, ...scopeKey],
-    queryFn: async () => (await api.get<RegistryBatchRecord[]>("livestock/batches/", {
-      params: { review_status: statusFilter === "ALL" ? undefined : statusFilter, barangay_id: barangayFilter },
-    })).data,
+    queryKey: ["sibat", "livestock-registry", "batches", status, batchId, ...scopeKey],
+    queryFn: async () =>
+      (
+        await api.get<RegistryBatchRecord[]>("livestock/batches/", {
+          params: {
+            review_status: status === "ALL" ? undefined : status,
+            barangay_id: barangayFilter,
+          },
+        })
+      ).data,
     staleTime: 30_000,
     enabled: !batchId && (hasAllBarangayAccess || Boolean(assignedBarangayId)),
   });
+
+  // Combine and sort records
   const registryRecords = useMemo(() => {
     const individuals = (inventoryQuery.data ?? [])
-      // Individual records are the source of truth for review, even when grouped in a herd.
       .filter((record) => record.entry_type === "INDIVIDUAL")
       .map(mapInventoryToUnified);
     const herds = batchId ? [] : (batchesQuery.data ?? []).map(mapBatchToUnified);
     return [...individuals, ...herds].sort((a, b) => {
-      const difference = new Date(b.reviewedAt || b.createdAt).getTime() - new Date(a.reviewedAt || a.createdAt).getTime();
-      return sortBy === "newest" ? difference : -difference;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [inventoryQuery.data, batchesQuery.data, sortBy, batchId]);
+  }, [inventoryQuery.data, batchesQuery.data, batchId]);
 
-  const filteredRecords = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return registryRecords.filter((record) => {
-      if (statusFilter !== "ALL" && record.status.toUpperCase() !== statusFilter) return false;
-      if (!query) return true;
-      return [
-      record.tagNumber, record.batchCode, record.batchName, record.farmerName,
-      record.barangayName, record.livestockTypeName, record.breed,
-      ].some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
+  // Unique barangays in loaded data
+  const availableBarangays = useMemo(() => {
+    const set = new Set<string>();
+    registryRecords.forEach((r) => {
+      if (r.barangayName) set.add(r.barangayName);
     });
-  }, [registryRecords, search, statusFilter]);
+    return Array.from(set).sort();
+  }, [registryRecords]);
+
+  // Unique record types in loaded data
+  const availableRecordTypes = useMemo(() => {
+    const set = new Set<string>();
+    set.add("Individual Tagged");
+    set.add("Herd / Batch");
+    registryRecords.forEach((r) => {
+      if (r.livestockTypeName) set.add(r.livestockTypeName);
+    });
+    return Array.from(set);
+  }, [registryRecords]);
+
+  // Filter pipeline
+  const filteredRecords = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
+    return registryRecords.filter((record) => {
+      // 1. Text Query (farmer name or record ID)
+      if (q) {
+        const matchesQuery =
+          `${record.farmerName} ${record.tagNumber || ""} ${record.batchCode || ""} ${record.rawId}`
+            .toLowerCase()
+            .includes(q) ||
+          (record.barangayName && record.barangayName.toLowerCase().includes(q)) ||
+          (record.livestockTypeName && record.livestockTypeName.toLowerCase().includes(q)) ||
+          (record.breed && record.breed.toLowerCase().includes(q));
+
+        if (!matchesQuery) return false;
+      }
+
+      // 2. Barangay Filter
+      if (barangay !== "All Barangays" && record.barangayName !== barangay) {
+        return false;
+      }
+
+      // 3. Record Type Filter
+      if (recordType !== "All Record Types") {
+        if (recordType === "Individual Tagged" && record.entryType !== "INDIVIDUAL") {
+          return false;
+        }
+        if (recordType === "Herd / Batch" && record.entryType !== "BATCH") {
+          return false;
+        }
+        if (recordType !== "Individual Tagged" && recordType !== "Herd / Batch") {
+          if (record.livestockTypeName?.toLowerCase() !== recordType.toLowerCase()) {
+            return false;
+          }
+        }
+      }
+
+      // 4. Status Filter
+      if (status !== "ALL") {
+        const recStatus = record.status?.toUpperCase();
+        if (status === "SUBJECT_TO_REVISION") {
+          if (recStatus !== "SUBJECT_TO_REVISION" && recStatus !== "SUBJECT_FOR_REVISION") {
+            return false;
+          }
+        } else if (recStatus !== status) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [registryRecords, query, barangay, recordType, status]);
+
+  // Reset page when any filter updates
+  useEffect(() => {
+    setPage(1);
+  }, [query, barangay, recordType, status]);
 
   const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
-  const pageRecords = filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageRecords = useMemo(
+    () => filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredRecords, page]
+  );
+
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
+
   const isLoading = inventoryQuery.isLoading || (!batchId && batchesQuery.isLoading);
   const failedSources = [
     ...(inventoryQuery.isError ? ["individual livestock"] : []),
     ...(!batchId && batchesQuery.isError ? ["herds"] : []),
   ];
-  const isSettled = !inventoryQuery.isLoading && (Boolean(batchId) || !batchesQuery.isLoading);
   const canLoadRegistry = hasAllBarangayAccess || Boolean(assignedBarangayId);
+
   const registryScopeLabel = hasAllBarangayAccess
-    ? "all barangays authorized for this SIBAT account"
-    : user?.assignedBarangayName || "the barangay assigned to this SIBAT account";
+    ? "All authorized barangays across Padre Garcia"
+    : user?.assignedBarangayName
+      ? `${user.assignedBarangayName}`
+      : "Your assigned barangay";
+
+  const hasActiveFilters =
+    query.trim() !== "" ||
+    barangay !== "All Barangays" ||
+    recordType !== "All Record Types" ||
+    status !== "ALL";
+
+  const handleResetFilters = () => {
+    setQuery("");
+    setBarangay("All Barangays");
+    setRecordType("All Record Types");
+    setStatus("ALL");
+    setPage(1);
+  };
 
   return (
     <>
       <PageHeader
-        title="Livestock Registry"
-        subtitle="Track livestock and herds through SIBAT field verification and MAO review."
+        title="Farmer Records"
+        subtitle="Find, review, and validate information submitted by farmers."
         variant="farmer"
         maxWidthClass="w-full"
       />
-      <main className="mx-auto w-full max-w-[1500px] min-w-0 space-y-4 p-3 sm:space-y-5 sm:p-4 md:p-6">
-        <section className="relative overflow-hidden rounded-xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-4 text-sm text-white shadow-md sm:p-5">
-          <div className="relative z-10">
-            <p className="font-bold tracking-tight">Livestock review registry</p>
-            <p className="mt-1 text-emerald-100/90">{batchId ? `Showing individual animals in herd #${batchId}.` : `Showing individual animals and herd containers for ${registryScopeLabel}. Choose a review status to narrow the registry.`}</p>
-          {batchId ? (
-            <Button asChild type="button" variant="outline" className="mt-3 min-h-11 rounded-xl border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-950">
+
+      <main className="mx-auto w-full max-w-[1500px] min-w-0 space-y-4 px-3.5 py-4 sm:p-6 lg:px-8">
+        {/* Navigation Breadcrumb / Back Link */}
+        <div className="flex items-center justify-between">
+          <Link
+            href="/sibat"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            <ArrowLeft className="size-3.5" /> Back to Field Review Hub
+          </Link>
+
+          {batchId && (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-xl text-xs font-bold border-slate-200"
+            >
               <Link href={`/sibat/batches?batchId=${encodeURIComponent(batchId)}`}>
-                <ArrowLeft className="mr-2 size-4" /> Back to this herd
+                <Layers className="size-3.5 mr-1" /> View Herd #{batchId}
               </Link>
             </Button>
-          ) : null}
-          </div>
-        </section>
+          )}
+        </div>
 
-        <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-2xs">
-          <div className="flex min-w-0 flex-col gap-3 p-3.5 sm:flex-row sm:p-4">
-            <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        {/* Scope Strip */}
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/70 p-3 sm:px-4 text-xs sm:text-sm text-emerald-950 shadow-2xs">
+          <MapPin className="size-4.5 text-emerald-700 shrink-0 mt-0.5 sm:mt-0" />
+          <span>
+            Showing only records from your assigned barangays:{" "}
+            <strong className="font-bold text-emerald-900">{registryScopeLabel}</strong>.
+          </span>
+        </div>
+
+        {/* Alerts if scope is missing or request failed */}
+        {!canLoadRegistry && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs sm:text-sm text-amber-950"
+          >
+            This SIBAT account has no assigned barangay. Ask MAO/Admin to assign one before viewing
+            approved farmer records.
+          </div>
+        )}
+
+        {failedSources.length > 0 && (
+          <div
+            role="alert"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs sm:text-sm text-rose-900"
+          >
+            <p>
+              Could not load {failedSources.join(" and ")}. Successfully loaded records remain visible.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0 self-start sm:self-auto rounded-xl font-bold"
+              onClick={() => {
+                if (inventoryQuery.isError) void inventoryQuery.refetch();
+                if (batchesQuery.isError) void batchesQuery.refetch();
+              }}
+            >
+              <RotateCcw className="size-3.5" /> Retry
+            </Button>
+          </div>
+        )}
+
+        {/* Filter Card */}
+        <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs p-3.5 sm:p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 1. Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
               <Input
-                value={search}
-                onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-                placeholder="Search tag, farmer, barangay, or livestock…"
-                aria-label="Search livestock records"
-                className="min-h-11 rounded-xl border-slate-200 bg-slate-50/80 pl-9 text-base"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by farmer name or record ID"
+                aria-label="Search records"
+                className="pl-9.5 pr-8 bg-slate-50/80 border-slate-200 rounded-xl h-10 text-xs sm:text-sm focus-visible:ring-[#1A365D]/20 placeholder:text-slate-400"
               />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
-            <Select value={sortBy} onValueChange={(value: "newest" | "oldest") => setSortBy(value)}>
-              <SelectTrigger className="min-h-11 w-full rounded-xl border-slate-200 bg-slate-50/80 text-base sm:w-[165px]">
-                <div className="flex items-center gap-2"><ArrowUpDown className="size-3.5 shrink-0 text-slate-400" /><SelectValue placeholder="Sort by" /></div>
+
+            {/* 2. Filter by Barangay */}
+            <Select value={barangay} onValueChange={(val) => setBarangay(val)}>
+              <SelectTrigger
+                aria-label="Filter by barangay"
+                className="h-10 rounded-xl border-slate-200 bg-slate-50/80 text-xs sm:text-sm cursor-pointer"
+              >
+                <SelectValue placeholder="All Barangays" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="All Barangays">All Barangays</SelectItem>
+                {availableBarangays.map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {b}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* 3. Filter by Record Type */}
+            <Select value={recordType} onValueChange={(val) => setRecordType(val)}>
+              <SelectTrigger
+                aria-label="Filter by record type"
+                className="h-10 rounded-xl border-slate-200 bg-slate-50/80 text-xs sm:text-sm cursor-pointer"
+              >
+                <SelectValue placeholder="All Record Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All Record Types">All Record Types</SelectItem>
+                {availableRecordTypes.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* 4. Filter by Status */}
+            <Select
+              value={status}
+              onValueChange={(val) => setStatus(val as RegistryStatusFilter)}
+            >
+              <SelectTrigger
+                aria-label="Filter by status"
+                className="h-10 rounded-xl border-slate-200 bg-slate-50/80 text-xs sm:text-sm cursor-pointer"
+              >
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending Review</SelectItem>
+                <SelectItem value="SUBJECT_TO_REVISION">Needs Correction</SelectItem>
+                <SelectItem value="VERIFIED">Validated</SelectItem>
+                <SelectItem value="APPROVED">Forwarded to MAO (Approved)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <Separator className="opacity-60" />
-
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-3.5 py-3 sm:flex-row sm:items-center sm:px-4">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <SlidersHorizontal className="mr-0.5 hidden size-3.5 shrink-0 text-slate-400 sm:block" />
-            {STATUS_FILTERS.map((filter) => (
-              <button
-                key={filter.value}
+          {/* Reset button when active filters */}
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+              <span className="text-slate-500 font-medium">Filters currently active</span>
+              <Button
                 type="button"
-                aria-pressed={statusFilter === filter.value}
-                onClick={() => { setStatusFilter(filter.value); setPage(1); }}
-                className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-bold transition-all duration-200 active:scale-95 ${statusFilter === filter.value ? filter.activeClass : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"}`}
+                variant="ghost"
+                size="sm"
+                onClick={handleResetFilters}
+                className="h-7 px-2.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold rounded-lg cursor-pointer gap-1"
               >
-                {statusFilter !== filter.value ? <span className={`size-1.5 rounded-full ${filter.dotClass}`} /> : null}
-                <filter.icon className="size-3.5" />
-                {filter.label}
-              </button>
-            ))}
-            </div>
-            <p className="text-sm font-semibold text-slate-600 sm:ml-auto">Showing {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"}</p>
-          </div>
-        </section>
-
-        <section className="space-y-4 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs sm:p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">Livestock records</h2>
-          </div>
-
-          {isLoading && pageRecords.length === 0 ? <p className="py-12 text-center text-sm text-muted-foreground">Loading livestock records…</p> : null}
-          {!canLoadRegistry ? <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">This SIBAT account has no assigned barangay. Ask MAO/Admin to assign one before viewing its approved livestock registry.</div> : null}
-          {failedSources.length > 0 ? (
-            <div role="alert" className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 sm:flex-row sm:items-center sm:justify-between">
-              <p>Could not load {failedSources.join(" and ")}. Successfully loaded records remain visible.</p>
-              <Button type="button" variant="outline" size="sm" className="gap-2 self-start sm:self-auto" onClick={() => {
-                if (inventoryQuery.isError) void inventoryQuery.refetch();
-                if (batchesQuery.isError) void batchesQuery.refetch();
-              }}>
-                <RotateCcw className="size-4" /> Retry failed request{failedSources.length > 1 ? "s" : ""}
+                <RotateCcw className="size-3" />
+                Reset filters
               </Button>
             </div>
-          ) : null}
-          {canLoadRegistry && isSettled && failedSources.length === 0 && filteredRecords.length === 0 ? (
-            <DataTableSection className="min-h-0 border-0 bg-transparent p-0 shadow-none">
-              <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-2xs">
-                <div className="mb-3 rounded-full border border-slate-100 bg-slate-50 p-4"><Search className="size-8 text-slate-300" /></div>
-                <h3 className="text-base font-bold text-slate-800">No livestock records found</h3>
-                <p className="mt-1 max-w-sm text-xs font-medium text-slate-500">No records matched this review status and search. Try another status or search term.</p>
-              </div>
-            </DataTableSection>
-          ) : null}
+          )}
+        </Card>
 
-          {pageRecords.length > 0 ? (
-            <DataTableSection
-              className="min-h-0 border-0 bg-transparent p-0 shadow-none"
-              footer={filteredRecords.length > PAGE_SIZE ? <ValidationPagination
-                currentPage={Math.min(page, pageCount)}
-                totalPages={pageCount}
-                totalItems={filteredRecords.length}
-                pageSize={PAGE_SIZE}
-                onPageChange={setPage}
-                pageSizeOptions={[PAGE_SIZE]}
-              /> : undefined}
-            >
-              <div className="min-w-0 space-y-3 md:hidden">
-                {pageRecords.map((record: UnifiedSubmissionItem) => (
-                  <article key={`mobile-${record.sourceType}-${record.rawId}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="break-words font-mono text-base font-bold text-slate-900">{record.tagNumber || record.batchCode || `Record #${record.rawId}`}</p>
-                        <p className="mt-1 text-sm text-slate-600">{record.entryType === "BATCH" ? record.batchName || "Herd" : record.livestockTypeName}</p>
-                      </div>
-                      <SibatStatusBadge status={record.status as UnifiedStatus} />
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
-                      <div><span className="block text-xs font-semibold text-slate-500">Farmer</span><span className="break-words font-semibold text-slate-900">{record.farmerName}</span></div>
-                      <div><span className="block text-xs font-semibold text-slate-500">Barangay</span><span className="break-words font-semibold text-slate-900">{record.barangayName}</span></div>
-                      <div><span className="block text-xs font-semibold text-slate-500">Animal type</span><span className="font-semibold text-slate-900">{record.livestockTypeName}</span></div>
-                      <div><span className="block text-xs font-semibold text-slate-500">Breed / count</span><span className="font-semibold text-slate-900">{record.entryType === "BATCH" ? `${record.quantity.toLocaleString()} animals` : record.breed || "Not recorded"}</span></div>
-                    </div>
-                    <div className="mt-3 flex flex-col gap-2">
-                      {record.sourceType === "INVENTORY" && (record.status === "PENDING" || record.status === "VERIFIED") ? (
-                        <Button type="button" variant="outline" className="min-h-11 w-full rounded-xl border-emerald-200 text-sm font-semibold text-emerald-900 hover:bg-emerald-50" onClick={() => setSelectedSubmission(record)}>
-                          <Eye className="mr-2 size-4" /> {record.status === "PENDING" ? "Review animal" : "View review"}
-                        </Button>
-                      ) : null}
-                      {record.sourceType === "BATCH" ? (
-                        <Button asChild type="button" variant="outline" className="min-h-11 w-full rounded-xl border-emerald-200 text-sm font-semibold text-emerald-900 hover:bg-emerald-50">
-                          <Link href={`/sibat/batches?batchId=${record.rawId}`}><Layers className="mr-2 size-4" /> Open herd</Link>
-                        </Button>
-                      ) : record.batchId ? (
-                        <Button asChild type="button" variant="outline" className="min-h-11 w-full rounded-xl border-slate-200 text-base font-semibold text-slate-800">
-                          <Link href={`/sibat/batches?batchId=${record.batchId}`}><Layers className="mr-2 size-5" /> View this animal's herd</Link>
-                        </Button>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <div className="hidden h-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs md:block">
-                <div className="overflow-x-auto">
-                  <Table className="min-w-[900px]">
-                    <TableHeader>
-                      <TableRow className="border-b border-slate-200/80 bg-slate-50/80 hover:bg-slate-50/80">
-                        {[
-                          "Animal / Herd", "Farmer / Raiser", "Barangay Sector", "Livestock Type",
-                          "Breed / Herd Size", "Operational Status", "Review Status", "Action",
-                        ].map((heading) => <TableHead key={heading} className="px-3.5 py-2.5 text-[11px] font-black uppercase tracking-wider text-slate-500">{heading}</TableHead>)}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-slate-100">
-                      {pageRecords.map((record: UnifiedSubmissionItem) => (
-                        <TableRow key={`${record.sourceType}-${record.rawId}`} className="transition-colors hover:bg-slate-50/90">
-                          <TableCell className="px-3.5 py-2.5">
-                            <span className="font-mono text-xs font-bold text-slate-900">{record.tagNumber || record.batchCode || `Record #${record.rawId}`}</span>
-                            <span className="block text-xs text-slate-500">{record.isPostApprovalAddition ? "Added to approved herd · reviewed separately" : record.entryType === "BATCH" ? record.batchName || "Herd container" : record.sex || "Individual animal"}</span>
-                            {record.entryType === "INDIVIDUAL" ? (
-                              <span className="mt-0.5 block text-[11px] text-slate-500">
-                                Container: {record.batchName || record.batchCode || "Not assigned to a herd"}
-                              </span>
-                            ) : null}
+        {/* Result Line */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs sm:text-sm px-1 font-medium text-slate-500">
+          <strong className="text-slate-900 font-bold">
+            {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} found
+          </strong>
+          <span>Showing farmer submissions</span>
+        </div>
+
+        {/* Loading State */}
+        {isLoading && pageRecords.length === 0 ? (
+          <Card className="p-12 text-center rounded-2xl border border-slate-200 bg-white">
+            <p className="text-sm font-semibold text-slate-500">Loading farmer records…</p>
+          </Card>
+        ) : filteredRecords.length > 0 ? (
+          /* Main Records List: Desktop Table + Mobile Cards */
+          <div className="space-y-4">
+            {/* DESKTOP TABLE VIEW (hidden on mobile, visible on md+) */}
+            <Card className="hidden md:block rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50/80">
+                    <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                      <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 pl-5">
+                        Record ID
+                      </TableHead>
+                      <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5">
+                        Farmer
+                      </TableHead>
+                      <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5">
+                        Record Type
+                      </TableHead>
+                      <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                        Date Submitted
+                      </TableHead>
+                      <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                        Status
+                      </TableHead>
+                      <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-right pr-5">
+                        Action
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pageRecords.map((r) => {
+                      const isIndividual = r.entryType === "INDIVIDUAL";
+                      const isBatch = r.entryType === "BATCH" || r.sourceType === "BATCH";
+                      const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
+
+                      return (
+                        <TableRow
+                          key={`${r.sourceType}-${r.rawId}`}
+                          className="cursor-pointer border-b border-slate-100 hover:bg-slate-50/80 transition-colors"
+                          onClick={() => {
+                            if (isIndividual) setSelectedSubmission(r);
+                          }}
+                        >
+                          {/* Record ID */}
+                          <TableCell className="py-3.5 pl-5">
+                            <b className="font-mono text-xs font-black text-slate-900 block">
+                              {r.tagNumber || r.batchCode || `#${r.rawId}`}
+                            </b>
+                            <span className="block text-[11px] text-slate-400 font-medium">
+                              {isBatch
+                                ? r.batchName || "Herd Container"
+                                : r.breed || r.sex || "Individual Animal"}
+                            </span>
                           </TableCell>
-                          <TableCell className="px-3.5 py-2.5 text-xs font-bold text-slate-800">{record.farmerName}</TableCell>
-                          <TableCell className="px-3.5 py-2.5 text-xs font-semibold text-slate-700">{record.barangayName}</TableCell>
-                          <TableCell className="px-3.5 py-2.5 text-xs font-bold text-slate-800">{record.livestockTypeName}</TableCell>
-                          <TableCell className="px-3.5 py-2.5 text-xs font-semibold text-slate-700">{record.entryType === "BATCH" ? `${record.quantity.toLocaleString()} heads` : record.breed || "Not recorded"}</TableCell>
-                          <TableCell className="px-3.5 py-2.5"><LivestockOperationalStatusBadge status={record.operationalStatus || "ACTIVE"} /></TableCell>
-                          <TableCell className="px-3.5 py-2.5">
-                            <SibatStatusBadge status={record.status as UnifiedStatus} />
-                            <span className="mt-1 block text-xs font-medium text-slate-500">{record.reviewedAt ? new Date(record.reviewedAt).toLocaleDateString() : "Date not recorded"}</span>
+
+                          {/* Farmer & Barangay */}
+                          <TableCell className="py-3.5">
+                            <b className="font-bold text-xs text-slate-900 block">{r.farmerName}</b>
+                            <span className="text-[11px] font-medium text-slate-500">
+                              {r.barangayName}
+                            </span>
                           </TableCell>
-                          <TableCell className="px-3.5 py-2.5">
-                            <div className="flex flex-wrap items-center gap-2">
-                              {record.sourceType === "INVENTORY" && record.status === "PENDING" ? (
-                                <Button type="button" size="sm" variant="outline" className="gap-1.5 border-emerald-200 text-emerald-800 hover:bg-emerald-50" onClick={() => setSelectedSubmission(record)}>
-                                  <Eye className="size-3.5" /> Details / Validate
-                                </Button>
-                              ) : record.sourceType === "INVENTORY" && record.status === "VERIFIED" ? (
-                                <Button type="button" size="sm" variant="outline" className="gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50" onClick={() => setSelectedSubmission(record)}>
-                                  <Eye className="size-3.5" /> View review
-                                </Button>
-                              ) : null}
-                              {record.sourceType === "BATCH" ? (
-                                <Button asChild type="button" size="sm" variant="outline" className="gap-1.5 border-emerald-200 text-emerald-800 hover:bg-emerald-50">
-                                  <Link href={`/sibat/batches?batchId=${record.rawId}`} aria-label={`Open animal roster for ${record.batchCode || record.batchName || `herd ${record.rawId}`}`}>
-                                    <Layers className="size-3.5" /> Open herd
-                                  </Link>
-                                </Button>
-                              ) : record.batchId ? (
-                                <Button asChild type="button" size="sm" variant="outline" className="gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50">
-                                  <Link href={`/sibat/batches?batchId=${record.batchId}`} aria-label={`Open herd container ${record.batchCode || record.batchId}`}>
-                                    <Layers className="size-3.5" /> View herd
-                                  </Link>
-                                </Button>
-                              ) : null}
-                              {record.sourceType !== "BATCH" && record.sourceType !== "INVENTORY" ? <span className="text-xs text-slate-400">—</span> : null}
-                            </div>
+
+                          {/* Record Type */}
+                          <TableCell className="py-3.5">
+                            <span className="font-semibold text-xs text-slate-800 block">
+                              {r.livestockTypeName || (isBatch ? "Herd" : "Livestock")}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {isBatch ? `${r.quantity} heads` : "Individual Tagged"}
+                            </span>
+                          </TableCell>
+
+                          {/* Date Submitted */}
+                          <TableCell className="text-center py-3.5">
+                            <span className="text-xs font-mono font-medium text-slate-600">
+                              {dateStr}
+                            </span>
+                          </TableCell>
+
+                          {/* Status */}
+                          <TableCell className="text-center py-3.5">
+                            <SibatStatusBadge status={r.status as UnifiedStatus} />
+                          </TableCell>
+
+                          {/* Action */}
+                          <TableCell className="text-right py-3.5 pr-5">
+                            {isBatch ? (
+                              <Button
+                                asChild
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-8 px-3 rounded-xl text-xs font-extrabold text-[#1A365D] border-slate-200 hover:bg-slate-100 cursor-pointer"
+                              >
+                                <Link href={`/sibat/batches?batchId=${r.rawId}`}>
+                                  <Layers className="size-3.5 mr-1" /> Review Herd
+                                </Link>
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSubmission(r);
+                                }}
+                                className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-[#1A365D] hover:text-white text-slate-800 border-slate-200 transition-all cursor-pointer"
+                              >
+                                <Eye className="size-3.5 mr-1" /> Review Record
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+
+            {/* MOBILE CARDS VIEW (visible on mobile < md, hidden on md+) */}
+            <div className="grid grid-cols-1 gap-3 md:hidden">
+              {pageRecords.map((r) => {
+                const isIndividual = r.entryType === "INDIVIDUAL";
+                const isBatch = r.entryType === "BATCH" || r.sourceType === "BATCH";
+                const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
+
+                return (
+                  <article
+                    key={`mobile-${r.sourceType}-${r.rawId}`}
+                    className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-2.5 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <b className="font-mono text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">
+                        {r.tagNumber || r.batchCode || `#${r.rawId}`}
+                      </b>
+                      <SibatStatusBadge status={r.status as UnifiedStatus} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        {r.livestockTypeName || (isBatch ? "Herd" : "Livestock")}
+                        {isBatch ? ` (${r.quantity} heads)` : ""}
+                      </h3>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        <b className="text-slate-900 font-bold">{r.farmerName}</b> • {r.barangayName}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100">
+                      <span>Submitted {dateStr}</span>
+                      {r.breed && <span className="font-medium text-slate-500">{r.breed}</span>}
+                    </div>
+
+                    {isBatch ? (
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="w-full h-10 rounded-xl text-xs font-extrabold text-[#1A365D] border-slate-200 hover:bg-slate-100 mt-2 cursor-pointer"
+                      >
+                        <Link href={`/sibat/batches?batchId=${r.rawId}`}>
+                          <Layers className="size-3.5 mr-1" /> Review Herd
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setSelectedSubmission(r)}
+                        className="w-full h-10 rounded-xl text-xs font-extrabold bg-[#1A365D] text-white hover:bg-[#132742] mt-2 cursor-pointer shadow-2xs"
+                      >
+                        <Eye className="size-3.5 mr-1" /> Review Record
+                      </Button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            {/* Pagination footer */}
+            {filteredRecords.length > PAGE_SIZE && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Showing {(page - 1) * PAGE_SIZE + 1}–
+                  {Math.min(page * PAGE_SIZE, filteredRecords.length)} of {filteredRecords.length} records
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+                  >
+                    ‹ Prev
+                  </Button>
+                  <span className="px-2.5 py-1 rounded-xl bg-[#1A365D] text-white font-black text-[10px]">
+                    Page {page} / {pageCount}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page >= pageCount}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="h-7 rounded-xl text-[10px] font-bold cursor-pointer"
+                  >
+                    Next ›
+                  </Button>
                 </div>
               </div>
-            </DataTableSection>
-          ) : null}
-        </section>
+            )}
+          </div>
+        ) : (
+          /* Empty State */
+          <Card className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center shadow-2xs">
+            <div className="mx-auto size-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+              <Search className="size-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-800">No records found</h3>
+            <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto font-medium">
+              Try changing the search words or filters.
+            </p>
+            {hasActiveFilters && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleResetFilters}
+                className="mt-4 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
+              >
+                Reset Filters
+              </Button>
+            )}
+          </Card>
+        )}
       </main>
+
+      {/* Review Dialog */}
       <SibatReviewDialog
         submission={selectedSubmission}
         open={selectedSubmission !== null}
-        onOpenChange={(open) => { if (!open) setSelectedSubmission(null); }}
+        onOpenChange={(open) => {
+          if (!open) setSelectedSubmission(null);
+        }}
         onReviewSuccess={() => {
           void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
         }}
@@ -341,10 +687,15 @@ function SibatLivestockRegistryContent() {
   );
 }
 
-
 export default function SibatLivestockRegistryPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading livestock registry?</div>}>
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-slate-500">
+          Loading farmer records registry…
+        </div>
+      }
+    >
       <SibatLivestockRegistryContent />
     </Suspense>
   );
