@@ -646,20 +646,33 @@ export default function FarmerSchedulingPage() {
                     {selected ? (
                       <div className="mt-6 rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-emerald-50/40 to-white p-4 sm:p-6 shadow-xs space-y-4">
                         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-emerald-200/60 pb-3.5">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-emerald-800 px-2.5 py-0.5 text-xs font-black text-white">
-                                Step 3
-                              </span>
-                              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                                Pick Arrival Time Slot
-                              </h3>
+                          <div className="flex items-start gap-3">
+                            {selected.cover_image ? (
+                              <div className="size-14 sm:size-16 rounded-xl overflow-hidden border border-emerald-200/80 shrink-0 relative shadow-2xs bg-slate-100">
+                                <Image
+                                  src={programImageUrl(selected.cover_image)}
+                                  alt={selected.program}
+                                  fill
+                                  unoptimized
+                                  className="object-cover"
+                                />
+                              </div>
+                            ) : null}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="rounded-full bg-emerald-800 px-2.5 py-0.5 text-xs font-black text-white">
+                                  Step 3
+                                </span>
+                                <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                                  Pick Arrival Time Slot
+                                </h3>
+                              </div>
+                              <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
+                                Reserving for <strong className="text-slate-900">{selected.program}</strong> on{" "}
+                                <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
+                                {selected.location ? ` at ${selected.location}` : ""}.
+                              </p>
                             </div>
-                            <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
-                              Reserving for <strong className="text-slate-900">{selected.program}</strong> on{" "}
-                              <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
-                              {selected.location ? ` at ${selected.location}` : ""}.
-                            </p>
                           </div>
                           <Badge
                             variant="outline"

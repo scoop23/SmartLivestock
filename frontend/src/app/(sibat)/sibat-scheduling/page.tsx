@@ -1304,19 +1304,75 @@ function ScheduleDetailDialog({
     (b) => b.schedule === schedule.raw?.id && b.status === "CONFIRMED"
   );
   const isOpen = schedule.raw?.is_open ?? true;
+  const imageSrc = schedule.cover_image || schedule.raw?.cover_image;
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
       <DialogContent className="max-w-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
-              {schedule.type}
-            </Badge>
-            <Badge variant="outline" className="text-[10px] font-bold">
-              {schedule.status}
-            </Badge>
+        {/* Hero Cover Picture Banner */}
+        {imageSrc ? (
+          <div className="relative -mx-6 -mt-6 h-52 sm:h-64 overflow-hidden rounded-t-2xl border-b border-slate-200 bg-slate-900 mb-5 group">
+            <Image
+              src={programImageUrl(imageSrc)}
+              alt={schedule.name}
+              fill
+              unoptimized
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+            <div className="absolute top-3 right-12 z-10">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => onEdit(schedule)}
+                className="h-8 rounded-xl text-xs font-bold bg-white/95 hover:bg-white text-slate-800 shadow-md backdrop-blur-xs cursor-pointer"
+              >
+                <Camera className="size-3.5 mr-1.5 text-emerald-700" />
+                Change Picture
+              </Button>
+            </div>
+            <div className="absolute bottom-3 left-6 right-6 flex items-end justify-between">
+              <div className="flex items-center gap-1.5">
+                <Badge className="bg-emerald-600 text-white border-0 text-[10px] font-bold shadow-sm">
+                  {schedule.type}
+                </Badge>
+                <Badge variant="outline" className="bg-black/50 text-white border-white/40 text-[10px] font-bold backdrop-blur-xs">
+                  {schedule.status}
+                </Badge>
+              </div>
+            </div>
           </div>
+        ) : (
+          <div className="-mx-6 -mt-6 h-36 sm:h-40 rounded-t-2xl bg-gradient-to-br from-emerald-100/70 via-emerald-50 to-slate-100 border-b border-slate-200/90 flex flex-col items-center justify-center text-slate-500 mb-5 relative p-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-white/90 backdrop-blur-xs px-3.5 py-1.5 rounded-full border border-slate-200/80 shadow-2xs mb-2">
+              <ImageIcon className="size-4 text-emerald-700" />
+              <span>No Activity Picture Attached</span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onEdit(schedule)}
+              className="h-8 rounded-xl text-xs font-bold bg-white hover:bg-emerald-50 hover:border-emerald-300 text-emerald-800 shadow-2xs cursor-pointer"
+            >
+              <Camera className="size-3.5 mr-1 text-emerald-700" />
+              Attach Activity Picture
+            </Button>
+          </div>
+        )}
+
+        <DialogHeader>
+          {!imageSrc && (
+            <div className="flex items-center gap-2 mb-1">
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                {schedule.type}
+              </Badge>
+              <Badge variant="outline" className="text-[10px] font-bold">
+                {schedule.status}
+              </Badge>
+            </div>
+          )}
           <DialogTitle className="text-xl font-black text-slate-900 tracking-tight pt-1">
             {schedule.name}
           </DialogTitle>
@@ -1329,19 +1385,6 @@ function ScheduleDetailDialog({
             })}
           </DialogDescription>
         </DialogHeader>
-
-        {/* Cover Picture Banner (if present) */}
-        {schedule.cover_image ? (
-          <div className="relative w-full h-44 sm:h-52 rounded-2xl overflow-hidden border border-slate-200 shadow-2xs my-2">
-            <Image
-              src={programImageUrl(schedule.cover_image)}
-              alt={schedule.name}
-              fill
-              unoptimized
-              className="object-cover"
-            />
-          </div>
-        ) : null}
 
         <div className="space-y-4 py-2 text-xs">
           {/* Key Info Strip */}
