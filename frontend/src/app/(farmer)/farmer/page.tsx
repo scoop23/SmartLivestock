@@ -20,6 +20,7 @@ import FarmerCharts from "./farmer-charts";
 import FarmerProgramsVisits from "./components/farmer-programs-visits";
 import FarmerActivityFeed from "./farmer-activity-feed";
 import { useFarmerDashboardAnalytics } from "./farmer-analytics";
+import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
 import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
 import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
 import FarmerReportsListDialog from "../components/farmer-reports-list-dialog";
@@ -36,6 +37,7 @@ export default function FarmerDashboard() {
     refetch,
     isFetching,
   } = useFarmerDashboardAnalytics();
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading);
 
   // ── Dialog States ──
   const [isReportIllnessOpen, setIsReportIllnessOpen] = useState(false);
@@ -96,6 +98,24 @@ export default function FarmerDashboard() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
+        {isLoading || keepLoadingScreenMounted ? (
+          <ValidationLoadingScreen
+            isLoading={isLoading}
+            title="Loading Your Farmer Dashboard"
+            subtitle="Gathering your livestock, production, health, and recent record updates..."
+            badgeLabel="Farmer Dashboard Sync"
+            authorityText="SmartLivestock · Padre Garcia, Batangas"
+            items={[
+              {
+                id: "farmer-dashboard",
+                label: "Your Farm Overview",
+                sublabel: "Livestock, production, health, and recent activity",
+                loaded: !isLoading,
+              },
+            ]}
+          />
+        ) : (
+          <>
         <section aria-label="Quick actions" className="space-y-3">
           <div>
             <h2 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Quick actions</h2>
@@ -110,7 +130,7 @@ export default function FarmerDashboard() {
               <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><MapPin className="size-5" aria-hidden="true" /></span>
               <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">My livestock</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Find an animal or update its details</span></span>
             </button>
-            <button type="button" onClick={() => handleOpenReportIllness("DISEASE")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-xs transition hover:border-amber-400 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
+            <button type="button" onClick={() => router.push("/report-observation?newReport=DISEASE")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-xs transition hover:border-amber-400 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800"><Stethoscope className="size-5" aria-hidden="true" /></span>
               <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">Report an animal health issue</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Tell the livestock office what happened</span></span>
             </button>
@@ -187,6 +207,8 @@ export default function FarmerDashboard() {
           </div>
           </div>
         </details>
+          </>
+        )}
       </div>
 
       {/* ── MODAL DIALOGS ── */}

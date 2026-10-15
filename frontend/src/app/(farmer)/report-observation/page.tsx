@@ -62,6 +62,21 @@ export default function ReportObservationPage() {
     setIsReportIllnessOpen(true);
   };
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const requestedType = url.searchParams.get("newReport");
+    if (requestedType !== "DISEASE" && requestedType !== "MORTALITY") return;
+
+    setReportIllnessDefaultType(requestedType);
+    setIsReportIllnessOpen(true);
+    url.searchParams.delete("newReport");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, []);
+
   // ── Live Queries for Farmer's Previous Reports ──
   const {
     data: diseaseCases = [],
