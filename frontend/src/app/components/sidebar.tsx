@@ -252,7 +252,11 @@ function SidebarNav({
       <div
         className={cn(
           "flex items-center gap-2 min-h-[68px] border-b border-white/10",
-          collapsed ? "justify-center p-1.5" : "justify-between p-3.5 pb-3"
+          collapsed
+            ? "justify-center p-1.5"
+            : onNavigate
+              ? "justify-between pb-3 pl-3.5 pr-16 pt-3.5"
+              : "justify-between p-3.5 pb-3"
         )}
       >
         <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-3")}>
@@ -747,7 +751,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
 
       {/* Mobile — slide-over sheet drawer (Elevated to z-[var(--z-sidebar)] to sit cleanly above mobile map views) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent ref={setMobileSheetContent} side="left" className="w-[min(20rem,88vw)] p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:text-white [&>button]:top-4 [&>button]:right-4 [&>button]:size-11">
+        <SheetContent ref={setMobileSheetContent} side="left" className="w-[min(20rem,88vw)] p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:top-4 [&>button]:right-4 [&>button]:inline-flex [&>button]:size-11 [&>button]:items-center [&>button]:justify-center [&>button]:p-0 [&>button]:text-white">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav
             collapsed={false}
