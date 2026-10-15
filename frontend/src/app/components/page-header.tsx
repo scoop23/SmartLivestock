@@ -69,7 +69,7 @@ export function PageHeader({
         className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
       />
       <div className={`relative ${maxWidthClass} mx-auto px-4 py-5 md:px-6 md:py-7`}>
-        <div className={`flex gap-3 ${variant === "farmer" ? "flex-col sm:flex-row sm:items-center sm:justify-between" : "items-center justify-between"}`}>
+        <div className={`flex gap-3 ${variant === "farmer" || variant === "sibat" ? "flex-col sm:flex-row sm:items-center sm:justify-between" : "items-center justify-between"}`}>
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
             <HeaderMenuButton className={chipClasses[variant]} />
             {icon ? (
@@ -80,7 +80,7 @@ export function PageHeader({
               </div>
             ) : null}
             <div className="min-w-0 flex-1">
-              <h1 className="min-w-0 break-words [overflow-wrap:anywhere] text-lg sm:text-2xl font-extrabold tracking-tight leading-snug">
+              <h1 className={`min-w-0 break-words ${variant === "sibat" ? "" : "[overflow-wrap:anywhere]"} text-lg sm:text-2xl font-extrabold tracking-tight leading-snug`}>
                 {title}
               </h1>
               {subtitle && (
@@ -90,8 +90,8 @@ export function PageHeader({
               )}
             </div>
           </div>
-          <div className={`shrink-0 flex gap-2 sm:gap-2.5 ${variant === "farmer" ? (mobileActionsRow ? "w-full items-center justify-end border-t border-white/15 pt-3 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0" : "ml-0 items-center justify-end sm:ml-2") : "ml-2 items-center"}`}>
-            <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-0 sm:gap-2.5">
+          <div className={`shrink-0 flex gap-2 sm:gap-2.5 ${variant === "farmer" ? (mobileActionsRow ? "w-full items-center justify-end border-t border-white/15 pt-3 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0" : "ml-0 items-center justify-end sm:ml-2") : variant === "sibat" ? "w-full items-center justify-end border-t border-white/15 pt-3 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0" : "ml-2 items-center"}`}>
+            <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-0 sm:gap-2.5">
               {showNotifications && <HeaderNotifications variant={variant} />}
               {action ? action : null}
             </div>

@@ -610,14 +610,14 @@ function SibatBatchesVerificationContent() {
       <PageHeader
         title="Herds"
         subtitle="Choose a herd to see its animals and check their records."
-        variant="sibat"
+        variant="farmer"
         maxWidthClass="w-full"
         icon={<Layers className="size-5 text-white" />}
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
+      <div className="mx-auto w-full max-w-[1500px] space-y-4 p-3 pb-16 sm:space-y-5 sm:p-4 sm:pb-6 md:p-6">
         {/* Navigation Breadcrumb / Top Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="flex min-w-0 flex-col items-start justify-between gap-3 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:p-4">
           <div className="flex items-center gap-2">
             <Link href="/sibat">
               <Button
@@ -663,7 +663,7 @@ function SibatBatchesVerificationContent() {
                 type="button"
                 onClick={() => setViewMode("grid")}
                 className={`min-h-10 rounded-lg px-3 text-sm font-semibold flex items-center gap-2 transition-all ${viewMode === "grid"
-                  ? "bg-white text-sky-800 shadow-xs"
+                  ? "bg-white text-emerald-800 shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
                   }`}
                 title="Show herds as cards"
@@ -676,7 +676,7 @@ function SibatBatchesVerificationContent() {
                 type="button"
                 onClick={() => setViewMode("table")}
                 className={`min-h-10 rounded-lg px-3 text-sm font-semibold flex items-center gap-2 transition-all ${viewMode === "table"
-                  ? "bg-white text-sky-800 shadow-xs"
+                  ? "bg-white text-emerald-800 shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
                   }`}
                 title="Show herds in a table"
@@ -691,7 +691,7 @@ function SibatBatchesVerificationContent() {
 
         {/* KPI Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
+          <Card className="rounded-xl border-slate-200 bg-white shadow-2xs transition-all hover:border-emerald-300">
             <CardContent className="p-3.5">
               <span className="text-xs font-bold text-slate-600 block">
                 Total herds
@@ -708,7 +708,7 @@ function SibatBatchesVerificationContent() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
+          <Card className="rounded-xl border-slate-200 bg-white shadow-2xs transition-all hover:border-emerald-300">
             <CardContent className="p-3.5">
               <span className="text-xs font-bold text-slate-600 block">
                 Total animals
@@ -727,7 +727,7 @@ function SibatBatchesVerificationContent() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
+          <Card className="rounded-xl border-slate-200 bg-white shadow-2xs transition-all hover:border-emerald-300">
             <CardContent className="p-3.5">
               <span className="text-xs font-bold text-slate-600 block">
                 Checked by field staff
@@ -742,7 +742,7 @@ function SibatBatchesVerificationContent() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-sky-300 transition-all">
+          <Card className="rounded-xl border-slate-200 bg-white shadow-2xs transition-all hover:border-emerald-300">
             <CardContent className="p-3.5">
               <span className="text-xs font-bold text-slate-600 block">
                 Waiting to be checked
@@ -757,7 +757,7 @@ function SibatBatchesVerificationContent() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-rose-300 transition-all col-span-2 sm:col-span-1">
+          <Card className="col-span-2 rounded-xl border-slate-200 bg-white shadow-2xs transition-all hover:border-rose-300 sm:col-span-1">
             <CardContent className="p-3.5">
               <span className="text-xs font-bold text-slate-600 block">
                 Needs correction
@@ -774,7 +774,7 @@ function SibatBatchesVerificationContent() {
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="space-y-3 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs sm:p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-2.5">
             <div className="relative lg:col-span-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -782,7 +782,7 @@ function SibatBatchesVerificationContent() {
                 placeholder="Search by farmer, animal tag, or barangay"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 min-h-11 rounded-xl border-slate-200 text-base focus-visible:ring-sky-500"
+                className="min-h-11 rounded-xl border-slate-200 bg-slate-50/80 pl-10 text-base focus-visible:ring-emerald-600"
               />
               {searchQuery && (
                 <button
@@ -891,9 +891,9 @@ function SibatBatchesVerificationContent() {
 
         {/* ── Main Batch Displays ── */}
         {isLoading ? (
-          <div role="status" aria-live="polite" className="mx-auto max-w-2xl rounded-2xl border border-sky-200 bg-white px-6 py-10 text-center shadow-sm sm:px-10">
-            <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-sky-50">
-              <RefreshCw className="size-8 text-sky-700 animate-spin" />
+          <div role="status" aria-live="polite" className="mx-auto max-w-2xl rounded-xl border border-emerald-200 bg-white px-6 py-10 text-center shadow-2xs sm:px-10">
+            <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-emerald-50">
+              <RefreshCw className="size-8 animate-spin text-emerald-700" />
             </div>
             <p className="text-xl font-bold text-slate-900">Loading your herd list</p>
             <p className="mx-auto mt-2 max-w-md text-base leading-6 text-slate-600">Please wait while we get the herds and animal records for your area.</p>
@@ -936,7 +936,7 @@ function SibatBatchesVerificationContent() {
         ) : viewMode === "grid" ? (
           /* Grid View Mode */
           <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
             {pagedBatches.map((batch) => {
               const headCount = batch.total_animals || batch.animals?.length || 0;
               const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
@@ -945,9 +945,9 @@ function SibatBatchesVerificationContent() {
                 headCount > 0 ? Math.round((sibatCheckedCount / headCount) * 100) : 0;
 
               return (
-                <Card
+              <Card
                   key={batch.id}
-                  className="group overflow-hidden rounded-2xl border-slate-200 bg-white shadow-2xs hover:shadow-md hover:border-sky-300 transition-all duration-200 flex flex-col"
+                  className="group flex flex-col overflow-hidden rounded-xl border-slate-200 bg-white shadow-2xs transition-all duration-200 hover:border-emerald-300 hover:shadow-md"
                 >
                   <CardHeader className="p-4 pb-3 min-h-[88px]">
                     <div className="flex items-start justify-between gap-2">
@@ -1062,7 +1062,7 @@ function SibatBatchesVerificationContent() {
                         onClick={() => {
                           openHerdDrilldown(batch);
                         }}
-                        className="min-h-11 rounded-xl bg-[#1A365D] px-4 hover:bg-[#132742] text-white font-bold text-sm gap-2 shadow-2xs"
+                        className="min-h-11 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white shadow-2xs hover:bg-emerald-800"
                       >
                         <Eye className="size-3.5" />
                         Open herd
@@ -1070,7 +1070,7 @@ function SibatBatchesVerificationContent() {
                       </Button>
 
                       <Link href={`/sibat/livestock-registry?batchId=${batch.id}`} className="col-span-2">
-                        <Button size="sm" variant="outline" className="w-full min-h-11 rounded-xl border-sky-300 text-sky-900 text-sm font-semibold">
+                        <Button size="sm" variant="outline" className="min-h-11 w-full rounded-xl border-emerald-200 text-sm font-semibold text-emerald-900 hover:bg-emerald-50">
                           <Eye className="size-3.5 mr-1.5" /> View animal list
                         </Button>
                       </Link>
@@ -1086,7 +1086,7 @@ function SibatBatchesVerificationContent() {
               </span>
               <div className="flex items-center gap-1.5">
                 <Button variant="outline" size="sm" disabled={batchPage <= 1} onClick={() => setBatchPage((p) => p - 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">‹ Previous</Button>
-                <span className="px-3 py-2 rounded-lg bg-[#1A365D] text-white font-bold text-sm">Page {batchPage} of {pageCountBatches}</span>
+                <span className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white">Page {batchPage} of {pageCountBatches}</span>
                 <Button variant="outline" size="sm" disabled={batchPage >= pageCountBatches} onClick={() => setBatchPage((p) => p + 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">Next ›</Button>
               </div>
             </div>
@@ -1096,7 +1096,7 @@ function SibatBatchesVerificationContent() {
           <>
           <div className="space-y-3 md:hidden">
             {pagedBatches.map((batch) => (
-              <Card key={batch.id} className="rounded-2xl border-slate-200 shadow-sm">
+              <Card key={batch.id} className="rounded-xl border-slate-200 shadow-2xs">
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1111,7 +1111,7 @@ function SibatBatchesVerificationContent() {
                     <div><span className="block text-xs font-semibold text-slate-500">Animals</span><span className="font-semibold text-slate-900">{batch.total_animals || batch.animals?.length || 0}</span></div>
                     <div><span className="block text-xs font-semibold text-slate-500">Average weight</span><span className="font-semibold text-slate-900">{batch.average_weight ? `${batch.average_weight} kg` : "Not recorded"}</span></div>
                   </div>
-                  <Button type="button" onClick={() => openHerdDrilldown(batch)} className="min-h-12 w-full rounded-xl bg-[#1A365D] text-base font-bold text-white">
+                  <Button type="button" onClick={() => openHerdDrilldown(batch)} className="min-h-11 w-full rounded-xl bg-emerald-700 text-base font-bold text-white hover:bg-emerald-800">
                     <Eye className="mr-2 size-5" /> Open herd and animals
                   </Button>
                 </CardContent>
@@ -1207,7 +1207,7 @@ function SibatBatchesVerificationContent() {
                             onClick={() => {
                                 openHerdDrilldown(batch);
                             }}
-                            className="h-8 rounded-xl bg-[#1A365D] hover:bg-[#132742] text-white font-bold text-xs gap-1 shadow-2xs"
+                            className="h-9 rounded-xl bg-emerald-700 text-xs font-bold text-white shadow-2xs hover:bg-emerald-800"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             Open herd
@@ -1235,7 +1235,7 @@ function SibatBatchesVerificationContent() {
                 >
                   ‹ Previous
                 </Button>
-                <span className="px-2.5 py-1 rounded-lg bg-[#1A365D] text-white font-black text-[10px]">
+                <span className="rounded-lg bg-emerald-700 px-2.5 py-1 text-[10px] font-black text-white">
                   Page {batchPage} of {pageCountBatches}
                 </span>
                 <Button
@@ -1299,13 +1299,13 @@ function SibatBatchesVerificationContent() {
           ) : selectedBatch && (
             <div className="flex flex-col max-h-[94vh]">
               {/* Modal Header */}
-              <div className="p-4 sm:p-5 bg-gradient-to-r from-[#1A365D] via-slate-900 to-[#1E4E8C] text-white border-b border-sky-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pr-12 sm:pr-14">
+              <div className="flex shrink-0 flex-col justify-between gap-3 border-b border-emerald-900 bg-gradient-to-r from-emerald-900 via-emerald-950 to-teal-950 p-4 pr-12 text-white sm:flex-row sm:items-center sm:p-5 sm:pr-14">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    <span className="rounded-lg border border-emerald-400/30 bg-emerald-500/20 px-2.5 py-0.5 text-xs font-black uppercase tracking-wider text-emerald-200">
                       {selectedBatch.livestock_type_name} herd
                     </span>
-                    <span className="font-mono text-xs font-bold text-sky-200">
+                    <span className="font-mono text-xs font-bold text-emerald-100">
                       {selectedBatch.batch_code}
                     </span>
                     {getStatusBadge(selectedBatch.review_status)}
@@ -1313,7 +1313,7 @@ function SibatBatchesVerificationContent() {
                   <DialogTitle className="text-lg sm:text-xl font-black text-white">
                     {selectedBatch.batch_name}
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-sky-200/80 flex items-center gap-2 flex-wrap">
+                  <DialogDescription className="flex flex-wrap items-center gap-2 text-xs text-emerald-100/85">
                     <span>Farmer: <strong>{selectedBatch.farmer_name}</strong></span>
                     <span>•</span>
                     <span>Barangay: <strong>{selectedBatch.barangay_name}</strong></span>
@@ -1418,7 +1418,7 @@ function SibatBatchesVerificationContent() {
                             text: batchNoteText.trim(),
                           });
                         }}
-                        className="h-14 sm:h-16 px-3 sm:px-4 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-[10px] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed shrink-0"
+                        className="h-14 shrink-0 rounded-xl bg-emerald-700 px-3 text-[10px] font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 sm:h-16 sm:px-4"
                       >
                         {addBatchNoteMutation.isPending ? "Adding..." : "Add Note"}
                       </Button>
@@ -1429,7 +1429,7 @@ function SibatBatchesVerificationContent() {
 
               {/* Individual Animals Drilldown Section */}
               <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3">
-                <section className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-4 sm:p-5" aria-label="How to verify animals">
+                <section className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 sm:p-5" aria-label="How to verify animals">
                   <div className="flex items-start gap-3">
                     <div className="grid size-11 shrink-0 place-items-center rounded-full bg-sky-700 text-white" aria-hidden="true">
                       <Info className="size-6" />
@@ -1693,7 +1693,7 @@ function SibatBatchesVerificationContent() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => openAnimalReview(selectedBatch, animal)}
-                                    className="h-8 gap-1.5 rounded-lg border-sky-200 px-2.5 text-[10px] font-bold text-sky-800 hover:bg-sky-50"
+                                    className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-50"
                                     aria-label={`${animal.status === "PENDING" ? "Review" : "View"} individual animal ${animal.tag_number || animal.id}`}
                                   >
                                     <Eye className="size-3.5" />

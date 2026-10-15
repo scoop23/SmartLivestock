@@ -121,36 +121,38 @@ function SibatLivestockRegistryContent() {
       <PageHeader
         title="Livestock Registry"
         subtitle="Track livestock and herds through SIBAT field verification and MAO review."
-        variant="sibat"
+        variant="farmer"
         maxWidthClass="w-full"
       />
-      <main className="mx-auto w-full max-w-[1600px] space-y-5 p-3 sm:p-5 lg:px-8 lg:py-6 2xl:px-10">
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
-          <p className="font-bold">Livestock review registry</p>
-          <p className="mt-1 text-emerald-900/80">{batchId ? `Showing individual animals in herd #${batchId}.` : `Showing individual animals and herd containers for ${registryScopeLabel}. Choose a review status to narrow the registry.`}</p>
+      <main className="mx-auto w-full max-w-[1500px] min-w-0 space-y-4 p-3 sm:space-y-5 sm:p-4 md:p-6">
+        <section className="relative overflow-hidden rounded-xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-4 text-sm text-white shadow-md sm:p-5">
+          <div className="relative z-10">
+            <p className="font-bold tracking-tight">Livestock review registry</p>
+            <p className="mt-1 text-emerald-100/90">{batchId ? `Showing individual animals in herd #${batchId}.` : `Showing individual animals and herd containers for ${registryScopeLabel}. Choose a review status to narrow the registry.`}</p>
           {batchId ? (
-            <Button asChild type="button" variant="outline" className="mt-3 min-h-11 rounded-xl border-emerald-300 bg-white px-4 text-base font-semibold text-emerald-950">
+            <Button asChild type="button" variant="outline" className="mt-3 min-h-11 rounded-xl border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-950">
               <Link href={`/sibat/batches?batchId=${encodeURIComponent(batchId)}`}>
-                <ArrowLeft className="mr-2 size-5" /> Back to this herd
+                <ArrowLeft className="mr-2 size-4" /> Back to this herd
               </Link>
             </Button>
           ) : null}
+          </div>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 p-3 sm:flex-row">
-            <div className="relative flex-1">
+        <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+          <div className="flex min-w-0 flex-col gap-3 p-3.5 sm:flex-row sm:p-4">
+            <div className="relative min-w-0 flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={search}
                 onChange={(event) => { setSearch(event.target.value); setPage(1); }}
                 placeholder="Search tag, farmer, barangay, or livestock…"
                 aria-label="Search livestock records"
-                className="h-12 border-slate-200 bg-slate-50/50 pl-9 text-base"
+                className="min-h-11 rounded-xl border-slate-200 bg-slate-50/80 pl-9 text-base"
               />
             </div>
             <Select value={sortBy} onValueChange={(value: "newest" | "oldest") => setSortBy(value)}>
-              <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 bg-slate-50/60 text-base sm:w-[165px]">
+              <SelectTrigger className="min-h-11 w-full rounded-xl border-slate-200 bg-slate-50/80 text-base sm:w-[165px]">
                 <div className="flex items-center gap-2"><ArrowUpDown className="size-3.5 shrink-0 text-slate-400" /><SelectValue placeholder="Sort by" /></div>
               </SelectTrigger>
               <SelectContent>
@@ -162,7 +164,7 @@ function SibatLivestockRegistryContent() {
 
           <Separator className="opacity-60" />
 
-          <div className="flex flex-col gap-3 px-3 py-2.5 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 border-t border-slate-100 px-3.5 py-3 sm:flex-row sm:items-center sm:px-4">
             <div className="flex flex-wrap items-center gap-1.5">
               <SlidersHorizontal className="mr-0.5 hidden size-3.5 shrink-0 text-slate-400 sm:block" />
             {STATUS_FILTERS.map((filter) => (
@@ -183,7 +185,7 @@ function SibatLivestockRegistryContent() {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs sm:p-5">
+        <section className="space-y-4 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs sm:p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-900">Livestock records</h2>
           </div>
@@ -223,9 +225,9 @@ function SibatLivestockRegistryContent() {
                 pageSizeOptions={[PAGE_SIZE]}
               /> : undefined}
             >
-              <div className="space-y-3 md:hidden">
+              <div className="min-w-0 space-y-3 md:hidden">
                 {pageRecords.map((record: UnifiedSubmissionItem) => (
-                  <article key={`mobile-${record.sourceType}-${record.rawId}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <article key={`mobile-${record.sourceType}-${record.rawId}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="break-words font-mono text-base font-bold text-slate-900">{record.tagNumber || record.batchCode || `Record #${record.rawId}`}</p>
@@ -241,13 +243,13 @@ function SibatLivestockRegistryContent() {
                     </div>
                     <div className="mt-3 flex flex-col gap-2">
                       {record.sourceType === "INVENTORY" && (record.status === "PENDING" || record.status === "VERIFIED") ? (
-                        <Button type="button" variant="outline" className="min-h-11 w-full rounded-xl border-sky-200 text-base font-semibold text-sky-900" onClick={() => setSelectedSubmission(record)}>
-                          <Eye className="mr-2 size-5" /> {record.status === "PENDING" ? "Review animal" : "View review"}
+                        <Button type="button" variant="outline" className="min-h-11 w-full rounded-xl border-emerald-200 text-sm font-semibold text-emerald-900 hover:bg-emerald-50" onClick={() => setSelectedSubmission(record)}>
+                          <Eye className="mr-2 size-4" /> {record.status === "PENDING" ? "Review animal" : "View review"}
                         </Button>
                       ) : null}
                       {record.sourceType === "BATCH" ? (
-                        <Button asChild type="button" variant="outline" className="min-h-11 w-full rounded-xl border-sky-200 text-base font-semibold text-sky-900">
-                          <Link href={`/sibat/batches?batchId=${record.rawId}`}><Layers className="mr-2 size-5" /> Open herd</Link>
+                        <Button asChild type="button" variant="outline" className="min-h-11 w-full rounded-xl border-emerald-200 text-sm font-semibold text-emerald-900 hover:bg-emerald-50">
+                          <Link href={`/sibat/batches?batchId=${record.rawId}`}><Layers className="mr-2 size-4" /> Open herd</Link>
                         </Button>
                       ) : record.batchId ? (
                         <Button asChild type="button" variant="outline" className="min-h-11 w-full rounded-xl border-slate-200 text-base font-semibold text-slate-800">
@@ -293,7 +295,7 @@ function SibatLivestockRegistryContent() {
                           <TableCell className="px-3.5 py-2.5">
                             <div className="flex flex-wrap items-center gap-2">
                               {record.sourceType === "INVENTORY" && record.status === "PENDING" ? (
-                                <Button type="button" size="sm" variant="outline" className="gap-1.5 border-sky-200 text-sky-800 hover:bg-sky-50" onClick={() => setSelectedSubmission(record)}>
+                                <Button type="button" size="sm" variant="outline" className="gap-1.5 border-emerald-200 text-emerald-800 hover:bg-emerald-50" onClick={() => setSelectedSubmission(record)}>
                                   <Eye className="size-3.5" /> Details / Validate
                                 </Button>
                               ) : record.sourceType === "INVENTORY" && record.status === "VERIFIED" ? (
@@ -302,7 +304,7 @@ function SibatLivestockRegistryContent() {
                                 </Button>
                               ) : null}
                               {record.sourceType === "BATCH" ? (
-                                <Button asChild type="button" size="sm" variant="outline" className="gap-1.5 border-sky-200 text-sky-800 hover:bg-sky-50">
+                                <Button asChild type="button" size="sm" variant="outline" className="gap-1.5 border-emerald-200 text-emerald-800 hover:bg-emerald-50">
                                   <Link href={`/sibat/batches?batchId=${record.rawId}`} aria-label={`Open animal roster for ${record.batchCode || record.batchName || `herd ${record.rawId}`}`}>
                                     <Layers className="size-3.5" /> Open herd
                                   </Link>
