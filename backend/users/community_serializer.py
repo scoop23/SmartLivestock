@@ -37,6 +37,18 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
         required=False,
     )
     registration_status = serializers.SerializerMethodField()
+    barangay_name = serializers.CharField(source="barangay.barangay_name", read_only=True, allow_null=True)
+    remove_cover_image = serializers.BooleanField(write_only=True, required=False, default=False)
+
+    def to_internal_value(self, data):
+        if hasattr(data, "copy"):
+            data = data.copy()
+        if data.get("barangay", "not-provided") == "":
+            data["barangay"] = None
+        for field_name in ("registration_opens", "registration_deadline"):
+            if data.get(field_name, "not-provided") == "":
+                data[field_name] = None
+        return super().to_internal_value(data)
 
     class Meta:
         model = ProgramSchedule
@@ -44,6 +56,18 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             "id",
             "date",
             "program",
+            "description",
+            "objectives",
+            "category",
+            "cover_image",
+            "remove_cover_image",
+            "barangay",
+            "barangay_name",
+            "registration_opens",
+            "registration_deadline",
+            "eligibility",
+            "contact_information",
+            "publication_status",
             "location",
             "farmer_notes",
             "is_open",
@@ -83,9 +107,15 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
         return max(0, obj.capacity - sum(b.status == ProgramBooking.Status.CONFIRMED for b in obj.bookings.all()))
 
     def get_registration_status(self, obj):
-        if obj.date < timezone.localdate():
+        if obj.publication_status == ProgramSchedule.PublicationStatus.CANCELLED:
+            return "CANCELLED"
+        if obj.publication_status == ProgramSchedule.PublicationStatus.COMPLETED or obj.date < timezone.localdate():
             return "COMPLETED"
-        if not obj.is_open:
+        if obj.publication_status == ProgramSchedule.PublicationStatus.PUBLISHED and obj.registration_opens and obj.registration_opens > timezone.localdate():
+            return "NOT_OPEN"
+        if obj.publication_status != ProgramSchedule.PublicationStatus.PUBLISHED or not obj.is_open or (
+            obj.registration_deadline and obj.registration_deadline < timezone.localdate()
+        ):
             return "CLOSED"
         if self.get_remaining_slots(obj) == 0:
             return "FULL"
@@ -100,18 +130,53 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
                 )
         return value
 
+    def validate_cover_image(self, value):
+        if value and value.size > 8 * 1024 * 1024:
+            raise serializers.ValidationError("Program images must be 8 MB or smaller.")
+        return value
+
     def validate_available_times(self, value):
         if len(value) != len(set(value)):
             raise serializers.ValidationError("Choose each appointment time only once.")
         return sorted(value)
 
     def validate(self, attrs):
+        if attrs.get("remove_cover_image") and attrs.get("cover_image"):
+            raise serializers.ValidationError({"cover_image": "Choose a replacement image or remove the current image, not both."})
+        schedule_date = attrs.get("date", self.instance.date if self.instance else None)
+        deadline = attrs.get("registration_deadline", self.instance.registration_deadline if self.instance else None)
+        registration_opens = attrs.get("registration_opens", self.instance.registration_opens if self.instance else None)
+        if schedule_date and deadline and deadline > schedule_date:
+            raise serializers.ValidationError({"registration_deadline": "Registration must close on or before the program date."})
+        if schedule_date and registration_opens and registration_opens > schedule_date:
+            raise serializers.ValidationError({"registration_opens": "Registration cannot open after the program date."})
+        if deadline and registration_opens and registration_opens > deadline:
+            raise serializers.ValidationError({"registration_opens": "Registration cannot open after its closing date."})
+        publication_status = attrs.get("publication_status", getattr(self.instance, "publication_status", ProgramSchedule.PublicationStatus.PUBLISHED))
+        if publication_status == ProgramSchedule.PublicationStatus.COMPLETED and schedule_date and schedule_date > timezone.localdate():
+            raise serializers.ValidationError({"publication_status": "A future program cannot be marked completed."})
+        if self.instance and self.instance.publication_status == ProgramSchedule.PublicationStatus.CANCELLED and publication_status != ProgramSchedule.PublicationStatus.CANCELLED:
+            raise serializers.ValidationError({"publication_status": "A cancelled program cannot be republished. Create a new program to preserve the cancellation history."})
+        if self.instance and "barangay" in attrs and attrs["barangay"] != self.instance.barangay and self.instance.bookings.exists():
+            raise serializers.ValidationError({"barangay": "Program coverage cannot change after farmers have booked. Create a new program for the new coverage area."})
+
+        request = self.context.get("request")
+        if request and role_name(request.user) in ("SIBAT", "CBAT"):
+            user = request.user
+            requested_barangay = attrs.get("barangay", getattr(self.instance, "barangay", None))
+            if getattr(user, "access_scope", None) != "ALL_BARANGAYS":
+                assigned_id = getattr(user, "assigned_barangay_id", None)
+                if assigned_id is None:
+                    raise serializers.ValidationError({"barangay": "Ask MAO/Admin to assign your account to a barangay before managing local programs."})
+                if requested_barangay and requested_barangay.pk != assigned_id:
+                    raise serializers.ValidationError({"barangay": "You can manage programs only for your assigned barangay."})
+                attrs["barangay"] = Barangay.objects.get(pk=assigned_id)
+
         # Keep existing booking times available when staff edits a schedule.
         if self.instance is None and "available_times" not in attrs:
             attrs["available_times"] = list(PROGRAM_TIME_SLOTS)
 
         new_times = attrs.get("available_times")
-        schedule_date = attrs.get("date", self.instance.date if self.instance else None)
         if self.instance is not None and new_times is not None:
             confirmed_times = {
                 booking.time.strftime("%H:%M")
@@ -145,6 +210,26 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
                     "available_times": "For today's schedule, choose times later than the current time."
                 })
         return attrs
+
+    def create(self, validated_data):
+        remove_image = validated_data.pop("remove_cover_image", False)
+        schedule = super().create(validated_data)
+        if remove_image and schedule.cover_image:
+            schedule.cover_image.delete(save=True)
+        return schedule
+
+    def update(self, instance, validated_data):
+        remove_image = validated_data.pop("remove_cover_image", False)
+        old_cover = instance.cover_image
+        if remove_image and instance.cover_image:
+            instance.cover_image.delete(save=False)
+            instance.cover_image = None
+        schedule = super().update(instance, validated_data)
+        if old_cover and "cover_image" in validated_data and old_cover.name != schedule.cover_image.name:
+            old_cover.storage.delete(old_cover.name)
+        if remove_image:
+            schedule.save(update_fields=["cover_image"])
+        return schedule
 
 
 class AnnouncementPhotoSerializer(serializers.ModelSerializer):
@@ -347,10 +432,11 @@ class ProgramBookingSerializer(serializers.ModelSerializer):
     date = serializers.DateField(source="schedule.date", read_only=True)
     program = serializers.CharField(source="schedule.program", read_only=True)
     available_times = serializers.ListField(source="schedule.available_times", read_only=True)
+    program_status = serializers.CharField(source="schedule.publication_status", read_only=True)
 
     class Meta:
         model = ProgramBooking
-        fields = ["id", "schedule", "farmer_name", "farmer_barangay", "date", "program", "time", "available_times", "status", "created_at"]
+        fields = ["id", "schedule", "farmer_name", "farmer_barangay", "date", "program", "program_status", "time", "available_times", "status", "created_at"]
         read_only_fields = ["status", "created_at"]
 
     def get_farmer_name(self, obj):

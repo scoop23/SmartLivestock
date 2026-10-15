@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   CalendarCheck,
   CalendarDays,
@@ -9,14 +10,13 @@ import {
   CheckCircle2,
   Clock,
   Clock3,
-  HelpCircle,
+  Image as ImageIcon,
   Info,
   Loader2,
   MapPin,
   Pencil,
   RefreshCw,
   Sparkles,
-  Users,
   X,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
@@ -43,7 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import api from "@/lib/axios";
+import api, { getActiveApiUrl } from "@/lib/axios";
 import {
   ProgramBooking,
   ProgramSchedule,
@@ -53,13 +53,10 @@ import {
 } from "@/lib/community-api";
 import {
   CommunityEmptyState,
-  CommunityErrorCard,
   CommunitySkeleton,
   PROGRAM_TIME_SLOTS,
-  ROLE_ACCENT,
   daysUntil,
   formatLongDate,
-  formatShortDate,
   formatTime,
   isUpcoming,
 } from "@/app/components/community/community-ui";
@@ -71,6 +68,11 @@ function localDateFromIso(value: string): Date {
 
 function isoFromLocalDate(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function programImageUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${getActiveApiUrl().replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export default function FarmerSchedulingPage() {
@@ -109,6 +111,8 @@ export default function FarmerSchedulingPage() {
   }, [load]);
 
   useEffect(() => {
+    // Loading state is updated after the external API requests finish.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -187,7 +191,7 @@ export default function FarmerSchedulingPage() {
 
   const confirmed = bookings.filter((b) => b.status === "CONFIRMED");
   const upcoming = confirmed.filter((b) => isUpcoming(b.date));
-  const pastBookings = bookings.filter((booking) => booking.status === "CANCELLED" || !isUpcoming(booking.date));
+  const pastBookings = bookings.filter((booking) => booking.status !== "CONFIRMED" || !isUpcoming(booking.date));
   const nextVisit = useMemo(() => {
     const list = upcoming.slice().sort((a, b) => a.date.localeCompare(b.date));
     return list[0] ?? null;
@@ -201,8 +205,8 @@ export default function FarmerSchedulingPage() {
   return (
     <>
       <PageHeader
-        title="Field Scheduling & Visits"
-        subtitle="Browse municipal veterinary programs, select an available date, and reserve your appointment slot."
+        title="Livestock Programs"
+        subtitle="Browse farmer programs, register for an activity, and manage your bookings."
         variant="farmer"
         maxWidthClass="w-full"
         action={
@@ -499,7 +503,7 @@ export default function FarmerSchedulingPage() {
                       {programsOnDate.map((schedule) => {
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
                         const isFull = schedule.registration_status === "FULL" || schedule.remaining_slots === 0;
-                        const isClosed = !schedule.is_open || schedule.registration_status === "CLOSED";
+                        const isClosed = !schedule.is_open || schedule.registration_status === "CLOSED" || schedule.registration_status === "NOT_OPEN" || schedule.registration_status === "CANCELLED" || schedule.registration_status === "COMPLETED";
                         const isSelected = selected?.id === schedule.id;
 
                         const bookedPercent = schedule.capacity
@@ -522,11 +526,12 @@ export default function FarmerSchedulingPage() {
                                   : "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-xs"
                             }`}
                           >
+                            <div className="-mx-4.5 -mt-4.5 mb-3 h-32 overflow-hidden rounded-t-2xl bg-gradient-to-br from-emerald-50 to-slate-100">
+                              {schedule.cover_image ? <Image src={programImageUrl(schedule.cover_image)} alt={`${schedule.program} cover`} width={1200} height={400} unoptimized className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-emerald-700"><ImageIcon className="size-8 opacity-60" /><span className="sr-only">No program image</span></div>}
+                            </div>
                             <div className="space-y-3">
                               <div className="flex items-start justify-between gap-2">
-                                <h4 className="line-clamp-2 text-base font-black text-slate-900 tracking-tight transition-colors group-hover:text-emerald-800">
-                                  {schedule.program}
-                                </h4>
+                                <div className="min-w-0"><h4 className="line-clamp-2 text-base font-black text-slate-900 tracking-tight transition-colors group-hover:text-emerald-800">{schedule.program}</h4><Badge variant="outline" className="mt-1 text-[10px]">{schedule.category.replaceAll("_", " ")}</Badge></div>
                                 <Badge
                                   variant="outline"
                                   className={`shrink-0 text-xs font-bold uppercase tracking-wider ${
@@ -537,7 +542,7 @@ export default function FarmerSchedulingPage() {
                                         : "border-emerald-200 bg-emerald-50 text-emerald-800"
                                   }`}
                                 >
-                                  {isClosed ? "CLOSED" : isFull ? "FULL" : "OPEN"}
+                                  {alreadyBooked ? "BOOKED" : schedule.registration_status === "NOT_OPEN" ? "REGISTRATION OPENS SOON" : isClosed ? "REGISTRATION CLOSED" : isFull ? "FULL" : "OPEN FOR REGISTRATION"}
                                 </Badge>
                               </div>
 
@@ -560,6 +565,13 @@ export default function FarmerSchedulingPage() {
                                     <span className="truncate">{schedule.location}</span>
                                   </div>
                                 ) : null}
+                                {schedule.barangay_name ? <div className="text-xs font-semibold text-slate-500">For {schedule.barangay_name} farmers</div> : <div className="text-xs font-semibold text-slate-500">Municipality-wide program</div>}
+                                {schedule.registration_deadline ? <div className="text-xs font-semibold text-amber-800">Register by {formatLongDate(schedule.registration_deadline)}</div> : null}
+                                {schedule.registration_opens && schedule.registration_status === "NOT_OPEN" ? <div className="text-xs font-semibold text-sky-800">Registration opens {formatLongDate(schedule.registration_opens)}</div> : null}
+                                {schedule.description ? <p className="line-clamp-3 leading-relaxed text-slate-700">{schedule.description}</p> : null}
+                                {schedule.objectives ? <p className="line-clamp-2 text-xs text-slate-600"><strong>Objectives:</strong> {schedule.objectives}</p> : null}
+                                {schedule.eligibility ? <p className="line-clamp-2 text-xs text-slate-600"><strong>Who can join:</strong> {schedule.eligibility}</p> : null}
+                                {schedule.contact_information ? <p className="text-xs text-slate-600"><strong>Contact:</strong> {schedule.contact_information}</p> : null}
                                 {schedule.farmer_notes ? (
                                   <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
                                     <Info className="mt-0.5 size-4 shrink-0 text-amber-700" />
@@ -610,8 +622,10 @@ export default function FarmerSchedulingPage() {
                               >
                                 {alreadyBooked ? (
                                   <span>Already booked</span>
+                                ) : alreadyBooked ? (
+                                  <span>Booked</span>
                                 ) : isClosed ? (
-                                  <span>Closed</span>
+                                  <span>{schedule.registration_status === "NOT_OPEN" ? "Opens soon" : "Registration closed"}</span>
                                 ) : isFull ? (
                                   <span>Fully booked</span>
                                 ) : isSelected ? (
@@ -838,9 +852,10 @@ export default function FarmerSchedulingPage() {
                                   : "border-slate-200 bg-slate-100 text-slate-600"
                               }`}
                             >
-                              {booking.status}
+                              {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
                             </Badge>
                           </div>
+                          {booking.program_status === "CANCELLED" ? <p className="text-xs font-bold text-rose-700">This program was cancelled.</p> : null}
 
                           {/* Date and Time Details */}
                           <div className="space-y-1.5 text-xs sm:text-sm text-slate-600 font-medium">

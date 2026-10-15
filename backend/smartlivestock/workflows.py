@@ -158,6 +158,14 @@ def scope_reviewer_queryset(queryset, user, *, assigned_only=False):
     """Apply the same SIBAT/CBAT jurisdiction to lists, details, reviews and aggregates."""
     if role_name(user) not in (SIBAT, "CBAT") or (has_all_barangay_access(user) and not assigned_only):
         return queryset
+    if queryset.model.__name__ == "ProgramBooking":
+        barangay_id = getattr(user, "assigned_barangay_id", None)
+        if barangay_id is None:
+            return queryset.none()
+        return queryset.filter(
+            schedule__barangay_id=barangay_id,
+            farmer__farmer_profile__barangay_id=barangay_id,
+        )
     paths = {
         "LivestockInventory": ("farmer__barangay_id",),
         "LivestockBatch": ("farmer__barangay_id",),
@@ -165,7 +173,7 @@ def scope_reviewer_queryset(queryset, user, *, assigned_only=False):
         "CensusSubmission": ("barangay_id",),
         "CensusSubmissionItem": ("census_submission__barangay_id",),
         "Barangay": ("id",),
-        "ProgramBooking": ("farmer__farmer_profile__barangay_id",),
+        "ProgramSchedule": ("barangay_id",),
         "SlaughterRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "ProductionRecord": ("farmer_at_record__barangay_id",),
         "LiveAnimalSale": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),

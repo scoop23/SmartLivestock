@@ -107,7 +107,7 @@ const adminLinks: SidebarLink[] = [
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/data-uploads', label: 'Data Upload', icon: Upload },
   { path: '/news-announcements', label: 'Activities', icon: Newspaper },
-  { path: '/schedules', label: 'Farmer Schedules', icon: CalendarDays },
+  { path: '/schedules', label: 'Livestock Programs', icon: CalendarDays },
 ];
 
 const farmerLinks: SidebarLink[] = [
@@ -139,7 +139,7 @@ const sibatLinks: SidebarLink[] = [
   { path: '/sibat-monitoring', label: 'Map', icon: Map },
   { path: '/sibat-alerts', label: 'Health Reports', icon: Bell },
   { path: '/sibat-announcement', label: 'Announcements', icon: Megaphone },
-  { path: '/sibat-scheduling', label: 'Schedule', icon: CalendarDays },
+  { path: '/sibat-scheduling', label: 'Programs', icon: CalendarDays },
 ];
 
 const auctionLinks: SidebarLink[] = [

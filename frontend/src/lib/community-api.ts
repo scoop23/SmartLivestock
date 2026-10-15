@@ -3,12 +3,24 @@ import api from "@/lib/axios";
 // Shared announcements/scheduling client. Auction uses getActivities() to read
 // notices; audience filtering and publishing permissions are decided by Django.
 
-export type ScheduleStatus = "AVAILABLE" | "FULL" | "CLOSED" | "COMPLETED";
+export type ScheduleStatus = "AVAILABLE" | "FULL" | "CLOSED" | "NOT_OPEN" | "COMPLETED" | "CANCELLED";
+export type ProgramPublicationStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
 
 export type ProgramSchedule = {
   id: number;
   date: string;
   program: string;
+  description: string;
+  objectives: string;
+  category: "VACCINATION" | "ANIMAL_HEALTH" | "CENSUS" | "SEMINAR" | "ASSISTANCE" | "OTHER";
+  cover_image: string | null;
+  barangay: number | null;
+  barangay_name: string | null;
+  registration_opens: string | null;
+  registration_deadline: string | null;
+  eligibility: string;
+  contact_information: string;
+  publication_status: ProgramPublicationStatus;
   location: string;
   farmer_notes: string;
   is_open: boolean;
@@ -64,9 +76,10 @@ export type ProgramBooking = {
   farmer_barangay: string | null;
   date: string;
   program: string;
+  program_status: ProgramPublicationStatus;
   time: string;
   available_times?: string[];
-  status: "CONFIRMED" | "CANCELLED";
+  status: "CONFIRMED" | "CANCELLED" | "ATTENDED" | "NO_SHOW";
   created_at: string;
 };
 

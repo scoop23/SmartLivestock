@@ -250,11 +250,40 @@ class AnnouncementPhoto(models.Model):
 
 
 class ProgramSchedule(models.Model):
+    class PublicationStatus(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        PUBLISHED = "PUBLISHED", "Published"
+        CANCELLED = "CANCELLED", "Cancelled"
+        COMPLETED = "COMPLETED", "Completed"
+
+    class Category(models.TextChoices):
+        VACCINATION = "VACCINATION", "Vaccination"
+        ANIMAL_HEALTH = "ANIMAL_HEALTH", "Animal health"
+        CENSUS = "CENSUS", "Livestock census"
+        SEMINAR = "SEMINAR", "Seminar or training"
+        ASSISTANCE = "ASSISTANCE", "Agricultural assistance"
+        OTHER = "OTHER", "Other"
+
     date = models.DateField()
     capacity = models.PositiveIntegerField(default=4)
     # Each program owns its appointment times so staff can match bookings to that event's plan.
     available_times = models.JSONField(default=list, blank=True)
     program = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    objectives = models.TextField(blank=True, default="")
+    category = models.CharField(max_length=24, choices=Category.choices, default=Category.OTHER)
+    cover_image = models.ImageField(upload_to="program_images/%Y/%m/", blank=True, null=True)
+    barangay = models.ForeignKey(
+        "livestock.Barangay", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="livestock_programs",
+    )
+    registration_opens = models.DateField(null=True, blank=True)
+    registration_deadline = models.DateField(null=True, blank=True)
+    eligibility = models.TextField(blank=True, default="")
+    contact_information = models.CharField(max_length=200, blank=True, default="")
+    publication_status = models.CharField(
+        max_length=12, choices=PublicationStatus.choices, default=PublicationStatus.PUBLISHED,
+    )
     location = models.CharField(max_length=200, blank=True)
     farmer_notes = models.TextField(blank=True, default="", max_length=1000)
     is_open = models.BooleanField(default=True)
@@ -276,6 +305,8 @@ class ProgramBooking(models.Model):
     class Status(models.TextChoices):
         CONFIRMED = "CONFIRMED", "Confirmed"
         CANCELLED = "CANCELLED", "Cancelled"
+        ATTENDED = "ATTENDED", "Attended"
+        NO_SHOW = "NO_SHOW", "Did not attend"
 
     schedule = models.ForeignKey(ProgramSchedule, on_delete=models.PROTECT, related_name="bookings")
     farmer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="program_bookings")

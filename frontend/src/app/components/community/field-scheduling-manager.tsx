@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { CalendarDays, Clock3, ClipboardList, LockKeyhole, MapPin, Pencil, Plus, RefreshCw, Trash2, UnlockKeyhole, Users } from "lucide-react";
+import Image from "next/image";
+import { CalendarDays, Clock3, ClipboardList, Image as ImageIcon, LockKeyhole, MapPin, Pencil, Plus, RefreshCw, Search, Trash2, UnlockKeyhole, Users } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -16,23 +18,32 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
-import { apiError, getBookings, getSchedules, type ProgramBooking, type ProgramSchedule } from "@/lib/community-api";
+import { apiError, getBookings, getSchedules, getBarangays, type BarangayOption, type ProgramBooking, type ProgramSchedule, type ProgramPublicationStatus } from "@/lib/community-api";
 import { PROGRAM_TIME_SLOTS, CommunityEmptyState, CommunityErrorCard, CommunitySkeleton, formatLongDate, formatTime, todayIso, type CommunityRole } from "./community-ui";
+import { useAuth } from "@/contexts/auth-context";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
-type ScheduleAction = "close" | "reopen" | "delete";
+type ScheduleAction = "close" | "reopen" | "delete" | "publish" | "unpublish" | "cancel" | "complete";
 type PendingAction = { schedule: ProgramSchedule; action: ScheduleAction };
-type ScheduleForm = { date: string; program: string; location: string; farmer_notes: string; capacity: string; available_times: string[] };
-type SchedulePayload = { date: string; program: string; location: string; farmer_notes: string; capacity: number; available_times: string[] };
-const emptyForm: ScheduleForm = { date: "", program: "", location: "", farmer_notes: "", capacity: "4", available_times: [...PROGRAM_TIME_SLOTS] };
+type ScheduleForm = { date: string; program: string; description: string; objectives: string; category: ProgramSchedule["category"]; location: string; farmer_notes: string; capacity: string; available_times: string[]; registration_opens: string; registration_deadline: string; eligibility: string; contact_information: string; barangay: string; publication_status: ProgramPublicationStatus };
+type SchedulePayload = Omit<ScheduleForm, "capacity" | "barangay" | "registration_opens" | "registration_deadline"> & { capacity: number; barangay: number | null; registration_opens: string | null; registration_deadline: string | null };
+const emptyForm: ScheduleForm = { date: "", program: "", description: "", objectives: "", category: "OTHER", location: "", farmer_notes: "", capacity: "4", available_times: [...PROGRAM_TIME_SLOTS], registration_opens: "", registration_deadline: "", eligibility: "", contact_information: "", barangay: "", publication_status: "PUBLISHED" };
 
 function localTimeNow(): string {
   const now = new Date();
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
+function coverPreviewUrl(path: string): string {
+  if (path.startsWith("blob:")) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${(api.defaults.baseURL || "").replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
+  const { user } = useAuth();
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
+  const [barangays, setBarangays] = useState<BarangayOption[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,14 +54,21 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
   const [timeToAdd, setTimeToAdd] = useState("");
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
+  const [bookingCancelTarget, setBookingCancelTarget] = useState<ProgramBooking | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [conflictPayload, setConflictPayload] = useState<SchedulePayload | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState("");
+  const [removeCover, setRemoveCover] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "upcoming" | "published" | "draft" | "completed" | "cancelled">("all");
 
   const load = useCallback(async () => {
     try {
-      const [schedulesResult, bookingsResult] = await Promise.allSettled([
+      const [schedulesResult, bookingsResult, barangaysResult] = await Promise.allSettled([
         getSchedules(),
         getBookings(),
+        getBarangays(),
       ]);
 
       if (schedulesResult.status === "fulfilled") {
@@ -59,6 +77,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       if (bookingsResult.status === "fulfilled") {
         setBookings(bookingsResult.value);
       }
+      if (barangaysResult.status === "fulfilled") setBarangays(barangaysResult.value);
 
       if (schedulesResult.status === "rejected" && bookingsResult.status === "rejected") {
         setError(apiError(schedulesResult.reason));
@@ -116,14 +135,20 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   function startCreate() {
     setEditing(null);
-    setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS] });
+    setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS], barangay: user?.accessScope === "ALL_BARANGAYS" ? "" : String(user?.assignedBarangayId ?? "") });
+    setCoverFile(null);
+    setCoverPreview("");
+    setRemoveCover(false);
     setTimeToAdd("");
     setFormOpen(true);
   }
 
   function startEdit(schedule: ProgramSchedule) {
     setEditing(schedule);
-    setForm({ date: schedule.date, program: schedule.program, location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS] });
+    setForm({ ...emptyForm, date: schedule.date, program: schedule.program, description: schedule.description || "", objectives: schedule.objectives || "", category: schedule.category || "OTHER", location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS], registration_opens: schedule.registration_opens || "", registration_deadline: schedule.registration_deadline || "", eligibility: schedule.eligibility || "", contact_information: schedule.contact_information || "", barangay: schedule.barangay ? String(schedule.barangay) : "", publication_status: schedule.publication_status || "PUBLISHED" });
+    setCoverFile(null);
+    setCoverPreview(schedule.cover_image || "");
+    setRemoveCover(false);
     setTimeToAdd("");
     setFormOpen(true);
   }
@@ -135,12 +160,27 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     // The API rejects edits that submit a historical date. Keep it fixed while allowing other details to change.
     if (editing && editing.date < todayIso() && payload.date === editing.date) delete requestPayload.date;
     try {
-      if (editing) await api.patch(`/community/schedules/${editing.id}/`, requestPayload);
-      else await api.post("/community/schedules/", requestPayload);
+      let body: FormData | Partial<SchedulePayload> = requestPayload;
+      if (coverFile || removeCover) {
+        const formData = new FormData();
+        Object.entries(requestPayload).forEach(([key, value]) => {
+          if (key === "available_times" && Array.isArray(value)) value.forEach((time) => formData.append(key, time));
+          else if (value !== undefined && value !== null) formData.append(key, String(value));
+          else if (value === null) formData.append(key, "");
+        });
+        if (coverFile) formData.append("cover_image", coverFile);
+        if (removeCover) formData.append("remove_cover_image", "true");
+        body = formData;
+      }
+      if (editing) await api.patch(`/community/schedules/${editing.id}/`, body);
+      else await api.post("/community/schedules/", body);
       setConflictPayload(null);
       setFormOpen(false);
       setEditing(null);
       setForm(emptyForm);
+      setCoverFile(null);
+      setCoverPreview("");
+      setRemoveCover(false);
       setTimeToAdd("");
       await refresh();
     } catch (e) {
@@ -153,7 +193,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   function saveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    const payload: SchedulePayload = { ...form, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim() };
+    const payload: SchedulePayload = { ...form, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), description: form.description.trim(), objectives: form.objectives.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim(), eligibility: form.eligibility.trim(), contact_information: form.contact_information.trim(), registration_opens: form.registration_opens || null, registration_deadline: form.registration_deadline || null, barangay: form.barangay ? Number(form.barangay) : null };
     if (!Number.isInteger(payload.capacity) || payload.capacity < 1 || payload.capacity > 10000) {
       setError("Capacity must be a whole number from 1 to 10,000.");
       return;
@@ -199,9 +239,41 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     setError("");
     try {
       if (action === "delete") await api.delete(`/community/schedules/${schedule.id}/`);
-      else await api.patch(`/community/schedules/${schedule.id}/`, { is_open: action === "reopen" });
+      else if (action === "close" || action === "reopen") await api.patch(`/community/schedules/${schedule.id}/`, { is_open: action === "reopen" });
+      else {
+        const publication_status = action === "publish" ? "PUBLISHED" : action === "unpublish" ? "DRAFT" : action === "cancel" ? "CANCELLED" : "COMPLETED";
+        await api.patch(`/community/schedules/${schedule.id}/`, { publication_status, is_open: action === "publish" });
+      }
       if (selected?.id === schedule.id && action === "delete") setSelected(null);
       setPendingAction(null);
+      await refresh();
+    } catch (e) {
+      setError(apiError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recordAttendance(booking: ProgramBooking, status: "ATTENDED" | "NO_SHOW") {
+    setBusy(true);
+    setError("");
+    try {
+      await api.patch(`/community/bookings/${booking.id}/`, { status });
+      await refresh();
+    } catch (e) {
+      setError(apiError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelBooking() {
+    if (!bookingCancelTarget) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.patch(`/community/bookings/${bookingCancelTarget.id}/`, { status: "CANCELLED" });
+      setBookingCancelTarget(null);
       await refresh();
     } catch (e) {
       setError(apiError(e));
@@ -213,14 +285,24 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const selectedBookings = selected ? (bookingsBySchedule.get(selected.id) ?? []).slice().sort((a, b) => a.time.localeCompare(b.time)) : [];
   const selectedHasBookingHistory = pendingAction ? (bookingsBySchedule.get(pendingAction.schedule.id)?.length ?? 0) > 0 : false;
   const selectedIsPast = pendingAction ? pendingAction.schedule.date < todayIso() : false;
+  const visibleSchedules = schedules.filter((schedule) => {
+    const matchesSearch = `${schedule.program} ${schedule.location} ${schedule.barangay_name || ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter = filter === "all"
+      || (filter === "upcoming" && schedule.date >= todayIso() && schedule.publication_status === "PUBLISHED")
+      || (filter === "published" && schedule.publication_status === "PUBLISHED")
+      || (filter === "draft" && schedule.publication_status === "DRAFT")
+      || (filter === "completed" && (schedule.publication_status === "COMPLETED" || schedule.registration_status === "COMPLETED"))
+      || (filter === "cancelled" && schedule.publication_status === "CANCELLED");
+    return matchesSearch && matchesFilter;
+  });
   const accent = role === "sibat" ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]";
-  const pageTitle = "Field Scheduling";
+  const pageTitle = "Livestock Programs";
 
   return (
     <>
       <PageHeader
         title={pageTitle}
-        subtitle="Manage livestock programs, activities, schedules, capacity, and farmer registrations."
+        subtitle="Create and publish programs, manage registrations, and record farmer attendance."
         icon={<CalendarDays className="size-5 text-slate-800" />}
         variant={role}
         maxWidthClass="w-full"
@@ -284,6 +366,20 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           />
         </div>
 
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search programs" aria-label="Search programs" className="h-10 pl-9" />
+          </div>
+          <div className="flex flex-wrap gap-1.5" aria-label="Filter programs">
+            {(["all", "upcoming", "published", "draft", "completed", "cancelled"] as const).map((key) => (
+              <Button key={key} type="button" variant={filter === key ? "default" : "outline"} onClick={() => setFilter(key)} className="h-9 rounded-xl px-3 text-xs font-bold capitalize">
+                {key}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Schedule Grid */}
         {loading ? (
           <CommunitySkeleton cards={4} />
@@ -305,8 +401,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {schedules.map((schedule) => {
+          visibleSchedules.length === 0 ? (
+            <Card className="rounded-xl border border-slate-200 bg-white shadow-xs"><CardContent className="p-6"><CommunityEmptyState icon={<Search className="size-5" />} title="No programs match" description="Try another search or filter." /></CardContent></Card>
+          ) : <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {visibleSchedules.map((schedule) => {
               const roster = bookingsBySchedule.get(schedule.id) ?? [];
               const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
               const hasHistory = roster.length > 0;
@@ -316,7 +414,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 AVAILABLE: { label: "OPEN", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
                 FULL: { label: "FULL", className: "border-amber-200 bg-amber-50 text-amber-900" },
                 CLOSED: { label: "CLOSED", className: "border-slate-200 bg-slate-100 text-slate-700" },
+                NOT_OPEN: { label: "REGISTRATION NOT OPEN", className: "border-sky-200 bg-sky-50 text-sky-700" },
                 COMPLETED: { label: "COMPLETED", className: "border-slate-200 bg-slate-100 text-slate-600" },
+                CANCELLED: { label: "CANCELLED", className: "border-rose-200 bg-rose-50 text-rose-700" },
               }[status] || { label: status, className: "border-slate-200 bg-slate-100 text-slate-700" };
 
               const bookedPercent = schedule.capacity
@@ -328,6 +428,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   key={schedule.id}
                   className="flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs transition-all hover:border-slate-300 hover:shadow-sm"
                 >
+                  {schedule.cover_image ? <Image src={coverPreviewUrl(schedule.cover_image)} alt="" width={1200} height={400} unoptimized className="h-36 w-full object-cover" /> : <div className="flex h-24 items-center justify-center gap-2 bg-gradient-to-br from-slate-50 to-emerald-50 text-sm font-semibold text-slate-400"><ImageIcon className="size-5" /> No cover image</div>}
                   <CardHeader className="gap-2 p-4 sm:p-4.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
@@ -364,6 +465,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   </CardHeader>
 
                   <CardContent className="space-y-3 px-4 pb-4 sm:px-4.5">
+                    {schedule.description ? <p className="line-clamp-3 text-sm leading-relaxed text-slate-700">{schedule.description}</p> : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="text-[11px]">{schedule.category.replaceAll("_", " ")}</Badge>
+                      {schedule.barangay_name ? <Badge variant="outline" className="text-[11px]">{schedule.barangay_name}</Badge> : <Badge variant="outline" className="text-[11px]">Municipality-wide</Badge>}
+                      <Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge>
+                    </div>
                     {schedule.farmer_notes ? (
                       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
                         <ClipboardList className="mt-0.5 size-4 shrink-0 text-amber-700" />
@@ -438,6 +545,17 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                       >
                         <Pencil className="size-3" /> Edit
                       </Button>
+                      {schedule.publication_status === "DRAFT" ? (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "publish" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-emerald-700">Publish</Button>
+                      ) : schedule.publication_status === "PUBLISHED" ? (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "unpublish" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-slate-700">Unpublish</Button>
+                      ) : null}
+                      {schedule.publication_status === "PUBLISHED" ? (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "cancel" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-rose-700">Cancel</Button>
+                      ) : null}
+                      {schedule.publication_status === "PUBLISHED" && schedule.date <= todayIso() ? (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "complete" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-sky-700">Complete</Button>
+                      ) : null}
                       <Button
                         type="button"
                         size="sm"
@@ -445,7 +563,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         onClick={() => setPendingAction({ schedule, action: schedule.is_open ? "close" : "reopen" })}
                         className="h-9 gap-1 rounded-xl px-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100"
                       >
-                        {schedule.is_open ? (
+                    {schedule.is_open ? (
                           <>
                             <LockKeyhole className="size-3 text-slate-500" /> Close
                           </>
@@ -503,6 +621,40 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   className="h-10 text-sm font-medium"
                 />
               </label>
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700">
+                Program category
+                <Select value={form.category} onValueChange={(value: ScheduleForm["category"]) => setForm({ ...form, category: value })}>
+                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="VACCINATION">Vaccination</SelectItem>
+                    <SelectItem value="ANIMAL_HEALTH">Animal health</SelectItem>
+                    <SelectItem value="CENSUS">Livestock census</SelectItem>
+                    <SelectItem value="SEMINAR">Seminar or training</SelectItem>
+                    <SelectItem value="ASSISTANCE">Agricultural assistance</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-description">
+                Description and objectives
+                <Textarea id="schedule-description" rows={3} maxLength={5000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="What will farmers and their animals receive from this program?" className="text-sm font-medium" />
+              </label>
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-objectives">
+                Objectives <span className="font-normal text-slate-400">(optional)</span>
+                <Textarea id="schedule-objectives" rows={2} maxLength={3000} value={form.objectives} onChange={(event) => setForm({ ...form, objectives: event.target.value })} placeholder="Main goals of this activity" className="text-sm font-medium" />
+              </label>
+              <div className="space-y-2">
+                <label htmlFor="program-cover" className="block text-xs sm:text-sm font-bold text-slate-700">Cover image or poster <span className="font-normal text-slate-400">(up to 8 MB)</span></label>
+                {coverPreview ? <div className="relative overflow-hidden rounded-xl border border-slate-200"><Image src={coverPreviewUrl(coverPreview)} alt="Program cover preview" width={1200} height={400} unoptimized className="h-36 w-full object-cover" /><Button type="button" variant="outline" onClick={() => { setCoverFile(null); setCoverPreview(""); setRemoveCover(true); }} className="absolute right-2 top-2 h-8 bg-white/95 text-xs">Remove image</Button></div> : <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500"><ImageIcon className="size-5" /> No cover image selected</div>}
+                <Input id="program-cover" type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 8 * 1024 * 1024) { setError("Choose an image that is 8 MB or smaller."); event.target.value = ""; return; } setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); setRemoveCover(false); setError(""); }} className="h-10 text-xs" />
+              </div>
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700">
+                Publication
+                <Select value={form.publication_status} onValueChange={(value: ProgramPublicationStatus) => setForm({ ...form, publication_status: value })}>
+                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="DRAFT">Save as draft</SelectItem><SelectItem value="PUBLISHED">Publish now</SelectItem></SelectContent>
+                </Select>
+              </label>
             </div>
 
             {/* Section 2: Schedule & Location */}
@@ -547,6 +699,14 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     onChange={(event) => setForm({ ...form, capacity: event.target.value })}
                     className="h-10 text-sm font-medium"
                   />
+                </label>
+                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-opens">
+                  Registration opens <span className="font-normal text-slate-400">(optional)</span>
+                  <Input id="schedule-opens" type="date" max={form.date || undefined} value={form.registration_opens} onChange={(event) => setForm({ ...form, registration_opens: event.target.value })} className="h-10 text-sm font-medium" />
+                </label>
+                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-deadline">
+                  Registration closes <span className="font-normal text-slate-400">(optional)</span>
+                  <Input id="schedule-deadline" type="date" min={form.registration_opens || undefined} max={form.date || undefined} value={form.registration_deadline} onChange={(event) => setForm({ ...form, registration_deadline: event.target.value })} className="h-10 text-sm font-medium" />
                 </label>
               </div>
 
@@ -608,7 +768,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               </div>
 
               <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-location">
-                Location <span className="font-normal text-slate-400">(optional)</span>
+                Venue
                 <Input
                   id="schedule-location"
                   maxLength={200}
@@ -617,6 +777,26 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   placeholder="e.g. Municipal Agriculture Office, Padre Garcia"
                   className="h-10 text-sm font-medium"
                 />
+              </label>
+              {role === "admin" || user?.accessScope === "ALL_BARANGAYS" ? (
+                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700">
+                  Coverage
+                  <Select value={form.barangay || "MUNICIPALITY"} onValueChange={(value) => setForm({ ...form, barangay: value === "MUNICIPALITY" ? "" : value })}>
+                    <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Choose coverage" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MUNICIPALITY">Municipality-wide</SelectItem>
+                      {barangays.map((barangay) => <SelectItem key={barangay.id} value={String(barangay.id)}>{barangay.barangay_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </label>
+              ) : <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">Coverage: {user?.assignedBarangayName || "Your assigned barangay"}</p>}
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-eligibility">
+                Eligibility and instructions <span className="font-normal text-slate-400">(optional)</span>
+                <Textarea id="schedule-eligibility" rows={2} maxLength={2000} value={form.eligibility} onChange={(event) => setForm({ ...form, eligibility: event.target.value })} placeholder="Who can join and what should participants bring?" className="text-sm font-medium" />
+              </label>
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-contact">
+                Contact information <span className="font-normal text-slate-400">(optional)</span>
+                <Input id="schedule-contact" maxLength={200} value={form.contact_information} onChange={(event) => setForm({ ...form, contact_information: event.target.value })} placeholder="Office or contact number" className="h-10 text-sm font-medium" />
               </label>
 
               <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-farmer-notes">
@@ -709,16 +889,16 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               <td className="px-3.5 py-2.5 text-slate-600">{booking.farmer_barangay || "—"}</td>
                               <td className="px-3.5 py-2.5 font-semibold text-slate-700">{formatTime(booking.time)}</td>
                               <td className="px-3.5 py-2.5 text-right">
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs font-bold ${
-                                    booking.status === "CONFIRMED"
-                                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                      : "border-slate-200 bg-slate-100 text-slate-600"
-                                  }`}
-                                >
-                                  {booking.status === "CONFIRMED" ? "Confirmed" : "Cancelled"}
-                                </Badge>
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                  <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                    {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
+                                  </Badge>
+                                  {booking.status === "CONFIRMED" && (selected.date < todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) <= localTimeNow())) ? <>
+                                    <Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "ATTENDED")} className="h-8 px-2 text-[11px]">Present</Button>
+                                    <Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "NO_SHOW")} className="h-8 px-2 text-[11px]">No-show</Button>
+                                  </> : null}
+                                  {booking.status === "CONFIRMED" && (selected.date > todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) > localTimeNow())) ? <Button type="button" variant="outline" disabled={busy} onClick={() => setBookingCancelTarget(booking)} className="h-8 px-2 text-[11px] text-rose-700 hover:text-rose-800">Cancel booking</Button> : null}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -735,21 +915,16 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               <p className="text-xs sm:text-sm font-bold text-slate-900">{booking.farmer_name}</p>
                               <p className="text-xs text-slate-500">{booking.farmer_barangay || "Barangay not provided"}</p>
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs font-bold ${
-                                booking.status === "CONFIRMED"
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                  : "border-slate-200 bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {booking.status === "CONFIRMED" ? "Confirmed" : "Cancelled"}
+                            <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                              {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
                             <Clock3 className="size-3 text-slate-400" />
                             {formatTime(booking.time)}
                           </div>
+                          {booking.status === "CONFIRMED" && (selected.date < todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) <= localTimeNow())) ? <div className="flex gap-2 pt-1"><Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "ATTENDED")} className="h-8 text-xs">Mark attended</Button><Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "NO_SHOW")} className="h-8 text-xs">Mark no-show</Button></div> : null}
+                          {booking.status === "CONFIRMED" && (selected.date > todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) > localTimeNow())) ? <Button type="button" variant="outline" disabled={busy} onClick={() => setBookingCancelTarget(booking)} className="mt-1 h-8 text-xs text-rose-700 hover:text-rose-800">Cancel booking</Button> : null}
                         </div>
                       ))}
                     </div>
@@ -779,6 +954,23 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={bookingCancelTarget !== null} onOpenChange={(open) => { if (!open && !busy) setBookingCancelTarget(null); }}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold text-slate-900">Cancel this farmer booking?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-600">
+              {bookingCancelTarget ? `${bookingCancelTarget.farmer_name}'s place will be released and the farmer will be notified. The booking will remain in program history.` : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy} className="h-9 text-xs">Keep booking</AlertDialogCancel>
+            <AlertDialogAction disabled={busy || !bookingCancelTarget} onClick={(event) => { event.preventDefault(); void cancelBooking(); }} className="h-9 bg-rose-700 text-xs text-white hover:bg-rose-800">
+              {busy ? "Cancelling…" : "Cancel booking"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Conflict Alert Dialog */}
       <AlertDialog open={conflictPayload !== null} onOpenChange={(open) => { if (!open) setConflictPayload(null); }}>
         <AlertDialogContent className="rounded-2xl">
@@ -800,17 +992,22 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Action Confirmation Dialog (Close, Reopen, Delete) */}
+      {/* Confirm changes that affect registrations or program history */}
       <AlertDialog open={pendingAction !== null} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-bold text-slate-900">
-              {pendingAction?.action === "delete" ? "Delete program?" : pendingAction?.action === "close" ? "Close program registrations?" : "Reopen program registrations?"}
+              {pendingAction?.action === "delete" ? "Delete program?" : pendingAction?.action === "close" ? "Close program registrations?" : pendingAction?.action === "reopen" ? "Reopen program registrations?" : pendingAction?.action === "publish" ? "Publish program?" : pendingAction?.action === "unpublish" ? "Unpublish program?" : pendingAction?.action === "cancel" ? "Cancel program?" : "Mark program completed?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-600">
               {pendingAction?.action === "delete"
                 ? selectedHasBookingHistory && selectedIsPast ? "This completed schedule will be removed from Field Scheduling. Existing booking records will be preserved for history." : selectedHasBookingHistory ? "This program has bookings, so it cannot be deleted before its scheduled date. You can close it to prevent new bookings." : "This will permanently remove the program. It has no booking records."
-                : pendingAction?.action === "close" ? "Farmers will no longer be able to book this program. All existing registrations will be preserved." : "Farmers will be able to book open slots for this program again."}
+                : pendingAction?.action === "close" ? "Farmers will no longer be able to book this program. All existing registrations will be preserved."
+                  : pendingAction?.action === "reopen" ? "Farmers will be able to book open slots for this program again."
+                    : pendingAction?.action === "publish" ? "Farmers in the selected coverage area can see and book this program immediately."
+                      : pendingAction?.action === "unpublish" ? "The program will be hidden from farmers. Existing bookings will stay in its history."
+                        : pendingAction?.action === "cancel" ? "Farmers with confirmed bookings will be notified. Booking history will be preserved."
+                          : "The program will be marked complete, and registration will close."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -820,7 +1017,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               onClick={(event) => { event.preventDefault(); void performAction(); }}
               className={`h-9 text-xs ${pendingAction?.action === "delete" ? "bg-rose-700 text-white hover:bg-rose-800" : ""}`}
             >
-              {busy ? "Working…" : pendingAction?.action === "delete" ? selectedIsPast ? "Delete completed program" : "Delete program" : pendingAction?.action === "close" ? "Close program" : "Reopen program"}
+              {busy ? "Working…" : pendingAction?.action === "delete" ? selectedIsPast ? "Delete completed program" : "Delete program" : pendingAction?.action === "close" ? "Close registration" : pendingAction?.action === "reopen" ? "Reopen registration" : pendingAction?.action === "publish" ? "Publish now" : pendingAction?.action === "unpublish" ? "Unpublish" : pendingAction?.action === "cancel" ? "Cancel program" : "Mark completed"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

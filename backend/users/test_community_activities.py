@@ -9,7 +9,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from users.models import Announcement, ProgramBooking, ProgramSchedule, Role, User
+from users.models import Announcement, Notification, ProgramBooking, ProgramSchedule, Role, User
 from livestock.models import Barangay, Farmer
 
 
@@ -18,9 +18,9 @@ class ActivitySchedulingApiTests(APITestCase):
         self.mao = self._user("activity-mao", Role.UserRoles.MAO)
         self.sibat = self._user("activity-sibat", Role.UserRoles.SIBAT)
         self.farmer = self._user("activity-farmer", Role.UserRoles.FARMER)
-        barangay = Barangay.objects.create(barangay_name="Activity Local", latitude=0, longitude=0)
-        Farmer.objects.create(user=self.farmer, barangay=barangay, address="Test")
-        self.sibat.assigned_barangay = barangay
+        self.barangay = Barangay.objects.create(barangay_name="Activity Local", latitude=0, longitude=0)
+        Farmer.objects.create(user=self.farmer, barangay=self.barangay, address="Test")
+        self.sibat.assigned_barangay = self.barangay
         self.sibat.save(update_fields=["assigned_barangay"])
 
     def _user(self, username, role_name):
@@ -37,6 +37,7 @@ class ActivitySchedulingApiTests(APITestCase):
         return ProgramSchedule.objects.create(
             date=timezone.localdate() + timedelta(days=14),
             program="Cattle Vaccination Drive",
+            barangay=self.barangay,
             location="Municipal Agriculture Office",
             created_by=self.mao,
         )
@@ -201,7 +202,8 @@ class FieldSchedulingPermissionApiTests(APITestCase):
 
         self.client.force_authenticate(self.farmer)
         farmer_schedules = self.client.get("/community/schedules/")
-        self.assertNotIn(schedule_id, [row["id"] for row in farmer_schedules.data])
+        closed_program = next(row for row in farmer_schedules.data if row["id"] == schedule_id)
+        self.assertEqual(closed_program["registration_status"], "CLOSED")
         rejected_booking = self.client.post(
             "/community/bookings/", {"schedule": schedule_id, "time": "09:30"}, format="json"
         )
@@ -228,6 +230,7 @@ class FieldSchedulingPermissionApiTests(APITestCase):
         schedule = ProgramSchedule.objects.create(
             date=timezone.localdate() - timedelta(days=13),
             program="Completed Outreach",
+            barangay=self.barangay,
             is_open=False,
             created_by=self.mao,
         )
@@ -266,6 +269,7 @@ class FieldSchedulingPermissionApiTests(APITestCase):
             date=timezone.localdate() + timedelta(days=21),
             program="Capacity Test Program",
             capacity=2,
+            barangay=self.barangay,
             created_by=self.mao,
         )
 
@@ -290,6 +294,7 @@ class FieldSchedulingPermissionApiTests(APITestCase):
         self.assertEqual(row["registration_status"], "FULL")
 
         third_farmer = self._user("schedule-third-farmer", Role.UserRoles.FARMER)
+        Farmer.objects.create(user=third_farmer, barangay=self.barangay, address="Test")
         self.client.force_authenticate(third_farmer)
         rejected = self.client.post(
             "/community/bookings/", {"schedule": schedule.pk, "time": "09:30"}, format="json"
@@ -302,6 +307,7 @@ class FieldSchedulingPermissionApiTests(APITestCase):
             date=timezone.localdate() + timedelta(days=21),
             program="Capacity Edit Program",
             capacity=3,
+            barangay=self.barangay,
             created_by=self.mao,
         )
         ProgramBooking.objects.create(schedule=schedule, farmer=self.farmer, time="08:00")
@@ -320,6 +326,159 @@ class FieldSchedulingPermissionApiTests(APITestCase):
         self.assertEqual(increased.status_code, status.HTTP_200_OK)
         self.assertEqual(increased.data["capacity"], 5)
         self.assertEqual(increased.data["remaining_slots"], 3)
+
+    def test_program_visibility_and_management_follow_assigned_barangay(self):
+        other_barangay = Barangay.objects.create(barangay_name="Remote", latitude=0, longitude=0)
+        local = ProgramSchedule.objects.create(
+            date=timezone.localdate() + timedelta(days=14), program="Local program",
+            barangay=self.barangay, created_by=self.mao,
+        )
+        remote = ProgramSchedule.objects.create(
+            date=timezone.localdate() + timedelta(days=14), program="Remote program",
+            barangay=other_barangay, created_by=self.mao,
+        )
+        self.client.force_authenticate(self.sibat)
+        listed = self.client.get("/community/schedules/")
+        self.assertEqual([row["id"] for row in listed.data], [local.pk])
+        self.assertEqual(self.client.patch(f"/community/schedules/{remote.pk}/", {"program": "Tampered"}, format="json").status_code, status.HTTP_404_NOT_FOUND)
+        rejected = self.client.post("/community/schedules/", {**self._schedule_payload("Wrong scope"), "barangay": other_barangay.pk}, format="json")
+        self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST)
+        created = self.client.post("/community/schedules/", self._schedule_payload("Assigned scope"), format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["barangay"], self.barangay.pk)
+
+    def test_all_barangays_sibat_can_create_municipal_program_without_mao_approval(self):
+        self.sibat.access_scope = User.AccessScope.ALL_BARANGAYS
+        self.sibat.save(update_fields=["access_scope"])
+        self.client.force_authenticate(self.sibat)
+        response = self.client.post("/community/schedules/", self._schedule_payload("Municipal seminar"), format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertIsNone(response.data["barangay"])
+        self.assertEqual(response.data["publication_status"], ProgramSchedule.PublicationStatus.PUBLISHED)
+
+    def test_sibat_can_publish_directly_and_cancellation_preserves_booking_history(self):
+        self.client.force_authenticate(self.sibat)
+        created = self.client.post(
+            "/community/schedules/",
+            {**self._schedule_payload("Field vaccination"), "publication_status": "DRAFT"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertFalse(created.data["is_open"])
+
+        self.client.force_authenticate(self.farmer)
+        self.assertNotIn(created.data["id"], [row["id"] for row in self.client.get("/community/schedules/").data])
+
+        self.client.force_authenticate(self.sibat)
+        published = self.client.patch(f"/community/schedules/{created.data['id']}/", {"publication_status": "PUBLISHED"}, format="json")
+        self.assertEqual(published.status_code, status.HTTP_200_OK, published.data)
+        self.assertTrue(published.data["is_open"])
+
+        self.client.force_authenticate(self.farmer)
+        booking = self.client.post("/community/bookings/", {"schedule": created.data["id"], "time": "08:00"}, format="json")
+        self.assertEqual(booking.status_code, status.HTTP_201_CREATED, booking.data)
+
+        self.client.force_authenticate(self.sibat)
+        cancelled = self.client.patch(f"/community/schedules/{created.data['id']}/", {"publication_status": "CANCELLED"}, format="json")
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK, cancelled.data)
+        booking_row = ProgramBooking.objects.get(pk=booking.data["id"])
+        self.assertEqual(booking_row.status, ProgramBooking.Status.CANCELLED)
+        self.assertTrue(Notification.objects.filter(user=self.farmer, title="Program cancelled").exists())
+        self.assertEqual(self.client.patch(f"/community/schedules/{created.data['id']}/", {"publication_status": "PUBLISHED"}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cbat_has_the_same_program_and_roster_capabilities_with_barangay_scope(self):
+        cbat = self._user("schedule-cbat", Role.UserRoles.CBAT)
+        cbat.assigned_barangay = self.barangay
+        cbat.save(update_fields=["assigned_barangay"])
+        self.client.force_authenticate(cbat)
+        created = self.client.post("/community/schedules/", self._schedule_payload("CBAT health visit"), format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertEqual(created.data["barangay"], self.barangay.pk)
+        edited = self.client.patch(f"/community/schedules/{created.data['id']}/", {"description": "Field animal health activity"}, format="json")
+        self.assertEqual(edited.status_code, status.HTTP_200_OK, edited.data)
+
+        self.client.force_authenticate(self.farmer)
+        booking = self.client.post("/community/bookings/", {"schedule": created.data["id"], "time": "08:00"}, format="json")
+        self.assertEqual(booking.status_code, status.HTTP_201_CREATED, booking.data)
+        self.client.force_authenticate(cbat)
+        roster = self.client.get("/community/bookings/")
+        self.assertEqual([row["id"] for row in roster.data], [booking.data["id"]])
+        cancelled = self.client.patch(
+            f"/community/bookings/{booking.data['id']}/", {"status": "CANCELLED"}, format="json"
+        )
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK, cancelled.data)
+        self.assertEqual(cancelled.data["status"], ProgramBooking.Status.CANCELLED)
+        self.assertTrue(Notification.objects.filter(user=self.farmer, title="Program booking cancelled").exists())
+
+    def test_farmer_only_sees_published_programs_matching_coverage_and_can_attend_history(self):
+        visible = ProgramSchedule.objects.create(
+            date=timezone.localdate() + timedelta(days=14), program="Visible", barangay=self.barangay,
+            description="Vaccination and health check", category=ProgramSchedule.Category.VACCINATION,
+            registration_deadline=timezone.localdate() + timedelta(days=7), created_by=self.mao,
+        )
+        draft = ProgramSchedule.objects.create(
+            date=timezone.localdate() + timedelta(days=14), program="Draft",
+            publication_status=ProgramSchedule.PublicationStatus.DRAFT, created_by=self.mao,
+        )
+        expired_registration = ProgramSchedule.objects.create(
+            date=timezone.localdate() + timedelta(days=14), program="Registration closed",
+            registration_deadline=timezone.localdate() - timedelta(days=1), created_by=self.mao,
+        )
+        opening_later = ProgramSchedule.objects.create(
+            date=timezone.localdate() + timedelta(days=14), program="Opening later",
+            registration_opens=timezone.localdate() + timedelta(days=3), created_by=self.mao,
+        )
+        other_barangay = Barangay.objects.create(barangay_name="Other", latitude=0, longitude=0)
+        ProgramSchedule.objects.create(
+            date=timezone.localdate() + timedelta(days=14), program="Not for this barangay",
+            barangay=other_barangay, created_by=self.mao,
+        )
+        self.client.force_authenticate(self.farmer)
+        rows = self.client.get("/community/schedules/").data
+        self.assertEqual({row["id"] for row in rows}, {visible.pk, expired_registration.pk, opening_later.pk})
+        status_by_id = {row["id"]: row["registration_status"] for row in rows}
+        self.assertEqual(status_by_id[expired_registration.pk], "CLOSED")
+        self.assertEqual(status_by_id[opening_later.pk], "NOT_OPEN")
+        closed_booking = self.client.post("/community/bookings/", {"schedule": draft.pk, "time": "08:00"}, format="json")
+        self.assertEqual(closed_booking.status_code, status.HTTP_400_BAD_REQUEST)
+        deadline_booking = self.client.post("/community/bookings/", {"schedule": expired_registration.pk, "time": "08:00"}, format="json")
+        self.assertEqual(deadline_booking.status_code, status.HTTP_400_BAD_REQUEST)
+        early_booking = self.client.post("/community/bookings/", {"schedule": opening_later.pk, "time": "08:00"}, format="json")
+        self.assertEqual(early_booking.status_code, status.HTTP_400_BAD_REQUEST)
+        booking = self.client.post("/community/bookings/", {"schedule": visible.pk, "time": "08:00"}, format="json")
+        self.assertEqual(booking.status_code, status.HTTP_201_CREATED)
+
+        visible.date = timezone.localdate() - timedelta(days=1)
+        visible.save(update_fields=["date"])
+        self.client.force_authenticate(self.sibat)
+        attendance = self.client.patch(f"/community/bookings/{booking.data['id']}/", {"status": "ATTENDED"}, format="json")
+        self.assertEqual(attendance.status_code, status.HTTP_200_OK, attendance.data)
+        self.assertEqual(attendance.data["status"], ProgramBooking.Status.ATTENDED)
+
+    def test_program_cover_image_upload_and_replacement_uses_media_storage(self):
+        image_buffer = BytesIO()
+        Image.new("RGB", (3, 3), color="green").save(image_buffer, format="PNG")
+        image_bytes = image_buffer.getvalue()
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            self.client.force_authenticate(self.sibat)
+            payload = self._schedule_payload("Image program")
+            payload["cover_image"] = SimpleUploadedFile("cover.png", image_bytes, content_type="image/png")
+            payload["description"] = "A farmer vaccination service."
+            payload["category"] = ProgramSchedule.Category.VACCINATION
+            payload["registration_opens"] = ""
+            payload["registration_deadline"] = ""
+            created = self.client.post("/community/schedules/", payload, format="multipart")
+            self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+            self.assertIn("program_images/", created.data["cover_image"])
+            self.assertEqual(created.data["description"], payload["description"])
+
+            replacement = self.client.patch(
+                f"/community/schedules/{created.data['id']}/",
+                {"cover_image": SimpleUploadedFile("replacement.png", image_bytes, content_type="image/png")},
+                format="multipart",
+            )
+            self.assertEqual(replacement.status_code, status.HTTP_200_OK, replacement.data)
+            self.assertIn("replacement", replacement.data["cover_image"])
 
     def test_sibat_can_upload_and_remove_individual_activity_photos(self):
         image_buffer = BytesIO()

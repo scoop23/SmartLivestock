@@ -37,8 +37,8 @@ const links: NavLink[] = [
   { path: "/livestock-inventory", label: "My Livestock", icon: Package },
   { path: "/production-dashboard", label: "Record Production", icon: TrendingUp },
   { path: "/gis-user-map", label: "Farm Map", icon: GisGlobePoi },
-  { path: "/farmer-announcement", label: "Activities", icon: Megaphone },
-  { path: "/farmer-scheduling", label: "Programs & Visits", icon: Calendar },
+  { path: "/farmer-announcement", label: "Announcements", icon: Megaphone },
+  { path: "/farmer-scheduling", label: "Programs", icon: Calendar },
 ];
 
 export default function MobileNav() {

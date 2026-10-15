@@ -27,16 +27,18 @@ export function ActivityScheduleCard({
 }) {
   const [expiredDialogOpen, setExpiredDialogOpen] = useState(false);
   const isExpired =
-    schedule.deleted_at != null || schedule.registration_status === "COMPLETED";
+    schedule.deleted_at != null || schedule.registration_status === "COMPLETED" || schedule.registration_status === "CANCELLED";
   const statusLabel = {
     AVAILABLE: "Registration open",
     FULL: "Fully booked",
     CLOSED: "Registration closed",
+    NOT_OPEN: "Registration opens soon",
     COMPLETED: "Program completed",
+    CANCELLED: "Program cancelled",
   }[schedule.registration_status];
   const canViewSchedule =
     role === "farmer"
-      ? schedule.registration_status === "AVAILABLE" || schedule.registration_status === "FULL"
+      ? ["AVAILABLE", "FULL", "CLOSED", "NOT_OPEN"].includes(schedule.registration_status)
       : role === "sibat" || role === "admin";
   const href = role === "farmer"
     ? `/farmer-scheduling?schedule=${schedule.id}`
@@ -58,7 +60,9 @@ export function ActivityScheduleCard({
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : schedule.registration_status === "FULL"
                 ? "border-amber-200 bg-amber-50 text-amber-900"
-                : "border-slate-200 bg-slate-50 text-slate-600"
+                : schedule.registration_status === "CANCELLED"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-slate-200 bg-slate-50 text-slate-600"
           }`}
         >
           {statusLabel}
@@ -117,12 +121,11 @@ export function ActivityScheduleCard({
           <AlertDialog open={expiredDialogOpen} onOpenChange={setExpiredDialogOpen}>
             <AlertDialogContent className="z-[var(--z-critical)]">
               <AlertDialogHeader>
-                <AlertDialogTitle>Program already expired</AlertDialogTitle>
+                <AlertDialogTitle>{schedule.registration_status === "CANCELLED" ? "Program cancelled" : "Program no longer available"}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This announcement is still available for reference, but its linked program
-                  on {formatLongDate(schedule.date)} has already passed
-                  {schedule.deleted_at ? " and was removed from Field Scheduling" : ""}.
-                  New bookings are no longer available.
+                  {schedule.registration_status === "CANCELLED"
+                    ? `This announcement remains available for reference, but its linked program on ${formatLongDate(schedule.date)} was cancelled.`
+                    : `This announcement remains available for reference, but its linked program on ${formatLongDate(schedule.date)} has already passed${schedule.deleted_at ? " and was removed from the program list" : ""}. New bookings are no longer available.`}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

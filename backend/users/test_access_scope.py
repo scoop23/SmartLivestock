@@ -36,7 +36,7 @@ class AccessScopeTests(APITestCase):
             quantity=1, created_by=cls.owner, status="APPROVED")
         cls.remote_animal = LivestockInventory.objects.create(farmer=cls.other_farmer, livestock_type=cls.species,
             quantity=1, created_by=cls.other, status="PENDING")
-        cls.schedule = ProgramSchedule.objects.create(date=date(2099,1,1), capacity=4, program="Scope program", created_by=cls.mao)
+        cls.schedule = ProgramSchedule.objects.create(date=date(2099,1,1), capacity=4, program="Scope program", barangay=cls.local, created_by=cls.mao)
         cls.local_booking = ProgramBooking.objects.create(schedule=cls.schedule, farmer=cls.owner, time=time(8))
         cls.remote_booking = ProgramBooking.objects.create(schedule=cls.schedule, farmer=cls.other, time=time(9,30))
 
@@ -244,10 +244,13 @@ class AccessScopeTests(APITestCase):
         self.assertEqual(response.data[0]["schedule"]["remaining_slots"],2)
 
     def test_booking_without_farmer_profile_never_broadcasts(self):
+        municipal_schedule = ProgramSchedule.objects.create(
+            date=date(2099, 1, 1), program="Municipal public program", created_by=self.mao,
+        )
         legacy=User.objects.create_user(username="no-profile",email="no-profile@scope.test",password=None,
             role=self.owner.role,account_status="APPROVED")
         self.authenticate(legacy)
-        response=self.client.post("/community/bookings/",{"schedule":self.schedule.pk,"time":"11:00"},format="json")
+        response=self.client.post("/community/bookings/",{"schedule":municipal_schedule.pk,"time":"11:00"},format="json")
         self.assertEqual(response.status_code,201)
         self.assertFalse(Notification.objects.filter(user=self.sibat).exists())
         self.assertFalse(Notification.objects.filter(user=self.remote_officer).exists())
