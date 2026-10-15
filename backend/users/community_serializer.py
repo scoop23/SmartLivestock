@@ -30,7 +30,7 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
     booking_count = serializers.SerializerMethodField()
     remaining_slots = serializers.SerializerMethodField()
     capacity = serializers.IntegerField(min_value=1, max_value=10000, required=False, default=4)
-    available_times = serializers.ListField(
+    available_times = MultiValueListField(
         child=serializers.RegexField(regex=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
         min_length=1,
         max_length=24,
