@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export type { EntryType, StatusType, LivestockInventoryItem, LivestockType, Inve
 export default function LivestockInventoryPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"types" | "all" | "health">("types");
+  const [isKpiOpen, setIsKpiOpen] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
@@ -234,15 +236,61 @@ export default function LivestockInventoryPage() {
           existingTags={allTagInventory.map((item) => item.tagNumber).filter(Boolean)}
         />
 
-        {!selectedType && activeTab === "types" && (
-          <details open className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <summary className="cursor-pointer list-none rounded-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center justify-between gap-3"><span>Cattle and herd KPIs</span><span className="text-sm font-medium text-emerald-800 group-open:hidden">Show</span><span className="hidden text-sm font-medium text-emerald-800 group-open:inline">Hide</span></span>
-              <span className="mt-1 block text-sm font-normal text-slate-600">Cattle head count, sex breakdown, active herds, and vaccination records.</span>
-            </summary>
-            <div className="pt-4"><InventoryTelemetryHeader inventories={inventories} batches={userBatches} isLoading={isLoading || isBatchesLoading} /></div>
-          </details>
-        )}
+        {/* Cattle and Herd KPIs: animated collapse/expand and fade/slide transition */}
+        <div
+          className={cn(
+            "grid transition-all duration-350 ease-in-out",
+            !selectedType && activeTab === "types"
+              ? "grid-rows-[1fr] opacity-100 scale-100 mb-2"
+              : "grid-rows-[0fr] opacity-0 scale-[0.99] mb-0 pointer-events-none"
+          )}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-all">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black tracking-tight text-slate-900">
+                    Cattle and herd KPIs
+                  </h3>
+                  <p className="mt-0.5 text-xs font-normal text-slate-500">
+                    Cattle head count, sex breakdown, active herds, and vaccination records.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsKpiOpen(!isKpiOpen)}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-50 transition-colors cursor-pointer shrink-0"
+                  aria-expanded={isKpiOpen}
+                >
+                  <span>{isKpiOpen ? "Hide" : "Show"}</span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 transition-transform duration-200",
+                      isKpiOpen && "rotate-180"
+                    )}
+                  />
+                </button>
+              </div>
+
+              <div
+                className={cn(
+                  "grid transition-all duration-300 ease-in-out",
+                  isKpiOpen
+                    ? "grid-rows-[1fr] opacity-100 pt-4"
+                    : "grid-rows-[0fr] opacity-0 pt-0 pointer-events-none"
+                )}
+              >
+                <div className="overflow-hidden min-h-0">
+                  <InventoryTelemetryHeader
+                    inventories={inventories}
+                    batches={userBatches}
+                    isLoading={isLoading || isBatchesLoading}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Keep the category tabs visible above both the type cards and drilldown. */}
         <Tabs
@@ -259,6 +307,11 @@ export default function LivestockInventoryPage() {
               speciesCount={speciesCount}
               totalRecords={inventories.length}
               vaxRate={vaxRate}
+              activeTab={activeTab}
+              onTabChange={(nextTab) => {
+                setActiveTab(nextTab);
+                if (nextTab !== "types") setSelectedType(null);
+              }}
             />
           )}
 

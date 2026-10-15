@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
-from livestock.models import LivestockBatch, LivestockInventory, LivestockType
+from livestock.models import LivestockBatch, LivestockInventory, LivestockType, LivestockBatchPhoto
 from livestock.list_queries import LivestockListPagination, batch_list_annotations, filter_livestock_list
 from livestock.serializer import (
     LivestockBatchListSerializer,
@@ -107,6 +107,11 @@ def batch_list_create(request):
         default_animal_status = LivestockInventory.StatusType.PENDING
         created_animals = []
 
+        uploaded_photos = request.FILES.getlist("photos") or request.FILES.getlist("photo")
+        batch_photo = uploaded_photos[0] if uploaded_photos else request.FILES.get("photo")
+        if not batch_photo and data.get("photo") and hasattr(data.get("photo"), "read"):
+            batch_photo = data.get("photo")
+
         with transaction.atomic():
             batch = LivestockBatch.objects.create(
                 farmer=farmer_profile if farmer_profile else None,
@@ -117,10 +122,15 @@ def batch_list_create(request):
                 feed_type=data.get("feed_type", ""),
                 target_weight=data.get("target_weight") or None,
                 target_harvest_date=data.get("target_harvest_date") or None,
+                photo=batch_photo or None,
                 status=LivestockBatch.StatusType.ACTIVE,
                 notes=data.get("notes", ""),
                 created_by=user,
             )
+
+            if uploaded_photos:
+                for p_file in uploaded_photos:
+                    LivestockBatchPhoto.objects.create(batch=batch, photo=p_file)
 
             # If animals roster is supplied, create individual LivestockInventory items
             if animals_data and isinstance(animals_data, list):
@@ -181,7 +191,7 @@ def batch_list_create(request):
     if status_param:
         batches = batches.filter(status=status_param)
 
-    batches = batches.select_related("livestock_type", "farmer__user", "farmer__barangay")
+    batches = batches.select_related("livestock_type", "farmer__user", "farmer__barangay").prefetch_related("gallery_photos")
     include_roster = request.query_params.get("include_roster") == "true" or request.query_params.get("full") == "true"
 
     if request.query_params.get("summary") == "true":
@@ -289,19 +299,29 @@ def batch_detail(request, pk):
 
     if request.method == "GET":
         # Detail loads one roster and its reviewers in fixed queries, after permission checks.
-        batch = LivestockBatch.objects.select_related("livestock_type", "farmer__user", "farmer__barangay").prefetch_related("animals__reviewed_by__role").get(pk=batch.pk)
+        batch = LivestockBatch.objects.select_related("livestock_type", "farmer__user", "farmer__barangay").prefetch_related("animals__reviewed_by__role", "gallery_photos").get(pk=batch.pk)
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     if request.method in ["PUT", "PATCH"]:
         require_action(user, "batches", "edit_own")
         data = request.data
+        uploaded_photos = request.FILES.getlist("photos") or request.FILES.getlist("photo")
+        if request.method == "PATCH" and uploaded_photos:
+            if not batch.photo:
+                batch.photo = uploaded_photos[0]
+                batch.save(update_fields=["photo", "updated_at"])
+            for p_file in uploaded_photos:
+                LivestockBatchPhoto.objects.create(batch=batch, photo=p_file)
+            return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
         if request.method == "PATCH" and data and set(data.keys()) == {"photo"}:
             photo_serializer = LivestockBatchPhotoUpdateSerializer(
                 batch, data=data, partial=True, context={"request": request}
             )
             photo_serializer.is_valid(raise_exception=True)
             batch = photo_serializer.save()
+            if batch.photo:
+                LivestockBatchPhoto.objects.get_or_create(batch=batch, photo=batch.photo)
             return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
         resubmit = str(data.get("resubmit", "")).lower() in {"true", "1"}
         if resubmit:

@@ -31,6 +31,7 @@ export function LivestockPhotoManager({
   triggerImageSizeClassName = "size-16 sm:size-20",
   triggerImageShapeClassName = "rounded-2xl",
   triggerImageFallbackClassName = "text-3xl sm:text-4xl",
+  triggerClassName,
   onSave,
 }: {
   title: string;
@@ -45,6 +46,7 @@ export function LivestockPhotoManager({
   triggerImageSizeClassName?: string;
   triggerImageShapeClassName?: string;
   triggerImageFallbackClassName?: string;
+  triggerClassName?: string;
   onSave: (change: LivestockPhotoChange) => Promise<void>;
 }) {
   const defaultAvatar = getAvatarById(null, species);
@@ -134,9 +136,12 @@ export function LivestockPhotoManager({
             onClick={() => setOpen(true)}
             title={`Change ${subject} photo`}
             aria-label={`Change ${subject} photo`}
-            className={`min-h-11 rounded-xl border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-sm font-bold text-emerald-950 shadow-sm hover:border-emerald-400 hover:from-emerald-100 hover:to-teal-100 focus-visible:ring-emerald-600 ${compactOnMobile ? "min-w-11 px-0" : ""}`}
+            className={
+              triggerClassName ||
+              `min-h-11 rounded-xl border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-sm font-bold text-emerald-950 shadow-sm hover:border-emerald-400 hover:from-emerald-100 hover:to-teal-100 focus-visible:ring-emerald-600 ${compactOnMobile ? "min-w-11 px-0" : ""}`
+            }
           >
-            <Camera className={`${compactOnMobile ? "size-4 sm:mr-2" : "mr-2 size-4"}`} />
+            <Camera className={triggerClassName ? "size-3.5 shrink-0" : (compactOnMobile ? "size-4 sm:mr-2" : "mr-2 size-4")} />
             <span className={compactOnMobile ? "hidden sm:inline" : ""}>Change {subject} photo</span>
           </Button>
         )}

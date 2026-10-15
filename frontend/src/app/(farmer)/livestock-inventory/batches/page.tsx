@@ -23,12 +23,14 @@ import {
   Table as TableIcon,
   Layers,
   Users,
-  Sparkles,
   ArrowRight,
-  HelpCircle,
-  FileText,
-  Activity,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Camera,
+  ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -83,6 +85,7 @@ export interface BatchIndividual {
   operationalStatus: string;
   reviewStatus?: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED" | "MIXED" | "NO_ANIMALS";
   isPostApprovalAddition?: boolean;
+  photoUrl?: string | null;
 }
 
 export interface EnrichedBatch {
@@ -90,8 +93,11 @@ export interface EnrichedBatch {
   batchCode: string;
   batchName: string;
   photoUrl?: string | null;
+  photos: string[];
   species: string;
   breed: string | null;
+  housingPen?: string;
+  feedType?: string;
   activeCount: number;
   targetWeightKg: number | null;
   averageWeightKg: number | null;
@@ -110,15 +116,15 @@ type BatchActionErrorResponse = {
   tag_number?: string[];
 };
 
-// High-contrast, Senior-Citizen Friendly Regulatory Review Badge
+// Regulatory Review Badge (English, balanced size)
 function getReviewStatusBadge(status?: string) {
   if (status === "MIXED") {
     return (
       <Badge
         variant="outline"
-        className="min-h-9 border-2 border-slate-300 bg-slate-100 px-3.5 text-xs sm:text-sm font-bold text-slate-900"
+        className="min-h-8 border border-slate-300 bg-slate-100 px-2.5 text-xs font-semibold text-slate-800"
       >
-        May Iba-ibang Katayuan (Mixed)
+        Mixed Status
       </Badge>
     );
   }
@@ -126,9 +132,9 @@ function getReviewStatusBadge(status?: string) {
     return (
       <Badge
         variant="outline"
-        className="min-h-9 border-2 border-slate-300 bg-slate-100 px-3.5 text-xs sm:text-sm font-bold text-slate-700"
+        className="min-h-8 border border-slate-300 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700"
       >
-        Wala pang hayop (No animals)
+        No animals yet
       </Badge>
     );
   }
@@ -136,10 +142,10 @@ function getReviewStatusBadge(status?: string) {
     return (
       <Badge
         variant="outline"
-        className="min-h-9 gap-1.5 border-2 border-emerald-400 bg-emerald-50 px-3.5 text-xs sm:text-sm font-black text-emerald-950"
+        className="min-h-8 gap-1.5 border border-emerald-400 bg-emerald-50 px-2.5 text-xs font-bold text-emerald-950"
       >
-        <ShieldCheck className="size-4.5 text-emerald-700" />
-        Aprubado (Approved)
+        <ShieldCheck className="size-3.5 text-emerald-700" />
+        Approved
       </Badge>
     );
   }
@@ -147,10 +153,10 @@ function getReviewStatusBadge(status?: string) {
     return (
       <Badge
         variant="outline"
-        className="min-h-9 gap-1.5 border-2 border-sky-400 bg-sky-50 px-3.5 text-xs sm:text-sm font-black text-sky-950"
+        className="min-h-8 gap-1.5 border border-sky-400 bg-sky-50 px-2.5 text-xs font-bold text-sky-950"
       >
-        <CheckCircle2 className="size-4.5 text-sky-700" />
-        Na-inspeksyon (Field Checked)
+        <CheckCircle2 className="size-3.5 text-sky-700" />
+        Field Checked
       </Badge>
     );
   }
@@ -158,10 +164,10 @@ function getReviewStatusBadge(status?: string) {
     return (
       <Badge
         variant="outline"
-        className="min-h-9 gap-1.5 border-2 border-amber-400 bg-amber-50 px-3.5 text-xs sm:text-sm font-black text-amber-950"
+        className="min-h-8 gap-1.5 border border-amber-400 bg-amber-50 px-2.5 text-xs font-bold text-amber-950"
       >
-        <AlertTriangle className="size-4.5 text-amber-700" />
-        May Pagwawasto (Revision Needed)
+        <AlertTriangle className="size-3.5 text-amber-700" />
+        Revision Needed
       </Badge>
     );
   }
@@ -169,21 +175,237 @@ function getReviewStatusBadge(status?: string) {
     return (
       <Badge
         variant="outline"
-        className="min-h-9 gap-1.5 border-2 border-rose-400 bg-rose-50 px-3.5 text-xs sm:text-sm font-black text-rose-950"
+        className="min-h-8 gap-1.5 border border-rose-400 bg-rose-50 px-2.5 text-xs font-bold text-rose-950"
       >
-        <AlertTriangle className="size-4.5 text-rose-700" />
-        Tinanggihan (Rejected)
+        <AlertTriangle className="size-3.5 text-rose-700" />
+        Rejected
       </Badge>
     );
   }
   return (
     <Badge
       variant="outline"
-      className="min-h-9 gap-1.5 border-2 border-amber-300 bg-amber-50 px-3.5 text-xs sm:text-sm font-black text-amber-950"
+      className="min-h-8 gap-1.5 border border-amber-300 bg-amber-50 px-2.5 text-xs font-bold text-amber-950"
     >
-      <Clock className="size-4.5 text-amber-700" />
-      Nire-rebyu (Waiting for Review)
+      <Clock className="size-3.5 text-amber-700" />
+      Under Review
     </Badge>
+  );
+}
+
+// ── SPLIT CARD WITH HERO IMAGE COMPONENT (Tastefully Sized) ─────────────────
+function HerdSplitCard({
+  batch,
+  isSelected,
+  onSelect,
+}: {
+  batch: EnrichedBatch;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const avatar = getDefaultAvatarForSpecies(batch.species);
+  const photos = batch.photos;
+  const hasPhotos = photos.length > 0;
+  const currentPhoto = hasPhotos ? photos[photoIndex % photos.length] : null;
+
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+  };
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+  };
+
+  const readiness =
+    batch.averageWeightKg !== null && batch.targetWeightKg
+      ? Math.min(
+          Math.round((batch.averageWeightKg / batch.targetWeightKg) * 100),
+          100
+        )
+      : null;
+
+  return (
+    <Card
+      onClick={onSelect}
+      className={`group cursor-pointer overflow-hidden rounded-xl border transition-all duration-200 flex flex-col sm:flex-row justify-between ${
+        isSelected
+          ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/30 shadow-md"
+          : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md"
+      }`}
+    >
+      {/* ── LEFT HERO IMAGE SECTION (Wider, landscape horizontal hero) ── */}
+      <div className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-64 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+        {currentPhoto ? (
+          <Image
+            src={currentPhoto}
+            alt={batch.batchName || "Herd photo"}
+            fill
+            unoptimized
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 p-3 text-white">
+            <span className="text-4xl drop-shadow-md">{avatar.emoji}</span>
+            <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+              {batch.species}
+            </span>
+          </div>
+        )}
+
+        {/* Ambient Dark Gradient on bottom/sides */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+
+        {/* Top Badges */}
+        <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center justify-between gap-1.5 z-10">
+          <Badge className="rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+            {batch.species}
+          </Badge>
+
+          {isSelected && (
+            <Badge className="bg-emerald-700 text-white font-bold text-[10px] gap-1 px-1.5 py-0.5 shadow-xs">
+              <Check className="size-2.5 stroke-[3]" /> Selected
+            </Badge>
+          )}
+        </div>
+
+        {/* Multiple Pictures Controls (compact chevron buttons) */}
+        {photos.length > 1 && (
+          <div className="absolute inset-y-0 left-1.5 right-1.5 flex items-center justify-between z-20 pointer-events-none">
+            <button
+              type="button"
+              aria-label="Previous herd picture"
+              onClick={handlePrevPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs"
+            >
+              <ChevronLeft className="size-3.5 stroke-[2.5]" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next herd picture"
+              onClick={handleNextPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs"
+            >
+              <ChevronRight className="size-3.5 stroke-[2.5]" />
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Hero Overlay: Photo Counter & mobile herd code */}
+        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white z-10">
+          {photos.length > 0 ? (
+            <div className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold backdrop-blur-md">
+              <Camera className="size-3 text-emerald-400" />
+              <span>
+                {(photoIndex % photos.length) + 1} of {photos.length}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-300">
+              <ImageIcon className="size-3" />
+              <span>Preset avatar</span>
+            </div>
+          )}
+
+          <span className="sm:hidden rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-900 shadow-2xs">
+            {batch.batchCode}
+          </span>
+        </div>
+      </div>
+
+      {/* ── RIGHT CONTENT SECTION (Horizontal split on sm+) ── */}
+      <div className="flex flex-1 flex-col justify-between p-3 sm:p-3.5 space-y-2 min-w-0">
+        <div className="space-y-2">
+          {/* Header Row: Title, Herd Code & Regulatory Status Badge */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-slate-950 group-hover:text-emerald-800 transition-colors line-clamp-1">
+                  {batch.batchName || "Unnamed Herd"}
+                </h3>
+                <span className="hidden sm:inline-block rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 border border-slate-200">
+                  {batch.batchCode}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs font-medium text-slate-600 line-clamp-1">
+                {batch.breed || "Breed not recorded"}
+                {batch.housingPen && (
+                  <span className="text-slate-500"> · Pen {batch.housingPen}</span>
+                )}
+              </p>
+            </div>
+
+            <div className="shrink-0">{getReviewStatusBadge(batch.reviewStatus)}</div>
+          </div>
+
+          {/* Target Weight Progress (if set) */}
+          {readiness !== null ? (
+            <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/50 p-2">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-950">
+                <span>Target Weight Progress</span>
+                <span className="font-bold">{readiness}%</span>
+              </div>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-emerald-200/60">
+                <div
+                  className="h-full rounded-full bg-emerald-600 transition-all duration-300"
+                  style={{ width: `${readiness}%` }}
+                />
+              </div>
+              <div className="mt-1 flex justify-between text-[10px] font-medium text-emerald-800">
+                <span>Avg: {batch.averageWeightKg || 0} kg</span>
+                <span>Target: {batch.targetWeightKg} kg</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-1.5 text-[11px] text-slate-500 font-medium">
+              <Scale className="size-3.5 text-slate-400 shrink-0" />
+              <span>Target weight not configured</span>
+            </div>
+          )}
+
+          {/* Quick Metrics Chips */}
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold text-slate-700">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center">
+              <span className="block text-slate-500 text-[10px] uppercase">Animals in Herd</span>
+              <span className="text-slate-950 font-bold text-xs">
+                {batch.activeCount} {batch.activeCount === 1 ? "Head" : "Heads"}
+              </span>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center">
+              <span className="block text-slate-500 text-[10px] uppercase">Avg Weight</span>
+              <span className="text-slate-950 font-bold text-xs">
+                {batch.averageWeightKg ? `${batch.averageWeightKg} kg` : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: Picture Counter & Open Details Button */}
+        <div className="border-t border-slate-100 pt-2 flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium text-slate-500">
+            {batch.photos.length > 1
+              ? `${batch.photos.length} photos`
+              : batch.photos.length === 1
+                ? "1 photo"
+                : "Default avatar"}
+          </span>
+
+          <Button
+            type="button"
+            className={`h-8 px-3 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all ${
+              isSelected
+                ? "bg-emerald-700 text-white hover:bg-emerald-800"
+                : "bg-slate-900 text-white hover:bg-emerald-700"
+            }`}
+          >
+            <span>View Herd Details</span>
+            <ArrowRight className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -211,16 +433,17 @@ export default function BatchOverviewPage() {
 
   const herdLoadMessage =
     herdLoadStatus === 401
-      ? "Nag-expire ang iyong sesyon. Mag-sign in muli upang makita ang iyong mga pangkat."
+      ? "Your session has expired. Sign in again to view your herds."
       : herdLoadStatus === 403
-        ? "Wala kang pahintulot na tingnan ang talaan ng pangkat."
-        : "Hindi ma-load ang mga talaan ng pangkat. Paki-subukan muli.";
+        ? "You do not have permission to view herd records."
+        : "Unable to load herd records. Please try again.";
 
   // Local state for interactive enhancements
   const initialBatchId = searchParams?.get("batch") || "";
   const [selectedBatchId, setSelectedBatchId] = useState<string>(initialBatchId);
   const [isHerdDetailsOpen, setIsHerdDetailsOpen] = useState(Boolean(initialBatchId));
-  // Default to cards on smaller viewports for easier senior citizen reading
+  const [modalHeroPhotoIndex, setModalHeroPhotoIndex] = useState(0);
+
   const [rosterView, setRosterView] = useState<"cards" | "table">("cards");
   const [searchQuery, setSearchQuery] = useState("");
   const [herdSearchQuery, setHerdSearchQuery] = useState("");
@@ -245,33 +468,61 @@ export default function BatchOverviewPage() {
     lastVaccinationDate: "",
   });
 
-  // Mapped Persisted Herds
+  // Mapped Persisted Herds with Multi-Photo Aggregation
   const batches: EnrichedBatch[] = useMemo(() => {
-    return backendBatches.map((b) => ({
-      id: String(b.id),
-      batchCode: b.batchCode,
-      batchName: b.batchName,
-      photoUrl: b.photoUrl || null,
-      species: b.livestockTypeName,
-      breed: b.animals?.find((animal) => animal.breed)?.breed || null,
-      activeCount: b.totalAnimals,
-      targetWeightKg: b.targetWeight,
-      averageWeightKg: b.averageWeight,
-      status: b.status,
-      reviewStatus: b.reviewStatus,
-      reviewRemarks: b.reviewRemarks,
-      notes: b.notes,
-      individuals: (b.animals || []).map((animal) => ({
-        id: String(animal.id),
-        tagNumber: animal.tagNumber || null,
-        sex: animal.sex || "Not recorded",
-        weightKg: animal.weight == null ? null : Number(animal.weight),
-        lastVaccinationDate: animal.lastVaccinationDate,
-        operationalStatus: animal.operationalStatus,
-        reviewStatus: animal.status,
-        isPostApprovalAddition: animal.isPostApprovalAddition,
-      })),
-    }));
+    return backendBatches.map((b) => {
+      const batchPhoto = b.photoUrl || null;
+      const backendPhotos = ((b as { photos?: string[] }).photos || []) as string[];
+      let localPhotos: string[] = [];
+      try {
+        if (typeof window !== "undefined") {
+          const rawLocal = localStorage.getItem(`batch_photos_${b.id}`);
+          if (rawLocal) localPhotos = JSON.parse(rawLocal);
+          const singleLocal = localStorage.getItem(`batch_photo_${b.id}`);
+          if (singleLocal && !localPhotos.includes(singleLocal)) {
+            localPhotos.unshift(singleLocal);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+      const animalPhotos = (b.animals || [])
+        .map((a) => a.photoUrl || (a as { photo?: string | null }).photo || null)
+        .filter(Boolean) as string[];
+
+      // Deduplicate photos so a herd can have multiple pictures
+      const photos = Array.from(new Set([...backendPhotos, batchPhoto, ...localPhotos, ...animalPhotos].filter(Boolean) as string[]));
+
+      return {
+        id: String(b.id),
+        batchCode: b.batchCode,
+        batchName: b.batchName,
+        photoUrl: photos[0] || batchPhoto || null,
+        photos,
+        species: b.livestockTypeName,
+        breed: b.animals?.find((animal) => animal.breed)?.breed || null,
+        housingPen: b.housingPen,
+        feedType: b.feedType,
+        activeCount: b.totalAnimals,
+        targetWeightKg: b.targetWeight,
+        averageWeightKg: b.averageWeight,
+        status: b.status,
+        reviewStatus: b.reviewStatus,
+        reviewRemarks: b.reviewRemarks,
+        notes: b.notes,
+        individuals: (b.animals || []).map((animal) => ({
+          id: String(animal.id),
+          tagNumber: animal.tagNumber || null,
+          sex: animal.sex || "Not recorded",
+          weightKg: animal.weight == null ? null : Number(animal.weight),
+          lastVaccinationDate: animal.lastVaccinationDate,
+          operationalStatus: animal.operationalStatus,
+          reviewStatus: animal.status,
+          isPostApprovalAddition: animal.isPostApprovalAddition,
+          photoUrl: animal.photoUrl || null,
+        })),
+      };
+    });
   }, [backendBatches]);
 
   // Overall Statistics for Telemetry Ribbon
@@ -310,6 +561,17 @@ export default function BatchOverviewPage() {
     );
   }, [batches, herdSearchQuery]);
 
+  // ── Pagination State for Herd Directory ──
+  const HERDS_PER_PAGE = 6;
+  const [herdCurrentPage, setHerdCurrentPage] = useState(1);
+  const totalHerdPages = Math.max(1, Math.ceil(filteredBatches.length / HERDS_PER_PAGE));
+  const safeHerdPage = Math.min(herdCurrentPage, totalHerdPages);
+
+  const paginatedBatches = useMemo(() => {
+    const startIndex = (safeHerdPage - 1) * HERDS_PER_PAGE;
+    return filteredBatches.slice(startIndex, startIndex + HERDS_PER_PAGE);
+  }, [filteredBatches, safeHerdPage]);
+
   // Active selected batch
   const currentBatch = useMemo(() => {
     if (!batches || batches.length === 0) return null;
@@ -319,6 +581,8 @@ export default function BatchOverviewPage() {
 
   const handleBatchSelect = (batchId: string) => {
     setSelectedBatchId(batchId);
+    setModalHeroPhotoIndex(0);
+    setAnimalCurrentPage(1);
     setIsHerdDetailsOpen(true);
   };
 
@@ -357,6 +621,17 @@ export default function BatchOverviewPage() {
       return matchSearch && matchGender;
     });
   }, [currentBatch, searchQuery, genderFilter]);
+
+  // ── Pagination State for Animal Roster inside Modal ──
+  const ANIMALS_PER_PAGE = 8;
+  const [animalCurrentPage, setAnimalCurrentPage] = useState(1);
+  const totalAnimalPages = Math.max(1, Math.ceil(filteredIndividuals.length / ANIMALS_PER_PAGE));
+  const safeAnimalPage = Math.min(animalCurrentPage, totalAnimalPages);
+
+  const paginatedIndividuals = useMemo(() => {
+    const startIndex = (safeAnimalPage - 1) * ANIMALS_PER_PAGE;
+    return filteredIndividuals.slice(startIndex, startIndex + ANIMALS_PER_PAGE);
+  }, [filteredIndividuals, safeAnimalPage]);
 
   // Calculations for Batch Yield
   const yieldMetrics = useMemo(() => {
@@ -404,7 +679,7 @@ export default function BatchOverviewPage() {
     if (!weighTarget || !currentBatch) return;
     const weightNum = parseFloat(newWeightInput);
     if (isNaN(weightNum) || weightNum <= 0) {
-      toast.error("Maglagay ng wastong timbang sa kilo (hal. 65.5).");
+      toast.error("Please enter a valid weight in kilograms (e.g. 65.5).");
       return;
     }
 
@@ -423,7 +698,7 @@ export default function BatchOverviewPage() {
         queryKey: INVENTORY_QUERY_KEYS.batches,
       });
       toast.success(
-        `Matagumpay na naitabi ang timbang para sa ${weighTarget.tagNumber || "hayop"}: ${weightNum} kg`
+        `Weight recorded for ${weighTarget.tagNumber || "animal"}: ${weightNum} kg`
       );
       setIsWeighModalOpen(false);
     } catch (error: unknown) {
@@ -433,7 +708,7 @@ export default function BatchOverviewPage() {
       toast.error(
         response?.livestock?.[0] ||
           response?.detail ||
-          "Hindi maitala ang timbang. Subukan muli."
+          "Could not record weight. Please try again."
       );
     } finally {
       setIsSavingWeight(false);
@@ -445,11 +720,11 @@ export default function BatchOverviewPage() {
     if (!currentBatch) return;
 
     if (!newAnimalData.tagNumber.trim()) {
-      toast.error("Kinakailangan ang Ear Tag Number ng hayop.");
+      toast.error("Ear Tag Number is required.");
       return;
     }
     if (!newAnimalData.breed.trim()) {
-      toast.error("Kinakailangan ang Lahi (Breed) ng hayop.");
+      toast.error("Breed is required.");
       return;
     }
 
@@ -474,7 +749,7 @@ export default function BatchOverviewPage() {
         queryKey: INVENTORY_QUERY_KEYS.inventory,
       });
       toast.success(
-        `Naidagdag ang hayop (${newAnimalData.tagNumber.trim().toUpperCase()}) sa pangkat ${currentBatch.batchName || currentBatch.batchCode}.`
+        `Animal (${newAnimalData.tagNumber.trim().toUpperCase()}) added to herd ${currentBatch.batchName || currentBatch.batchCode}.`
       );
       setIsAddIndividualOpen(false);
       setNewAnimalData({
@@ -494,7 +769,7 @@ export default function BatchOverviewPage() {
           response?.detail ||
           response?.animals?.[0] ||
           response?.tag_number?.[0] ||
-          "Hindi maidagdag ang hayop sa pangkat na ito."
+          "Could not add animal to this herd."
       );
     } finally {
       setIsSavingAnimal(false);
@@ -504,156 +779,159 @@ export default function BatchOverviewPage() {
   return (
     <>
       <PageHeader
-        title="Pamamahala ng Pangkat (My Herds)"
-        subtitle="Subaybayan ang iyong mga kawan, timbang, at kalusugan ng bawat grupo ng hayop."
+        title="My Herds & Batches"
+        subtitle="Monitor herd growth, weight gains, and individual animal records in each cohort."
         variant="farmer"
         maxWidthClass="w-full"
       />
 
-      <div className="mx-auto w-full max-w-[1600px] space-y-6 sm:space-y-8 p-3 sm:p-6 xl:p-8">
-        {/* ── 1. PREMIUM HERO BANNER (Consistent with Inventory) ───────────── */}
-        <section className="relative overflow-hidden rounded-3xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-5 sm:p-7 text-white shadow-xl">
-          <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 size-96 rounded-full bg-teal-500/10 blur-3xl" />
+      <div className="mx-auto w-full max-w-[1500px] space-y-4 sm:space-y-5 p-3 sm:p-4">
+        {/* ── 1. COMPACT HERO BANNER ───────────────────────────────────────── */}
+        <section className="relative overflow-hidden rounded-xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-3.5 sm:p-4.5 text-white shadow-md">
+          <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 size-80 rounded-full bg-teal-500/10 blur-3xl" />
 
-          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-3xl space-y-3">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Badge className="rounded-full border-emerald-400/30 bg-emerald-500/20 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-emerald-300 backdrop-blur-md">
-                  <Layers className="mr-1.5 size-4 text-emerald-400" />
-                  Pangkat at Kawan · Herd Management
+          <div className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="rounded-full border-emerald-400/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 backdrop-blur-md">
+                  <Layers className="mr-1 size-3 text-emerald-400" />
+                  Herd Management
                 </Badge>
-                <span className="text-xs sm:text-sm font-bold text-emerald-200">
-                  • {totalHerdsCount} {totalHerdsCount === 1 ? "Pangkat" : "mga Pangkat"} nakatala
+                <span className="text-xs font-semibold text-emerald-200">
+                  • {totalHerdsCount} {totalHerdsCount === 1 ? "herd" : "herds"} recorded
                 </span>
               </div>
 
               <div>
-                <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                  Talaan ng mga Pangkat ng Hayop
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+                  Herd & Cohort Directory
                 </h1>
-                <p className="mt-1.5 text-sm sm:text-base font-medium leading-relaxed text-emerald-100/90">
-                  Madaling masusubaybayan ang paglaki, timbang, at indibidwal na impormasyon ng bawat hayop sa iyong mga kawan.
+                <p className="mt-0.5 text-xs sm:text-sm font-medium leading-relaxed text-emerald-100/90">
+                  Easily track group growth, target weight progress, and view individual animal pictures and records.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <Link href={livestockReturnUrl} className="w-full sm:w-auto">
                 <Button
                   variant="outline"
-                  className="min-h-12 w-full sm:w-auto gap-2.5 rounded-2xl border-2 border-emerald-400/30 bg-white/10 px-5 text-sm sm:text-base font-black text-white hover:bg-white/20 hover:text-white"
+                  className="h-9 w-full sm:w-auto gap-1.5 rounded-lg border border-emerald-400/30 bg-white/10 px-3.5 text-xs sm:text-sm font-semibold text-white hover:bg-white/20 hover:text-white"
                 >
-                  <ArrowLeft className="size-5" />
-                  Bumalik sa Talaan (Inventory)
+                  <ArrowLeft className="size-3.5" />
+                  Back to Inventory
                 </Button>
               </Link>
             </div>
           </div>
         </section>
 
-        {/* ── 2. SENIOR CITIZEN FRIENDLY TELEMETRY RIBBON ──────────────────── */}
+        {/* ── 2. COMPACT TELEMETRY RIBBON ──────────────────────────────────── */}
         <section
-          aria-label="Buod ng Pangkat"
-          className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+          aria-label="Herd telemetry summary"
+          className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4"
         >
-          {/* Card 1: Kabuuang Pangkat */}
-          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+          {/* Card 1: Total Herds */}
+          <Card className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
-                Kabuuang Pangkat
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Total Herds
               </span>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
-                <Layers className="size-5" />
+              <div className="flex size-7 sm:size-7.5 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
+                <Layers className="size-3.5" />
               </div>
             </div>
-            <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
+            <p className="mt-1 text-lg sm:text-xl font-black text-slate-950">
               {totalHerdsCount}
             </p>
-            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
-              {totalHerdsCount === 1 ? "Aktibong grupo" : "Mga aktibong grupo"}
+            <p className="mt-0.5 text-[10px] sm:text-[11px] font-medium text-slate-500">
+              {totalHerdsCount === 1 ? "Active group" : "Active groups"}
             </p>
           </Card>
 
-          {/* Card 2: Kabuuang Hayop */}
-          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+          {/* Card 2: Total Animals in Herds */}
+          <Card className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
-                Kabuuang Hayop
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Total Animals
               </span>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-teal-100 text-teal-800">
-                <Users className="size-5" />
+              <div className="flex size-7 sm:size-7.5 items-center justify-center rounded-lg bg-teal-100 text-teal-800">
+                <Users className="size-3.5" />
               </div>
             </div>
-            <p className="mt-2 text-2xl sm:text-4xl font-black text-emerald-900">
+            <p className="mt-1 text-lg sm:text-xl font-black text-emerald-900">
               {totalAnimalsInHerds}
             </p>
-            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
-              Ulo ng hayop sa kawan
+            <p className="mt-0.5 text-[10px] sm:text-[11px] font-medium text-slate-500">
+              Active animals in herds
             </p>
           </Card>
 
-          {/* Card 3: Aprubadong Pangkat */}
-          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+          {/* Card 3: Approved Herds */}
+          <Card className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
-                Aprubado ng MAO
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Approved by MAO
               </span>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-sky-100 text-sky-800">
-                <ShieldCheck className="size-5" />
+              <div className="flex size-7 sm:size-7.5 items-center justify-center rounded-lg bg-sky-100 text-sky-800">
+                <ShieldCheck className="size-3.5" />
               </div>
             </div>
-            <p className="mt-2 text-2xl sm:text-4xl font-black text-sky-950">
+            <p className="mt-1 text-lg sm:text-xl font-black text-sky-950">
               {approvedHerdsCount}
             </p>
-            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
-              Opisyal na rehistrado
+            <p className="mt-0.5 text-[10px] sm:text-[11px] font-medium text-slate-500">
+              Officially certified
             </p>
           </Card>
 
-          {/* Card 4: May Tala ng Timbang */}
-          <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-emerald-300">
+          {/* Card 4: Weighed Animals */}
+          <Card className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
-                May Tala ng Timbang
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Weighed Animals
               </span>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-                <Scale className="size-5" />
+              <div className="flex size-7 sm:size-7.5 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
+                <Scale className="size-3.5" />
               </div>
             </div>
-            <p className="mt-2 text-2xl sm:text-4xl font-black text-amber-950">
+            <p className="mt-1 text-lg sm:text-xl font-black text-amber-950">
               {totalWeighedInHerds}
             </p>
-            <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
-              Hayop na natimbang na
+            <p className="mt-0.5 text-[10px] sm:text-[11px] font-medium text-slate-500">
+              With recorded weight
             </p>
           </Card>
         </section>
 
-        {/* ── 3. HERD LISTING SECTION ──────────────────────────────────────── */}
-        <section aria-labelledby="herd-list-title" className="space-y-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* ── 3. HERD LISTING SECTION (SPLIT CARD WITH HERO IMAGE LAYOUT) ──── */}
+        <section aria-labelledby="herd-list-title" className="space-y-3.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2
                 id="herd-list-title"
-                className="text-xl sm:text-3xl font-black tracking-tight text-slate-950"
+                className="text-base sm:text-lg font-bold tracking-tight text-slate-950"
               >
-                Pumili ng Pangkat (Select a Herd)
+                Select a Herd
               </h2>
-              <p className="mt-1 text-sm sm:text-base leading-relaxed text-slate-700">
-                Pindutin ang alinmang kahon sa ibaba upang makita ang buong talaan ng mga hayop at timbang.
+              <p className="mt-0.5 text-xs text-slate-600">
+                Browse herd photo galleries, target weights, and click any card to inspect its full animal roster.
               </p>
             </div>
 
             {/* Quick Search for Herds */}
-            {batches.length > 3 && (
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+            {batches.length > 2 && (
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
                 <Input
-                  placeholder="Maghanap ng pangkat..."
+                  placeholder="Search herds by name or code..."
                   value={herdSearchQuery}
-                  onChange={(e) => setHerdSearchQuery(e.target.value)}
-                  className="min-h-12 rounded-2xl border-2 border-slate-300 pl-11 text-sm sm:text-base font-semibold"
+                  onChange={(e) => {
+                    setHerdSearchQuery(e.target.value);
+                    setHerdCurrentPage(1);
+                  }}
+                  className="h-9 rounded-lg border border-slate-300 pl-8 text-xs font-medium"
                 />
               </div>
             )}
@@ -661,37 +939,37 @@ export default function BatchOverviewPage() {
 
           {/* Loading / Error States */}
           {isBatchesLoading && (
-            <Card className="rounded-3xl border-2 border-slate-200 p-8 text-center">
-              <RefreshCw className="mx-auto size-8 animate-spin text-emerald-700" />
-              <p className="mt-3 text-base sm:text-lg font-bold text-slate-700">
-                Ikinakarga ang iyong mga pangkat ng hayop...
+            <Card className="rounded-xl border border-slate-200 p-5 text-center">
+              <RefreshCw className="mx-auto size-5 animate-spin text-emerald-700" />
+              <p className="mt-2 text-xs sm:text-sm font-semibold text-slate-700">
+                Loading your livestock herds...
               </p>
             </Card>
           )}
 
           {!isBatchesLoading && isBatchesError && (
-            <Card className="rounded-3xl border-2 border-rose-300 bg-rose-50/70 p-6 sm:p-8">
-              <div className="flex items-start gap-4">
-                <AlertTriangle className="size-8 shrink-0 text-rose-600" />
+            <Card className="rounded-xl border border-rose-300 bg-rose-50/70 p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="size-5 shrink-0 text-rose-600" />
                 <div>
-                  <h3 className="text-lg font-black text-rose-950">Hindi ma-load ang talaan</h3>
-                  <p className="mt-1 text-base text-rose-900">{herdLoadMessage}</p>
+                  <h3 className="text-sm font-bold text-rose-950">Unable to load herd records</h3>
+                  <p className="mt-0.5 text-xs text-rose-900">{herdLoadMessage}</p>
                   {herdLoadStatus === 401 ? (
                     <Button
                       type="button"
                       onClick={() => router.push("/login")}
-                      className="mt-4 min-h-12 rounded-2xl bg-emerald-700 px-6 text-base font-bold text-white hover:bg-emerald-800"
+                      className="mt-2.5 h-9 rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800"
                     >
-                      Mag-sign in muli
+                      Sign In Again
                     </Button>
                   ) : (
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => void refetchBatches()}
-                      className="mt-4 min-h-12 rounded-2xl border-2 border-rose-400 px-6 text-base font-bold text-rose-900 hover:bg-rose-100"
+                      className="mt-2.5 h-9 rounded-lg border border-rose-400 px-4 text-xs font-bold text-rose-900 hover:bg-rose-100"
                     >
-                      <RefreshCw className="mr-2 size-5" /> Subukan muli
+                      <RefreshCw className="mr-1.5 size-3.5" /> Try Again
                     </Button>
                   )}
                 </div>
@@ -700,235 +978,244 @@ export default function BatchOverviewPage() {
           )}
 
           {!isBatchesLoading && !isBatchesError && batches.length === 0 && (
-            <Card className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-8 sm:p-12 text-center">
-              <div className="mx-auto flex size-20 items-center justify-center rounded-3xl bg-emerald-100 text-4xl">
+            <Card className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-5 sm:p-8 text-center">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-emerald-100 text-2xl">
                 🐄
               </div>
-              <h3 className="mt-4 text-xl sm:text-2xl font-black text-slate-900">
-                Wala pang nakatalang pangkat (No Herds Found)
+              <h3 className="mt-2.5 text-base font-bold text-slate-900">
+                No Herds Recorded Yet
               </h3>
-              <p className="mx-auto mt-2 max-w-lg text-sm sm:text-base leading-relaxed text-slate-600">
-                Kapag nagrehistro ka ng kawan o pangkat sa Talaan ng Hayop, awtomatiko itong lalabas dito kasama ang mga detalye.
+              <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-slate-600">
+                Once herds or batches are registered in your Livestock Inventory, they will appear here along with their individual animal records.
               </p>
-              <div className="mt-6">
+              <div className="mt-3.5">
                 <Link href="/livestock-inventory">
-                  <Button className="min-h-12 rounded-2xl bg-emerald-700 px-6 text-base font-black text-white hover:bg-emerald-800">
-                    Buksan ang Talaan ng Hayop
+                  <Button className="h-9 rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800">
+                    Go to Livestock Inventory
                   </Button>
                 </Link>
               </div>
             </Card>
           )}
 
-          {/* Herd Cards Grid */}
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredBatches.map((batch) => {
-              const isSelected = currentBatch?.id === batch.id;
-              const avatar = getDefaultAvatarForSpecies(batch.species);
-              const readiness =
-                batch.averageWeightKg !== null && batch.targetWeightKg
-                  ? Math.min(
-                      Math.round(
-                        (batch.averageWeightKg / batch.targetWeightKg) * 100
-                      ),
-                      100
-                    )
-                  : null;
-
-              return (
-                <Card
-                  key={batch.id}
-                  className={`group relative overflow-hidden rounded-3xl border-2 transition-all shadow-sm ${
-                    isSelected
-                      ? "border-emerald-600 bg-emerald-50/60 ring-4 ring-emerald-500/20 shadow-md"
-                      : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    aria-pressed={isSelected}
-                    aria-label={`Piliin ang ${batch.batchName || "pangkat"}, ${batch.activeCount} hayop`}
-                    onClick={() => handleBatchSelect(batch.id)}
-                    className="flex min-h-[170px] w-full flex-col justify-between p-4 sm:p-6 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/40"
-                  >
-                    {/* Top Row: Avatar + Titles + Animal Count Box */}
-                    <div className="flex items-start gap-4">
-                      {batch.photoUrl ? (
-                        <Image
-                          src={batch.photoUrl}
-                          alt=""
-                          width={88}
-                          height={88}
-                          unoptimized
-                          className="size-16 sm:size-20 shrink-0 rounded-2xl border-2 border-slate-200 object-cover shadow-xs"
-                        />
-                      ) : (
-                        <div
-                          className="flex size-16 sm:size-20 shrink-0 items-center justify-center rounded-2xl border-2 border-emerald-200 bg-emerald-100 text-3xl sm:text-4xl shadow-xs"
-                          aria-hidden="true"
-                        >
-                          {avatar.emoji}
-                        </div>
-                      )}
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h3 className="break-words text-lg sm:text-xl font-black leading-snug text-slate-950">
-                              {batch.batchName || "Walang Pangalang Pangkat"}
-                            </h3>
-                            <p className="mt-0.5 inline-block rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">
-                              {batch.batchCode}
-                            </p>
-                          </div>
-
-                          {/* Large Animal Count Pill */}
-                          <div className="shrink-0 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-1.5 text-center shadow-xs">
-                            <span className="block text-xl sm:text-2xl font-black leading-none text-emerald-950">
-                              {batch.activeCount}
-                            </span>
-                            <span className="mt-0.5 block text-[11px] font-bold text-emerald-800 uppercase tracking-tight">
-                              ulo / animals
-                            </span>
-                          </div>
-                        </div>
-
-                        <p className="mt-2 text-sm sm:text-base font-bold text-slate-800">
-                          {batch.species}
-                          {batch.breed ? (
-                            <span className="font-semibold text-slate-600"> · {batch.breed}</span>
-                          ) : (
-                            <span className="font-normal text-slate-500"> · Walang lahi</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Progress to target weight if set */}
-                    {readiness !== null && (
-                      <div className="mt-4 w-full rounded-2xl border border-emerald-200/60 bg-emerald-50/50 p-2.5">
-                        <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-emerald-950">
-                          <span>Pag-unlad sa Target na Timbang</span>
-                          <span className="font-black">{readiness}%</span>
-                        </div>
-                        <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-emerald-200/60">
-                          <div
-                            className="h-full rounded-full bg-emerald-600 transition-all"
-                            style={{ width: `${readiness}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Bottom Row: Status Badge & Open Button */}
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {getReviewStatusBadge(batch.reviewStatus)}
-                      </div>
-
-                      <span
-                        className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-black transition-colors ${
-                          isSelected
-                            ? "bg-emerald-700 text-white shadow-xs"
-                            : "bg-slate-100 text-slate-900 group-hover:bg-emerald-100 group-hover:text-emerald-950"
-                        }`}
-                      >
-                        {isSelected ? "Naka-select" : "Tingnan ang Pangkat"}
-                        {isSelected ? (
-                          <Check className="size-4.5 stroke-[3]" />
-                        ) : (
-                          <ArrowRight className="size-4.5" />
-                        )}
-                      </span>
-                    </div>
-                  </button>
-                </Card>
-              );
-            })}
+          {/* ── SPLIT CARDS WITH HERO IMAGE GRID (Wider 2-col landscape cards) ── */}
+          <div className="grid min-w-0 grid-cols-1 gap-3.5 md:grid-cols-2">
+            {paginatedBatches.map((batch) => (
+              <HerdSplitCard
+                key={batch.id}
+                batch={batch}
+                isSelected={currentBatch?.id === batch.id}
+                onSelect={() => handleBatchSelect(batch.id)}
+              />
+            ))}
           </div>
+
+          {/* ── HERD DIRECTORY PAGINATION BAR ── */}
+          {filteredBatches.length > HERDS_PER_PAGE && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200">
+              <p className="text-xs text-slate-600 font-medium">
+                Showing <strong className="text-slate-950 font-bold">{(safeHerdPage - 1) * HERDS_PER_PAGE + 1}</strong> to{" "}
+                <strong className="text-slate-950 font-bold">
+                  {Math.min(safeHerdPage * HERDS_PER_PAGE, filteredBatches.length)}
+                </strong> of <strong className="text-slate-950 font-bold">{filteredBatches.length}</strong> herds
+              </p>
+
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHerdCurrentPage(1)}
+                  disabled={safeHerdPage === 1}
+                  className="h-8 px-2 rounded-lg border-slate-200 text-xs font-bold disabled:opacity-30"
+                  title="First page"
+                >
+                  <ChevronsLeft className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHerdCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeHerdPage === 1}
+                  className="h-8 px-2.5 rounded-lg border-slate-200 text-xs font-bold gap-1 disabled:opacity-30"
+                >
+                  <ChevronLeft className="size-3.5" />
+                  <span>Prev</span>
+                </Button>
+
+                {/* Page number buttons */}
+                <div className="flex items-center gap-1 px-1">
+                  {Array.from({ length: totalHerdPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalHerdPages || Math.abs(p - safeHerdPage) <= 1)
+                    .map((p, idx, arr) => {
+                      const prev = arr[idx - 1];
+                      const showEllipsis = prev && p - prev > 1;
+                      return (
+                        <React.Fragment key={p}>
+                          {showEllipsis && <span className="text-xs text-slate-400 px-0.5">...</span>}
+                          <button
+                            type="button"
+                            onClick={() => setHerdCurrentPage(p)}
+                            className={`size-8 rounded-lg text-xs font-bold transition-all ${
+                              p === safeHerdPage
+                                ? "bg-emerald-700 text-white shadow-2xs"
+                                : "text-slate-700 hover:bg-slate-100 border border-slate-200"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHerdCurrentPage((p) => Math.min(totalHerdPages, p + 1))}
+                  disabled={safeHerdPage === totalHerdPages}
+                  className="h-8 px-2.5 rounded-lg border-slate-200 text-xs font-bold gap-1 disabled:opacity-30"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHerdCurrentPage(totalHerdPages)}
+                  disabled={safeHerdPage === totalHerdPages}
+                  className="h-8 px-2 rounded-lg border-slate-200 text-xs font-bold disabled:opacity-30"
+                  title="Last page"
+                >
+                  <ChevronsRight className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </section>
 
-        {/* ── 4. HERD DETAILS DIALOG (MOBILE & SENIOR FRIENDLY MODAL) ─────── */}
+        {/* ── 4. HERD DETAILS MODAL (WITH HERO GALLERY) ────────────────────── */}
         <Dialog open={isHerdDetailsOpen} onOpenChange={setIsHerdDetailsOpen}>
           {currentBatch && (
-            <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-slate-200 bg-slate-50 p-0 shadow-2xl sm:h-[92dvh] sm:max-h-[92dvh] sm:w-[94vw] sm:max-w-5xl sm:rounded-3xl">
+            <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-slate-200 bg-slate-50 p-0 shadow-2xl sm:h-[88dvh] sm:max-h-[88dvh] sm:w-[90vw] sm:max-w-3xl sm:rounded-xl">
               {/* Sticky Header with high contrast */}
-              <DialogHeader className="shrink-0 border-b-2 border-slate-200 bg-white px-4 py-4 pr-14 text-left sm:px-6">
+              <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-3.5 py-2.5 pr-12 text-left sm:px-4.5">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-bold text-xs uppercase">
-                    Pangkat ng Hayop
+                  <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-bold text-[10px] uppercase">
+                    Herd Record
                   </Badge>
-                  <span className="font-mono text-xs font-bold text-slate-500">
+                  <span className="font-mono text-[11px] font-semibold text-slate-500">
                     ID: {currentBatch.batchCode}
                   </span>
                 </div>
-                <DialogTitle className="mt-1 text-xl sm:text-2xl font-black text-slate-950">
-                  {currentBatch.batchName || "Mga Detalye ng Pangkat"}
+                <DialogTitle className="mt-0.5 text-base sm:text-lg font-bold text-slate-950">
+                  {currentBatch.batchName || "Herd Details"}
                 </DialogTitle>
-                <DialogDescription className="text-sm sm:text-base font-medium text-slate-700">
-                  {currentBatch.species} · {currentBatch.breed || "Lahi hindi naitala"} · {currentBatch.activeCount} aktibong hayop
+                <DialogDescription className="text-xs font-medium text-slate-600">
+                  {currentBatch.species} · {currentBatch.breed || "Breed not recorded"} · {currentBatch.activeCount} active animals
                 </DialogDescription>
               </DialogHeader>
 
               {/* Scrollable Modal Body */}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 space-y-5">
-                {/* Header Action Card */}
-                <Card className="rounded-3xl border-2 border-slate-200 bg-white p-4 sm:p-6 shadow-xs">
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-center gap-4">
-                      {currentBatch.photoUrl ? (
-                        <Image
-                          src={currentBatch.photoUrl}
-                          alt={`${currentBatch.batchName} herd`}
-                          width={100}
-                          height={100}
-                          unoptimized
-                          className="size-20 sm:size-24 shrink-0 rounded-2xl border-2 border-slate-200 object-cover shadow-xs"
-                        />
-                      ) : (
-                        <div
-                          className="flex size-20 sm:size-24 shrink-0 items-center justify-center rounded-2xl border-2 border-emerald-200 bg-emerald-100 text-4xl sm:text-5xl shadow-xs"
-                          aria-hidden="true"
-                        >
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5">
+                {/* ── HERO IMAGE GALLERY BANNER IN MODAL ── */}
+                <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+                  {/* Hero Picture */}
+                  <div className="relative aspect-[24/9] sm:h-38 w-full overflow-hidden bg-slate-900">
+                    {currentBatch.photos.length > 0 ? (
+                      <Image
+                        src={currentBatch.photos[modalHeroPhotoIndex % currentBatch.photos.length]}
+                        alt={currentBatch.batchName || "Herd banner"}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white">
+                        <span className="text-4xl">
                           {getDefaultAvatarForSpecies(currentBatch.species).emoji}
-                        </div>
-                      )}
-
-                      <div className="min-w-0">
-                        <span className="inline-block text-xs font-black uppercase tracking-wider text-emerald-800">
-                          Naka-select na Pangkat
                         </span>
-                        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
-                          {currentBatch.batchName || "Walang Pangalan"}
+                      </div>
+                    )}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                    <div className="absolute bottom-2.5 left-3 right-3 flex items-end justify-between text-white">
+                      <div>
+                        <h2 className="text-lg sm:text-xl font-bold drop-shadow-md">
+                          {currentBatch.batchName || "Unnamed Herd"}
                         </h2>
-                        <p className="mt-1 text-sm sm:text-base font-bold text-slate-700">
-                          {currentBatch.species} · {currentBatch.breed || "Lahi hindi naitala"}
-                        </p>
-                        <p className="font-mono text-xs font-semibold text-slate-500">
-                          Herd Code: {currentBatch.batchCode}
+                        <p className="text-xs font-semibold text-emerald-200 drop-shadow-sm">
+                          {currentBatch.species} · {currentBatch.breed || "Breed not recorded"}
                         </p>
                       </div>
+
+                      <div className="flex items-center gap-2">
+                        {currentBatch.photos.length > 1 && (
+                          <span className="rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold backdrop-blur-md">
+                            📷 {(modalHeroPhotoIndex % currentBatch.photos.length) + 1} of{" "}
+                            {currentBatch.photos.length}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Thumbnail Row if herd has multiple pictures */}
+                  {currentBatch.photos.length > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 mr-1 shrink-0">
+                        Gallery:
+                      </span>
+                      {currentBatch.photos.map((photo, idx) => (
+                        <button
+                          key={photo}
+                          type="button"
+                          onClick={() => setModalHeroPhotoIndex(idx)}
+                          className={`relative size-10 shrink-0 overflow-hidden rounded-md border-2 transition-all ${
+                            idx === modalHeroPhotoIndex % currentBatch.photos.length
+                              ? "border-emerald-600 ring-2 ring-emerald-500/30 scale-105"
+                              : "border-slate-200 opacity-70 hover:opacity-100"
+                          }`}
+                        >
+                          <Image src={photo} alt="" fill unoptimized className="object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Action Bar */}
+                  <div className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline" className="min-h-7 px-2 text-[11px] font-semibold">
+                        {currentBatch.status === "ACTIVE"
+                          ? "Active Herd"
+                          : currentBatch.status || "Status not recorded"}
+                      </Badge>
+                      {getReviewStatusBadge(currentBatch.reviewStatus)}
                     </div>
 
-                    {/* Big Easy-to-Tap Action Buttons */}
-                    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => setIsHerdQrOpen(true)}
-                        className="min-h-12 gap-2 rounded-2xl border-2 border-slate-300 px-4 text-base font-bold text-slate-800 hover:bg-slate-100"
+                        className="h-8.5 gap-1.5 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100"
                       >
-                        <QrCode className="size-5 text-emerald-700" /> Herd QR Code
+                        <QrCode className="size-3.5 text-emerald-700" /> QR Code
                       </Button>
 
                       {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
                         <LivestockPhotoManager
-                          title="Litrato ng Pangkat"
+                          title="Herd Photo"
                           subject="herd"
                           currentPhotoUrl={currentBatch.photoUrl}
                           allowAvatar={false}
+                          triggerClassName="h-8.5 gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-900 shadow-2xs cursor-pointer"
                           fallback={
-                            <div className="flex size-36 items-center justify-center rounded-2xl bg-emerald-50 text-6xl">
+                            <div className="flex size-24 items-center justify-center rounded-lg bg-emerald-50 text-4xl">
                               {getDefaultAvatarForSpecies(currentBatch.species).emoji}
                             </div>
                           }
@@ -945,7 +1232,7 @@ export default function BatchOverviewPage() {
                             await queryClient.invalidateQueries({
                               queryKey: INVENTORY_QUERY_KEYS.batches,
                             });
-                            toast.success("Nai-update ang litrato ng pangkat.");
+                            toast.success("Herd photo updated.");
                           }}
                         />
                       )}
@@ -955,177 +1242,88 @@ export default function BatchOverviewPage() {
                           type="button"
                           onClick={() => setIsAddIndividualOpen(true)}
                           disabled={!canAddAnimalsToCurrentBatch}
-                          className="min-h-12 gap-2 rounded-2xl bg-emerald-700 px-5 text-base font-black text-white hover:bg-emerald-800 shadow-md disabled:bg-slate-300"
+                          className="h-8.5 gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs disabled:bg-slate-300"
                         >
-                          <Plus className="size-5 stroke-[3]" /> Magdagdag ng Hayop
+                          <Plus className="size-3.5 stroke-[3]" /> Add Animal
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  {/* Status Strip & Official Notes */}
-                  <div className="mt-5 flex flex-wrap items-center gap-3 border-t-2 border-slate-100 pt-4">
-                    <Badge variant="outline" className="min-h-9 px-3.5 text-sm font-bold border-2">
-                      {currentBatch.status === "ACTIVE"
-                        ? "Aktibong Kawan"
-                        : currentBatch.status || "Katayuan hindi naitala"}
-                    </Badge>
-                    {getReviewStatusBadge(currentBatch.reviewStatus)}
-                    {!canAddAnimalsToCurrentBatch && (
-                      <p className="text-sm font-medium text-slate-600">
-                        Maaaring magdagdag ng hayop kapag aktibo ang pangkat.
-                      </p>
-                    )}
-                  </div>
-
                   {currentBatch.reviewRemarks && (
-                    <div className="mt-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
-                      <p className="text-sm font-black text-amber-950">
-                        Opisyal na Tala ng Tagasuri (Review Remarks):
+                    <div className="mx-3 mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5">
+                      <p className="text-xs font-bold text-amber-950">
+                        Official Review Remarks:
                       </p>
-                      <p className="mt-1 text-sm font-medium leading-relaxed text-amber-900">
+                      <p className="mt-0.5 text-xs font-medium leading-relaxed text-amber-900">
                         {currentBatch.reviewRemarks}
                       </p>
                     </div>
                   )}
-
-                  {/* Animal Review Progress Tiles */}
-                  <div className="mt-5 rounded-2xl border-2 border-slate-200 bg-slate-50 p-4">
-                    <div className="mb-3">
-                      <h4 className="text-sm sm:text-base font-black text-slate-950">
-                        Katayuan ng Rebyu ng mga Hayop sa Pangkat
-                      </h4>
-                      <p className="text-xs sm:text-sm font-medium text-slate-600">
-                        Bilang ng mga hayop sa bawat hakbang ng pagpapatunay.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                      {[
-                        {
-                          label: "Aprubado (Approved)",
-                          count: individualReviewSummary?.approved ?? 0,
-                          color: "bg-emerald-600",
-                          text: "text-emerald-950",
-                          border: "border-emerald-300",
-                        },
-                        {
-                          label: "Pagsusuri sa Bukid (SIBAT)",
-                          count: individualReviewSummary?.awaitingSibat ?? 0,
-                          color: "bg-sky-600",
-                          text: "text-sky-950",
-                          border: "border-sky-300",
-                        },
-                        {
-                          label: "Opisina ng Agrikultura (MAO)",
-                          count: individualReviewSummary?.awaitingMao ?? 0,
-                          color: "bg-amber-600",
-                          text: "text-amber-950",
-                          border: "border-amber-300",
-                        },
-                        {
-                          label: "Kailangang Iwasto",
-                          count: individualReviewSummary?.returned ?? 0,
-                          color: "bg-orange-600",
-                          text: "text-orange-950",
-                          border: "border-orange-300",
-                        },
-                        {
-                          label: "Tinanggihan (Rejected)",
-                          count: individualReviewSummary?.rejected ?? 0,
-                          color: "bg-rose-600",
-                          text: "text-rose-950",
-                          border: "border-rose-300",
-                        },
-                      ].map((item) => (
-                        <div
-                          key={item.label}
-                          className={`flex min-h-20 items-start gap-2.5 rounded-2xl border-2 ${item.border} bg-white p-3 shadow-2xs`}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={`mt-1 size-3 shrink-0 rounded-full ${item.color}`}
-                          />
-                          <div className="min-w-0">
-                            <p className={`text-xl sm:text-2xl font-black tabular-nums leading-none ${item.text}`}>
-                              {item.count}
-                            </p>
-                            <p className="mt-1 text-xs font-bold leading-tight text-slate-700">
-                              {item.label}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </Card>
 
-                {/* 4 Metric Cards */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {/* Metric 1 */}
-                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
-                      Aktibong Hayop
+                {/* ── 4 METRIC TILES ── */}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Card className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Active Animals
                     </span>
-                    <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
+                    <p className="mt-0.5 text-lg sm:text-xl font-black text-slate-950">
                       {currentBatch.activeCount}
                     </p>
-                    <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
-                      Nasa pangkat sa kasalukuyan
+                    <p className="mt-0.5 text-[10px] text-slate-500">
+                      In this herd
                     </p>
                   </Card>
 
-                  {/* Metric 2 */}
-                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
-                      Katamtamang Timbang
+                  <Card className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Average Weight
                     </span>
-                    <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
+                    <p className="mt-0.5 text-lg sm:text-xl font-black text-slate-950">
                       {currentBatch.averageWeightKg === null ? (
-                        <span className="text-slate-400 text-lg">Wala pa</span>
+                        <span className="text-slate-400 text-sm font-semibold">Not recorded</span>
                       ) : (
                         <>
-                          {currentBatch.averageWeightKg} <span className="text-base font-bold text-slate-500">kg</span>
+                          {currentBatch.averageWeightKg} <span className="text-xs font-semibold text-slate-500">kg</span>
                         </>
                       )}
                     </p>
-                    <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
-                      Target: {currentBatch.targetWeightKg == null ? "Hindi naitala" : `${currentBatch.targetWeightKg} kg`}
+                    <p className="mt-0.5 text-[10px] text-slate-500">
+                      Target: {currentBatch.targetWeightKg == null ? "Not recorded" : `${currentBatch.targetWeightKg} kg`}
                     </p>
                   </Card>
 
-                  {/* Metric 3 */}
-                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
-                      Kabuuang Timbang
+                  <Card className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Total Biomass
                     </span>
-                    <p className="mt-2 text-2xl sm:text-4xl font-black text-emerald-900">
+                    <p className="mt-0.5 text-lg sm:text-xl font-black text-emerald-900">
                       {yieldMetrics.totalBiomass === null ? (
-                        <span className="text-slate-400 text-lg">Wala pa</span>
+                        <span className="text-slate-400 text-sm font-semibold">Not recorded</span>
                       ) : (
                         <>
-                          {yieldMetrics.totalBiomass} <span className="text-base font-bold text-slate-500">kg</span>
+                          {yieldMetrics.totalBiomass} <span className="text-xs font-semibold text-slate-500">kg</span>
                         </>
                       )}
                     </p>
-                    <p className="mt-1 text-xs sm:text-sm font-bold text-slate-600">
-                      Mula sa {yieldMetrics.weighedAnimalCount} natimbang na hayop
+                    <p className="mt-0.5 text-[10px] text-slate-500">
+                      From {yieldMetrics.weighedAnimalCount} weighed
                     </p>
                   </Card>
 
-                  {/* Metric 4 */}
-                  <Card className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 bg-white p-4 shadow-xs">
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                  <Card className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                       Target Readiness
                     </span>
-                    <p className="mt-2 text-2xl sm:text-4xl font-black text-slate-950">
+                    <p className="mt-0.5 text-lg sm:text-xl font-black text-slate-950">
                       {yieldMetrics.readinessPct === null ? (
-                        <span className="text-slate-400 text-lg">—</span>
+                        <span className="text-slate-400 text-sm font-semibold">—</span>
                       ) : (
                         `${yieldMetrics.readinessPct}%`
                       )}
                     </p>
-                    <div className="mt-2 h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-emerald-600"
                         style={{ width: `${yieldMetrics.readinessPct ?? 0}%` }}
@@ -1134,17 +1332,87 @@ export default function BatchOverviewPage() {
                   </Card>
                 </div>
 
+                {/* Animal Review Progress Breakdown */}
+                <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-3.5">
+                  <div className="mb-2">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-950">
+                      Validation Status Breakdown
+                    </h4>
+                    <p className="text-[10px] sm:text-[11px] text-slate-500">
+                      Review progress of individual animals inside this herd.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
+                    {[
+                      {
+                        label: "Approved",
+                        count: individualReviewSummary?.approved ?? 0,
+                        color: "bg-emerald-600",
+                        text: "text-emerald-950",
+                        border: "border-emerald-300",
+                      },
+                      {
+                        label: "Field Checked",
+                        count: individualReviewSummary?.awaitingSibat ?? 0,
+                        color: "bg-sky-600",
+                        text: "text-sky-950",
+                        border: "border-sky-300",
+                      },
+                      {
+                        label: "MAO Review",
+                        count: individualReviewSummary?.awaitingMao ?? 0,
+                        color: "bg-amber-600",
+                        text: "text-amber-950",
+                        border: "border-amber-300",
+                      },
+                      {
+                        label: "Revision",
+                        count: individualReviewSummary?.returned ?? 0,
+                        color: "bg-orange-600",
+                        text: "text-orange-950",
+                        border: "border-orange-300",
+                      },
+                      {
+                        label: "Rejected",
+                        count: individualReviewSummary?.rejected ?? 0,
+                        color: "bg-rose-600",
+                        text: "text-rose-950",
+                        border: "border-rose-300",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className={`flex min-h-13 items-start gap-1.5 rounded-lg border ${item.border} bg-white p-2 shadow-2xs`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`mt-1 size-2 shrink-0 rounded-full ${item.color}`}
+                        />
+                        <div className="min-w-0">
+                          <p className={`text-base sm:text-lg font-bold tabular-nums leading-none ${item.text}`}>
+                            {item.count}
+                          </p>
+                          <p className="mt-0.5 text-[10px] font-semibold leading-tight text-slate-600">
+                            {item.label}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Optional Notes */}
                 {currentBatch.notes && (
-                  <Card className="rounded-3xl border-2 border-slate-200 bg-white shadow-xs">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900">
-                        <ClipboardList className="size-5 text-emerald-700" />
-                        Mga Tala ukol sa Pangkat (Notes)
+                  <Card className="rounded-lg border border-slate-200 bg-white shadow-2xs">
+                    <CardHeader className="p-2.5 pb-1">
+                      <CardTitle className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                        <ClipboardList className="size-3.5 text-emerald-700" />
+                        Herd Notes
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-0">
-                      <p className="whitespace-pre-wrap text-sm sm:text-base font-medium leading-relaxed text-slate-800">
+                    <CardContent className="p-2.5 pt-0">
+                      <p className="whitespace-pre-wrap text-xs font-medium leading-relaxed text-slate-700">
                         {currentBatch.notes}
                       </p>
                     </CardContent>
@@ -1152,77 +1420,83 @@ export default function BatchOverviewPage() {
                 )}
 
                 {/* ── INDIVIDUAL ROSTER CARD ───────────────────────────────── */}
-                <Card className="rounded-3xl border-2 border-slate-200 bg-white shadow-xs overflow-hidden">
-                  <CardHeader className="flex flex-col gap-4 border-b-2 border-slate-100 p-4 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+                <Card className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+                  <CardHeader className="flex flex-col gap-2.5 border-b border-slate-100 p-3 sm:p-3.5 lg:flex-row lg:items-end lg:justify-between">
                     <div>
-                      <div className="flex items-center gap-2.5">
-                        <CardTitle className="text-xl sm:text-2xl font-black text-slate-950">
-                          Talaan ng mga Hayop sa Pangkat
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm sm:text-base font-bold text-slate-950">
+                          Animals in this Herd
                         </CardTitle>
-                        <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 font-bold text-sm px-3">
-                          {filteredIndividuals.length} hayop
+                        <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 font-semibold text-[11px] px-2 py-0.5">
+                          {filteredIndividuals.length} animals
                         </Badge>
                       </div>
-                      <CardDescription className="mt-1 text-sm sm:text-base font-medium text-slate-600">
-                        Maghanap gamit ang Ear Tag o i-filter ayon sa kasarian.
+                      <CardDescription className="mt-0.5 text-[11px] text-slate-500">
+                        Search by Ear Tag number or filter by sex.
                       </CardDescription>
                     </div>
 
                     {/* View Controls & Filters */}
-                    <div className="flex flex-col gap-3 w-full lg:w-auto sm:flex-row sm:items-center">
-                      {/* View Switcher: Cards vs Table */}
+                    <div className="flex flex-col gap-2 w-full lg:w-auto sm:flex-row sm:items-center">
                       <div
                         role="group"
-                        aria-label="Talaan view"
-                        className="grid grid-cols-2 gap-1 rounded-2xl border-2 border-slate-200 bg-slate-100 p-1"
+                        aria-label="Roster view switcher"
+                        className="grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-0.5"
                       >
                         <Button
                           type="button"
                           variant={rosterView === "cards" ? "default" : "ghost"}
                           onClick={() => setRosterView("cards")}
-                          className={`min-h-11 gap-2 rounded-xl text-sm font-bold ${
+                          className={`h-8 gap-1.5 rounded-md text-xs font-semibold ${
                             rosterView === "cards"
-                              ? "bg-white text-emerald-950 shadow-xs border border-slate-200"
+                              ? "bg-white text-emerald-950 shadow-2xs border border-slate-200"
                               : "text-slate-700 hover:text-slate-950"
                           }`}
                         >
-                          <LayoutGrid className="size-4.5 text-emerald-700" /> Cards
+                          <LayoutGrid className="size-3 text-emerald-700" /> Cards
                         </Button>
                         <Button
                           type="button"
                           variant={rosterView === "table" ? "default" : "ghost"}
                           onClick={() => setRosterView("table")}
-                          className={`min-h-11 gap-2 rounded-xl text-sm font-bold ${
+                          className={`h-8 gap-1.5 rounded-md text-xs font-semibold ${
                             rosterView === "table"
-                              ? "bg-white text-emerald-950 shadow-xs border border-slate-200"
+                              ? "bg-white text-emerald-950 shadow-2xs border border-slate-200"
                               : "text-slate-700 hover:text-slate-950"
                           }`}
                         >
-                          <TableIcon className="size-4.5 text-teal-700" /> Table
+                          <TableIcon className="size-3 text-teal-700" /> Table
                         </Button>
                       </div>
 
-                      {/* Search Input */}
-                      <div className="relative flex-1 sm:w-60">
-                        <Search className="absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-slate-400" />
+                      <div className="relative flex-1 sm:w-52">
+                        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
                         <Input
-                          placeholder="Hanapin ang Tag #..."
+                          placeholder="Search tag or ID..."
                           value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="min-h-11 rounded-2xl border-2 border-slate-300 pl-10 text-sm font-semibold"
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setAnimalCurrentPage(1);
+                          }}
+                          className="h-8 rounded-lg border border-slate-300 pl-8 text-xs font-medium"
                         />
                       </div>
 
-                      {/* Sex Filter */}
-                      <div className="w-full sm:w-44">
-                        <Select value={genderFilter} onValueChange={setGenderFilter}>
-                          <SelectTrigger className="min-h-11 rounded-2xl border-2 border-slate-300 text-sm font-bold text-slate-900">
-                            <SelectValue placeholder="Lahat ng Kasarian" />
+                      <div className="w-full sm:w-32">
+                        <Select
+                          value={genderFilter}
+                          onValueChange={(val) => {
+                            setGenderFilter(val);
+                            setAnimalCurrentPage(1);
+                          }}
+                        >
+                          <SelectTrigger className="h-8 rounded-lg border border-slate-300 text-xs font-semibold text-slate-900">
+                            <SelectValue placeholder="All Sexes" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="ALL">Lahat (All Sexes)</SelectItem>
-                            <SelectItem value="FEMALE">Babae (Female)</SelectItem>
-                            <SelectItem value="MALE">Lalaki (Male)</SelectItem>
+                            <SelectItem value="ALL">All Sexes</SelectItem>
+                            <SelectItem value="FEMALE">Female</SelectItem>
+                            <SelectItem value="MALE">Male</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1230,16 +1504,16 @@ export default function BatchOverviewPage() {
                   </CardHeader>
 
                   <CardContent className="p-0">
-                    {/* ── OPTION A: CARDS VIEW (SENIOR CITIZEN & MOBILE OPTIMIZED) ─ */}
+                    {/* ── CARDS VIEW ── */}
                     {rosterView === "cards" && (
-                      <div className="p-4 sm:p-6 space-y-4">
+                      <div className="p-3 sm:p-3.5 space-y-2.5">
                         {filteredIndividuals.length === 0 ? (
-                          <div className="rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center text-base font-semibold text-slate-600">
-                            Walang hayop na tumutugma sa iyong paghahanap.
+                          <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-xs font-medium text-slate-500">
+                            No animals match your search filters.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            {filteredIndividuals.map((animal) => {
+                          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                            {paginatedIndividuals.map((animal) => {
                               const hasInventoryRecord = /^\d+$/.test(animal.id);
                               const reviewColor =
                                 animal.reviewStatus === "APPROVED"
@@ -1254,47 +1528,46 @@ export default function BatchOverviewPage() {
 
                               const reviewLabel =
                                 animal.reviewStatus === "APPROVED"
-                                  ? "Aprubado (Approved)"
+                                  ? "Approved"
                                   : animal.reviewStatus === "VERIFIED"
-                                    ? "Na-inspeksyon (Field Checked)"
+                                    ? "Field Checked"
                                     : animal.reviewStatus === "REJECTED"
-                                      ? "Tinanggihan (Rejected)"
+                                      ? "Rejected"
                                       : animal.reviewStatus === "SUBJECT_TO_REVISION"
-                                        ? "Kailangang Iwasto"
-                                        : "Nire-rebyu (Pending)";
+                                        ? "Revision Needed"
+                                        : "Pending";
 
                               return (
                                 <div
                                   key={animal.id}
-                                  className="rounded-3xl border-2 border-slate-200 bg-white p-5 shadow-xs transition-all hover:border-emerald-300 hover:shadow-md"
+                                  className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs transition-all hover:border-emerald-300"
                                 >
-                                  {/* Top Line: Tag & Sex */}
-                                  <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
                                       {hasInventoryRecord ? (
                                         <Link
                                           href={`/livestock-inventory/${animal.id}`}
-                                          className="flex items-center gap-2 text-lg sm:text-xl font-black text-emerald-800 hover:text-emerald-950 hover:underline"
+                                          className="flex items-center gap-1.5 text-sm font-bold text-emerald-800 hover:text-emerald-950 hover:underline"
                                         >
-                                          <Tag className="size-5 text-emerald-600 shrink-0" />
-                                          <span className="break-all">{animal.tagNumber || "Walang Tag #"}</span>
+                                          <Tag className="size-3.5 text-emerald-600 shrink-0" />
+                                          <span className="break-all">{animal.tagNumber || "No Tag #"}</span>
                                         </Link>
                                       ) : (
-                                        <div className="flex items-center gap-2 text-lg sm:text-xl font-black text-slate-800">
-                                          <Tag className="size-5 text-slate-400 shrink-0" />
-                                          <span className="break-all">{animal.tagNumber || "Walang Tag #"}</span>
+                                        <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                                          <Tag className="size-3.5 text-slate-400 shrink-0" />
+                                          <span className="break-all">{animal.tagNumber || "No Tag #"}</span>
                                         </div>
                                       )}
                                       {animal.isPostApprovalAddition && (
-                                        <span className="mt-1 inline-block text-xs font-bold text-indigo-700">
-                                          Bagong Hayop · Naka-hiwalay ang Rebyu
+                                        <span className="mt-0.5 inline-block text-[10px] font-semibold text-indigo-700">
+                                          New Animal · Reviewed Separately
                                         </span>
                                       )}
                                     </div>
 
                                     <Badge
                                       variant="secondary"
-                                      className={`min-h-8 shrink-0 px-3 text-xs font-black uppercase ${
+                                      className={`min-h-6 shrink-0 px-2 text-[10px] font-bold uppercase ${
                                         animal.sex.toUpperCase() === "FEMALE"
                                           ? "bg-rose-100 text-rose-900 border-rose-300"
                                           : animal.sex.toUpperCase() === "MALE"
@@ -1302,23 +1575,18 @@ export default function BatchOverviewPage() {
                                             : "bg-slate-100 text-slate-800 border-slate-300"
                                       }`}
                                     >
-                                      {animal.sex === "FEMALE"
-                                        ? "Babae (Female)"
-                                        : animal.sex === "MALE"
-                                          ? "Lalaki (Male)"
-                                          : animal.sex}
+                                      {animal.sex}
                                     </Badge>
                                   </div>
 
-                                  {/* Data Grid: High Contrast */}
-                                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border-2 border-slate-100 bg-slate-50/70 p-3 text-sm">
+                                  <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2 text-xs">
                                     <div>
-                                      <span className="block text-xs font-bold text-slate-500 uppercase">
-                                        Timbang (Weight)
+                                      <span className="block text-[10px] font-semibold text-slate-500 uppercase">
+                                        Weight
                                       </span>
-                                      <span className="text-base font-black text-slate-950">
+                                      <span className="text-xs font-bold text-slate-950">
                                         {animal.weightKg === null ? (
-                                          <span className="text-rose-700">Wala pa</span>
+                                          <span className="text-rose-700">Not recorded</span>
                                         ) : (
                                           `${animal.weightKg} kg`
                                         )}
@@ -1326,39 +1594,38 @@ export default function BatchOverviewPage() {
                                     </div>
 
                                     <div>
-                                      <span className="block text-xs font-bold text-slate-500 uppercase">
-                                        Huling Bakuna (Vaccine)
+                                      <span className="block text-[10px] font-semibold text-slate-500 uppercase">
+                                        Last Vaccination
                                       </span>
-                                      <span className="text-base font-bold text-slate-900">
+                                      <span className="text-[11px] font-medium text-slate-900">
                                         {animal.lastVaccinationDate || (
-                                          <span className="text-slate-500">Wala</span>
+                                          <span className="text-slate-400">None recorded</span>
                                         )}
                                       </span>
                                     </div>
 
-                                    <div className="col-span-2 mt-1 pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                                      <span className="text-xs font-bold text-slate-600 uppercase">
-                                        Rebyu:
+                                    <div className="col-span-2 mt-0.5 pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                                      <span className="text-[10px] font-semibold text-slate-500 uppercase">
+                                        Review:
                                       </span>
                                       <span
-                                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black border ${reviewColor}`}
+                                        className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold border ${reviewColor}`}
                                       >
-                                        <span className="size-2 rounded-full bg-current" />
+                                        <span className="size-1.5 rounded-full bg-current" />
                                         {reviewLabel}
                                       </span>
                                     </div>
                                   </div>
 
-                                  {/* Easy Touch Action Buttons */}
-                                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                  <div className="mt-2.5 flex flex-col gap-1.5 sm:flex-row">
                                     {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
                                       <Button
                                         onClick={() => handleOpenWeighModal(animal)}
                                         variant="outline"
-                                        className="min-h-12 flex-1 rounded-2xl border-2 border-emerald-300 bg-emerald-50 text-sm sm:text-base font-bold text-emerald-950 hover:bg-emerald-100"
+                                        className="h-8 flex-1 rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-950 hover:bg-emerald-100"
                                       >
-                                        <Scale className="mr-2 size-5 text-emerald-700" />
-                                        Itala ang Timbang
+                                        <Scale className="mr-1.5 size-3.5 text-emerald-700" />
+                                        Record Weight
                                       </Button>
                                     )}
 
@@ -1366,19 +1633,19 @@ export default function BatchOverviewPage() {
                                       <Link href={`/livestock-inventory/${animal.id}`} className="flex-1">
                                         <Button
                                           variant="ghost"
-                                          className="min-h-12 w-full rounded-2xl bg-slate-100 text-sm sm:text-base font-bold text-slate-900 hover:bg-slate-200"
+                                          className="h-8 w-full rounded-lg bg-slate-100 text-xs font-bold text-slate-900 hover:bg-slate-200"
                                         >
-                                          <Eye className="mr-2 size-5 text-slate-700" />
-                                          Tingnan ang Profile
+                                          <Eye className="mr-1.5 size-3.5 text-slate-600" />
+                                          View Profile
                                         </Button>
                                       </Link>
                                     ) : (
                                       <Button
                                         variant="ghost"
                                         disabled
-                                        className="min-h-12 flex-1 rounded-2xl bg-slate-100 text-sm font-bold text-slate-500"
+                                        className="h-8 flex-1 rounded-lg bg-slate-100 text-xs font-semibold text-slate-500"
                                       >
-                                        Walang Profile
+                                        No Profile
                                       </Button>
                                     )}
                                   </div>
@@ -1390,29 +1657,29 @@ export default function BatchOverviewPage() {
                       </div>
                     )}
 
-                    {/* ── OPTION B: TABLE VIEW (DESKTOP FRIENDLY) ─────────────── */}
+                    {/* ── TABLE VIEW ── */}
                     {rosterView === "table" && (
                       <div className="overflow-x-auto">
-                        <Table className="min-w-[850px]">
-                          <TableHeader className="bg-slate-100 border-b-2 border-slate-200">
+                        <Table className="min-w-[760px]">
+                          <TableHeader className="bg-slate-50 border-b border-slate-200">
                             <TableRow>
-                              <TableHead className="py-4 text-sm font-black text-slate-900">
+                              <TableHead className="py-2 text-xs font-bold text-slate-800">
                                 Ear Tag / ID
                               </TableHead>
-                              <TableHead className="py-4 text-sm font-black text-slate-900">
-                                Kasarian (Sex)
+                              <TableHead className="py-2 text-xs font-bold text-slate-800">
+                                Sex
                               </TableHead>
-                              <TableHead className="py-4 text-sm font-black text-slate-900">
-                                Timbang (Weight)
+                              <TableHead className="py-2 text-xs font-bold text-slate-800">
+                                Weight
                               </TableHead>
-                              <TableHead className="py-4 text-sm font-black text-slate-900">
-                                Huling Bakuna
+                              <TableHead className="py-2 text-xs font-bold text-slate-800">
+                                Last Vaccination
                               </TableHead>
-                              <TableHead className="py-4 text-sm font-black text-slate-900">
-                                Rebyu ng Tanggapan
+                              <TableHead className="py-2 text-xs font-bold text-slate-800">
+                                Review Status
                               </TableHead>
-                              <TableHead className="py-4 pr-6 text-right text-sm font-black text-slate-900">
-                                Aksyon
+                              <TableHead className="py-2 pr-3.5 text-right text-xs font-bold text-slate-800">
+                                Actions
                               </TableHead>
                             </TableRow>
                           </TableHeader>
@@ -1421,13 +1688,13 @@ export default function BatchOverviewPage() {
                               <TableRow>
                                 <TableCell
                                   colSpan={6}
-                                  className="py-12 text-center text-base font-bold text-slate-600"
+                                  className="py-6 text-center text-xs font-medium text-slate-500"
                                 >
-                                  Walang hayop na tumutugma sa kasalukuyang filter.
+                                  No animals match the current filters.
                                 </TableCell>
                               </TableRow>
                             ) : (
-                              filteredIndividuals.map((animal) => {
+                              paginatedIndividuals.map((animal) => {
                                 const hasInventoryRecord = /^\d+$/.test(animal.id);
                                 return (
                                   <TableRow
@@ -1438,31 +1705,31 @@ export default function BatchOverviewPage() {
                                         router.push(`/livestock-inventory/${animal.id}`);
                                       }
                                     }}
-                                    className={`transition-colors hover:bg-emerald-50/50 ${
+                                    className={`transition-colors hover:bg-emerald-50/40 ${
                                       hasInventoryRecord ? "cursor-pointer" : ""
                                     }`}
                                   >
-                                    <TableCell className="py-4 text-base font-black text-slate-950">
+                                    <TableCell className="py-2 text-xs font-bold text-slate-950">
                                       {hasInventoryRecord ? (
                                         <Link
                                           href={`/livestock-inventory/${animal.id}`}
-                                          className="flex items-center gap-2 text-emerald-800 hover:text-emerald-950 hover:underline"
+                                          className="flex items-center gap-1.5 text-emerald-800 hover:text-emerald-950 hover:underline"
                                         >
-                                          <Tag className="size-4 text-emerald-600" />
-                                          <span>{animal.tagNumber || "Walang Tag #"}</span>
+                                          <Tag className="size-3 text-emerald-600" />
+                                          <span>{animal.tagNumber || "No Tag #"}</span>
                                         </Link>
                                       ) : (
-                                        <span className="flex items-center gap-2 text-slate-500">
-                                          <Tag className="size-4 text-slate-400" />
-                                          <span>{animal.tagNumber || "Walang Tag #"}</span>
+                                        <span className="flex items-center gap-1.5 text-slate-500">
+                                          <Tag className="size-3 text-slate-400" />
+                                          <span>{animal.tagNumber || "No Tag #"}</span>
                                         </span>
                                       )}
                                     </TableCell>
 
-                                    <TableCell className="py-4">
+                                    <TableCell className="py-2">
                                       <Badge
                                         variant="secondary"
-                                        className={`px-3 py-1 text-xs font-black uppercase ${
+                                        className={`px-1.5 py-0.5 text-[9px] font-bold uppercase ${
                                           animal.sex.toUpperCase() === "FEMALE"
                                             ? "bg-rose-100 text-rose-900 border-rose-300"
                                             : animal.sex.toUpperCase() === "MALE"
@@ -1470,31 +1737,27 @@ export default function BatchOverviewPage() {
                                               : "bg-slate-100 text-slate-800 border-slate-300"
                                         }`}
                                       >
-                                        {animal.sex === "FEMALE"
-                                          ? "Babae"
-                                          : animal.sex === "MALE"
-                                            ? "Lalaki"
-                                            : animal.sex}
+                                        {animal.sex}
                                       </Badge>
                                     </TableCell>
 
-                                    <TableCell className="py-4 text-base font-black text-slate-950">
+                                    <TableCell className="py-2 text-xs font-bold text-slate-950">
                                       {animal.weightKg === null ? (
-                                        <span className="text-rose-700 font-bold">Wala pa</span>
+                                        <span className="text-rose-700 text-[11px]">Not recorded</span>
                                       ) : (
                                         `${animal.weightKg} kg`
                                       )}
                                     </TableCell>
 
-                                    <TableCell className="py-4 text-sm font-bold text-slate-800">
+                                    <TableCell className="py-2 text-xs font-medium text-slate-700">
                                       {animal.lastVaccinationDate || (
-                                        <span className="text-slate-400">Hindi naitala</span>
+                                        <span className="text-slate-400">Not recorded</span>
                                       )}
                                     </TableCell>
 
-                                    <TableCell className="py-4">
+                                    <TableCell className="py-2">
                                       <span
-                                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black border ${
+                                        className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold border ${
                                           animal.reviewStatus === "APPROVED"
                                             ? "bg-emerald-100 text-emerald-950 border-emerald-300"
                                             : animal.reviewStatus === "VERIFIED"
@@ -1506,21 +1769,21 @@ export default function BatchOverviewPage() {
                                                   : "bg-slate-100 text-slate-800 border-slate-300"
                                         }`}
                                       >
-                                        <span className="size-2 rounded-full bg-current" />
+                                        <span className="size-1.5 rounded-full bg-current" />
                                         {animal.reviewStatus === "APPROVED"
-                                          ? "Aprubado"
+                                          ? "Approved"
                                           : animal.reviewStatus === "VERIFIED"
                                             ? "Field Checked"
                                             : animal.reviewStatus === "REJECTED"
-                                              ? "Tinanggihan"
+                                              ? "Rejected"
                                               : animal.reviewStatus === "SUBJECT_TO_REVISION"
-                                                ? "Pagwawasto"
+                                                ? "Revision Needed"
                                                 : "Pending"}
                                       </span>
                                     </TableCell>
 
-                                    <TableCell className="py-4 text-right pr-6">
-                                      <div className="inline-flex items-center gap-2">
+                                    <TableCell className="py-2 text-right pr-3.5">
+                                      <div className="inline-flex items-center gap-1">
                                         {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
                                           <Button
                                             onClick={(event) => {
@@ -1528,10 +1791,10 @@ export default function BatchOverviewPage() {
                                               handleOpenWeighModal(animal);
                                             }}
                                             variant="outline"
-                                            className="min-h-11 px-3.5 text-sm rounded-xl font-bold border-2 border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100"
+                                            className="h-7 px-2 text-xs rounded-md font-bold border border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100"
                                           >
-                                            <Scale className="size-4 mr-1.5 text-emerald-700" />
-                                            Magtala ng Timbang
+                                            <Scale className="size-3 mr-1 text-emerald-700" />
+                                            Record Weight
                                           </Button>
                                         )}
 
@@ -1542,10 +1805,10 @@ export default function BatchOverviewPage() {
                                           >
                                             <Button
                                               variant="ghost"
-                                              className="min-h-11 px-3.5 text-sm rounded-xl font-bold text-slate-800 hover:bg-slate-200"
+                                              className="h-7 px-2 text-xs rounded-md font-semibold text-slate-800 hover:bg-slate-100"
                                             >
-                                              <Eye className="size-4 mr-1.5 text-slate-600" />
-                                              Tingnan
+                                              <Eye className="size-3 mr-1 text-slate-600" />
+                                              View
                                             </Button>
                                           </Link>
                                         )}
@@ -1559,6 +1822,92 @@ export default function BatchOverviewPage() {
                         </Table>
                       </div>
                     )}
+
+                    {/* ── ANIMAL ROSTER PAGINATION BAR ── */}
+                    {filteredIndividuals.length > ANIMALS_PER_PAGE && (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-slate-200 bg-slate-50/70 p-2.5 sm:px-3.5">
+                        <p className="text-[11px] text-slate-600 font-medium">
+                          Showing <strong className="text-slate-950 font-bold">{(safeAnimalPage - 1) * ANIMALS_PER_PAGE + 1}</strong> to{" "}
+                          <strong className="text-slate-950 font-bold">
+                            {Math.min(safeAnimalPage * ANIMALS_PER_PAGE, filteredIndividuals.length)}
+                          </strong> of <strong className="text-slate-950 font-bold">{filteredIndividuals.length}</strong> animals
+                        </p>
+
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAnimalCurrentPage(1)}
+                            disabled={safeAnimalPage === 1}
+                            className="h-7 px-1.5 rounded-md border-slate-200 text-xs font-bold disabled:opacity-30"
+                            title="First page"
+                          >
+                            <ChevronsLeft className="size-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAnimalCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={safeAnimalPage === 1}
+                            className="h-7 px-2 rounded-md border-slate-200 text-xs font-bold gap-1 disabled:opacity-30"
+                          >
+                            <ChevronLeft className="size-3" />
+                            <span>Prev</span>
+                          </Button>
+
+                          {/* Page numbers */}
+                          <div className="flex items-center gap-1 px-0.5">
+                            {Array.from({ length: totalAnimalPages }, (_, i) => i + 1)
+                              .filter((p) => p === 1 || p === totalAnimalPages || Math.abs(p - safeAnimalPage) <= 1)
+                              .map((p, idx, arr) => {
+                                const prev = arr[idx - 1];
+                                const showEllipsis = prev && p - prev > 1;
+                                return (
+                                  <React.Fragment key={p}>
+                                    {showEllipsis && <span className="text-xs text-slate-400 px-0.5">...</span>}
+                                    <button
+                                      type="button"
+                                      onClick={() => setAnimalCurrentPage(p)}
+                                      className={`size-7 rounded-md text-xs font-bold transition-all ${
+                                        p === safeAnimalPage
+                                          ? "bg-emerald-700 text-white shadow-2xs"
+                                          : "text-slate-700 hover:bg-slate-100 border border-slate-200"
+                                      }`}
+                                    >
+                                      {p}
+                                    </button>
+                                  </React.Fragment>
+                                );
+                              })}
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAnimalCurrentPage((p) => Math.min(totalAnimalPages, p + 1))}
+                            disabled={safeAnimalPage === totalAnimalPages}
+                            className="h-7 px-2 rounded-md border-slate-200 text-xs font-bold gap-1 disabled:opacity-30"
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="size-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAnimalCurrentPage(totalAnimalPages)}
+                            disabled={safeAnimalPage === totalAnimalPages}
+                            className="h-7 px-1.5 rounded-md border-slate-200 text-xs font-bold disabled:opacity-30"
+                            title="Last page"
+                          >
+                            <ChevronsRight className="size-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1567,20 +1916,20 @@ export default function BatchOverviewPage() {
         </Dialog>
       </div>
 
-      {/* ── DIALOG: HERD QR CODE (SENIOR & MOBILE FRIENDLY) ──────────────── */}
+      {/* ── DIALOG: HERD QR CODE ──────────────────────────────────────────── */}
       <Dialog open={isHerdQrOpen} onOpenChange={setIsHerdQrOpen}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl bg-white p-5 sm:p-7 shadow-2xl sm:max-w-md">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl bg-white p-3.5 sm:p-4.5 shadow-xl sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2.5 text-xl sm:text-2xl font-black text-slate-950">
-              <QrCode className="size-6 text-emerald-700" />
-              <span>Opisyal na QR Code ng Pangkat</span>
+            <DialogTitle className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-slate-950">
+              <QrCode className="size-4.5 text-emerald-700" />
+              <span>Official Herd QR Code</span>
             </DialogTitle>
-            <DialogDescription className="text-sm sm:text-base font-medium leading-relaxed text-slate-700">
-              I-scan ang code na ito upang mabilis na matukoy ang talaan ng pangkat ({currentBatch?.batchName || "kawan"}).
+            <DialogDescription className="text-xs font-medium leading-relaxed text-slate-600">
+              Scan this QR code to quickly look up the official record for {currentBatch?.batchName || "this herd"}.
             </DialogDescription>
           </DialogHeader>
           {currentBatch && (
-            <div className="py-2">
+            <div className="py-1.5">
               <QrCodePass
                 code={currentBatch.batchCode || currentBatch.id}
                 qrPayload={livestockBatchQrPayload(currentBatch.id)}
@@ -1596,38 +1945,38 @@ export default function BatchOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── DIALOG: RECORD WEIGHT (SENIOR FRIENDLY INPUT) ─────────────────── */}
+      {/* ── DIALOG: RECORD WEIGHT ─────────────────────────────────────────── */}
       <Dialog open={isWeighModalOpen} onOpenChange={setIsWeighModalOpen}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] rounded-3xl border-2 border-slate-200 bg-white p-5 sm:p-7 shadow-2xl sm:max-w-md">
+        <DialogContent className="w-[calc(100vw-1.5rem)] rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4.5 shadow-xl sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2.5 text-xl sm:text-2xl font-black text-slate-950">
-              <Scale className="size-6 text-emerald-700" />
-              <span>Itala ang Bagong Timbang</span>
+            <DialogTitle className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-slate-950">
+              <Scale className="size-4.5 text-emerald-700" />
+              <span>Record Animal Weight</span>
             </DialogTitle>
-            <DialogDescription className="text-sm sm:text-base font-medium leading-relaxed text-slate-700">
-              Ilagay ang kasalukuyang timbang sa kilo (kg) para sa hayop na may tag{" "}
-              <strong className="font-bold text-slate-950">{weighTarget?.tagNumber || "na ito"}</strong>.
+            <DialogDescription className="text-xs font-medium leading-relaxed text-slate-600">
+              Enter the new weight in kilograms (kg) for animal tag{" "}
+              <strong className="font-bold text-slate-950">{weighTarget?.tagNumber || "this animal"}</strong>.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-3">
-            <div className="flex items-center justify-between gap-4 rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 text-base">
-              <span className="font-bold text-slate-700">Dating Timbang:</span>
+          <div className="space-y-2.5 py-1.5">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs">
+              <span className="font-semibold text-slate-600">Previous Weight:</span>
               <span
-                className={`text-lg font-black ${
+                className={`font-bold ${
                   weighTarget?.weightKg == null ? "text-rose-700" : "text-slate-950"
                 }`}
               >
-                {weighTarget?.weightKg == null ? "Wala pang tala" : `${weighTarget.weightKg} kg`}
+                {weighTarget?.weightKg == null ? "Not recorded" : `${weighTarget.weightKg} kg`}
               </span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label
                 htmlFor="new-herd-animal-weight"
-                className="text-base font-black text-slate-900"
+                className="text-xs font-bold text-slate-800"
               >
-                Bagong Timbang (sa Kilograms / kg)
+                New Weight (in kilograms / kg)
               </Label>
               <Input
                 id="new-herd-animal-weight"
@@ -1636,57 +1985,57 @@ export default function BatchOverviewPage() {
                 min="0.1"
                 value={newWeightInput}
                 onChange={(e) => setNewWeightInput(e.target.value)}
-                placeholder="Halimbawa: 72.5"
-                className="min-h-13 rounded-2xl border-2 border-slate-300 text-lg sm:text-xl font-black text-slate-950 focus:border-emerald-600"
+                placeholder="e.g. 72.5"
+                className="h-9 rounded-lg border border-slate-300 text-sm font-bold text-slate-950 focus:border-emerald-600"
                 autoFocus
               />
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-3">
+          <DialogFooter className="gap-2 pt-1">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsWeighModalOpen(false)}
-              className="min-h-12 flex-1 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-800 hover:bg-slate-100"
+              className="h-8.5 flex-1 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100"
             >
-              Kanselahin (Cancel)
+              Cancel
             </Button>
             <Button
               type="button"
               onClick={handleSaveWeight}
               disabled={isSavingWeight}
-              className="min-h-12 flex-1 rounded-2xl bg-emerald-700 text-base font-black text-white hover:bg-emerald-800 shadow-md"
+              className="h-8.5 flex-1 rounded-lg bg-emerald-700 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs"
             >
-              {isSavingWeight ? "Itinatabi..." : "I-save ang Timbang"}
+              {isSavingWeight ? "Saving..." : "Save Weight"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── DIALOG: ADD ANIMAL TO BATCH (SENIOR & MOBILE FRIENDLY FORM) ───── */}
+      {/* ── DIALOG: ADD ANIMAL TO BATCH ───────────────────────────────────── */}
       <Dialog open={isAddIndividualOpen} onOpenChange={setIsAddIndividualOpen}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl bg-white p-5 sm:p-7 shadow-2xl sm:max-h-[92dvh] sm:max-w-lg">
-          <form onSubmit={handleAddIndividual} className="space-y-4">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl bg-white p-3.5 sm:p-4.5 shadow-xl sm:max-h-[90dvh] sm:max-w-sm">
+          <form onSubmit={handleAddIndividual} className="space-y-3">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2.5 text-xl sm:text-2xl font-black text-slate-950">
-                <Plus className="size-6 text-emerald-700" />
-                <span>Magdagdag ng Hayop sa Pangkat</span>
+              <DialogTitle className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-slate-950">
+                <Plus className="size-4.5 text-emerald-700" />
+                <span>Add Animal to Herd</span>
               </DialogTitle>
-              <DialogDescription className="text-sm sm:text-base font-medium leading-relaxed text-slate-700">
-                Idagdag ang impormasyon ng hayop sa pangkat na{" "}
-                <strong className="text-slate-950">{currentBatch?.batchName || "ito"}</strong>.
+              <DialogDescription className="text-xs font-medium leading-relaxed text-slate-600">
+                Add an individual animal to herd{" "}
+                <strong className="text-slate-950">{currentBatch?.batchName || "this herd"}</strong>.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 gap-4 py-2 text-base sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2.5 py-1 text-xs sm:grid-cols-2">
               {/* Tag Number */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1 sm:col-span-2">
                 <Label
                   htmlFor="new-herd-animal-tag"
-                  className="text-base font-black text-slate-900"
+                  className="text-xs font-bold text-slate-800"
                 >
-                  Numero ng Ear Tag <span className="text-rose-600">*</span>
+                  Ear Tag Number <span className="text-rose-600">*</span>
                 </Label>
                 <Input
                   id="new-herd-animal-tag"
@@ -1694,19 +2043,19 @@ export default function BatchOverviewPage() {
                   onChange={(e) =>
                     setNewAnimalData({ ...newAnimalData, tagNumber: e.target.value })
                   }
-                  placeholder="Halimbawa: TAG-001"
-                  className="min-h-12 rounded-2xl border-2 border-slate-300 text-base font-bold uppercase"
+                  placeholder="e.g. TAG-001"
+                  className="h-8.5 rounded-lg border border-slate-300 text-xs font-bold uppercase"
                   required
                 />
               </div>
 
               {/* Sex */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label
                   htmlFor="new-herd-animal-sex"
-                  className="text-base font-black text-slate-900"
+                  className="text-xs font-bold text-slate-800"
                 >
-                  Kasarian (Sex) <span className="text-rose-600">*</span>
+                  Sex <span className="text-rose-600">*</span>
                 </Label>
                 <Select
                   value={newAnimalData.sex}
@@ -1714,13 +2063,13 @@ export default function BatchOverviewPage() {
                 >
                   <SelectTrigger
                     id="new-herd-animal-sex"
-                    className="min-h-12 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-900"
+                    className="h-8.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-900"
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="FEMALE">Babae (Female)</SelectItem>
-                    <SelectItem value="MALE">Lalaki (Male)</SelectItem>
+                    <SelectItem value="FEMALE">Female</SelectItem>
+                    <SelectItem value="MALE">Male</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1732,16 +2081,16 @@ export default function BatchOverviewPage() {
                 value={newAnimalData.breed}
                 onChange={(breed) => setNewAnimalData({ ...newAnimalData, breed })}
                 required
-                className="text-base font-bold"
+                className="text-xs font-semibold"
               />
 
               {/* Weight */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label
                   htmlFor="new-herd-animal-weight-optional"
-                  className="text-sm font-bold text-slate-800"
+                  className="text-xs font-semibold text-slate-700"
                 >
-                  Timbang sa kilo (Opsiyonal)
+                  Weight in kg (optional)
                 </Label>
                 <Input
                   id="new-herd-animal-weight-optional"
@@ -1752,18 +2101,18 @@ export default function BatchOverviewPage() {
                   onChange={(e) =>
                     setNewAnimalData({ ...newAnimalData, weight: e.target.value })
                   }
-                  placeholder="Hal. 65"
-                  className="min-h-12 rounded-2xl border-2 border-slate-300 text-base font-semibold"
+                  placeholder="e.g. 65"
+                  className="h-8.5 rounded-lg border border-slate-300 text-xs font-medium"
                 />
               </div>
 
               {/* Birth Date */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label
                   htmlFor="new-herd-animal-birth-date"
-                  className="text-sm font-bold text-slate-800"
+                  className="text-xs font-semibold text-slate-700"
                 >
-                  Kaarawan (Opsiyonal)
+                  Birth Date (optional)
                 </Label>
                 <Input
                   id="new-herd-animal-birth-date"
@@ -1773,17 +2122,17 @@ export default function BatchOverviewPage() {
                   onChange={(e) =>
                     setNewAnimalData({ ...newAnimalData, birthDate: e.target.value })
                   }
-                  className="min-h-12 w-full rounded-2xl border-2 border-slate-300 text-base font-semibold"
+                  className="h-8.5 w-full rounded-lg border border-slate-300 text-xs font-medium"
                 />
               </div>
 
               {/* Vaccination Date */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1 sm:col-span-2">
                 <Label
                   htmlFor="new-herd-animal-vaccination-date"
-                  className="text-sm font-bold text-slate-800"
+                  className="text-xs font-semibold text-slate-700"
                 >
-                  Huling Petsa ng Bakuna (Opsiyonal)
+                  Last Vaccination Date (optional)
                 </Label>
                 <Input
                   id="new-herd-animal-vaccination-date"
@@ -1796,26 +2145,26 @@ export default function BatchOverviewPage() {
                       lastVaccinationDate: e.target.value,
                     })
                   }
-                  className="min-h-12 w-full rounded-2xl border-2 border-slate-300 text-base font-semibold"
+                  className="h-8.5 w-full rounded-lg border border-slate-300 text-xs font-medium"
                 />
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-3 pt-2">
+            <DialogFooter className="gap-2 pt-1">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsAddIndividualOpen(false)}
-                className="min-h-12 flex-1 rounded-2xl border-2 border-slate-300 text-base font-bold text-slate-800 hover:bg-slate-100"
+                className="h-8.5 flex-1 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100"
               >
-                Kanselahin
+                Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isSavingAnimal}
-                className="min-h-12 flex-1 rounded-2xl bg-emerald-700 text-base font-black text-white hover:bg-emerald-800 shadow-md"
+                className="h-8.5 flex-1 rounded-lg bg-emerald-700 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs"
               >
-                {isSavingAnimal ? "Itinatabi..." : "I-save ang Hayop"}
+                {isSavingAnimal ? "Saving..." : "Save Animal"}
               </Button>
             </DialogFooter>
           </form>

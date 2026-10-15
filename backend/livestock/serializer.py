@@ -10,6 +10,7 @@ from .models import (
     Barangay,
     Farmer,
     LivestockBatch,
+    LivestockBatchPhoto,
     LivestockInventory,
     LivestockOwnershipTransfer,
     LivestockType,
@@ -429,6 +430,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
     reviewed_at = serializers.SerializerMethodField(read_only=True)
     photo_url = serializers.SerializerMethodField(read_only=True)
+    photos = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LivestockBatch
@@ -448,6 +450,7 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             "target_harvest_date",
             "photo",
             "photo_url",
+            "photos",
             "status",
             "notes",
             "total_animals",
@@ -479,6 +482,29 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url) if request else url
         except Exception:
             return None
+
+    def get_photos(self, obj):
+        request = self.context.get("request")
+        urls = []
+        if obj.photo:
+            try:
+                url = obj.photo.url
+                urls.append(request.build_absolute_uri(url) if request else url)
+            except Exception:
+                pass
+        try:
+            for item in obj.gallery_photos.all():
+                if item.photo:
+                    try:
+                        url = item.photo.url
+                        full_url = request.build_absolute_uri(url) if request else url
+                        if full_url not in urls:
+                            urls.append(full_url)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return urls
 
     def get_farmer_name(self, obj):
         try:

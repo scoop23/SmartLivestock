@@ -19,6 +19,8 @@ import {
   Plus,
   Users,
   AlertCircle,
+  HelpCircle,
+  Info,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,10 +41,41 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 
 import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+
+/* ── Inline Information Hover Tooltip ── */
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            className="inline-flex items-center justify-center text-slate-400 hover:text-emerald-700 transition-colors p-0.5 rounded cursor-help focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 shrink-0"
+            aria-label={text}
+          >
+            <HelpCircle className="size-3.5" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="max-w-xs text-xs font-medium bg-slate-900 text-white p-2.5 rounded-lg shadow-xl leading-relaxed z-[var(--z-popover-dialog)]"
+        >
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 import {
   type EntryType,
   getSpeciesPreset,
@@ -145,7 +178,10 @@ export function RegisterLivestockDialog({
   const [submittedLivestock, setSubmittedLivestock] = useState<{ id: string; tagNumber: string } | null>(null);
   const [formData, setFormData] = useState(initialFormData);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [batchPhotoFiles, setBatchPhotoFiles] = useState<File[]>([]);
+  const [batchPhotoDataUrls, setBatchPhotoDataUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const batchFileInputRef = useRef<HTMLInputElement>(null);
   const [showAllAvatars, setShowAllAvatars] = useState(false);
 
   // Batch individual animals state for Add Modal
@@ -209,6 +245,66 @@ export function RegisterLivestockDialog({
     setFormData((prev) => ({ ...prev, photoDataUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
     toast.info("Photo removed. Preset avatar will be used.");
+  };
+
+  const handleBatchPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const validFiles: File[] = [];
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`"${file.name}" exceeds 5MB. Please choose smaller images.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+    if (validFiles.length === 0) return;
+
+    const combinedFiles = [...batchPhotoFiles, ...validFiles].slice(0, 10);
+    setBatchPhotoFiles(combinedFiles);
+
+    let loadedCount = 0;
+    const newUrls: string[] = [];
+    validFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        newUrls.push(dataUrl);
+        loadedCount++;
+        if (loadedCount === validFiles.length) {
+          setBatchPhotoDataUrls((prev) => {
+            const combined = [...prev, ...newUrls].slice(0, 10);
+            if (combined.length > 0) {
+              setFormData((f) => ({ ...f, photoDataUrl: combined[0] }));
+            }
+            return combined;
+          });
+          toast.success(`${validFiles.length} herd photo${validFiles.length > 1 ? "s" : ""} attached!`);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (batchFileInputRef.current) batchFileInputRef.current.value = "";
+  };
+
+  const handleRemoveSingleBatchPhoto = (index: number) => {
+    setBatchPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setBatchPhotoDataUrls((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setFormData((f) => ({ ...f, photoDataUrl: next[0] || "" }));
+      return next;
+    });
+    toast.info("Photo removed from herd.");
+  };
+
+  const handleRemoveAllBatchPhotos = () => {
+    setBatchPhotoFiles([]);
+    setBatchPhotoDataUrls([]);
+    setFormData((prev) => ({ ...prev, photoDataUrl: "" }));
+    if (batchFileInputRef.current) batchFileInputRef.current.value = "";
+    toast.info("All herd photos removed.");
   };
 
   const handleSelectAvatar = (avatarId: string) => {
@@ -472,7 +568,25 @@ export function RegisterLivestockDialog({
         });
 
         if (response.data?.id) {
+          if (batchPhotoFiles.length > 0) {
+            try {
+              const photoForm = new FormData();
+              batchPhotoFiles.forEach((file) => {
+                photoForm.append("photos", file);
+              });
+              photoForm.append("photo", batchPhotoFiles[0]);
+              await api.patch(`/livestock/batches/${response.data.id}/`, photoForm, {
+                headers: { "Content-Type": "multipart/form-data" },
+              });
+            } catch (pErr) {
+              console.error("Batch photos upload error:", pErr);
+            }
+          }
           try {
+            if (batchPhotoDataUrls.length > 0) {
+              localStorage.setItem(`batch_photos_${response.data.id}`, JSON.stringify(batchPhotoDataUrls));
+              localStorage.setItem(`batch_photo_${response.data.id}`, batchPhotoDataUrls[0]);
+            }
             const formattedAnimals = batchAnimals.map((a, idx) => ({
               id: `${response.data.id}-${idx + 1}`,
               tagNumber: a.tagNumber.trim(),
@@ -593,6 +707,8 @@ export function RegisterLivestockDialog({
     if (!nextOpen) {
       setFormError("");
       setFormData(initialFormData);
+      setBatchPhotoFiles([]);
+      setBatchPhotoDataUrls([]);
       resetBatchAnimalsToPreset(formData.livestockType);
     }
   };
@@ -629,9 +745,12 @@ export function RegisterLivestockDialog({
 
             {/* Entry Mode Toggle */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
-                Entry Mode
-              </Label>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  Entry Mode
+                </Label>
+                <InfoTooltip text="Choose whether you are registering a single animal with its own tag, or a group of animals raised together as a herd." />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
                 <button
                   type="button"
@@ -660,9 +779,12 @@ export function RegisterLivestockDialog({
 
             {/* Species Selection with Preset Chips */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
-                Livestock Species
-              </Label>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  Livestock Species
+                </Label>
+                <InfoTooltip text="Select the animal species category (e.g. Cattle, Carabao, Swine, Goat, Sheep)." />
+              </div>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {Object.entries(livestockTypes).map(([name]) => {
                   const isSelected = formData.livestockType === name;
@@ -723,12 +845,15 @@ export function RegisterLivestockDialog({
                 {/* Ear Tag / RFID Number */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="tagNumber"
-                      className="text-xs font-black uppercase tracking-wider text-slate-500"
-                    >
-                      Ear Tag / RFID Number
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="tagNumber"
+                        className="text-xs font-black uppercase tracking-wider text-slate-500"
+                      >
+                        Ear Tag / RFID Number
+                      </Label>
+                      <InfoTooltip text="Unique identification number placed on the animal's ear tag or RFID chip (e.g. YOURNAME-001)." />
+                    </div>
                     <button
                       type="button"
                       onClick={() =>
@@ -763,10 +888,13 @@ export function RegisterLivestockDialog({
                 <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                        <Camera className="w-3.5 h-3.5 text-emerald-700" />
-                        Animal Photo & Visual Avatar
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                          Animal Photo & Visual Avatar
+                        </Label>
+                        <InfoTooltip text="Upload a clear photograph or pick an illustrated species avatar to represent this animal." />
+                      </div>
                       <p className="text-[11px] text-slate-500">
                         Upload a photo from your device, or choose a preset avatar below.
                       </p>
@@ -899,13 +1027,18 @@ export function RegisterLivestockDialog({
 
                 {/* Assigned Herd (Optional) */}
                 <div className="space-y-1.5">
-                  <Label
-                    htmlFor="assignedBatch"
-                    className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between"
-                  >
-                    <span>Herd (Optional)</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="assignedBatch"
+                        className="text-xs font-black uppercase tracking-wider text-slate-500"
+                      >
+                        Herd (Optional)
+                      </Label>
+                      <InfoTooltip text="Group this animal under an existing herd or leave blank if raised as a standalone livestock." />
+                    </div>
                     <span className="text-[10px] text-slate-400 font-semibold">Assign to batch</span>
-                  </Label>
+                  </div>
                   <Select
                     value={formData.batchId || "none"}
                     onValueChange={(val) => setFormData({ ...formData, batchId: val === "none" ? "" : val })}
@@ -938,12 +1071,15 @@ export function RegisterLivestockDialog({
                 {/* Individual Breed Selection (Dropdown + Others) */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="breedSelect"
-                      className="text-xs font-black uppercase tracking-wider text-slate-500"
-                    >
-                      Breed / Pedigree
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="breedSelect"
+                        className="text-xs font-black uppercase tracking-wider text-slate-500"
+                      >
+                        Breed / Pedigree
+                      </Label>
+                      <InfoTooltip text="Select the official breed or choose 'Others' to specify a crossbreed or native Batangas breed." />
+                    </div>
                     <span className="text-[10px] text-slate-400 font-semibold">
                       {formData.isOtherBreed ? "Custom Breed Mode" : "Standard Species Breed"}
                     </span>
@@ -999,12 +1135,15 @@ export function RegisterLivestockDialog({
                 {/* Individual Sex & Weight */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label
-                      htmlFor="sex"
-                      className="text-xs font-black uppercase tracking-wider text-slate-500"
-                    >
-                      Sex / Gender
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="sex"
+                        className="text-xs font-black uppercase tracking-wider text-slate-500"
+                      >
+                        Sex / Gender
+                      </Label>
+                      <InfoTooltip text="Biological sex of the livestock (Female or Male)." />
+                    </div>
                     <Select
                       value={formData.sex}
                       onValueChange={(val) => setFormData({ ...formData, sex: val })}
@@ -1021,12 +1160,15 @@ export function RegisterLivestockDialog({
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label
-                        htmlFor="weight"
-                        className="text-xs font-black uppercase tracking-wider text-slate-500"
-                      >
-                        Weight (kg)
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="weight"
+                          className="text-xs font-black uppercase tracking-wider text-slate-500"
+                        >
+                          Weight (kg)
+                        </Label>
+                        <InfoTooltip text="Live body weight of the animal in kilograms (scale or weight band estimate)." />
+                      </div>
                       {currentPreset?.suggestedWeightKg && (
                         <span className="text-[10px] text-slate-400 font-semibold">
                           ~{currentPreset.suggestedWeightKg} kg
@@ -1046,7 +1188,10 @@ export function RegisterLivestockDialog({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="birthDate" className="text-xs font-black uppercase tracking-wider text-slate-500">Birth Date (optional)</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="birthDate" className="text-xs font-black uppercase tracking-wider text-slate-500">Birth Date (optional)</Label>
+                    <InfoTooltip text="Estimated or recorded date when the animal was born to automatically track its age." />
+                  </div>
                   <Input id="birthDate" type="date" max={localCalendarDateToday()} value={formData.birthDate} onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))} className="h-11 min-w-0 w-full rounded-xl px-3 pr-12 text-left [&::-webkit-date-and-time-value]:min-h-[1.5rem] [&::-webkit-date-and-time-value]:text-left" />
                 </div>
 
@@ -1064,23 +1209,29 @@ export function RegisterLivestockDialog({
                         })
                       }
                     />
-                    <Label
-                      htmlFor="isVaccinated"
-                      className="text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Syringe className="w-3.5 h-3.5 text-emerald-700" />
-                      Animal has active vaccination records on file
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="isVaccinated"
+                        className="text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Syringe className="w-3.5 h-3.5 text-emerald-700" />
+                        Animal has active vaccination records on file
+                      </Label>
+                      <InfoTooltip text="Check this box if this animal has received protective vaccinations (e.g. Hemorrhagic Septicemia, Anthrax, Hog Cholera)." />
+                    </div>
                   </div>
 
                   {formData.isVaccinated && (
                     <div className="space-y-1.5 pt-1">
-                      <Label
-                        htmlFor="vaxDate"
-                        className="text-xs font-black uppercase tracking-wider text-slate-500"
-                      >
-                        Last Vaccination Date
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="vaxDate"
+                          className="text-xs font-black uppercase tracking-wider text-slate-500"
+                        >
+                          Last Vaccination Date
+                        </Label>
+                        <InfoTooltip text="The date when the last vaccine dose was administered to this animal." />
+                      </div>
                       <Input
                         id="vaxDate"
                         type="date"
@@ -1124,9 +1275,12 @@ export function RegisterLivestockDialog({
                     {/* Herd Name */}
                     <div className="space-y-1.5 sm:col-span-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="batchName" className="text-xs font-black uppercase tracking-wider text-slate-600">
-                          Herd Name <span className="text-rose-500">*</span>
-                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="batchName" className="text-xs font-black uppercase tracking-wider text-slate-600">
+                            Herd Name <span className="text-rose-500">*</span>
+                          </Label>
+                          <InfoTooltip text="Descriptive name or identifier for this herd (e.g. Pen 3 Fattening Swine, Batangas Cattle Lot A)." />
+                        </div>
                         <button
                           type="button"
                           onClick={() =>
@@ -1152,9 +1306,12 @@ export function RegisterLivestockDialog({
 
                     {/* Housing Pen */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="housingPen" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Housing Pen / Facility
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="housingPen" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                          Housing Pen / Facility
+                        </Label>
+                        <InfoTooltip text="The physical barn, paddock, corral, or pen number where this herd is housed." />
+                      </div>
                       <Input
                         id="housingPen"
                         placeholder="e.g. Pen 3 Fattening / East Barn"
@@ -1167,9 +1324,12 @@ export function RegisterLivestockDialog({
                     {/* Feed Formulation */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <Label htmlFor="feedType" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                          Feed Formulation / Rations
-                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="feedType" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                            Feed Formulation / Rations
+                          </Label>
+                          <InfoTooltip text="Primary diet or feed formula provided to this herd (e.g., Napier Grass, Starter Mash, Concentrates)." />
+                        </div>
                         <span className="text-[10px] text-slate-400 font-semibold">
                           Optional · {currentPreset?.name} suggestions
                         </span>
@@ -1225,14 +1385,139 @@ export function RegisterLivestockDialog({
                     </div>
                   </div>
 
+                  {/* Herd Group Cover & Gallery Photos Upload */}
+                  <div className="pt-2 border-t border-slate-200/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                          Herd Photos (Optional)
+                          <InfoTooltip text="Upload multiple pictures of the herd, pen, grazing area, or different angles for complete visual documentation." />
+                        </Label>
+                        <p className="text-[11px] text-slate-500">
+                          Attach photos of this herd, housing pen, or grazing area (supports multiple photos).
+                        </p>
+                      </div>
+                      {batchPhotoDataUrls.length > 0 ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                          {batchPhotoDataUrls.length} Photo{batchPhotoDataUrls.length > 1 ? "s" : ""} Attached
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] font-medium">
+                          No Photos
+                        </Badge>
+                      )}
+                    </div>
+
+                    <input
+                      type="file"
+                      multiple
+                      ref={batchFileInputRef}
+                      onChange={handleBatchPhotoUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+
+                    {batchPhotoDataUrls.length > 0 ? (
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2.5">
+                        <div className="flex items-center gap-2.5 overflow-x-auto pb-1.5 pt-0.5">
+                          {batchPhotoDataUrls.map((url, idx) => (
+                            <div
+                              key={url}
+                              className="relative size-18 rounded-2xl overflow-hidden border-2 border-emerald-600/80 shadow-xs group shrink-0"
+                            >
+                              <img
+                                src={url}
+                                alt={`Herd photo #${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute top-1 left-1 px-1.5 py-0.2 rounded-md bg-black/70 text-white font-bold text-[9px] backdrop-blur-xs">
+                                {idx === 0 ? "Cover" : `#${idx + 1}`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSingleBatchPhoto(idx)}
+                                className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold cursor-pointer"
+                                title={`Remove photo #${idx + 1}`}
+                              >
+                                <Trash2 className="w-4 h-4 text-rose-300" />
+                              </button>
+                            </div>
+                          ))}
+
+                          {batchPhotoDataUrls.length < 10 && (
+                            <button
+                              type="button"
+                              onClick={() => batchFileInputRef.current?.click()}
+                              className="size-18 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-600 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-700 flex flex-col items-center justify-center gap-1 transition-colors shrink-0 cursor-pointer"
+                              title="Add more photos"
+                            >
+                              <Plus className="size-4.5" />
+                              <span className="text-[9px] font-bold">Add More</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5 border-t border-slate-100">
+                          <span>Hover over any photo to remove it. First image serves as the herd cover.</span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={handleRemoveAllBatchPhotos}
+                              className="h-6 px-2 text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
+                            >
+                              Clear All ({batchPhotoDataUrls.length})
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => batchFileInputRef.current?.click()}
+                              className="h-7 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold gap-1 shadow-xs cursor-pointer"
+                            >
+                              <Upload className="size-3" /> Add Photos
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3.5 p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-xs">
+                        <div className="size-16 rounded-2xl flex flex-col items-center justify-center bg-slate-100 border-2 border-dashed border-slate-300 text-slate-400 shrink-0">
+                          <Camera className="size-6 text-slate-400" />
+                          <span className="text-[9px] font-bold uppercase mt-0.5">Herd</span>
+                        </div>
+
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => batchFileInputRef.current?.click()}
+                              className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              Upload Herd Photos
+                            </Button>
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            Upload one or multiple photos (JPG, PNG, WebP up to 5MB each). You can attach up to 10 photos.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Batch Head Count Stepper & Quick Chips */}
                 <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-black uppercase tracking-wider text-slate-600">
-                      Herd Size
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-xs font-black uppercase tracking-wider text-slate-600">
+                        Herd Size
+                      </Label>
+                      <InfoTooltip text="Total number of animals in this herd. Changing this automatically updates the individual animal roster rows below." />
+                    </div>
                     <span className="text-xs font-bold text-emerald-700">
                       {batchAnimals.length} Individual Animal{batchAnimals.length !== 1 ? "s" : ""} in Roster
                     </span>
@@ -1285,10 +1570,13 @@ export function RegisterLivestockDialog({
                 <div className="space-y-2.5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-emerald-700" />
-                        Individual Livestock in Batch ({batchAnimals.length} heads)
-                      </h4>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-emerald-700" />
+                          Individual Livestock in Batch ({batchAnimals.length} heads)
+                        </h4>
+                        <InfoTooltip text="Roster of all animals within this herd. Each animal gets an individual tag, sex, breed, and vaccination record." />
+                      </div>
                       <p className="text-[11px] text-slate-500">
                         Edit individual tags, breed, sex, weight, and vaccination per animal.
                       </p>
@@ -1371,9 +1659,12 @@ export function RegisterLivestockDialog({
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">
-                              Ear Tag / RFID
-                            </Label>
+                            <div className="flex items-center gap-1">
+                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                                Ear Tag / RFID
+                              </Label>
+                              <InfoTooltip text="Unique identification tag or RFID for this individual animal in the herd." />
+                            </div>
                             <Input
                               value={animal.tagNumber}
                               onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value.toUpperCase())}
@@ -1389,9 +1680,12 @@ export function RegisterLivestockDialog({
                           </div>
 
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">
-                              Breed / Strain
-                            </Label>
+                            <div className="flex items-center gap-1">
+                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                                Breed / Strain
+                              </Label>
+                              <InfoTooltip text="Breed or pedigree strain of this animal." />
+                            </div>
                             <Select
                               value={
                                 currentPreset?.commonBreeds?.includes(animal.breed)
@@ -1432,9 +1726,12 @@ export function RegisterLivestockDialog({
                           </div>
 
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">
-                              Sex
-                            </Label>
+                            <div className="flex items-center gap-1">
+                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                                Sex
+                              </Label>
+                              <InfoTooltip text="Sex of this individual animal (Female, Male, or Castrated)." />
+                            </div>
                             <Select
                               value={animal.sex}
                               onValueChange={(val: any) => updateBatchAnimalField(idx, "sex", val)}
@@ -1451,9 +1748,12 @@ export function RegisterLivestockDialog({
                           </div>
 
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">
-                              Weight (kg)
-                            </Label>
+                            <div className="flex items-center gap-1">
+                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                                Weight (kg)
+                              </Label>
+                              <InfoTooltip text="Weight in kg for this individual animal." />
+                            </div>
                             <Input
                               type="number"
                               step="0.1"
@@ -1464,7 +1764,10 @@ export function RegisterLivestockDialog({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">Birth Date (optional)</Label>
+                            <div className="flex items-center gap-1">
+                              <Label className="text-[10px] font-black uppercase text-slate-400">Birth Date (optional)</Label>
+                              <InfoTooltip text="Birth date of this animal to track its age." />
+                            </div>
                             <Input type="date" max={localCalendarDateToday()} value={animal.birthDate || ""} onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)} className="h-11 min-w-0 w-full text-xs rounded-lg" />
                           </div>
                         </div>
@@ -1472,6 +1775,7 @@ export function RegisterLivestockDialog({
                         <div className="pt-1 flex items-center justify-between border-t border-slate-100">
                           <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
                             <Syringe className="w-3 h-3 text-slate-400" /> Vaccination Date (optional):
+                            <InfoTooltip text="Date this member received its most recent vaccination dose." />
                           </span>
                           <Input
                             type="date"
@@ -1526,25 +1830,50 @@ export function RegisterLivestockDialog({
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="flex items-center justify-between font-bold text-emerald-950">
-                    <span className="text-sm font-black flex items-center gap-1.5">
-                      <Layers className="w-4 h-4 text-emerald-700" />
-                      Herd: {batchAnimals.length} Heads of {formData.livestockType}
-                    </span>
-                    <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px]">
-                      Batch Entry
-                    </Badge>
+                <div className="flex items-center gap-3">
+                  {batchPhotoDataUrls.length > 0 ? (
+                    <div className="relative size-12 rounded-xl overflow-hidden border border-emerald-300 shadow-2xs shrink-0 group">
+                      <img
+                        src={batchPhotoDataUrls[0]}
+                        alt="Herd cover preview"
+                        className="w-full h-full object-cover"
+                      />
+                      {batchPhotoDataUrls.length > 1 && (
+                        <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-bold text-white text-center py-0.2">
+                          +{batchPhotoDataUrls.length - 1}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="size-11 rounded-xl flex items-center justify-center bg-teal-100 text-teal-800 border border-teal-200 shadow-2xs shrink-0">
+                      <Layers className="size-5" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between font-bold text-emerald-950">
+                      <span className="text-sm font-black flex items-center gap-1.5 truncate">
+                        Herd: {batchAnimals.length} Heads of {formData.livestockType}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {batchPhotoDataUrls.length > 0 && (
+                          <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[9px] font-semibold">
+                            📷 {batchPhotoDataUrls.length} photo{batchPhotoDataUrls.length > 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                        <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px]">
+                          Batch Entry
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-slate-600 mt-0.5 font-medium truncate">
+                      Avg Weight: <strong>~{batchMetrics.avgWeight} kg</strong> • Biomass: <strong>~{batchMetrics.totalWeight} kg</strong>
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                      Tags: {batchAnimals.slice(0, 4).map((a) => a.tagNumber || "unassigned").join(", ")}
+                      {batchAnimals.length > 4 ? ` +${batchAnimals.length - 4} more` : ""}
+                    </p>
                   </div>
-                  <p className="text-slate-600 mt-0.5 font-medium">
-                    Avg Weight:{" "}
-                    <strong>~{batchMetrics.avgWeight} kg</strong> • Biomass: <strong>~{batchMetrics.totalWeight} kg</strong>
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-mono mt-1 truncate">
-                    Tags: {batchAnimals.slice(0, 4).map((a) => a.tagNumber || "unassigned").join(", ")}
-                    {batchAnimals.length > 4 ? ` +${batchAnimals.length - 4} more` : ""}
-                  </p>
-                </>
+                </div>
               )}
             </div>
           </div>

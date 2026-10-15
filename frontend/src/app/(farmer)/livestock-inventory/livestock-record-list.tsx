@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowDownAZ,
@@ -32,6 +33,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Camera,
+  ImageIcon,
+  Check,
 } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
@@ -242,6 +246,361 @@ export interface LivestockRecordListProps {
   showExport?: boolean;
   showAddRecord?: boolean;
   centerViewToggle?: boolean;
+  defaultViewMode?: "grid" | "table";
+}
+
+/* ── Split Card with Hero Image Layout (like Herd Card) ── */
+function LivestockSplitCard({
+  item,
+  onView,
+  onEdit,
+  onDelete,
+  handleCopyTag,
+}: {
+  item: LivestockInventoryItem;
+  onView: (item: LivestockInventoryItem) => void;
+  onEdit: (item: LivestockInventoryItem) => void;
+  onDelete: (item: LivestockInventoryItem) => void;
+  handleCopyTag: (tag: string) => void;
+}) {
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  const localPhoto = typeof window !== "undefined"
+    ? localStorage.getItem(`livestock_photo_${item.id}`) || localStorage.getItem(`livestock_photo_${item.tagNumber}`)
+    : null;
+  const localAvatar = typeof window !== "undefined"
+    ? localStorage.getItem(`livestock_avatar_${item.id}`)
+    : null;
+  const photoUrl = item.photoUrl || localPhoto;
+  const avatar = getAvatarById(item.avatarKey || localAvatar, item.livestockTypeName);
+
+  // Collect potential photos for multi-photo carousel
+  const photos = useMemo(() => {
+    const list: string[] = [];
+    if (photoUrl) list.push(photoUrl);
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(`livestock_photos_${item.id}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            list.push(...parsed);
+          }
+        }
+      } catch {}
+    }
+    return Array.from(new Set(list.filter(Boolean)));
+  }, [photoUrl, item.id]);
+
+  const hasPhotos = photos.length > 0;
+  const currentPhoto = hasPhotos ? photos[photoIndex % photos.length] : null;
+
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+  };
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+  };
+
+  const hasVax = Boolean(item.lastVaccinationDate);
+  const isApproved = item.status === "APPROVED";
+
+  return (
+    <Card
+      className={cn(
+        "group overflow-hidden rounded-xl border transition-all duration-200 flex flex-col sm:flex-row justify-between",
+        "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md",
+        item.status === "SUBJECT_TO_REVISION" && "border-rose-300/80 bg-rose-50/15"
+      )}
+    >
+      {/* ── LEFT HERO IMAGE SECTION ── */}
+      <div className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-60 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+        {currentPhoto ? (
+          <Image
+            src={currentPhoto}
+            alt={item.tagNumber || item.livestockTypeName}
+            fill
+            unoptimized
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 p-3 text-white">
+            <span className="text-4xl drop-shadow-md">{avatar.emoji}</span>
+            <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+              {item.livestockTypeName}
+            </span>
+          </div>
+        )}
+
+        {/* Ambient Dark Gradient on bottom/sides */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+
+        {/* Top Badges */}
+        <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center justify-between gap-1.5 z-10">
+          <Badge className="rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+            {item.livestockTypeName}
+          </Badge>
+
+          <OperationalStatusBadge status={item.operationalStatus} compact />
+        </div>
+
+        {/* Multi-Photo Navigation Controls */}
+        {photos.length > 1 && (
+          <div className="absolute inset-y-0 left-1.5 right-1.5 flex items-center justify-between z-20 pointer-events-none">
+            <button
+              type="button"
+              aria-label="Previous livestock picture"
+              onClick={handlePrevPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs cursor-pointer"
+            >
+              <ChevronLeft className="size-3.5 stroke-[2.5]" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next livestock picture"
+              onClick={handleNextPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs cursor-pointer"
+            >
+              <ChevronRight className="size-3.5 stroke-[2.5]" />
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Hero Overlay: Tag Badge & Photo Counter or Herd */}
+        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white z-10">
+          <div className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-mono font-bold backdrop-blur-md text-emerald-300">
+            <Tag className="size-3 text-emerald-400" />
+            <span>{item.tagNumber || `TAG-${item.id}`}</span>
+          </div>
+
+          {photos.length > 1 ? (
+            <div className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold backdrop-blur-md text-white">
+              <Camera className="size-3 text-emerald-400" />
+              <span>
+                {(photoIndex % photos.length) + 1} of {photos.length}
+              </span>
+            </div>
+          ) : item.batchCode ? (
+            <span className="rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-900 shadow-2xs">
+              Herd {item.batchCode}
+            </span>
+          ) : (
+            <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-300">
+              <ImageIcon className="size-3" />
+              <span>{hasPhotos ? "1 photo" : "Avatar"}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── RIGHT CONTENT SECTION ── */}
+      <div className="flex flex-1 flex-col justify-between p-3 sm:p-3.5 space-y-2 min-w-0">
+        <div className="space-y-2">
+          {/* Header Row: Title & Regulatory Status */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Link
+                  href={`/livestock-inventory/${item.tagNumber || item.id}`}
+                  className="text-sm sm:text-base font-bold text-slate-950 hover:text-emerald-800 transition-colors line-clamp-1"
+                >
+                  {item.livestockTypeName} {item.tagNumber ? `#${item.tagNumber}` : `#${item.id}`}
+                </Link>
+                {item.tagNumber && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopyTag(item.tagNumber!);
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                    title="Copy ear tag"
+                  >
+                    <Copy className="size-3" />
+                  </button>
+                )}
+                {item.batchCode && (
+                  <Link
+                    href="/livestock-inventory/batches"
+                    className="hidden sm:inline-flex items-center gap-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide shadow-2xs shrink-0 transition-colors"
+                    title={`Belongs to Herd: ${item.batchCode}`}
+                  >
+                    <Layers className="size-2.5 text-teal-600" />
+                    <span>Herd {item.batchCode}</span>
+                  </Link>
+                )}
+                {item.entryType === "INDIVIDUAL" && !item.batchCode && (
+                  <Badge className="hidden sm:inline-flex shrink-0 border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">
+                    INDIVIDUAL
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs font-medium text-slate-600 line-clamp-1">
+                {item.breed || "Standard Breed"}
+                {item.sex ? ` · ${item.sex}` : ""}
+                {item.age ? ` · ${formatLivestockAge(item.age)}` : ""}
+              </p>
+            </div>
+
+            <div className="shrink-0 flex flex-col items-end gap-1">
+              {getStatusBadge(item.status)}
+            </div>
+          </div>
+
+          {/* Core Stats: 2x2 Grid */}
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold text-slate-700">
+            {/* Weight */}
+            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+              <div className="p-1 rounded-md bg-white text-[#1E4D2B] shadow-2xs shrink-0">
+                <Weight className="size-3.5 text-[#1E4D2B]" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Weight
+                </span>
+                <span className="font-extrabold text-slate-900 truncate block leading-tight">
+                  {item.weight ? `${item.weight} kg` : "Unrecorded"}
+                </span>
+              </div>
+            </div>
+
+            {/* Immunization */}
+            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+              <div className="p-1 rounded-md bg-white shadow-2xs shrink-0">
+                {hasVax ? (
+                  <ShieldCheck className="size-3.5 text-emerald-600" />
+                ) : (
+                  <ShieldAlert className="size-3.5 text-amber-600" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Immunization
+                </span>
+                <span
+                  className={cn(
+                    "font-extrabold truncate block leading-tight",
+                    hasVax ? "text-emerald-700" : "text-amber-600"
+                  )}
+                  title={hasVax ? item.lastVaccinationDate ?? undefined : "Due for Vaccine"}
+                >
+                  {hasVax ? item.lastVaccinationDate : "Due for Vaccine"}
+                </span>
+              </div>
+            </div>
+
+            {/* Life Stage */}
+            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+              <div className="p-1 rounded-md bg-white text-slate-700 shadow-2xs shrink-0">
+                <Icon iconNode={cowHead} className="size-3.5 text-slate-600" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Life Stage
+                </span>
+                <span className="font-extrabold text-slate-900 truncate block leading-tight">
+                  {formatAgeClassification(item.ageClassification)}
+                </span>
+              </div>
+            </div>
+
+            {/* Birth Date / Registered */}
+            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+              <div className="p-1 rounded-md bg-white text-teal-700 shadow-2xs shrink-0">
+                <CalendarDays className="size-3.5 text-teal-700" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Birth / Age
+                </span>
+                <span className="font-extrabold text-slate-900 truncate block leading-tight">
+                  {item.birthDate ? formatCalendarDate(item.birthDate) : (item.age ? formatLivestockAge(item.age) : "Not recorded")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Officer remarks if present */}
+          {item.reviewRemarks && (
+            <div className="p-2 rounded-lg bg-rose-50/80 border border-rose-200/80 text-[11px] text-rose-950 flex items-start gap-1.5">
+              <Info className="size-3.5 text-rose-600 shrink-0 mt-0.5" />
+              <p className="line-clamp-2 leading-relaxed min-w-0">
+                <strong className="font-bold text-rose-900">Officer Note:</strong> {item.reviewRemarks}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Bar: Date left, Actions right */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
+            <CalendarDays className="size-3.5 text-slate-400" />
+            <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Registered"}</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onView(item)}
+              className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 cursor-pointer"
+            >
+              <Eye className="size-3.5" />
+              <span>Profile</span>
+            </Button>
+
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEdit(item)}
+                      disabled={isApproved}
+                      className="size-8 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {isApproved ? "Approved entries are locked" : "Edit animal record"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDelete(item)}
+                      disabled={isApproved}
+                      className="size-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-25 cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {isApproved ? "Approved entries cannot be deleted" : "Delete record"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 export default function LivestockRecordList({
@@ -256,11 +615,12 @@ export default function LivestockRecordList({
   showExport = true,
   showAddRecord = true,
   centerViewToggle = false,
+  defaultViewMode,
 }: LivestockRecordListProps) {
   const router = useRouter();
 
   // View mode: "grid" | "table"
-  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+  const [viewMode, setViewMode] = useState<"grid" | "table">(defaultViewMode ?? "grid");
 
   // Filtering states
   const [searchQuery, setSearchQuery] = useState("");
@@ -787,358 +1147,18 @@ export default function LivestockRecordList({
           </div>
         </Card>
       ) : viewMode === "grid" ? (
-        /* ═══ 4. Data Display Cards: Structured Grid Layout ═══ */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {paginatedItems.map((item) => {
-            const hasVax = Boolean(item.lastVaccinationDate);
-            const isApproved = item.status === "APPROVED";
-            const localPhoto = typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${item.id}`) : null;
-            const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${item.id}`) : null;
-            const photoUrl = item.photoUrl || localPhoto;
-            const avatar = getAvatarById(item.avatarKey || localAvatar, item.livestockTypeName);
-
-            return (
-              <Card
-                key={item.id}
-                className={cn(
-                  "relative overflow-hidden bg-white border border-slate-200/90 rounded-xl transition-all duration-150",
-                  "hover:border-[#1E4D2B]/50 hover:shadow-md flex flex-col justify-between min-h-0 sm:min-h-[280px]",
-                  item.status === "SUBJECT_TO_REVISION" && "border-rose-300/80 bg-rose-50/15"
-                )}
-              >
-                {/* Phone cards use a summary-first stack; the denser registry view stays for wider screens. */}
-                <CardContent className="flex flex-1 flex-col gap-4 p-4 sm:hidden">
-                  <div className="flex min-w-0 flex-col items-start gap-3">
-                    <div className="relative shrink-0">
-                      {photoUrl ? (
-                        <img src={photoUrl} alt={item.tagNumber || item.livestockTypeName} className="size-16 rounded-xl border border-slate-200 object-cover" />
-                      ) : (
-                        <div className={`flex size-16 items-center justify-center rounded-xl border text-2xl ${avatar.bgGradient}`} aria-hidden="true">
-                          {avatar.emoji}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 w-full space-y-1">
-                      <Link
-                        href={`/livestock-inventory/${item.tagNumber || item.id}`}
-                        className="block break-words text-lg font-black leading-snug text-slate-900 hover:text-emerald-800"
-                      >
-                        {item.livestockTypeName} {item.tagNumber ? `#${item.tagNumber}` : `#${item.id}`}
-                      </Link>
-                      <p className="break-words text-sm leading-relaxed text-slate-600">
-                        {item.breed || "Breed not recorded"}{item.sex ? ` • ${item.sex}` : ""}
-                      </p>
-                      {item.batchCode && (
-                        <Link
-                          href="/livestock-inventory/batches"
-                          className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800"
-                        >
-                          <Layers className="size-3.5 shrink-0" />
-                          <span className="break-all">Herd {item.batchCode}</span>
-                        </Link>
-                      )}
-                      {item.entryType === "INDIVIDUAL" && !item.batchCode && (
-                        <Badge className="mt-2 w-fit border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-100">
-                          INDIVIDUAL
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-start gap-2 border-y border-slate-100 py-3">
-                    {getStatusBadge(item.status)}
-                    <OperationalStatusBadge status={item.operationalStatus} />
-                  </div>
-
-                  <dl className="space-y-0 divide-y divide-slate-100 text-sm">
-                    <div className="flex items-start justify-between gap-3 py-2 first:pt-0">
-                      <dt className="shrink-0 text-slate-500">Birth Date · Age</dt>
-                      <dd className="min-w-0 break-words text-right font-semibold text-slate-900">
-                        {formatCalendarDate(item.birthDate)} · {formatLivestockAge(item.age)} ({formatAgeClassification(item.ageClassification)})
-                      </dd>
-                    </div>
-                    <div className="flex items-start justify-between gap-3 py-2 first:pt-0">
-                      <dt className="shrink-0 text-slate-500">Weight</dt>
-                      <dd className="min-w-0 break-words text-right font-semibold text-slate-900">{item.weight ? `${item.weight} kg` : "Not recorded"}</dd>
-                    </div>
-                    <div className="flex items-start justify-between gap-3 py-2">
-                      <dt className="shrink-0 text-slate-500">Immunization</dt>
-                      <dd className={cn("min-w-0 break-words text-right font-semibold", hasVax ? "text-emerald-700" : "text-amber-700")}>
-                        {hasVax ? item.lastVaccinationDate : "No vaccination date"}
-                      </dd>
-                    </div>
-                    <div className="flex items-start justify-between gap-3 py-2 last:pb-0">
-                      <dt className="shrink-0 text-slate-500">Registered</dt>
-                      <dd className="min-w-0 break-words text-right font-semibold text-slate-900">
-                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Date not recorded"}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  {item.reviewRemarks && (
-                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm leading-relaxed text-rose-950 break-words">
-                      <strong className="font-bold">Officer Note:</strong> {item.reviewRemarks}
-                    </div>
-                  )}
-
-                  <div className="mt-auto space-y-2 border-t border-slate-100 pt-3">
-                    <Button type="button" onClick={() => onView(item)} className="min-h-12 w-full rounded-xl bg-emerald-700 font-bold text-white hover:bg-emerald-800">
-                      <Eye className="mr-2 size-4" /> View Profile
-                    </Button>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button type="button" variant="outline" disabled={!item.tagNumber} onClick={() => item.tagNumber && handleCopyTag(item.tagNumber)} aria-label="Copy livestock tag" title="Copy tag" className="min-h-11 rounded-xl">
-                        <Copy className="size-4" />
-                      </Button>
-                      <Button type="button" variant="outline" disabled={isApproved} onClick={() => onEdit(item)} aria-label="Edit livestock record" title={isApproved ? "Approved entries are locked" : "Edit record"} className="min-h-11 rounded-xl">
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button type="button" variant="outline" disabled={isApproved} onClick={() => onDelete(item)} aria-label="Delete livestock record" title={isApproved ? "Approved entries cannot be deleted" : "Delete record"} className="min-h-11 rounded-xl text-rose-700 hover:bg-rose-50">
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-
-                <CardContent className="hidden flex-1 flex-col justify-between space-y-2.5 p-4 sm:flex">
-                  {/* Tag Header: High-visibility pill badge alongside clean status indicator */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 group min-w-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="relative shrink-0">
-                          {photoUrl ? (
-                            <img
-                              src={photoUrl}
-                              alt={item.tagNumber}
-                              className="size-8 rounded-lg object-cover border border-slate-200 shadow-2xs"
-                            />
-                          ) : (
-                            <div
-                              className={`size-8 rounded-lg flex items-center justify-center text-sm bg-gradient-to-br border shadow-2xs ${avatar.bgGradient}`}
-                              title={`${avatar.name} (${avatar.badge})`}
-                            >
-                              {avatar.emoji}
-                            </div>
-                          )}
-                        </div>
-                        <Link
-                          href={`/livestock-inventory/${item.tagNumber || item.id}`}
-                          className="flex items-center gap-1.5 bg-[#1E4D2B] hover:bg-[#163b21] text-white font-mono px-2.5 py-0.5 rounded-full text-xs font-black tracking-wide shadow-2xs shrink-0 transition-colors"
-                        >
-                          <Tag className="w-3 h-3 text-emerald-300" />
-                          <span className="truncate max-w-[120px]">
-                            {item.tagNumber || `TAG-${item.id}`}
-                          </span>
-                        </Link>
-                        {item.batchCode && (
-                          <Link
-                            href="/livestock-inventory/batches"
-                            className="flex items-center gap-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide shadow-2xs shrink-0 transition-colors"
-                            title={`Belongs to Herd: ${item.batchCode}`}
-                          >
-                            <Layers className="w-2.5 h-2.5 text-teal-600" />
-                            <span>{item.batchCode}</span>
-                          </Link>
-                        )}
-                        {item.entryType === "INDIVIDUAL" && !item.batchCode && (
-                          <Badge className="shrink-0 border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">
-                            INDIVIDUAL
-                          </Badge>
-                        )}
-                      </div>
-
-                      {item.tagNumber && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopyTag(item.tagNumber)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 transition-opacity"
-                          title="Copy ear tag"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Clean Status Badge */}
-                    <div className="shrink-0 flex flex-col items-end gap-1">
-                      {getStatusBadge(item.status)}
-                      <OperationalStatusBadge status={item.operationalStatus} compact />
-                    </div>
-                  </div>
-
-                  {/* Core Stats: Compact 2-column layout (Weight, Immunization Status, Breed, Sex) */}
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {/* Weight */}
-                    <div className="p-2 rounded-lg bg-slate-50/90 border border-slate-200/70 flex items-center gap-2">
-                      <div className="p-1 rounded-md bg-white text-[#1E4D2B] shadow-2xs shrink-0">
-                        <Weight className="w-3.5 h-3.5 text-[#1E4D2B]" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                          Weight
-                        </span>
-                        <span className="font-extrabold text-slate-900 truncate block leading-tight">
-                          {item.weight ? `${item.weight} kg` : "Unrecorded"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Immunization Status */}
-                    <div className="p-2 rounded-lg bg-slate-50/90 border border-slate-200/70 flex items-center gap-2">
-                      <div className="p-1 rounded-md bg-white shadow-2xs shrink-0">
-                        {hasVax ? (
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                          Immunization
-                        </span>
-                        <span
-                          className={cn(
-                            "font-extrabold truncate block leading-tight",
-                            hasVax ? "text-emerald-700" : "text-amber-600"
-                          )}
-                        >
-                          {hasVax ? item.lastVaccinationDate : "Due for Vaccine"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Breed & Species */}
-                    <div className="p-2 rounded-lg bg-slate-50/90 border border-slate-200/70 flex items-center gap-2">
-                      <div className="p-1 rounded-md bg-white text-slate-700 shadow-2xs shrink-0">
-                        <Icon iconNode={cowHead} className="w-3.5 h-3.5 text-slate-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                          Breed
-                        </span>
-                        <span
-                          className="font-extrabold text-slate-900 truncate block leading-tight"
-                          title={`${item.breed || "Standard"} (${item.livestockTypeName})`}
-                        >
-                          {item.breed || "Standard"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Sex & Herd */}
-                    <div className="p-2 rounded-lg bg-slate-50/90 border border-slate-200/70 flex items-center gap-2">
-                      <div className="p-1 rounded-md bg-white text-teal-700 shadow-2xs shrink-0">
-                        <Tag className="w-3.5 h-3.5 text-teal-700" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                          Sex {item.batchCode ? "• Herd" : ""}
-                        </span>
-                        <span className="font-extrabold text-slate-900 truncate block leading-tight">
-                          {item.sex}{item.batchCode ? ` • ${item.batchCode}` : ""}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Remarks Section: Distinct, soft-tint alert box for official remarks (MAO Officer) with truncation */}
-                  <div className="min-h-[36px] flex items-center">
-                    {item.reviewRemarks ? (
-                      <div className="w-full p-2 rounded-lg bg-rose-50/80 border border-rose-200/80 text-[11px] text-rose-950 flex items-start gap-1.5">
-                        <Info className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                        <p className="line-clamp-2 leading-relaxed min-w-0">
-                          <strong className="font-bold text-rose-900">Officer Note:</strong>{" "}
-                          {item.reviewRemarks}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="w-full p-1.5 rounded-lg bg-slate-50/60 border border-dashed border-slate-200/60 text-[10px] text-slate-400 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3 h-3 text-slate-400" />
-                        <span>Record approved</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer Bar: Creation date aligned left, action icons subtle and right-aligned */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
-                      <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
-                      <span>
-                        {item.createdAt
-                          ? new Date(item.createdAt).toLocaleDateString()
-                          : "Registered"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              aria-label={`View profile for ${item.tagNumber || `livestock ${item.id}`}`}
-                              onClick={() => onView(item)}
-                              className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Profile</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            See Profile
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => onEdit(item)}
-                                disabled={isApproved}
-                                className="h-7 w-7 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            {isApproved ? "Approved entries are locked" : "Edit animal record"}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => onDelete(item)}
-                                disabled={isApproved}
-                                className="h-7 w-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-25"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            {isApproved
-                              ? "Approved entries cannot be deleted"
-                              : "Delete record"}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        /* ═══ 4. Data Display Cards: Split Hero Cards Grid Layout ═══ */
+        <div className="grid min-w-0 grid-cols-1 gap-3.5 md:grid-cols-2">
+          {paginatedItems.map((item) => (
+            <LivestockSplitCard
+              key={item.id}
+              item={item}
+              onView={onView}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              handleCopyTag={handleCopyTag}
+            />
+          ))}
         </div>
       ) : (
         /* ═══ Pro Table View ═══ */

@@ -124,6 +124,26 @@ class LivestockBatch(models.Model):
         return None
 
 
+class LivestockBatchPhoto(models.Model):
+    """Gallery photos attached to a herd/batch (e.g. pen, herd angles, grazing area)."""
+    batch = models.ForeignKey(
+        LivestockBatch,
+        on_delete=models.CASCADE,
+        related_name="gallery_photos",
+    )
+    photo = models.ImageField(upload_to="livestock_batches/%Y/%m/")
+    caption = models.CharField(max_length=150, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        verbose_name = "Livestock Batch Photo"
+        verbose_name_plural = "Livestock Batch Photos"
+
+    def __str__(self):
+        return f"Photo for {self.batch.batch_code} (#{self.pk})"
+
+
 # Each farmer's entry Livestock Inventory with its own specific Livestock Type
 # which then gets stored into LivestockInventory.
 # If part of a herd/group, batch points to LivestockBatch.
