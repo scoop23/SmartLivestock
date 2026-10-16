@@ -206,6 +206,16 @@ class AskSmartLivestockQueryTests(TestCase):
             status=status, operational_status=operational_status, created_by=farmer.user,
         )
 
+    def make_individual_heads(self, farmer, livestock_type, count, *, status="APPROVED", operational_status="ACTIVE"):
+        return [
+            LivestockInventory.objects.create(
+                farmer=farmer, livestock_type=livestock_type, quantity=1,
+                entry_type="INDIVIDUAL", status=status,
+                operational_status=operational_status, created_by=farmer.user,
+            )
+            for _ in range(count)
+        ]
+
     def make_production(self, livestock, farmer, production_type, unit, quantity, record_date, status):
         return ProductionRecord.objects.create(
             livestock=livestock, farmer_at_record=farmer, production_type=production_type,
@@ -217,6 +227,10 @@ class AskSmartLivestockQueryTests(TestCase):
         return execute_question(question, user=user, today=TODAY)
 
     def test_population_uses_approved_active_inventory_and_real_species_filter(self):
+        # Population analytics intentionally count canonical individual records,
+        # not legacy aggregate BATCH rows.
+        self.make_individual_heads(self.farmer, self.cattle, 3)
+        self.make_individual_heads(self.other_farmer, self.cattle, 11)
         result = self.ask(self.mao, "How many cattle are currently registered?")
         self.assertEqual(result["results"], [{"livestock_type": "Cattle", "current_heads": 14}])
         # Approved active heads are 3 in San Roque and 11 in Banaba Ibaba.
@@ -256,6 +270,8 @@ class AskSmartLivestockQueryTests(TestCase):
         self.assertIsNotNone(result["as_of"])
 
     def test_sibat_all_barangays_request_stays_within_assignment(self):
+        self.make_individual_heads(self.farmer, self.cattle, 3)
+        self.make_individual_heads(self.farmer, self.goat, 2)
         result = self.ask(self.sibat, "How many active livestock heads by barangay across all barangays?")
         self.assertEqual(result["results"], [{"barangay": "San Roque", "current_heads": 5}])
 
@@ -294,6 +310,8 @@ class AskSmartLivestockQueryTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_barangay_species_breakdown_does_not_return_municipal_totals(self):
+        self.make_individual_heads(self.farmer, self.cattle, 3)
+        self.make_individual_heads(self.farmer, self.goat, 2)
         result = self.ask(self.mao, "Show current heads by species in San Roque")
         self.assertEqual(result["results"], [
             {"livestock_type": "Cattle", "current_heads": 3},
@@ -321,6 +339,8 @@ class AskSmartLivestockQueryTests(TestCase):
         self.assertEqual(self.ask(self.sibat, "Show current heads by barangay")["results"], [])
 
     def test_all_barangay_sibat_does_not_gain_mao_queue_authority(self):
+        self.make_individual_heads(self.farmer, self.cattle, 3)
+        self.make_individual_heads(self.other_farmer, self.cattle, 11)
         self.sibat.access_scope = "ALL_BARANGAYS"
         self.sibat.save(update_fields=["access_scope"])
         result = self.ask(self.sibat, "How many cattle are currently registered?")

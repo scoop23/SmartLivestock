@@ -57,7 +57,8 @@ class DomainIntegrityTests(APITestCase):
     def test_operational_status_input_cannot_mark_animal_sold(self):
         self.client.force_authenticate(self.farmer_user)
         response = self.client.post("/livestock/inventory/", {"livestock_type": self.cattle.pk,
-            "quantity": 1, "entry_type": "INDIVIDUAL", "operational_status": "SOLD", "status": "APPROVED"})
+            "tag_number": "TEST-FARMER-001", "quantity": 1, "entry_type": "INDIVIDUAL",
+            "operational_status": "SOLD", "status": "APPROVED"})
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["operational_status"], "ACTIVE")
         self.assertEqual(response.data["status"], "PENDING")
@@ -156,7 +157,12 @@ class DomainIntegrityTests(APITestCase):
         remote_staff = User.objects.create_user(username="remote-reviewer", email="remote@example.test", role=self.sibat.role,
             password=None, account_status="APPROVED", assigned_barangay=self.other_barangay)
         self.client.force_authenticate(self.farmer_user)
-        response = self.client.post("/livestock/inventory/", {"livestock_type": self.cattle.pk, "entry_type": "INDIVIDUAL", "quantity": 1})
+        response = self.client.post("/livestock/inventory/", {
+            "livestock_type": self.cattle.pk,
+            "tag_number": "TEST-FARMER-002",
+            "entry_type": "INDIVIDUAL",
+            "quantity": 1,
+        })
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Notification.objects.filter(user=self.sibat).exists())
         self.assertFalse(Notification.objects.filter(user=remote_staff).exists())
