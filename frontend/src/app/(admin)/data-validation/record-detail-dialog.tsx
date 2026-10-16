@@ -350,6 +350,16 @@ export function RecordDetailDialog({
                 <span>ID: {record.id}</span>
                 <Copy className="size-2.5" />
               </button>
+              {(record as any).batchId && (
+                <Link
+                  href={`/data-validation/batches?batchId=${(record as any).batchId}&animalId=${(record as any).rawId || record.id}&tag=${encodeURIComponent((record as any).tagNumber || "")}`}
+                  className="text-[10px] font-bold text-emerald-100 hover:text-white bg-white/15 hover:bg-white/25 border border-white/20 px-2.5 py-0.5 rounded-md flex items-center gap-1 transition-colors backdrop-blur-xs"
+                  title="Open parent herd and highlight this animal in the roster"
+                >
+                  <Layers className="size-3" />
+                  <span>Review Herd</span>
+                </Link>
+              )}
             </div>
 
             {/* Status Pill */}
@@ -672,9 +682,9 @@ export function RecordDetailDialog({
                     </Link>
                   ) : record.batchCode && record.batchId ? (
                     <Link
-                      href={`/data-validation/batches?batchId=${record.batchId}`}
+                      href={`/data-validation/batches?batchId=${record.batchId}&animalId=${record.rawId || record.id}&tag=${encodeURIComponent(record.tagNumber || "")}`}
                       className="inline-flex"
-                      title={`Open parent herd ${record.batchCode}`}
+                      title={`Open parent herd ${record.batchCode} and highlight this animal`}
                     >
                       <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold hover:bg-teal-100 cursor-pointer">
                         Belongs to batch: {record.batchCode} � View batch
@@ -877,13 +887,23 @@ export function RecordDetailDialog({
                       </div>
                       <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
                         {record.animals.map((a: any) => (
-                          <Badge
+                          <Link
                             key={a.id}
-                            variant="secondary"
-                            className="bg-white border border-slate-200 text-[10px] font-mono font-bold"
+                            href={`/data-validation/batches?batchId=${encodeURIComponent(
+                              record.rawId ||
+                              (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, "")) ||
+                              record.id
+                            )}&animalId=${a.id}&tag=${encodeURIComponent(a.tag_number || "")}`}
+                            className="inline-flex"
+                            title={`Open herd and inspect ${a.tag_number || `#${a.id}`}`}
                           >
-                            {a.tag_number || `#${a.id}`} • {a.weight ? `${a.weight}kg` : a.sex}
-                          </Badge>
+                            <Badge
+                              variant="secondary"
+                              className="bg-white border border-slate-200 text-[10px] font-mono font-bold hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors"
+                            >
+                              {a.tag_number || `#${a.id}`} • {a.weight ? `${a.weight}kg` : a.sex}
+                            </Badge>
+                          </Link>
                         ))}
                       </div>
                     </div>

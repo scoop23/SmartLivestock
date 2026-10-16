@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, Suspense } from "react";
+import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
@@ -89,6 +89,7 @@ import {
 import { PADRE_GARCIA_BARANGAYS } from "../../admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 import { RecordDetailDialog, type DetailRecordData } from "../record-detail-dialog";
+import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -193,6 +194,12 @@ function AdminBatchesDrilldownContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const batchIdParam = searchParams.get("batchId") || searchParams.get("id");
+  const animalIdParam = searchParams.get("animalId");
+  const tagParam = searchParams.get("tag") || searchParams.get("animalTag");
+
+  // Highlight state for targeted animal deep-linked from registry / validation
+  const [highlightedAnimalId, setHighlightedAnimalId] = useState<number | null>(null);
+  const scrolledAnimalIdRef = useRef<number | null>(null);
 
   // ── States ───────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -250,6 +257,8 @@ function AdminBatchesDrilldownContent() {
     staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false, placeholderData: keepPreviousData,
   });
   const batches = batchPageData?.results || [];
+  const isInitialLoading = isLoading && !batchPageData;
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
   const detailId = selectedBatch?.id || (batchIdParam && /^\d+$/.test(batchIdParam) ? Number(batchIdParam) : null);
   const detailQuery = useQuery<BatchItem>({
     queryKey: ["admin-batch-detail", detailId],
@@ -327,6 +336,58 @@ function AdminBatchesDrilldownContent() {
   useEffect(() => {
     if (animalPage > pageCountAnimals) setAnimalPage(pageCountAnimals);
   }, [animalPage, pageCountAnimals]);
+
+  // Automatically focus on and page to target animal if animalId or tag is present in URL
+  useEffect(() => {
+    if (!isDrilldownOpen || !selectedBatch?.animals || selectedBatch.animals.length === 0) {
+      return;
+    }
+    if (!animalIdParam && !tagParam) return;
+
+    const animals = selectedBatch.animals;
+    const target = animals.find((a) => {
+      if (animalIdParam && String(a.id) === String(animalIdParam)) return true;
+      if (tagParam && a.tag_number && a.tag_number.trim().toLowerCase() === tagParam.trim().toLowerCase()) return true;
+      return false;
+    });
+
+    if (!target) return;
+
+    setHighlightedAnimalId(target.id);
+
+    // Reset filters to ensure the target animal is visible
+    if (animalSearchQuery) setAnimalSearchQuery("");
+    if (animalStatusFilter !== "ALL") setAnimalStatusFilter("ALL");
+
+    // Switch to page containing target animal
+    const targetIndex = animals.findIndex((a) => a.id === target.id);
+    if (targetIndex !== -1) {
+      const targetPage = Math.floor(targetIndex / ANIMAL_PAGE_SIZE) + 1;
+      setAnimalPage(targetPage);
+    }
+  }, [isDrilldownOpen, selectedBatch?.id, selectedBatch?.animals, animalIdParam, tagParam]);
+
+  // Smoothly scroll down and focus on target animal once rendered in DOM
+  useEffect(() => {
+    if (!highlightedAnimalId || scrolledAnimalIdRef.current === highlightedAnimalId) return;
+
+    let attempts = 0;
+    const maxAttempts = 15;
+    const interval = setInterval(() => {
+      attempts++;
+      const targetEl = document.getElementById(`admin-animal-row-${highlightedAnimalId}`);
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        scrolledAnimalIdRef.current = highlightedAnimalId;
+        clearInterval(interval);
+      } else if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, [highlightedAnimalId, animalPage, pagedChildAnimals]);
 
   // ── Mutations: Batch Review ──────────────────────────────────────────────
   // Individual animals are reviewed from the inventory queue.
@@ -513,6 +574,40 @@ function AdminBatchesDrilldownContent() {
     );
   };
 
+  const getAnimalStatusBadge = (status?: string) => {
+    const s = (status || "PENDING").toUpperCase();
+    if (s === "APPROVED") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          Approved
+        </span>
+      );
+    }
+    if (s === "VERIFIED") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300">
+          <ShieldCheck className="w-3 h-3 text-sky-600" />
+          SIBAT Verified
+        </span>
+      );
+    }
+    if (s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION" || s === "REJECTED") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
+          <AlertTriangle className="w-3 h-3 text-rose-600" />
+          Needs Revision
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+        <Clock className="w-3 h-3 text-amber-600" />
+        Awaiting SIBAT
+      </span>
+    );
+  };
+
   const getSpeciesColor = (species: string) => {
     const s = species?.toLowerCase() || "";
     if (s.includes("cattle") || s.includes("cow")) return "bg-emerald-50 text-emerald-800 border-emerald-200";
@@ -522,6 +617,52 @@ function AdminBatchesDrilldownContent() {
     if (s.includes("poultry") || s.includes("chicken")) return "bg-orange-50 text-orange-800 border-orange-200";
     return "bg-slate-100 text-slate-800 border-slate-200";
   };
+
+  if (isInitialLoading || keepLoadingScreenMounted) {
+    return (
+      <div className="min-h-screen bg-slate-50/70 pb-16">
+        <PageHeader
+          title="Municipal Herd Registry"
+          subtitle="Browse herd containers, inspect individual livestock records, and approve SIBAT-verified animals."
+          variant="admin"
+          maxWidthClass="w-full"
+          icon={<Layers className="size-5 text-slate-800" />}
+        />
+        <div className="mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:px-8 lg:py-6">
+          <ValidationLoadingScreen
+            isLoading={isInitialLoading}
+            title="Loading Municipal Herd Ledger"
+            subtitle="Connecting authorized livestock batches, aggregate animal counts, and verification rosters..."
+            badgeLabel="Herd Validation Center"
+            authorityText="MAO Regulatory Review · Padre Garcia, Batangas"
+            items={[
+              {
+                id: "batches",
+                label: "Livestock Herds",
+                sublabel: "Grouped cattle, swine, and livestock batches",
+                icon: <Layers className="size-4 text-emerald-700" />,
+                loaded: !isLoading,
+              },
+              {
+                id: "analytics",
+                label: "Audit Summaries",
+                sublabel: "Verification progress and head metrics",
+                icon: <ShieldCheck className="size-4 text-emerald-700" />,
+                loaded: !isLoading,
+              },
+              {
+                id: "species",
+                label: "Reference Classifications",
+                sublabel: "Approved species catalogs and barangay listings",
+                icon: <Tag className="size-4 text-emerald-700" />,
+                loaded: !references.isLoading,
+              },
+            ]}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -650,7 +791,7 @@ function AdminBatchesDrilldownContent() {
           <Card className="rounded-2xl border-slate-200 bg-white shadow-2xs hover:border-emerald-300 transition-all">
             <CardContent className="p-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                Animals All animals awaiting SIBAT
+                Animals Awaiting SIBAT
               </span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className={`text-2xl font-black font-mono ${kpis.pendingAnimals > 0 ? "text-amber-600" : "text-slate-400"}`}>
@@ -1122,8 +1263,12 @@ function AdminBatchesDrilldownContent() {
         open={isDrilldownOpen}
         onOpenChange={(open) => {
           setIsDrilldownOpen(open);
-          if (!open && batchIdParam) {
-            router.replace("/data-validation/batches", { scroll: false });
+          if (!open) {
+            setHighlightedAnimalId(null);
+            scrolledAnimalIdRef.current = null;
+            if (batchIdParam) {
+              router.replace("/data-validation/batches", { scroll: false });
+            }
           }
         }}
       >
@@ -1409,8 +1554,18 @@ function AdminBatchesDrilldownContent() {
                           const batchAvg = selectedBatch.average_weight ? Number(selectedBatch.average_weight) : null;
                           const weightDiff = animalWeight && batchAvg ? (animalWeight - batchAvg).toFixed(1) : null;
 
+                          const isTarget = highlightedAnimalId === animal.id;
+
                           return (
-                            <TableRow key={animal.id} className="hover:bg-slate-50/70 transition-colors">
+                            <TableRow
+                              key={animal.id}
+                              id={`admin-animal-row-${animal.id}`}
+                              className={`transition-all duration-500 ${
+                                isTarget
+                                  ? "bg-emerald-100/90 ring-2 ring-emerald-600 ring-inset shadow-md font-medium"
+                                  : "hover:bg-slate-50/70"
+                              }`}
+                            >
                               <TableCell>
                                 <input
                                   type="checkbox"
@@ -1434,10 +1589,15 @@ function AdminBatchesDrilldownContent() {
                                     {avatar.emoji}
                                   </div>
                                   <div>
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="font-mono font-black text-xs text-slate-900">
                                         {animal.tag_number || `#${animal.id}`}
                                       </span>
+                                      {isTarget && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2 py-0.5 text-[9px] font-black text-white shadow-xs animate-pulse">
+                                          <Check className="size-2.5" /> Selected Record
+                                        </span>
+                                      )}
                                       <button
                                         type="button"
                                         onClick={() => handleCopyTag(animal.tag_number)}
@@ -1501,7 +1661,7 @@ function AdminBatchesDrilldownContent() {
                               </TableCell>
 
                               {/* Status */}
-                              <TableCell>{getStatusBadge(animal.status)}</TableCell>
+                              <TableCell>{getAnimalStatusBadge(animal.status)}</TableCell>
 
                               {/* Row Actions */}
                               <TableCell className="sticky right-0 z-10 bg-white border-l border-slate-200 text-right">
@@ -1811,7 +1971,37 @@ function AdminBatchesDrilldownContent() {
 
 export default function AdminBatchesDrilldownPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Loading Herds & Animals...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50/70 pb-16">
+          <PageHeader
+            title="Municipal Herd Registry"
+            subtitle="Browse herd containers, inspect individual livestock records, and approve SIBAT-verified animals."
+            variant="admin"
+            maxWidthClass="w-full"
+            icon={<Layers className="size-5 text-slate-800" />}
+          />
+          <div className="mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:px-8 lg:py-6">
+            <ValidationLoadingScreen
+              isLoading={true}
+              title="Loading Municipal Herd Ledger"
+              subtitle="Connecting authorized livestock batches, aggregate animal counts, and verification rosters..."
+              badgeLabel="Herd Validation Center"
+              authorityText="MAO Regulatory Review · Padre Garcia, Batangas"
+              items={[
+                {
+                  id: "batches",
+                  label: "Livestock Herds",
+                  sublabel: "Grouped cattle, swine, and livestock batches",
+                  icon: <Layers className="size-4 text-emerald-700" />,
+                  loaded: false,
+                },
+              ]}
+            />
+          </div>
+        </div>
+      }
+    >
       <AdminBatchesDrilldownContent />
     </Suspense>
   );

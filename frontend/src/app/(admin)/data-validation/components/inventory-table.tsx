@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -257,9 +258,14 @@ export function InventoryTable({
                       <TableCell className="px-8 py-5 text-right">
                         <div className="flex flex-col items-end gap-2">
                           {isHerdMemberRow && (
-                            <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded px-1.5 py-0.5">
-                              Herd member · individual review
-                            </span>
+                            <Link
+                              href={`/data-validation/batches?batchId=${inv.batchId}&animalId=${inv.rawId || inv.id}&tag=${encodeURIComponent(inv.tagNumber || "")}`}
+                              className="text-[8px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded px-1.5 py-0.5 inline-flex items-center gap-1 transition-colors"
+                              title="Open this animal in herd batches center and highlight it"
+                            >
+                              <Layers size={10} />
+                              <span>Herd member · view herd</span>
+                            </Link>
                           )}
                           <div className="flex items-center justify-end gap-2">
                           <Button
@@ -405,6 +411,16 @@ export function InventoryTable({
                       <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(inv.status).dot}`} />
                       {getStatusPill(inv.status).label}
                     </Badge>
+                    {isHerdMemberRow && (
+                      <Link
+                        href={`/data-validation/batches?batchId=${inv.batchId}&animalId=${inv.rawId || inv.id}&tag=${encodeURIComponent(inv.tagNumber || "")}`}
+                        className="text-[8px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded px-1.5 py-0.5 inline-flex items-center gap-1 transition-colors"
+                        title="Open this animal in herd batches center and highlight it"
+                      >
+                        <Layers size={10} />
+                        <span>View in herd</span>
+                      </Link>
+                    )}
                   </div>
                 </div>
 
