@@ -42,18 +42,17 @@ function CensusSubmissionPageContent() {
         icon={<ClipboardList className="size-5 text-white" />}
         variant="sibat"
         maxWidthClass="w-full"
-        action={
-          <Button
-            variant="outline"
-            onClick={returnToCensus}
-            className="gap-2 rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-          >
-            <ArrowLeft className="size-4" />
-            <span className="hidden sm:inline">Back to Records</span>
-            <span className="sm:hidden">Back</span>
-          </Button>
-        }
       />
+      <div className="w-full px-3.5 pt-4 sm:px-6">
+        <Button
+          variant="outline"
+          onClick={returnToCensus}
+          className="gap-2 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <ArrowLeft className="size-4" />
+          Back to Records
+        </Button>
+      </div>
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8">
         <div className="mb-5 flex items-center gap-2 rounded-xl bg-white/80 px-4 py-3 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200/70">
           <Save className="size-4 shrink-0 text-emerald-700" />

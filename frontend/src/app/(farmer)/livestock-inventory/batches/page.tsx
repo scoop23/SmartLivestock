@@ -868,6 +868,18 @@ export default function BatchOverviewPage() {
         maxWidthClass="w-full"
       />
 
+      <div className="w-full px-3.5 pt-4 sm:px-6">
+        <Link href={livestockReturnUrl} className="inline-flex">
+          <Button
+            variant="outline"
+            className="h-9 gap-1.5 rounded-lg border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back to Inventory
+          </Button>
+        </Link>
+      </div>
+
       <div className="mx-auto w-full space-y-4 sm:space-y-5 p-3 sm:p-4">
         {/* ── 1. COMPACT HERO BANNER ───────────────────────────────────────── */}
         <section className="relative overflow-hidden rounded-xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-3.5 sm:p-4.5 text-white shadow-md">
@@ -896,17 +908,6 @@ export default function BatchOverviewPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href={livestockReturnUrl} className="w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  className="h-9 w-full sm:w-auto gap-1.5 rounded-lg border border-emerald-400/30 bg-white/10 px-3.5 text-xs sm:text-sm font-semibold text-white hover:bg-white/20 hover:text-white"
-                >
-                  <ArrowLeft className="size-3.5" />
-                  Back to Inventory
-                </Button>
-              </Link>
-            </div>
           </div>
         </section>
 
