@@ -93,6 +93,11 @@ export default function FarmerSchedulingPage() {
   const [bookingToastClosing, setBookingToastClosing] = useState(false);
   const [bookingFilter, setBookingFilter] = useState<"upcoming" | "past">("upcoming");
   const [highlightedBookingId, setHighlightedBookingId] = useState<number | null>(null);
+  const [photoViewer, setPhotoViewer] = useState<{
+    photos: string[];
+    alt: string;
+    initialIndex: number;
+  } | null>(null);
   const [cancelingTarget, setCancelingTarget] = useState<ProgramBooking | null>(null);
   const [editingBooking, setEditingBooking] = useState<ProgramBooking | null>(null);
   const [editTime, setEditTime] = useState("");
@@ -652,7 +657,17 @@ export default function FarmerSchedulingPage() {
                           >
                             <div className="-mx-4.5 -mt-4.5 mb-3 overflow-hidden rounded-t-2xl bg-gradient-to-br from-emerald-50 to-slate-100">
                               <div className="h-40 w-full sm:h-48">
-                                <ActivityPhotoCarousel photos={programPhotos} alt={`${schedule.program} activity`} />
+                                <ActivityPhotoCarousel
+                                  photos={programPhotos}
+                                  alt={`${schedule.program} activity`}
+                                  onImageClick={(initialIndex) =>
+                                    setPhotoViewer({
+                                      photos: programPhotos,
+                                      alt: `${schedule.program} activity`,
+                                      initialIndex,
+                                    })
+                                  }
+                                />
                               </div>
                             </div>
                             <div className="space-y-3">
@@ -1084,6 +1099,35 @@ export default function FarmerSchedulingPage() {
           </Card>
         </section>
       </main>
+
+      <Dialog
+        open={photoViewer !== null}
+        onOpenChange={(open) => {
+          if (!open) setPhotoViewer(null);
+        }}
+      >
+        <DialogContent className="flex h-[min(85vh,900px)] w-[calc(100vw-1.5rem)] max-w-5xl flex-col gap-3 overflow-hidden border-0 bg-slate-950 p-3 text-white sm:p-5 [&>button]:text-white [&>button]:hover:bg-white/10">
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle className="text-base font-bold text-white">
+              {photoViewer?.alt || "Program photos"}
+            </DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Click the arrows to browse the program photos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-black/40">
+            {photoViewer ? (
+              <ActivityPhotoCarousel
+                key={`${photoViewer.alt}-${photoViewer.initialIndex}`}
+                photos={photoViewer.photos}
+                alt={photoViewer.alt}
+                variant="dialog"
+                initialIndex={photoViewer.initialIndex}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Only the time can change; the server checks ownership and available slots. */}
       <Dialog

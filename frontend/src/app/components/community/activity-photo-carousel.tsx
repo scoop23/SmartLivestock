@@ -14,10 +14,14 @@ export function ActivityPhotoCarousel({
   photos,
   alt,
   variant = "card",
+  initialIndex = 0,
+  onImageClick,
 }: {
   photos: string[];
   alt: string;
   variant?: "card" | "dialog";
+  initialIndex?: number;
+  onImageClick?: (index: number) => void;
 }) {
   const [api, setApi] = useState<CarouselApi>();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -25,6 +29,9 @@ export function ActivityPhotoCarousel({
 
   useEffect(() => {
     if (!api) return;
+    if (initialIndex > 0 && initialIndex < photos.length) {
+      api.scrollTo(initialIndex);
+    }
     const updateIndex = () => setActiveIndex(api.selectedScrollSnap());
     updateIndex();
     api.on("select", updateIndex);
@@ -33,7 +40,7 @@ export function ActivityPhotoCarousel({
       api.off("select", updateIndex);
       api.off("reInit", updateIndex);
     };
-  }, [api]);
+  }, [api, initialIndex, photos.length]);
 
   if (photos.length === 0) {
     return (
@@ -63,11 +70,29 @@ export function ActivityPhotoCarousel({
         <CarouselContent className="ml-0 h-full">
           {photos.map((photo, index) => (
             <CarouselItem key={`${photo}-${index}`} className="h-full pl-0">
-              <img
-                src={photo}
-                alt={`${alt}, photo ${index + 1} of ${photos.length}`}
-                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
+              {onImageClick ? (
+                <button
+                  type="button"
+                  aria-label={`View photo ${index + 1} larger`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onImageClick(index);
+                  }}
+                  className="group/image size-full cursor-zoom-in overflow-hidden text-left"
+                >
+                  <img
+                    src={photo}
+                    alt={`${alt}, photo ${index + 1} of ${photos.length}`}
+                    className={`size-full transition-transform duration-300 ${isDialog ? "object-contain" : "object-cover group-hover/image:scale-105"}`}
+                  />
+                </button>
+              ) : (
+                <img
+                  src={photo}
+                  alt={`${alt}, photo ${index + 1} of ${photos.length}`}
+                  className={`size-full ${isDialog ? "object-contain" : "object-cover transition-transform duration-300 group-hover:scale-105"}`}
+                />
+              )}
             </CarouselItem>
           ))}
         </CarouselContent>
