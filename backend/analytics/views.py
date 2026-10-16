@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -44,8 +44,16 @@ CENSUS_STATUSES = (
 )
 
 
+class IsSibatReportUser(BasePermission):
+    """Allow field reviewers to use reports, with row scope enforced by the service."""
+
+    def has_permission(self, request, view):
+        role = getattr(getattr(request.user, "role", None), "role_name", "")
+        return role in {"SIBAT", "CBAT"}
+
+
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, isMAO])
+@permission_classes([IsAuthenticated, isMAO | IsSibatReportUser])
 def reports_preview(request):
     """Return one authorized report dataset for the preview and requested filters."""
     report_type = request.query_params.get("report_type", "")
@@ -59,7 +67,7 @@ def reports_preview(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, isMAO])
+@permission_classes([IsAuthenticated, isMAO | IsSibatReportUser])
 def reports_export(request):
     """Rebuild the same approved dataset server-side and render it as xlsx or PDF."""
     report_type = request.query_params.get("report_type", "")

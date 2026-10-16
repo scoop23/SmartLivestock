@@ -541,14 +541,23 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
 
 def build_report(report_type, params, user):
     """Validate query parameters, enforce role, and return the shared report dataset."""
-    if role_name(user) not in (MAO, ADMIN):
-        raise PermissionDenied("Only MAO and Admin can generate official reports.")
+    role = role_name(user)
+    is_field_reviewer = role in ("SIBAT", "CBAT")
+    if role not in (MAO, ADMIN, "SIBAT", "CBAT"):
+        raise PermissionDenied("Only MAO, Admin, and assigned SIBAT/CBAT reviewers can generate reports.")
     if report_type not in REPORT_TITLES:
         raise ValidationError({"report_type": "Select a supported report type."})
     start, end = _date(params.get("date_from"), "date_from"), _date(params.get("date_to"), "date_to")
     if start > end:
         raise ValidationError({"date_to": "Date To must be on or after Date From."})
     filters = {key: params.get(key, "") for key in ("species", "barangay", "purpose", "direction")}
+    if is_field_reviewer:
+        assigned_barangay = getattr(user, "assigned_barangay", None)
+        if assigned_barangay is None:
+            raise PermissionDenied("Your SIBAT/CBAT account must be assigned to a barangay before generating reports.")
+        # Treat the server-side assignment as authoritative. A client supplied
+        # barangay filter must never widen or redirect a field reviewer's report.
+        filters["barangay"] = assigned_barangay.barangay_name
     allowed_filters = {"species", "barangay"}
     if report_type in ("movement", "inspection"):
         allowed_filters.add("purpose")

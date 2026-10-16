@@ -138,6 +138,7 @@ const sibatLinks: SidebarLink[] = [
   },
   { path: '/sibat-monitoring', label: 'Map', icon: Map },
   { path: '/sibat-alerts', label: 'Health Reports', icon: Bell },
+  { path: '/sibat/reports', label: 'Barangay Reports', icon: FileText },
   { path: '/sibat-announcement', label: 'Announcements', icon: Megaphone },
   { path: '/sibat-scheduling', label: 'Programs', icon: CalendarDays },
 ];
