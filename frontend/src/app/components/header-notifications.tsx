@@ -49,12 +49,12 @@ export interface HeaderNotification {
   link?: string;
 }
 
-interface HeaderNotificationsProps {
+export interface HeaderNotificationsProps {
   variant?: "admin" | "farmer" | "sibat" | "auction" | "slaughterhouse";
   className?: string;
 }
 
-interface BackendNotification {
+export interface BackendNotification {
   id: number;
   type: NotificationType;
   type_display: string;
@@ -70,12 +70,28 @@ interface BackendNotification {
   time_ago: string;
 }
 
-interface BackendNotificationsResponse {
+export interface BackendNotificationsResponse {
   unread_count: number;
   notifications: BackendNotification[];
 }
 
-const resolveNotificationLink = (notification: BackendNotification, variant: HeaderNotificationsProps["variant"]) => {
+export const getNotificationRouteForRole = (variant?: HeaderNotificationsProps["variant"]): string => {
+  switch (variant) {
+    case "farmer":
+      return "/farmer/notifications";
+    case "sibat":
+      return "/sibat/notifications";
+    case "auction":
+      return "/auction/notifications";
+    case "slaughterhouse":
+      return "/slaughterhouse/notifications";
+    case "admin":
+    default:
+      return "/notifications";
+  }
+};
+
+export const resolveNotificationLink = (notification: BackendNotification, variant: HeaderNotificationsProps["variant"]) => {
   if (variant === "admin") {
     const adminRoutes: Record<string, (id: number) => string> = {
       livestock_inventory: (id) => `/data-validation?domain=inventory&recordType=INVENTORY&recordId=${id}`,
@@ -674,10 +690,25 @@ export function HeaderNotifications({
         </ScrollArea>
 
         {/* Footer */}
-        <div className="px-4 py-3 sm:px-5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span className="truncate">Padre Garcia MAO Agriculture Portal</span>
+        <div className="p-2 sm:px-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setIsOpen(false);
+              router.push(getNotificationRouteForRole(variant));
+            }}
+            className="w-full h-8.5 text-xs font-bold text-purple-700 hover:text-purple-900 hover:bg-purple-100/70 flex items-center justify-center gap-1.5 transition-colors underline underline-offset-4 cursor-pointer"
+          >
+            All Notifications
+          </Button>
+          <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+              <span className="truncate">Padre Garcia MAO Agriculture Portal</span>
+            </div>
+            <span>{notifications.length} total</span>
           </div>
         </div>
       </PopoverContent>

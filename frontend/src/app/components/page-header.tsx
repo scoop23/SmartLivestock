@@ -17,6 +17,7 @@ interface PageHeaderProps {
   showNotifications?: boolean;
   wrapSubtitleOnMobile?: boolean;
   mobileActionsRow?: boolean;
+  hideIconOnMobile?: boolean;
 }
 
 const headerClasses: Record<PageHeaderVariant, string> = {
@@ -55,6 +56,7 @@ export function PageHeader({
   showNotifications = true,
   wrapSubtitleOnMobile = false,
   mobileActionsRow = false,
+  hideIconOnMobile = false,
 }: PageHeaderProps) {
   return (
     <header
@@ -74,7 +76,7 @@ export function PageHeader({
             <HeaderMenuButton className={chipClasses[variant]} />
             {icon ? (
               <div
-                className={`shrink-0 flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl ${chipClasses[variant]}`}
+                className={`shrink-0 ${hideIconOnMobile ? "hidden sm:flex" : "flex"} items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl ${chipClasses[variant]}`}
               >
                 {icon}
               </div>
