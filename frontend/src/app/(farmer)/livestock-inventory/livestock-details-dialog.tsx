@@ -315,7 +315,14 @@ export default function LivestockDetailsDialog({
                           size="sm"
                           onClick={() => {
                             onOpenChange();
-                            router.push("/livestock-inventory/batches");
+                            const rosterParams = new URLSearchParams({
+                              batch: String(livestock.batchId),
+                              animalId: String(livestock.id),
+                            });
+                            if (livestock.tagNumber) {
+                              rosterParams.set("tag", livestock.tagNumber);
+                            }
+                            router.push(`/livestock-inventory/batches?${rosterParams.toString()}`);
                           }}
                           className="rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs gap-1.5 shrink-0"
                         >

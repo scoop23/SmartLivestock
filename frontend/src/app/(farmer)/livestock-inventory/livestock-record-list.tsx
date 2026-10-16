@@ -130,6 +130,14 @@ const getSpeciesTheme = (typeName?: string): SpeciesTheme => {
   };
 };
 
+const getHerdRosterHref = (item: LivestockInventoryItem) => {
+  const params = new URLSearchParams();
+  if (item.batchId != null) params.set("batch", String(item.batchId));
+  params.set("animalId", String(item.id));
+  if (item.tagNumber) params.set("tag", item.tagNumber);
+  return `/livestock-inventory/batches?${params.toString()}`;
+};
+
 /* ── Status badge for record items (Accessibility-compliant high contrast) ── */
 export const getStatusBadge = (status: StatusType) => {
   switch (status) {
@@ -384,9 +392,13 @@ function LivestockSplitCard({
               </span>
             </div>
           ) : item.batchCode ? (
-            <span className="rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-900 shadow-2xs">
+            <Link
+              href={getHerdRosterHref(item)}
+              className="relative z-10 rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-900 shadow-2xs hover:bg-emerald-100"
+              title={`Open Herd ${item.batchCode} and highlight this animal`}
+            >
               Herd {item.batchCode}
-            </span>
+            </Link>
           ) : (
             <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-300">
               <ImageIcon className="size-3" />
@@ -424,7 +436,7 @@ function LivestockSplitCard({
                 )}
                 {item.batchCode && (
                   <Link
-                    href="/livestock-inventory/batches"
+                    href={getHerdRosterHref(item)}
                     className="hidden sm:inline-flex items-center gap-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide shadow-2xs shrink-0 transition-colors"
                     title={`Belongs to Herd: ${item.batchCode}`}
                   >
@@ -1238,7 +1250,7 @@ export default function LivestockRecordList({
                         </Link>
                         {item.batchCode && (
                           <Link
-                            href="/livestock-inventory/batches"
+                            href={getHerdRosterHref(item)}
                             className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
                             title={`Assigned to Batch ${item.batchCode}`}
                           >
@@ -1328,7 +1340,7 @@ export default function LivestockRecordList({
                           className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span>Profile</span>
+                          <span>Details</span>
                         </Button>
                         <Button
                           variant="ghost"

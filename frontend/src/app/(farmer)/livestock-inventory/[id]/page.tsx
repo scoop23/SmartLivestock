@@ -93,6 +93,8 @@ import { OperationalStatusBadge } from "../operational-status-badge";
 import { OwnershipTransferPanel } from "../ownership-transfer-panel";
 import { LivestockPhotoManager } from "../livestock-photo-manager";
 import { LivestockMilkForecastTab } from "../livestock-milk-forecast-tab";
+import { LivestockInfographicHero } from "../components/livestock-infographic-hero";
+import { LivestockSlidingPanel } from "../components/livestock-sliding-panel";
 import ProductionSubmissionSuccessDialog from "../../production-dashboard/production-submission-success-dialog";
 import LivestockEditDialog from "../livestock-edit-dialog";
 import { useLivestockTypes, type UpdateInventoryPayload } from "../livestock-inventory";
@@ -716,6 +718,53 @@ export default function LivestockDetailPage() {
       ).toFixed(1)
       : "—";
 
+  // Tab items for mobile draggable sliding panel & desktop tabs
+  const tabItems = useMemo(
+    () => [
+      {
+        id: "growth",
+        label: "Growth & Weight Logs",
+        icon: <TrendingUp className="size-3.5 text-emerald-600" />,
+      },
+      {
+        id: "production",
+        label: "Production",
+        icon: <Milk className="size-3.5 text-sky-600" />,
+      },
+      ...(canShowMilkPredictionTab
+        ? [
+            {
+              id: "milk-prediction",
+              label: "Milk Production Prediction",
+              icon: <Milk className="size-3.5 text-amber-500" />,
+            },
+          ]
+        : []),
+      {
+        id: "calving",
+        label: `${terms.eventName} & Offspring`,
+        count: totalCalves,
+        icon: <Baby className="size-3.5 text-pink-600" />,
+      },
+      {
+        id: "health",
+        label: "Health & Vaccines",
+        icon: <Stethoscope className="size-3.5 text-rose-600" />,
+      },
+      {
+        id: "pedigree",
+        label: "Pedigree & Lineage",
+        icon: <Heart className="size-3.5 text-purple-600" />,
+      },
+      {
+        id: "ownership",
+        label: "Ownership History",
+        icon: <Layers className="size-3.5 text-slate-600" />,
+      },
+    ],
+    [canShowMilkPredictionTab, terms.eventName, totalCalves]
+  );
+
   // Loading state
   const isGlobalLoading = isInventoryLoading || isDirectLoading;
   const keepLoadingScreenMounted = useLoadingScreenTransition(isGlobalLoading);
@@ -795,7 +844,7 @@ export default function LivestockDetailPage() {
         maxWidthClass="w-full"
       />
 
-      <div className="w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8">
+      <div className="w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8 pb-36 lg:pb-8">
         {canCorrectIndividual && (
           <section className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-rose-950 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="livestock-revision-title">
             <div className="flex min-w-0 items-start gap-3">
@@ -824,204 +873,70 @@ export default function LivestockDetailPage() {
           </section>
         )}
 
-        {/* Navigation & Breadcrumb */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Link
-              href={
-                activeItem.batchId
-                  ? `/livestock-inventory/batches?batch=${activeItem.batchId}`
-                  : "/livestock-inventory"
+        {/* ── INTERACTIVE LIVESTOCK SILHOUETTE INFOGRAPHIC HERO ── */}
+        <LivestockInfographicHero
+          activeItem={activeItem}
+          latestWeight={latestWeight}
+          latestAdg={latestAdg}
+          targetWeight={targetWeight}
+          projectedCarcassKg={projectedCarcassKg}
+          meatDressingPct={meatDressingPct}
+          totalCalves={totalCalves}
+          activeDiseaseCount={animalDiseaseCases.length}
+          terms={terms}
+          onOpenPassport={() => setIsPassportDialogOpen(true)}
+          onOpenWeigh={() => {
+            setNewWeight(String(latestWeight || "70.0"));
+            setIsWeighDialogOpen(true);
+          }}
+          onOpenProduction={openProductionDialog}
+          onOpenCalving={() => setIsCalvingDialogOpen(true)}
+          onOpenCorrection={() => setIsCorrectionDialogOpen(true)}
+          canCorrectIndividual={canCorrectIndividual}
+          onSelectTab={(tabKey) => setActiveProfileTab(tabKey)}
+          photoUrl={photoUrl}
+          avatar={avatar}
+          photoSlot={
+            <LivestockPhotoManager
+              title="Livestock Photo"
+              subject="livestock"
+              compactOnMobile
+              triggerImage
+              triggerImageSizeClassName="size-9 sm:size-10"
+              triggerImageShapeClassName="rounded-xl border border-white/30"
+              triggerImageFallbackClassName="text-xl"
+              currentPhotoUrl={photoUrl}
+              currentAvatarKey={activeItem.avatarKey || localAvatar}
+              species={activeItem.livestockTypeName}
+              fallback={
+                <div className={`flex size-9 sm:size-10 items-center justify-center rounded-xl text-xl ${avatar.bgGradient}`}>
+                  {avatar.emoji}
+                </div>
               }
-            >
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl border-slate-300 font-bold text-xs gap-1.5 text-slate-700 hover:bg-slate-100"
-              >
-                <ArrowLeft className="size-3.5" />
-                {activeItem.batchId ? "Back to Herds" : "Back to Herd"}
-              </Button>
-            </Link>
-
-            {activeItem.batchCode && (
-              <Link href={`/livestock-inventory/batches?batch=${activeItem.batchId}`}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl border-emerald-300 bg-emerald-50/50 text-emerald-800 hover:bg-emerald-100 font-bold text-xs gap-1.5"
-                >
-                  <Layers className="size-3.5 text-emerald-600" />
-                  <span>Herd: {activeItem.batchCode}</span>
-                </Button>
-              </Link>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              onClick={() => setIsPassportDialogOpen(true)}
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-slate-300 font-bold text-xs gap-1.5 text-slate-700 hover:bg-slate-50 cursor-pointer"
-            >
-              <QrCode className="size-3.5 text-slate-600" /> Print ID Card
-            </Button>
-
-            <Button
-              onClick={() => {
-                setNewWeight(String(latestWeight || "70.0"));
-                setIsWeighDialogOpen(true);
+              onSave={async ({ file, removePhoto, avatarKey }) => {
+                let payload: FormData | { photo?: null; avatar_key?: string };
+                if (file) {
+                  const formData = new FormData();
+                  formData.append("photo", file);
+                  if (avatarKey) formData.append("avatar_key", avatarKey);
+                  payload = formData;
+                } else {
+                  const update = removePhoto ? { photo: null as null } : {};
+                  if (avatarKey) Object.assign(update, { avatar_key: avatarKey });
+                  payload = update;
+                }
+                await api.patch(`livestock/inventory/${activeItem.id}/`, payload);
+                if (removePhoto && typeof window !== "undefined") {
+                  localStorage.removeItem(`livestock_photo_${activeItem.id}`);
+                  localStorage.removeItem(`livestock_photo_${activeItem.tagNumber}`);
+                }
+                await queryClient.invalidateQueries({ queryKey: ["inventory"] });
+                await queryClient.invalidateQueries({ queryKey: ["inventory_item", String(activeItem.id)] });
+                toast.success("Livestock photo updated.");
               }}
-              size="sm"
-              className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Scale className="size-3.5" /> Log Weight
-            </Button>
-          </div>
-        </div>
-
-        {/* ── HERO PASSPORT CARD ──────────────────────────────────────────── */}
-        <Card className="rounded-3xl border-slate-200 shadow-md bg-white overflow-hidden">
-          <div className={`text-white p-5 sm:p-6 md:p-8 ${activeItem.status === "SUBJECT_TO_REVISION" ? "bg-gradient-to-r from-[#604143] via-[#475244] to-[#1a4425]" : "bg-gradient-to-r from-[#1E4D2B] via-[#245833] to-[#1a4425]"}`}>
-            <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)] md:items-center">
-              <div className="flex min-w-0 flex-col items-center gap-5 text-center sm:flex-row sm:items-start sm:gap-5 sm:text-left">
-                <LivestockPhotoManager
-                    title="Livestock Photo"
-                    subject="livestock"
-                    compactOnMobile
-                    triggerImage
-                    triggerImageSizeClassName="size-32 sm:size-32"
-                    triggerImageShapeClassName="rounded-full"
-                    triggerImageFallbackClassName="text-6xl"
-                    currentPhotoUrl={photoUrl}
-                  currentAvatarKey={activeItem.avatarKey || localAvatar}
-                  species={activeItem.livestockTypeName}
-                  fallback={<div className={`flex size-36 items-center justify-center rounded-2xl text-6xl ${avatar.bgGradient}`}>{avatar.emoji}</div>}
-                  onSave={async ({ file, removePhoto, avatarKey }) => {
-                    let payload: FormData | { photo?: null; avatar_key?: string };
-                    if (file) {
-                      const formData = new FormData();
-                      formData.append("photo", file);
-                      if (avatarKey) formData.append("avatar_key", avatarKey);
-                      payload = formData;
-                    } else {
-                      const update = removePhoto ? { photo: null as null } : {};
-                      if (avatarKey) Object.assign(update, { avatar_key: avatarKey });
-                      payload = update;
-                    }
-                    await api.patch(`livestock/inventory/${activeItem.id}/`, payload);
-                    if (removePhoto && typeof window !== "undefined") {
-                      localStorage.removeItem(`livestock_photo_${activeItem.id}`);
-                      localStorage.removeItem(`livestock_photo_${activeItem.tagNumber}`);
-                    }
-                    await queryClient.invalidateQueries({ queryKey: ["inventory"] });
-                    await queryClient.invalidateQueries({ queryKey: ["inventory_item", String(activeItem.id)] });
-                    toast.success("Livestock photo updated.");
-                  }}
-                />
-
-                <div className="w-full min-w-0 space-y-3">
-                  <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                    <span className="break-words text-xl sm:text-2xl font-black text-white tracking-tight">
-                      {activeItem.tagNumber}
-                    </span>
-                    <Badge
-                      className={`font-black text-xs px-2.5 py-0.5 ${
-                        activeItem.status === "APPROVED"
-                          ? "bg-emerald-400 text-emerald-950 border-emerald-300"
-                          : activeItem.status === "VERIFIED"
-                            ? "bg-sky-300 text-sky-950 border-sky-200"
-                            : activeItem.status === "PENDING"
-                              ? "bg-amber-300 text-amber-950 border-amber-200"
-                              : activeItem.status === "SUBJECT_TO_REVISION"
-                            ? "bg-rose-200 text-rose-950 border-rose-300"
-                                : "bg-rose-300 text-rose-950 border-rose-200"
-                      }`}
-                    >
-                      {activeItem.status}
-                    </Badge>
-                    <OperationalStatusBadge status={activeItem.operationalStatus} />
-                    <Badge variant="outline" className="text-emerald-100 border-emerald-300/40 text-xs font-bold">
-                      {activeItem.livestockTypeName}
-                    </Badge>
-                    {activeItem.batchCode && (
-                      <Link href="/livestock-inventory/batches">
-                        <Badge className="bg-teal-500/30 hover:bg-teal-500/50 text-teal-200 border-teal-400/40 font-bold text-xs px-2.5 py-0.5 inline-flex items-center gap-1 transition-colors cursor-pointer">
-                          <Layers className="size-3" />
-                          <span>Herd: {activeItem.batchCode}</span>
-                        </Badge>
-                      </Link>
-                    )}
-                  </div>
-
-                  <div className="mx-auto grid max-w-md grid-cols-2 gap-x-4 gap-y-3 pt-1 text-xs sm:mx-0">
-                    <div className="min-w-0">
-                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Breed</span>
-                      <span className="block break-words font-semibold text-emerald-50">{activeItem.breed?.trim() || "Unknown"}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Sex</span>
-                      <span className="block break-words font-semibold text-emerald-50">{activeItem.sex?.trim() || "Unknown"}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Age</span>
-                      <span className="block break-words font-semibold text-emerald-50">
-                        {formatLivestockAge(activeItem.age)} · {formatAgeClassification(activeItem.ageClassification)}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-200/60">Birth Date</span>
-                      <span className="block break-words font-semibold text-emerald-50">{formatCalendarDate(activeItem.birthDate)}</span>
-                    </div>
-                  </div>
-
-                  <p className="break-words text-xs text-emerald-200/70 font-medium sm:text-left">
-                    Owner: <strong>{activeItem.farmerName}</strong> &bull; Registration: {activeItem.createdAt ? activeItem.createdAt.split("T")[0] : "Official Record"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Quick Biometrics Right Panel */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-black/20 p-4 rounded-2xl border border-white/10 text-center md:min-w-0">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] uppercase font-bold text-emerald-200/60">Live Weight</span>
-                  <p className="text-lg font-black text-white">{latestWeight} kg</p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-[10px] uppercase font-bold text-emerald-200/60">Daily Gain (ADG)</span>
-                  <p className="text-lg font-black text-emerald-300">+{latestAdg} kg/d</p>
-                </div>
-                <div className="space-y-0.5 col-span-2 sm:col-span-1">
-                  <span className="text-[10px] uppercase font-bold text-emerald-200/60">Age Category</span>
-                  <p className="text-lg font-black text-white">{formatAgeClassification(activeItem.ageClassification)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Info Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100 border-t border-slate-100 text-xs bg-slate-50/50">
-            <div className="p-3.5 space-y-0.5">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Target Weight</span>
-              <p className="font-black text-slate-900">{targetWeight} kg</p>
-            </div>
-            <div className="p-3.5 space-y-0.5">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Estimated Meat</span>
-              <p className="font-black text-emerald-700">~{projectedCarcassKg} kg meat ({meatDressingPct}%)</p>
-            </div>
-            <div className="p-3.5 space-y-0.5">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Offspring Produced</span>
-              <p className="font-black text-slate-900">{totalCalves} {terms.offspringPlural}</p>
-            </div>
-            <div className="p-3.5 space-y-0.5">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Last Vaccination</span>
-              <p className="font-black text-slate-900">
-                {activeItem.lastVaccinationDate ? activeItem.lastVaccinationDate : "No Record Logged"}
-              </p>
-            </div>
-          </div>
-        </Card>
+            />
+          }
+        />
 
         {activeItem.status === "APPROVED" && activeItem.reviewRemarks && (
           <Card className="rounded-2xl border-emerald-200 bg-emerald-50/70 shadow-xs overflow-hidden">
@@ -1058,66 +973,77 @@ export default function LivestockDetailPage() {
           </Card>
         )}
 
-        {/* ── TABS: GROWTH, PRODUCTION YIELD, CALVING / BIRTHING, HEALTH, LINEAGE ───────── */}
-        <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-          <p className="text-sm text-slate-600">Auction staff record completed ownership-transfer certificates.</p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setActiveProfileTab("ownership")}
-            className="min-h-11 w-full rounded-xl border-emerald-700 font-semibold text-emerald-800 hover:bg-emerald-50 sm:w-auto"
-          >
-            View Ownership History
-          </Button>
-        </div>
-        <Tabs value={activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
-          {/* A two-column tab grid gives each section a comfortable touch target on phones. */}
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-slate-100 p-2 sm:flex sm:flex-wrap sm:gap-1 sm:p-1">
-            <TabsTrigger
-              value="growth"
-              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
-            >
-              <TrendingUp className="mr-1.5 size-4 shrink-0 text-emerald-600" /> <span>Growth &amp; Weight Logs</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="production"
-              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
-            >
-              <Milk className="mr-1.5 size-4 shrink-0 text-sky-600" /> <span>Production</span>
-            </TabsTrigger>
-            {canShowMilkPredictionTab && (
-              <TabsTrigger
-                value="milk-prediction"
-                className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
-              >
-                <Milk className="mr-1.5 size-4 shrink-0 text-amber-600" /> <span>Milk Production Prediction</span>
-              </TabsTrigger>
-            )}
-            <TabsTrigger
-              value="calving"
-              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
-            >
-              <Baby className="mr-1.5 size-4 shrink-0 text-pink-600" /> <span>{terms.eventName} &amp; Offspring ({totalCalves})</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="health"
-              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center"
-            >
-              <Stethoscope className="mr-1.5 size-4 shrink-0 text-rose-600" /> <span>Health &amp; Vaccines</span>
-            </TabsTrigger>
-          <TabsTrigger
-            value="pedigree"
-              className="min-h-11 w-full justify-start whitespace-normal rounded-xl px-2.5 py-2.5 text-left text-xs font-bold leading-snug data-[state=active]:bg-white data-[state=active]:shadow-xs sm:col-span-1 sm:w-auto sm:justify-center sm:px-3.5 sm:py-2 sm:text-center col-span-2"
-            >
-              <Heart className="mr-1.5 size-4 shrink-0 text-purple-600" /> <span>Pedigree &amp; Lineage</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="ownership"
-              className="rounded-xl font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-xs px-3.5 py-2 cursor-pointer"
-            >
-              Ownership History
-            </TabsTrigger>
-          </TabsList>
+        {/* ── EXPANDABLE BOTTOM SHEET / DRAGGABLE SLIDING PANEL (MOBILE) & DASHBOARD TABS (DESKTOP) ── */}
+        <LivestockSlidingPanel
+          activeTab={activeProfileTab}
+          onSelectTab={setActiveProfileTab}
+          tabItems={tabItems}
+        >
+          <Tabs value={activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
+            <div className="hidden lg:block w-full overflow-x-auto no-scrollbar py-1.5">
+              <TabsList className="h-12 flex w-full min-w-max items-center justify-between gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-100/90 p-1.5 shadow-2xs">
+                <TabsTrigger
+                  value="growth"
+                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <TrendingUp className="size-3.5 shrink-0 text-emerald-600" />
+                  <span>Growth &amp; Weight Logs</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="production"
+                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <Milk className="size-3.5 shrink-0 text-sky-600" />
+                  <span>Production</span>
+                </TabsTrigger>
+
+                {canShowMilkPredictionTab && (
+                  <TabsTrigger
+                    value="milk-prediction"
+                    className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  >
+                    <Milk className="size-3.5 shrink-0 text-amber-500" />
+                    <span>Milk Prediction</span>
+                  </TabsTrigger>
+                )}
+
+                <TabsTrigger
+                  value="calving"
+                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <Baby className="size-3.5 shrink-0 text-pink-600" />
+                  <span>{terms.eventName} &amp; Offspring</span>
+                  <span className="ml-0.5 rounded-full bg-pink-100 text-pink-800 text-[10px] font-black px-1.5 py-0.5">
+                    {totalCalves}
+                  </span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="health"
+                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <Stethoscope className="size-3.5 shrink-0 text-rose-600" />
+                  <span>Health &amp; Vaccines</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="pedigree"
+                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <Heart className="size-3.5 shrink-0 text-purple-600" />
+                  <span>Pedigree &amp; Lineage</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="ownership"
+                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <Layers className="size-3.5 shrink-0 text-slate-600" />
+                  <span>Ownership History</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
           {/* ── TAB 1: GROWTH & WEIGHT LOGS ───────────────────────────────── */}
           <TabsContent value="growth" className="space-y-6">
@@ -1668,7 +1594,8 @@ export default function LivestockDetailPage() {
             <p className="px-1 text-xs text-slate-500">After approval, this seller-side record remains in history as SOLD with the buyer recorded. A registered buyer submits their own inventory record for the acquired animal.</p>
           </TabsContent>
         </Tabs>
-      </div>
+      </LivestockSlidingPanel>
+    </div>
 
       {/* ── MODAL: LOG WEIGHT ─────────────────────────────────────────────── */}
       <LivestockEditDialog

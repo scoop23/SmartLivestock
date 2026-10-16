@@ -2,33 +2,107 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* The livestock ID action prints just the identity card, not the app behind its dialog. */
+/* Print only the selected pass, centered in normal page flow. */
 @media print {
   body * { visibility: hidden !important; }
+
+  body:has(#livestock-identity-pass),
+  body:has(.qr-code-pass-print-active),
+  body:has(#livestock-clearance-print) {
+    display: grid !important;
+    place-items: center !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+  }
+
+  body:has(#livestock-identity-pass) > *:not(:has(#livestock-identity-pass)),
+  body:has(.qr-code-pass-print-active) > *:not(:has(.qr-code-pass-print-active)),
+  body:has(#livestock-clearance-print) > *:not(:has(#livestock-clearance-print)) {
+    display: none !important;
+  }
+
+  body:has(#livestock-identity-pass) > *:has(#livestock-identity-pass),
+  body:has(.qr-code-pass-print-active) > *:has(.qr-code-pass-print-active),
+  body:has(#livestock-clearance-print) > *:has(#livestock-clearance-print) {
+    display: grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    position: static !important;
+    transform: none !important;
+    translate: none !important;
+  }
+
+  [data-slot="dialog-overlay"] { display: none !important; }
+  [data-slot="dialog-content"]:has(.qr-code-pass-print-active),
+  [data-slot="dialog-content"]:has(#livestock-clearance-print) {
+    position: static !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    translate: none !important;
+  }
+
   #livestock-identity-pass,
   #livestock-identity-pass * { visibility: visible !important; }
   #livestock-identity-pass {
-    position: absolute !important;
-    inset: 0 !important;
+    position: static !important;
     width: 100% !important;
     max-width: 28rem !important;
     max-height: none !important;
     overflow: visible !important;
-    margin: 0 auto !important;
+    margin: auto !important;
+    transform: none !important;
+    translate: none !important;
     box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
   #livestock-identity-pass [data-slot="dialog-close"] { display: none !important; }
   .livestock-id-pass-action { display: none !important; }
+
+  .qr-code-pass-print-active,
+  .qr-code-pass-print-active * { visibility: visible !important; }
+  .qr-code-pass-print-active {
+    position: static !important;
+    width: 100% !important;
+    max-width: 28rem !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: auto !important;
+    transform: none !important;
+    translate: none !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .qr-code-pass-print-active .qr-code-pass-actions { display: none !important; }
+
   #livestock-clearance-print,
   #livestock-clearance-print * { visibility: visible !important; }
   #livestock-clearance-print {
     display: block !important;
-    position: absolute !important;
-    inset: 0 !important;
+    position: static !important;
     width: 100% !important;
-    max-width: none !important;
-    margin: 0 !important;
+    max-width: 7in !important;
+    margin: auto !important;
+    transform: none !important;
+    translate: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
+  #livestock-clearance-print ~ * { display: none !important; }
 }
 
 @custom-variant dark (&:is(.dark *));

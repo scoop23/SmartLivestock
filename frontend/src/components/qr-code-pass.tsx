@@ -98,12 +98,19 @@ export function QrCodePass({
     toast.success(`Downloaded QR pass for ${code}`);
   };
 
-  const handlePrint = () => {
+  const handlePrint = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const pass = event.currentTarget.closest(".qr-code-pass");
+    if (!pass) return;
+
+    pass.classList.add("qr-code-pass-print-active");
+    window.addEventListener("afterprint", () => {
+      pass.classList.remove("qr-code-pass-print-active");
+    }, { once: true });
     window.print();
   };
 
   return (
-    <div className="w-full bg-white rounded-2xl border-2 border-slate-200/90 shadow-sm p-4 sm:p-5 flex flex-col items-center text-center space-y-3.5 relative overflow-hidden">
+    <div className="qr-code-pass w-full bg-white rounded-2xl border-2 border-slate-200/90 shadow-sm p-4 sm:p-5 flex flex-col items-center text-center space-y-3.5 relative overflow-hidden">
       {/* Top Security Banner */}
       <div className="flex items-center justify-between w-full pb-2 border-b border-slate-100 text-left">
         <div className="flex items-center gap-2">
@@ -227,7 +234,7 @@ export function QrCodePass({
       </div>
 
       {/* Action Buttons */}
-      <div className="w-full flex items-center gap-2 pt-1">
+      <div className="qr-code-pass-actions w-full flex items-center gap-2 pt-1">
         <Button
           variant="outline"
           size="sm"

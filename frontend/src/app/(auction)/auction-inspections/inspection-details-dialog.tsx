@@ -133,7 +133,7 @@ export function InspectionDetailsDialog({
           </div>
           <table className="mt-6 w-full border-collapse text-sm"><thead><tr><th className="border p-2 text-left">Animal type</th><th className="border p-2">Tag</th><th className="border p-2">Heads</th><th className="border p-2">Classification</th></tr></thead>
             <tbody>{inspection.items.map((item, index) => <tr key={`${item.livestock_type}-${index}`}><td className="border p-2">{item.livestock_type_name || "Livestock"}</td><td className="border p-2 text-center">{item.inventory_tag || "—"}</td><td className="border p-2 text-center">{item.quantity}</td><td className="border p-2 text-center">{item.classification}</td></tr>)}</tbody></table>
-          <div className="mt-7 flex items-center justify-between gap-6 border-t pt-5">
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 border-t pt-5 text-center">
             <p className="max-w-md text-xs">Scan this QR code to verify this clearance against the SmartLivestock record.</p>
             {clearanceQr ? <Image src={clearanceQr} width={132} height={132} unoptimized alt="QR code to verify this approved livestock clearance" /> : <p className="text-xs">Verification QR is being prepared or unavailable; reopen this record and try printing again.</p>}
           </div>

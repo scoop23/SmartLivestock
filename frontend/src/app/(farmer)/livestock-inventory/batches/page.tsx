@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -428,6 +428,8 @@ export default function BatchOverviewPage() {
   const livestockReturnUrl = livestockTypeReturn
     ? `/livestock-inventory?livestockType=${encodeURIComponent(livestockTypeReturn)}`
     : "/livestock-inventory";
+  const animalIdParam = searchParams?.get("animalId") || "";
+  const tagParam = searchParams?.get("tag") || "";
 
   const {
     data: backendBatches = [],
@@ -453,6 +455,8 @@ export default function BatchOverviewPage() {
   const initialBatchId = searchParams?.get("batch") || "";
   const [selectedBatchId, setSelectedBatchId] = useState<string>(initialBatchId);
   const [isHerdDetailsOpen, setIsHerdDetailsOpen] = useState(Boolean(initialBatchId));
+  const [highlightedAnimalId, setHighlightedAnimalId] = useState<string | null>(null);
+  const scrolledAnimalIdRef = useRef<string | null>(null);
   const [modalHeroPhotoIndex, setModalHeroPhotoIndex] = useState(0);
 
   const [rosterView, setRosterView] = useState<"cards" | "table">("cards");
@@ -664,6 +668,8 @@ export default function BatchOverviewPage() {
 
   const handleBatchSelect = (batchId: string) => {
     setSelectedBatchId(batchId);
+    setHighlightedAnimalId(null);
+    scrolledAnimalIdRef.current = null;
     setModalHeroPhotoIndex(0);
     setAnimalCurrentPage(1);
     setIsHerdDetailsOpen(true);
@@ -692,7 +698,11 @@ export default function BatchOverviewPage() {
   const filteredIndividuals = useMemo(() => {
     if (!currentBatch) return [];
     return currentBatch.individuals.filter((animal) => {
-      if (animal.operationalStatus !== "ACTIVE") return false;
+      const isRequestedAnimal = currentBatch.id === initialBatchId && (
+        (animalIdParam && animal.id === animalIdParam) ||
+        (tagParam && animal.tagNumber?.trim().toLowerCase() === tagParam.trim().toLowerCase())
+      );
+      if (animal.operationalStatus !== "ACTIVE" && !isRequestedAnimal) return false;
       const matchSearch =
         (animal.tagNumber || "")
           .toLowerCase()
@@ -701,9 +711,9 @@ export default function BatchOverviewPage() {
       const matchGender =
         genderFilter === "ALL" ||
         animal.sex.toUpperCase() === genderFilter.toUpperCase();
-      return matchSearch && matchGender;
+      return isRequestedAnimal || (matchSearch && matchGender);
     });
-  }, [currentBatch, searchQuery, genderFilter]);
+  }, [currentBatch, initialBatchId, searchQuery, genderFilter, animalIdParam, tagParam]);
 
   // ── Pagination State for Animal Roster inside Modal ──
   const ANIMALS_PER_PAGE = 8;
@@ -715,6 +725,52 @@ export default function BatchOverviewPage() {
     const startIndex = (safeAnimalPage - 1) * ANIMALS_PER_PAGE;
     return filteredIndividuals.slice(startIndex, startIndex + ANIMALS_PER_PAGE);
   }, [filteredIndividuals, safeAnimalPage]);
+
+  // Deep links from an animal profile open its herd and select that animal in the roster.
+  useEffect(() => {
+    if (
+      !isHerdDetailsOpen ||
+      !currentBatch ||
+      currentBatch.id !== initialBatchId ||
+      (!animalIdParam && !tagParam)
+    ) {
+      return;
+    }
+
+    const targetIndex = filteredIndividuals.findIndex((animal) => {
+      if (animalIdParam && animal.id === animalIdParam) return true;
+      return Boolean(
+        tagParam &&
+          animal.tagNumber?.trim().toLowerCase() === tagParam.trim().toLowerCase()
+      );
+    });
+    if (targetIndex < 0) return;
+
+    const target = filteredIndividuals[targetIndex];
+    scrolledAnimalIdRef.current = null;
+    setHighlightedAnimalId(target.id);
+    setAnimalCurrentPage(Math.floor(targetIndex / ANIMALS_PER_PAGE) + 1);
+  }, [
+    isHerdDetailsOpen,
+    currentBatch,
+    initialBatchId,
+    animalIdParam,
+    tagParam,
+    filteredIndividuals,
+  ]);
+
+  useEffect(() => {
+    if (!highlightedAnimalId || scrolledAnimalIdRef.current === highlightedAnimalId) return;
+    const timeout = window.setTimeout(() => {
+      const target =
+        document.getElementById(`animal-card-${highlightedAnimalId}`) ||
+        document.getElementById(`animal-row-${highlightedAnimalId}`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrolledAnimalIdRef.current = highlightedAnimalId;
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedAnimalId, animalCurrentPage, paginatedIndividuals]);
 
   // Calculations for Batch Yield
   const yieldMetrics = useMemo(() => {
@@ -1729,6 +1785,7 @@ export default function BatchOverviewPage() {
                           <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
                             {paginatedIndividuals.map((animal) => {
                               const hasInventoryRecord = /^\d+$/.test(animal.id);
+                              const isTargetAnimal = highlightedAnimalId === animal.id;
                               const reviewColor =
                                 animal.reviewStatus === "APPROVED"
                                   ? "bg-emerald-100 text-emerald-950 border-emerald-300"
@@ -1754,7 +1811,13 @@ export default function BatchOverviewPage() {
                               return (
                                 <div
                                   key={animal.id}
-                                  className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs transition-all hover:border-emerald-300"
+                                  id={`animal-card-${animal.id}`}
+                                  aria-current={isTargetAnimal ? "true" : undefined}
+                                  className={`rounded-xl border bg-white p-3 shadow-2xs transition-all hover:border-emerald-300 ${
+                                    isTargetAnimal
+                                      ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500 shadow-md"
+                                      : "border-slate-200"
+                                  }`}
                                 >
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
@@ -1792,6 +1855,11 @@ export default function BatchOverviewPage() {
                                       {animal.sex}
                                     </Badge>
                                   </div>
+                                  {isTargetAnimal && (
+                                    <Badge className="mt-2 border-emerald-300 bg-emerald-100 text-[10px] font-bold text-emerald-950">
+                                      Selected animal
+                                    </Badge>
+                                  )}
 
                                   <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2 text-xs">
                                     <div>
@@ -1910,9 +1978,12 @@ export default function BatchOverviewPage() {
                             ) : (
                               paginatedIndividuals.map((animal) => {
                                 const hasInventoryRecord = /^\d+$/.test(animal.id);
+                                const isTargetAnimal = highlightedAnimalId === animal.id;
                                 return (
                                   <TableRow
                                     key={animal.id}
+                                    id={`animal-row-${animal.id}`}
+                                    aria-current={isTargetAnimal ? "true" : undefined}
                                     onClick={(event) => {
                                       const target = event.target as HTMLElement;
                                       if (hasInventoryRecord && !target.closest("a, button")) {
@@ -1921,6 +1992,8 @@ export default function BatchOverviewPage() {
                                     }}
                                     className={`transition-colors hover:bg-emerald-50/40 ${
                                       hasInventoryRecord ? "cursor-pointer" : ""
+                                    } ${
+                                      isTargetAnimal ? "bg-emerald-100 ring-2 ring-inset ring-emerald-500" : ""
                                     }`}
                                   >
                                     <TableCell className="py-2 text-xs font-bold text-slate-950">
@@ -1931,6 +2004,11 @@ export default function BatchOverviewPage() {
                                         >
                                           <Tag className="size-3 text-emerald-600" />
                                           <span>{animal.tagNumber || "No Tag #"}</span>
+                                          {isTargetAnimal && (
+                                            <Badge className="ml-1 border-emerald-300 bg-emerald-100 px-1.5 py-0 text-[9px] text-emerald-950">
+                                              Selected
+                                            </Badge>
+                                          )}
                                         </Link>
                                       ) : (
                                         <span className="flex items-center gap-1.5 text-slate-500">
