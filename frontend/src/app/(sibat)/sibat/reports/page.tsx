@@ -5,8 +5,12 @@ import { SibatReportsWorkspace } from "./sibat-reports-workspace";
 
 export default function SibatBarangayReportsPage() {
   const { user } = useAuth();
+  const isAllBarangays = user?.accessScope === "ALL_BARANGAYS";
+  const reportingScope = isAllBarangays
+    ? "All Barangays"
+    : user?.assignedBarangayName ?? "";
 
   return (
-    <SibatReportsWorkspace assignedBarangay={user?.assignedBarangayName ?? ""} />
+    <SibatReportsWorkspace reportingScope={reportingScope} isAllBarangays={isAllBarangays} />
   );
 }

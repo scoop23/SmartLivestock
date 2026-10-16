@@ -13,7 +13,7 @@ from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import LivestockInventory
 from movements.models import LivestockInspection, LivestockInspectionClearance
 from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
-from smartlivestock.workflows import ADMIN, MAO, role_name
+from smartlivestock.workflows import ADMIN, MAO, has_all_barangay_access, role_name
 
 from .movement_direction import classify_movement_direction
 from .gis import OFFICIAL_BARANGAYS
@@ -551,10 +551,10 @@ def build_report(report_type, params, user):
     if start > end:
         raise ValidationError({"date_to": "Date To must be on or after Date From."})
     filters = {key: params.get(key, "") for key in ("species", "barangay", "purpose", "direction")}
-    if is_field_reviewer:
+    if is_field_reviewer and not has_all_barangay_access(user):
         assigned_barangay = getattr(user, "assigned_barangay", None)
         if assigned_barangay is None:
-            raise PermissionDenied("Your SIBAT/CBAT account must be assigned to a barangay before generating reports.")
+            raise PermissionDenied("Your SIBAT/CBAT account needs an assigned barangay or all-barangays access before generating reports.")
         # Treat the server-side assignment as authoritative. A client supplied
         # barangay filter must never widen or redirect a field reviewer's report.
         filters["barangay"] = assigned_barangay.barangay_name
