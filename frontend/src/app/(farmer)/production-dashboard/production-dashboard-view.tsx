@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Baby,
+  ClipboardList,
   LineChart as LineChartIcon,
   Milk,
   Plus,
@@ -99,7 +100,7 @@ export default function ProductionDashboardView({
   const [focusedActivity] = useState<string | null>(initialActivity);
   const [focusedMode] = useState<"record" | "history" | null>(initialMode);
   const [kpiMonth, setKpiMonth] = useState(currentMonth);
-  const [showOverallKpis, setShowOverallKpis] = useState(false);
+  const [showOverallKpis, setShowOverallKpis] = useState(initialMode === "history");
 
   // Wizard state
   const [isWizardOpen, setIsWizardOpen] = useState(initialMode === "record" && ["milk", "meat", "eggs", "wool"].includes(initialActivity ?? ""));
@@ -126,6 +127,9 @@ export default function ProductionDashboardView({
   const shouldRenderFocusedTab = !focusedActivity
     || focusedMode === "history"
     || (focusedMode === "record" && ["calving", "weights", "sales", "intent"].includes(focusedActivity));
+  const isFocusedProductionHistory = Boolean(
+    focusedMode === "history" && ["milk", "meat", "eggs", "wool"].includes(focusedActivity ?? ""),
+  );
   // Fetch Inventory with standard hook & mapper
   const { data: inventories = [], isLoading: isInventoryLoading } = useUserInventory();
 
@@ -138,12 +142,12 @@ export default function ProductionDashboardView({
   } = useQuery<ProductionRecordItem[]>({
     queryKey: ["production_records"],
     queryFn: fetchProductionRecords,
-    // Focused record forms do not render production history, so avoid loading the full list here.
+    // Focused record forms do not render production analytics, so skip their query.
     enabled: !(focusedActivity && focusedMode === "record"),
   });
 
   // Fetch Calving Records
-  const { data: calvingRecords = [] } = useQuery<CalvingRecordItem[]>({
+  const { data: calvingRecords = [], isLoading: isCalvingLoading } = useQuery<CalvingRecordItem[]>({
     queryKey: ["calving_records"],
     queryFn: async () => {
       const res = await api.get("production/calving/");
@@ -152,7 +156,7 @@ export default function ProductionDashboardView({
   });
 
   // Fetch Weight Records
-  const { data: weightRecords = [] } = useQuery<
+  const { data: weightRecords = [], isLoading: isWeightLoading } = useQuery<
     Array<{ weight: number; weighing_date: string; livestock: number }>
   >({
     queryKey: ["weight_records"],
@@ -439,6 +443,8 @@ export default function ProductionDashboardView({
     [filteredProductionRecords]
   );
   const pendingCount = filteredProductionRecords.filter((r) => r.status === "PENDING").length;
+  const isOverviewLoading =
+    isRecordsLoading || isInventoryLoading || isCalvingLoading || isWeightLoading;
 
   return (
     <div className="space-y-6">
@@ -529,7 +535,7 @@ export default function ProductionDashboardView({
       />
 
       {/* Main Unified Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-3">
+      <div className={`flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-3 ${isFocusedProductionHistory ? "hidden" : ""}`}>
         <button
           type="button"
           onClick={() => setActiveMainTab("production")}
@@ -619,7 +625,89 @@ export default function ProductionDashboardView({
       </div>
       </div>
 
-      {shouldRenderFocusedTab && <>
+      {isFocusedProductionHistory && focusedActivity ? (
+        <>
+          <section className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-black text-slate-900">Production overview</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Totals and trends for your {focusedActivity} records.
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-10 rounded-xl border-slate-200 bg-white"
+                  onClick={() => router.push(`/production-dashboard/history?type=${focusedActivity}`)}
+                >
+                  <ClipboardList className="mr-2 size-4" /> View history
+                </Button>
+                <label htmlFor="production-history-kpi-period">View period</label>
+                <select
+                  id="production-history-kpi-period"
+                  value={showOverallKpis ? "OVERALL" : "MONTH"}
+                  onChange={(event) => setShowOverallKpis(event.target.value === "OVERALL")}
+                  className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+                >
+                  <option value="OVERALL">All dates</option>
+                  <option value="MONTH">By month</option>
+                </select>
+                {!showOverallKpis && (
+                  <input
+                    aria-label="KPI month"
+                    type="month"
+                    value={kpiMonth}
+                    max={currentMonth}
+                    onChange={(event) => setKpiMonth(event.target.value)}
+                    className="h-10 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+                  />
+                )}
+              </div>
+            </div>
+
+            {isOverviewLoading ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6"
+              >
+                <div className="flex items-center gap-3">
+                  <RefreshCw className="size-5 animate-spin text-emerald-700" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">Loading production overview</p>
+                    <p className="mt-1 text-xs text-slate-500">Getting your production totals, chart, and review statuses.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {[1, 2, 3, 4].map((item) => (
+                    <Skeleton key={item} className="h-28 rounded-2xl" />
+                  ))}
+                </div>
+                <Skeleton className="h-[320px] w-full rounded-2xl" />
+              </div>
+            ) : (
+              <>
+                <SpeciesKpiCards
+                  species={selectedSpecies}
+                  inventories={activityInventories}
+                  productionRecords={monthlyKpiProductionRecords}
+                  calvingRecords={monthlyKpiCalvingRecords}
+                  weightRecords={monthlyKpiWeightRecords}
+                />
+
+                <ProductionCharts
+                  type={focusedActivity as ProductionType}
+                  data={analytics.by_type[focusedActivity as ProductionType] ?? EMPTY_TYPE_ANALYTICS}
+                />
+              </>
+            )}
+          </section>
+        </>
+      ) : null}
+
+      {shouldRenderFocusedTab && !isFocusedProductionHistory && <>
       {/* Tab 1: Daily Yield Logs */}
       {activeMainTab === "production" && (
         <div className="space-y-6">
