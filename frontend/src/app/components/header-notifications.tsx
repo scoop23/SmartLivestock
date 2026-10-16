@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Bell,
   CheckCircle2,
@@ -75,8 +76,61 @@ export interface BackendNotificationsResponse {
   notifications: BackendNotification[];
 }
 
-export const getNotificationRouteForRole = (variant?: HeaderNotificationsProps["variant"]): string => {
-  switch (variant) {
+export const getEffectiveRole = (
+  variant?: HeaderNotificationsProps["variant"],
+  userRole?: string | null,
+  currentPath?: string | null
+): "admin" | "farmer" | "sibat" | "auction" | "slaughterhouse" => {
+  // 1. Path-based detection (most accurate for the active portal workspace)
+  if (currentPath) {
+    if (currentPath.startsWith("/sibat")) return "sibat";
+    if (
+      currentPath.startsWith("/farmer") ||
+      currentPath.startsWith("/livestock-") ||
+      currentPath.startsWith("/production-") ||
+      currentPath.startsWith("/report-") ||
+      currentPath.startsWith("/alerts") ||
+      currentPath.startsWith("/gis-user-map")
+    ) {
+      return "farmer";
+    }
+    if (currentPath.startsWith("/auction")) return "auction";
+    if (currentPath.startsWith("/slaughterhouse")) return "slaughterhouse";
+    if (
+      currentPath.startsWith("/admin") ||
+      currentPath.startsWith("/data-validation") ||
+      currentPath.startsWith("/data-overview") ||
+      currentPath.startsWith("/gis-map") ||
+      currentPath.startsWith("/reports") ||
+      currentPath.startsWith("/analytics") ||
+      currentPath.startsWith("/user-management")
+    ) {
+      return "admin";
+    }
+  }
+
+  // 2. Auth user role detection
+  const normalized = userRole?.toUpperCase();
+  if (normalized === "SIBAT" || normalized === "CBAT") return "sibat";
+  if (normalized === "FARMER") return "farmer";
+  if (normalized === "AUCTION") return "auction";
+  if (normalized === "SLAUGHTERHOUSE" || normalized === "MEAT_INSPECTOR") return "slaughterhouse";
+  if (normalized === "MAO" || normalized === "ADMIN") return "admin";
+
+  // 3. Fallback to passed variant
+  if (variant && variant !== "admin") return variant;
+  if (variant === "admin" && (!normalized || normalized === "MAO" || normalized === "ADMIN")) return "admin";
+
+  return "farmer";
+};
+
+export const getNotificationRouteForRole = (
+  variant?: HeaderNotificationsProps["variant"],
+  userRole?: string | null,
+  currentPath?: string | null
+): string => {
+  const role = getEffectiveRole(variant, userRole, currentPath);
+  switch (role) {
     case "farmer":
       return "/farmer/notifications";
     case "sibat":
@@ -91,8 +145,14 @@ export const getNotificationRouteForRole = (variant?: HeaderNotificationsProps["
   }
 };
 
-export const resolveNotificationLink = (notification: BackendNotification, variant: HeaderNotificationsProps["variant"]) => {
-  if (variant === "admin") {
+export const resolveNotificationLink = (
+  notification: BackendNotification,
+  variant: HeaderNotificationsProps["variant"],
+  userRole?: string | null,
+  currentPath?: string | null
+) => {
+  const effectiveVariant = getEffectiveRole(variant, userRole, currentPath);
+  if (effectiveVariant === "admin") {
     const adminRoutes: Record<string, (id: number) => string> = {
       livestock_inventory: (id) => `/data-validation?domain=inventory&recordType=INVENTORY&recordId=${id}`,
       livestock_batch: (id) => `/data-validation?domain=inventory&recordType=BATCH&recordId=${id}`,
@@ -263,6 +323,8 @@ export function HeaderNotifications({
   className = "",
 }: HeaderNotificationsProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const notificationActionsPending = useIsMutating({ mutationKey: ["notification-actions"] }) > 0;
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -398,7 +460,7 @@ export function HeaderNotifications({
     date: n.created_at ? n.created_at.split("T")[0] : "",
     timeAgo: n.time_ago || "Just now",
     read: n.is_read,
-    link: getSafeNotificationPath(resolveNotificationLink(n, variant)),
+    link: getSafeNotificationPath(resolveNotificationLink(n, variant, user?.role, pathname)),
   }));
 
   const unreadCount = backendData?.unread_count ?? notifications.filter((n) => !n.read).length;
@@ -697,7 +759,8 @@ export function HeaderNotifications({
             size="sm"
             onClick={() => {
               setIsOpen(false);
-              router.push(getNotificationRouteForRole(variant));
+              const targetRoute = getNotificationRouteForRole(variant, user?.role, pathname);
+              router.push(targetRoute);
             }}
             className="w-full h-8.5 text-xs font-bold text-purple-700 hover:text-purple-900 hover:bg-purple-100/70 flex items-center justify-center gap-1.5 transition-colors underline underline-offset-4 cursor-pointer"
           >

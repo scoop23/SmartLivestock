@@ -23,10 +23,33 @@ export default function AdminLayout({
   const isMapPage = pathname === "/gis-map" || pathname.startsWith("/gis-map");
 
   useEffect(() => {
-    if (!isLoading && (!user || !isAuthorized)) {
+    if (isLoading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!isAuthorized) {
+      if (pathname === "/notifications") {
+        if (role === "SIBAT" || role === "CBAT") {
+          router.replace("/sibat/notifications");
+          return;
+        }
+        if (role === "FARMER") {
+          router.replace("/farmer/notifications");
+          return;
+        }
+        if (role === "AUCTION") {
+          router.replace("/auction/notifications");
+          return;
+        }
+        if (role === "SLAUGHTERHOUSE" || role === "MEAT_INSPECTOR") {
+          router.replace("/slaughterhouse/notifications");
+          return;
+        }
+      }
       router.replace("/login");
     }
-  }, [user, isLoading, isAuthorized, router]);
+  }, [user, isLoading, isAuthorized, role, pathname, router]);
 
   if (isLoading) {
     return (

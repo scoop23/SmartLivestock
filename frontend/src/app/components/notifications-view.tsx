@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 import {
   ChevronDown,
   Eye,
@@ -92,6 +93,8 @@ export function NotificationsView({
   subtitle,
 }: NotificationsViewProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -216,7 +219,7 @@ export function NotificationsView({
       markReadMutation.mutate({ id: notif.id, unread: false });
     }
 
-    const resolvedLink = resolveNotificationLink(notif, variant);
+    const resolvedLink = resolveNotificationLink(notif, variant, user?.role, pathname);
     if (resolvedLink) {
       router.push(resolvedLink);
     } else {
@@ -513,12 +516,12 @@ export function NotificationsView({
             >
               Close
             </Button>
-            {selectedNotification && resolveNotificationLink(selectedNotification, variant) && (
+            {selectedNotification && resolveNotificationLink(selectedNotification, variant, user?.role, pathname) && (
               <Button
                 type="button"
                 className="bg-purple-600 hover:bg-purple-700 text-white"
                 onClick={() => {
-                  const link = resolveNotificationLink(selectedNotification, variant);
+                  const link = resolveNotificationLink(selectedNotification, variant, user?.role, pathname);
                   setSelectedNotification(null);
                   if (link) router.push(link);
                 }}
