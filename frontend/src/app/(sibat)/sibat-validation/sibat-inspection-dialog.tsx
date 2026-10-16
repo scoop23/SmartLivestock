@@ -36,6 +36,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import { getAttachedPhoto, saveAttachedPhoto } from "@/lib/photo-storage";
 
 export type SibatReportType = "DISEASE" | "MORTALITY" | "SLAUGHTER" | "PRODUCTION" | "SALE";
@@ -47,6 +48,19 @@ export type BiosecurityAction =
   | "TREATMENT_PRESCRIBED"
   | "BIOSECURE_BURIAL"
   | "LAB_SAMPLE_SENT";
+
+export interface AffectedAnimalItem {
+  id?: number | string;
+  tagNumber: string;
+  breed?: string;
+  livestockTypeName?: string;
+}
+
+export interface HeadDiagnosis {
+  tagNumber: string;
+  confirmedSymptoms: string[];
+  temperature?: string;
+}
 
 export interface SibatInspectionData {
   verifiedBy: string;
@@ -84,6 +98,7 @@ export interface SibatValidationRecord {
   photoUrl?: string;
   status: SibatStatus;
   inspection?: SibatInspectionData;
+  affectedAnimals?: AffectedAnimalItem[];
   maoApproval?: {
     approvedBy: string;
     approvedAt: string;
@@ -141,7 +156,6 @@ export function SibatInspectionDialog({
 }: SibatInspectionDialogProps) {
   const [tagConfirmed, setTagConfirmed] = useState<boolean>(record?.inspection?.tagConfirmed ?? false);
   const [countConfirmed, setCountConfirmed] = useState<boolean>(record?.inspection?.countConfirmed ?? false);
-  const [confirmedCount, setConfirmedCount] = useState<number>(record?.inspection?.confirmedCount ?? record?.reportedCount ?? 1);
   const [confirmedSymptoms, setConfirmedSymptoms] = useState<string[]>(record?.inspection?.confirmedSymptoms ?? []);
   const [severity, setSeverity] = useState<SeverityLevel | "">(record?.inspection?.severity ?? "");
   const [biosecurityAction, setBiosecurityAction] = useState<BiosecurityAction | "">(record?.inspection?.biosecurityAction ?? "");
@@ -154,24 +168,95 @@ export function SibatInspectionDialog({
   const [confirmationAction, setConfirmationAction] = useState<"VERIFIED" | "FLAGGED" | null>(null);
   const [validationError, setValidationError] = useState("");
 
+  // Resolves the list of distinct affected heads from the incident record
+  const heads = React.useMemo<AffectedAnimalItem[]>(() => {
+    if (!record) return [];
+    if (record.affectedAnimals && record.affectedAnimals.length > 0) {
+      return record.affectedAnimals;
+    }
+    if (record.livestockTag && record.livestockTag.includes(",")) {
+      return record.livestockTag.split(",").map((t, idx) => ({
+        id: idx + 1,
+        tagNumber: t.trim(),
+        breed: record.livestockBreed,
+        livestockTypeName: record.livestockType,
+      }));
+    }
+    if (record.reportedCount > 1) {
+      return Array.from({ length: record.reportedCount }, (_, idx) => ({
+        id: idx + 1,
+        tagNumber: idx === 0 ? record.livestockTag : `${record.livestockTag}-${idx + 1}`,
+        breed: record.livestockBreed,
+        livestockTypeName: record.livestockType,
+      }));
+    }
+    return [{ id: 1, tagNumber: record.livestockTag, breed: record.livestockBreed, livestockTypeName: record.livestockType }];
+  }, [record]);
+
+  // Per-head diagnosis state: 'ALL' means shared/batch view, or a specific tagNumber for individual head
+  const [selectedHeadTag, setSelectedHeadTag] = useState<string>("ALL");
+  const [headDiagnoses, setHeadDiagnoses] = useState<Record<string, HeadDiagnosis>>({});
+
   // Sync state when record changes
   React.useEffect(() => {
     if (record) {
       setTagConfirmed(record.inspection?.tagConfirmed ?? false);
       setCountConfirmed(record.inspection?.countConfirmed ?? false);
-      setConfirmedCount(record.inspection?.confirmedCount ?? record.reportedCount ?? 1);
-      setConfirmedSymptoms(record.inspection?.confirmedSymptoms ?? []);
+      const baseSymptoms = record.inspection?.confirmedSymptoms ?? [];
+      const baseTemp = record.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "";
+      setConfirmedSymptoms(baseSymptoms);
       setSeverity(record.inspection?.severity ?? "");
       setBiosecurityAction(record.inspection?.biosecurityAction ?? "");
-      setTemperature(record.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "");
+      setTemperature(baseTemp);
       setInspectorRemarks(record.inspection?.remarks ?? "");
       setInspectorPhotoUrl(record.inspection?.inspectorPhotoUrl ?? "");
       setInspectorPhotoName("");
       setInspectorPhotoFile(null);
       setConfirmationAction(null);
       setValidationError("");
+      setSelectedHeadTag("ALL");
+
+      // Initialize individual head diagnoses map
+      const initialMap: Record<string, HeadDiagnosis> = {};
+      heads.forEach((h) => {
+        initialMap[h.tagNumber] = {
+          tagNumber: h.tagNumber,
+          confirmedSymptoms: [...baseSymptoms],
+          temperature: baseTemp,
+        };
+      });
+      setHeadDiagnoses(initialMap);
     }
-  }, [record]);
+  }, [record, heads]);
+
+  // Synchronize current findings across all affected heads
+  const handleSyncToAll = () => {
+    if (isReadOnly) return;
+    const sourceSymptoms = selectedHeadTag === "ALL"
+      ? confirmedSymptoms
+      : (headDiagnoses[selectedHeadTag]?.confirmedSymptoms ?? confirmedSymptoms);
+    const sourceTemp = selectedHeadTag === "ALL"
+      ? temperature
+      : (headDiagnoses[selectedHeadTag]?.temperature ?? temperature);
+
+    const updated: Record<string, HeadDiagnosis> = {};
+    heads.forEach((h) => {
+      updated[h.tagNumber] = {
+        tagNumber: h.tagNumber,
+        confirmedSymptoms: [...sourceSymptoms],
+        temperature: sourceTemp,
+      };
+    });
+    setHeadDiagnoses(updated);
+    setConfirmedSymptoms([...sourceSymptoms]);
+    if (sourceTemp) setTemperature(sourceTemp);
+
+    toast.success(`Synchronized symptoms across all ${heads.length} heads!`, {
+      description: sourceSymptoms.length > 0
+        ? `Applied ${sourceSymptoms.length} signs (${sourceSymptoms.slice(0, 2).join(", ")}${sourceSymptoms.length > 2 ? "..." : ""}) to all animals.`
+        : "Synchronized clean baseline across all animals.",
+    });
+  };
 
   const handleInspectorPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -209,17 +294,80 @@ export function SibatInspectionDialog({
   const isApproved = normStatus === "APPROVED";
   const isVerified = normStatus === "VERIFIED";
 
+  // Active symptoms & temperature depending on whether 'ALL' or a specific head is selected
+  const activeSymptoms = selectedHeadTag === "ALL"
+    ? confirmedSymptoms
+    : (headDiagnoses[selectedHeadTag]?.confirmedSymptoms ?? []);
+
+  const activeTemperature = selectedHeadTag === "ALL"
+    ? temperature
+    : (headDiagnoses[selectedHeadTag]?.temperature ?? temperature);
+
   const toggleSymptom = (label: string) => {
     if (isReadOnly) return;
-    setConfirmedSymptoms((prev) =>
-      prev.includes(label) ? prev.filter((s) => s !== label) : [...prev, label]
-    );
+    if (selectedHeadTag === "ALL") {
+      setConfirmedSymptoms((prev) => {
+        const next = prev.includes(label) ? prev.filter((s) => s !== label) : [...prev, label];
+        // Keep individual heads updated with shared batch state
+        setHeadDiagnoses((currentMap) => {
+          const newMap = { ...currentMap };
+          heads.forEach((h) => {
+            newMap[h.tagNumber] = {
+              ...(newMap[h.tagNumber] || { tagNumber: h.tagNumber }),
+              confirmedSymptoms: [...next],
+            };
+          });
+          return newMap;
+        });
+        return next;
+      });
+    } else {
+      setHeadDiagnoses((prev) => {
+        const currentHead = prev[selectedHeadTag] || { tagNumber: selectedHeadTag, confirmedSymptoms: [] };
+        const currentSigns = currentHead.confirmedSymptoms || [];
+        const nextSigns = currentSigns.includes(label)
+          ? currentSigns.filter((s) => s !== label)
+          : [...currentSigns, label];
+        return {
+          ...prev,
+          [selectedHeadTag]: {
+            ...currentHead,
+            confirmedSymptoms: nextSigns,
+          },
+        };
+      });
+    }
+  };
+
+  const handleTemperatureChange = (val: string) => {
+    if (isReadOnly) return;
+    if (selectedHeadTag === "ALL") {
+      setTemperature(val);
+      setHeadDiagnoses((prev) => {
+        const newMap = { ...prev };
+        heads.forEach((h) => {
+          newMap[h.tagNumber] = {
+            ...(newMap[h.tagNumber] || { tagNumber: h.tagNumber, confirmedSymptoms: [] }),
+            temperature: val,
+          };
+        });
+        return newMap;
+      });
+    } else {
+      setHeadDiagnoses((prev) => ({
+        ...prev,
+        [selectedHeadTag]: {
+          ...(prev[selectedHeadTag] || { tagNumber: selectedHeadTag, confirmedSymptoms: [] }),
+          temperature: val,
+        },
+      }));
+    }
   };
 
   const handleAction = (status: "VERIFIED" | "FLAGGED") => {
     if (isReadOnly) return;
-    if (status === "VERIFIED" && (!tagConfirmed || !countConfirmed || confirmedCount < 1)) {
-      setValidationError("Confirm the physical tag and field count before sending this record to MAO.");
+    if (status === "VERIFIED" && (!tagConfirmed || !countConfirmed)) {
+      setValidationError("Confirm the physical tag and on-site count before sending this record to MAO.");
       return;
     }
     setValidationError("");
@@ -237,17 +385,38 @@ export function SibatInspectionDialog({
       minute: "2-digit",
     });
 
+    // Check if any individual head has different clinical signs than the batch
+    const hasPerHeadOverrides = heads.length > 1 && heads.some((h) => {
+      const hSigns = headDiagnoses[h.tagNumber]?.confirmedSymptoms ?? [];
+      return hSigns.slice().sort().join(",") !== confirmedSymptoms.slice().sort().join(",");
+    });
+
+    let finalRemarks = inspectorRemarks.trim();
+    if (hasPerHeadOverrides) {
+      const breakdown = heads
+        .map((h) => {
+          const d = headDiagnoses[h.tagNumber];
+          const signs = d?.confirmedSymptoms?.length ? d.confirmedSymptoms.join(", ") : "None";
+          const temp = d?.temperature ? ` (${d.temperature}°C)` : "";
+          return `[${h.tagNumber}: ${signs}${temp}]`;
+        })
+        .join(" ");
+      finalRemarks = finalRemarks
+        ? `${finalRemarks} — Individual findings: ${breakdown}`
+        : `On-farm inspection completed. Individual findings: ${breakdown}`;
+    }
+
     const inspectionData: SibatInspectionData = {
       verifiedBy: "Signed-in SIBAT account",
       verifiedAt: nowIso,
       tagConfirmed,
       countConfirmed,
-      confirmedCount,
+      confirmedCount: record.reportedCount ?? 1,
       confirmedSymptoms,
       severity,
       biosecurityAction,
       remarks:
-        inspectorRemarks.trim() ||
+        finalRemarks ||
         (status === "VERIFIED"
           ? "On-farm physical inspection completed and certified by SIBAT field officer."
           : status === "FLAGGED"
@@ -259,7 +428,6 @@ export function SibatInspectionDialog({
     };
 
     onConfirmInspection(record.id, status, inspectionData);
-    setConfirmationAction(null);
   };
 
   const getHeaderIcon = () => {
@@ -310,7 +478,8 @@ export function SibatInspectionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-screen max-w-none rounded-none p-4 sm:w-full sm:max-w-4xl sm:rounded-2xl sm:p-6 md:max-w-5xl lg:max-w-6xl lg:p-8 bg-white border border-slate-100 shadow-2xl max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto">
+      <DialogContent className="overflow-hidden w-screen max-w-none rounded-none p-4 sm:w-full sm:max-w-4xl sm:rounded-2xl sm:p-6 md:max-w-5xl lg:max-w-6xl lg:p-8 bg-white border border-slate-100 shadow-2xl max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto">
+
         {/* ══ POPUP HEADER ══ */}
         <DialogHeader className="mb-3 sm:mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -387,7 +556,7 @@ export function SibatInspectionDialog({
         {/* ══ 2-COLUMN EXPANDED SIBAT INSPECTION LAYOUT ══ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
           {/* ── LEFT COLUMN (6 COLS): LIVESTOCK & FARMER INITIAL REPORT ── */}
-          <div className="lg:col-span-6 space-y-4">
+          <div className="min-w-0 lg:col-span-6 space-y-4">
             <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-black uppercase text-slate-400 tracking-widest block">
@@ -466,15 +635,15 @@ export function SibatInspectionDialog({
 
               {/* Farmer Reported Symptoms */}
               {record.farmerSymptoms && record.farmerSymptoms.length > 0 && (
-                <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5">
+                <div className="min-w-0 p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5">
                   <span className="text-[10px] font-black text-slate-400 uppercase block">
                     Signs Reported by Farmer:
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex min-w-0 flex-wrap gap-1.5">
                     {record.farmerSymptoms.map((sym, idx) => (
                       <Badge
                         key={idx}
-                        className="bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs py-0.5 px-2 rounded-lg"
+                        className="max-w-full min-w-0 whitespace-normal break-words text-left leading-relaxed bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs py-0.5 px-2 rounded-lg"
                       >
                         {sym}
                       </Badge>
@@ -665,7 +834,7 @@ export function SibatInspectionDialog({
           </div>
 
           {/* ── RIGHT COLUMN (6 COLS): SIBAT CLINICAL FORM & ACTIONS ── */}
-          <div className="lg:col-span-6 space-y-4">
+          <div className="min-w-0 lg:col-span-6 space-y-4">
             <div className="p-4 sm:p-5 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -702,7 +871,7 @@ export function SibatInspectionDialog({
                 </div>
               </label>
 
-              <label className={`flex min-h-14 items-center gap-3 rounded-xl border border-sky-200 bg-white p-3.5 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
+              <label className={`flex min-h-12 items-center gap-3 rounded-xl border border-sky-200 bg-white p-3.5 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
                 <input
                   type="checkbox"
                   checked={countConfirmed}
@@ -714,54 +883,127 @@ export function SibatInspectionDialog({
                   }}
                   className={`size-5 rounded text-sky-700 focus:ring-sky-500 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`}
                 />
-                <span className="text-xs font-semibold text-slate-800">I counted the affected animal(s) in person.</span>
+                <span className="text-xs font-semibold text-slate-800">
+                  I verified the physical count in person ({record.reportedCount} head{record.reportedCount > 1 ? "s" : ""}).
+                </span>
               </label>
 
-              {/* Confirmed Count & Temperature */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div className="space-y-1">
-                  <label className="text-xs font-black text-slate-800">
-                    Field count (farmer reported: {record.reportedCount}):
-                  </label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={confirmedCount}
-                    disabled={isReadOnly}
-                    onChange={(e) => {
-                      if (isReadOnly) return;
-                      setConfirmedCount(e.target.value === "" ? 0 : Number(e.target.value));
-                    }}
-                    className="min-h-11 bg-white border-sky-200 rounded-xl text-sm font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-black text-slate-800">
-                    Body Temp (°C) {isReadOnly ? "" : "(Optional)"}:
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    placeholder={isReadOnly ? "Not recorded" : "e.g. 39.5"}
-                    value={temperature}
-                    disabled={isReadOnly}
-                    onChange={(e) => {
-                      if (isReadOnly) return;
-                      setTemperature(e.target.value);
-                    }}
-                    className="bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
-                  />
-                </div>
+              {/* Body Temperature */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                  <span>
+                    Body Temp (°C) {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "" : "(Optional)"}:
+                  </span>
+                  {selectedHeadTag !== "ALL" && (
+                    <span className="text-[10px] text-sky-700 font-bold bg-sky-100/70 px-2 py-0.5 rounded-full">
+                      Head: {selectedHeadTag}
+                    </span>
+                  )}
+                </label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  placeholder={isReadOnly ? "Not recorded" : "e.g. 39.5"}
+                  value={activeTemperature}
+                  disabled={isReadOnly}
+                  onChange={(e) => handleTemperatureChange(e.target.value)}
+                  className="bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
+                />
               </div>
+
+              {/* Multi-head Selector & Sync Controls */}
+              {heads.length >= 2 && (
+                <div className="p-3.5 bg-white rounded-xl border border-sky-200 shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Tag className="size-3.5 text-sky-700" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-900">
+                        Diagnose by Head ({heads.length} Animals)
+                      </span>
+                    </div>
+
+                    {!isReadOnly && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSyncToAll}
+                        className="h-7 px-2.5 rounded-lg text-xs font-bold text-sky-900 bg-sky-50 border-sky-300 hover:bg-sky-100 hover:text-sky-950 cursor-pointer shadow-2xs gap-1.5"
+                        title="Copy current symptoms and temperature to all affected heads"
+                      >
+                        <Sparkles className="size-3 text-sky-600" />
+                        Sync to All Heads
+                      </Button>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-normal">
+                    Select a head to diagnose individual clinical signs, or use <strong>All Heads</strong> to inspect collectively.
+                  </p>
+
+                  {/* Head Selector Pills */}
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedHeadTag("ALL")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                        selectedHeadTag === "ALL"
+                          ? "bg-[#1A365D] text-white border-[#1A365D] shadow-xs"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span>★ All Heads (Batch)</span>
+                      <Badge className={`text-[10px] px-1.5 py-0 rounded-full font-black ${
+                        selectedHeadTag === "ALL" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                      }`}>
+                        {heads.length}
+                      </Badge>
+                    </button>
+
+                    {heads.map((h, idx) => {
+                      const isSelected = selectedHeadTag === h.tagNumber;
+                      const hSigns = headDiagnoses[h.tagNumber]?.confirmedSymptoms ?? [];
+                      return (
+                        <button
+                          key={h.tagNumber || idx}
+                          type="button"
+                          onClick={() => setSelectedHeadTag(h.tagNumber)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                            isSelected
+                              ? "bg-sky-600 text-white border-sky-700 shadow-xs"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-sky-50 hover:border-sky-300"
+                          }`}
+                        >
+                          <span>{h.tagNumber}</span>
+                          {hSigns.length > 0 && (
+                            <Badge className={`text-[9.5px] px-1.5 py-0 rounded-full font-black ${
+                              isSelected ? "bg-white text-sky-800" : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                            }`}>
+                              {hSigns.length} {hSigns.length === 1 ? "sign" : "signs"}
+                            </Badge>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Interactive Symptoms Checklist */}
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-800 block">
-                  Clinically Observed Signs {isReadOnly ? "(Recorded)" : "(Click to toggle)"}:
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-slate-800 block">
+                    Clinically Observed Signs {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "(Recorded)" : "(Click to toggle)"}:
+                  </label>
+                  {selectedHeadTag !== "ALL" && (
+                    <span className="text-[10px] font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full">
+                      Editing Tag #{selectedHeadTag}
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {CLINICAL_SYMPTOMS_LIST.map((sym) => {
-                    const isSelected = confirmedSymptoms.includes(sym.label);
+                    const isSelected = activeSymptoms.includes(sym.label);
                     return (
                       <button
                         key={sym.id}
@@ -1047,7 +1289,7 @@ export function SibatInspectionDialog({
                       </p>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Button type="button" onClick={confirmAction} disabled={isSubmitting} className="min-h-11 bg-[#1A365D] text-white hover:bg-[#152c4d]">
-                          {isSubmitting ? "Sending..." : "Confirm and send"}
+                          {isSubmitting ? "Sending to MAO..." : "Confirm and send"}
                         </Button>
                         <Button type="button" variant="outline" onClick={() => setConfirmationAction(null)} disabled={isSubmitting} className="min-h-11">Go back</Button>
                       </div>

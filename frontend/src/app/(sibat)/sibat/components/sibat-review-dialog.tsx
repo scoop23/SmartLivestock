@@ -101,6 +101,7 @@ export default function SibatReviewDialog({
 }: SibatReviewDialogProps) {
   const [remarks, setRemarks] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
 
   // Edit fields state
   const [editTagNumber, setEditTagNumber] = useState("");
@@ -181,6 +182,7 @@ export default function SibatReviewDialog({
       {
         onSuccess: () => {
           if (newStatus === "VERIFIED") {
+            setIsSuccessAnimated(true);
             toast.success(
               submission.sourceType === "SALE"
                 ? "Sale verified and forwarded to MAO!"
@@ -192,11 +194,16 @@ export default function SibatReviewDialog({
                 ? "Harvest yield verified and forwarded to MAO queue!"
                 : "Animal verified and forwarded to MAO queue!"
             );
+            setTimeout(() => {
+              setIsSuccessAnimated(false);
+              if (onReviewSuccess) onReviewSuccess();
+              onOpenChange(false);
+            }, 1200);
           } else {
             toast.success("Submission returned to raiser for revision & clarification.");
+            if (onReviewSuccess) onReviewSuccess();
+            onOpenChange(false);
           }
-          if (onReviewSuccess) onReviewSuccess();
-          onOpenChange(false);
         },
         onError: (err) => {
           console.error("Failed to submit review action:", err);
@@ -210,7 +217,29 @@ export default function SibatReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1rem)] sm:w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
+      <DialogContent className="bg-white text-slate-900 border border-slate-200 shadow-2xl w-[calc(100vw-1rem)] sm:w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
+        {/* Validation Success Animation Overlay */}
+        {isSuccessAnimated && (
+          <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+            <div className="relative mb-4">
+              <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping-subtle opacity-75" />
+              <div className="relative size-20 rounded-full bg-linear-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-xl shadow-emerald-600/30 animate-pop-bounce">
+                <CheckCircle2 className="size-11 stroke-[2.5]" />
+              </div>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight animate-in zoom-in-95 duration-300">
+              Validated Successfully!
+            </h3>
+            <p className="text-sm font-semibold text-emerald-800 mt-1 max-w-sm">
+              Certified on-site and forwarded to Municipal Agriculture Office queue.
+            </p>
+            <div className="mt-4 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700">
+              <Sparkles className="size-3.5 text-emerald-600" />
+              <span>Verified & Forwarded</span>
+            </div>
+          </div>
+        )}
+
         <DialogHeader className="border-b border-slate-100 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">

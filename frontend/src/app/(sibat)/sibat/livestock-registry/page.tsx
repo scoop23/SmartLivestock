@@ -776,16 +776,18 @@ function SibatLivestockRegistryContent() {
       </main>
 
       {/* Review Dialog */}
-      <SibatReviewDialog
-        submission={selectedSubmission}
-        open={selectedSubmission !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedSubmission(null);
-        }}
-        onReviewSuccess={() => {
-          void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
-        }}
-      />
+      {selectedSubmission && (
+        <SibatReviewDialog
+          submission={selectedSubmission}
+          open={selectedSubmission !== null}
+          onOpenChange={(open) => {
+            if (!open) setSelectedSubmission(null);
+          }}
+          onReviewSuccess={() => {
+            void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
+          }}
+        />
+      )}
     </>
   );
 }

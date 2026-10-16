@@ -390,6 +390,15 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
   const resolvedPhotoName = m.photo_url ? "mortality_evidence_photo.jpg" : (photo.isFarmerUpload ? photo.photoName : undefined);
 
   const affectedTags = m.affected_animals?.map((animal) => animal.tag_number).filter(Boolean) as string[] | undefined;
+  const affectedList = m.affected_animals && m.affected_animals.length > 0
+    ? m.affected_animals.map((animal) => ({
+        id: animal.id,
+        tagNumber: animal.tag_number || `TAG-${animal.id}`,
+        breed: animal.breed || m.breed,
+        livestockTypeName: m.livestock_type_name,
+      }))
+    : undefined;
+
   return {
     id: `MOR-${m.id}`,
     reportType: "MORTALITY",
@@ -401,6 +410,7 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
     inventoryId: String(m.livestock),
     name: m.cause || "Mortality Record",
     reportedCount: m.death_count || 1,
+    affectedAnimals: affectedList,
     reportedDate: m.record_date || (m.created_at ? m.created_at.slice(0, 10) : ""),
     reportedAt: m.created_at || new Date().toISOString(),
     farmerSymptoms: [m.cause || "Mortality"],
@@ -851,6 +861,8 @@ export function useUpdateSubmissionData() {
 
 export function useReviewClinicalHealth() {
   const queryClient = useQueryClient();
+  const diseaseQueryKey = ["sibat-validation-cases"] as const;
+  const mortalityQueryKey = ["sibat-validation-mortality"] as const;
 
   return useMutation({
     mutationFn: async ({
@@ -901,9 +913,43 @@ export function useReviewClinicalHealth() {
       const response = await api.post(endpoint, payload, { headers });
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sibat-validation-cases"] });
-      queryClient.invalidateQueries({ queryKey: ["sibat-validation-mortality"] });
+    onMutate: async ({ recordId, action }) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: diseaseQueryKey }),
+        queryClient.cancelQueries({ queryKey: mortalityQueryKey }),
+      ]);
+
+      const previousDiseaseRecords = queryClient.getQueryData<RawDiseaseCase[]>(diseaseQueryKey);
+      const previousMortalityRecords = queryClient.getQueryData<RawMortalityRecord[]>(mortalityQueryKey);
+      const [prefix, rawId] = recordId.split("-");
+      const id = Number(rawId);
+      const optimisticStatus = action === "VERIFIED" ? "VERIFIED" : "SUBJECT_TO_REVISION";
+
+      if (Number.isInteger(id)) {
+        if (prefix === "DIS") {
+          queryClient.setQueryData<RawDiseaseCase[]>(diseaseQueryKey, (records) =>
+            records?.map((record) => record.id === id ? { ...record, status: optimisticStatus } : record)
+          );
+        } else if (prefix === "MOR") {
+          queryClient.setQueryData<RawMortalityRecord[]>(mortalityQueryKey, (records) =>
+            records?.map((record) => record.id === id ? { ...record, status: optimisticStatus } : record)
+          );
+        }
+      }
+
+      return { previousDiseaseRecords, previousMortalityRecords };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousDiseaseRecords) {
+        queryClient.setQueryData(diseaseQueryKey, context.previousDiseaseRecords);
+      }
+      if (context?.previousMortalityRecords) {
+        queryClient.setQueryData(mortalityQueryKey, context.previousMortalityRecords);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: diseaseQueryKey });
+      queryClient.invalidateQueries({ queryKey: mortalityQueryKey });
       queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
       queryClient.invalidateQueries({ queryKey: ["disease-cases"] });
       queryClient.invalidateQueries({ queryKey: ["mortality-records"] });

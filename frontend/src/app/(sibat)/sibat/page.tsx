@@ -1202,22 +1202,17 @@ function SibatPortalContent() {
 
 
       {/* Production and inventory review dialog */}
-
-      <SibatReviewDialog
-
-        submission={activeSubmissionForReview}
-
-        open={activeSubmissionForReview !== null}
-
-        onOpenChange={(open) => {
-
-          if (!open) setSelectedSubmissionForReview(null);
-          if (!open && (reviewIdParam || legacyMessageParam)) clearReviewLink();
-
-        }}
-
-        onReviewSuccess={handleReviewSuccess}
-      />
+      {activeSubmissionForReview && (
+        <SibatReviewDialog
+          submission={activeSubmissionForReview}
+          open={activeSubmissionForReview !== null}
+          onOpenChange={(open) => {
+            if (!open) setSelectedSubmissionForReview(null);
+            if (!open && (reviewIdParam || legacyMessageParam)) clearReviewLink();
+          }}
+          onReviewSuccess={handleReviewSuccess}
+        />
+      )}
 
       <SibatFarmerFinderDialog
         open={isFarmerFinderOpen}

@@ -2163,15 +2163,17 @@ function SibatBatchesVerificationContent() {
         </DialogContent>
       </Dialog>
 
-      <SibatReviewDialog
-        submission={selectedAnimalReview}
-        open={selectedAnimalReview !== null}
-        onOpenChange={(open) => { if (!open) setSelectedAnimalReview(null); }}
-        onReviewSuccess={() => {
-          void queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
-          void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
-        }}
-      />
+      {selectedAnimalReview && (
+        <SibatReviewDialog
+          submission={selectedAnimalReview}
+          open={selectedAnimalReview !== null}
+          onOpenChange={(open) => { if (!open) setSelectedAnimalReview(null); }}
+          onReviewSuccess={() => {
+            void queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
+            void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
+          }}
+        />
+      )}
 
       <AlertDialog open={bulkVerifyOpen} onOpenChange={setBulkVerifyOpen}>
         <AlertDialogContent className="max-w-lg rounded-2xl p-6">

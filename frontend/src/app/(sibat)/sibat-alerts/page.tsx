@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
@@ -102,16 +103,25 @@ function SibatAlertsContent() {
   const reviewMutation = useReviewClinicalHealth();
 
   const [selectedRecord, setSelectedRecord] = useState<SibatValidationRecord | null>(null);
-  const [isInspectionOpen, setIsInspectionOpen] = useState(false);
+  const [dismissedNotificationKey, setDismissedNotificationKey] = useState<string | null>(null);
 
   const recordTypeParam = searchParams.get("recordType");
   const recordIdParam = searchParams.get("recordId");
+  const normalizedRecordType = recordTypeParam?.toUpperCase();
+  const notificationPrefix = normalizedRecordType === "DISEASE"
+    ? "DIS"
+    : normalizedRecordType === "MORTALITY"
+      ? "MOR"
+      : null;
+  const notificationKey = recordTypeParam && recordIdParam
+    ? `${normalizedRecordType}:${recordIdParam}`
+    : null;
   const notificationRecord =
-    !isLoading && recordTypeParam && recordIdParam
+    !isLoading && notificationPrefix && notificationKey && dismissedNotificationKey !== notificationKey
       ? records.find(
           (item) =>
-            item.reportType === recordTypeParam &&
-            item.id.endsWith(`-${recordIdParam}`)
+            item.reportType === normalizedRecordType &&
+            item.id === `${notificationPrefix}-${recordIdParam}`
         ) ?? null
       : null;
 
@@ -126,7 +136,6 @@ function SibatAlertsContent() {
 
   const handleOpenInspection = (record: SibatValidationRecord) => {
     setSelectedRecord(record);
-    setIsInspectionOpen(true);
   };
 
   const handleConfirmInspection = (
@@ -151,9 +160,11 @@ function SibatAlertsContent() {
           } else {
             toast.info(`Alert ${recordId} marked as discrepancy / false alarm.`);
           }
-          setIsInspectionOpen(false);
           setSelectedRecord(null);
-          if (recordIdParam) clearRecordLink();
+          if (notificationKey) {
+            setDismissedNotificationKey(notificationKey);
+            clearRecordLink();
+          }
         },
         onError: (err: unknown) => {
           toast.error("Failed to update alert status", {
@@ -260,30 +271,35 @@ function SibatAlertsContent() {
                 className="pl-10 pr-9 bg-slate-50/70 border-slate-200 rounded-xl h-11 text-sm font-medium focus-visible:ring-[#1A365D]/30"
               />
               {query && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                  title="Clear search"
+                  aria-label="Clear search"
+                  className="absolute right-1 top-1/2 size-9 -translate-y-1/2 rounded-lg text-slate-500 hover:bg-slate-200/70 hover:text-slate-900"
                 >
                   <X className="size-4" />
-                </button>
+                </Button>
               )}
             </div>
 
             {/* Status Select */}
             <div className="w-full md:w-56 shrink-0">
-              <select
-                aria-label="Filter disease status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as StatusFilterOption)}
-                className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#1A365D]/30 cursor-pointer"
-              >
-                <option value="All Statuses">All Statuses</option>
-                <option value="Needs Review">Needs Review</option>
-                <option value="Reviewed">Reviewed</option>
-                <option value="Forwarded to MAO">Forwarded to MAO</option>
-              </select>
+              <Select value={status} onValueChange={(value) => setStatus(value as StatusFilterOption)}>
+                <SelectTrigger
+                  aria-label="Filter disease status"
+                  className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All Statuses">All Statuses</SelectItem>
+                  <SelectItem value="Needs Review">Needs Review</SelectItem>
+                  <SelectItem value="Reviewed">Reviewed</SelectItem>
+                  <SelectItem value="Forwarded to MAO">Forwarded to MAO</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Secondary actions / reset */}
@@ -510,19 +526,25 @@ function SibatAlertsContent() {
       </div>
 
       {/* ── Inspection & Review Dialog ── */}
-      <SibatInspectionDialog
-        record={activeRecord}
-        open={isInspectionOpen || notificationRecord !== null}
-        onOpenChange={(open) => {
-          setIsInspectionOpen(open);
-          if (!open) {
-            setSelectedRecord(null);
-            if (recordIdParam) clearRecordLink();
-          }
-        }}
-        onConfirmInspection={handleConfirmInspection}
-        readOnly={isCbat}
-      />
+      {activeRecord && (
+        <SibatInspectionDialog
+          key={activeRecord.id}
+          record={activeRecord}
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedRecord(null);
+              if (notificationKey) {
+                setDismissedNotificationKey(notificationKey);
+                clearRecordLink();
+              }
+            }
+          }}
+          onConfirmInspection={handleConfirmInspection}
+          isSubmitting={reviewMutation.isPending}
+          readOnly={isCbat}
+        />
+      )}
     </div>
   );
 }
