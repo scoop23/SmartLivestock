@@ -486,14 +486,9 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     def get_photos(self, obj):
         request = self.context.get("request")
         urls = []
-        if obj.photo:
-            try:
-                url = obj.photo.url
-                urls.append(request.build_absolute_uri(url) if request else url)
-            except Exception:
-                pass
-        try:
-            for item in obj.gallery_photos.all():
+        gallery = list(obj.gallery_photos.all())
+        if gallery:
+            for item in gallery:
                 if item.photo:
                     try:
                         url = item.photo.url
@@ -502,8 +497,12 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
                             urls.append(full_url)
                     except Exception:
                         pass
-        except Exception:
-            pass
+        elif obj.photo:
+            try:
+                url = obj.photo.url
+                urls.append(request.build_absolute_uri(url) if request else url)
+            except Exception:
+                pass
         return urls
 
     def get_farmer_name(self, obj):

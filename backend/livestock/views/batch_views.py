@@ -122,15 +122,21 @@ def batch_list_create(request):
                 feed_type=data.get("feed_type", ""),
                 target_weight=data.get("target_weight") or None,
                 target_harvest_date=data.get("target_harvest_date") or None,
-                photo=batch_photo or None,
+                photo=None,
                 status=LivestockBatch.StatusType.ACTIVE,
                 notes=data.get("notes", ""),
                 created_by=user,
             )
 
             if uploaded_photos:
-                for p_file in uploaded_photos:
-                    LivestockBatchPhoto.objects.create(batch=batch, photo=p_file)
+                for idx, p_file in enumerate(uploaded_photos):
+                    photo_obj = LivestockBatchPhoto.objects.create(batch=batch, photo=p_file)
+                    if idx == 0:
+                        batch.photo.name = photo_obj.photo.name
+                batch.save(update_fields=["photo"])
+            elif batch_photo:
+                batch.photo = batch_photo
+                batch.save(update_fields=["photo"])
 
             # If animals roster is supplied, create individual LivestockInventory items
             if animals_data and isinstance(animals_data, list):
@@ -306,13 +312,77 @@ def batch_detail(request, pk):
     if request.method in ["PUT", "PATCH"]:
         require_action(user, "batches", "edit_own")
         data = request.data
-        uploaded_photos = request.FILES.getlist("photos") or request.FILES.getlist("photo")
-        if request.method == "PATCH" and uploaded_photos:
-            if not batch.photo:
-                batch.photo = uploaded_photos[0]
+        action = data.get("action")
+        if request.method == "PATCH" and action == "replace_photo":
+            new_file = request.FILES.get("photo") or request.FILES.get("file")
+            if not new_file:
+                return Response({"error": "No replacement photo file was provided."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                replace_idx = int(data.get("replace_index", 0))
+            except (ValueError, TypeError):
+                replace_idx = 0
+
+            gallery = list(batch.gallery_photos.all())
+            if gallery and 0 <= replace_idx < len(gallery):
+                target_obj = gallery[replace_idx]
+                target_obj.photo = new_file
+                target_obj.save(update_fields=["photo"])
+                if replace_idx == 0:
+                    batch.photo.name = target_obj.photo.name
+                    batch.save(update_fields=["photo", "updated_at"])
+            else:
+                if not gallery and batch.photo:
+                    first_p = LivestockBatchPhoto.objects.create(batch=batch, photo=new_file)
+                    batch.photo.name = first_p.photo.name
+                    batch.save(update_fields=["photo", "updated_at"])
+                else:
+                    new_p = LivestockBatchPhoto.objects.create(batch=batch, photo=new_file)
+                    if not batch.photo or replace_idx == 0:
+                        batch.photo.name = new_p.photo.name
+                        batch.save(update_fields=["photo", "updated_at"])
+            return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
+
+        if request.method == "PATCH" and action == "add_photo":
+            files = request.FILES.getlist("photos") or request.FILES.getlist("photo")
+            if not files and request.FILES.get("photo"):
+                files = [request.FILES.get("photo")]
+            if not files:
+                return Response({"error": "No photo file provided to add."}, status=status.HTTP_400_BAD_REQUEST)
+            if not batch.gallery_photos.exists() and batch.photo:
+                LivestockBatchPhoto.objects.create(batch=batch, photo=batch.photo.name)
+            for p_file in files:
+                photo_obj = LivestockBatchPhoto.objects.create(batch=batch, photo=p_file)
+                if not batch.photo:
+                    batch.photo.name = photo_obj.photo.name
+                    batch.save(update_fields=["photo", "updated_at"])
+            return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
+
+        if request.method == "PATCH" and action == "delete_photo":
+            try:
+                delete_idx = int(data.get("delete_index", 0))
+            except (ValueError, TypeError):
+                delete_idx = 0
+            gallery = list(batch.gallery_photos.all())
+            if gallery and 0 <= delete_idx < len(gallery):
+                target_obj = gallery[delete_idx]
+                target_obj.delete()
+            elif not gallery and batch.photo and delete_idx == 0:
+                batch.photo = None
                 batch.save(update_fields=["photo", "updated_at"])
-            for p_file in uploaded_photos:
-                LivestockBatchPhoto.objects.create(batch=batch, photo=p_file)
+            remaining = batch.gallery_photos.first()
+            if remaining:
+                batch.photo.name = remaining.photo.name
+            else:
+                batch.photo = None
+            batch.save(update_fields=["photo", "updated_at"])
+            return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
+
+        if request.method == "PATCH" and uploaded_photos:
+            for idx, p_file in enumerate(uploaded_photos):
+                photo_obj = LivestockBatchPhoto.objects.create(batch=batch, photo=p_file)
+                if not batch.photo and idx == 0:
+                    batch.photo.name = photo_obj.photo.name
+                    batch.save(update_fields=["photo", "updated_at"])
             return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
         if request.method == "PATCH" and data and set(data.keys()) == {"photo"}:
             photo_serializer = LivestockBatchPhotoUpdateSerializer(
@@ -320,8 +390,6 @@ def batch_detail(request, pk):
             )
             photo_serializer.is_valid(raise_exception=True)
             batch = photo_serializer.save()
-            if batch.photo:
-                LivestockBatchPhoto.objects.get_or_create(batch=batch, photo=batch.photo)
             return Response(LivestockBatchSerializer(batch, context={"request": request}).data)
         resubmit = str(data.get("resubmit", "")).lower() in {"true", "1"}
         if resubmit:

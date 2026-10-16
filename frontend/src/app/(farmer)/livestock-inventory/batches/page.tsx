@@ -31,6 +31,8 @@ import {
   ChevronsRight,
   Camera,
   ImageIcon,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -320,24 +322,33 @@ function HerdSplitCard({
         <div className="space-y-2">
           {/* Header Row: Title, Herd Code & Regulatory Status Badge */}
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h3 className="text-sm sm:text-base font-bold text-slate-950 group-hover:text-emerald-800 transition-colors line-clamp-1">
                   {batch.batchName || "Unnamed Herd"}
                 </h3>
-                <span className="hidden sm:inline-block rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 border border-slate-200">
+                <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 border border-slate-200 shrink-0">
                   {batch.batchCode}
                 </span>
               </div>
-              <p className="mt-0.5 text-xs font-medium text-slate-600 line-clamp-1">
-                {batch.breed || "Breed not recorded"}
-                {batch.housingPen && (
-                  <span className="text-slate-500"> · Pen {batch.housingPen}</span>
-                )}
-              </p>
             </div>
 
             <div className="shrink-0">{getReviewStatusBadge(batch.reviewStatus)}</div>
+          </div>
+
+          {/* Breed & Housing Pen (Dedicated Full-Width Row) */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600">
+            <span className="font-medium text-slate-700">{batch.breed || "Breed not recorded"}</span>
+            {batch.housingPen && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-500 font-medium">
+                  {batch.housingPen.toLowerCase().startsWith("pen")
+                    ? batch.housingPen
+                    : `Pen ${batch.housingPen}`}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Target Weight Progress (if set) */}
@@ -452,9 +463,81 @@ export default function BatchOverviewPage() {
   // Dialog States
   const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
   const [isHerdQrOpen, setIsHerdQrOpen] = useState(false);
+  const [isGalleryManagerOpen, setIsGalleryManagerOpen] = useState(false);
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
   const [newWeightInput, setNewWeightInput] = useState<string>("");
+
+  // Gallery photo management handlers
+  const handleReplacePhoto = async (batchId: string, replaceIndex: number, file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image file is too large. Maximum size is 5 MB.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("action", "replace_photo");
+    formData.append("replace_index", String(replaceIndex));
+    formData.append("photo", file);
+
+    const toastId = toast.loading("Updating picture...");
+    setIsPhotoUploading(true);
+    try {
+      await api.patch(`livestock/batches/${batchId}/`, formData);
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+      toast.success(`Photo #${replaceIndex + 1} updated successfully!`, { id: toastId });
+    } catch (err: unknown) {
+      const msg = isAxiosError(err) ? err.response?.data?.error || "Failed to update picture." : "Failed to update picture.";
+      toast.error(msg, { id: toastId });
+    } finally {
+      setIsPhotoUploading(false);
+    }
+  };
+
+  const handleAddPhoto = async (batchId: string, file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image file is too large. Maximum size is 5 MB.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("action", "add_photo");
+    formData.append("photo", file);
+
+    const toastId = toast.loading("Adding picture to gallery...");
+    setIsPhotoUploading(true);
+    try {
+      const res = await api.patch(`livestock/batches/${batchId}/`, formData);
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+      const newCount = res.data?.photos?.length || 1;
+      setModalHeroPhotoIndex(newCount - 1);
+      toast.success("Picture added to herd gallery!", { id: toastId });
+    } catch (err: unknown) {
+      const msg = isAxiosError(err) ? err.response?.data?.error || "Failed to add picture." : "Failed to add picture.";
+      toast.error(msg, { id: toastId });
+    } finally {
+      setIsPhotoUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async (batchId: string, deleteIndex: number) => {
+    const formData = new FormData();
+    formData.append("action", "delete_photo");
+    formData.append("delete_index", String(deleteIndex));
+
+    const toastId = toast.loading("Removing picture...");
+    setIsPhotoUploading(true);
+    try {
+      await api.patch(`livestock/batches/${batchId}/`, formData);
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+      setModalHeroPhotoIndex((prev) => Math.max(0, prev - 1));
+      toast.success("Picture removed from gallery.", { id: toastId });
+    } catch (err: unknown) {
+      const msg = isAxiosError(err) ? err.response?.data?.error || "Failed to remove picture." : "Failed to remove picture.";
+      toast.error(msg, { id: toastId });
+    } finally {
+      setIsPhotoUploading(false);
+    }
+  };
 
   // Form for adding individual to batch
   const [isSavingAnimal, setIsSavingAnimal] = useState(false);
@@ -472,26 +555,26 @@ export default function BatchOverviewPage() {
   const batches: EnrichedBatch[] = useMemo(() => {
     return backendBatches.map((b) => {
       const batchPhoto = b.photoUrl || null;
-      const backendPhotos = ((b as { photos?: string[] }).photos || []) as string[];
-      let localPhotos: string[] = [];
-      try {
-        if (typeof window !== "undefined") {
-          const rawLocal = localStorage.getItem(`batch_photos_${b.id}`);
-          if (rawLocal) localPhotos = JSON.parse(rawLocal);
-          const singleLocal = localStorage.getItem(`batch_photo_${b.id}`);
-          if (singleLocal && !localPhotos.includes(singleLocal)) {
-            localPhotos.unshift(singleLocal);
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-      const animalPhotos = (b.animals || [])
-        .map((a) => a.photoUrl || (a as { photo?: string | null }).photo || null)
-        .filter(Boolean) as string[];
+      const backendPhotos = (Array.isArray(b.photos) && b.photos.length > 0)
+        ? b.photos
+        : (batchPhoto ? [batchPhoto] : []);
 
-      // Deduplicate photos so a herd can have multiple pictures
-      const photos = Array.from(new Set([...backendPhotos, batchPhoto, ...localPhotos, ...animalPhotos].filter(Boolean) as string[]));
+      // Cleanly deduplicate by URL pathname
+      const seen = new Set<string>();
+      const photos: string[] = [];
+      for (const rawUrl of backendPhotos) {
+        if (!rawUrl) continue;
+        let norm = rawUrl.trim();
+        try {
+          norm = new URL(norm, "http://localhost").pathname;
+        } catch {
+          // use rawUrl
+        }
+        if (!seen.has(norm)) {
+          seen.add(norm);
+          photos.push(rawUrl);
+        }
+      }
 
       return {
         id: String(b.id),
@@ -785,7 +868,7 @@ export default function BatchOverviewPage() {
         maxWidthClass="w-full"
       />
 
-      <div className="mx-auto w-full max-w-[1500px] space-y-4 sm:space-y-5 p-3 sm:p-4">
+      <div className="mx-auto w-full space-y-4 sm:space-y-5 p-3 sm:p-4">
         {/* ── 1. COMPACT HERO BANNER ───────────────────────────────────────── */}
         <section className="relative overflow-hidden rounded-xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-3.5 sm:p-4.5 text-white shadow-md">
           <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-500/10 blur-3xl" />
@@ -1124,14 +1207,14 @@ export default function BatchOverviewPage() {
                 {/* ── HERO IMAGE GALLERY BANNER IN MODAL ── */}
                 <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
                   {/* Hero Picture */}
-                  <div className="relative aspect-[24/9] sm:h-38 w-full overflow-hidden bg-slate-900">
+                  <div className="relative aspect-[24/9] sm:h-44 w-full overflow-hidden bg-slate-900 group">
                     {currentBatch.photos.length > 0 ? (
                       <Image
                         src={currentBatch.photos[modalHeroPhotoIndex % currentBatch.photos.length]}
                         alt={currentBatch.batchName || "Herd banner"}
                         fill
                         unoptimized
-                        className="object-cover"
+                        className="object-cover transition-transform duration-300 group-hover:scale-102"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white">
@@ -1142,7 +1225,108 @@ export default function BatchOverviewPage() {
                     )}
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                    <div className="absolute bottom-2.5 left-3 right-3 flex items-end justify-between text-white">
+                    {/* Cycle arrows directly on hero image if multiple pictures */}
+                    {currentBatch.photos.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="Previous photo"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setModalHeroPhotoIndex((prev) => (prev === 0 ? currentBatch.photos.length - 1 : prev - 1));
+                          }}
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 size-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center shadow-md backdrop-blur-xs transition-colors"
+                        >
+                          <ChevronLeft className="size-4.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Next photo"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setModalHeroPhotoIndex((prev) => (prev + 1) % currentBatch.photos.length);
+                          }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 size-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center shadow-md backdrop-blur-xs transition-colors"
+                        >
+                          <ChevronRight className="size-4.5" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Top Right Quick Actions: Change this specific picture or delete */}
+                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+                      {currentBatch.photos.length > 0 ? (
+                        <>
+                          <label
+                            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-black/65 hover:bg-black/85 text-white text-xs font-bold backdrop-blur-md border border-white/20 shadow-md cursor-pointer transition-all"
+                            title={`Change photo #${(modalHeroPhotoIndex % currentBatch.photos.length) + 1}`}
+                          >
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              disabled={isPhotoUploading}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  void handleReplacePhoto(
+                                    currentBatch.id,
+                                    modalHeroPhotoIndex % currentBatch.photos.length,
+                                    file
+                                  );
+                                  e.target.value = "";
+                                }
+                              }}
+                            />
+                            <Camera className="size-3.5 text-emerald-400" />
+                            <span>Change this photo</span>
+                          </label>
+
+                          {currentBatch.photos.length > 1 && (
+                            <button
+                              type="button"
+                              disabled={isPhotoUploading}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Remove this photo from the herd gallery?")) {
+                                  void handleDeletePhoto(
+                                    currentBatch.id,
+                                    modalHeroPhotoIndex % currentBatch.photos.length
+                                  );
+                                }
+                              }}
+                              className="inline-flex items-center justify-center size-8 rounded-lg bg-black/65 hover:bg-rose-600/90 text-white backdrop-blur-md border border-white/20 shadow-md transition-all"
+                              title="Delete this photo"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <label
+                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md cursor-pointer transition-all"
+                          title="Upload a photo for this herd"
+                        >
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            disabled={isPhotoUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                void handleAddPhoto(currentBatch.id, file);
+                                e.target.value = "";
+                              }
+                            }}
+                          />
+                          <Plus className="size-3.5" />
+                          <span>Add Photo</span>
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="absolute bottom-2.5 left-3 right-3 flex items-end justify-between text-white pointer-events-none">
                       <div>
                         <h2 className="text-lg sm:text-xl font-bold drop-shadow-md">
                           {currentBatch.batchName || "Unnamed Herd"}
@@ -1163,28 +1347,76 @@ export default function BatchOverviewPage() {
                     </div>
                   </div>
 
-                  {/* Thumbnail Row if herd has multiple pictures */}
-                  {currentBatch.photos.length > 1 && (
-                    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 bg-slate-50 px-2.5 py-1.5">
-                      <span className="text-[10px] font-bold uppercase text-slate-500 mr-1 shrink-0">
-                        Gallery:
-                      </span>
-                      {currentBatch.photos.map((photo, idx) => (
-                        <button
-                          key={photo}
-                          type="button"
-                          onClick={() => setModalHeroPhotoIndex(idx)}
-                          className={`relative size-10 shrink-0 overflow-hidden rounded-md border-2 transition-all ${
-                            idx === modalHeroPhotoIndex % currentBatch.photos.length
-                              ? "border-emerald-600 ring-2 ring-emerald-500/30 scale-105"
-                              : "border-slate-200 opacity-70 hover:opacity-100"
-                          }`}
-                        >
-                          <Image src={photo} alt="" fill unoptimized className="object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {/* Thumbnail Row with Per-Picture Change & Add Button */}
+                  <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50 px-3 py-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-500 mr-1 shrink-0">
+                      Gallery ({currentBatch.photos.length}):
+                    </span>
+                    {currentBatch.photos.map((photo, idx) => {
+                      const isSelected = idx === (modalHeroPhotoIndex % currentBatch.photos.length);
+                      return (
+                        <div key={photo + idx} className="relative group shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setModalHeroPhotoIndex(idx)}
+                            className={`relative size-12 overflow-hidden rounded-lg border-2 transition-all block ${
+                              isSelected
+                                ? "border-emerald-600 ring-2 ring-emerald-500/40 scale-105 shadow-xs"
+                                : "border-slate-200 opacity-75 hover:opacity-100"
+                            }`}
+                            title={`View photo ${idx + 1}`}
+                          >
+                            <Image src={photo} alt="" fill unoptimized className="object-cover" />
+                            <span className="absolute bottom-0 inset-x-0 bg-black/65 text-white text-[9px] font-bold text-center leading-tight">
+                              #{idx + 1}
+                            </span>
+                          </button>
+
+                          <label
+                            className="absolute -top-1 -right-1 size-5 bg-white border border-slate-300 rounded-full shadow-xs flex items-center justify-center cursor-pointer hover:bg-emerald-50 hover:border-emerald-500 transition-colors opacity-0 group-hover:opacity-100 z-10"
+                            title={`Change photo #${idx + 1}`}
+                          >
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              disabled={isPhotoUploading}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  void handleReplacePhoto(currentBatch.id, idx, file);
+                                  e.target.value = "";
+                                }
+                              }}
+                            />
+                            <Camera className="size-2.5 text-slate-700" />
+                          </label>
+                        </div>
+                      );
+                    })}
+
+                    {/* Add Photo Button */}
+                    <label
+                      className="relative size-12 shrink-0 rounded-lg border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/60 flex flex-col items-center justify-center cursor-pointer transition-all text-slate-400 hover:text-emerald-700 group"
+                      title="Upload another picture to this herd's gallery"
+                    >
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        disabled={isPhotoUploading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            void handleAddPhoto(currentBatch.id, file);
+                            e.target.value = "";
+                          }
+                        }}
+                      />
+                      <Plus className="size-4 group-hover:scale-110 transition-transform" />
+                      <span className="text-[8px] font-bold mt-0.5">Add</span>
+                    </label>
+                  </div>
 
                   {/* Action Bar */}
                   <div className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1208,33 +1440,14 @@ export default function BatchOverviewPage() {
                       </Button>
 
                       {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
-                        <LivestockPhotoManager
-                          title="Herd Photo"
-                          subject="herd"
-                          currentPhotoUrl={currentBatch.photoUrl}
-                          allowAvatar={false}
-                          triggerClassName="h-8.5 gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-900 shadow-2xs cursor-pointer"
-                          fallback={
-                            <div className="flex size-24 items-center justify-center rounded-lg bg-emerald-50 text-4xl">
-                              {getDefaultAvatarForSpecies(currentBatch.species).emoji}
-                            </div>
-                          }
-                          onSave={async ({ file, removePhoto }) => {
-                            let payload: FormData | { photo?: null };
-                            if (file) {
-                              const formData = new FormData();
-                              formData.append("photo", file);
-                              payload = formData;
-                            } else {
-                              payload = removePhoto ? { photo: null } : {};
-                            }
-                            await api.patch(`livestock/batches/${currentBatch.id}/`, payload);
-                            await queryClient.invalidateQueries({
-                              queryKey: INVENTORY_QUERY_KEYS.batches,
-                            });
-                            toast.success("Herd photo updated.");
-                          }}
-                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsGalleryManagerOpen(true)}
+                          className="h-8.5 gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-900 shadow-2xs"
+                        >
+                          <ImageIcon className="size-3.5 text-emerald-700" /> Photo Gallery ({currentBatch.photos.length})
+                        </Button>
                       )}
 
                       {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
@@ -2170,6 +2383,105 @@ export default function BatchOverviewPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── PHOTO GALLERY MANAGER MODAL ── */}
+      {currentBatch && (
+        <Dialog open={isGalleryManagerOpen} onOpenChange={setIsGalleryManagerOpen}>
+          <DialogContent className="max-w-2xl rounded-2xl p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <ImageIcon className="size-5 text-emerald-700" />
+                Herd Photo Gallery
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-600">
+                Manage all pictures for <strong>{currentBatch.batchName}</strong> ({currentBatch.batchCode}). You can change individual pictures, remove unwanted shots, or upload new views of the herd and pen.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-3 space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {currentBatch.photos.map((photo, idx) => (
+                  <div key={photo + idx} className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-900 shadow-xs flex flex-col">
+                    <div className="relative aspect-[16/10] w-full overflow-hidden">
+                      <Image src={photo} alt="" fill unoptimized className="object-cover" />
+                      <div className="absolute top-2 left-2">
+                        <Badge className={`text-[10px] font-bold ${idx === 0 ? "bg-emerald-600 text-white" : "bg-black/70 text-white backdrop-blur-xs"}`}>
+                          {idx === 0 ? "Cover Photo" : `Photo #${idx + 1}`}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white flex items-center justify-between gap-1.5 border-t border-slate-100">
+                      <label className="flex-1 inline-flex items-center justify-center gap-1 h-7 px-2 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer transition-colors">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={isPhotoUploading}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              void handleReplacePhoto(currentBatch.id, idx, file);
+                              e.target.value = "";
+                            }
+                          }}
+                        />
+                        <Camera className="size-3 text-emerald-700" />
+                        <span>Change</span>
+                      </label>
+
+                      {currentBatch.photos.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={isPhotoUploading}
+                          onClick={() => {
+                            if (confirm(`Remove Photo #${idx + 1} from this herd?`)) {
+                              void handleDeletePhoto(currentBatch.id, idx);
+                            }
+                          }}
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          title="Remove photo"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Upload New Card */}
+                <label className="relative aspect-[16/10] rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-600 hover:bg-emerald-50/50 flex flex-col items-center justify-center cursor-pointer p-4 text-center transition-all group">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={isPhotoUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        void handleAddPhoto(currentBatch.id, file);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  <div className="size-10 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5">
+                    <Plus className="size-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-800">Add Picture</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, WebP up to 5MB</span>
+                </label>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsGalleryManagerOpen(false)} className="rounded-xl">
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

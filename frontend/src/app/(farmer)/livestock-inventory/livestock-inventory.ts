@@ -80,6 +80,7 @@ export interface LivestockBatchItem {
   batchName: string;
   batchCode: string;
   photoUrl?: string | null;
+  photos?: string[];
   housingPen: string;
   feedType: string;
   targetWeight: number | null;
@@ -538,6 +539,7 @@ export async function fetchLivestockBatches(includeRoster = true): Promise<Lives
     batchName: b.batch_name,
     batchCode: b.batch_code,
     photoUrl: b.photo_url || null,
+    photos: Array.isArray(b.photos) ? b.photos : (b.photo_url ? [b.photo_url] : []),
     housingPen: b.housing_pen,
     feedType: b.feed_type,
     targetWeight: b.target_weight ? Number(b.target_weight) : null,

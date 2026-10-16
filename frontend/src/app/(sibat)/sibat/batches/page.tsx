@@ -47,12 +47,14 @@ import {
   ShieldCheck,
   Layers,
   ArrowLeft,
+  ArrowRight,
   Camera,
   Search,
   Eye,
   CheckCircle2,
   Clock,
   AlertTriangle,
+  ChevronLeft,
   ChevronRight,
   ChevronDown,
   Tag,
@@ -73,6 +75,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   Download,
+  ImageIcon,
 } from "lucide-react";
 import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
@@ -158,13 +161,35 @@ interface BatchSummaryPage {
 }
 
 function HerdPhoto({ batch, compact = false }: { batch: BatchItem; compact?: boolean }) {
-  const photos = useMemo(
-    () => Array.from(new Set([...(batch.photos ?? []), batch.photo_url].filter((url): url is string => Boolean(url)))),
-    [batch.photos, batch.photo_url],
-  );
+  const photos = useMemo(() => {
+    const list = (batch.photos && batch.photos.length > 0)
+      ? batch.photos
+      : (batch.photo_url ? [batch.photo_url] : []);
+
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const rawUrl of list) {
+      if (!rawUrl) continue;
+      // Extract normalized filename/pathname so absolute vs relative URLs match
+      let norm = rawUrl.trim();
+      try {
+        const parsed = new URL(norm, "http://localhost");
+        norm = parsed.pathname;
+      } catch {
+        // use rawUrl
+      }
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        result.push(rawUrl);
+      }
+    }
+    return result;
+  }, [batch.photos, batch.photo_url]);
+
   const [photoIndex, setPhotoIndex] = useState(0);
   const avatar = getDefaultAvatarForSpecies(batch.livestock_type_name);
-  const currentPhoto = photos.length ? photos[photoIndex % photos.length] : null;
+  const safeIndex = photos.length > 0 ? ((photoIndex % photos.length) + photos.length) % photos.length : 0;
+  const currentPhoto = photos.length ? photos[safeIndex] : null;
 
   return (
     <div className={`relative isolate overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 ${compact ? "h-14 w-20 shrink-0 rounded-lg" : "aspect-[16/7] w-full"}`}>
@@ -188,7 +213,11 @@ function HerdPhoto({ batch, compact = false }: { batch: BatchItem; compact?: boo
           <button
             type="button"
             aria-label="Previous herd photo"
-            onClick={() => setPhotoIndex((index) => (index === 0 ? photos.length - 1 : index - 1))}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPhotoIndex((index) => (index === 0 ? photos.length - 1 : index - 1));
+            }}
             className={`absolute left-2 top-1/2 z-10 grid -translate-y-1/2 place-items-center rounded-full bg-black/65 text-white shadow-sm hover:bg-black/80 ${compact ? "size-7" : "size-9"}`}
           >
             <ArrowLeft className={compact ? "size-3.5" : "size-4.5"} />
@@ -196,13 +225,17 @@ function HerdPhoto({ batch, compact = false }: { batch: BatchItem; compact?: boo
           <button
             type="button"
             aria-label="Next herd photo"
-            onClick={() => setPhotoIndex((index) => (index + 1) % photos.length)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPhotoIndex((index) => (index + 1) % photos.length);
+            }}
             className={`absolute right-2 top-1/2 z-10 grid -translate-y-1/2 place-items-center rounded-full bg-black/65 text-white shadow-sm hover:bg-black/80 ${compact ? "size-7" : "size-9"}`}
           >
             <ChevronRight className={compact ? "size-3.5" : "size-4.5"} />
           </button>
           <span className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-white">
-            <Camera className="size-3" /> {photoIndex + 1}/{photos.length}
+            <Camera className="size-3" /> {safeIndex + 1}/{photos.length}
           </span>
         </>
       )}
@@ -279,6 +312,269 @@ function deriveBatchReviewStatus(batch: BatchItem): BatchItem["review_status"] {
   return "MIXED";
 }
 
+// ── SPLIT CARD WITH HERO IMAGE COMPONENT (Tastefully Sized for SIBAT) ────────
+function SibatHerdSplitCard({
+  batch,
+  isSelected,
+  onSelect,
+  getStatusBadge,
+}: {
+  batch: BatchItem;
+  isSelected: boolean;
+  onSelect: () => void;
+  getStatusBadge: (status?: string) => React.ReactNode;
+}) {
+  const photos = useMemo(() => {
+    const list = batch.photos && batch.photos.length > 0
+      ? batch.photos
+      : (batch.photo_url ? [batch.photo_url] : []);
+
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const rawUrl of list) {
+      if (!rawUrl) continue;
+      let norm = rawUrl.trim();
+      try {
+        const parsed = new URL(norm, "http://localhost");
+        norm = parsed.pathname;
+      } catch {
+        // use rawUrl
+      }
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        result.push(rawUrl);
+      }
+    }
+    return result;
+  }, [batch.photos, batch.photo_url]);
+
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const avatar = getDefaultAvatarForSpecies(batch.livestock_type_name);
+  const hasPhotos = photos.length > 0;
+  const currentPhoto = hasPhotos ? photos[photoIndex % photos.length] : null;
+
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+  };
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+  };
+
+  const headCount = batch.total_animals || batch.animals?.length || 0;
+  const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
+  const sibatCheckedCount = (batch.verified_animals ?? 0) + (batch.approved_animals ?? 0);
+  const verificationProgress = headCount > 0 ? Math.round((sibatCheckedCount / headCount) * 100) : 0;
+
+  const formattedPen = batch.housing_pen
+    ? batch.housing_pen.toLowerCase().startsWith("pen")
+      ? batch.housing_pen
+      : `Pen ${batch.housing_pen}`
+    : null;
+
+  return (
+    <Card
+      onClick={onSelect}
+      className={`group cursor-pointer overflow-hidden rounded-xl border transition-all duration-200 flex flex-col sm:flex-row justify-between ${
+        isSelected
+          ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/30 shadow-md"
+          : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md"
+      }`}
+    >
+      {/* ── LEFT HERO IMAGE SECTION (Wider, landscape horizontal hero) ── */}
+      <div className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-64 sm:self-stretch min-h-[160px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+        {currentPhoto ? (
+          <Image
+            src={currentPhoto}
+            alt={batch.batch_name || `${batch.livestock_type_name} herd`}
+            fill
+            unoptimized
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 p-3 text-white">
+            <span className="text-4xl drop-shadow-md">{avatar.emoji}</span>
+            <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+              {batch.livestock_type_name}
+            </span>
+          </div>
+        )}
+
+        {/* Ambient Dark Gradient on bottom/sides */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+
+        {/* Top Badges */}
+        <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center justify-between gap-1.5 z-10">
+          <Badge className="rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+            {batch.livestock_type_name}
+          </Badge>
+
+          {isSelected && (
+            <Badge className="bg-emerald-700 text-white font-bold text-[10px] gap-1 px-1.5 py-0.5 shadow-xs">
+              <Check className="size-2.5 stroke-[3]" /> Selected
+            </Badge>
+          )}
+        </div>
+
+        {/* Multiple Pictures Controls (compact chevron buttons) */}
+        {photos.length > 1 && (
+          <div className="absolute inset-y-0 left-1.5 right-1.5 flex items-center justify-between z-20 pointer-events-none">
+            <button
+              type="button"
+              aria-label="Previous herd picture"
+              onClick={handlePrevPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs"
+            >
+              <ChevronLeft className="size-3.5 stroke-[2.5]" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next herd picture"
+              onClick={handleNextPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs"
+            >
+              <ChevronRight className="size-3.5 stroke-[2.5]" />
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Hero Overlay: Photo Counter & mobile herd code */}
+        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white z-10">
+          {photos.length > 0 ? (
+            <div className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold backdrop-blur-md">
+              <Camera className="size-3 text-emerald-400" />
+              <span>
+                {(photoIndex % photos.length) + 1} of {photos.length}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-300">
+              <ImageIcon className="size-3" />
+              <span>Preset avatar</span>
+            </div>
+          )}
+
+          <span className="sm:hidden rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-900 shadow-2xs">
+            {batch.batch_code}
+          </span>
+        </div>
+      </div>
+
+      {/* ── RIGHT CONTENT SECTION (Horizontal split on sm+) ── */}
+      <div className="flex flex-1 flex-col justify-between p-3 sm:p-3.5 space-y-2 min-w-0">
+        <div className="space-y-2">
+          {/* Header Row: Title, Herd Code & Regulatory Status Badge */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-slate-950 group-hover:text-emerald-800 transition-colors line-clamp-1">
+                  {batch.batch_name || `${batch.livestock_type_name} Herd`}
+                </h3>
+                <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 border border-slate-200 shrink-0">
+                  {batch.batch_code}
+                </span>
+              </div>
+            </div>
+
+            <div className="shrink-0">{getStatusBadge(batch.review_status)}</div>
+          </div>
+
+          {/* Farmer, Barangay & Housing Pen (Dedicated Full-Width Row) */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+            <span className="inline-flex items-center gap-1 font-bold text-slate-800">
+              <User className="size-3.5 shrink-0 text-slate-400" />
+              <span>{batch.farmer_name}</span>
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="inline-flex items-center gap-1 text-slate-600">
+              <MapPin className="size-3.5 shrink-0 text-slate-400" />
+              <span>{batch.barangay_name || "Padre Garcia"}</span>
+            </span>
+            {formattedPen && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                  <Building2 className="size-3 shrink-0 text-slate-400" />
+                  <span>{formattedPen}</span>
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Field Verification Progress */}
+          <div className="rounded-lg border border-slate-200/80 bg-slate-50/70 p-2">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-800">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="size-3.5 text-emerald-600" />
+                <span>Field Verification</span>
+              </span>
+              <span className={`font-bold ${batch.review_status === "APPROVED" ? "text-emerald-700" : "text-sky-700"}`}>
+                {verificationProgress}% ({sibatCheckedCount}/{headCount})
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  batch.review_status === "APPROVED" ? "bg-emerald-600" : "bg-sky-600"
+                }`}
+                style={{ width: `${verificationProgress}%` }}
+              />
+            </div>
+            <div className="mt-1 flex justify-between text-[10px] font-medium text-slate-500">
+              <span>{batch.approved_animals ?? 0} approved · {batch.pending_animals ?? 0} waiting SIBAT</span>
+              {batch.target_weight && <span>Target: {batch.target_weight} kg</span>}
+            </div>
+          </div>
+
+          {/* Quick Metrics Chips */}
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold text-slate-700">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center">
+              <span className="block text-slate-500 text-[10px] uppercase">Animals in Herd</span>
+              <span className="text-slate-950 font-bold text-xs">
+                {headCount} {headCount === 1 ? "Head" : "Heads"}
+              </span>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center">
+              <span className="block text-slate-500 text-[10px] uppercase">Avg Weight</span>
+              <span className="text-slate-950 font-bold text-xs">
+                {avgWeight ? `${avgWeight} kg` : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: Picture Counter & Review Herd Button */}
+        <div className="border-t border-slate-100 pt-2 flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium text-slate-500">
+            {photos.length > 1
+              ? `${photos.length} photos`
+              : photos.length === 1
+                ? "1 photo"
+                : "Default avatar"}
+          </span>
+
+          <Button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            className={`h-8 px-3 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all ${
+              isSelected
+                ? "bg-emerald-700 text-white hover:bg-emerald-800"
+                : "bg-slate-900 text-white hover:bg-emerald-700"
+            }`}
+          >
+            <span>Review Herd</span>
+            <ArrowRight className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 function SibatBatchesVerificationContent() {
   const queryClient = useQueryClient();
@@ -709,7 +1005,7 @@ function SibatBatchesVerificationContent() {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
         <Clock className="w-3 h-3 text-amber-600" />
-          Waiting for field check
+        Waiting SIBAT Verification
       </span>
     );
   };
@@ -743,7 +1039,7 @@ function SibatBatchesVerificationContent() {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
         <Clock className="w-3 h-3 text-amber-600" />
-        Waiting for field check
+        Waiting SIBAT Verification
       </span>
     );
   };
@@ -768,7 +1064,7 @@ function SibatBatchesVerificationContent() {
           maxWidthClass="w-full"
           icon={<Layers className="size-5 text-white" />}
         />
-        <div className="mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:px-8 lg:py-6">
+        <div className="mx-auto w-full p-3 sm:p-5 lg:px-8 lg:py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
             title="Loading SIBAT Herd Ledger"
@@ -814,7 +1110,7 @@ function SibatBatchesVerificationContent() {
         icon={<Layers className="size-5 text-white" />}
       />
 
-      <div className="mx-auto w-full max-w-[1500px] space-y-4 p-3 pb-16 sm:space-y-5 sm:p-4 sm:pb-6 md:p-6">
+      <div className="mx-auto w-full space-y-4 p-3 pb-16 sm:space-y-5 sm:p-4 sm:pb-6 md:p-6">
         {/* Navigation Breadcrumb / Top Bar */}
         <div className="flex min-w-0 flex-col items-start justify-between gap-3 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:p-4">
           <div className="flex items-center gap-2">
@@ -1136,149 +1432,15 @@ function SibatBatchesVerificationContent() {
           /* Grid View Mode */
           <div className="space-y-3">
             <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-            {pagedBatches.map((batch) => {
-              const headCount = batch.total_animals || batch.animals?.length || 0;
-              const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
-              const sibatCheckedCount = (batch.verified_animals ?? 0) + (batch.approved_animals ?? 0);
-              const verificationProgress =
-                headCount > 0 ? Math.round((sibatCheckedCount / headCount) * 100) : 0;
-
-              return (
-              <Card
+              {pagedBatches.map((batch) => (
+                <SibatHerdSplitCard
                   key={batch.id}
-                  className="group flex flex-col overflow-hidden rounded-xl border-slate-200 bg-white shadow-2xs transition-all duration-200 hover:border-emerald-300 hover:shadow-md"
-                >
-                  <HerdPhoto batch={batch} />
-                  <CardHeader className="p-4 pb-3 min-h-[88px]">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider border ${getSpeciesColor(
-                            batch.livestock_type_name
-                          )}`}
-                        >
-                          {batch.livestock_type_name || "Livestock"}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="font-mono text-[10px] font-black text-slate-600 border-slate-200 bg-slate-50"
-                        >
-                          {batch.batch_code}
-                        </Badge>
-                      </div>
-                      {getStatusBadge(batch.review_status)}
-                    </div>
-
-                    <CardTitle className="text-lg font-bold text-slate-900 mt-1.5 break-words">
-                      {batch.batch_name || `${batch.livestock_type_name} Herd`}
-                    </CardTitle>
-                    <CardDescription className="text-sm text-slate-600 flex flex-wrap items-center gap-1.5 mt-1">
-                      <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                      <span className="font-bold text-slate-700 truncate">{batch.farmer_name}</span>
-                      <span>•</span>
-                      <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
-                      <span className="truncate">{batch.barangay_name || "Padre Garcia"}</span>
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="p-4 pt-0 space-y-3 flex flex-1 flex-col">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 divide-slate-200 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                      <div className="px-1.5">
-                        <span className="text-xs font-semibold text-slate-600 block">
-                          Animals
-                        </span>
-                        <p className="text-lg leading-none font-bold text-slate-900 mt-1.5">
-                          {headCount}
-                          <span className="text-xs font-semibold text-slate-600 ml-1">animals</span>
-                        </p>
-                      </div>
-                      <div className="px-1.5 sm:border-l sm:pl-3">
-                        <span className="text-xs font-semibold text-slate-600 block">
-                          Checked
-                        </span>
-                        <p className="text-lg leading-none font-bold text-sky-800 mt-1.5">
-                          {sibatCheckedCount}
-                          <span className="text-xs font-semibold text-slate-600 ml-1">of {headCount}</span>
-                        </p>
-                      </div>
-                      <div className="col-span-2 border-t border-slate-200 px-1.5 pt-2 sm:col-span-1 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
-                        <span className="text-xs font-semibold text-slate-600 block">
-                          Average weight
-                        </span>
-                        <p className="text-lg leading-none font-bold text-slate-900 mt-1.5">
-                          {avgWeight ? `${avgWeight} kg` : "N/A"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-slate-700">
-                          Field check - {sibatCheckedCount} of {headCount} animals
-                        </span>
-                        <span className={`text-sm font-bold ${batch.verified_animals === 0 && batch.pending_animals === 0 ? "text-emerald-700" : "text-sky-700"}`}>
-                          {verificationProgress}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={verificationProgress}
-                        className={`h-2.5 bg-slate-100 ${
-                          batch.review_status === "APPROVED" ? "[&>div]:bg-emerald-600" : "[&>div]:bg-sky-600"
-                        }`}
-                      />
-                    </div>
-
-                    <p className="text-sm leading-5 text-slate-700">
-                      {batch.approved_animals ?? 0} approved · {batch.pending_animals ?? 0} waiting for field check · {batch.verified_animals ?? 0} waiting for MAO · {batch.revision_animals ?? 0} need correction
-                    </p>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700 capitalize">
-                        <Building2 className="size-3 text-slate-400" />
-                        {batch.housing_pen || "General Pen"}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700 capitalize">
-                        <Activity className="size-3 text-slate-400" />
-                        {batch.feed_type || "—"}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`min-h-11 px-3 rounded-lg border text-sm flex items-center gap-2 ${
-                        batch.review_remarks
-                          ? "bg-amber-50 border-amber-200 text-amber-900"
-                          : "bg-slate-50 border-slate-100 text-slate-400"
-                      }`}
-                    >
-                      <Info className={`size-3.5 shrink-0 ${batch.review_remarks ? "text-amber-600" : "text-slate-300"}`} />
-                      <span className="line-clamp-2">
-                        {batch.review_remarks || "No review remarks"}
-                      </span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="grid grid-cols-[1fr_auto] gap-1.5 pt-2 border-t border-slate-100 mt-auto">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          openHerdDrilldown(batch);
-                        }}
-                        className="min-h-11 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white shadow-2xs hover:bg-emerald-800"
-                      >
-                        <Eye className="size-3.5" />
-                        Open herd
-                        <ChevronRight className="size-3.5 ml-auto" />
-                      </Button>
-
-                      <Link href={`/sibat/livestock-registry?batchId=${batch.id}`} className="col-span-2">
-                        <Button size="sm" variant="outline" className="min-h-11 w-full rounded-xl border-emerald-200 text-sm font-semibold text-emerald-900 hover:bg-emerald-50">
-                          <Eye className="size-3.5 mr-1.5" /> View animal list
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  batch={batch}
+                  isSelected={selectedBatch?.id === batch.id}
+                  onSelect={() => openHerdDrilldown(batch)}
+                  getStatusBadge={getStatusBadge}
+                />
+              ))}
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-2 py-2 text-xs">
               <span className="text-[11px] text-slate-500 font-medium">
@@ -2054,7 +2216,7 @@ export default function SibatBatchesVerificationPage() {
             maxWidthClass="w-full"
             icon={<Layers className="size-5 text-white" />}
           />
-          <div className="mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:px-8 lg:py-6">
+          <div className="mx-auto w-full p-3 sm:p-5 lg:px-8 lg:py-6">
             <ValidationLoadingScreen
               isLoading={true}
               title="Loading SIBAT Herd Ledger"
