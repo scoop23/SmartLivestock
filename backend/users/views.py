@@ -184,7 +184,7 @@ def update_user_status(request, pk):
             user=user,
             title="Account status updated",
             message=f"Your account status is now {user.get_account_status_display()}.",
-            link="/login",
+            link="/profile",
         )
 
     response_serializer = UserManagementSerializer(user, context={"request": request})

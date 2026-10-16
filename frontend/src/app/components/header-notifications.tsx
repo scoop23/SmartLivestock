@@ -211,6 +211,13 @@ const resolveNotificationLink = (notification: BackendNotification, variant: Hea
   }
 
   if (notification.link !== "/livestock-inventory") {
+    // Account status notices used to send signed-in users back to the login
+    // screen. The notification is already being opened from an authenticated
+    // workspace, so take them to their account details instead of creating a
+    // confusing apparent logout.
+    if (notification.title === "Account status updated" && notification.link === "/login") {
+      return "/profile";
+    }
     return notification.link || undefined;
   }
 
@@ -226,6 +233,13 @@ const resolveNotificationLink = (notification: BackendNotification, variant: Hea
   }
 
   return notification.link;
+};
+
+const getSafeNotificationPath = (link: string | null | undefined): string | undefined => {
+  if (!link || !link.startsWith("/") || link.startsWith("//") || link.startsWith("/\\")) {
+    return undefined;
+  }
+  return link;
 };
 
 export function HeaderNotifications({
@@ -368,7 +382,7 @@ export function HeaderNotifications({
     date: n.created_at ? n.created_at.split("T")[0] : "",
     timeAgo: n.time_ago || "Just now",
     read: n.is_read,
-    link: resolveNotificationLink(n, variant),
+    link: getSafeNotificationPath(resolveNotificationLink(n, variant)),
   }));
 
   const unreadCount = backendData?.unread_count ?? notifications.filter((n) => !n.read).length;

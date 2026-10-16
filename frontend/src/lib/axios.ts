@@ -161,7 +161,16 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        if (typeof window !== 'undefined') {
+        // A failed refresh does not always mean the credentials are invalid.
+        // Network outages and 5xx responses are transient; clearing tokens in
+        // those cases made unrelated navigation (including notification
+        // links) appear to log the user out. Clear them only when the refresh
+        // endpoint explicitly rejects the refresh token.
+        const refreshStatus = axios.isAxiosError(refreshErr)
+          ? refreshErr.response?.status
+          : undefined;
+        const refreshTokenIsInvalid = [400, 401, 403].includes(refreshStatus ?? 0);
+        if (refreshTokenIsInvalid && typeof window !== 'undefined') {
           localStorage.removeItem('access');
           localStorage.removeItem('refresh');
         }
