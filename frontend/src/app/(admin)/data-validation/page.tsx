@@ -40,6 +40,7 @@ import {
 import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
 import { DataTableSection } from "@/components/ui/data-table-section";
 import { SlaughterReviewQueue } from "@/app/(admin)/slaughter-record-review/slaughter-review-queue";
+import { useAdminBarangays } from "@/app/(admin)/admin/admin-charts";
 
 // Dialog Modals
 import {
@@ -133,6 +134,7 @@ function AdminDataValidationContent() {
   const { data: rawProductionData } = useAdminProductionRecords();
   const { data: rawInventoryData } = useAdminInventoryRecords();
   const { data: rawIncidentData } = useAdminIncidentRecords();
+  const { data: barangayCatalog = [] } = useAdminBarangays();
 
   const notificationDataset = requestedRecordType === "INVENTORY" || requestedRecordType === "BATCH"
     ? rawInventoryData
@@ -327,15 +329,12 @@ function AdminDataValidationContent() {
     };
   }, [requestedRecordId, requestedRecordType, legacyMessage, inventoryRecords, productionRecords, censusSubmissions, incidents]);
 
-  // Unique Barangays for dropdown filter
-  const uniqueBarangays = useMemo(() => {
-    const set = new Set<string>();
-    censusSubmissions.forEach((c) => c.barangay && set.add(c.barangay));
-    productionRecords.forEach((p) => p.barangayName && set.add(p.barangayName));
-    inventoryRecords.forEach((i) => i.barangayName && set.add(i.barangayName));
-    incidents.forEach((inc) => inc.barangayName && set.add(inc.barangayName));
-    return Array.from(set).sort();
-  }, [censusSubmissions, productionRecords, inventoryRecords, incidents]);
+  // Use the official barangay catalog for filter options. Deriving these from
+  // submission labels allowed malformed record text to appear as a barangay.
+  const barangayOptions = useMemo(
+    () => barangayCatalog.map((barangay) => barangay.barangay_name.trim()).filter(Boolean).sort(),
+    [barangayCatalog],
+  );
 
   // Global KPI Summary
   const kpis = useMemo(() => {
@@ -894,7 +893,7 @@ function AdminDataValidationContent() {
             setBarangayFilter(b);
             setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
           }}
-          uniqueBarangays={uniqueBarangays}
+          uniqueBarangays={barangayOptions}
           statusFilter={statusFilter}
           onStatusChange={(s) => {
             setStatusFilter(s);
