@@ -312,6 +312,9 @@ def batch_detail(request, pk):
     if request.method in ["PUT", "PATCH"]:
         require_action(user, "batches", "edit_own")
         data = request.data
+        # A singular `photo` field retains its historical replace semantics;
+        # `photos` is reserved for adding multiple gallery images.
+        uploaded_photos = request.FILES.getlist("photos")
         action = data.get("action")
         if request.method == "PATCH" and action == "replace_photo":
             new_file = request.FILES.get("photo") or request.FILES.get("file")
