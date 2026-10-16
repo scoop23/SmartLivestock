@@ -63,10 +63,6 @@ export default function RecordActivityChooser({
       onRecord(activity);
       return;
     }
-    if (mode === "history" && activity.productionType) {
-      router.push(`/production-dashboard/history?type=${activity.productionType}`);
-      return;
-    }
     const selectedSpecies = activity.species.length === 1 ? activity.species[0] : "ALL";
     const query = new URLSearchParams({ activity: activity.id, mode });
     activity.species.forEach((name) => query.append("eligibleSpecies", name));
@@ -87,9 +83,6 @@ export default function RecordActivityChooser({
             <h2 id="record-activity-title" className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">What would you like to record?</h2>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-emerald-50/80 sm:text-base">Choose an activity to open its existing form. You’ll select the animal before saving.</p>
           </div>
-          <Button variant="secondary" asChild className="min-h-11 shrink-0 rounded-xl border border-white/15 bg-white text-emerald-950 hover:bg-emerald-50">
-            <Link href="/production-dashboard/history"><ClipboardList className="mr-2 size-4" />All production records</Link>
-          </Button>
         </div>
       </div>
 
@@ -124,6 +117,24 @@ export default function RecordActivityChooser({
               </article>
             );
           })}
+          <article className="flex min-h-56 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)]">
+            <div className="flex items-start gap-3 p-4 sm:p-5">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100">
+                <ClipboardList className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-slate-900">All production records</h3>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                  See your milk, meat, wool, and egg records in one list.
+                </p>
+              </div>
+            </div>
+            <div className="mt-auto border-t border-slate-100 bg-slate-50/70 p-3 sm:px-4">
+              <Button asChild variant="outline" className="min-h-10 w-full rounded-xl border-slate-200 bg-white">
+                <Link href="/production-dashboard/history">View all records</Link>
+              </Button>
+            </div>
+          </article>
         </div>
       )}
       <p className="text-xs text-slate-500">Only activities supported for your approved, active livestock are shown. Forecasts and combined history remain available from the records page.</p>
