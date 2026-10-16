@@ -4,10 +4,15 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from .models import Announcement, ProgramSchedule, ProgramBooking, Role, User, Notification, PROGRAM_TIME_SLOTS
-from .community_serializer import AnnouncementSerializer, ProgramScheduleSerializer, ProgramBookingSerializer
+from .community_serializer import (
+    AnnouncementSerializer,
+    PublicAnnouncementSerializer,
+    ProgramScheduleSerializer,
+    ProgramBookingSerializer,
+)
 from .notification_views import notify_role, create_notification
 from smartlivestock.workflows import scope_reviewer_queryset, has_all_barangay_access
 
@@ -190,6 +195,20 @@ def announcements(request):
         if announcement.is_published:
             publish_notifications(announcement)
     return Response(AnnouncementSerializer(announcement, context={"request": request}).data, status=201)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_announcement_share(request, pk):
+    """Expose only explicitly all-audience published announcements to share crawlers."""
+    announcement = get_object_or_404(
+        Announcement.objects.prefetch_related("photos"),
+        pk=pk,
+        is_published=True,
+        audience=Announcement.Audience.ALL,
+    )
+    serializer = PublicAnnouncementSerializer(announcement, context={"request": request})
+    return Response(serializer.data)
 
 @api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])

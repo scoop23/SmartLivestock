@@ -546,6 +546,43 @@ class AnnouncementAudienceAndBarangayScopingTests(APITestCase):
             account_status=User.AccountStatus.APPROVED,
         )
 
+    @override_settings(FRONTEND_URL="https://smartlivestock.example")
+    def test_public_share_endpoint_is_anonymous_but_only_for_published_all_audience_announcements(self):
+        public = Announcement.objects.create(
+            title="Public livestock notice",
+            content="Municipal vaccination schedule.",
+            category="Vaccination",
+            audience=Announcement.Audience.ALL,
+            is_published=True,
+            posted_by=self.mao,
+            published_at=timezone.now(),
+        )
+        restricted = Announcement.objects.create(
+            title="Farmer-only notice",
+            content="Restricted details.",
+            audience=Announcement.Audience.FARMER_ONLY,
+            is_published=True,
+            posted_by=self.mao,
+        )
+        draft = Announcement.objects.create(
+            title="Unpublished draft",
+            content="Draft details.",
+            audience=Announcement.Audience.ALL,
+            is_published=False,
+            posted_by=self.mao,
+        )
+
+        response = self.client.get(f"/community/announcements/{public.pk}/share/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["title"], public.title)
+        self.assertEqual(
+            set(response.data.keys()),
+            {"id", "title", "content", "category", "image", "photos", "published_at", "share_url"},
+        )
+        self.assertTrue(response.data["share_url"].endswith(f"/share/announcements/{public.pk}"))
+        self.assertEqual(self.client.get(f"/community/announcements/{restricted.pk}/share/").status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.get(f"/community/announcements/{draft.pk}/share/").status_code, status.HTTP_404_NOT_FOUND)
+
     def test_validation_requires_target_barangay_for_sibat_barangay_only(self):
         self.client.force_authenticate(self.mao)
         

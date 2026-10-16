@@ -4,14 +4,12 @@ import { useState } from "react";
 import {
   Building2,
   CalendarDays,
-  Check,
   Clock,
   MapPin,
   Pin,
   Share2,
   Users,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +29,7 @@ import {
 } from "./community-ui";
 import { ActivityScheduleCard } from "./activity-schedule-card";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
+import { AnnouncementShareDialog } from "./announcement-share-dialog";
 
 export function ActivityDetailDialog({
   activity,
@@ -43,7 +42,7 @@ export function ActivityDetailDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   if (!activity) return null;
 
@@ -57,21 +56,6 @@ export function ActivityDetailDialog({
   const paragraphs = activity.content
     .split(/\n\s*\n/)
     .filter((paragraph) => paragraph.trim());
-
-  const handleShare = () => {
-    if (typeof window !== "undefined") {
-      const route = role === "slaughterhouse"
-        ? "/slaughterhouse/announcements"
-        : role === "auction"
-          ? "/auction-announcement"
-          : "/farmer-announcement";
-      const shareUrl = `${window.location.origin}${route}?id=${activity.id}`;
-      void navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      toast.success("Announcement link copied to clipboard!");
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,21 +106,13 @@ export function ActivityDetailDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={handleShare}
-                    className="h-8 shrink-0 gap-1.5 rounded-lg px-2.5 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                    title="Copy announcement link"
+                    disabled={!activity.is_published}
+                    onClick={() => setShareOpen(true)}
+                    className="h-9 shrink-0 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:text-sm"
+                    title={activity.is_published ? "Share announcement" : "Publish before sharing"}
                   >
-                    {copied ? (
-                      <>
-                        <Check className="size-3.5 text-emerald-600" />
-                        <span className="text-emerald-700">Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Share2 className="size-3.5" />
-                        <span>Share</span>
-                      </>
-                    )}
+                    <Share2 className="size-3.5" />
+                    <span>Share</span>
                   </Button>
                 </div>
 
@@ -222,6 +198,7 @@ export function ActivityDetailDialog({
           </div>
         </article>
       </DialogContent>
+      <AnnouncementShareDialog activity={activity} open={shareOpen} onOpenChange={setShareOpen} />
     </Dialog>
   );
 }

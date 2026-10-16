@@ -2,6 +2,7 @@ from django.urls import path
 from . import community_views as views
 
 urlpatterns = [
+    path("announcements/<int:pk>/share/", views.public_announcement_share),
     path("announcements/", views.announcements),
     path("announcements/<int:pk>/", views.announcement_detail),
     path("schedules/", views.schedules),

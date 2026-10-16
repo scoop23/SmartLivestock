@@ -1,5 +1,7 @@
 from datetime import datetime
+from urllib.parse import urlsplit
 
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from smartlivestock.workflows import scope_reviewer_queryset, role_name
@@ -14,6 +16,20 @@ from .models import (
     PROGRAM_TIME_SLOTS,
 )
 
+
+
+def _announcement_share_url(announcement):
+    frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        return None
+
+    parsed = urlsplit(frontend_url)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    if not settings.DEBUG and (parsed.scheme != "https" or parsed.hostname in local_hosts):
+        return None
+    return f"{frontend_url}/share/announcements/{announcement.pk}"
 
 
 class MultiValueListField(serializers.ListField):
@@ -241,6 +257,7 @@ class AnnouncementPhotoSerializer(serializers.ModelSerializer):
 
 class AnnouncementSerializer(serializers.ModelSerializer):
     author = serializers.SerializerMethodField()
+    share_url = serializers.SerializerMethodField()
     image = serializers.ImageField(required=False, allow_null=True)
     photos = AnnouncementPhotoSerializer(many=True, read_only=True)
     photo_uploads = MultiValueListField(
@@ -298,6 +315,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "is_published",
             "is_pinned",
             "author",
+            "share_url",
             "schedule",
             "schedule_id",
             "remove_image",
@@ -305,6 +323,10 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_share_url(self, obj):
+        return _announcement_share_url(obj)
+
     def to_internal_value(self, data):
         # Normalize legacy audience strings while preserving QueryDict multi-value lists
         if hasattr(data, "copy"):
@@ -387,6 +409,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
     def _add_photos(self, announcement, uploads):
         next_position = announcement.photos.count()
         for offset, image in enumerate(uploads):
@@ -424,6 +447,21 @@ class AnnouncementSerializer(serializers.ModelSerializer):
 
     def get_author(self, obj):
         return obj.posted_by.get_full_name() or obj.posted_by.username
+
+
+class PublicAnnouncementSerializer(serializers.ModelSerializer):
+    """Minimal read-only fields safe for crawler-visible, all-audience notices."""
+    image = serializers.ImageField(read_only=True)
+    photos = AnnouncementPhotoSerializer(many=True, read_only=True)
+    share_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Announcement
+        fields = ["id", "title", "content", "category", "image", "photos", "published_at", "share_url"]
+        read_only_fields = fields
+
+    def get_share_url(self, obj):
+        return _announcement_share_url(obj)
 
 
 class ProgramBookingSerializer(serializers.ModelSerializer):

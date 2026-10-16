@@ -59,6 +59,7 @@ export type Activity = {
   is_published: boolean;
   is_pinned: boolean;
   author: string;
+  share_url?: string | null;
   schedule: ProgramSchedule | null;
   published_at: string | null;
   created_at: string;
