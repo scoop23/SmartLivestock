@@ -141,11 +141,18 @@ def get_notifications(request):
 def mark_notification_read(request, pk):
     """
     PATCH or POST /api/notifications/<pk>/read/
-    Marks a specific notification as read.
+    Marks a specific notification as read or unread.
     """
     notification = get_object_or_404(Notification, pk=pk, user=request.user)
-    if not notification.is_read:
-        notification.is_read = True
+    unread = False
+    if request.data and isinstance(request.data, dict):
+        unread = bool(request.data.get("unread", False))
+    elif request.query_params.get("unread") in ("true", "1", "True"):
+        unread = True
+
+    new_is_read = not unread
+    if notification.is_read != new_is_read:
+        notification.is_read = new_is_read
         notification.save(update_fields=["is_read"])
 
     serializer = NotificationSerializer(notification)
