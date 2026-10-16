@@ -49,6 +49,7 @@ export interface LivestockRecord {
   barangay: string;
   purok?: string;
   cattleId: string;
+  tagNumber?: string;
   specie: string;
   breed: string;
   sex: 'Male' | 'Female' | 'Mixed' | string;

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/axios";
@@ -85,6 +86,10 @@ import {
   ExternalLink,
   Info,
   ClipboardList,
+  Camera,
+  ImageIcon,
+  ChevronLeft,
+  ArrowRight,
 } from "lucide-react";
 import { PADRE_GARCIA_BARANGAYS } from "../../admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
@@ -119,6 +124,8 @@ export interface BatchItem {
   livestock_type_name: string;
   batch_name: string;
   batch_code: string;
+  photo_url?: string | null;
+  photos?: string[];
   housing_pen: string;
   feed_type: string;
   target_weight: number | string | null;
@@ -189,13 +196,298 @@ function BatchPager({
   );
 }
 
+// ── SPLIT CARD WITH HERO IMAGE COMPONENT (MAO Regulatory Validation) ─────────
+function AdminHerdSplitCard({
+  batch,
+  isSelected,
+  onSelect,
+  onViewQr,
+  getStatusBadge,
+}: {
+  batch: BatchItem;
+  isSelected: boolean;
+  onSelect: () => void;
+  onViewQr: () => void;
+  getStatusBadge: (status?: string) => React.ReactNode;
+}) {
+  const photos = useMemo(() => {
+    const list = [
+      ...(batch.photos && batch.photos.length > 0 ? batch.photos : []),
+      ...(batch.photo_url ? [batch.photo_url] : []),
+      ...((batch.animals || []).map((a) => a.photo_url).filter(Boolean) as string[]),
+    ];
+
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const rawUrl of list) {
+      if (!rawUrl) continue;
+      let norm = rawUrl.trim();
+      try {
+        const parsed = new URL(norm, "http://localhost");
+        norm = parsed.pathname;
+      } catch {
+        // use rawUrl
+      }
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        result.push(rawUrl);
+      }
+    }
+    return result;
+  }, [batch.photos, batch.photo_url, batch.animals]);
+
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const avatar = getDefaultAvatarForSpecies(batch.livestock_type_name);
+  const hasPhotos = photos.length > 0;
+  const currentPhoto = hasPhotos ? photos[photoIndex % photos.length] : null;
+
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+  };
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+  };
+
+  const headCount = batch.total_animals || batch.animals?.length || 0;
+  const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
+  const sibatCheckedCount = (batch.verified_animals ?? 0) + (batch.approved_animals ?? 0);
+  const verificationProgress = headCount > 0 ? Math.round((sibatCheckedCount / headCount) * 100) : 0;
+
+  const formattedPen = batch.housing_pen
+    ? batch.housing_pen.toLowerCase().startsWith("pen")
+      ? batch.housing_pen
+      : `Pen ${batch.housing_pen}`
+    : null;
+
+  return (
+    <Card
+      onClick={onSelect}
+      className={`group cursor-pointer overflow-hidden rounded-xl border transition-all duration-200 flex flex-col sm:flex-row justify-between ${
+        isSelected
+          ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/30 shadow-md"
+          : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md"
+      }`}
+    >
+      {/* ── LEFT HERO IMAGE SECTION (Horizontal landscape hero) ── */}
+      <div className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-64 sm:self-stretch min-h-[160px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+        {currentPhoto ? (
+          <Image
+            src={currentPhoto}
+            alt={batch.batch_name || `${batch.livestock_type_name} herd`}
+            fill
+            unoptimized
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 p-3 text-white">
+            <span className="text-4xl drop-shadow-md">{avatar.emoji}</span>
+            <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+              {batch.livestock_type_name}
+            </span>
+          </div>
+        )}
+
+        {/* Ambient Dark Gradient on bottom/sides */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+
+        {/* Top Badges */}
+        <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center justify-between gap-1.5 z-10">
+          <Badge className="rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+            {batch.livestock_type_name}
+          </Badge>
+
+          {isSelected && (
+            <Badge className="bg-emerald-700 text-white font-bold text-[10px] gap-1 px-1.5 py-0.5 shadow-xs">
+              <Check className="size-2.5 stroke-[3]" /> Selected
+            </Badge>
+          )}
+        </div>
+
+        {/* Multiple Pictures Controls */}
+        {photos.length > 1 && (
+          <div className="absolute inset-y-0 left-1.5 right-1.5 flex items-center justify-between z-20 pointer-events-none">
+            <button
+              type="button"
+              aria-label="Previous herd picture"
+              onClick={handlePrevPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs"
+            >
+              <ChevronLeft className="size-3.5 stroke-[2.5]" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next herd picture"
+              onClick={handleNextPhoto}
+              className="pointer-events-auto flex size-6.5 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/90 hover:scale-110 shadow-xs"
+            >
+              <ChevronRight className="size-3.5 stroke-[2.5]" />
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Hero Overlay: Photo Counter & mobile herd code */}
+        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white z-10">
+          {photos.length > 0 ? (
+            <div className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold backdrop-blur-md">
+              <Camera className="size-3 text-emerald-400" />
+              <span>
+                {(photoIndex % photos.length) + 1} of {photos.length}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-300">
+              <ImageIcon className="size-3" />
+              <span>Preset avatar</span>
+            </div>
+          )}
+
+          <span className="sm:hidden rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-900 shadow-2xs">
+            {batch.batch_code}
+          </span>
+        </div>
+      </div>
+
+      {/* ── RIGHT CONTENT SECTION (Horizontal split on sm+) ── */}
+      <div className="flex flex-1 flex-col justify-between p-3 sm:p-3.5 space-y-2 min-w-0">
+        <div className="space-y-2">
+          {/* Header Row: Title, Herd Code & Regulatory Status Badge */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-slate-950 group-hover:text-emerald-800 transition-colors line-clamp-1">
+                  {batch.batch_name || `${batch.livestock_type_name} Herd`}
+                </h3>
+                <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 border border-slate-200 shrink-0">
+                  {batch.batch_code}
+                </span>
+              </div>
+            </div>
+
+            <div className="shrink-0">{getStatusBadge(batch.review_status)}</div>
+          </div>
+
+          {/* Farmer, Barangay & Housing Pen (Dedicated Full-Width Row) */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+            <span className="inline-flex items-center gap-1 font-bold text-slate-800">
+              <User className="size-3.5 shrink-0 text-slate-400" />
+              <span>{batch.farmer_name}</span>
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="inline-flex items-center gap-1 text-slate-600">
+              <MapPin className="size-3.5 shrink-0 text-slate-400" />
+              <span>{batch.barangay_name || "Padre Garcia"}</span>
+            </span>
+            {formattedPen && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                  <Building2 className="size-3 shrink-0 text-slate-400" />
+                  <span>{formattedPen}</span>
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Field Verification Progress */}
+          <div className="rounded-lg border border-slate-200/80 bg-slate-50/70 p-2">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-800">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="size-3.5 text-emerald-600" />
+                <span>Field Verification</span>
+              </span>
+              <span className={`font-bold ${batch.review_status === "APPROVED" ? "text-emerald-700" : "text-sky-700"}`}>
+                {verificationProgress}% ({sibatCheckedCount}/{headCount})
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  batch.review_status === "APPROVED" ? "bg-emerald-600" : "bg-sky-600"
+                }`}
+                style={{ width: `${verificationProgress}%` }}
+              />
+            </div>
+            <div className="mt-1 flex justify-between text-[10px] font-medium text-slate-500">
+              <span>{batch.approved_animals ?? 0} approved · {batch.verified_animals ?? 0} verified · {batch.pending_animals ?? 0} waiting SIBAT</span>
+              {batch.target_weight && <span>Target: {batch.target_weight} kg</span>}
+            </div>
+          </div>
+
+          {/* Quick Metrics Chips */}
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold text-slate-700">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center">
+              <span className="block text-slate-500 text-[10px] uppercase">Animals in Herd</span>
+              <span className="text-slate-950 font-bold text-xs">
+                {headCount} {headCount === 1 ? "Head" : "Heads"}
+              </span>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center">
+              <span className="block text-slate-500 text-[10px] uppercase">Avg Weight</span>
+              <span className="text-slate-950 font-bold text-xs">
+                {avgWeight ? `${avgWeight} kg` : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: Picture Counter & Review Herd + QR Buttons */}
+        <div className="border-t border-slate-100 pt-2 flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium text-slate-500">
+            {photos.length > 1
+              ? `${photos.length} photos`
+              : photos.length === 1
+                ? "1 photo"
+                : "Default avatar"}
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewQr();
+              }}
+              className="size-8 p-0 rounded-lg border-slate-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
+              title="View Batch QR Clearance Pass"
+            >
+              <QrCode className="size-3.5 text-emerald-700" />
+            </Button>
+
+            <Button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+              className={`h-8 px-3 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all ${
+                isSelected
+                  ? "bg-emerald-700 text-white hover:bg-emerald-800"
+                  : "bg-slate-900 text-white hover:bg-emerald-700"
+              }`}
+            >
+              <Eye className="size-3.5" />
+              <span>Inspect Herd</span>
+              <ArrowRight className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function AdminBatchesDrilldownContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
   const batchIdParam = searchParams.get("batchId") || searchParams.get("id");
-  const animalIdParam = searchParams.get("animalId");
-  const tagParam = searchParams.get("tag") || searchParams.get("animalTag");
+  const animalIdParam = searchParams.get("animalId") || searchParams.get("livestockId");
+  const tagParam = searchParams.get("tag") || searchParams.get("tagNumber") || searchParams.get("animalTag");
 
   // Highlight state for targeted animal deep-linked from registry / validation
   const [highlightedAnimalId, setHighlightedAnimalId] = useState<number | null>(null);
@@ -206,7 +498,7 @@ function AdminBatchesDrilldownContent() {
   const [speciesFilter, setSpeciesFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [barangayFilter, setBarangayFilter] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const BATCH_PAGE_SIZE = 10;
   const ANIMAL_PAGE_SIZE = 10;
   const [batchPage, setBatchPage] = useState(1);
@@ -259,11 +551,22 @@ function AdminBatchesDrilldownContent() {
   const batches = batchPageData?.results || [];
   const isInitialLoading = isLoading && !batchPageData;
   const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
-  const detailId = selectedBatch?.id || (batchIdParam && /^\d+$/.test(batchIdParam) ? Number(batchIdParam) : null);
+  const numericBatchId = batchIdParam
+    ? (/^\d+$/.test(batchIdParam) ? Number(batchIdParam) : Number(String(batchIdParam).replace(/\D/g, "")) || null)
+    : null;
+  const detailId = selectedBatch?.id || numericBatchId;
   const detailQuery = useQuery<BatchItem>({
-    queryKey: ["admin-batch-detail", detailId],
-    enabled: !!detailId && (isDrilldownOpen || isBatchCertificateOpen || !!batchIdParam),
-    queryFn: async ({ signal }) => (await api.get(`livestock/batches/${detailId}/`, { signal })).data,
+    queryKey: ["admin-batch-detail", detailId, batchIdParam],
+    enabled: isDrilldownOpen || isBatchCertificateOpen || Boolean(detailId) || Boolean(batchIdParam),
+    queryFn: async ({ signal }) => {
+      if (detailId) {
+        return (await api.get(`livestock/batches/${detailId}/`, { signal })).data;
+      }
+      if (batchIdParam) {
+        return (await api.get("livestock/batches/lookup/", { params: { code: batchIdParam }, signal })).data;
+      }
+      throw new Error("No batch identifier provided");
+    },
     staleTime: 30 * 1000,
   });
   useEffect(() => {
@@ -272,6 +575,27 @@ function AdminBatchesDrilldownContent() {
       if (batchIdParam) setIsDrilldownOpen(true);
     }
   }, [detailQuery.data, batchIdParam]);
+
+  // Automatically select and open drilldown if `batchId` is present in URL and matches loaded batches list
+  useEffect(() => {
+    if (!batchIdParam || !batches || batches.length === 0) return;
+
+    const rawParam = String(batchIdParam).trim();
+    const numericId = Number(rawParam.replace(/\D/g, ""));
+
+    const found = batches.find((b) => {
+      if (numericId && b.id === numericId) return true;
+      if (String(b.id) === rawParam) return true;
+      if (b.batch_code && b.batch_code.toLowerCase() === rawParam.toLowerCase()) return true;
+      if (b.batch_name && b.batch_name.toLowerCase() === rawParam.toLowerCase()) return true;
+      return false;
+    });
+
+    if (found) {
+      setSelectedBatch(found);
+      setIsDrilldownOpen(true);
+    }
+  }, [batchIdParam, batches]);
   const references = useQuery<{ species: { name: string }[]; barangays: { barangay_name: string }[] }>({
     queryKey: ["admin-batch-filter-options"],
     queryFn: async () => {
@@ -345,9 +669,17 @@ function AdminBatchesDrilldownContent() {
     if (!animalIdParam && !tagParam) return;
 
     const animals = selectedBatch.animals;
+    const cleanAnimalId = animalIdParam ? String(animalIdParam).replace(/\D/g, "") : null;
+    const cleanTag = tagParam ? tagParam.trim().toLowerCase() : null;
+
     const target = animals.find((a) => {
       if (animalIdParam && String(a.id) === String(animalIdParam)) return true;
-      if (tagParam && a.tag_number && a.tag_number.trim().toLowerCase() === tagParam.trim().toLowerCase()) return true;
+      if (cleanAnimalId && String(a.id) === cleanAnimalId) return true;
+      if (cleanTag) {
+        if (a.tag_number && a.tag_number.trim().toLowerCase() === cleanTag) return true;
+        if (cleanTag.replace(/^tag-?/i, "") === String(a.id)) return true;
+        if (a.tag_number && a.tag_number.replace(/^tag-?/i, "").toLowerCase() === cleanTag.replace(/^tag-?/i, "")) return true;
+      }
       return false;
     });
 
@@ -364,18 +696,24 @@ function AdminBatchesDrilldownContent() {
     if (targetIndex !== -1) {
       const targetPage = Math.floor(targetIndex / ANIMAL_PAGE_SIZE) + 1;
       setAnimalPage(targetPage);
+      // Double guarantee after any state reset
+      setTimeout(() => {
+        setAnimalPage(targetPage);
+      }, 50);
     }
   }, [isDrilldownOpen, selectedBatch?.id, selectedBatch?.animals, animalIdParam, tagParam]);
 
   // Smoothly scroll down and focus on target animal once rendered in DOM
   useEffect(() => {
-    if (!highlightedAnimalId || scrolledAnimalIdRef.current === highlightedAnimalId) return;
+    if (!isDrilldownOpen || !highlightedAnimalId || scrolledAnimalIdRef.current === highlightedAnimalId) return;
 
     let attempts = 0;
-    const maxAttempts = 15;
+    const maxAttempts = 30;
     const interval = setInterval(() => {
       attempts++;
-      const targetEl = document.getElementById(`admin-animal-row-${highlightedAnimalId}`);
+      const targetEl =
+        document.getElementById(`admin-animal-row-${highlightedAnimalId}`) ||
+        document.getElementById(`animal-row-${highlightedAnimalId}`);
 
       if (targetEl) {
         targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -387,7 +725,7 @@ function AdminBatchesDrilldownContent() {
     }, 150);
 
     return () => clearInterval(interval);
-  }, [highlightedAnimalId, animalPage, pagedChildAnimals]);
+  }, [highlightedAnimalId, animalPage, pagedChildAnimals, isDrilldownOpen]);
 
   // ── Mutations: Batch Review ──────────────────────────────────────────────
   // Individual animals are reviewed from the inventory queue.
@@ -971,164 +1309,20 @@ function AdminBatchesDrilldownContent() {
         ) : viewMode === "grid" ? (
           /* Grid View Mode */
           <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {pagedBatches.map((batch) => {
-              const headCount = batch.total_animals || batch.animals?.length || 0;
-              const avgWeight = batch.average_weight ? Number(batch.average_weight) : null;
-              const sibatCheckedCount = (batch.verified_animals ?? 0) + (batch.approved_animals ?? 0);
-              const verificationProgress =
-                headCount > 0 ? Math.round((sibatCheckedCount / headCount) * 100) : 0;
-
-              return (
-                <Card
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {pagedBatches.map((batch) => (
+                <AdminHerdSplitCard
                   key={batch.id}
-                  className="group overflow-hidden rounded-2xl border-slate-200 bg-white shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all duration-200 flex flex-col"
-                >
-                  <CardHeader className="p-3.5 pb-2.5 min-h-[88px]">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider border ${getSpeciesColor(
-                            batch.livestock_type_name
-                          )}`}
-                        >
-                          {batch.livestock_type_name || "Livestock"}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="font-mono text-[10px] font-black text-slate-600 border-slate-200 bg-slate-50"
-                        >
-                          {batch.batch_code}
-                        </Badge>
-                      </div>
-                      {getStatusBadge(batch.review_status)}
-                    </div>
-
-                    <CardTitle className="text-sm font-black text-slate-900 mt-1.5 truncate">
-                      {batch.batch_name || `${batch.livestock_type_name} Herd`}
-                    </CardTitle>
-                    <CardDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                      <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                      <span className="font-bold text-slate-700 truncate">{batch.farmer_name}</span>
-                      <span>•</span>
-                      <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
-                      <span className="truncate">{batch.barangay_name || "Padre Garcia"}</span>
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="p-3.5 pt-0 space-y-2.5 flex flex-1 flex-col">
-                    <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2">
-                      <div className="px-1.5">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
-                          Herd Size
-                        </span>
-                        <p className="text-sm leading-none font-black text-slate-900 mt-1">
-                          {headCount}
-                          <span className="text-[8px] font-bold text-slate-500 ml-1">heads</span>
-                        </p>
-                      </div>
-                      <div className="px-2">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
-                          Verified
-                        </span>
-                        <p className="text-sm leading-none font-black text-sky-800 mt-1">
-                          {sibatCheckedCount}
-                          <span className="text-[8px] font-bold text-slate-500 ml-1">of {headCount}</span>
-                        </p>
-                      </div>
-                      <div className="px-2">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
-                          Avg Weight
-                        </span>
-                        <p className="text-sm leading-none font-black text-slate-900 mt-1">
-                          {avgWeight ? `${avgWeight} kg` : "N/A"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-bold text-slate-500">
-                          SIBAT verification - {sibatCheckedCount}/{headCount} animals
-                        </span>
-                        <span className={`text-[9px] font-black ${batch.review_status === "APPROVED" ? "text-emerald-700" : "text-sky-700"}`}>
-                          {verificationProgress}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={verificationProgress}
-                        className={`h-1.5 bg-slate-100 ${
-                          batch.review_status === "APPROVED"
-                            ? "[&>div]:bg-emerald-600"
-                            : "[&>div]:bg-sky-600"
-                        }`}
-                      />
-                    </div>
-
-                    <p className="text-[10px] leading-relaxed text-slate-600">
-                      {batch.approved_animals ?? 0} approved ? {batch.pending_animals ?? 0} awaiting SIBAT ? {batch.verified_animals ?? 0} awaiting MAO ? {batch.revision_animals ?? 0} returned
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 text-[9px]">
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
-                        <Building2 className="size-3 text-slate-400" />
-                        {batch.housing_pen || "General Pen"}
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-600 capitalize">
-                        <Activity className="size-3 text-slate-400" />
-                        {batch.feed_type || "—"}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`h-9 px-2.5 rounded-lg border text-[10px] flex items-center gap-1.5 ${
-                        batch.review_remarks
-                          ? "bg-amber-50 border-amber-200 text-amber-900"
-                          : "bg-slate-50 border-slate-100 text-slate-400"
-                      }`}
-                    >
-                      <Info className={`size-3.5 shrink-0 ${batch.review_remarks ? "text-amber-600" : "text-slate-300"}`} />
-                      <span className="line-clamp-1">
-                        {batch.review_remarks || "No review remarks"}
-                      </span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="grid grid-cols-[1fr_auto] gap-1.5 pt-2 border-t border-slate-100 mt-auto">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          openDrilldown(batch);
-                        }}
-                        className="h-8 rounded-lg bg-slate-900 hover:bg-emerald-800 text-white font-bold text-[10px] gap-1.5 shadow-2xs"
-                      >
-                        <Eye className="size-3.5" />
-                        Inspect herd
-                        <ChevronRight className="size-3.5 ml-auto" />
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedBatch(batch);
-                          setIsBatchCertificateOpen(true);
-                        }}
-                        className="size-8 p-0 rounded-lg border-slate-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
-                        title="View Batch QR Clearance Pass"
-                      >
-                        <QrCode className="w-3.5 h-3.5 text-emerald-700" />
-                      </Button>
-
-                      <Link href={`/data-validation?domain=inventory&batchId=${batch.id}`} className="col-span-2">
-                        <Button size="sm" variant="outline" className="w-full h-8 rounded-lg border-emerald-300 text-emerald-900 text-[10px] font-bold">
-                          <Eye className="size-3.5 mr-1.5" /> View individual animal records
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  batch={batch}
+                  isSelected={selectedBatch?.id === batch.id && isDrilldownOpen}
+                  onSelect={() => openDrilldown(batch)}
+                  onViewQr={() => {
+                    setSelectedBatch(batch);
+                    setIsBatchCertificateOpen(true);
+                  }}
+                  getStatusBadge={getStatusBadge}
+                />
+              ))}
             </div>
             <BatchPager page={batchPage} pageSize={BATCH_PAGE_SIZE} total={batchPageData?.count || 0} onPageChange={setBatchPage} />
           </div>

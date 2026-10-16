@@ -35,6 +35,7 @@ import {
   Building2,
   Clock,
   Info,
+  Layers,
 } from "lucide-react";
 import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
@@ -70,6 +71,17 @@ export function DataOverviewDetailModal({
     (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, "")) ||
     record.batchCode ||
     record.id;
+
+  const parentBatchId = record.batchId || record.batchCode || record.batchName;
+  const individualAnimalId =
+    record.rawId ||
+    (typeof record.id === "number" ? record.id : String(record.id).replace(/\D/g, ""));
+  const individualTag = record.tagNumber || record.cattleId;
+  const individualHerdUrl = parentBatchId
+    ? `/data-validation/batches?batchId=${encodeURIComponent(parentBatchId)}${
+        individualAnimalId ? `&animalId=${encodeURIComponent(individualAnimalId)}` : ""
+      }${individualTag ? `&tag=${encodeURIComponent(individualTag)}` : ""}`
+    : null;
 
   const identifierCode = isBatch
     ? (record.batchCode || record.id)
@@ -270,13 +282,15 @@ export function DataOverviewDetailModal({
                           Assigned to Herd
                         </Badge>
                         <Link
-                          href={`/data-validation/batches?batchId=${encodeURIComponent(
-                            record.batchId || record.batchCode || record.batchName
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          href={
+                            individualHerdUrl ||
+                            `/data-validation/batches?batchId=${encodeURIComponent(
+                              record.batchId || record.batchCode || record.batchName
+                            )}`
+                          }
+                          onClick={() => onOpenChange(false)}
                           className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 px-2.5 py-0.5 rounded-lg transition-all shadow-2xs cursor-pointer"
-                          title="Open Herd Roster in Validation Center (New Tab)"
+                          title="Open Herd Roster in Validation Center and Highlight Animal"
                         >
                           <span>Open Batch File</span>
                           <ExternalLink className="size-3" />
@@ -822,9 +836,26 @@ export function DataOverviewDetailModal({
                           {animal.weight ? `${animal.weight} kg` : "—"}
                         </td>
                         <td className="p-2.5 text-right">
-                          <Badge className="text-[9px] font-black px-2 py-0.5 bg-emerald-100 text-emerald-900 border-0">
-                            {animal.status || "APPROVED"}
-                          </Badge>
+                          <div className="flex items-center justify-end gap-2">
+                            <Badge className="text-[9px] font-black px-2 py-0.5 bg-emerald-100 text-emerald-900 border-0">
+                              {animal.status || "APPROVED"}
+                            </Badge>
+                            <Link
+                              href={`/data-validation/batches?batchId=${encodeURIComponent(
+                                targetBatchId
+                              )}&animalId=${encodeURIComponent(animal.id)}${
+                                animal.tag_number || animal.tagNumber
+                                  ? `&tag=${encodeURIComponent(animal.tag_number || animal.tagNumber)}`
+                                  : ""
+                              }`}
+                              onClick={() => onOpenChange(false)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200 transition-colors"
+                              title="Open and highlight this animal in the herd roster"
+                            >
+                              <ExternalLink className="size-2.5" />
+                              <span>Inspect</span>
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -858,7 +889,7 @@ export function DataOverviewDetailModal({
               <span>Print Record</span>
             </Button>
 
-            {isBatch && (
+            {isBatch ? (
               <Link href={`/data-validation/batches?batchId=${encodeURIComponent(targetBatchId)}`}>
                 <Button
                   size="sm"
@@ -868,7 +899,17 @@ export function DataOverviewDetailModal({
                   <span>Drilldown Batch Center</span>
                 </Button>
               </Link>
-            )}
+            ) : individualHerdUrl ? (
+              <Link href={individualHerdUrl} onClick={() => onOpenChange(false)}>
+                <Button
+                  size="sm"
+                  className="rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5 h-8.5 shadow-2xs"
+                >
+                  <Layers className="size-3" />
+                  <span>Review in Herd</span>
+                </Button>
+              </Link>
+            ) : null}
           </div>
 
           <Button

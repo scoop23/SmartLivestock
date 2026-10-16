@@ -101,7 +101,7 @@ export default function DataOverviewPage() {
   const { data: rawBatches, isLoading: isBatchLoading, isError: isBatchError } = useQuery<any[]>({
     queryKey: ["admin-batches-overview"],
     queryFn: async ({ signal }) => {
-      const res = await municipalRead("livestock/batches/?all=true", { signal });
+      const res = await municipalRead("livestock/batches/?all=true&include_roster=true", { signal });
       if (!Array.isArray(res.data)) throw new Error("Unexpected herd response.");
       return res.data;
     },
@@ -172,6 +172,7 @@ export default function DataOverviewPage() {
         farmerName: item.farmerName || "Registered Farmer",
         barangay: item.barangayName || "Unknown barangay",
         cattleId: item.tagNumber || `TAG-${item.id}`,
+        tagNumber: item.tagNumber || undefined,
         specie: item.livestockType || "Cattle",
         breed: item.breed || "Standard",
         sex: item.sex || "Female",
