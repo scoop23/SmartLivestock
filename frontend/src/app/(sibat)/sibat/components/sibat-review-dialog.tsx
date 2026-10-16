@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Baby,
   Calendar,
@@ -243,10 +244,21 @@ export default function SibatReviewDialog({
             </div>
 
             <div className="flex items-center gap-2">
-              {submission.batchCode && !isBatch && (
-                <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
-                  Herd: {submission.batchCode}
-                </Badge>
+              {(submission.batchCode || submission.batchId) && !isBatch && (
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2.5 rounded-lg text-xs font-bold text-teal-900 bg-teal-50 border-teal-300 hover:bg-teal-100 hover:text-teal-950 cursor-pointer shadow-2xs gap-1.5"
+                  title="Review entire herd roster in batches drilldown"
+                >
+                  <Link
+                    href={`/sibat/batches?batchId=${encodeURIComponent(submission.batchId || submission.batchCode || "")}&animalId=${submission.rawId}&tag=${encodeURIComponent(submission.tagNumber || "")}`}
+                  >
+                    <Layers className="size-3 text-teal-700" />
+                    Review Herd
+                  </Link>
+                </Button>
               )}
               <SibatStatusBadge status={submission.status} />
             </div>
@@ -416,6 +428,32 @@ export default function SibatReviewDialog({
                           <span className="font-bold text-slate-800 block pt-0.5">
                             {submission.weight} kg
                           </span>
+                        </div>
+                      )}
+
+                      {(submission.batchCode || submission.batchId) && (
+                        <div className="col-span-2 mt-2 p-2.5 rounded-xl bg-teal-50/90 border border-teal-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-teal-800 block">
+                              Enrolled in Herd Roster
+                            </span>
+                            <span className="font-bold text-xs text-teal-950 flex items-center gap-1.5 pt-0.5">
+                              <Layers className="size-3.5 text-teal-700 shrink-0" />
+                              {submission.batchName ? `${submission.batchName} (${submission.batchCode || `#${submission.batchId}`})` : submission.batchCode || `Herd #${submission.batchId}`}
+                            </span>
+                          </div>
+                          <Button
+                            asChild
+                            size="sm"
+                            className="h-7 px-3 rounded-lg text-xs font-bold bg-[#1A365D] text-white hover:bg-[#132742] shrink-0 gap-1.5 cursor-pointer shadow-2xs"
+                          >
+                            <Link
+                              href={`/sibat/batches?batchId=${encodeURIComponent(submission.batchId || submission.batchCode || "")}&animalId=${submission.rawId}&tag=${encodeURIComponent(submission.tagNumber || "")}`}
+                            >
+                              <Layers className="size-3" />
+                              Review Herd
+                            </Link>
+                          </Button>
                         </div>
                       )}
                     </div>

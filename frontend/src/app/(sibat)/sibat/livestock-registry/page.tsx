@@ -41,9 +41,12 @@ import {
   ArrowLeft,
   X,
   FileSpreadsheet,
+  ClipboardList,
+  Tag,
 } from "lucide-react";
 import SibatStatusBadge from "../components/sibat-status-badge";
 import SibatReviewDialog from "../components/sibat-review-dialog";
+import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
 
 const PAGE_SIZE = 10;
 type RegistryStatusFilter = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
@@ -88,17 +91,23 @@ function SibatLivestockRegistryContent() {
   // Fetch individual inventory items for this SIBAT's scope
   const inventoryQuery = useQuery({
     queryKey: ["sibat", "livestock-registry", "inventory", status, batchId, ...scopeKey],
-    queryFn: async () =>
-      (
-        await api.get<RawInventoryRecord[]>("livestock/inventory/", {
+    queryFn: async () => {
+      const response = await api.get<RawInventoryRecord[] | { count: number; results: RawInventoryRecord[] }>(
+        "livestock/inventory/",
+        {
           params: {
             include_inactive: true,
             status: status === "ALL" ? undefined : status,
             barangay_id: barangayFilter,
             batch: batchId || undefined,
           },
-        })
-      ).data,
+        }
+      );
+      const data = response.data;
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray((data as any).results)) return (data as any).results as RawInventoryRecord[];
+      return [];
+    },
     staleTime: 30_000,
     enabled: hasAllBarangayAccess || Boolean(assignedBarangayId),
   });
@@ -106,25 +115,41 @@ function SibatLivestockRegistryContent() {
   // Fetch herd containers
   const batchesQuery = useQuery({
     queryKey: ["sibat", "livestock-registry", "batches", status, batchId, ...scopeKey],
-    queryFn: async () =>
-      (
-        await api.get<RegistryBatchRecord[]>("livestock/batches/", {
+    queryFn: async () => {
+      const response = await api.get<RegistryBatchRecord[] | { count: number; results: RegistryBatchRecord[] }>(
+        "livestock/batches/",
+        {
           params: {
             review_status: status === "ALL" ? undefined : status,
             barangay_id: barangayFilter,
           },
-        })
-      ).data,
+        }
+      );
+      const data = response.data;
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray((data as any).results)) return (data as any).results as RegistryBatchRecord[];
+      return [];
+    },
     staleTime: 30_000,
     enabled: !batchId && (hasAllBarangayAccess || Boolean(assignedBarangayId)),
   });
 
   // Combine and sort records
   const registryRecords = useMemo(() => {
-    const individuals = (inventoryQuery.data ?? [])
+    const rawInv = inventoryQuery.data;
+    const invList: RawInventoryRecord[] = Array.isArray(rawInv)
+      ? rawInv
+      : ((rawInv as any)?.results ?? []);
+    const individuals = invList
       .filter((record) => record.entry_type === "INDIVIDUAL")
       .map(mapInventoryToUnified);
-    const herds = batchId ? [] : (batchesQuery.data ?? []).map(mapBatchToUnified);
+
+    const rawBatches = batchesQuery.data;
+    const batchList: RegistryBatchRecord[] = Array.isArray(rawBatches)
+      ? rawBatches
+      : ((rawBatches as any)?.results ?? []);
+    const herds = batchId ? [] : batchList.map(mapBatchToUnified);
+
     return [...individuals, ...herds].sort((a, b) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
@@ -220,6 +245,8 @@ function SibatLivestockRegistryContent() {
   }, [page, pageCount]);
 
   const isLoading = inventoryQuery.isLoading || (!batchId && batchesQuery.isLoading);
+  const isInitialLoading = isLoading && registryRecords.length === 0;
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
   const failedSources = [
     ...(inventoryQuery.isError ? ["individual livestock"] : []),
     ...(!batchId && batchesQuery.isError ? ["herds"] : []),
@@ -246,6 +273,52 @@ function SibatLivestockRegistryContent() {
     setPage(1);
   };
 
+  if (isInitialLoading || keepLoadingScreenMounted) {
+    return (
+      <>
+        <PageHeader
+          title="Farmer Records"
+          subtitle="Find, review, and validate information submitted by farmers."
+          variant="farmer"
+          maxWidthClass="w-full"
+          icon={<ClipboardList className="size-5 text-white" />}
+        />
+        <div className="mx-auto w-full max-w-[1500px] p-3.5 sm:p-6 lg:px-8">
+          <ValidationLoadingScreen
+            isLoading={isInitialLoading}
+            title="Loading Farmer Records Registry"
+            subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
+            badgeLabel="Farmer Records Sync"
+            authorityText="SIBAT Field Validation · Padre Garcia, Batangas"
+            items={[
+              {
+                id: "individual",
+                label: "Individual Livestock",
+                sublabel: "Cattle, carabao, and horse registration records",
+                icon: <Tag className="size-4 text-emerald-700" />,
+                loaded: !inventoryQuery.isLoading,
+              },
+              {
+                id: "herds",
+                label: "Herd Submissions",
+                sublabel: "Swine, goat, and poultry batch records",
+                icon: <Layers className="size-4 text-sky-600" />,
+                loaded: batchId ? true : !batchesQuery.isLoading,
+              },
+              {
+                id: "barangay",
+                label: "Barangay Coverage",
+                sublabel: registryScopeLabel,
+                icon: <MapPin className="size-4 text-amber-600" />,
+                loaded: !inventoryQuery.isLoading && (!batchesQuery.isLoading || Boolean(batchId)),
+              },
+            ]}
+          />
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -253,6 +326,7 @@ function SibatLivestockRegistryContent() {
         subtitle="Find, review, and validate information submitted by farmers."
         variant="farmer"
         maxWidthClass="w-full"
+        icon={<ClipboardList className="size-5 text-white" />}
       />
 
       <main className="mx-auto w-full max-w-[1500px] min-w-0 space-y-4 px-3.5 py-4 sm:p-6 lg:px-8">
@@ -534,17 +608,33 @@ function SibatLivestockRegistryContent() {
                                 </Link>
                               </Button>
                             ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedSubmission(r);
-                                }}
-                                className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-[#1A365D] hover:text-white text-slate-800 border-slate-200 transition-all cursor-pointer"
-                              >
-                                <Eye className="size-3.5 mr-1" /> Review Record
-                              </Button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                {(r.batchId || r.batchCode) && (
+                                  <Button
+                                    asChild
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-8 px-2.5 rounded-xl text-xs font-bold text-teal-800 bg-teal-50 border-teal-300 hover:bg-teal-100 cursor-pointer"
+                                    title={`Review parent herd ${r.batchCode || ""}`}
+                                  >
+                                    <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}`}>
+                                      <Layers className="size-3.5 mr-1 text-teal-700" /> Review Herd
+                                    </Link>
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedSubmission(r);
+                                  }}
+                                  className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-[#1A365D] hover:text-white text-slate-800 border-slate-200 transition-all cursor-pointer"
+                                >
+                                  <Eye className="size-3.5 mr-1" /> Review Record
+                                </Button>
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>
@@ -600,14 +690,27 @@ function SibatLivestockRegistryContent() {
                         </Link>
                       </Button>
                     ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setSelectedSubmission(r)}
-                        className="w-full h-10 rounded-xl text-xs font-extrabold bg-[#1A365D] text-white hover:bg-[#132742] mt-2 cursor-pointer shadow-2xs"
-                      >
-                        <Eye className="size-3.5 mr-1" /> Review Record
-                      </Button>
+                      <div className="space-y-1.5 mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setSelectedSubmission(r)}
+                          className="w-full h-10 rounded-xl text-xs font-extrabold bg-[#1A365D] text-white hover:bg-[#132742] cursor-pointer shadow-2xs"
+                        >
+                          <Eye className="size-3.5 mr-1" /> Review Record
+                        </Button>
+                        {(r.batchId || r.batchCode) && (
+                          <Button
+                            asChild
+                            variant="outline"
+                            className="w-full h-9 rounded-xl text-xs font-bold text-teal-800 bg-teal-50/70 border-teal-300 hover:bg-teal-100 cursor-pointer"
+                          >
+                            <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}`}>
+                              <Layers className="size-3.5 mr-1 text-teal-700" /> Review Herd ({r.batchCode || "Parent Herd"})
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </article>
                 );
@@ -691,9 +794,47 @@ export default function SibatLivestockRegistryPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-8 text-center text-slate-500">
-          Loading farmer records registry…
-        </div>
+        <>
+          <PageHeader
+            title="Farmer Records"
+            subtitle="Find, review, and validate information submitted by farmers."
+            variant="farmer"
+            maxWidthClass="w-full"
+            icon={<ClipboardList className="size-5 text-white" />}
+          />
+          <div className="mx-auto w-full max-w-[1500px] p-3.5 sm:p-6 lg:px-8">
+            <ValidationLoadingScreen
+              isLoading={true}
+              title="Loading Farmer Records Registry"
+              subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
+              badgeLabel="Farmer Records Sync"
+              authorityText="SIBAT Field Validation · Padre Garcia, Batangas"
+              items={[
+                {
+                  id: "individual",
+                  label: "Individual Livestock",
+                  sublabel: "Cattle, carabao, and horse registration records",
+                  icon: <Tag className="size-4 text-emerald-700" />,
+                  loaded: false,
+                },
+                {
+                  id: "herds",
+                  label: "Herd Submissions",
+                  sublabel: "Swine, goat, and poultry batch records",
+                  icon: <Layers className="size-4 text-sky-600" />,
+                  loaded: false,
+                },
+                {
+                  id: "barangay",
+                  label: "Barangay Coverage",
+                  sublabel: "Barangay-scoped field records",
+                  icon: <MapPin className="size-4 text-amber-600" />,
+                  loaded: false,
+                },
+              ]}
+            />
+          </div>
+        </>
       }
     >
       <SibatLivestockRegistryContent />
