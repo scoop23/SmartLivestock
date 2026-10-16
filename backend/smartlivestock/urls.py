@@ -18,7 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView  # type: ignore
-from users.views import MyTokenView  # type: ignore
+from users.views import MyTokenView, block_public_registration_document_media  # type: ignore
 
 # API URL routing:
 #   /admin/         → Django admin panel
@@ -54,6 +54,16 @@ urlpatterns = [
     path("api/movements/", include("movements.urls")),
     path("data-imports/", include("data_imports.urls")),
     path("api/data-imports/", include("data_imports.urls")),
+]
+
+# The generic DEBUG media route is public; registration IDs must only be
+# streamed through the authenticated document-view endpoint.
+urlpatterns += [
+    path(
+        "media/user_documents/<path:path>",
+        block_public_registration_document_media,
+        name="block_public_registration_document_media",
+    ),
 ]
 
 if settings.DEBUG:

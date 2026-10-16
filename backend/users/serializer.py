@@ -78,6 +78,9 @@ class UserDocumentSerializer(serializers.ModelSerializer):
     verification_status_display = serializers.CharField(source="get_verification_status_display", read_only=True)
     file_name = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
+    # Preserve the legacy response field while pointing it at the protected
+    # endpoint instead of FileField.url, which can bypass document permissions.
+    document_file = serializers.SerializerMethodField()
     approved_by_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -115,10 +118,11 @@ class UserDocumentSerializer(serializers.ModelSerializer):
                     return request.build_absolute_uri(view_path)
                 return view_path
             except Exception:
-                if request:
-                    return request.build_absolute_uri(obj.document_file.url)
-                return obj.document_file.url
+                return ""
         return ""
+
+    def get_document_file(self, obj):
+        return self.get_file_url(obj)
 
     def get_approved_by_name(self, obj):
         if obj.approved_by:

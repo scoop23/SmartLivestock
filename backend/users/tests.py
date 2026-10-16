@@ -224,7 +224,10 @@ class UserApprovalAndManagementAPITests(APITestCase):
         self.client.force_authenticate(user=self.mao_user)
         response = self.client.patch(f"/api/users/{self.pending_user.pk}/status/", {"status": "APPROVED"})
 
-        self.assertTrue(response.data["documents"][0]["document_file"].startswith("http://testserver/"))
+        document = response.data["documents"][0]
+        self.assertEqual(document["document_file"], document["file_url"])
+        self.assertIn(f"/documents/{document['id']}/view/", document["document_file"])
+        self.assertNotIn("/media/user_documents/", document["document_file"])
         self.assertTrue(Notification.objects.filter(user=self.pending_user, title="Account status updated").exists())
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -467,6 +470,12 @@ class UserDocumentVerificationAndSecurityTests(APITestCase):
         self.client.force_authenticate(user=self.mao_user)
         resp_mao = self.client.get(url)
         self.assertEqual(resp_mao.status_code, status.HTTP_200_OK)
+
+    def test_media_route_blocks_private_registration_documents(self):
+        from django.urls import resolve
+        match = resolve("/media/user_documents/id.pdf")
+        self.assertEqual(match.url_name, "block_public_registration_document_media")
+        self.assertEqual(self.client.get("/media/user_documents/id.pdf").status_code, status.HTTP_404_NOT_FOUND)
 
     def test_cannot_approve_account_while_documents_pending_or_in_revision(self):
         self.client.force_authenticate(user=self.mao_user)

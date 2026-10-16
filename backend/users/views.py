@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse, HttpResponseNotFound, FileResponse
 from django.views import View
 from django.db import transaction
 from django.db.models import Q
@@ -26,6 +26,11 @@ from .serializer import (
     UserStatusUpdateSerializer,
     SibatAssignmentSerializer,
 )
+
+
+def block_public_registration_document_media(request, path):
+    """Keep private registration files out of Django's DEBUG media server."""
+    return HttpResponseNotFound()
 
 
 
