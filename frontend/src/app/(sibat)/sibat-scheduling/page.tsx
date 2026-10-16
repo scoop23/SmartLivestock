@@ -13,7 +13,6 @@ import {
   ArrowLeft,
   Pencil,
   Trash2,
-  Megaphone,
   Check,
   RotateCcw,
   X,
@@ -28,6 +27,7 @@ import {
   Upload,
   Camera,
   ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -64,14 +64,14 @@ import api, { getActiveApiUrl } from "@/lib/axios";
 import {
   getSchedules,
   getBookings,
-  getActivities,
   type ProgramSchedule,
   type ProgramBooking,
-  type Activity,
   apiError,
+  type ProgramFarmerAudience,
 } from "@/lib/community-api";
-import { formatTime, todayIso } from "@/app/components/community/community-ui";
+import { formatLongDate, formatTime, todayIso } from "@/app/components/community/community-ui";
 import { useAuth } from "@/contexts/auth-context";
+import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
 
 // ── Types & Helpers ────────────────────────────────────────────────────────
 
@@ -79,6 +79,20 @@ function programImageUrl(path: string): string {
   if (path.startsWith("blob:")) return path;
   if (/^https?:\/\//i.test(path)) return path;
   return `${getActiveApiUrl().replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function nextFullHourTime(now = new Date()): string {
+  const next = new Date(now);
+  next.setMinutes(0, 0, 0);
+  next.setHours(next.getHours() + 1);
+  if (next.toDateString() !== now.toDateString()) return "";
+  return `${String(next.getHours()).padStart(2, "0")}:${String(next.getMinutes()).padStart(2, "0")}`;
+}
+
+function oneHourAfter(time: string): string {
+  const [hours, minutes] = time.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours >= 23) return "";
+  return `${String(hours + 1).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 export interface ScheduleItem {
@@ -151,6 +165,46 @@ function formatScheduleItem(raw: ProgramSchedule, bookings: ProgramBooking[]): S
   };
 }
 
+function SchedulingLoadingScreen() {
+  return (
+    <>
+      <PageHeader
+        title="Schedules & Activities"
+        subtitle="Manage vaccination, deworming, and other animal health activities."
+        icon={<CalendarDays className="size-5 text-white" />}
+        variant="farmer"
+        maxWidthClass="w-full"
+      />
+      <main className="mx-auto w-full max-w-[1500px] space-y-5 px-3.5 py-4 sm:p-6 lg:px-8" aria-busy="true">
+        <div role="status" aria-live="polite" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Loading programs and bookings…
+        </div>
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[450px_minmax(0,1fr)] xl:grid-cols-[500px_minmax(0,1fr)]">
+          <Card className="space-y-5 rounded-2xl border border-slate-200/90 bg-white p-4.5 shadow-2xs sm:p-6">
+            <div className="flex items-center justify-between">
+              <div className="h-6 w-40 animate-pulse rounded bg-slate-200" />
+              <div className="flex gap-2"><div className="size-9 animate-pulse rounded-xl bg-slate-100" /><div className="size-9 animate-pulse rounded-xl bg-slate-100" /></div>
+            </div>
+            <div className="grid grid-cols-7 gap-2">{Array.from({ length: 35 }, (_, index) => <div key={index} className="h-10 animate-pulse rounded-xl bg-slate-100 sm:h-12" />)}</div>
+            <div className="h-4 w-36 animate-pulse rounded bg-slate-100" />
+          </Card>
+          <div className="space-y-4">
+            <div className="space-y-2"><div className="h-6 w-44 animate-pulse rounded bg-slate-200" /><div className="h-4 w-32 animate-pulse rounded bg-slate-100" /></div>
+            {Array.from({ length: 3 }, (_, index) => (
+              <Card key={index} className="flex animate-pulse flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-4 sm:flex-row sm:items-center sm:p-5">
+                <div className="size-16 shrink-0 rounded-xl bg-slate-100" />
+                <div className="min-w-0 flex-1 space-y-2"><div className="h-5 w-2/3 rounded bg-slate-200" /><div className="h-4 w-1/2 rounded bg-slate-100" /><div className="h-4 w-1/3 rounded bg-slate-100" /></div>
+                <div className="h-10 w-32 rounded-xl bg-slate-100" />
+              </Card>
+            ))}
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}
+
 // ── Main Page Component ───────────────────────────────────────────────────
 
 export default function SibatSchedulingPage() {
@@ -159,7 +213,6 @@ export default function SibatSchedulingPage() {
   const [tab, setTab] = useState<"Upcoming" | "Past">("Upcoming");
   const [rawSchedules, setRawSchedules] = useState<ProgramSchedule[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
-  const [announcements, setAnnouncements] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleItem | null>(null);
   const [editTarget, setEditTarget] = useState<ScheduleItem | null>(null);
@@ -189,15 +242,13 @@ export default function SibatSchedulingPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [schedulesRes, bookingsRes, announcementsRes] = await Promise.allSettled([
+      const [schedulesRes, bookingsRes] = await Promise.allSettled([
         getSchedules(),
         getBookings(),
-        getActivities(),
       ]);
 
       if (schedulesRes.status === "fulfilled") setRawSchedules(schedulesRes.value);
       if (bookingsRes.status === "fulfilled") setBookings(bookingsRes.value);
-      if (announcementsRes.status === "fulfilled") setAnnouncements(announcementsRes.value);
     } catch (e) {
       toast.error(apiError(e));
     } finally {
@@ -295,17 +346,6 @@ export default function SibatSchedulingPage() {
     }
   };
 
-  // Check if an editing schedule has a published announcement
-  const hasPublishedAnnouncement = useMemo(() => {
-    if (!editTarget || !editTarget.raw) return false;
-    return announcements.some(
-      (a) =>
-        a.is_published &&
-        (a.schedule?.id === editTarget.raw?.id ||
-          a.title.toLowerCase().includes(editTarget.name.toLowerCase()))
-    );
-  }, [editTarget, announcements]);
-
   // Delete handler
   const handleDeleteSchedule = async () => {
     if (!deleteTarget || !deleteTarget.raw) return;
@@ -346,6 +386,14 @@ export default function SibatSchedulingPage() {
     }
   };
 
+  const canManageSchedule = (item: ScheduleItem | null) => {
+    if (!item?.raw) return false;
+    if (user?.accessScope === "ALL_BARANGAYS") return true;
+    return Boolean(
+      user?.assignedBarangayId && item.raw.barangay === user.assignedBarangayId,
+    );
+  };
+
   // ── Render Form View ──
   if (view === "schedule-form") {
     return (
@@ -361,11 +409,12 @@ export default function SibatSchedulingPage() {
           await loadData();
         }}
         isOnline={isOnline}
-        hasPublishedAnnouncement={hasPublishedAnnouncement}
         assignedBarangayId={user?.assignedBarangayId}
       />
     );
   }
+
+  if (loading) return <SchedulingLoadingScreen />;
 
   // ── Render Schedules Page View ──
   return (
@@ -454,29 +503,29 @@ export default function SibatSchedulingPage() {
       </div>
 
       {/* Schedule Layout: Calendar Card on Left, Activities List on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[450px_minmax(0,1fr)] xl:grid-cols-[500px_minmax(0,1fr)] gap-6 items-start">
         {/* LEFT COLUMN: Interactive Calendar Card */}
-        <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">{monthName}</h2>
-            <div className="flex items-center gap-1">
+        <Card className="rounded-2xl border border-slate-200/90 bg-white p-4.5 sm:p-6 shadow-2xs space-y-5">
+          <div className="flex items-center justify-between pb-1">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{monthName}</h2>
+            <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handlePrevMonth}
-                className="size-8 p-0 rounded-lg border-slate-200 text-slate-600 hover:text-slate-900"
+                className="size-9 sm:size-10 p-0 rounded-xl border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-50 cursor-pointer"
                 aria-label="Previous month"
               >
-                <ChevronLeft className="size-4" />
+                <ChevronLeft className="size-5" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleNextMonth}
-                className="size-8 p-0 rounded-lg border-slate-200 text-slate-600 hover:text-slate-900"
+                className="size-9 sm:size-10 p-0 rounded-xl border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-50 cursor-pointer"
                 aria-label="Next month"
               >
-                <ChevronRight className="size-4" />
+                <ChevronRight className="size-5" />
               </Button>
             </div>
           </div>
@@ -484,21 +533,21 @@ export default function SibatSchedulingPage() {
           {/* Calendar Grid */}
           <div className="space-y-2">
             {/* Days of week */}
-            <div className="grid grid-cols-7 text-center text-[10px] sm:text-xs font-black uppercase text-slate-400 tracking-wider">
-              <span>SUN</span>
-              <span>MON</span>
-              <span>TUE</span>
-              <span>WED</span>
-              <span>THU</span>
-              <span>FRI</span>
-              <span>SAT</span>
+            <div className="grid grid-cols-7 text-center text-xs sm:text-sm font-black uppercase text-slate-500 tracking-wider py-1.5">
+              <span>Sun</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
             </div>
 
             {/* Days cells */}
-            <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            <div className="grid grid-cols-7 gap-2 sm:gap-2.5 text-center text-sm sm:text-base">
               {/* Padding empty slots */}
               {Array.from({ length: firstDayOfWeek }).map((_, idx) => (
-                <div key={`empty-${idx}`} className="h-8 sm:h-9" />
+                <div key={`empty-${idx}`} className="h-10 sm:h-12" />
               ))}
 
               {/* Day numbers */}
@@ -519,7 +568,7 @@ export default function SibatSchedulingPage() {
                     key={day}
                     type="button"
                     onClick={() => handleCalendarDayClick(day)}
-                    className={`relative h-8 sm:h-9 rounded-xl flex flex-col items-center justify-center font-bold transition-all cursor-pointer ${
+                    className={`relative h-10 sm:h-12 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center font-bold transition-all cursor-pointer ${
                       isSelected
                         ? "bg-[#1E3A2F] text-white shadow-xs"
                         : hasEvent
@@ -531,7 +580,7 @@ export default function SibatSchedulingPage() {
                   >
                     <span>{day}</span>
                     {hasEvent && !isSelected && (
-                      <span className="size-1.5 rounded-full bg-emerald-600 absolute bottom-1" />
+                      <span className="size-2 rounded-full bg-emerald-600 absolute bottom-1 sm:bottom-1.5 ring-1 ring-emerald-200" />
                     )}
                   </button>
                 );
@@ -540,9 +589,20 @@ export default function SibatSchedulingPage() {
           </div>
 
           {/* Calendar Legend Note */}
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500 font-medium">
-            <span className="size-2 rounded-full bg-emerald-600 inline-block shrink-0" />
-            <span>Activity scheduled</span>
+          <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs sm:text-sm text-slate-600 font-semibold">
+            <div className="flex items-center gap-2">
+              <span className="size-2.5 rounded-full bg-emerald-600 inline-block shrink-0 ring-2 ring-emerald-200" />
+              <span>Activity scheduled</span>
+            </div>
+            {selectedDateFilter && (
+              <button
+                type="button"
+                onClick={() => setSelectedDateFilter(null)}
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-950 cursor-pointer"
+              >
+                Clear date
+              </button>
+            )}
           </div>
         </Card>
 
@@ -584,6 +644,7 @@ export default function SibatSchedulingPage() {
                 const isUpcomingStatus = s.status === "Upcoming";
                 const isClosed = s.status === "Closed";
                 const isCancelled = s.status === "Cancelled";
+                const canManage = canManageSchedule(s);
 
                 return (
                   <Card
@@ -633,6 +694,11 @@ export default function SibatSchedulingPage() {
                           <span className="rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] sm:text-[11px] px-2 py-0.5 border border-slate-200/60">
                             {s.type}
                           </span>
+                          {s.raw?.farmer_audience === "ALL_FARMERS" ? (
+                            <span className="rounded-lg bg-sky-50 text-sky-800 font-bold text-[10px] sm:text-[11px] px-2 py-0.5 border border-sky-200/70">
+                              {canManage ? "All farmers" : "All farmers · view only"}
+                            </span>
+                          ) : null}
                         </div>
 
                         <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
@@ -652,7 +718,7 @@ export default function SibatSchedulingPage() {
 
                         <p className="text-xs text-slate-600 font-semibold flex items-center gap-1 pt-0.5">
                           <Users className="size-3.5 text-emerald-700" />
-                          <span>{s.participants} farmers participating</span>
+                          <span>{canManage ? `${s.participants} farmers participating` : "Shared program · view details"}</span>
                         </p>
                       </div>
                     </div>
@@ -703,6 +769,7 @@ export default function SibatSchedulingPage() {
       <ScheduleDetailDialog
         schedule={selectedSchedule}
         bookings={bookings}
+        canManage={canManageSchedule(selectedSchedule)}
         open={selectedSchedule !== null}
         onClose={() => setSelectedSchedule(null)}
         onEdit={(item) => {
@@ -727,8 +794,15 @@ export default function SibatSchedulingPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this schedule?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &ldquo;{deleteTarget?.name}&rdquo;? Any associated
-              farmer reservations will be cancelled.
+              {deleteTarget ? (
+                <>
+                  Confirm you selected <strong className="text-slate-900">{deleteTarget.name}</strong> on{" "}
+                  <strong className="text-slate-900">{formatLongDate(deleteTarget.date)}</strong>.
+                  {deleteTarget.date < todayIso()
+                    ? " It will be removed from the active list and retained in program history."
+                    : " This schedule can only be deleted if no farmers have booked it."}
+                </>
+              ) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -754,7 +828,6 @@ interface ScheduleFormProps {
   onCancel: () => void;
   onSaved: () => Promise<void>;
   isOnline: boolean;
-  hasPublishedAnnouncement: boolean;
   assignedBarangayId?: number | null;
 }
 
@@ -763,7 +836,6 @@ function ScheduleForm({
   onCancel,
   onSaved,
   isOnline,
-  hasPublishedAnnouncement,
   assignedBarangayId,
 }: ScheduleFormProps) {
   const draftStorageKey = "sibat-schedule-draft";
@@ -773,19 +845,24 @@ function ScheduleForm({
     name: string;
     type: string;
     date: string;
-    start: string;
-    end: string;
+    availableTimes: string[];
+    farmerAudience: ProgramFarmerAudience;
+    capacity: string;
     location: string;
     notes: string;
     description: string;
   }>(() => {
     if (current) {
+      const availableTimes = current.raw?.available_times?.length
+        ? [...current.raw.available_times].sort()
+        : [current.start, current.end].filter((time, index, times) => Boolean(time) && times.indexOf(time) === index).sort();
       return {
         name: current.name,
         type: current.type,
         date: current.date,
-        start: current.start,
-        end: current.end,
+        availableTimes,
+        farmerAudience: current.raw?.farmer_audience ?? (current.raw?.barangay ? "BARANGAY_ONLY" : "ALL_FARMERS"),
+        capacity: String(current.raw?.capacity ?? 50),
         location: current.location,
         notes: current.notes,
         description: current.description,
@@ -794,15 +871,22 @@ function ScheduleForm({
     // Read from localStorage draft if available
     try {
       const saved = localStorage.getItem(draftStorageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        const availableTimes = Array.isArray(draft.availableTimes)
+          ? draft.availableTimes
+          : [draft.start, draft.end].filter((time, index, times): time is string => Boolean(time) && times.indexOf(time) === index);
+        return { ...draft, availableTimes: availableTimes.sort(), farmerAudience: draft.farmerAudience ?? "BARANGAY_ONLY", capacity: String(draft.capacity ?? 50) };
+      }
     } catch {}
 
     return {
       name: "",
       type: "Vaccination",
       date: "",
-      start: "08:00",
-      end: "12:00",
+      availableTimes: ["08:00", "12:00"],
+      farmerAudience: "BARANGAY_ONLY",
+      capacity: "50",
       location: "",
       notes: "",
       description: "",
@@ -811,10 +895,27 @@ function ScheduleForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [timeToAdd, setTimeToAdd] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string>(() => current?.raw?.cover_image || "");
   const [removeCover, setRemoveCover] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [galleryUploads, setGalleryUploads] = useState<{ file: File; previewUrl: string }[]>([]);
+  const [removePhotoIds, setRemovePhotoIds] = useState<number[]>([]);
+  const galleryUploadsRef = useRef(galleryUploads);
+
+  useEffect(() => {
+    const activePreviewUrls = new Set(galleryUploads.map(({ previewUrl }) => previewUrl));
+    galleryUploadsRef.current.forEach(({ previewUrl }) => {
+      if (!activePreviewUrls.has(previewUrl)) URL.revokeObjectURL(previewUrl);
+    });
+    galleryUploadsRef.current = galleryUploads;
+  }, [galleryUploads]);
+
+  useEffect(() => () => {
+    galleryUploadsRef.current.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -837,6 +938,36 @@ function ScheduleForm({
     }
   };
 
+  const visibleSavedPhotos = (current?.raw?.photos ?? []).filter((photo) => !removePhotoIds.includes(photo.id));
+  const handleGalleryFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    const available = Math.max(0, 10 - visibleSavedPhotos.length - galleryUploads.length);
+    const accepted: File[] = [];
+    for (const file of files) {
+      if (file.size > 8 * 1024 * 1024) {
+        toast.error(`${file.name} is larger than 8 MB and was skipped.`);
+      } else if (accepted.length < available) {
+        accepted.push(file);
+      }
+    }
+    if (files.length > accepted.length && accepted.length === available) {
+      toast.error("A program can have up to 10 gallery photos.");
+    }
+    if (accepted.length) {
+      setGalleryUploads((existing) => [
+        ...existing,
+        ...accepted.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })),
+      ]);
+    }
+  };
+
+  const removeGalleryUpload = (index: number) => {
+    setGalleryUploads((existing) => {
+      return existing.filter((_, itemIndex) => itemIndex !== index);
+    });
+  };
+
   // Sync draft to localStorage when creating new
   useEffect(() => {
     if (!current && typeof localStorage !== "undefined") {
@@ -845,7 +976,17 @@ function ScheduleForm({
   }, [current, form]);
 
   const handleChange = (key: keyof typeof form, val: string) => {
-    setForm((f) => ({ ...f, [key]: val }));
+    setForm((f) => {
+      if (key === "date" && val === todayIso() && !current) {
+        const nextStart = nextFullHourTime();
+        return {
+          ...f,
+          date: val,
+          ...(nextStart ? { availableTimes: [nextStart, oneHourAfter(nextStart)].filter((time): time is string => Boolean(time)).sort() } : {}),
+        };
+      }
+      return { ...f, [key]: val };
+    });
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
@@ -855,10 +996,24 @@ function ScheduleForm({
 
     if (!form.name.trim()) nextErrors.name = "Enter an activity name.";
     if (!form.date) nextErrors.date = "Select an activity date.";
-    if (!form.start) nextErrors.start = "Select a start time.";
+    if (form.availableTimes.length === 0) nextErrors.availableTimes = "Add at least one appointment time.";
+    const capacity = Number(form.capacity);
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 10000) {
+      nextErrors.capacity = "Enter a whole number from 1 to 10,000.";
+    } else if (current?.raw && capacity < current.raw.booking_count) {
+      nextErrors.capacity = `Capacity cannot be below the ${current.raw.booking_count} confirmed participants.`;
+    }
     if (!form.location.trim()) nextErrors.location = "Enter the barangay or activity location.";
     if (!form.description.trim())
       nextErrors.description = "Enter a short description or instruction.";
+    if (form.date === todayIso()) {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const bookedTimes = new Set(current?.raw?.booked_times ?? []);
+      if (form.availableTimes.some((time) => time <= currentTime && !bookedTimes.has(time))) {
+        nextErrors.availableTimes = "For a program scheduled today, remove past appointment times and choose a later time.";
+      }
+    }
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -880,9 +1035,6 @@ function ScheduleForm({
       else if (form.type === "Deworming" || form.type === "Vitamin Supplementation")
         category = "ANIMAL_HEALTH";
 
-      const times = [form.start];
-      if (form.end && form.end !== form.start) times.push(form.end);
-
       const payload = {
         program: form.name.trim(),
         description: form.description.trim(),
@@ -891,8 +1043,9 @@ function ScheduleForm({
         date: form.date,
         location: form.location.trim(),
         farmer_notes: form.notes.trim(),
-        capacity: 50,
-        available_times: times,
+        capacity,
+        available_times: [...form.availableTimes].sort(),
+        farmer_audience: form.farmerAudience,
         registration_opens: null,
         registration_deadline: null,
         eligibility: "",
@@ -902,7 +1055,7 @@ function ScheduleForm({
       };
 
       let body: FormData | typeof payload = payload;
-      if (coverFile || removeCover) {
+      if (coverFile || removeCover || galleryUploads.length > 0 || removePhotoIds.length > 0) {
         const formData = new FormData();
         Object.entries(payload).forEach(([key, value]) => {
           if (key === "available_times" && Array.isArray(value)) {
@@ -919,6 +1072,8 @@ function ScheduleForm({
         if (removeCover) {
           formData.append("remove_cover_image", "true");
         }
+        galleryUploads.forEach(({ file }) => formData.append("photo_uploads", file));
+        removePhotoIds.forEach((id) => formData.append("remove_photo_ids", String(id)));
         body = formData;
       }
 
@@ -950,36 +1105,23 @@ function ScheduleForm({
         icon={<CalendarDays className="size-5 text-white" />}
         variant="farmer"
         maxWidthClass="w-full"
-        action={
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onCancel}
-            className="rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white font-bold text-xs sm:text-sm px-3.5 py-2 shrink-0 flex items-center gap-1.5 backdrop-blur-xs transition-all cursor-pointer"
-          >
-            <ArrowLeft className="size-3.5" /> Back to Schedules
-          </Button>
-        }
       />
+
+      <div className="w-full px-3.5 pt-4 sm:px-6">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="gap-2 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <ArrowLeft className="size-4" /> Back to Schedules
+        </Button>
+      </div>
 
       <main className="mx-auto w-full max-w-[900px] min-w-0 space-y-5 px-3.5 py-4 sm:p-6">
 
       <form onSubmit={handleSave}>
         <Card className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-7 shadow-xs space-y-6">
-          {/* Warning Strip if published announcement */}
-          {current && hasPublishedAnnouncement && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs sm:text-sm text-amber-950 flex items-start gap-3">
-              <Megaphone className="size-5 text-amber-700 shrink-0 mt-0.5" />
-              <div>
-                <b className="font-bold">This activity has a published announcement</b>
-                <p className="mt-0.5 text-xs text-amber-900 leading-relaxed">
-                  After saving schedule changes, review and update the announcement so farmers
-                  receive the correct details.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Draft Note when creating */}
           {!current && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950 flex items-center gap-2.5">
@@ -1035,6 +1177,22 @@ function ScheduleForm({
                 </Select>
               </div>
             </div>
+            <div className="max-w-xl space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Farmer audience</label>
+              <Select
+                value={form.farmerAudience}
+                onValueChange={(value: ProgramFarmerAudience) => handleChange("farmerAudience", value)}
+              >
+                <SelectTrigger className="h-10 rounded-xl text-xs sm:text-sm border-slate-200 bg-slate-50/60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BARANGAY_ONLY">Farmers in this program's barangay only</SelectItem>
+                  <SelectItem value="ALL_FARMERS">All farmers across barangays</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-slate-500">Choose which farmers can see and book this program.</p>
+            </div>
           </div>
 
           {/* SECTION 2: Date and Time */}
@@ -1044,7 +1202,7 @@ function ScheduleForm({
               <p className="text-xs text-slate-500">Check the date and time carefully before saving.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Date */}
               <div className="space-y-1.5">
                 <label
@@ -1056,6 +1214,7 @@ function ScheduleForm({
                 <Input
                   id="schedule-date"
                   type="date"
+                  min={todayIso()}
                   value={form.date}
                   onChange={(e) => handleChange("date", e.target.value)}
                   className={`rounded-xl h-10 text-xs sm:text-sm ${
@@ -1065,38 +1224,79 @@ function ScheduleForm({
                 {errors.date && <p className="text-[11px] font-bold text-rose-600">{errors.date}</p>}
               </div>
 
-              {/* Start Time */}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="schedule-start"
-                  className="text-xs font-bold text-slate-700 flex items-center gap-1"
-                >
-                  Start Time <span className="text-rose-500">*</span>
+              <div className="space-y-2 sm:col-span-2">
+                <label htmlFor="schedule-availableTimes" className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  Appointment Times <span className="text-rose-500">*</span>
                 </label>
-                <Input
-                  id="schedule-start"
-                  type="time"
-                  value={form.start}
-                  onChange={(e) => handleChange("start", e.target.value)}
-                  className={`rounded-xl h-10 text-xs sm:text-sm ${
-                    errors.start ? "border-rose-400 focus-visible:ring-rose-200" : ""
-                  }`}
-                />
-                {errors.start && (
-                  <p className="text-[11px] font-bold text-rose-600">{errors.start}</p>
-                )}
+                <p className="text-xs text-slate-500">Add each time farmers can book, such as 8:00 AM and 10:00 AM.</p>
+                <div className="flex gap-2">
+                  <Input
+                    id="schedule-availableTimes"
+                    type="time"
+                    min={form.date === todayIso() ? `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}` : undefined}
+                    value={timeToAdd}
+                    onChange={(event) => setTimeToAdd(event.target.value)}
+                    className="h-10 min-w-0 rounded-xl text-xs sm:text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!timeToAdd || form.availableTimes.includes(timeToAdd)}
+                    onClick={() => {
+                      setForm((f) => ({ ...f, availableTimes: [...f.availableTimes, timeToAdd].sort() }));
+                      setTimeToAdd("");
+                      setErrors((existing) => ({ ...existing, availableTimes: "" }));
+                    }}
+                    className="h-10 shrink-0 gap-1.5 rounded-xl"
+                  >
+                    <Plus className="size-4" /> Add time
+                  </Button>
+                </div>
+                <div className="flex min-h-9 flex-wrap gap-2">
+                  {form.availableTimes.map((time) => {
+                    const booked = current?.raw?.booked_times.includes(time) ?? false;
+                    return (
+                      <Badge key={time} variant="outline" className="gap-1.5 border-slate-200 bg-white px-2.5 py-1.5 text-xs">
+                        <Clock3 className="size-3 text-slate-500" />
+                        {formatTime(time)}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${formatTime(time)}`}
+                          title={booked ? "Confirmed bookings use this time" : "Remove appointment time"}
+                          disabled={booked}
+                          onClick={() => setForm((f) => ({ ...f, availableTimes: f.availableTimes.filter((value) => value !== time) }))}
+                          className="ml-1 rounded-full text-slate-500 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+                {errors.availableTimes && <p className="text-[11px] font-bold text-rose-600">{errors.availableTimes}</p>}
               </div>
+            </div>
+            <p className="text-xs leading-relaxed text-slate-500">
+              For a program scheduled today, choose times later than the current time. Selecting today pre-fills the next available hours; you can add or remove times.
+            </p>
 
-              {/* End Time */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">End Time (Optional)</label>
-                <Input
-                  type="time"
-                  value={form.end}
-                  onChange={(e) => handleChange("end", e.target.value)}
-                  className="rounded-xl h-10 text-xs sm:text-sm border-slate-200"
-                />
-              </div>
+            <div className="max-w-sm space-y-1.5">
+              <label htmlFor="schedule-capacity" className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                Maximum participants <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                id="schedule-capacity"
+                type="number"
+                min={Math.max(1, current?.raw?.booking_count ?? 1)}
+                max={10000}
+                step={1}
+                inputMode="numeric"
+                value={form.capacity}
+                onChange={(e) => handleChange("capacity", e.target.value)}
+                className={`h-10 rounded-xl text-xs sm:text-sm ${errors.capacity ? "border-rose-400 focus-visible:ring-rose-200" : ""}`}
+              />
+              <p className="text-[11px] text-slate-500">Set the total number of farmers who can register for this program.</p>
+              {errors.capacity && <p className="text-[11px] font-bold text-rose-600">{errors.capacity}</p>}
             </div>
           </div>
 
@@ -1175,9 +1375,9 @@ function ScheduleForm({
           {/* SECTION 4: Activity Picture / Banner */}
           <div className="space-y-4">
             <div className="border-b border-slate-100 pb-2">
-              <h2 className="text-base font-bold text-slate-900">Activity Picture (Optional)</h2>
+              <h2 className="text-base font-bold text-slate-900">Program Photos (Optional)</h2>
               <p className="text-xs text-slate-500">
-                Upload a photo or banner to help farmers easily recognize this program.
+                Add a cover image and up to 10 additional photos. Each image can be up to 8 MB.
               </p>
             </div>
 
@@ -1248,6 +1448,46 @@ function ScheduleForm({
                 className="hidden"
                 onChange={handleFileChange}
               />
+
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5 sm:p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">Additional program photos</p>
+                    <p className="text-xs text-slate-500">{visibleSavedPhotos.length + galleryUploads.length} of 10 photos selected</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={visibleSavedPhotos.length + galleryUploads.length >= 10}
+                    className="h-10 w-full gap-2 rounded-xl sm:w-auto"
+                  >
+                    <Camera className="size-4" /> Add photos
+                  </Button>
+                </div>
+                <input ref={galleryInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden" onChange={handleGalleryFiles} />
+                {(visibleSavedPhotos.length > 0 || galleryUploads.length > 0) ? (
+                  <div className="grid grid-cols-2 gap-2 min-[480px]:grid-cols-3 sm:grid-cols-4">
+                    {visibleSavedPhotos.map((photo) => (
+                      <div key={photo.id} className="relative aspect-[4/3] overflow-hidden rounded-xl border bg-white">
+                        <Image src={programImageUrl(photo.image)} alt="Saved program photo" fill unoptimized className="object-cover" />
+                        <Button type="button" variant="destructive" size="icon" onClick={() => setRemovePhotoIds((ids) => [...ids, photo.id])} aria-label="Remove program photo" className="absolute right-1.5 top-1.5 size-8 rounded-full shadow-md">
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {galleryUploads.map(({ file, previewUrl }, index) => (
+                      <div key={`${file.name}-${file.lastModified}-${index}`} className="relative aspect-[4/3] overflow-hidden rounded-xl border bg-white">
+                        <Image src={previewUrl} alt={file.name} fill unoptimized className="object-cover" />
+                        <Button type="button" variant="destructive" size="icon" onClick={() => removeGalleryUpload(index)} aria-label={`Remove ${file.name}`} className="absolute right-1.5 top-1.5 size-8 rounded-full shadow-md">
+                          <Trash2 className="size-4" />
+                        </Button>
+                        <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-2 py-1 text-[10px] text-white">{file.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center text-xs text-slate-500">No additional photos added yet.</p>}
+              </div>
             </div>
           </div>
 
@@ -1282,6 +1522,7 @@ function ScheduleForm({
 interface ScheduleDetailDialogProps {
   schedule: ScheduleItem | null;
   bookings: ProgramBooking[];
+  canManage: boolean;
   open: boolean;
   onClose: () => void;
   onEdit: (item: ScheduleItem) => void;
@@ -1292,6 +1533,7 @@ interface ScheduleDetailDialogProps {
 function ScheduleDetailDialog({
   schedule,
   bookings,
+  canManage,
   open,
   onClose,
   onEdit,
@@ -1305,6 +1547,10 @@ function ScheduleDetailDialog({
   );
   const isOpen = schedule.raw?.is_open ?? true;
   const imageSrc = schedule.cover_image || schedule.raw?.cover_image;
+  const programPhotos = [
+    ...(imageSrc ? [programImageUrl(imageSrc)] : []),
+    ...(schedule.raw?.photos ?? []).map((photo) => programImageUrl(photo.image)),
+  ];
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
@@ -1312,15 +1558,9 @@ function ScheduleDetailDialog({
         {/* Hero Cover Picture Banner */}
         {imageSrc ? (
           <div className="relative -mx-6 -mt-6 h-52 sm:h-64 overflow-hidden rounded-t-2xl border-b border-slate-200 bg-slate-900 mb-5 group">
-            <Image
-              src={programImageUrl(imageSrc)}
-              alt={schedule.name}
-              fill
-              unoptimized
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-            <div className="absolute top-3 right-12 z-10">
+            <ActivityPhotoCarousel photos={programPhotos} alt={`${schedule.name} activity`} />
+            <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+            {canManage ? <div className="absolute top-3 right-12 z-10">
               <Button
                 type="button"
                 variant="secondary"
@@ -1331,7 +1571,7 @@ function ScheduleDetailDialog({
                 <Camera className="size-3.5 mr-1.5 text-emerald-700" />
                 Change Picture
               </Button>
-            </div>
+            </div> : null}
             <div className="absolute bottom-3 left-6 right-6 flex items-end justify-between">
               <div className="flex items-center gap-1.5">
                 <Badge className="bg-emerald-600 text-white border-0 text-[10px] font-bold shadow-sm">
@@ -1349,7 +1589,7 @@ function ScheduleDetailDialog({
               <ImageIcon className="size-4 text-emerald-700" />
               <span>No Activity Picture Attached</span>
             </div>
-            <Button
+            {canManage ? <Button
               type="button"
               variant="outline"
               size="sm"
@@ -1358,7 +1598,7 @@ function ScheduleDetailDialog({
             >
               <Camera className="size-3.5 mr-1 text-emerald-700" />
               Attach Activity Picture
-            </Button>
+            </Button> : null}
           </div>
         )}
 
@@ -1387,6 +1627,12 @@ function ScheduleDetailDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2 text-xs">
+          {schedule.raw?.farmer_audience === "ALL_FARMERS" ? (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 text-sky-950">
+              <p className="font-bold">Open to farmers across barangays</p>
+              {!canManage ? <p className="mt-1 text-sky-800">You can view this shared program. Editing and the full booking roster remain limited to staff with access to its program barangay.</p> : null}
+            </div>
+          ) : null}
           {/* Key Info Strip */}
           <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
             <div className="space-y-0.5">
@@ -1435,14 +1681,18 @@ function ScheduleDetailDialog({
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
                 <Users className="size-4 text-emerald-700" />
-                Registered Farmers ({relevantBookings.length})
+                {canManage ? `Registered Farmers (${relevantBookings.length})` : "Booking roster"}
               </h4>
               <span className="text-[11px] text-slate-500 font-medium">
                 Capacity: {schedule.raw?.capacity || 50} slots
               </span>
             </div>
 
-            {relevantBookings.length > 0 ? (
+            {!canManage ? (
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-slate-500">
+                Booking details are limited to staff with access to this program’s barangay.
+              </p>
+            ) : relevantBookings.length > 0 ? (
               <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
                 {relevantBookings.map((b) => (
                   <div key={b.id} className="p-2.5 flex items-center justify-between hover:bg-slate-50">
@@ -1467,7 +1717,7 @@ function ScheduleDetailDialog({
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-slate-100">
-          <div className="flex items-center gap-2">
+          {canManage ? <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -1486,7 +1736,7 @@ function ScheduleDetailDialog({
             >
               {isOpen ? "Close Registrations" : "Reopen Registrations"}
             </Button>
-          </div>
+          </div> : <div />}
 
           <div className="flex items-center gap-2">
             <Button
@@ -1498,14 +1748,14 @@ function ScheduleDetailDialog({
             >
               Close
             </Button>
-            <Button
+            {canManage ? <Button
               type="button"
               size="sm"
               onClick={() => onEdit(schedule)}
               className="rounded-xl text-xs font-bold bg-[#1E3A2F] text-white hover:bg-[#152e24]"
             >
               <Pencil className="size-3.5 mr-1.5" /> Edit Activity
-            </Button>
+            </Button> : null}
           </div>
         </DialogFooter>
       </DialogContent>

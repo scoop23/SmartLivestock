@@ -42,7 +42,7 @@ class ActivitySchedulingApiTests(APITestCase):
             created_by=self.mao,
         )
 
-    def test_announcement_without_schedule_remains_supported_and_visible_to_farmer(self):
+    def test_announcement_is_standalone_and_visible_to_farmer(self):
         self.client.force_authenticate(self.mao)
         response = self.client.post(
             "/community/announcements/",
@@ -57,16 +57,15 @@ class ActivitySchedulingApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIsNone(response.data["schedule"])
-        self.assertIsNone(Announcement.objects.get().schedule_id)
+        self.assertNotIn("schedule", response.data)
 
         self.client.force_authenticate(self.farmer)
         feed_response = self.client.get("/community/announcements/")
         self.assertEqual(feed_response.status_code, status.HTTP_200_OK)
         self.assertEqual(feed_response.data[0]["id"], response.data["id"])
-        self.assertIsNone(feed_response.data[0]["schedule"])
+        self.assertNotIn("schedule", feed_response.data[0])
 
-    def test_linked_activity_serializes_actual_schedule_and_booking_counts(self):
+    def test_announcement_does_not_link_to_or_expose_a_program(self):
         schedule = self._create_schedule()
         ProgramBooking.objects.create(schedule=schedule, farmer=self.farmer, time="08:00")
 
@@ -79,25 +78,18 @@ class ActivitySchedulingApiTests(APITestCase):
                 "category": "Vaccination",
                 "audience": "ALL",
                 "is_published": True,
-                "schedule_id": str(schedule.pk),
             },
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["schedule"]["id"], schedule.pk)
-        self.assertEqual(response.data["schedule"]["location"], schedule.location)
-        self.assertEqual(response.data["schedule"]["booking_count"], 1)
-        self.assertEqual(response.data["schedule"]["capacity"], 4)
-        self.assertEqual(response.data["schedule"]["booked_times"], ["08:00"])
-        self.assertEqual(response.data["schedule"]["registration_status"], "AVAILABLE")
+        self.assertNotIn("schedule", response.data)
 
         for reviewer in (self.mao, self.sibat, self.farmer):
             self.client.force_authenticate(reviewer)
             feed_response = self.client.get("/community/announcements/")
             self.assertEqual(feed_response.status_code, status.HTTP_200_OK)
-            self.assertEqual(feed_response.data[0]["schedule"]["id"], schedule.pk)
-            self.assertEqual(feed_response.data[0]["schedule"]["booking_count"], 1)
+            self.assertNotIn("schedule", feed_response.data[0])
 
         schedules_response = self.client.get("/community/schedules/")
         self.assertEqual(schedules_response.status_code, status.HTTP_200_OK)

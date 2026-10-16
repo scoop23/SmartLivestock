@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { CalendarDays, CheckCircle2, Image as ImageIcon, MapPin, Megaphone, MoreHorizontal, Pencil, Pin, Plus, Radio, RefreshCw, Search, Send, Trash2, X } from "lucide-react";
+import { CheckCircle2, Image as ImageIcon, Megaphone, MoreHorizontal, Pencil, Pin, Plus, Radio, RefreshCw, Search, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/app/components/page-header";
 import api from "@/lib/axios";
-import { Activity, AnnouncementAudience, apiError, BarangayOption, getActivities, getBarangays, getSchedules, ProgramSchedule } from "@/lib/community-api";
+import { Activity, AnnouncementAudience, apiError, BarangayOption, getActivities, getBarangays } from "@/lib/community-api";
 import { ACTIVITY_CATEGORIES, AUDIENCE_LABEL, activityCategory, CommunityEmptyState, CommunityErrorCard, CommunityRole, CommunitySkeleton, formatShortDate, formatTimeWindow } from "./community-ui";
 import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
@@ -30,13 +30,11 @@ const blank = {
   audience: "FARMER_AND_SIBAT" as AnnouncementAudience,
   target_barangay_id: "",
   is_pinned: false,
-  schedule_id: "",
 };
-type Filter = "all" | "published" | "draft" | "pinned" | "linked" | "unlinked";
+type Filter = "all" | "published" | "draft" | "pinned";
 
 export function ActivitiesEditor({ role }: { role: CommunityRole }) {
   const [items, setItems] = useState<Activity[]>([]);
-  const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
   const [barangays, setBarangays] = useState<BarangayOption[]>([]);
   const [form, setForm] = useState(blank);
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -58,17 +56,13 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
 
   const load = useCallback(async () => {
     try {
-      const [activitiesResult, schedulesResult, barangaysResult] = await Promise.allSettled([
+      const [activitiesResult, barangaysResult] = await Promise.allSettled([
         getActivities(),
-        getSchedules(),
         getBarangays(),
       ]);
 
       if (activitiesResult.status === "fulfilled") {
         setItems(activitiesResult.value);
-      }
-      if (schedulesResult.status === "fulfilled") {
-        setSchedules(schedulesResult.value);
       }
       if (barangaysResult.status === "fulfilled") {
         setBarangays(barangaysResult.value);
@@ -77,9 +71,6 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       if (activitiesResult.status === "rejected") {
         setError(apiError(activitiesResult.reason));
       } else {
-        if (schedulesResult.status === "rejected" && process.env.NODE_ENV !== "production") {
-          console.warn("[ActivitiesEditor] Schedules load warning:", schedulesResult.reason);
-        }
         setError("");
       }
     } catch (e) {
@@ -141,7 +132,6 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       audience: item.audience,
       target_barangay_id: item.target_barangay ? String(item.target_barangay) : (item.target_barangay_id ? String(item.target_barangay_id) : ""),
       is_pinned: item.is_pinned,
-      schedule_id: item.schedule ? String(item.schedule.id) : "",
     });
     setRemoveImage(false);
     setOpen(true);
@@ -243,8 +233,6 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
     if (filter === "published" && !item.is_published) return false;
     if (filter === "draft" && item.is_published) return false;
     if (filter === "pinned" && !item.is_pinned) return false;
-    if (filter === "linked" && !item.schedule) return false;
-    if (filter === "unlinked" && item.schedule) return false;
     if (categoryFilter !== "All categories" && item.category !== categoryFilter) return false;
     return !term || [
       item.title,
@@ -252,18 +240,14 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       item.category,
       item.author,
       item.target_barangay_name ?? "",
-      item.schedule?.program ?? "",
-      item.schedule?.location ?? "",
     ].some((value) => value.toLowerCase().includes(term));
   }).sort((a, b) => {
     if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
     return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
   }), [items, filter, categoryFilter, term]);
 
-  const scheduleOptions = schedules;
   const totalCount = items.length;
   const publishedCount = items.filter((item) => item.is_published).length;
-  const programsLinkedCount = items.filter((item) => !!item.schedule).length;
 
   return (
     <>
@@ -324,10 +308,10 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
             isLoading={loading}
           />
           <KpiCard
-            title="With Field Programs"
-            value={programsLinkedCount}
-            icon={<CalendarDays className="size-4" />}
-            description="Linked to scheduling & slots"
+            title="Pinned Updates"
+            value={items.filter((item) => item.is_pinned).length}
+            icon={<Pin className="size-4" />}
+            description="Announcements highlighted for readers"
             variant="sky"
             isLoading={loading}
           />
@@ -431,16 +415,6 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                 ) : null}
 
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Related field program</p>
-                  <label htmlFor="activity-schedule" className="text-xs sm:text-sm font-bold text-slate-700">Link a program <span className="font-normal text-slate-400">(optional)</span></label>
-                  <Select value={form.schedule_id || "none"} onValueChange={(scheduleId) => setForm({ ...form, schedule_id: scheduleId === "none" ? "" : scheduleId })}>
-                    <SelectTrigger id="activity-schedule" className="mt-1.5 h-10 w-full text-sm font-medium"><SelectValue placeholder="No field program" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none" className="text-xs sm:text-sm font-medium">No field program</SelectItem>
-                      {scheduleOptions.map((schedule) => <SelectItem key={schedule.id} value={String(schedule.id)} className="text-xs sm:text-sm font-medium">{schedule.program} · {formatShortDate(schedule.date)} · {schedule.booking_count}/{schedule.capacity} filled</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <p className="mt-1.5 text-xs font-medium leading-relaxed text-slate-500">Date, location, and available slots come from Field Scheduling.</p>
                   <label className="mt-4 flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition-colors">
                     <input type="checkbox" checked={form.is_pinned} onChange={(event) => setForm({ ...form, is_pinned: event.target.checked })} className="size-4 accent-emerald-700" />
                     <Pin className="size-3.5 text-amber-600" /> Pin near the top
@@ -482,8 +456,6 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                 ["published", "Published"],
                 ["draft", "Drafts"],
                 ["pinned", "Pinned"],
-                ["linked", "With field program"],
-                ["unlinked", "No field program"],
               ] as const).map(([value, label]) => (
                 <Button
                   key={value}
@@ -540,7 +512,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                 const category = activityCategory(item.category);
                 const Icon = category.icon;
                 const photos = [...(item.image ? [item.image] : []), ...item.photos.map((photo) => photo.image)];
-                const displayDate = item.schedule?.date || item.published_at || item.created_at;
+                const displayDate = item.published_at || item.created_at;
 
                 return (
                   <Card
@@ -591,20 +563,6 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                           {item.content}
                         </p>
 
-                        {item.schedule ? (
-                          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-xs sm:text-sm text-slate-700">
-                            <span className="inline-flex items-center gap-1.5 font-bold text-slate-800">
-                              <CalendarDays className="size-3.5 text-emerald-700" />
-                              {formatShortDate(item.schedule.date)}
-                            </span>
-                            {item.schedule.location ? (
-                              <span className="inline-flex items-center gap-1.5 truncate font-medium text-slate-600">
-                                <MapPin className="size-3.5 text-rose-500" />
-                                {item.schedule.location}
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : null}
                       </div>
 
                       {/* Card Footer with Audience and Actions */}

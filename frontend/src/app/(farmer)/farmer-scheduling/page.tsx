@@ -10,16 +10,18 @@ import {
   CheckCircle2,
   Clock,
   Clock3,
-  Image as ImageIcon,
   Info,
   Loader2,
   MapPin,
   Pencil,
+  Phone,
+  CloudRain,
   RefreshCw,
   Sparkles,
   X,
 } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
+import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -86,7 +88,11 @@ export default function FarmerSchedulingPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [bookingToast, setBookingToast] = useState("");
+  const [bookingToastVisible, setBookingToastVisible] = useState(false);
+  const [bookingToastClosing, setBookingToastClosing] = useState(false);
   const [bookingFilter, setBookingFilter] = useState<"upcoming" | "past">("upcoming");
+  const [highlightedBookingId, setHighlightedBookingId] = useState<number | null>(null);
   const [cancelingTarget, setCancelingTarget] = useState<ProgramBooking | null>(null);
   const [editingBooking, setEditingBooking] = useState<ProgramBooking | null>(null);
   const [editTime, setEditTime] = useState("");
@@ -116,6 +122,49 @@ export default function FarmerSchedulingPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (
+      highlightedBookingId === null ||
+      !bookings.some((booking) => booking.id === highlightedBookingId)
+    ) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("my-bookings-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    const clearHighlight = window.setTimeout(() => setHighlightedBookingId(null), 6000);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(clearHighlight);
+    };
+  }, [bookings, highlightedBookingId]);
+
+  useEffect(() => {
+    if (!bookingToast) return;
+    const timer = window.setTimeout(() => setBookingToastClosing(true), 4700);
+    return () => window.clearTimeout(timer);
+  }, [bookingToast]);
+
+  useEffect(() => {
+    if (!bookingToast || bookingToastClosing || bookingToastVisible) return;
+    const frame = window.requestAnimationFrame(() => setBookingToastVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [bookingToast, bookingToastClosing, bookingToastVisible]);
+
+  useEffect(() => {
+    if (!bookingToastClosing) return;
+    const timer = window.setTimeout(() => {
+      setBookingToast("");
+      setBookingToastClosing(false);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [bookingToastClosing]);
+
   const selected = schedules.find((schedule) => schedule.id === Number(scheduleId));
   const datesWithPrograms = useMemo(() => new Set(schedules.map((schedule) => schedule.date)), [schedules]);
   const programsOnDate = useMemo(
@@ -135,11 +184,20 @@ export default function FarmerSchedulingPage() {
     setError("");
     setMessage("");
     try {
-      await api.post("/community/bookings/", {
+      const { data: booking } = await api.post<ProgramBooking>("/community/bookings/", {
         schedule: Number(scheduleId),
         time,
       });
+      if (window.matchMedia("(min-width: 1024px)").matches) {
+        setBookingToastClosing(false);
+        setBookingToastVisible(false);
+        setBookingToast(
+          `${booking.program} on ${formatLongDate(booking.date)} at ${formatTime(booking.time)}.`,
+        );
+      }
       setMessage("Booking confirmed! Please arrive at the scheduled time.");
+      setBookingFilter("upcoming");
+      setHighlightedBookingId(booking.id);
       setScheduleId("");
       setTime("");
       window.history.replaceState({}, "", window.location.pathname);
@@ -395,7 +453,7 @@ export default function FarmerSchedulingPage() {
               </div>
             </div>
 
-            <CardContent className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(400px,0.95fr)_minmax(0,1.35fr)] xl:grid-cols-[minmax(440px,0.9fr)_minmax(0,1.25fr)]">
+            <CardContent className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
               {loading ? (
                 <div className="lg:col-span-2">
                   <CommunitySkeleton cards={3} />
@@ -411,7 +469,7 @@ export default function FarmerSchedulingPage() {
               ) : (
                 <>
                   {/* Left Column: Interactive Calendar */}
-                  <div className="flex flex-col space-y-3.5">
+                  <div className="flex flex-col space-y-3.5 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">
                         1. Select Visit Date
@@ -421,7 +479,7 @@ export default function FarmerSchedulingPage() {
                       </span>
                     </div>
 
-                    <div className="flex flex-col items-stretch rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4 shadow-2xs">
+                    <div className="flex flex-col items-stretch rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4 md:p-4.5 shadow-2xs overflow-hidden min-w-0">
                       <Calendar
                         mode="single"
                         selected={calendarDate ?? undefined}
@@ -438,7 +496,12 @@ export default function FarmerSchedulingPage() {
                           programDate:
                             "bg-emerald-100/90 font-black text-emerald-950 hover:bg-emerald-200 transition-colors",
                         }}
-                        className="w-full [--cell-size:2.25rem] sm:[--cell-size:2.75rem] lg:[--cell-size:3rem] xl:[--cell-size:3.25rem]"
+                        className="w-full mx-auto [--cell-size:2.25rem] sm:[--cell-size:2.65rem] lg:[--cell-size:2.85rem] xl:[--cell-size:3.15rem]"
+                        classNames={{
+                          caption_label: "text-base sm:text-lg font-black text-slate-900",
+                          weekday: "flex-1 min-w-0 text-center text-xs sm:text-sm font-bold text-slate-500 py-1.5",
+                          day_button: "text-sm sm:text-base font-bold w-full h-auto aspect-square max-w-(--cell-size) max-h-(--cell-size) mx-auto",
+                        }}
                       />
 
                       {/* Legend Bar */}
@@ -460,6 +523,63 @@ export default function FarmerSchedulingPage() {
                             Clear date
                           </button>
                         ) : null}
+                      </div>
+                    </div>
+
+                    {/* Municipal Guidelines & Veterinary Contacts Card */}
+                    <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-3.5">
+                      {/* Header */}
+                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
+                          <Phone className="size-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
+                            Municipal Support & Guidelines
+                          </h4>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            Padre Garcia Municipal Agriculture Office (MAO)
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Hotlines Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                            <span className="size-1.5 rounded-full bg-emerald-600" />
+                            MAO Central Desk
+                          </span>
+                          <p className="text-xs font-black text-slate-900">(043) 515-2888</p>
+                          <p className="text-[10px] text-slate-500">mao@padregarcia.gov.ph</p>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/70 space-y-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                            <span className="size-1.5 rounded-full bg-amber-600" />
+                            Biosecurity & Vet Desk
+                          </span>
+                          <p className="text-xs font-black text-slate-900">(043) 515-2889</p>
+                          <p className="text-[10px] text-slate-500">Rapid animal health response</p>
+                        </div>
+                      </div>
+
+                      {/* Weather Advisory Banner */}
+                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-sky-50/80 border border-sky-200/80 text-sky-950">
+                        <CloudRain className="size-4 text-sky-700 shrink-0 mt-0.5" />
+                        <div className="text-[11px] leading-relaxed">
+                          <strong className="font-bold block text-sky-900">Weather & Field Notice:</strong>
+                          Outdoor visits and field vaccinations may be rescheduled during severe rainfall or weather advisories. Registered farmers will receive direct updates.
+                        </div>
+                      </div>
+
+                      {/* Operating Hours Note */}
+                      <div className="flex items-center justify-between pt-0.5 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="size-3.5 text-slate-400" />
+                          <span>Mon – Fri: 8:00 AM – 5:00 PM</span>
+                        </div>
+                        <span className="font-semibold text-slate-600">Poblacion, Padre Garcia</span>
                       </div>
                     </div>
                   </div>
@@ -499,12 +619,16 @@ export default function FarmerSchedulingPage() {
                     ) : null}
 
                     {/* Program Cards Grid */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className={`grid gap-4 ${programsOnDate.length > 1 ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"}`}>
                       {programsOnDate.map((schedule) => {
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
                         const isFull = schedule.registration_status === "FULL" || schedule.remaining_slots === 0;
                         const isClosed = !schedule.is_open || schedule.registration_status === "CLOSED" || schedule.registration_status === "NOT_OPEN" || schedule.registration_status === "CANCELLED" || schedule.registration_status === "COMPLETED";
                         const isSelected = selected?.id === schedule.id;
+                        const programPhotos = [
+                          ...(schedule.cover_image ? [programImageUrl(schedule.cover_image)] : []),
+                          ...(schedule.photos ?? []).map((photo) => programImageUrl(photo.image)),
+                        ];
 
                         const bookedPercent = schedule.capacity
                           ? Math.min(100, Math.round((schedule.booking_count / schedule.capacity) * 100))
@@ -526,8 +650,10 @@ export default function FarmerSchedulingPage() {
                                   : "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-xs"
                             }`}
                           >
-                            <div className="-mx-4.5 -mt-4.5 mb-3 h-32 overflow-hidden rounded-t-2xl bg-gradient-to-br from-emerald-50 to-slate-100">
-                              {schedule.cover_image ? <Image src={programImageUrl(schedule.cover_image)} alt={`${schedule.program} cover`} width={1200} height={400} unoptimized className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-emerald-700"><ImageIcon className="size-8 opacity-60" /><span className="sr-only">No program image</span></div>}
+                            <div className="-mx-4.5 -mt-4.5 mb-3 overflow-hidden rounded-t-2xl bg-gradient-to-br from-emerald-50 to-slate-100">
+                              <div className="h-40 w-full sm:h-48">
+                                <ActivityPhotoCarousel photos={programPhotos} alt={`${schedule.program} activity`} />
+                              </div>
                             </div>
                             <div className="space-y-3">
                               <div className="flex items-start justify-between gap-2">
@@ -759,14 +885,25 @@ export default function FarmerSchedulingPage() {
         </section>
 
         {/* 3. My Bookings & Visit History Section */}
-        <section id="my-bookings-section" aria-label="My scheduled bookings" className="space-y-4 pt-2">
-          <Card className="rounded-2xl border border-slate-200 bg-white shadow-xs">
-            <CardHeader className="p-4 sm:p-5 border-b border-slate-100">
+        <section id="my-bookings-section" aria-label="My scheduled bookings" className="scroll-mt-24 space-y-4 pt-2">
+          <Card className={`rounded-2xl border bg-white shadow-xs transition-all duration-500 ${
+            highlightedBookingId !== null
+              ? "border-emerald-400 ring-4 ring-emerald-200/70 shadow-md"
+              : "border-slate-200"
+          }`}>
+            <CardHeader className={`p-4 sm:p-5 border-b border-slate-100 transition-colors duration-500 ${
+              highlightedBookingId !== null ? "bg-emerald-50/70" : ""
+            }`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2.5 text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                  <CardTitle className="flex flex-wrap items-center gap-2.5 text-base sm:text-xl font-black text-slate-900 tracking-tight">
                     <CalendarCheck className="size-5 text-emerald-700" />
                     <span>My Scheduled Programs</span>
+                    {highlightedBookingId !== null ? (
+                      <Badge className="border-emerald-200 bg-emerald-100 text-emerald-900">
+                        Booking confirmed
+                      </Badge>
+                    ) : null}
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm text-slate-500 font-medium">
                     Review your upcoming confirmed reservations and complete appointment history.
@@ -850,7 +987,11 @@ export default function FarmerSchedulingPage() {
                     return (
                       <Card
                         key={booking.id}
-                        className="flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-4.5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm"
+                        className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4.5 shadow-xs transition-all ${
+                          highlightedBookingId === booking.id
+                            ? "border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-200 shadow-md"
+                            : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
+                        }`}
                       >
                         <div className="space-y-3">
                           <div className="flex items-start justify-between gap-2">
@@ -868,6 +1009,11 @@ export default function FarmerSchedulingPage() {
                               {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
                             </Badge>
                           </div>
+                          {highlightedBookingId === booking.id ? (
+                            <Badge className="w-fit border-emerald-200 bg-emerald-100 text-emerald-900">
+                              Just booked
+                            </Badge>
+                          ) : null}
                           {booking.program_status === "CANCELLED" ? <p className="text-xs font-bold text-rose-700">This program was cancelled.</p> : null}
 
                           {/* Date and Time Details */}
@@ -1044,6 +1190,36 @@ export default function FarmerSchedulingPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {bookingToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-5 right-5 z-[var(--z-toast)] hidden w-[calc(100vw-2.5rem)] max-w-sm items-start gap-3 rounded-xl border border-emerald-200 bg-white p-4 shadow-xl transition-all duration-300 ease-in-out lg:flex ${
+            bookingToastClosing || !bookingToastVisible
+              ? "translate-x-[calc(100%+1.25rem)] opacity-0"
+              : "translate-x-0 opacity-100"
+          }`}
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+            <CheckCircle2 className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-900">Booking confirmed</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
+              {bookingToast}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss booking confirmation"
+            onClick={() => setBookingToastClosing(true)}
+            className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }

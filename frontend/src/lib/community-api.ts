@@ -5,6 +5,7 @@ import api from "@/lib/axios";
 
 export type ScheduleStatus = "AVAILABLE" | "FULL" | "CLOSED" | "NOT_OPEN" | "COMPLETED" | "CANCELLED";
 export type ProgramPublicationStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
+export type ProgramFarmerAudience = "BARANGAY_ONLY" | "ALL_FARMERS";
 
 export type ProgramSchedule = {
   id: number;
@@ -14,8 +15,10 @@ export type ProgramSchedule = {
   objectives: string;
   category: "VACCINATION" | "ANIMAL_HEALTH" | "CENSUS" | "SEMINAR" | "ASSISTANCE" | "OTHER";
   cover_image: string | null;
+  photos: ActivityPhoto[];
   barangay: number | null;
   barangay_name: string | null;
+  farmer_audience: ProgramFarmerAudience;
   registration_opens: string | null;
   registration_deadline: string | null;
   eligibility: string;
@@ -60,7 +63,6 @@ export type Activity = {
   is_pinned: boolean;
   author: string;
   share_url?: string | null;
-  schedule: ProgramSchedule | null;
   published_at: string | null;
   created_at: string;
 };

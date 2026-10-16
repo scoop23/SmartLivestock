@@ -229,7 +229,6 @@ class Announcement(models.Model):
     is_published = models.BooleanField(default=False)
     is_pinned = models.BooleanField(default=False)
     posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="announcements")
-    schedule = models.ForeignKey("ProgramSchedule", on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements")
     published_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -250,6 +249,10 @@ class AnnouncementPhoto(models.Model):
 
 
 class ProgramSchedule(models.Model):
+    class FarmerAudience(models.TextChoices):
+        BARANGAY_ONLY = "BARANGAY_ONLY", "Farmers in this barangay"
+        ALL_FARMERS = "ALL_FARMERS", "All farmers across barangays"
+
     class PublicationStatus(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         PUBLISHED = "PUBLISHED", "Published"
@@ -277,6 +280,11 @@ class ProgramSchedule(models.Model):
         "livestock.Barangay", on_delete=models.PROTECT, null=True, blank=True,
         related_name="livestock_programs",
     )
+    farmer_audience = models.CharField(
+        max_length=20,
+        choices=FarmerAudience.choices,
+        default="",
+    )
     registration_opens = models.DateField(null=True, blank=True)
     registration_deadline = models.DateField(null=True, blank=True)
     eligibility = models.TextField(blank=True, default="")
@@ -299,6 +307,25 @@ class ProgramSchedule(models.Model):
             models.UniqueConstraint(fields=["date", "program"], name="unique_program_per_day"),
             models.CheckConstraint(condition=models.Q(capacity__gte=1), name="program_capacity_at_least_one"),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.farmer_audience:
+            self.farmer_audience = (
+                self.FarmerAudience.BARANGAY_ONLY
+                if self.barangay_id
+                else self.FarmerAudience.ALL_FARMERS
+            )
+        super().save(*args, **kwargs)
+
+
+class ProgramSchedulePhoto(models.Model):
+    schedule = models.ForeignKey(ProgramSchedule, on_delete=models.CASCADE, related_name="photos")
+    image = models.ImageField(upload_to="program_images/%Y/%m/gallery/")
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["position", "id"]
 
 
 class ProgramBooking(models.Model):

@@ -18,16 +18,17 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
-import { apiError, getBookings, getSchedules, getBarangays, type BarangayOption, type ProgramBooking, type ProgramSchedule, type ProgramPublicationStatus } from "@/lib/community-api";
+import { apiError, getBookings, getSchedules, getBarangays, type BarangayOption, type ProgramBooking, type ProgramSchedule, type ProgramPublicationStatus, type ProgramFarmerAudience } from "@/lib/community-api";
 import { PROGRAM_TIME_SLOTS, CommunityEmptyState, CommunityErrorCard, CommunitySkeleton, formatLongDate, formatTime, todayIso, type CommunityRole } from "./community-ui";
 import { useAuth } from "@/contexts/auth-context";
+import { ActivityPhotoCarousel } from "./activity-photo-carousel";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
 type ScheduleAction = "close" | "reopen" | "delete" | "publish" | "unpublish" | "cancel" | "complete";
 type PendingAction = { schedule: ProgramSchedule; action: ScheduleAction };
-type ScheduleForm = { date: string; program: string; description: string; objectives: string; category: ProgramSchedule["category"]; location: string; farmer_notes: string; capacity: string; available_times: string[]; registration_opens: string; registration_deadline: string; eligibility: string; contact_information: string; barangay: string; publication_status: ProgramPublicationStatus };
+type ScheduleForm = { date: string; program: string; description: string; objectives: string; category: ProgramSchedule["category"]; location: string; farmer_notes: string; capacity: string; available_times: string[]; registration_opens: string; registration_deadline: string; eligibility: string; contact_information: string; barangay: string; farmer_audience: ProgramFarmerAudience; publication_status: ProgramPublicationStatus };
 type SchedulePayload = Omit<ScheduleForm, "capacity" | "barangay" | "registration_opens" | "registration_deadline"> & { capacity: number; barangay: number | null; registration_opens: string | null; registration_deadline: string | null };
-const emptyForm: ScheduleForm = { date: "", program: "", description: "", objectives: "", category: "OTHER", location: "", farmer_notes: "", capacity: "4", available_times: [...PROGRAM_TIME_SLOTS], registration_opens: "", registration_deadline: "", eligibility: "", contact_information: "", barangay: "", publication_status: "PUBLISHED" };
+const emptyForm: ScheduleForm = { date: "", program: "", description: "", objectives: "", category: "OTHER", location: "", farmer_notes: "", capacity: "4", available_times: [...PROGRAM_TIME_SLOTS], registration_opens: "", registration_deadline: "", eligibility: "", contact_information: "", barangay: "", farmer_audience: "ALL_FARMERS", publication_status: "PUBLISHED" };
 
 function localTimeNow(): string {
   const now = new Date();
@@ -135,7 +136,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   function startCreate() {
     setEditing(null);
-    setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS], barangay: user?.accessScope === "ALL_BARANGAYS" ? "" : String(user?.assignedBarangayId ?? "") });
+    setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS], barangay: user?.accessScope === "ALL_BARANGAYS" ? "" : String(user?.assignedBarangayId ?? ""), farmer_audience: user?.accessScope === "ALL_BARANGAYS" ? "ALL_FARMERS" : "BARANGAY_ONLY" });
     setCoverFile(null);
     setCoverPreview("");
     setRemoveCover(false);
@@ -145,7 +146,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   function startEdit(schedule: ProgramSchedule) {
     setEditing(schedule);
-    setForm({ ...emptyForm, date: schedule.date, program: schedule.program, description: schedule.description || "", objectives: schedule.objectives || "", category: schedule.category || "OTHER", location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS], registration_opens: schedule.registration_opens || "", registration_deadline: schedule.registration_deadline || "", eligibility: schedule.eligibility || "", contact_information: schedule.contact_information || "", barangay: schedule.barangay ? String(schedule.barangay) : "", publication_status: schedule.publication_status || "PUBLISHED" });
+    setForm({ ...emptyForm, date: schedule.date, program: schedule.program, description: schedule.description || "", objectives: schedule.objectives || "", category: schedule.category || "OTHER", location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS], registration_opens: schedule.registration_opens || "", registration_deadline: schedule.registration_deadline || "", eligibility: schedule.eligibility || "", contact_information: schedule.contact_information || "", barangay: schedule.barangay ? String(schedule.barangay) : "", farmer_audience: schedule.farmer_audience || (schedule.barangay ? "BARANGAY_ONLY" : "ALL_FARMERS"), publication_status: schedule.publication_status || "PUBLISHED" });
     setCoverFile(null);
     setCoverPreview(schedule.cover_image || "");
     setRemoveCover(false);
@@ -204,6 +205,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     }
     if (payload.available_times.length === 0) {
       setError("Add at least one appointment time for farmers to choose.");
+      return;
+    }
+    if (payload.farmer_audience === "BARANGAY_ONLY" && !payload.barangay) {
+      setError("Choose a program barangay when access is limited to farmers in that barangay.");
       return;
     }
     if (payload.date === todayIso()) {
@@ -428,7 +433,15 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   key={schedule.id}
                   className="flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs transition-all hover:border-slate-300 hover:shadow-sm"
                 >
-                  {schedule.cover_image ? <Image src={coverPreviewUrl(schedule.cover_image)} alt="" width={1200} height={400} unoptimized className="h-36 w-full object-cover" /> : <div className="flex h-24 items-center justify-center gap-2 bg-gradient-to-br from-slate-50 to-emerald-50 text-sm font-semibold text-slate-400"><ImageIcon className="size-5" /> No cover image</div>}
+                  <div className="h-36 w-full bg-slate-100">
+                    <ActivityPhotoCarousel
+                      photos={[
+                        ...(schedule.cover_image ? [coverPreviewUrl(schedule.cover_image)] : []),
+                        ...schedule.photos.map((photo) => coverPreviewUrl(photo.image)),
+                      ]}
+                      alt={`${schedule.program} activity`}
+                    />
+                  </div>
                   <CardHeader className="gap-2 p-4 sm:p-4.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
@@ -469,6 +482,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="outline" className="text-[11px]">{schedule.category.replaceAll("_", " ")}</Badge>
                       {schedule.barangay_name ? <Badge variant="outline" className="text-[11px]">{schedule.barangay_name}</Badge> : <Badge variant="outline" className="text-[11px]">Municipality-wide</Badge>}
+                      <Badge variant="outline" className="text-[11px]">
+                        {schedule.farmer_audience === "ALL_FARMERS" ? "All farmers · all barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}
+                      </Badge>
                       <Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge>
                     </div>
                     {schedule.farmer_notes ? (
@@ -655,6 +671,17 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   <SelectContent><SelectItem value="DRAFT">Save as draft</SelectItem><SelectItem value="PUBLISHED">Publish now</SelectItem></SelectContent>
                 </Select>
               </label>
+              <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700">
+                Farmer audience
+                <Select value={form.farmer_audience} onValueChange={(value: ProgramFarmerAudience) => setForm({ ...form, farmer_audience: value })}>
+                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BARANGAY_ONLY">Farmers in the program barangay only</SelectItem>
+                    <SelectItem value="ALL_FARMERS">All farmers across barangays</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="block text-[11px] font-normal text-slate-500">Controls which farmers can see and book this program.</span>
+              </label>
             </div>
 
             {/* Section 2: Schedule & Location */}
@@ -780,7 +807,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               </label>
               {role === "admin" || user?.accessScope === "ALL_BARANGAYS" ? (
                 <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700">
-                  Coverage
+                  Program barangay
                   <Select value={form.barangay || "MUNICIPALITY"} onValueChange={(value) => setForm({ ...form, barangay: value === "MUNICIPALITY" ? "" : value })}>
                     <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Choose coverage" /></SelectTrigger>
                     <SelectContent>
@@ -789,7 +816,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     </SelectContent>
                   </Select>
                 </label>
-              ) : <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">Coverage: {user?.assignedBarangayName || "Your assigned barangay"}</p>}
+              ) : <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">Program barangay: {user?.assignedBarangayName || "Your assigned barangay"}</p>}
               <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-eligibility">
                 Eligibility and instructions <span className="font-normal text-slate-400">(optional)</span>
                 <Textarea id="schedule-eligibility" rows={2} maxLength={2000} value={form.eligibility} onChange={(event) => setForm({ ...form, eligibility: event.target.value })} placeholder="Who can join and what should participants bring?" className="text-sm font-medium" />
@@ -836,6 +863,16 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl rounded-2xl border border-slate-200">
           {selected ? (
             <>
+              <div className="-mx-6 -mt-6 h-48 overflow-hidden rounded-t-2xl bg-slate-100 sm:h-64">
+                <ActivityPhotoCarousel
+                  photos={[
+                    ...(selected.cover_image ? [coverPreviewUrl(selected.cover_image)] : []),
+                    ...selected.photos.map((photo) => coverPreviewUrl(photo.image)),
+                  ]}
+                  alt={`${selected.program} activity`}
+                  variant="dialog"
+                />
+              </div>
               <DialogHeader>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <DialogTitle className="text-base sm:text-xl font-black text-slate-900 tracking-tight">{selected.program}</DialogTitle>

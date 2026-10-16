@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   ArrowRight,
-  CalendarDays,
-  MapPin,
   Megaphone,
   Pin,
   RefreshCw,
@@ -82,8 +79,8 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
   }, [items]);
 
   // Overall KPI stats for the farmer
-  const fieldProgramsCount = useMemo(
-    () => items.filter((item) => Boolean(item.schedule)).length,
+  const pinnedCount = useMemo(
+    () => items.filter((item) => item.is_pinned).length,
     [items]
   );
   const healthAlertsCount = useMemo(
@@ -108,8 +105,6 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
               item.content,
               item.category,
               item.author,
-              item.schedule?.program ?? "",
-              item.schedule?.location ?? "",
             ].some((value) => value.toLowerCase().includes(term))
         )
         .sort((a, b) => {
@@ -201,10 +196,10 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
             isLoading={loading}
           />
           <KpiCard
-            title={isAuction || isSlaughterhouse ? "Related Programs" : "Field Programs & Visits"}
-            value={fieldProgramsCount}
-            icon={<CalendarDays className="size-4" />}
-            description={isAuction || isSlaughterhouse ? "Municipal programs & schedules" : "Programs with booking slots"}
+            title="Pinned Updates"
+            value={pinnedCount}
+            icon={<Pin className="size-4" />}
+            description="Announcements highlighted for readers"
             variant="sky"
             size="sm"
             isLoading={loading}
@@ -325,10 +320,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
             {featuredItem ? (() => {
               const featuredCategory = activityCategory(featuredItem.category);
               const FeaturedIcon = featuredCategory.icon;
-              const featuredDate =
-                featuredItem.schedule?.date ||
-                featuredItem.published_at ||
-                featuredItem.created_at;
+              const featuredDate = featuredItem.published_at || featuredItem.created_at;
               const featuredPhotos = [
                 ...(featuredItem.image ? [featuredItem.image] : []),
                 ...featuredItem.photos.map((p) => p.image),
@@ -376,37 +368,6 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                         </p>
                       </div>
 
-                      {featuredItem.schedule ? (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200/80 bg-white/80 p-2.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm text-slate-700">
-                          <div className="flex items-center gap-3">
-                            <span className="flex items-center gap-1.5 font-bold text-emerald-800">
-                              <CalendarDays className="size-4 text-emerald-700" />
-                              {formatShortDate(featuredItem.schedule.date)}
-                            </span>
-                            {featuredItem.schedule.location ? (
-                              <span className="flex items-center gap-1.5 font-medium text-slate-600 truncate max-w-[200px]">
-                                <MapPin className="size-4 text-rose-500" />
-                                {featuredItem.schedule.location}
-                              </span>
-                            ) : null}
-                          </div>
-                          {isFarmer ? (
-                            <Link
-                              href={`/farmer-scheduling?schedule=${featuredItem.schedule.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 font-black text-emerald-800 hover:text-emerald-950 text-xs sm:text-sm"
-                            >
-                              <span>Book slot</span>
-                              <ArrowRight className="size-3.5" />
-                            </Link>
-                          ) : (
-                            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${isSlaughterhouse ? "text-rose-800 bg-rose-50 border-rose-100" : "text-purple-700 bg-purple-50 border-purple-100"}`}>
-                              {isSlaughterhouse ? "Facility and municipal notice" : "Related Municipal Program"}
-                            </span>
-                          )}
-                        </div>
-                      ) : null}
-
                       <div className="flex items-center justify-between pt-1 text-xs sm:text-sm">
                         <span className="font-medium text-slate-500">
                           Issued by {featuredItem.author || "MAO Padre Garcia"}
@@ -432,8 +393,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                 {gridItems.map((item) => {
                   const category = activityCategory(item.category);
                   const CategoryIcon = category.icon;
-                  const displayDate =
-                    item.schedule?.date || item.published_at || item.created_at;
+                  const displayDate = item.published_at || item.created_at;
                   const photos = [
                     ...(item.image ? [item.image] : []),
                     ...item.photos.map((photo) => photo.image),
@@ -487,36 +447,6 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                             {item.content}
                           </p>
 
-                          {item.schedule ? (
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:px-3 text-xs sm:text-sm text-slate-600">
-                              <div className="flex items-center gap-2.5">
-                                <span className="inline-flex items-center gap-1.5 font-bold text-slate-800">
-                                  <CalendarDays className="size-3.5 text-emerald-700" />
-                                  {formatShortDate(item.schedule.date)}
-                                </span>
-                                {item.schedule.location ? (
-                                  <span className="inline-flex items-center gap-1 truncate font-medium text-slate-600 max-w-[140px]">
-                                    <MapPin className="size-3.5 text-rose-500" />
-                                    {item.schedule.location}
-                                  </span>
-                                ) : null}
-                              </div>
-
-                              {isFarmer ? (
-                                <Link
-                                  href={`/farmer-scheduling?schedule=${item.schedule.id}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="font-bold text-emerald-700 hover:text-emerald-900 underline-offset-2 hover:underline"
-                                >
-                                  Book slot →
-                                </Link>
-                              ) : (
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${isSlaughterhouse ? "text-rose-800 bg-rose-50" : "text-purple-700 bg-purple-50"}`}>
-                                  {isSlaughterhouse ? "Facility notice" : "Related Program"}
-                                </span>
-                              )}
-                            </div>
-                          ) : null}
                         </div>
 
                         {/* Card Footer */}

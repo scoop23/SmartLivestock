@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from .models import Announcement, ProgramSchedule, ProgramBooking, Role, User, Notification, PROGRAM_TIME_SLOTS
+from .models import Announcement, ProgramSchedule, ProgramSchedulePhoto, ProgramBooking, Role, User, Notification, PROGRAM_TIME_SLOTS
 from .community_serializer import (
     AnnouncementSerializer,
     PublicAnnouncementSerializer,
@@ -25,12 +25,6 @@ def require_role(request, *roles):
     return None
 
 def _announcement_notification_message(announcement):
-    if announcement.schedule_id:
-        schedule = announcement.schedule
-        when = f" on {schedule.date}"
-        if schedule.location:
-            when += f" at {schedule.location}"
-        return f"{schedule.program}{when}. View Field Scheduling for available times."[:180]
     return announcement.content[:180]
 
 
@@ -40,7 +34,7 @@ def _notify_program_farmers(schedule, *, title, message):
         account_status=User.AccountStatus.APPROVED,
         is_active=True,
     )
-    if schedule.barangay_id:
+    if schedule.farmer_audience == ProgramSchedule.FarmerAudience.BARANGAY_ONLY and schedule.barangay_id:
         farmers = farmers.filter(farmer_profile__barangay_id=schedule.barangay_id)
     Notification.objects.bulk_create([
         Notification(
@@ -138,16 +132,7 @@ def announcements(request):
             Role.UserRoles.SLAUGHTERHOUSESTAFF,
         ):
             return Response({"detail": "Forbidden."}, status=403)
-        prefetch_items = ["schedule__bookings", "photos"]
-        if role == Role.UserRoles.SIBAT:
-            prefetch_items.append(
-                Prefetch(
-                    "schedule__bookings",
-                    queryset=scope_reviewer_queryset(ProgramBooking.objects.all(), request.user),
-                    to_attr="scoped_bookings",
-                )
-            )
-        qs = Announcement.objects.select_related("posted_by", "schedule", "target_barangay").prefetch_related(*prefetch_items)
+        qs = Announcement.objects.select_related("posted_by", "target_barangay").prefetch_related("photos")
         if role in (Role.UserRoles.MAO, "ADMIN"):
             pass
         elif role == Role.UserRoles.FARMER:
@@ -236,7 +221,7 @@ def schedules(request):
     if role not in (Role.UserRoles.MAO, "ADMIN", Role.UserRoles.FARMER, Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
         return Response({"detail": "Forbidden."}, status=403)
     if request.method == "GET":
-        prefetch_items = ["bookings"]
+        prefetch_items = ["bookings", Prefetch("photos", queryset=ProgramSchedulePhoto.objects.all(), to_attr="prefetched_photos")]
         if role in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
             prefetch_items.append(
                 Prefetch(
@@ -255,11 +240,22 @@ def schedules(request):
                 date__gte=timezone.localdate(),
             )
             if farmer_barangay_id:
-                qs = qs.filter(Q(barangay__isnull=True) | Q(barangay_id=farmer_barangay_id))
+                qs = qs.filter(
+                    Q(farmer_audience=ProgramSchedule.FarmerAudience.ALL_FARMERS)
+                    | Q(
+                        farmer_audience=ProgramSchedule.FarmerAudience.BARANGAY_ONLY,
+                        barangay_id=farmer_barangay_id,
+                    )
+                )
             else:
-                qs = qs.filter(barangay__isnull=True)
+                qs = qs.filter(farmer_audience=ProgramSchedule.FarmerAudience.ALL_FARMERS)
         elif role in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
-            qs = scope_reviewer_queryset(qs, request.user)
+            if not has_all_barangay_access(request.user):
+                visible_programs = Q(farmer_audience=ProgramSchedule.FarmerAudience.ALL_FARMERS)
+                assigned_barangay_id = getattr(request.user, "assigned_barangay_id", None)
+                if assigned_barangay_id is not None:
+                    visible_programs |= Q(barangay_id=assigned_barangay_id)
+                qs = qs.filter(visible_programs)
         return Response(ProgramScheduleSerializer(qs, many=True, context={"request": request}).data)
     denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT, Role.UserRoles.CBAT)
     if denied:
@@ -293,16 +289,13 @@ def schedule_detail(request, pk):
             if role_of(request.user) in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
                 schedules = scope_reviewer_queryset(schedules, request.user)
             schedule = get_object_or_404(schedules, pk=pk)
-            has_bookings = schedule.bookings.exists()
             if schedule.date < timezone.localdate():
-                if has_bookings:
-                    # Keep booked schedule rows so existing bookings retain a
-                    # valid schedule reference, while removing it from the registry.
-                    schedule.deleted_at = timezone.now()
-                    schedule.save(update_fields=["deleted_at"])
-                else:
-                    schedule.delete()
-            elif has_bookings:
+                # Keep past program records for history even when there are no
+                # bookings. Deleting the row outright made historical programs
+                # disappear permanently from the system.
+                schedule.deleted_at = timezone.now()
+                schedule.save(update_fields=["deleted_at"])
+            elif schedule.bookings.exists():
                 return Response({"detail": "Schedules with bookings cannot be deleted before their date."}, status=400)
             else:
                 schedule.delete()
@@ -317,6 +310,7 @@ def schedule_detail(request, pk):
         if "date" in serializer.validated_data and serializer.validated_data["date"] < timezone.localdate():
             return Response({"date": ["Choose a current or future date."]}, status=400)
         old_date, old_location, old_status, old_title, old_times = schedule.date, schedule.location, schedule.publication_status, schedule.program, list(schedule.available_times)
+        old_farmer_audience = schedule.farmer_audience
         old_registration_window = (schedule.registration_opens, schedule.registration_deadline)
         affected_bookings = list(schedule.bookings.filter(status=ProgramBooking.Status.CONFIRMED).select_related("farmer"))
         schedule = serializer.save()
@@ -330,6 +324,7 @@ def schedule_detail(request, pk):
         details_changed = (
             old_date != schedule.date or old_location != schedule.location or old_title != schedule.program
             or old_times != list(schedule.available_times)
+            or old_farmer_audience != schedule.farmer_audience
             or old_registration_window != (schedule.registration_opens, schedule.registration_deadline)
         )
         if status_changed or details_changed:
@@ -344,6 +339,8 @@ def schedule_detail(request, pk):
                 create_notification(booking.farmer, title=title, message=message, link="/farmer-scheduling")
             if old_status != ProgramSchedule.PublicationStatus.PUBLISHED and schedule.publication_status == ProgramSchedule.PublicationStatus.PUBLISHED:
                 _notify_program_farmers(schedule, title="Program registration is open", message=f"{schedule.program} on {schedule.date} is now open for farmer registration.")
+            elif old_farmer_audience != schedule.farmer_audience and schedule.publication_status == ProgramSchedule.PublicationStatus.PUBLISHED:
+                _notify_program_farmers(schedule, title="Program audience updated", message=f"{schedule.program} on {schedule.date} is now available to its updated farmer audience.")
             _notify_program_staff(schedule, title=title, message=message, exclude_user_id=request.user.pk)
     return Response(ProgramScheduleSerializer(schedule, context={"request": request}).data)
 
@@ -386,7 +383,10 @@ def bookings(request):
             ):
                 return Response({"detail": "This program is no longer available."}, status=400)
             farmer_barangay_id = getattr(getattr(request.user, "farmer_profile", None), "barangay_id", None)
-            if schedule.barangay_id and schedule.barangay_id != farmer_barangay_id:
+            if (
+                schedule.farmer_audience == ProgramSchedule.FarmerAudience.BARANGAY_ONLY
+                and schedule.barangay_id != farmer_barangay_id
+            ):
                 return Response({"detail": "This program is not available to your barangay."}, status=403)
             confirmed_count = schedule.bookings.filter(status=ProgramBooking.Status.CONFIRMED).count()
             if confirmed_count >= schedule.capacity:

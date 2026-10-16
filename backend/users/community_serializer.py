@@ -13,6 +13,7 @@ from .models import (
     AnnouncementPhoto,
     ProgramBooking,
     ProgramSchedule,
+    ProgramSchedulePhoto,
     PROGRAM_TIME_SLOTS,
 )
 
@@ -42,6 +43,10 @@ class MultiValueListField(serializers.ListField):
         return super().get_value(dictionary)
 
 class ProgramScheduleSerializer(serializers.ModelSerializer):
+    farmer_audience = serializers.ChoiceField(
+        choices=ProgramSchedule.FarmerAudience.choices,
+        required=False,
+    )
     booked_times = serializers.SerializerMethodField()
     booking_count = serializers.SerializerMethodField()
     remaining_slots = serializers.SerializerMethodField()
@@ -55,6 +60,19 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
     registration_status = serializers.SerializerMethodField()
     barangay_name = serializers.CharField(source="barangay.barangay_name", read_only=True, allow_null=True)
     remove_cover_image = serializers.BooleanField(write_only=True, required=False, default=False)
+    photos = serializers.SerializerMethodField()
+    photo_uploads = MultiValueListField(
+        child=serializers.ImageField(),
+        write_only=True,
+        required=False,
+        max_length=10,
+    )
+    remove_photo_ids = MultiValueListField(
+        child=serializers.IntegerField(min_value=1),
+        write_only=True,
+        required=False,
+        max_length=10,
+    )
 
     def to_internal_value(self, data):
         if hasattr(data, "copy"):
@@ -77,8 +95,12 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             "category",
             "cover_image",
             "remove_cover_image",
+            "photos",
+            "photo_uploads",
+            "remove_photo_ids",
             "barangay",
             "barangay_name",
+            "farmer_audience",
             "registration_opens",
             "registration_deadline",
             "eligibility",
@@ -151,6 +173,36 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Program images must be 8 MB or smaller.")
         return value
 
+    def get_photos(self, obj):
+        request = self.context.get("request")
+        items = getattr(obj, "prefetched_photos", None)
+        photos = items if items is not None else obj.photos.all()
+        result = []
+        for photo in photos:
+            if not photo.image:
+                continue
+            try:
+                url = photo.image.url
+                result.append({
+                    "id": photo.pk,
+                    "image": request.build_absolute_uri(url) if request else url,
+                    "position": photo.position,
+                })
+            except Exception:
+                continue
+        return result
+
+    def validate_photo_uploads(self, value):
+        for image in value:
+            if image.size > 8 * 1024 * 1024:
+                raise serializers.ValidationError("Each program photo must be 8 MB or smaller.")
+        return value
+
+    def validate_remove_photo_ids(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Each photo can only be selected for removal once.")
+        return value
+
     def validate_available_times(self, value):
         if len(value) != len(set(value)):
             raise serializers.ValidationError("Choose each appointment time only once.")
@@ -159,6 +211,17 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs.get("remove_cover_image") and attrs.get("cover_image"):
             raise serializers.ValidationError({"cover_image": "Choose a replacement image or remove the current image, not both."})
+        if self.instance:
+            requested_remove_ids = set(attrs.get("remove_photo_ids", []))
+            existing_count = self.instance.photos.count()
+            removable_count = self.instance.photos.filter(pk__in=requested_remove_ids).count()
+            if removable_count != len(requested_remove_ids):
+                raise serializers.ValidationError({"remove_photo_ids": "Select photos attached to this program."})
+            upload_count = len(attrs.get("photo_uploads", []))
+            if existing_count - removable_count + upload_count > 10:
+                raise serializers.ValidationError({"photo_uploads": "A program can have up to 10 gallery photos."})
+        elif len(attrs.get("photo_uploads", [])) > 10:
+            raise serializers.ValidationError({"photo_uploads": "A program can have up to 10 gallery photos."})
         schedule_date = attrs.get("date", self.instance.date if self.instance else None)
         deadline = attrs.get("registration_deadline", self.instance.registration_deadline if self.instance else None)
         registration_opens = attrs.get("registration_opens", self.instance.registration_opens if self.instance else None)
@@ -187,6 +250,27 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
                 if requested_barangay and requested_barangay.pk != assigned_id:
                     raise serializers.ValidationError({"barangay": "You can manage programs only for your assigned barangay."})
                 attrs["barangay"] = Barangay.objects.get(pk=assigned_id)
+
+        requested_barangay = attrs.get("barangay", self.instance.barangay if self.instance else None)
+        if "farmer_audience" not in attrs:
+            attrs["farmer_audience"] = (
+                self.instance.farmer_audience
+                if self.instance
+                else ProgramSchedule.FarmerAudience.BARANGAY_ONLY
+                if requested_barangay
+                else ProgramSchedule.FarmerAudience.ALL_FARMERS
+            )
+        audience = attrs["farmer_audience"]
+        if audience == ProgramSchedule.FarmerAudience.BARANGAY_ONLY and not requested_barangay:
+            raise serializers.ValidationError({"barangay": "Choose the program's barangay when access is limited to farmers in that barangay."})
+        if (
+            self.instance
+            and audience == ProgramSchedule.FarmerAudience.BARANGAY_ONLY
+            and self.instance.bookings.filter(status=ProgramBooking.Status.CONFIRMED)
+            .exclude(farmer__farmer_profile__barangay_id=requested_barangay.pk)
+            .exists()
+        ):
+            raise serializers.ValidationError({"farmer_audience": "This program already has confirmed farmers from other barangays. Keep all-farmer access or manage those bookings first."})
 
         # Keep existing booking times available when staff edits a schedule.
         if self.instance is None and "available_times" not in attrs:
@@ -229,23 +313,44 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         remove_image = validated_data.pop("remove_cover_image", False)
+        uploads = validated_data.pop("photo_uploads", [])
+        validated_data.pop("remove_photo_ids", None)
         schedule = super().create(validated_data)
+        self._add_program_photos(schedule, uploads)
         if remove_image and schedule.cover_image:
             schedule.cover_image.delete(save=True)
         return schedule
 
     def update(self, instance, validated_data):
         remove_image = validated_data.pop("remove_cover_image", False)
+        uploads = validated_data.pop("photo_uploads", [])
+        remove_ids = validated_data.pop("remove_photo_ids", [])
         old_cover = instance.cover_image
         if remove_image and instance.cover_image:
             instance.cover_image.delete(save=False)
             instance.cover_image = None
         schedule = super().update(instance, validated_data)
+        for photo in schedule.photos.filter(pk__in=remove_ids):
+            photo.image.delete(save=False)
+            photo.delete()
+        if remove_ids and hasattr(schedule, "_prefetched_objects_cache"):
+            schedule._prefetched_objects_cache.pop("photos", None)
+        self._add_program_photos(schedule, uploads)
         if old_cover and "cover_image" in validated_data and old_cover.name != schedule.cover_image.name:
             old_cover.storage.delete(old_cover.name)
         if remove_image:
             schedule.save(update_fields=["cover_image"])
         return schedule
+
+    @staticmethod
+    def _add_program_photos(schedule, uploads):
+        next_position = schedule.photos.count()
+        for offset, image in enumerate(uploads):
+            ProgramSchedulePhoto.objects.create(
+                schedule=schedule,
+                image=image,
+                position=next_position + offset,
+            )
 
 
 class AnnouncementPhotoSerializer(serializers.ModelSerializer):
@@ -270,13 +375,6 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         child=serializers.IntegerField(min_value=1),
         write_only=True,
         required=False,
-    )
-    schedule = ProgramScheduleSerializer(read_only=True)
-    schedule_id = serializers.CharField(
-        write_only=True,
-        required=False,
-        allow_blank=True,
-        allow_null=True,
     )
     target_barangay = serializers.PrimaryKeyRelatedField(
         queryset=Barangay.objects.all(),
@@ -316,8 +414,6 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "is_pinned",
             "author",
             "share_url",
-            "schedule",
-            "schedule_id",
             "remove_image",
             "published_at",
             "created_at",
@@ -350,14 +446,6 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             if image.size > 8 * 1024 * 1024:
                 raise serializers.ValidationError("Each image must be 8 MB or smaller.")
         return value
-
-    def validate_schedule_id(self, value):
-        if value in (None, ""):
-            return None
-        try:
-            return ProgramSchedule.objects.get(pk=int(value))
-        except (TypeError, ValueError, ProgramSchedule.DoesNotExist):
-            raise serializers.ValidationError("Choose an existing field program.")
 
     def validate_target_barangay_id(self, value):
         if value in (None, ""):
@@ -416,18 +504,14 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             announcement.photos.create(image=image, position=next_position + offset)
 
     def create(self, validated_data):
-        schedule = validated_data.pop("schedule_id", None)
         uploads = validated_data.pop("photo_uploads", [])
         validated_data.pop("remove_photo_ids", None)
         validated_data.pop("remove_image", None)
-        announcement = Announcement.objects.create(schedule=schedule, **validated_data)
+        announcement = Announcement.objects.create(**validated_data)
         self._add_photos(announcement, uploads)
         return announcement
 
     def update(self, instance, validated_data):
-        if "schedule_id" in validated_data:
-            instance.schedule = validated_data.pop("schedule_id")
-
         uploads = validated_data.pop("photo_uploads", [])
         remove_ids = validated_data.pop("remove_photo_ids", [])
         remove_image = validated_data.pop("remove_image", False)

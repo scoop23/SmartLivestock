@@ -235,13 +235,12 @@ class AccessScopeTests(APITestCase):
         response=self.client.post(f"/diseases/cases/{record.pk}/review/",{"status":"APPROVED"})
         self.assertEqual(response.status_code,200,response.data)
 
-    def test_nested_activity_schedule_counts_match_officer_scope(self):
+    def test_announcement_is_standalone_from_program_schedule(self):
         from users.models import Announcement
-        Announcement.objects.create(title="Program",content="Test",posted_by=self.mao,schedule=self.schedule,is_published=True)
+        Announcement.objects.create(title="Program",content="Test",posted_by=self.mao,is_published=True)
         self.authenticate(self.sibat)
         response=self.client.get("/community/announcements/")
-        self.assertEqual(response.data[0]["schedule"]["booking_count"],1)
-        self.assertEqual(response.data[0]["schedule"]["remaining_slots"],2)
+        self.assertNotIn("schedule", response.data[0])
 
     def test_booking_without_farmer_profile_never_broadcasts(self):
         municipal_schedule = ProgramSchedule.objects.create(

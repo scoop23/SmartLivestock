@@ -4,8 +4,6 @@ import { useState } from "react";
 import {
   Building2,
   CalendarDays,
-  Clock,
-  MapPin,
   Pin,
   Share2,
   Users,
@@ -25,9 +23,7 @@ import {
   activityCategory,
   CommunityRole,
   formatLongDate,
-  formatTimeWindow,
 } from "./community-ui";
-import { ActivityScheduleCard } from "./activity-schedule-card";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
 import { AnnouncementShareDialog } from "./announcement-share-dialog";
 
@@ -125,22 +121,8 @@ export function ActivityDetailDialog({
                 <DialogDescription className="flex flex-wrap items-center gap-x-4 sm:gap-x-5 gap-y-1.5 text-xs sm:text-sm font-semibold text-slate-600">
                   <span className="inline-flex items-center gap-1.5">
                     <CalendarDays className="size-4 text-emerald-700 shrink-0" />
-                    <span>{formatLongDate(activity.schedule?.date || publishedDate)}</span>
+                    <span>{formatLongDate(publishedDate)}</span>
                   </span>
-
-                  {activity.schedule ? (
-                    <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
-                      <Clock className="size-4 text-emerald-700 shrink-0" />
-                      <span>{formatTimeWindow()}</span>
-                    </span>
-                  ) : null}
-
-                  {activity.schedule?.location ? (
-                    <span className="inline-flex items-center gap-1.5 text-slate-700">
-                      <MapPin className="size-4 text-rose-500 shrink-0" />
-                      <span>{activity.schedule.location}</span>
-                    </span>
-                  ) : null}
                 </DialogDescription>
               </DialogHeader>
 
@@ -162,13 +144,6 @@ export function ActivityDetailDialog({
                   </p>
                 ))}
               </div>
-
-              {/* Linked Field Program Schedule Callout */}
-              {activity.schedule ? (
-                <div className="rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/70 via-emerald-50/30 to-white p-4 sm:p-6 shadow-xs">
-                  <ActivityScheduleCard schedule={activity.schedule} role={role} />
-                </div>
-              ) : null}
 
               {/* Reader Footer */}
               <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-100 pt-5 text-sm text-slate-500">
