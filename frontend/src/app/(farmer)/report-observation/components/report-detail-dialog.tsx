@@ -1,34 +1,24 @@
 "use client";
 
-import React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  CheckCircle2,
-  Clock,
-  RotateCcw,
-  ShieldCheck,
-  Stethoscope,
-  Skull,
-  MapPin,
-  Calendar,
-  AlertTriangle,
-  FileText,
-  UserCheck,
-  Printer,
-  ChevronRight,
-  Camera,
-  ZoomIn,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogTitle
+} from "@/components/ui/dialog";
+import {
+Camera,
+CheckCircle2,
+Clock,
+Printer,
+RotateCcw,
+ShieldCheck,
+Skull,
+Stethoscope
 } from "lucide-react";
-import { Icon } from "lucide-react";
-import { cowHead } from "@lucide/lab";
 import { FarmerReport } from "../report-observation-types";
 
 interface ReportDetailDialogProps {
@@ -87,17 +77,17 @@ export default function ReportDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto p-0 rounded-3xl border-0 shadow-2xl">
+      <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-2xl border-0 shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[92dvh] sm:rounded-3xl">
         {/* Header */}
         <div
-          className={`p-6 text-white relative overflow-hidden ${
+          className={`p-4 text-white relative overflow-hidden sm:p-6 ${
             isMortality
               ? "bg-gradient-to-br from-rose-950 via-rose-900 to-rose-800"
               : "bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800"
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
               <div className="p-3 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
                 {isMortality ? (
                   <Skull className="size-6 text-rose-200" />
@@ -107,7 +97,7 @@ export default function ReportDetailDialog({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <DialogTitle className="text-lg font-black text-white tracking-tight">
+                  <DialogTitle className="break-words text-base font-black text-white tracking-tight sm:text-lg">
                     {isMortality ? "Mortality Incident Details" : "Health Observation Details"}
                   </DialogTitle>
                   <span className="font-mono text-xs px-2 py-0.5 rounded-lg bg-white/20 text-white font-bold">
@@ -122,13 +112,14 @@ export default function ReportDetailDialog({
 
             <Badge className={`px-2.5 py-1 font-extrabold text-[11px] gap-1.5 ${statusConfig.bg}`}>
               {statusConfig.icon}
-              <span>{report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION" ? "Needs Revision" : report.status}</span>
+              <span>{report.status === "SUBJECT_TO_REVISION" || report.status === "SUBJECT_FOR_REVISION" ? "Needs Revision" : report.status}</span>
             </Badge>
           </div>
         </div>
 
         {/* Modal Content */}
         <div className="p-5 sm:p-6 space-y-6">
+          {!isMortality && <DiseaseCaseFollowUp key={report.id} caseId={report.id} />}
           {/* 1. 3-Step Lifecycle Stepper */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3">
@@ -152,19 +143,19 @@ export default function ReportDetailDialog({
                   <div
                     className={`size-5 rounded-full flex items-center justify-center text-[10px] font-black ${
                       statusConfig.stage >= 2
-                        ? report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION"
+                        ? report.status === "SUBJECT_TO_REVISION" || report.status === "SUBJECT_FOR_REVISION"
                           ? "bg-rose-500 text-white"
                           : "bg-emerald-600 text-white"
                         : "bg-slate-200 text-slate-500"
                     }`}
                   >
-                    {statusConfig.stage >= 2 ? (report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION" ? "!" : "✓") : "2"}
+                    {statusConfig.stage >= 2 ? (report.status === "SUBJECT_TO_REVISION" || report.status === "SUBJECT_FOR_REVISION" ? "!" : "✓") : "2"}
                   </div>
                   <span className="text-xs font-bold text-slate-800">2. SIBAT Check</span>
                 </div>
                 <p className="text-[10px] text-slate-500 line-clamp-1">
                   {statusConfig.stage >= 2
-                    ? report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION"
+                    ? report.status === "SUBJECT_TO_REVISION" || report.status === "SUBJECT_FOR_REVISION"
                       ? "Subject for Revision"
                       : "Inspection Complete"
                     : "Scheduled Visit"}
@@ -184,14 +175,14 @@ export default function ReportDetailDialog({
                   <span className="text-xs font-bold text-slate-800">3. MAO Certify</span>
                 </div>
                 <p className="text-[10px] text-slate-500 line-clamp-1">
-                  {statusConfig.stage >= 3 ? "Certified Clear" : "Pending Sign-off"}
+                  {statusConfig.stage >= 3 ? "Report Approved" : "Pending Sign-off"}
                 </p>
               </div>
             </div>
           </div>
 
           {/* 2. Official Inspector / Review Remarks Alert */}
-          {(report.status === "SUBJECT_TO_REVISION" || (report.status as any) === "SUBJECT_FOR_REVISION") && (
+          {(report.status === "SUBJECT_TO_REVISION" || report.status === "SUBJECT_FOR_REVISION") && (
             <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-300 text-rose-950 space-y-2">
               <div className="flex items-center gap-2">
                 <RotateCcw className="size-4 text-rose-700 shrink-0" />
@@ -333,7 +324,7 @@ export default function ReportDetailDialog({
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+          <div className="flex flex-col items-stretch justify-between gap-2 border-t border-slate-100 pt-2 sm:flex-row sm:items-center">
             {report.status === "SUBJECT_TO_REVISION" && onEditReport && (
               <Button
                 type="button"
@@ -346,13 +337,13 @@ export default function ReportDetailDialog({
               </Button>
             )}
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex flex-col gap-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => window.print()}
-                className="rounded-xl text-xs font-bold gap-1.5 h-9"
+                className="h-10 w-full gap-1.5 rounded-xl text-xs font-bold sm:h-9 sm:w-auto"
               >
                 <Printer className="size-3.5 text-slate-500" />
                 <span>Print Details</span>
@@ -361,7 +352,7 @@ export default function ReportDetailDialog({
               <Button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="rounded-xl bg-[#2D5A27] hover:bg-[#22441d] text-white text-xs font-black h-9 px-5 cursor-pointer"
+                className="h-10 w-full rounded-xl bg-[#2D5A27] px-5 text-xs font-black text-white hover:bg-[#22441d] cursor-pointer sm:h-9 sm:w-auto"
               >
                 Close
               </Button>

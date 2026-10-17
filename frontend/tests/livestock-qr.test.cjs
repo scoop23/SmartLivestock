@@ -17,6 +17,7 @@ function load(file, mocks = {}, globals = {}) {
   vm.runInNewContext(source, { exports: output, ...globals, require(id) {
     if (Object.hasOwn(mocks, id)) return mocks[id];
     if (id.startsWith('@/components/ui/')) return new Proxy({}, { get: () => wrapper });
+    if (id === '@/lib/livestock-age') return load('lib/livestock-age.ts', mocks, globals);
     return require(id);
   }});
   return output;

@@ -1,15 +1,16 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  ReactNode,
-} from "react";
-import { jwtDecode } from "jwt-decode";
+import { httpError } from "@/lib/http-error";
 import api from "@/lib/axios";
+import { jwtDecode } from "jwt-decode";
+import {
+createContext,
+ReactNode,
+useCallback,
+useContext,
+useEffect,
+useState,
+} from "react";
 
 export interface User {
   username?: string | null;
@@ -128,8 +129,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         farmerId: data.farmer_id ?? null,
       });
       setAccessToken(latestToken);
-    } catch (error: any) {
-      if (error?.response?.status === 401) {
+    } catch (error: unknown) {
+      if (httpError(error)?.response?.status === 401) {
         console.warn("Session expired. Clearing invalid token.");
         setUser(null);
         setAccessToken(null);

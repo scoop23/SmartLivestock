@@ -1,27 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  ClipboardList,
-  Eye,
-  Info,
-  Lightbulb,
-  RefreshCw,
-  ShieldAlert,
-  ShieldCheck,
-  Stethoscope,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
-import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card,CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/auth-context";
+import api from "@/lib/axios";
+import { useQuery } from "@tanstack/react-query";
+import {
+AlertCircle,
+CheckCircle2,
+Eye,
+Info,
+Lightbulb,
+RefreshCw,
+} from "lucide-react";
 
 interface PrescriptiveEvidence {
   [key: string]: string | number;
@@ -39,7 +32,12 @@ interface RecommendationItem {
 }
 
 interface PrescriptiveResponse {
-  status: "ready" | "error";
+  status: "ready" | "partial" | "error";
+  rule_readiness: {
+    production: "ready" | "unavailable";
+    disease: "ready" | "unavailable";
+    vaccination_records: "ready" | "unavailable";
+  };
   target: {
     production_type: string;
     unit: string;
@@ -51,39 +49,14 @@ interface PrescriptiveResponse {
 }
 
 export default function PrescriptiveAnalyticsView() {
-  const [data, setData] = useState<PrescriptiveResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-
-    api
-      .get<PrescriptiveResponse>("analytics/prescriptive/", {
-        signal: controller.signal,
-      })
-      .then(({ data }) => {
-        if (active) setData(data);
-      })
-      .catch((err) => {
-        if (!active) return;
-        if (err.name !== "CanceledError" && err.name !== "AbortError") {
-          setError("Failed to load prescriptive recommendations. Check backend availability.");
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [refreshTrigger]);
+  const { user } = useAuth();
+  const { data, isPending: loading, isFetching, error, refetch } = useQuery({
+    queryKey: ["analytics", "prescriptive", user?.email, user?.accessScope, user?.assignedBarangayId],
+    enabled: Boolean(user),
+    queryFn: async ({ signal }) => (
+      await api.get<PrescriptiveResponse>("analytics/prescriptive/", { signal })
+    ).data,
+  });
 
   if (loading) {
     return (
@@ -102,9 +75,9 @@ export default function PrescriptiveAnalyticsView() {
           <AlertCircle className="size-6 text-red-600" />
           <h3 className="font-bold text-lg">Prescriptive Analytics Unavailable</h3>
         </div>
-        <p className="mt-2 text-sm text-red-700">{error}</p>
+        <p className="mt-2 text-sm text-red-700">Failed to load prescriptive recommendations. Try again.</p>
         <Button
-          onClick={() => setRefreshTrigger((p) => p + 1)}
+          onClick={() => void refetch()}
           className="mt-4 bg-red-700 text-white hover:bg-red-800"
           size="sm"
         >
@@ -152,12 +125,13 @@ export default function PrescriptiveAnalyticsView() {
                 Prescriptive Decision Support & Actionable Recommendations
               </h2>
               <p className="text-xs text-emerald-100 mt-0.5">
-                Deterministic, rule-based operational guidance synthesized from forecasts, disease cases, and vaccination coverage.
+                Rule-based operational guidance from forecasts, approved disease reports, and recorded vaccination dates.
               </p>
             </div>
           </div>
           <Button
-            onClick={() => setRefreshTrigger((p) => p + 1)}
+            onClick={() => void refetch()}
+            disabled={isFetching}
             variant="outline"
             size="sm"
             className="border-white/20 text-white hover:bg-white/10 bg-transparent text-xs"
@@ -181,13 +155,22 @@ export default function PrescriptiveAnalyticsView() {
         </div>
       </div>
 
+      {data?.status === "partial" && (
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">Some indicators could not be evaluated</p>
+          {data.rule_readiness.production !== "ready" && <p>Production guidance needs sufficient approved history for a forecast.</p>}
+          {data.rule_readiness.vaccination_records !== "ready" && <p>Vaccination record coverage needs approved active inventory.</p>}
+          <p>Available rules are shown below. Missing information does not mean conditions are normal.</p>
+        </div>
+      )}
+
       {/* 3. Recommendations List */}
       <div className="space-y-4">
         {recommendations.length === 0 ? (
           <Card className="border-slate-200 p-8 text-center text-slate-500">
             <CheckCircle2 className="size-8 mx-auto text-emerald-600 mb-2" />
-            <p className="font-semibold text-slate-700">All Municipal Indicators Within Normal Thresholds</p>
-            <p className="text-xs text-slate-400 mt-1">No alerts or corrective actions are currently triggered.</p>
+            <p className="font-semibold text-slate-700">No recommendations from the available indicators</p>
+            <p className="text-xs text-slate-400 mt-1">This is not a clinical assessment or confirmation that every indicator is normal.</p>
           </Card>
         ) : (
           recommendations.map((rec, idx) => (

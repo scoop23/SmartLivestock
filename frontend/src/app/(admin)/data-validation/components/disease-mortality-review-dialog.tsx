@@ -1,38 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
-  Stethoscope,
-  Skull,
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
-  User,
-  MapPin,
-  Tag,
-  Calendar,
-  Sparkles,
-  XCircle,
-  ClipboardCheck,
-  Camera,
-  HeartPulse,
-  RotateCcw,
-  ZoomIn,
-} from "lucide-react";
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 import {
-  ValidationIncidentItem,
-  getStatusPill,
+Calendar,
+Camera,
+CheckCircle2,
+ClipboardCheck,
+Clock,
+RotateCcw,
+ShieldCheck,
+Skull,
+Sparkles,
+Stethoscope,
+User,
+ZoomIn
+} from "lucide-react";
+import { useState } from "react";
+import {
+ValidationIncidentItem,
+getStatusPill,
 } from "../validation-analytics";
 
 interface DiseaseMortalityReviewDialogProps {
@@ -156,6 +153,7 @@ export function DiseaseMortalityReviewDialog({
         </DialogHeader>
 
         {/* ══ 2-COLUMN EXPANDED LAYOUT ══ */}
+        {isDisease && <div className="mb-5"><DiseaseCaseFollowUp key={record.id} caseId={record.id} /></div>}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
           {/* ── LEFT COLUMN (7 COLS): ANIMAL & SIBAT FINDINGS ── */}
           <div className="lg:col-span-7 space-y-4">
@@ -225,9 +223,9 @@ export function DiseaseMortalityReviewDialog({
               {/* Farmer Initial Statement */}
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-1">
                 <span className="text-[10px] font-black text-slate-400 uppercase block">
-                  Farmer's Initial Statement:
+                  Farmer&apos;s Initial Statement:
                 </span>
-                <p className="text-slate-700 italic leading-relaxed">"{record.details}"</p>
+                <p className="text-slate-700 italic leading-relaxed">&quot;{record.details}&quot;</p>
               </div>
 
               {/* Attached Photo Evidence Card */}
@@ -398,7 +396,7 @@ export function DiseaseMortalityReviewDialog({
                     SIBAT Field Officer Remarks & Guidance:
                   </span>
                   <p className="text-slate-800 font-medium italic leading-relaxed text-xs sm:text-sm">
-                    "{record.sibatInspection.remarks}"
+                    &quot;{record.sibatInspection.remarks}&quot;
                   </p>
                 </div>
 

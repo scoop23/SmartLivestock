@@ -1,61 +1,58 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import api from "@/lib/axios";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { LivestockBreedField } from "@/components/livestock-breed-field";
-import { Label } from "@/components/ui/label";
-import { getIncidentTypeBadge, IncidentType } from "./validation-analytics";
+import type { InventoryApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import { httpError } from "@/lib/http-error";
 import type { InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { CensusItemEntry } from "@/app/(sibat)/sibat/sibat-analytics";
+import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  FileSpreadsheet,
-  Milk,
-  Tag,
-  Activity,
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
-  RotateCcw,
-  AlertTriangle,
-  User,
-  MapPin,
-  Calendar,
-  Layers,
-  Copy,
-  Printer,
-  Sparkles,
-  Search,
-  Check,
-  Building2,
-  FileCheck,
-  Save,
-  Camera,
-  ZoomIn,
-  ChevronRight,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import api from "@/lib/axios";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+Activity,
+Camera,
+Check,
+CheckCircle2,
+Clock,
+Copy,
+FileCheck,
+FileSpreadsheet,
+Layers,
+Milk,
+Printer,
+RotateCcw,
+Save,
+Search,
+ShieldCheck,
+Sparkles,
+Tag,
+ZoomIn
 } from "lucide-react";
-import { toast } from "sonner";
 import Link from "next/link";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import { useEffect,useState } from "react";
+import { toast } from "sonner";
+import { getIncidentTypeBadge,IncidentType } from "./validation-analytics";
 
 export type DetailRecordData =
   | {
@@ -123,7 +120,7 @@ export type DetailRecordData =
     housingPen?: string;
     feedType?: string;
     targetWeight?: number;
-    animals?: any[];
+    animals?: InventoryApiItem[];
     photoUrl?: string;
     photoName?: string;
   }
@@ -176,7 +173,11 @@ const PRESET_REVISION_NOTES = [
   "Incorrect ear tag or farmer profile association; please rectify.",
 ];
 
-export function RecordDetailDialog({
+export function RecordDetailDialog(props: RecordDetailDialogProps) {
+  return <RecordDetailDialogContent key={`${props.open}:${props.record?.kind}:${props.record?.id}`} {...props} />;
+}
+
+function RecordDetailDialogContent({
   record,
   open,
   onOpenChange,
@@ -188,29 +189,19 @@ export function RecordDetailDialog({
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const inventoryRecord = record?.kind === "inventory" ? record : null;
   // Edit state for inventory / batch
   const [isEditing, setIsEditing] = useState(false);
-  const [editTagNumber, setEditTagNumber] = useState("");
-  const [editBreed, setEditBreed] = useState("");
-  const [editSex, setEditSex] = useState("");
-  const [editWeight, setEditWeight] = useState("");
-  const [editHousingPen, setEditHousingPen] = useState("");
-  const [editFeedType, setEditFeedType] = useState("");
-  const [editTargetWeight, setEditTargetWeight] = useState("");
+  const [editTagNumber, setEditTagNumber] = useState(inventoryRecord?.tagNumber || "");
+  const [editBreed, setEditBreed] = useState(inventoryRecord?.breed || "");
+  const [editSex, setEditSex] = useState(inventoryRecord?.sex || "Female");
+  const [editWeight, setEditWeight] = useState(inventoryRecord?.weight != null ? String(inventoryRecord.weight) : "");
+  const [editHousingPen, setEditHousingPen] = useState(inventoryRecord?.housingPen || "");
+  const [editFeedType, setEditFeedType] = useState(inventoryRecord?.feedType || "");
+  const [editTargetWeight, setEditTargetWeight] = useState(inventoryRecord?.targetWeight ? String(inventoryRecord.targetWeight) : "");
   const [isSavingEdits, setIsSavingEdits] = useState(false);
 
-  useEffect(() => {
-    if (record && record.kind === "inventory") {
-      setEditTagNumber(record.tagNumber || "");
-      setEditBreed(record.breed || "");
-      setEditSex(record.sex || "Female");
-      setEditWeight(record.weight !== null && record.weight !== undefined ? String(record.weight) : "");
-      setEditHousingPen(record.housingPen || "");
-      setEditFeedType(record.feedType || "");
-      setEditTargetWeight(record.targetWeight ? String(record.targetWeight) : "");
-      setIsEditing(false);
-    }
-  }, [record]);
+
 
   if (!record) return null;
 
@@ -229,7 +220,7 @@ export function RecordDetailDialog({
     try {
       const isBatch = record.isBatch || String(record.id).startsWith("batch-");
       const cleanId = String(record.id).replace("batch-", "");
-      const payload: Record<string, any> = {};
+      const payload: Record<string, string | number> = {};
       if (isBatch) {
         if (editHousingPen !== undefined) payload.housing_pen = editHousingPen;
         if (editFeedType !== undefined) payload.feed_type = editFeedType;
@@ -247,9 +238,9 @@ export function RecordDetailDialog({
       queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error("Failed to update record", {
-        description: err?.response?.data?.error || "Please check your inputs.",
+        description: httpError(err)?.response?.data?.error || "Please check your inputs.",
       });
     } finally {
       setIsSavingEdits(false);
@@ -350,9 +341,9 @@ export function RecordDetailDialog({
                 <span>ID: {record.id}</span>
                 <Copy className="size-2.5" />
               </button>
-              {(record as any).batchId && (
+              {(record.kind === "inventory" && record.batchId) && (
                 <Link
-                  href={`/data-validation/batches?batchId=${(record as any).batchId}&animalId=${(record as any).rawId || record.id}&tag=${encodeURIComponent((record as any).tagNumber || "")}`}
+                  href={`/data-validation/batches?batchId=${(record.kind === "inventory" && record.batchId)}&animalId=${(record.kind === "inventory" && record.rawId) || record.id}&tag=${encodeURIComponent((record.kind === "inventory" && record.tagNumber) || "")}`}
                   className="text-[10px] font-bold text-emerald-100 hover:text-white bg-white/15 hover:bg-white/25 border border-white/20 px-2.5 py-0.5 rounded-md flex items-center gap-1 transition-colors backdrop-blur-xs"
                   title="Open parent herd and highlight this animal in the roster"
                 >
@@ -412,6 +403,9 @@ export function RecordDetailDialog({
 
         {/* ═══════════ SCROLLABLE INSPECTION BODY ═══════════ */}
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 bg-slate-50/50">
+          {record.kind === "incident" && record.type === "disease" && (
+            <DiseaseCaseFollowUp key={record.id} caseId={record.id} />
+          )}
 
           {/* ── LIFECYCLE PROGRESSION STEPPER ── */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
@@ -427,7 +421,7 @@ export function RecordDetailDialog({
                 <div className="min-w-0">
                   <p className="text-[11px] font-black text-slate-900 leading-tight">1. Initial Submission</p>
                   <p className="text-[10px] text-slate-500 truncate">
-                    {record.kind === "census" ? record.submittedBy : (record as any).farmerName || "Farmer Raiser"}
+                    {record.kind === "census" ? record.submittedBy : record.farmerName || "Farmer Raiser"}
                   </p>
                 </div>
               </div>
@@ -532,7 +526,7 @@ export function RecordDetailDialog({
                     Field Enumerator Notes & Observations
                   </span>
                   <p className="text-xs text-slate-700 leading-relaxed italic">
-                    "{record.remarks}"
+                    &quot;{record.remarks}&quot;
                   </p>
                 </div>
               )}
@@ -654,7 +648,7 @@ export function RecordDetailDialog({
                     Producer Declaration & Notes
                   </span>
                   <p className="text-xs text-slate-700 leading-relaxed italic">
-                    "{record.notes}"
+                    &quot;{record.notes}&quot;
                   </p>
                 </div>
               )}
@@ -886,7 +880,7 @@ export function RecordDetailDialog({
                         </a>
                       </div>
                       <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
-                        {record.animals.map((a: any) => (
+                        {record.animals.map((a) => (
                           <Link
                             key={a.id}
                             href={`/data-validation/batches?batchId=${encodeURIComponent(
@@ -1237,7 +1231,7 @@ export function RecordDetailDialog({
               </div>
               {record.reviewRemarks && (
                 <p className="text-xs text-slate-700 italic bg-white p-2.5 rounded-xl border border-slate-200/60">
-                  "{record.reviewRemarks}"
+                  &quot;{record.reviewRemarks}&quot;
                 </p>
               )}
             </div>

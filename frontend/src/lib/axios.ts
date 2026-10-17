@@ -1,4 +1,4 @@
-import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
+import axios,{ AxiosError,InternalAxiosRequestConfig } from 'axios';
 
 declare module 'axios' {
   export interface InternalAxiosRequestConfig {
@@ -8,19 +8,26 @@ declare module 'axios' {
   }
 }
 
-export const LOCAL_API_URL =
-  process.env.NEXT_PUBLIC_LOCAL_API_URL || 'http://localhost:8000';
-export const RENDER_API_URL =
-  process.env.NEXT_PUBLIC_RENDER_API_URL || 'https://smartlivestock-xkx4.onrender.com';
+// Domain clients use both /api/users/... and legacy /livestock/... routes.
+// Keep the base at the backend root, including for older /api environment values.
+const backendRoot = (url: string): string => url.replace(/\/+$/, '').replace(/\/api$/, '');
+export const LOCAL_API_URL = backendRoot(
+  process.env.NEXT_PUBLIC_LOCAL_API_URL || 'http://localhost:8000'
+);
+export const RENDER_API_URL = backendRoot(
+  process.env.NEXT_PUBLIC_RENDER_API_URL || 'https://smartlivestock-xkx4.onrender.com'
+);
 
 // Primary backend (local Django by default, or Render in production)
-export const PRIMARY_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || LOCAL_API_URL;
+export const PRIMARY_API_URL = backendRoot(
+  process.env.NEXT_PUBLIC_API_URL || LOCAL_API_URL
+);
 
 // Dynamic fallback backend
-export const FALLBACK_API_URL =
+export const FALLBACK_API_URL = backendRoot(
   process.env.NEXT_PUBLIC_FALLBACK_API_URL ||
-  (PRIMARY_API_URL.includes('onrender.com') ? LOCAL_API_URL : RENDER_API_URL);
+  (PRIMARY_API_URL.includes('onrender.com') ? LOCAL_API_URL : RENDER_API_URL)
+);
 
 // Check if fallback URL is allowed safely
 const isLocalhost = (hostname: string): boolean =>
@@ -188,11 +195,11 @@ api.interceptors.response.use(
       [502, 503, 504].includes(error.response?.status);
 
     const currentBaseUrl = originalRequest.baseURL || api.defaults.baseURL || PRIMARY_API_URL;
-    const targetFallbackUrl = currentBaseUrl.includes('onrender.com')
-      ? LOCAL_API_URL
-      : RENDER_API_URL;
+    const targetFallbackUrl = FALLBACK_API_URL;
 
     const canAttemptFallback =
+      ['get', 'head'].includes((originalRequest.method || 'get').toLowerCase()) &&
+      !originalRequest.headers?.Authorization &&
       isNetworkOrServerError &&
       !originalRequest._fallbackRetried &&
       targetFallbackUrl !== currentBaseUrl &&

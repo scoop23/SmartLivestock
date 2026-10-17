@@ -1,54 +1,46 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { httpError } from "@/lib/http-error";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
+import {
+Baby,
+Calendar,
+CheckCircle2,
+Clock,
+Info,
+Layers,
+MapPin,
+RotateCcw,
+Save,
+ShieldCheck,
+Sparkles,
+Tag,
+User
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Baby,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Droplets,
-  HeartPulse,
-  Info,
-  Layers,
-  MapPin,
-  Scale,
-  Send,
-  ShieldCheck,
-  Sparkles,
-  Tag,
-  User,
-  XCircle,
-  AlertCircle,
-  RotateCcw,
-  Pencil,
-  Save,
-  Check,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { LivestockBreedField } from "@/components/livestock-breed-field";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useEffect,useState } from "react";
 import { toast } from "sonner";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
-import SibatStatusBadge from "./sibat-status-badge";
 import {
-  useReviewSubmission,
-  useUpdateSubmissionData,
-  type UnifiedSubmissionItem,
+useReviewSubmission,
+useUpdateSubmissionData,
+type UnifiedSubmissionItem,
 } from "../sibat-analytics";
+import SibatStatusBadge from "./sibat-status-badge";
 
 interface SibatReviewDialogProps {
   submission: UnifiedSubmissionItem | null;
@@ -93,41 +85,33 @@ function AnimalPhoto({ submission }: { submission: UnifiedSubmissionItem }) {
   );
 }
 
-export default function SibatReviewDialog({
+export default function SibatReviewDialog(props: SibatReviewDialogProps) {
+  return <SibatReviewDialogContent key={`${props.open}:${props.submission?.id}`} {...props} />;
+}
+
+function SibatReviewDialogContent({
   submission,
   open,
   onOpenChange,
   onReviewSuccess,
 }: SibatReviewDialogProps) {
-  const [remarks, setRemarks] = useState("");
+  const [remarks, setRemarks] = useState(submission?.reviewRemarks || "");
   const [isEditing, setIsEditing] = useState(false);
   const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
 
   // Edit fields state
-  const [editTagNumber, setEditTagNumber] = useState("");
-  const [editBreed, setEditBreed] = useState("");
-  const [editSex, setEditSex] = useState("");
-  const [editWeight, setEditWeight] = useState("");
-  const [editHousingPen, setEditHousingPen] = useState("");
-  const [editFeedType, setEditFeedType] = useState("");
-  const [editTargetWeight, setEditTargetWeight] = useState("");
+  const [editTagNumber, setEditTagNumber] = useState(submission?.tagNumber || "");
+  const [editBreed, setEditBreed] = useState(submission?.breed || "");
+  const [editSex, setEditSex] = useState(submission?.sex || "Female");
+  const [editWeight, setEditWeight] = useState(submission?.weight != null ? String(submission.weight) : "");
+  const [editHousingPen, setEditHousingPen] = useState(submission?.housingPen || "");
+  const [editFeedType, setEditFeedType] = useState(submission?.feedType || "");
+  const [editTargetWeight, setEditTargetWeight] = useState(submission?.targetWeight ? String(submission.targetWeight) : "");
 
   const reviewMutation = useReviewSubmission();
   const updateMutation = useUpdateSubmissionData();
 
-  useEffect(() => {
-    if (submission) {
-      setRemarks(submission.reviewRemarks || "");
-      setEditTagNumber(submission.tagNumber || "");
-      setEditBreed(submission.breed || "");
-      setEditSex(submission.sex || "Female");
-      setEditWeight(submission.weight !== null && submission.weight !== undefined ? String(submission.weight) : "");
-      setEditHousingPen(submission.housingPen || "");
-      setEditFeedType(submission.feedType || "");
-      setEditTargetWeight(submission.targetWeight ? String(submission.targetWeight) : "");
-      setIsEditing(false);
-    }
-  }, [submission]);
+
 
   if (!submission) return null;
 
@@ -144,7 +128,7 @@ export default function SibatReviewDialog({
 
   const handleSaveEdits = async () => {
     try {
-      const payload: Record<string, any> = {};
+      const payload: Record<string, string | number> = {};
       if (isBatch) {
         if (editHousingPen !== undefined) payload.housing_pen = editHousingPen;
         if (editFeedType !== undefined) payload.feed_type = editFeedType;
@@ -162,9 +146,9 @@ export default function SibatReviewDialog({
       });
       toast.success("Record details updated successfully!");
       setIsEditing(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error("Failed to update record details", {
-        description: err?.response?.data?.error || "Check your inputs.",
+        description: httpError(err)?.response?.data?.error || "Check your inputs.",
       });
     }
   };
@@ -641,7 +625,7 @@ export default function SibatReviewDialog({
                         Animals Linked to this Herd ({submission.animals.length} heads):
                       </span>
                       <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                        {submission.animals.map((a: any) => (
+                        {submission.animals.map((a) => (
                           <Badge
                             key={a.id}
                             variant="secondary"

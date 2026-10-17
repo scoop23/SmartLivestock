@@ -1,43 +1,39 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getAttachedPhoto,saveAttachedPhoto } from "@/lib/photo-storage";
 import {
-  Stethoscope,
-  Skull,
-  Beef,
-  Milk,
-  Scale,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  User,
-  MapPin,
-  Tag,
-  Calendar,
-  Sparkles,
-  XCircle,
-  ClipboardCheck,
-  Camera,
-  Activity,
-  X,
-  ZoomIn,
-  Maximize2,
-  ExternalLink,
-  Image as ImageIcon,
+AlertTriangle,
+Beef,
+Calendar,
+Camera,
+CheckCircle2,
+ClipboardCheck,
+ExternalLink,
+Maximize2,
+Milk,
+Scale,
+ShieldCheck,
+Skull,
+Sparkles,
+Stethoscope,
+Tag,
+User,
+X,
+ZoomIn
 } from "lucide-react";
+import React,{ useState } from "react";
 import { toast } from "sonner";
-import { getAttachedPhoto, saveAttachedPhoto } from "@/lib/photo-storage";
 
 export type SibatReportType = "DISEASE" | "MORTALITY" | "SLAUGHTER" | "PRODUCTION" | "SALE";
 export type SibatStatus = "PENDING" | "VERIFIED" | "APPROVED" | "FLAGGED" | "FALSE_ALARM" | "SUBJECT_TO_REVISION" | "SUBJECT_FOR_REVISION" | "REJECTED";
@@ -534,7 +530,7 @@ export function SibatInspectionDialog({
                 <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
                   {isReadOnly
                     ? isApproved
-                      ? "This record has been officially certified by MAO. Field inspection findings and clinical notes are finalized."
+                      ? "MAO approved the report. The original inspection is locked; disease follow-up and resolution are recorded separately below."
                       : "Field findings and inspection details submitted to the Municipal Agriculture Office."
                     : "Conduct on-farm physical checks, verify clinical signs, and certify records for MAO municipal approval."}
                 </p>
@@ -554,6 +550,7 @@ export function SibatInspectionDialog({
         </DialogHeader>
 
         {/* ══ 2-COLUMN EXPANDED SIBAT INSPECTION LAYOUT ══ */}
+        {isDisease && <div className="mb-5"><DiseaseCaseFollowUp key={record.id} caseId={record.id} /></div>}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
           {/* ── LEFT COLUMN (6 COLS): LIVESTOCK & FARMER INITIAL REPORT ── */}
           <div className="min-w-0 lg:col-span-6 space-y-4">
@@ -1226,7 +1223,7 @@ export function SibatInspectionDialog({
                           Official Municipal Record (MAO Approved)
                         </p>
                         <p className="text-emerald-800 leading-relaxed">
-                          This health and mortality record has been validated and officially approved by the Municipal Agriculture Office. Field inspection notes are finalized and locked.
+                          MAO approved this report and locked its original field inspection. Disease follow-up history and official resolution are recorded separately.
                         </p>
                         {record.maoApproval?.approvedBy && (
                           <div className="mt-2 pt-2 border-t border-emerald-200 flex items-center justify-between text-[11px] font-medium text-emerald-900 flex-wrap gap-1">

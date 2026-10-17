@@ -22,6 +22,11 @@ function loadComponent(source) {
   exports: result,
   require: (id) => {
     if (id.startsWith("@/components/ui/")) return new Proxy({}, { get: () => wrapper });
+    if (id === "@/components/livestock-breed-field") return { LivestockBreedField: wrapper };
+    if (id === "@/lib/livestock-age") return loadComponent(ts.transpileModule(
+      fs.readFileSync(path.join(__dirname, "../src/lib/livestock-age.ts"), "utf8"),
+      { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+    ).outputText);
     if (id === "../sibat-analytics") return {
       useReviewSubmission: () => ({ isPending: false }),
       useUpdateSubmissionData: () => ({ isPending: false }),

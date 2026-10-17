@@ -36,8 +36,8 @@ test("dashboard and overview use the canonical quantity, keeping all species", (
   assert.equal(chart.totalLivestock, 12);
   assert.equal(chart.specieComposition.reduce((n, row) => n + row.value, 0), 12);
   assert.equal(chart.barangayHerdDistribution[0].total, 12);
-  assert.equal(chart.barangayHerdDistribution[0].other, 1);
-  assert.equal(chart.barangayHerdDistribution[0].poultry, 7);
+  assert.equal(chart.barangayHerdDistribution[0].other, 8);
+  assert.equal(chart.barangayHerdDistribution[0].goat, 1);
   assert.equal(overview[0].totalLivestock, 12);
   assert.equal(overview[0].cattleCount + overview[0].goatCount + overview[0].otherCount, 12);
   assert.equal(overview[0].registeredFarmers, 2);

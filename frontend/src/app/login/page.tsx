@@ -1,47 +1,49 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  CheckCircle2,
-  ShieldCheck,
-  Activity,
-  MapPin,
-  ArrowRight,
-  Sparkles,
-  HelpCircle,
-  Loader2,
-  Radio,
-  TrendingUp,
-  Wifi,
-} from 'lucide-react';
-import { Icon } from 'lucide-react';
+import { useClientReady } from "@/hooks/use-browser-state";
 import { cowHead } from '@lucide/lab';
 import { jwtDecode } from 'jwt-decode';
+import {
+Activity,
+AlertCircle,
+ArrowRight,
+CheckCircle2,
+Eye,
+EyeOff,
+HelpCircle,
+Icon,
+Loader2,
+Lock,
+Mail,
+MapPin,
+Radio,
+ShieldCheck,
+Sparkles,
+TrendingUp,
+Wifi,
+} from 'lucide-react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
-import api from '@/lib/axios';
-import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/auth-context';
+import api from '@/lib/axios';
+import { isAxiosError } from 'axios';
 
 interface DecodedJWT {
   email: string;
-  role: "MAO" | "FARMER" | "SIBAT" | "AUCTION" | "SLAUGHTERHOUSESTAFF";
+  role: "MAO" | "ADMIN" | "FARMER" | "SIBAT" | "CBAT" | "AUCTION" | "SLAUGHTERHOUSESTAFF";
 }
 
 type AuthErrorType = 'CREDENTIALS' | 'PENDING' | 'NETWORK' | 'GENERAL';
@@ -57,10 +59,15 @@ export default function LoginPage() {
   const { fetchUser } = useAuth();
 
   // Form states
-  const [email, setEmail] = useState('');
+  const ready = useClientReady();
+  const [emailDraft, setEmail] = useState<string | null>(null);
+  let savedEmail = '';
+  try { if (ready) savedEmail = localStorage.getItem('smartlivestock_remember_email') || ''; } catch {}
+  const email = emailDraft ?? savedEmail;
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberChoice, setRememberMe] = useState<boolean | null>(null);
+  const rememberMe = rememberChoice ?? Boolean(savedEmail);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<AuthErrorState | null>(null);
   const [isShaking, setIsShaking] = useState(false);
@@ -73,19 +80,6 @@ export default function LoginPage() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState('');
-
-  // Load remembered email on mount
-  useEffect(() => {
-    try {
-      const savedEmail = localStorage.getItem('smartlivestock_remember_email');
-      if (savedEmail) {
-        setEmail(savedEmail);
-        setRememberMe(true);
-      }
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, []);
 
   const triggerShake = () => {
     setIsShaking(true);
@@ -157,7 +151,7 @@ export default function LoginPage() {
         router.push('/admin');
       } else if (normalizedRole === 'FARMER') {
         router.push('/farmer');
-      } else if (normalizedRole === 'SIBAT') {
+      } else if (normalizedRole === 'SIBAT' || normalizedRole === 'CBAT') {
         router.push('/sibat');
       } else if (normalizedRole === 'AUCTION') {
         router.push('/auction');
@@ -166,9 +160,11 @@ export default function LoginPage() {
       } else {
         router.push('/farmer');
       }
-    } catch (err: any) {
-      const status = err.response?.status;
-      const data = err.response?.data;
+    } catch (err: unknown) {
+      const response = isAxiosError<{ account_status?: string | string[]; detail?: string }>(err)
+        ? err.response : undefined;
+      const status = response?.status;
+      const data = response?.data;
 
       triggerShake();
 
@@ -209,7 +205,7 @@ export default function LoginPage() {
         toast.error('Authentication Failed', {
           description: 'Invalid email or password. Please try again.',
         });
-      } else if (err.code === 'ERR_NETWORK') {
+      } else if (isAxiosError(err) && err.code === 'ERR_NETWORK') {
         setAuthError({
           type: 'NETWORK',
           title: 'Server Connection Error',
@@ -759,7 +755,7 @@ export default function LoginPage() {
               Reset your password
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 font-medium leading-relaxed">
-              Enter your registered account email and we'll send you verification instructions to regain access.
+              Enter your registered account email and we&apos;ll send you verification instructions to regain access.
             </DialogDescription>
           </DialogHeader>
 

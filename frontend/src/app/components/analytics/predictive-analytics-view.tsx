@@ -1,52 +1,46 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  ReferenceLine,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  Activity,
-  AlertTriangle,
-  Award,
-  BarChart2,
-  Calendar,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Cpu,
-  Database,
-  DollarSign,
-  HelpCircle,
-  Info,
-  Layers,
-  LineChart as LineChartIcon,
-  RefreshCw,
-  Scale,
-  ShieldAlert,
-  Sparkles,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
-import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
+import api from "@/lib/axios";
+import {
+Activity,
+AlertTriangle,
+Award,
+Calendar,
+CheckCircle2,
+Database,
+HelpCircle,
+Info,
+LineChart as LineChartIcon,
+RefreshCw,
+Scale,
+ShieldAlert,
+Sparkles,
+TrendingDown,
+TrendingUp
+} from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
+import {
+Bar,
+BarChart,
+CartesianGrid,
+Cell,
+Legend,
+Line,
+LineChart,
+ReferenceLine,
+ResponsiveContainer,
+Scatter,
+ScatterChart,
+Tooltip,
+XAxis,
+YAxis,
+} from "recharts";
 
 // ---------------------------------------------------------------------------
 // TYPE DEFINITIONS
@@ -1245,8 +1239,8 @@ export default function PredictiveAnalyticsView() {
             <div className="p-3 bg-white/80 rounded-xl border border-emerald-100 space-y-1">
               <span className="font-bold text-emerald-900 block">Analytics (When) vs. GIS (Where)</span>
               <p>
-                Predictive Analytics answers <em>"What is happening over time and what may happen next?"</em>
-                GIS answers <em>"Where is it happening geographically?"</em>
+                Predictive Analytics answers <em>&quot;What is happening over time and what may happen next?&quot;</em>
+                GIS answers <em>&quot;Where is it happening geographically?&quot;</em>
                 They operate as distinct, complementary analytical layers.
               </p>
             </div>
@@ -1422,7 +1416,7 @@ export default function PredictiveAnalyticsView() {
                         labelStyle={{ color: "#0f172a", fontWeight: 600 }}
                         itemStyle={{ color: "#334155" }}
                         cursor={ANALYTICS_TOOLTIP_CURSOR}
-                        formatter={(val: any) => [`${val} ${unitLabel}`, "Recorded Actual"]}
+                        formatter={(val) => [`${val} ${unitLabel}`, "Recorded Actual"]}
                       />
                       <Line
                         type="monotone"
@@ -1975,7 +1969,7 @@ export default function PredictiveAnalyticsView() {
                         labelStyle={{ color: "#0f172a", fontWeight: 600 }}
                         itemStyle={{ color: "#334155" }}
                         cursor={ANALYTICS_TOOLTIP_CURSOR}
-                        formatter={(val: any, name: any) => [`${val} ${normalized.unitLabel}`, name]}
+                        formatter={(val, name) => [`${val} ${normalized.unitLabel}`, name]}
                       />
                       <Legend
                         verticalAlign="bottom"
@@ -2042,7 +2036,7 @@ export default function PredictiveAnalyticsView() {
                         labelStyle={{ color: "#0f172a", fontWeight: 600 }}
                         itemStyle={{ color: "#334155" }}
                         cursor={ANALYTICS_TOOLTIP_CURSOR}
-                        formatter={(val: any) => [`${val} ${unitLabel}`, "MAE"]}
+                        formatter={(val) => [`${val} ${unitLabel}`, "MAE"]}
                       />
                       <Bar dataKey="mae" radius={[4, 4, 0, 0]}>
                         {modelBarData.map((entry, index) => (
@@ -2088,7 +2082,7 @@ export default function PredictiveAnalyticsView() {
                         labelStyle={{ color: "#0f172a", fontWeight: 600 }}
                         itemStyle={{ color: "#334155" }}
                         cursor={ANALYTICS_TOOLTIP_CURSOR}
-                        formatter={(val: any) => [`${val} ${unitLabel}`, "RMSE"]}
+                        formatter={(val) => [`${val} ${unitLabel}`, "RMSE"]}
                       />
                       <Bar dataKey="rmse" radius={[4, 4, 0, 0]}>
                         {modelBarData.map((entry, index) => (
@@ -2133,7 +2127,7 @@ export default function PredictiveAnalyticsView() {
                         labelStyle={{ color: "#0f172a", fontWeight: 600 }}
                         itemStyle={{ color: "#334155" }}
                         cursor={ANALYTICS_TOOLTIP_CURSOR}
-                        formatter={(val: any, _name: any, item: any) => [
+                        formatter={(val, _name, item) => [
                           item.payload.isNegativeR2
                             ? `${item.payload.r2} (Negative R² indicates worse than naive mean)`
                             : item.payload.r2,
