@@ -104,15 +104,16 @@ class GISRoleScopingTestCase(TestCase):
         )
 
         # Approved inventory for Farmer Juan (8 heads of cattle)
-        LivestockInventory.objects.create(
+        LivestockInventory.objects.bulk_create([LivestockInventory(
             farmer=self.farmer_profile,
             livestock_type=self.cattle_type,
-            entry_type=LivestockInventory.EntryType.BATCH,
-            quantity=8,
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            quantity=1,
+            tag_number=f"JUAN-{index:03}",
             status=LivestockInventory.StatusType.APPROVED,
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
             created_by=self.farmer_user,
-        )
+        ) for index in range(1, 9)])
 
         # 5. Farmer 2 in Manggas (15 heads of cattle)
         self.farmer_user_2 = User.objects.create_user(
@@ -126,15 +127,16 @@ class GISRoleScopingTestCase(TestCase):
             barangay=self.b_manggas,
             address="Purok 1, Manggas, Padre Garcia",
         )
-        LivestockInventory.objects.create(
+        LivestockInventory.objects.bulk_create([LivestockInventory(
             farmer=self.farmer_profile_2,
             livestock_type=self.cattle_type,
-            entry_type=LivestockInventory.EntryType.BATCH,
-            quantity=15,
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            quantity=1,
+            tag_number=f"PEDRO-{index:03}",
             status=LivestockInventory.StatusType.APPROVED,
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
             created_by=self.farmer_user_2,
-        )
+        ) for index in range(1, 16)])
 
         # 6. Auction Staff User
         self.auction_user = User.objects.create_user(

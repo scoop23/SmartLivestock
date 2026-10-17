@@ -15,6 +15,9 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.farmer_role = Role.objects.create(role_name=Role.UserRoles.FARMER)
         self.sibat_role = Role.objects.create(role_name=Role.UserRoles.SIBAT)
         self.mao_role = Role.objects.create(role_name=Role.UserRoles.MAO)
+        self.auction_role = Role.objects.create(role_name=Role.UserRoles.AUCTION)
+        self.auction = User.objects.create_user(username="auction-transfer", password=None, role=self.auction_role,
+            email="auction-transfer@example.test", account_status=User.AccountStatus.APPROVED)
         self.barangay = Barangay.objects.create(barangay_name="Manggas", latitude=13.8, longitude=121.2)
         self.cattle = LivestockType.objects.create(name="Cattle")
         self.owner_a = self.make_farmer("owner-a", "RSBSA-A")
@@ -33,7 +36,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         )
         self.production = ProductionRecord.objects.create(
             livestock=self.animal, production_type="MILK", quantity=Decimal("10"), unit="LITERS",
-            record_date=date(2026, 1, 15), status="APPROVED", created_by=self.owner_a.user,
+            record_date=date(2026, 1, 15), status="APPROVED", created_by=self.owner_a.user, farmer_at_record=self.owner_a,
         )
 
     def make_farmer(self, username, rsbsa):
@@ -42,7 +45,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         return Farmer.objects.create(user=user, barangay=self.barangay, rsbsa_number=rsbsa, address="Manggas")
 
     def request_transfer(self):
-        self.client.force_authenticate(self.owner_a.user)
+        self.client.force_authenticate(self.auction)
         return self.client.post("/livestock/ownership-transfers/", {
             "livestock": self.animal.pk,
             "new_owner_identifier": self.owner_b.rsbsa_number,
@@ -53,7 +56,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
             "province": "Batangas",
         }, format="json")
 
-    def test_mao_approval_updates_same_identity_and_retains_former_owner_history(self):
+    def test_mao_approval_marks_seller_animal_sold_and_retains_history(self):
         response = self.request_transfer()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertIsNone(response.data["purchase_price"])
@@ -65,7 +68,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
 
         self.client.force_authenticate(self.sibat)
         verified = self.client.post(f"/livestock/ownership-transfers/{response.data['id']}/review/", {"status": "VERIFIED"})
-        self.assertEqual(verified.status_code, status.HTTP_200_OK, verified.data)
+        self.assertEqual(verified.status_code, status.HTTP_403_FORBIDDEN, verified.data)
         self.client.force_authenticate(self.mao)
         mao_history = self.client.get("/livestock/ownership-transfers/")
         self.assertEqual(mao_history.status_code, status.HTTP_200_OK)
@@ -76,11 +79,11 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.animal.refresh_from_db()
         self.assertEqual(self.animal.pk, response.data["livestock"])
         self.assertEqual(self.animal.tag_number, "CAT-102")
-        self.assertEqual(self.animal.farmer_id, self.owner_b.pk)
-        self.assertEqual(self.animal.operational_status, LivestockInventory.OperationalStatus.ACTIVE)
-        mao_inventory = self.client.get("/livestock/inventory/")
+        self.assertEqual(self.animal.farmer_id, self.owner_a.pk)
+        self.assertEqual(self.animal.operational_status, LivestockInventory.OperationalStatus.SOLD)
+        mao_inventory = self.client.get("/livestock/inventory/", {"include_inactive": "true"})
         mao_animal = next(row for row in mao_inventory.data if row["id"] == self.animal.pk)
-        self.assertEqual(mao_animal["farmer"], self.owner_b.pk)
+        self.assertEqual(mao_animal["farmer"], self.owner_a.pk)
         self.client.force_authenticate(self.owner_a.user)
         old_inventory = self.client.get("/livestock/inventory/")
         old_history = self.client.get("/livestock/ownership-transfers/")
@@ -94,12 +97,11 @@ class OwnershipTransferWorkflowTests(APITestCase):
         new_inventory = self.client.get("/livestock/inventory/")
         new_history = self.client.get("/livestock/ownership-transfers/")
         new_production = self.client.get("/production/records/")
-        self.assertTrue(any(row["id"] == self.animal.pk for row in new_inventory.data))
+        self.assertFalse(any(row["id"] == self.animal.pk for row in new_inventory.data))
         self.assertEqual(len(new_history.data), 1)
         self.assertFalse(any(row["id"] == self.production.pk for row in new_production.data))
         qr = self.client.get("/api/inspections/livestock-lookup/", {"code": f"SL-LIVESTOCK:{self.animal.pk}"})
-        self.assertEqual(qr.status_code, status.HTTP_200_OK)
-        self.assertEqual(qr.data["id"], self.animal.pk)
+        self.assertEqual(qr.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_returned_request_cannot_be_retargeted_to_another_animal(self):
         response = self.request_transfer()
@@ -111,7 +113,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         transfer = LivestockOwnershipTransfer.objects.get(pk=response.data["id"])
         transfer.status = "SUBJECT_TO_REVISION"
         transfer.save(update_fields=["status"])
-        self.client.force_authenticate(self.owner_a.user)
+        self.client.force_authenticate(self.auction)
         patched = self.client.patch(f"/livestock/ownership-transfers/{transfer.pk}/", {
             "livestock": other_animal.pk,
         }, format="json")
@@ -137,7 +139,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.client.force_authenticate(self.sibat)
         verified = self.client.post(f"/livestock/ownership-transfers/{response.data['id']}/review/", {"status": "VERIFIED"})
-        self.assertEqual(verified.status_code, status.HTTP_200_OK, verified.data)
+        self.assertEqual(verified.status_code, status.HTTP_403_FORBIDDEN, verified.data)
         self.client.force_authenticate(self.mao)
         approved = self.client.post(f"/livestock/ownership-transfers/{response.data['id']}/review/", {"status": "APPROVED"})
         self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
@@ -145,7 +147,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.animal.refresh_from_db()
         herd_mate.refresh_from_db()
         self.assertEqual(self.animal.pk, original_id)
-        self.assertEqual(self.animal.farmer_id, self.owner_b.pk)
+        self.assertEqual(self.animal.farmer_id, self.owner_a.pk)
         self.assertIsNone(self.animal.batch_id)
         self.assertEqual(herd_mate.farmer_id, self.owner_a.pk)
         self.assertEqual(herd_mate.batch_id, herd.pk)
@@ -167,7 +169,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
                     entry_type="INDIVIDUAL", quantity=1, tag_number=f"CAT-EXT-{index}",
                     status="APPROVED", operational_status="ACTIVE", created_by=self.owner_a.user,
                 )
-                self.client.force_authenticate(self.owner_a.user)
+                self.client.force_authenticate(self.auction)
                 response = self.client.post("/livestock/ownership-transfers/", {
                     "livestock": animal.pk,
                     "owner_type": owner_type,
@@ -192,7 +194,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.animal.batch = herd
         self.animal.save(update_fields=["batch"])
         original_id = self.animal.pk
-        self.client.force_authenticate(self.owner_a.user)
+        self.client.force_authenticate(self.auction)
         created = self.client.post("/livestock/ownership-transfers/", {
             "livestock": original_id,
             "owner_type": "COMPANY",
@@ -208,7 +210,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
 
         self.client.force_authenticate(self.sibat)
         verified = self.client.post(f"/livestock/ownership-transfers/{created.data['id']}/review/", {"status": "VERIFIED"})
-        self.assertEqual(verified.status_code, status.HTTP_200_OK, verified.data)
+        self.assertEqual(verified.status_code, status.HTTP_403_FORBIDDEN, verified.data)
         self.client.force_authenticate(self.mao)
         approved = self.client.post(f"/livestock/ownership-transfers/{created.data['id']}/review/", {"status": "APPROVED"})
         self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
@@ -226,7 +228,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.assertEqual(history.data[0]["external_owner_address"], "Padre Garcia, Batangas")
 
     def test_owner_type_invariants_are_validated(self):
-        self.client.force_authenticate(self.owner_a.user)
+        self.client.force_authenticate(self.auction)
         base = {
             "livestock": self.animal.pk,
             "transfer_certificate_number": "PG-OWNER-INVARIANT",
@@ -265,7 +267,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
             tag_number="CAT-SOLD", status="APPROVED", operational_status="SOLD",
             created_by=self.owner_a.user,
         )
-        self.client.force_authenticate(self.owner_a.user)
+        self.client.force_authenticate(self.auction)
         for animal, certificate in (
             (batch_record, "PG-BATCH-TRANSFER"),
             (pending_animal, "PG-PENDING-TRANSFER"),
@@ -295,7 +297,7 @@ class OwnershipTransferWorkflowTests(APITestCase):
         self.assertIn("transfer_date", response.data)
 
     def test_same_owner_and_unknown_rsbsa_are_rejected(self):
-        self.client.force_authenticate(self.owner_a.user)
+        self.client.force_authenticate(self.auction)
         base = {
             "livestock": self.animal.pk,
             "transfer_certificate_number": "PG-TRANSFER-OTHER",

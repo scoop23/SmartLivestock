@@ -22,7 +22,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
         if new_status == "SUBJECT_TO_REVISION":
             notify_review_revision((record.livestock or record.batch).farmer, reviewer_user,
                 title=f"Disease declaration #{record.pk} returned for revision", message=remarks,
-                link=f"/sibat-alerts?recordType=DISEASE&recordId={record.pk}")
+                link=f"/sibat-alerts?recordType=DISEASE&recordId={record.pk}", include_cbat=True)
         target_farmers = set()
         if record.livestock and getattr(record.livestock, "farmer", None) and getattr(record.livestock.farmer, "user", None):
             target_farmers.add(record.livestock.farmer.user)
@@ -118,7 +118,7 @@ def _notify_disease_case_created(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"New Disease Case Reported: DIS-{instance.id}",
                 message=f"Farmer {reporter_name} reported '{instance.name}' for {animal_tag}. Requires on-farm verification.",
-                link=f"/sibat-alerts?recordType=DISEASE&recordId={instance.pk}" if role_val == "SIBAT" else f"/data-validation?domain=incidents&recordType=DISEASE&recordId={instance.pk}",
+                link=f"/sibat-alerts?recordType=DISEASE&recordId={instance.pk}" if role_val in {"SIBAT", "CBAT"} else f"/data-validation?domain=incidents&recordType=DISEASE&recordId={instance.pk}",
                 related_entity_type="disease_case",
                 related_entity_id=instance.pk,
             )
@@ -138,7 +138,7 @@ def _notify_disease_case_resubmitted(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"Revised Disease Report: DIS-{instance.id}",
                 message=f"Farmer {reporter_name} resubmitted revised report for {animal_tag}. Ready for re-evaluation.",
-                link=f"/sibat-alerts?recordType=DISEASE&recordId={instance.pk}" if role_val == "SIBAT" else f"/data-validation?domain=incidents&recordType=DISEASE&recordId={instance.pk}",
+                link=f"/sibat-alerts?recordType=DISEASE&recordId={instance.pk}" if role_val in {"SIBAT", "CBAT"} else f"/data-validation?domain=incidents&recordType=DISEASE&recordId={instance.pk}",
                 related_entity_type="disease_case",
                 related_entity_id=instance.pk,
             )
@@ -151,7 +151,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
         if new_status == "SUBJECT_TO_REVISION":
             notify_review_revision((record.livestock or record.batch).farmer, reviewer_user,
                 title=f"Mortality declaration #{record.pk} returned for revision", message=remarks,
-                link=f"/sibat-alerts?recordType=MORTALITY&recordId={record.pk}")
+                link=f"/sibat-alerts?recordType=MORTALITY&recordId={record.pk}", include_cbat=True)
         target_farmers = set()
         if record.livestock and getattr(record.livestock, "farmer", None) and getattr(record.livestock.farmer, "user", None):
             target_farmers.add(record.livestock.farmer.user)
@@ -260,7 +260,7 @@ def _notify_mortality_record_created(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"New Mortality Reported: MOR-{instance.id}",
                 message=f"Farmer {reporter_name} reported {instance.death_count} death(s) for {animal_tag}. Cause: '{instance.cause}'. Requires on-site verification.",
-                link=f"/sibat-alerts?recordType=MORTALITY&recordId={instance.pk}" if role_val == "SIBAT" else f"/data-validation?domain=incidents&recordType=MORTALITY&recordId={instance.pk}",
+                link=f"/sibat-alerts?recordType=MORTALITY&recordId={instance.pk}" if role_val in {"SIBAT", "CBAT"} else f"/data-validation?domain=incidents&recordType=MORTALITY&recordId={instance.pk}",
                 related_entity_type="mortality_record",
                 related_entity_id=instance.pk,
             )
@@ -289,7 +289,7 @@ def _notify_mortality_record_resubmitted(instance, user):
                 priority=Notification.Priority.HIGH,
                 title=f"Revised Mortality Report: MOR-{instance.id}",
                 message=f"Farmer {reporter_name} resubmitted revised mortality declaration for {animal_tag}. Ready for re-evaluation.",
-                link=f"/sibat-alerts?recordType=MORTALITY&recordId={instance.pk}" if role_val == "SIBAT" else f"/data-validation?domain=incidents&recordType=MORTALITY&recordId={instance.pk}",
+                link=f"/sibat-alerts?recordType=MORTALITY&recordId={instance.pk}" if role_val in {"SIBAT", "CBAT"} else f"/data-validation?domain=incidents&recordType=MORTALITY&recordId={instance.pk}",
                 related_entity_type="mortality_record",
                 related_entity_id=instance.pk,
             )

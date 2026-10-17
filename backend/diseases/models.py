@@ -7,6 +7,12 @@ from django.db.models.fields import related
 # linked to LivestockInventory so we can trace which animals are affected.
 # affected_count may differ from the inventory quantity (not all animals may be sick).
 class DiseaseCase(models.Model):
+    class ClinicalStatus(models.TextChoices):
+        NOT_RECORDED = "NOT_RECORDED", "Resolution not recorded"
+        OPEN = "OPEN", "Awaiting resolution"
+        RECOVERED = "RECOVERED", "Recovered"
+        CLOSED = "CLOSED", "Closed"
+
     class DiseaseStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified"
@@ -66,6 +72,11 @@ class DiseaseCase(models.Model):
         related_name="created_disease_case",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # Review approval and clinical resolution are independent. Existing/imported
+    # cases remain unknown until an authorized officer records an outcome.
+    clinical_status = models.CharField(
+        max_length=16, choices=ClinicalStatus.choices, default=ClinicalStatus.NOT_RECORDED,
+    )
 
     def __str__(self):
         target = self.livestock.tag_number if self.livestock else (self.batch.batch_code if self.batch else "Unknown")
@@ -75,6 +86,24 @@ class DiseaseCase(models.Model):
 # Records livestock deaths. Optionally linked to a DiseaseCase via source_disease_case
 # to track disease-related mortality. If the death is unrelated to a known disease,
 # source_disease_case can be null and cause describes the reason directly.
+class DiseaseCaseFollowUp(models.Model):
+    class EventType(models.TextChoices):
+        FARMER_UPDATE = "FARMER_UPDATE", "Farmer follow-up"
+        RECOVERED = "RECOVERED", "Recovered"
+        CLOSED = "CLOSED", "Closed"
+
+    case = models.ForeignKey(DiseaseCase, on_delete=models.PROTECT, related_name="follow_ups")
+    event_type = models.CharField(max_length=16, choices=EventType.choices)
+    observed_on = models.DateField()
+    notes = models.TextField(max_length=2000)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="disease_case_follow_ups")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
 class MortalityRecord(models.Model):
     class MortalityRecordStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"

@@ -46,6 +46,7 @@ def inventory_list_create(request):
             notify_role(
                 barangay_id=inventory.farmer.barangay_id,
                 role_name="SIBAT",
+                include_cbat=True,
                 notification_type=Notification.NotificationType.SIBAT,
                 priority=Notification.Priority.MEDIUM,
                 title="New Livestock Entry Awaiting Verification",
@@ -236,6 +237,7 @@ def inventory_detail(request, pk):
             notify_role(
                 barangay_id=inventory.farmer.barangay_id,
                 role_name="SIBAT",
+                include_cbat=True,
                 notification_type=Notification.NotificationType.SIBAT,
                 priority=Notification.Priority.MEDIUM,
                 title="Livestock Entry Resubmitted",

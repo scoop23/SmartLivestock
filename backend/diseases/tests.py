@@ -377,12 +377,12 @@ class DiseaseAndMortalityAPITests(APITestCase):
 
         self.client.force_authenticate(user=self.farmer1_user)
         payload = {
-            "livestock": self.farmer1_livestock.pk,
+            "livestocks": [self.farmer1_livestock.pk],
             "death_count": 1,
             "cause": "Severe Bloat",
             "record_date": "2026-09-19",
         }
-        res = self.client.post("/diseases/mortality/", payload)
+        res = self.client.post("/diseases/mortality/", payload, format="json")
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         mortality_id = res.data["id"]
 

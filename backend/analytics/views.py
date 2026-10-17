@@ -1,5 +1,4 @@
 from django.db.models import Count, F, Q, Sum
-from django.conf import settings
 from django.db.utils import DatabaseError
 import logging
 from django.utils import timezone
@@ -332,6 +331,10 @@ def census_summary(request):
     )
 
 
+class ForecastHorizonSerializer(serializers.Serializer):
+    horizon = serializers.IntegerField(min_value=1, max_value=12, default=6)
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, isMAO | isSibat])
 def predictive_model_comparison(request):
@@ -340,8 +343,6 @@ def predictive_model_comparison(request):
     on chronological train/test split of approved municipal data across production, disease, mortality,
     slaughter, and auction domains.
     """
-    from .services.predictive.evaluation import evaluate_all_models
-
     domain = request.query_params.get("domain", "production").lower()
     target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
     target = target.upper()
@@ -352,9 +353,13 @@ def predictive_model_comparison(request):
         )
     )
     unit = request.query_params.get("unit", default_unit).upper()
-    horizon = int(request.query_params.get("horizon", 6))
+    parameters = ForecastHorizonSerializer(data=request.query_params)
+    parameters.is_valid(raise_exception=True)
+    horizon = parameters.validated_data["horizon"]
 
     try:
+        from .services.predictive.evaluation import evaluate_all_models
+
         res = evaluate_all_models(
             domain=domain,
             target=target,
@@ -363,7 +368,9 @@ def predictive_model_comparison(request):
             horizon_months=horizon,
         )
         return Response(res)
-    except Exception as e:
+    except APIException:
+        raise
+    except Exception:
         import logging
         logging.getLogger(__name__).exception("Predictive model comparison evaluation failed")
         return Response(
@@ -371,12 +378,12 @@ def predictive_model_comparison(request):
                 "status": "error",
                 "forecast_available": False,
                 "readiness_status": "NOT_READY",
-                "message": f"Predictive model comparison failed: {str(e)}",
+                "message": "Predictive model comparison is temporarily unavailable.",
                 "domain": domain,
                 "target": {"domain": domain, "target": target, "unit": unit},
                 "models": [],
             },
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR if not settings.DEBUG else status.HTTP_200_OK,
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
@@ -386,8 +393,6 @@ def predictive_forecast(request):
     """
     Generates out-of-sample future projections using the best evaluated model across any domain.
     """
-    from .services.predictive.forecasting import generate_future_forecast
-
     domain = request.query_params.get("domain", "production").lower()
     target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
     target = target.upper()
@@ -398,10 +403,14 @@ def predictive_forecast(request):
         )
     )
     unit = request.query_params.get("unit", default_unit).upper()
-    horizon = int(request.query_params.get("horizon", 6))
+    parameters = ForecastHorizonSerializer(data=request.query_params)
+    parameters.is_valid(raise_exception=True)
+    horizon = parameters.validated_data["horizon"]
     preferred_model = request.query_params.get("model")
 
     try:
+        from .services.predictive.forecasting import generate_future_forecast
+
         res = generate_future_forecast(
             domain=domain,
             target=target,
@@ -411,7 +420,9 @@ def predictive_forecast(request):
             user=request.user,
         )
         return Response(res)
-    except Exception as e:
+    except APIException:
+        raise
+    except Exception:
         import logging
         logging.getLogger(__name__).exception("Predictive forecast generation failed")
         return Response(
@@ -419,13 +430,13 @@ def predictive_forecast(request):
                 "status": "error",
                 "forecast_available": False,
                 "readiness_status": "NOT_READY",
-                "message": f"Predictive forecast generation failed: {str(e)}",
+                "message": "Predictive forecast generation is temporarily unavailable.",
                 "domain": domain,
                 "target": {"domain": domain, "target": target, "unit": unit},
                 "forecast": [],
                 "chart_data": [],
             },
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR if not settings.DEBUG else status.HTTP_200_OK,
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 

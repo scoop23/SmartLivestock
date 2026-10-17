@@ -194,7 +194,7 @@ class AccessScopeTests(APITestCase):
     def test_submission_and_health_notifications_reach_current_officers(self):
         self.authenticate(self.other)
         for endpoint,payload in (
-            ("/livestock/inventory/", {"livestock_type":self.species.pk,"entry_type":"INDIVIDUAL","quantity":1}),
+            ("/livestock/inventory/", {"livestock_type":self.species.pk,"entry_type":"INDIVIDUAL","quantity":1,"tag_number":"REMOTE-OWNER-001"}),
             ("/production/records/", {"livestock":self.remote_animal.pk,"quantity":2,"unit":"LITERS","production_type":"MILK","record_date":date.today().isoformat()}),
             ("/diseases/cases/", {"livestock":self.remote_animal.pk,"name":"Observation","affected_count":1,"record_date":date.today().isoformat()}),
             ("/diseases/mortality/", {"livestock":self.remote_animal.pk,"cause":"Observation","death_count":1,"record_date":date.today().isoformat()}),
@@ -211,7 +211,7 @@ class AccessScopeTests(APITestCase):
     def test_returned_inventory_resubmits_to_current_scope(self):
         self.remote_animal.status="SUBJECT_TO_REVISION";self.remote_animal.save(update_fields=["status"])
         self.authenticate(self.other)
-        response=self.client.patch(f"/livestock/inventory/{self.remote_animal.pk}/",{"tag_number":"Revised"})
+        response=self.client.patch(f"/livestock/inventory/{self.remote_animal.pk}/",{"tag_number":"REMOTE-OWNER-002"})
         self.assertEqual(response.status_code,200)
         self.remote_animal.refresh_from_db()
         self.assertEqual(self.remote_animal.status,"PENDING")

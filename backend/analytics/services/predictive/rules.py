@@ -34,6 +34,7 @@ from django.utils import timezone
 from django.db.models import Sum
 
 from diseases.models import DiseaseCase
+from smartlivestock.workflows import scope_reviewer_queryset
 from ..population import population_summary
 from .forecasting import generate_future_forecast
 
@@ -140,9 +141,11 @@ def generate_prescriptive_recommendations(
     today = timezone.localdate()
     ninety_days_ago = today - timedelta(days=90)
 
-    recent_disease_cases = DiseaseCase.objects.filter(
+    recent_disease_cases = scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(
         status=DiseaseCase.DiseaseStatus.APPROVED,
         record_date__gte=ninety_days_ago,
+        record_date__lte=today,
+        clinical_status__in=[DiseaseCase.ClinicalStatus.OPEN, DiseaseCase.ClinicalStatus.NOT_RECORDED],
     )
     case_count = recent_disease_cases.count()
     affected_heads = recent_disease_cases.aggregate(total=Sum("affected_count"))["total"] or 0
@@ -158,9 +161,9 @@ def generate_prescriptive_recommendations(
                 f"within the past 90 days."
             ),
             "evidence": {
-                "active_cases_last_90_days": case_count,
+                "approved_reports_last_90_days": case_count,
                 "total_affected_heads": affected_heads,
-                "threshold_applied": "> 0 active cases",
+                "threshold_applied": "> 0 approved reports in the past 90 days",
             },
             "recommendation": (
                 "Deploy SIBAT surveillance officers for targeted livestock health inspections, verify herd "
@@ -183,10 +186,10 @@ def generate_prescriptive_recommendations(
             "rule": "LOW_VACCINATION_COVERAGE",
             "category": "Preventive Healthcare",
             "severity": "MEDIUM",
-            "title": f"Low Vaccination Coverage ({coverage_pct}%)",
+            "title": f"Low Vaccination Record Coverage ({coverage_pct}%)",
             "reason": (
                 f"Only {vaccinated_heads} of {total_approved_heads} approved livestock heads ({coverage_pct}%) "
-                f"have verified vaccination records."
+                f"have a recorded vaccination date. This does not establish current immunity."
             ),
             "evidence": {
                 "vaccinated_heads": vaccinated_heads,
@@ -195,14 +198,19 @@ def generate_prescriptive_recommendations(
                 "target_threshold": "60.0%",
             },
             "recommendation": (
-                "Prioritize scheduling municipal vaccination drives and coordinate with MAO veterinary technicians "
-                "to update animal health ledgers."
+                "Ask MAO veterinary technicians to review missing vaccination dates and verify which animals "
+                "need vaccination before scheduling a drive. The 60% threshold is an administrative record-review trigger."
             ),
             "action_type": "VACCINATION_DRIVE",
         })
 
     return {
-        "status": "ready",
+        "status": "ready" if forecast_status == "ready" and total_approved_heads > 0 else "partial",
+        "rule_readiness": {
+            "production": "ready" if forecast_status == "ready" else "unavailable",
+            "disease": "ready",
+            "vaccination_records": "ready" if total_approved_heads > 0 else "unavailable",
+        },
         "target": {"production_type": production_type, "unit": unit},
         "forecast_status": forecast_status,
         "is_seeded": forecast_data.get("metadata", {}).get("is_seeded", False),

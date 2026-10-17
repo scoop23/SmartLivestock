@@ -8,13 +8,13 @@ from users.serializer import NotificationSerializer
 from django.db.models import Q
 
 
-def reviewer_recipients_for_barangay(barangay_id):
+def reviewer_recipients_for_barangay(barangay_id, *, include_cbat=False):
     """Current authorized officers, each returned once even if scopes overlap."""
     scope = Q(access_scope=User.AccessScope.ALL_BARANGAYS)
     if barangay_id is not None:
         scope |= Q(assigned_barangay_id=barangay_id)
     return User.objects.filter(
-        scope, role__role_name="SIBAT", is_active=True,
+        scope, role__role_name__in=["SIBAT", "CBAT"] if include_cbat else ["SIBAT"], is_active=True,
         account_status=User.AccountStatus.APPROVED,
     ).distinct()
 
@@ -25,17 +25,18 @@ def get_notification_recipients_for_farmer(farmer):
 
 def health_notification_recipients(farmer):
     return User.objects.filter(
-        Q(pk__in=get_notification_recipients_for_farmer(farmer).values("pk"))
+        Q(pk__in=reviewer_recipients_for_barangay(farmer.barangay_id, include_cbat=True).values("pk"))
         | Q(role__role_name__in=["MAO", "ADMIN"]),
         is_active=True, account_status=User.AccountStatus.APPROVED,
     ).select_related("role").distinct()
 
 
-def notify_review_revision(farmer, reviewer, *, title, message, link):
+def notify_review_revision(farmer, reviewer, *, title, message, link, include_cbat=False):
     """Inform current field officers when municipal review returns a declaration."""
     if reviewer.role.role_name in {"MAO", "ADMIN"}:
         notify_role("SIBAT", title=title, message=message, link=link,
-                    priority=Notification.Priority.HIGH, barangay_id=farmer.barangay_id)
+                    priority=Notification.Priority.HIGH, barangay_id=farmer.barangay_id,
+                    include_cbat=include_cbat)
 
 
 def create_notification(
@@ -73,6 +74,7 @@ def notify_role(
     link: str | None = None,
     barangay_id: int | None = None,
     municipal_broadcast: bool = False,
+    include_cbat: bool = False,
     related_entity_type: str | None = None,
     related_entity_id: int | None = None,
 ) -> int:
@@ -83,7 +85,7 @@ def notify_role(
     )
     if role_name == "SIBAT" and not municipal_broadcast:
         # Missing farmer location must never accidentally broadcast to all officers.
-        recipients = reviewer_recipients_for_barangay(barangay_id)
+        recipients = reviewer_recipients_for_barangay(barangay_id, include_cbat=include_cbat)
     notifications = [
         Notification(
             user=user,

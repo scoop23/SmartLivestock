@@ -17,7 +17,6 @@ requests from the browser.
 """
 
 from datetime import timedelta
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
@@ -184,19 +183,6 @@ def get_destination_coords(destination_text: str) -> Optional[List[float]]:
     return None
 
 
-def ensure_poblacion_exists() -> Barangay:
-    """Ensures Barangay Poblacion exists in the database so all 18 barangays are represented."""
-    b, _ = Barangay.objects.get_or_create(
-        barangay_name="Poblacion",
-        defaults={
-            "latitude": Decimal("13.879080"),
-            "longitude": Decimal("121.212894"),
-            "description": "Barangay Poblacion, Padre Garcia, Batangas",
-        },
-    )
-    return b
-
-
 def get_user_gis_scope(user) -> Dict[str, Any]:
     """
     Computes the authoritative Geographic Scope and Allowed Layers for a given user.
@@ -361,9 +347,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
       - summary: Municipal totals and top-ranked barangays.
       - movements: Geo-referenced active movement/inspection flows.
     """
-    # 1. Ensure all 18 barangays exist in DB
-    ensure_poblacion_exists()
-
+    # Reference setup belongs to migrations/management commands. A GIS read must
+    # never insert barangays; missing references remain empty map entries below.
     # 2. Fetch all barangays from DB for canonical name-to-PK spatial mapping
     db_barangays = list(Barangay.objects.all())
     
@@ -461,19 +446,31 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         if c_name and c_name in barangays_data:
             barangays_data[c_name]["batches_count"] = row["cnt"]
 
-    # 6. Aggregate Disease Cases (Active & Total)
+    # 6. Separate historical totals from approved reports in the last 90 days.
     # DATA TRUST POLICY: Only MAO-approved verified disease cases are mapped to prevent unvetted submissions from distorting municipal surveillance
+    today = timezone.localdate()
+    recent_reports = Q(
+        record_date__gte=today - timedelta(days=90), record_date__lte=today,
+        clinical_status__in=[DiseaseCase.ClinicalStatus.OPEN, DiseaseCase.ClinicalStatus.NOT_RECORDED],
+    )
     disease_qs = scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(
-        status=DiseaseCase.DiseaseStatus.APPROVED
+        status=DiseaseCase.DiseaseStatus.APPROVED,
+        record_date__lte=today,
     )
     disease_grouped = (
         disease_qs.annotate(
             b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id")
         )
         .values("b_id", "name")
-        .annotate(cases_cnt=Count("id"), affected_cnt=Sum("affected_count"))
+        .annotate(
+            cases_cnt=Count("id"),
+            affected_cnt=Sum("affected_count"),
+            recent_cases_cnt=Count("id", filter=recent_reports),
+            recent_affected_cnt=Sum("affected_count", filter=recent_reports),
+        )
     )
 
+    recent_affected_by_barangay = {}
     for row in disease_grouped:
         c_name = pk_to_canonical.get(row["b_id"])
         if not c_name or c_name not in barangays_data:
@@ -485,17 +482,20 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         b_entry = barangays_data[c_name]
         b_entry["disease_cases"] += cases
         b_entry["affected_heads"] += affected
-        b_entry["active_cases"] += cases
-        if d_name and d_name not in b_entry["recent_diseases"]:
+        # Compatibility key: recent approved reports, not unresolved clinical cases.
+        b_entry["active_cases"] += row["recent_cases_cnt"] or 0
+        recent_affected_by_barangay[c_name] = (
+            recent_affected_by_barangay.get(c_name, 0) + (row["recent_affected_cnt"] or 0)
+        )
+        if row["recent_cases_cnt"] and d_name and d_name not in b_entry["recent_diseases"]:
             b_entry["recent_diseases"].append(d_name)
 
-    # Calculate Risk Level based on active cases and affected count
-    for b_entry in barangays_data.values():
+    # Administrative surveillance tiers; these do not diagnose active infection.
+    for name, b_entry in barangays_data.items():
         active = b_entry["active_cases"]
-        affected = b_entry["affected_heads"]
-        if active >= 3 or affected >= 10:
+        if active >= 3 or recent_affected_by_barangay.get(name, 0) >= 10:
             b_entry["disease_risk"] = "high"
-        elif active > 0 or affected > 0 or b_entry["disease_cases"] > 0:
+        elif active > 0:
             b_entry["disease_risk"] = "medium"
         else:
             b_entry["disease_risk"] = "low"

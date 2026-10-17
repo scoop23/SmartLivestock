@@ -90,16 +90,20 @@ def slaughterhouse_records(request):
         serializer = SlaughterRecordInputSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         values = serializer.validated_data
-        duplicate = _aggregate_slaughter_records().filter(
-            record_date=values["record_date"],
-            livestock_type=values["livestock_type"],
-            quantity=values["quantity"],
-            carcass_weight=values.get("carcass_weight"),
-            barangay=values.get("barangay"),
-        ).exists()
-        if duplicate:
-            return Response({"detail": "An identical slaughter record already exists."}, status=status.HTTP_409_CONFLICT)
-        record = serializer.save(created_by=request.user, status=SlaughterRecord.StatusType.PENDING)
+        with transaction.atomic():
+            # Lock the species row even when no matching records exist yet.
+            # Concurrent equal submissions then recheck after the first commits.
+            LivestockType.objects.select_for_update().get(pk=values["livestock_type"].pk)
+            duplicate = _aggregate_slaughter_records().filter(
+                record_date=values["record_date"],
+                livestock_type=values["livestock_type"],
+                quantity=values["quantity"],
+                carcass_weight=values.get("carcass_weight"),
+                barangay=values.get("barangay"),
+            ).exists()
+            if duplicate:
+                return Response({"detail": "An identical slaughter record already exists."}, status=status.HTTP_409_CONFLICT)
+            record = serializer.save(created_by=request.user, status=SlaughterRecord.StatusType.PENDING)
         return Response(SlaughterRecordInputSerializer(record, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     records = _visible_slaughter_records(request.user)

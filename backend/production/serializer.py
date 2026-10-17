@@ -455,6 +455,16 @@ class WeightRecordSerializer(serializers.ModelSerializer):
     livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
     breed = serializers.CharField(source="livestock.breed", read_only=True)
 
+    def validate_weight(self, value):
+        if value <= 0:
+            raise ValidationError("Recorded weight must be greater than zero.")
+        return value
+
+    def validate_weighing_date(self, value):
+        if value > timezone.localdate():
+            raise ValidationError("Weighing date cannot be in the future.")
+        return value
+
     class Meta:
         model = WeightRecord
         fields = (
@@ -483,6 +493,8 @@ class WeightRecordSerializer(serializers.ModelSerializer):
             livestock = LivestockInventory.objects.select_for_update().get(
                 pk=validated_data["livestock"].pk
             )
+            # Recheck availability after acquiring the same lock used by inventory changes.
+            self.validate_livestock(livestock)
 
             # Inventory weight is the registration baseline until a measured
             # weigh-in is logged. Preserve it before syncing the latest weight.
@@ -494,7 +506,7 @@ class WeightRecordSerializer(serializers.ModelSerializer):
                 WeightRecord.objects.create(
                     livestock=livestock,
                     weight=livestock.weight,
-                    weighing_date=livestock.created_at.date(),
+                    weighing_date=timezone.localtime(livestock.created_at).date(),
                     notes="Initial registration weight baseline",
                     created_by=livestock.created_by,
                 )
@@ -502,7 +514,10 @@ class WeightRecordSerializer(serializers.ModelSerializer):
             validated_data["livestock"] = livestock
             validated_data["created_by"] = user
             record = WeightRecord.objects.create(**validated_data)
-            livestock.weight = validated_data["weight"]
+            latest = WeightRecord.objects.filter(livestock=livestock).order_by(
+                "-weighing_date", "-created_at", "-pk"
+            ).first()
+            livestock.weight = latest.weight
             livestock.save(update_fields=["weight"])
             return record
 

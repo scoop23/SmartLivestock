@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",  # JWT auth (access + refresh tokens)
+    "rest_framework_simplejwt.token_blacklist",
     "phonenumber_field",  # Phone number validation
     "storages",  # Cloudflare R2 / S3 storage backend
     # Custom Django apps (order doesn't matter for models, but kept consistent)

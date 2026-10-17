@@ -52,6 +52,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "affected_count",
             "record_date",
             "status",
+            "clinical_status",
             "photo",
             "photo_url",
             "inspector_photo",
@@ -66,6 +67,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "status",
+            "clinical_status",
             "photo_url",
             "inspector_photo_url",
             "reviewed_by",
@@ -199,6 +201,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
+        validated_data["clinical_status"] = DiseaseCase.ClinicalStatus.OPEN
         return DiseaseCase.objects.create(**validated_data)
 
     def update(self, instance, validated_data):

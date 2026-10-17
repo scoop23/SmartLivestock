@@ -158,7 +158,10 @@ def ownership_transfer_list_create(request):
         # Auction is the recorder, not a party to the sale: the selected animal identifies its seller.
         farmer = serializer.validated_data["livestock"].farmer if actor_role == "AUCTION" else request.user.farmer_profile
         try:
-            transfer = serializer.save(previous_owner=farmer, created_by=request.user)
+            # Roll back a duplicate insert before handling it, including when
+            # the caller is already inside a transaction.
+            with transaction.atomic():
+                transfer = serializer.save(previous_owner=farmer, created_by=request.user)
         except IntegrityError as exc:
             raise ValidationError({"detail": "This animal already has a pending transfer."}) from exc
         notify_role(
