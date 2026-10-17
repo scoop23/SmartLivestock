@@ -6,6 +6,24 @@ import { Badge } from "@/components/ui/badge";
 
 export type SheetSnapState = "collapsed" | "half" | "expanded";
 
+const getSnapPoints = (viewportHeight: number) => [
+  { state: "collapsed" as const, height: 116 },
+  { state: "half" as const, height: Math.round(viewportHeight * 0.54) },
+  { state: "expanded" as const, height: Math.round(viewportHeight * 0.89) },
+];
+
+const getSnapPointHeight = (state: SheetSnapState, viewportHeight: number) =>
+  getSnapPoints(viewportHeight).find((point) => point.state === state)?.height ??
+  Math.round(viewportHeight * 0.54);
+
+const clampPanelHeight = (height: number, viewportHeight: number) =>
+  Math.max(116, Math.min(Math.round(viewportHeight * 0.89), height));
+
+const getNearestSnapState = (height: number, viewportHeight: number): SheetSnapState =>
+  getSnapPoints(viewportHeight).reduce((nearest, point) =>
+    Math.abs(point.height - height) < Math.abs(nearest.height - height) ? point : nearest
+  ).state;
+
 interface LivestockSlidingPanelProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
@@ -25,46 +43,70 @@ export function LivestockSlidingPanel({
   children,
 }: LivestockSlidingPanelProps) {
   const [snapState, setSnapState] = useState<SheetSnapState>("half");
-  const touchStartY = useRef<number | null>(null);
-  const touchDeltaY = useRef<number>(0);
-  const isDragging = useRef<boolean>(false);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const pointerStartY = useRef<number | null>(null);
+  const pointerStartHeight = useRef<number>(0);
+  const pointerDeltaY = useRef<number>(0);
+  const didDrag = useRef<boolean>(false);
+  const suppressClickUntil = useRef<number>(0);
 
   const activeTabMeta = tabItems.find((t) => t.id === activeTab) || tabItems[0];
 
-  // Touch Drag Handlers for Mobile Sliding Gesture
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchDeltaY.current = 0;
-    isDragging.current = true;
+  // Pointer events keep touch and mouse gestures on the handle consistent.
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
+    pointerStartY.current = e.clientY;
+    pointerStartHeight.current =
+      panelRef.current?.getBoundingClientRect().height ??
+      getSnapPointHeight(snapState, window.innerHeight);
+    setDragHeight(pointerStartHeight.current);
+    pointerDeltaY.current = 0;
+    didDrag.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging.current || touchStartY.current === null) return;
-    touchDeltaY.current = e.touches[0].clientY - touchStartY.current;
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerStartY.current === null) return;
+    pointerDeltaY.current = e.clientY - pointerStartY.current;
+    if (Math.abs(pointerDeltaY.current) > 8) didDrag.current = true;
+    setDragHeight(
+      clampPanelHeight(
+        pointerStartHeight.current - pointerDeltaY.current,
+        window.innerHeight
+      )
+    );
   };
 
-  const handleTouchEnd = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    const delta = touchDeltaY.current;
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerStartY.current === null) return;
+    const finalHeight = clampPanelHeight(
+      pointerStartHeight.current - pointerDeltaY.current,
+      window.innerHeight
+    );
+    setSnapState(getNearestSnapState(finalHeight, window.innerHeight));
+    setDragHeight(null);
 
-    // Threshold of 40px to trigger snap state transition
-    if (delta < -40) {
-      // Swiped UP -> expand
-      setSnapState((current) => {
-        if (current === "collapsed") return "half";
-        return "expanded";
-      });
-    } else if (delta > 40) {
-      // Swiped DOWN -> collapse
-      setSnapState((current) => {
-        if (current === "expanded") return "half";
-        return "collapsed";
-      });
+    if (didDrag.current) suppressClickUntil.current = Date.now() + 400;
+    pointerStartY.current = null;
+    pointerDeltaY.current = 0;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
     }
+  };
 
-    touchStartY.current = null;
-    touchDeltaY.current = 0;
+  const handlePointerCancel = () => {
+    if (pointerStartY.current !== null) {
+      const finalHeight = clampPanelHeight(
+        pointerStartHeight.current - pointerDeltaY.current,
+        window.innerHeight
+      );
+      setSnapState(getNearestSnapState(finalHeight, window.innerHeight));
+    }
+    setDragHeight(null);
+    pointerStartY.current = null;
+    pointerDeltaY.current = 0;
+    didDrag.current = false;
   };
 
   // Click on the grab handle area to cycle or toggle
@@ -90,15 +132,21 @@ export function LivestockSlidingPanel({
 
   return (
     <div
-      className={`w-full transition-all duration-300 ease-out flex flex-col fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/90 dark:border-slate-800 rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.22)] ${mobileHeightClass} lg:static lg:h-auto lg:max-h-none lg:border-0 lg:shadow-none lg:bg-transparent lg:backdrop-blur-none lg:rounded-none lg:z-auto lg:p-0`}
+      ref={panelRef}
+      style={dragHeight === null ? undefined : { height: `${dragHeight}px` }}
+      className={`w-full ${dragHeight === null ? "transition-all duration-300 ease-out" : "transition-none"} flex flex-col fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/90 dark:border-slate-800 rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.22)] ${mobileHeightClass} lg:static lg:h-auto lg:max-h-none lg:border-0 lg:shadow-none lg:bg-transparent lg:backdrop-blur-none lg:rounded-none lg:z-auto lg:p-0`}
     >
       {/* ── DRAG HANDLE & HEADER (Visible only on mobile/tablet) ── */}
       <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={toggleSnapState}
-        className="w-full pt-2.5 pb-2 px-4 flex flex-col items-center cursor-grab active:cursor-grabbing select-none shrink-0 group border-b border-slate-100 dark:border-slate-800 lg:hidden"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onClick={() => {
+          if (Date.now() < suppressClickUntil.current) return;
+          toggleSnapState();
+        }}
+        className="w-full touch-none overscroll-y-contain pt-2.5 pb-2 px-4 flex flex-col items-center cursor-grab active:cursor-grabbing select-none shrink-0 group border-b border-slate-100 dark:border-slate-800 lg:hidden"
       >
         {/* Grab Handle: visual cue letting user know panel is interactive */}
         <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-emerald-600 transition-colors" />
