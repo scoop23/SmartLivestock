@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { invalidateMunicipalSummaries } from "@/lib/municipal-cache";
-import { AuthProvider } from "@/contexts/auth-context";
-import { AccessibilitySettingsProvider } from "@/contexts/accessibility-settings-context";
 import { PrivacyConsentModal } from "@/app/components/privacy-consent-modal";
+import { AccessibilitySettingsProvider } from "@/contexts/accessibility-settings-context";
+import { AuthProvider } from "@/contexts/auth-context";
+import { invalidateMunicipalSummaries } from "@/lib/municipal-cache";
+import { MutationCache,QueryClient,QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(

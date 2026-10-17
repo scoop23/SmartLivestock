@@ -1,27 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import Image from "next/image";
-import { CalendarDays, Clock3, ClipboardList, Image as ImageIcon, LockKeyhole, MapPin, Pencil, Plus, RefreshCw, Search, Trash2, UnlockKeyhole, Users } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,
+AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent,CardDescription,CardFooter,CardHeader,CardTitle } from "@/components/ui/card";
+import { Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
-import api from "@/lib/axios";
-import { apiError, getBookings, getSchedules, getBarangays, type BarangayOption, type ProgramBooking, type ProgramSchedule, type ProgramPublicationStatus, type ProgramFarmerAudience } from "@/lib/community-api";
-import { PROGRAM_TIME_SLOTS, CommunityEmptyState, CommunityErrorCard, CommunitySkeleton, formatLongDate, formatTime, todayIso, type CommunityRole } from "./community-ui";
+import { Progress } from "@/components/ui/progress";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
+import api from "@/lib/axios";
+import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type ProgramBooking,type ProgramFarmerAudience,type ProgramPublicationStatus,type ProgramSchedule } from "@/lib/community-api";
+import { CalendarDays,ClipboardList,Clock3,Image as ImageIcon,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Trash2,UnlockKeyhole,Users } from "lucide-react";
+import Image from "next/image";
+import { useCallback,useEffect,useMemo,useState,type FormEvent } from "react";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
+import { CommunityEmptyState,CommunityErrorCard,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
 type ScheduleAction = "close" | "reopen" | "delete" | "publish" | "unpublish" | "cancel" | "complete";

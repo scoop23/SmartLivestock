@@ -1,46 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  BadgeDollarSign,
-  Building2,
-  Calendar,
-  CheckCircle2,
-  Compass,
-  FileText,
-  MapPin,
-  PhilippinePeso,
-  Plus,
-  Scale,
-  Send,
-  ShoppingBag,
-  Tag,
-  Truck,
-  Users,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { Label } from "@/components/ui/label";
+import {
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from "@/components/ui/select";
 import api from "@/lib/axios";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import {
+BadgeDollarSign,
+Calendar,
+Compass,
+MapPin,
+PhilippinePeso,
+Plus,
+ShoppingBag,
+Truck
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 
 export interface LiveSaleItem {
@@ -467,7 +459,7 @@ export default function ProductionSalesTab({
                 <Label htmlFor="sale-purpose">Sale Purpose</Label>
                 <Select
                   value={salePurpose}
-                  onValueChange={(val) => setSalePurpose(val as any)}
+                  onValueChange={(val) => { if (val === "BREEDING" || val === "FATTENING" || val === "SLAUGHTER" || val === "UNKNOWN") setSalePurpose(val); }}
                 >
                   <SelectTrigger id="sale-purpose" className="bg-slate-50">
                     <SelectValue />
@@ -590,7 +582,7 @@ export default function ProductionSalesTab({
               <Label htmlFor="intent-type">Commercial Intent *</Label>
               <Select
                 value={intentType}
-                onValueChange={(val) => setIntentType(val as any)}
+                onValueChange={(val) => { if (val === "FOR_SALE" || val === "FOR_SLAUGHTER" || val === "FOR_MOVEMENT") setIntentType(val); }}
               >
                 <SelectTrigger id="intent-type" className="bg-slate-50">
                   <SelectValue />

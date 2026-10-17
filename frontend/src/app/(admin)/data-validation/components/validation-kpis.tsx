@@ -1,7 +1,7 @@
 "use client";
 
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Clock, CheckCircle2, XCircle, MapPin, ShieldCheck, UserCheck, RotateCcw } from "lucide-react";
+import { CheckCircle2,Clock,MapPin,RotateCcw,UserCheck } from "lucide-react";
 
 interface ValidationKpisProps {
   kpis: {

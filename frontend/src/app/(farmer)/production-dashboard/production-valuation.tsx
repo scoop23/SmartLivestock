@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, PhilippinePeso } from "lucide-react";
+import { PhilippinePeso } from "lucide-react";
 import type { ProductionRecordItem } from "./production-analytics";
 
 const formatPeso = (val: string | number) =>

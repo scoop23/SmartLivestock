@@ -33,33 +33,31 @@
  *   the sidebar from MunicipalOverview to BarangayDetails and highlights the polygon on the map.
  */
 
-import React from 'react';
-import {
-  MunicipalSummary,
-  MovementRecord,
-  BarangayGISData,
-  GISUserScope,
-  FarmerPersonalStats,
-  MapLayer,
-} from './types';
-import { MovementAnalysisPanel } from './MovementAnalysisPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  AlertTriangle,
-  TrendingUp,
-  Milk,
-  Beef,
-  Skull,
-  Truck,
-  CheckCircle2,
-  RefreshCw,
-  MapPin,
-  ChevronRight,
-  ShieldAlert,
-  X,
-  UserCheck,
+AlertTriangle,
+Beef,
+CheckCircle2,
+ChevronRight,
+MapPin,
+Milk,
+RefreshCw,
+Skull,
+TrendingUp,
+Truck,
+UserCheck,
+X
 } from 'lucide-react';
+import { MovementAnalysisPanel } from './MovementAnalysisPanel';
+import {
+BarangayGISData,
+FarmerPersonalStats,
+GISUserScope,
+MapLayer,
+MovementRecord,
+MunicipalSummary,
+} from './types';
 
 interface MunicipalOverviewProps {
   summary: MunicipalSummary;
@@ -246,7 +244,7 @@ export function MunicipalOverview({
               {summary.active_disease_cases}
             </div>
             <div className="text-[10px] font-bold uppercase tracking-wider">
-              🚨 Active Alerts
+              🚨 Reports (90 days)
             </div>
           </div>
 
@@ -418,8 +416,8 @@ export function MunicipalOverview({
           ) : (
             <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-lg text-center">
               <CheckCircle2 className="size-5 text-emerald-600 mx-auto mb-1" />
-              <p className="text-xs font-bold text-emerald-900">No active disease outbreaks</p>
-              <p className="text-[10px] text-emerald-700">All 18 barangays operating normally</p>
+              <p className="text-xs font-bold text-emerald-900">No approved disease reports in the last 90 days</p>
+              <p className="text-[10px] text-emerald-700">No reports does not establish absence of disease.</p>
             </div>
           )}
         </div>

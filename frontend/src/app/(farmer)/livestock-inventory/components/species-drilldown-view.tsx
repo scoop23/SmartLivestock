@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, Layers } from "lucide-react";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft,ChevronRight,Layers } from "lucide-react";
+import Link from "next/link";
+import type { LivestockBatchItem,LivestockInventoryItem } from "../livestock-inventory";
 import LivestockRecordList from "../livestock-record-list";
-import type { LivestockBatchItem, LivestockInventoryItem } from "../livestock-inventory";
 
 interface SpeciesDrilldownViewProps {
   selectedType: string;

@@ -1,29 +1,25 @@
 "use client";
 
-import { useMemo } from "react";
-import {
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Eye,
-  Filter,
-  Layers,
-  MapPin,
-  RotateCcw,
-  Search,
-  SlidersHorizontal,
-  Tag,
-  User,
-  X,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+Calendar,
+Eye,
+Layers,
+MapPin,
+RotateCcw,
+Search,
+SlidersHorizontal,
+User,
+X
+} from "lucide-react";
+import { useMemo } from "react";
+import type { UnifiedSubmissionItem,UnifiedSubmissionType } from "../sibat-analytics";
 import SibatStatusBadge from "./sibat-status-badge";
-import type { UnifiedSubmissionItem, UnifiedSubmissionType } from "../sibat-analytics";
 
 interface SibatSubmissionQueueProps {
   submissions: UnifiedSubmissionItem[];
@@ -330,7 +326,7 @@ export default function SibatSubmissionQueue({
 
                     {item.notes && (
                       <p className="text-[11px] text-slate-500 italic line-clamp-1">
-                        "{item.notes}"
+                        &quot;{item.notes}&quot;
                       </p>
                     )}
                   </div>

@@ -1,30 +1,22 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
-import {
-  Milk,
-  Beef,
-  Egg,
-  Search,
-  RotateCcw,
-  Calendar,
-  MapPin,
-  User,
-  Eye,
-  CheckCircle2,
-  Clock,
-  ShieldCheck,
-  ClipboardCheck,
-  Scale,
-  Sparkles,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import SibatStatusBadge from "./sibat-status-badge";
+import {
+ClipboardCheck,
+Eye,
+MapPin,
+Milk,
+RotateCcw,
+Search,
+User
+} from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
 import type { UnifiedSubmissionItem } from "../sibat-analytics";
+import SibatStatusBadge from "./sibat-status-badge";
 
 export type SibatProdStatusFilter = "all" | "pending" | "verified" | "approved" | "needs_correction" | "decided";
 
@@ -64,7 +56,11 @@ const getCommodityEmoji = (title: string = "", sourceType: string = "") => {
   return "🌾";
 };
 
-export default function SibatProductionQueue({
+export default function SibatProductionQueue(props: SibatProductionQueueProps) {
+  return <SibatProductionQueueContent key={JSON.stringify([props.searchQuery,props.statusFilter,props.prodTypeFilter])} {...props} />;
+}
+
+function SibatProductionQueueContent({
   submissions,
   isLoading,
   onReview,
@@ -130,20 +126,17 @@ export default function SibatProductionQueue({
     searchQuery.trim() !== "" || statusFilter !== "all" || prodTypeFilter !== "ALL";
 
   const PAGE_SIZE = 10;
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(filteredSubmissions.length / PAGE_SIZE));
+  const page = requestedPage > pageCount ? 1 : requestedPage;
   const pagedSubmissions = useMemo(
     () => filteredSubmissions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredSubmissions, page]
   );
 
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, statusFilter, prodTypeFilter]);
 
-  useEffect(() => {
-    if (page > pageCount) setPage(1);
-  }, [page, pageCount]);
+
+
 
   return (
     <div className="space-y-4">

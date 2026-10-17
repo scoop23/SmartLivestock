@@ -1,26 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
-import {
-  Activity,
-  Baby,
-  Beef,
-  ChevronRight,
-  Egg,
-  HeartPulse,
-  Layers,
-  Milk,
-  Package,
-  Plus,
-  Scale,
-  Shield,
-  Sparkles,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { CalvingRecordItem } from "./production-calving-tab";
+import type { WeightRecordItem } from "./production-weight-tab";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+Activity,
+Beef,
+ChevronRight,
+Egg,
+Layers,
+Package,
+Shield,
+Sparkles
+} from "lucide-react";
+import { useMemo } from "react";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import type { ProductionRecordItem } from "./production-analytics";
 
@@ -136,8 +130,8 @@ const DEFAULT_CONFIG: SpeciesConfig = {
 interface ProductionEnterpriseHubProps {
   inventories: LivestockInventoryItem[];
   productionRecords: ProductionRecordItem[];
-  calvingRecords?: any[];
-  weightRecords?: any[];
+  calvingRecords?: CalvingRecordItem[];
+  weightRecords?: WeightRecordItem[];
   onSelectSpecies: (species: string | "ALL") => void;
   onOpenQuickLog?: (species: string) => void;
 }

@@ -1,21 +1,38 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-import {
-  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  AreaChart, Area
-} from 'recharts';
-import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
-import {
-  ShieldCheck, Activity, Milk,
-  RotateCw, CheckCircle2, BarChart3, PieChart as PieIcon, Scale, Beef, ShoppingCart
-} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useAdminBarangayCurrentFarmers, type BarangayHerdChartData, type useAdminDashboardAnalytics } from './admin-charts';
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from '@/components/ui/dialog';
 import { getSpeciesColor } from '@/lib/species-colors';
+import {
+Activity,
+BarChart3,
+Beef,
+CheckCircle2,
+Milk,
+PieChart as PieIcon,
+RotateCw,
+Scale,
+ShieldCheck,
+ShoppingCart
+} from 'lucide-react';
+import { useState,type ReactNode } from 'react';
+import {
+Area,
+AreaChart,
+Bar,
+BarChart,
+CartesianGrid,
+Cell,
+Legend,
+Pie,
+PieChart,
+ResponsiveContainer,
+Tooltip,
+XAxis,YAxis
+} from 'recharts';
+import type { NameType,ValueType } from 'recharts/types/component/DefaultTooltipContent';
+import { useAdminBarangayCurrentFarmers,type BarangayHerdChartData,type useAdminDashboardAnalytics } from './admin-charts';
 
 type MonthlyMetricPoint = { month: string; label: string; value: number };
 type ProductionOption = { key: string; type: string; unit: string };
@@ -608,13 +625,13 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-[13px] font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5 text-[#2D5A27]" />
-                Sector Vaccination Coverage
+                Recorded Vaccination Dates
               </h3>
               <Badge variant="outline" className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 border-slate-200">
                 Via Inventory Records
               </Badge>
             </div>
-            <p className="text-xs text-slate-500 font-medium mb-3">Share of certified inventories with a recorded vaccination date</p>
+            <p className="text-xs text-slate-500 font-medium mb-3">Share of approved active animals with a recorded vaccination date. This does not establish current immunity or booster validity.</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
               {sectorCompliance.map((sector) => {

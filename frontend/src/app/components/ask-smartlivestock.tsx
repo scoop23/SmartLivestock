@@ -1,18 +1,18 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
-import { AxiosError } from "axios";
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { LoaderCircle, Search } from "lucide-react";
-import api from "@/lib/axios";
-import { useAuth } from "@/contexts/auth-context";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert,AlertDescription,AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
+import { useAuth } from "@/contexts/auth-context";
+import api from "@/lib/axios";
+import { AxiosError } from "axios";
+import { LoaderCircle,Search } from "lucide-react";
+import { useRef,useState,type FormEvent } from "react";
+import { Bar,BarChart,CartesianGrid,Legend,Line,LineChart,ResponsiveContainer,Tooltip,XAxis,YAxis } from "recharts";
 
 type ResultRow = Record<string, string | number | null>;
 type Visualization = {

@@ -1,70 +1,57 @@
 "use client";
 
-import { Suspense, useMemo, useState, useEffect } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  mapInventoryToUnified,
-  mapBatchToUnified,
-  type RawInventoryRecord,
-  type UnifiedStatus,
-  type UnifiedSubmissionItem,
-} from "../sibat-analytics";
-import { useAuth } from "@/contexts/auth-context";
-import api from "@/lib/axios";
+import type { BatchApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import { useAuth } from "@/contexts/auth-context";
+import api from "@/lib/axios";
+import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-  MapPin,
-  Search,
-  RotateCcw,
-  Eye,
-  Layers,
-  ArrowLeft,
-  X,
-  FileSpreadsheet,
-  ClipboardList,
-  Tag,
+ArrowLeft,
+ClipboardList,
+Eye,
+Layers,
+MapPin,
+RotateCcw,
+Search,
+Tag,
+X
 } from "lucide-react";
-import SibatStatusBadge from "../components/sibat-status-badge";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense,useEffect,useMemo,useState } from "react";
 import SibatReviewDialog from "../components/sibat-review-dialog";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import SibatStatusBadge from "../components/sibat-status-badge";
+import {
+mapBatchToUnified,
+mapInventoryToUnified,
+type RawInventoryRecord,
+type UnifiedStatus,
+type UnifiedSubmissionItem,
+} from "../sibat-analytics";
 
 const PAGE_SIZE = 10;
 type RegistryStatusFilter = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
 
-interface RegistryBatchRecord {
-  id: number;
-  review_status?: string;
-  batch_code?: string;
-  batch_name?: string;
-  farmer_name?: string;
-  barangay_name?: string;
-  livestock_type_name?: string;
-  total_animals?: number;
-  average_weight?: number | string | null;
-  created_at?: string;
-  reviewed_at?: string | null;
-  status?: string;
-}
+type RegistryBatchRecord = BatchApiItem;
 
 /**
  * Farmer Records Registry for SIBAT / CBAT field officers.
@@ -105,7 +92,7 @@ function SibatLivestockRegistryContent() {
       );
       const data = response.data;
       if (Array.isArray(data)) return data;
-      if (data && Array.isArray((data as any).results)) return (data as any).results as RawInventoryRecord[];
+      if (data && Array.isArray(data.results)) return data.results as RawInventoryRecord[];
       return [];
     },
     staleTime: 30_000,
@@ -127,7 +114,7 @@ function SibatLivestockRegistryContent() {
       );
       const data = response.data;
       if (Array.isArray(data)) return data;
-      if (data && Array.isArray((data as any).results)) return (data as any).results as RegistryBatchRecord[];
+      if (data && Array.isArray(data.results)) return data.results as RegistryBatchRecord[];
       return [];
     },
     staleTime: 30_000,
@@ -139,7 +126,7 @@ function SibatLivestockRegistryContent() {
     const rawInv = inventoryQuery.data;
     const invList: RawInventoryRecord[] = Array.isArray(rawInv)
       ? rawInv
-      : ((rawInv as any)?.results ?? []);
+      : [];
     const individuals = invList
       .filter((record) => record.entry_type === "INDIVIDUAL")
       .map(mapInventoryToUnified);
@@ -147,7 +134,7 @@ function SibatLivestockRegistryContent() {
     const rawBatches = batchesQuery.data;
     const batchList: RegistryBatchRecord[] = Array.isArray(rawBatches)
       ? rawBatches
-      : ((rawBatches as any)?.results ?? []);
+      : [];
     const herds = batchId ? [] : batchList.map(mapBatchToUnified);
 
     return [...individuals, ...herds].sort((a, b) => {

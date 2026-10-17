@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { InspectionRecord, fetchInspectionDetail } from "../auction-analytics";
+import { useEffect,useState } from "react";
+import { InspectionRecord,fetchInspectionDetail } from "../auction-analytics";
 import { NewInspectionForm } from "../movement-log-form";
 
 export default function NewMovementLogRoute({ editId }: { editId: string | null }) {

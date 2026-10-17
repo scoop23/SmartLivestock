@@ -1,31 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Building2,
-  CalendarDays,
-  Pin,
-  Share2,
-  Users,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
 import { Activity } from "@/lib/community-api";
 import {
-  AUDIENCE_LABEL,
-  activityCategory,
-  CommunityRole,
-  formatLongDate,
-} from "./community-ui";
+Building2,
+CalendarDays,
+Pin,
+Share2,
+Users,
+} from "lucide-react";
+import { useState } from "react";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
 import { AnnouncementShareDialog } from "./announcement-share-dialog";
+import {
+activityCategory,
+AUDIENCE_LABEL,
+CommunityRole,
+formatLongDate,
+} from "./community-ui";
 
 export function ActivityDetailDialog({
   activity,

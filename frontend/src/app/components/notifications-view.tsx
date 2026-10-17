@@ -1,42 +1,42 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/auth-context";
-import {
-  ChevronDown,
-  Eye,
-  EyeOff,
-  Trash2,
-  Inbox,
-  Bell,
-} from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/components/ui/utils";
-import api from "@/lib/axios";
-import { toast } from "sonner";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  BackendNotification,
-  BackendNotificationsResponse,
-  HeaderNotificationsProps,
-  resolveNotificationLink,
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/components/ui/utils";
+import { useAuth } from "@/contexts/auth-context";
+import api from "@/lib/axios";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import {
+Bell,
+ChevronDown,
+Eye,
+EyeOff,
+Inbox,
+Trash2,
+} from "lucide-react";
+import { usePathname,useRouter } from "next/navigation";
+import { useMemo,useState } from "react";
+import { toast } from "sonner";
+import {
+BackendNotification,
+BackendNotificationsResponse,
+HeaderNotificationsProps,
+resolveNotificationLink,
 } from "./header-notifications";
 
 interface NotificationsViewProps {

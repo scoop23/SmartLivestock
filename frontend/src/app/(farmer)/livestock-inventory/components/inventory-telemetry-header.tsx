@@ -1,7 +1,7 @@
 "use client";
 
 import InventoryStats from "../inventory-stats";
-import type { LivestockBatchItem, LivestockInventoryItem } from "../livestock-inventory";
+import type { LivestockBatchItem,LivestockInventoryItem } from "../livestock-inventory";
 
 interface InventoryTelemetryHeaderProps {
   inventories: LivestockInventoryItem[];

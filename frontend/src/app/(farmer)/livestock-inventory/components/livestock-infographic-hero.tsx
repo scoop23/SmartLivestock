@@ -1,47 +1,39 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Scale,
-  QrCode,
-  Plus,
-  ShieldCheck,
-  TrendingUp,
-  AlertTriangle,
-  Layers,
-  Sparkles,
-  Baby,
-  HeartPulse,
-  Award,
-  Milk,
-  CheckCircle2,
-  Camera,
-  Maximize2,
-  Eye,
-  Download,
-  ImageIcon,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import {
-  resolveSpeciesKey,
-  SILHOUETTE_ANCHORS,
-  LivestockSilhouettePath,
-  type LivestockSpeciesKey,
-} from "./livestock-silhouette-paths";
-import { OperationalStatusBadge } from "../operational-status-badge";
+AlertTriangle,
+ArrowLeft,
+Camera,
+CheckCircle2,
+Download,
+Eye,
+Layers,
+Maximize2,
+QrCode,
+Scale,
+ShieldCheck,
+Sparkles
+} from "lucide-react";
+import Link from "next/link";
+import React,{ useEffect,useState } from "react";
 import type { LivestockInventoryItem } from "../livestock-inventory";
+import { OperationalStatusBadge } from "../operational-status-badge";
+import {
+LivestockSilhouettePath,
+resolveSpeciesKey,
+SILHOUETTE_ANCHORS
+} from "./livestock-silhouette-paths";
 
 interface LivestockInfographicHeroProps {
   activeItem: LivestockInventoryItem;
@@ -776,7 +768,7 @@ export function LivestockInfographicHero({
                     {avatar?.emoji || "🐄"}
                   </div>
                   <p className="text-xs font-bold text-white">No Photo Uploaded</p>
-                  <p className="text-[10px] text-emerald-200/70">Tap 'Silhouette' to view anatomy blueprint</p>
+                  <p className="text-[10px] text-emerald-200/70">Tap &apos;Silhouette&apos; to view anatomy blueprint</p>
                 </div>
               )}
             </div>

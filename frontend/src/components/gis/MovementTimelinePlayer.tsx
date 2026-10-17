@@ -14,20 +14,18 @@
  * NOT a continuous real-time GPS simulation.
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MovementRecord } from './types';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Play,
-  Pause,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
-  Truck,
-  X,
+ChevronLeft,
+ChevronRight,
+Pause,
+Play,
+Truck,
+X
 } from 'lucide-react';
+import { useEffect,useMemo,useRef,useState } from 'react';
+import { MovementRecord } from './types';
 
 interface MovementTimelinePlayerProps {
   movements: MovementRecord[];

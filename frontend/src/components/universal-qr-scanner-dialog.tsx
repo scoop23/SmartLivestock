@@ -1,34 +1,34 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
-import {
-  QrCode,
-  Search,
-  Info,
-  ShieldCheck,
-  Camera,
-  ExternalLink,
-  ImageIcon,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import axios from "axios";
-import Link from "next/link";
-import api from "@/lib/axios";
 import { lookupRegisteredLivestock } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import api from "@/lib/axios";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import { parseLivestockQrPayload } from "@/lib/livestock-identity";
+import { BrowserQRCodeReader,type IScannerControls } from "@zxing/browser";
+import axios from "axios";
+import {
+Camera,
+ExternalLink,
+ImageIcon,
+Info,
+QrCode,
+Search,
+ShieldCheck,
+} from "lucide-react";
+import Link from "next/link";
+import { useCallback,useEffect,useRef,useState } from "react";
+import { toast } from "sonner";
 
 export interface UniversalQrScannerDialogProps {
   isOpen: boolean;

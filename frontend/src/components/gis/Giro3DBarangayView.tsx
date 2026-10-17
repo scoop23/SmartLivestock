@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type Feature from 'ol/Feature.js';
-import type { Geometry } from 'ol/geom.js';
-import type Polygon from 'ol/geom/Polygon.js';
-import type MultiPolygon from 'ol/geom/MultiPolygon.js';
-import type { Object3D } from 'three';
-import type { MapControls } from 'three/examples/jsm/controls/MapControls.js';
+import padreGarciaGeojson from '@/data/padre-garcia-barangays.json';
+import type Extent from '@giro3d/giro3d/core/geographic/Extent.js';
 import type Instance from '@giro3d/giro3d/core/Instance.js';
 import type FeatureCollection from '@giro3d/giro3d/entities/FeatureCollection.js';
-import type Extent from '@giro3d/giro3d/core/geographic/Extent.js';
-import type { BarangayGISData, DiseaseSubMode, GISUserScope, MapLayer, SimulatedBarangayState } from './types';
-import padreGarciaGeojson from '@/data/padre-garcia-barangays.json';
+import type Feature from 'ol/Feature.js';
+import type { Geometry } from 'ol/geom.js';
+import type MultiPolygon from 'ol/geom/MultiPolygon.js';
+import type Polygon from 'ol/geom/Polygon.js';
+import { useEffect,useRef,useState } from 'react';
+import type { Object3D } from 'three';
+import type { MapControls } from 'three/examples/jsm/controls/MapControls.js';
+import type { BarangayGISData,DiseaseSubMode,GISUserScope,MapLayer,SimulatedBarangayState } from './types';
 
 // Shared camera coordinates keep the first 3D view and the Reset button consistent.
 const DEFAULT_3D_CAMERA_POSITION = { x: 13_492_381.19, y: 1_541_389.26, z: 14_328.31 };

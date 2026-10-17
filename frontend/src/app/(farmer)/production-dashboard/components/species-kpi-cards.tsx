@@ -1,21 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { KpiCard } from "@/components/ui/kpi-card";
 import {
-  Baby,
-  Beef,
-  ClipboardList,
-  Egg,
-  HeartPulse,
-  Milk,
-  Package,
-  Scale,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  Users,
+Baby,
+Beef,
+ClipboardList,
+Egg,
+Milk,
+Package,
+Scale,
+ShieldCheck,
+TrendingUp,
+Users
 } from "lucide-react";
-import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
+import { useMemo } from "react";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import type { ProductionRecordItem } from "../production-analytics";
 import type { CalvingRecordItem } from "../production-calving-tab";

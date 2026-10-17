@@ -1,40 +1,36 @@
 "use client";
 
+import type { ApiProductionRecord } from "@/app/(farmer)/production-dashboard/production-analytics";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/components/ui/tabs";
+import api from "@/lib/axios";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Baby,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Dna,
-  HeartPulse,
-  Layers,
-  Milk,
-  Scale,
-  ShieldCheck,
-  Tag,
-  Weight,
-  XCircle,
-  RotateCcw,
-  ExternalLink,
+Baby,
+CheckCircle2,
+Clock,
+ExternalLink,
+Layers,
+Milk,
+RotateCcw,
+Scale,
+ShieldCheck,
+Tag
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import api from "@/lib/axios";
-import type { LivestockInventoryItem } from "./page";
 import { getAvatarById } from "./livestock-inventory";
 import { OperationalStatusBadge } from "./operational-status-badge";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import type { LivestockInventoryItem } from "./page";
 
 interface ProductionRecordItem {
   id: number;
@@ -123,8 +119,8 @@ export default function LivestockDetailsDialog({
   const { data: productionRecords = [] } = useQuery<ProductionRecordItem[]>({
     queryKey: ["production"],
     queryFn: async () => {
-      const res = await api.get("production/records/");
-      return (res.data || []).map((r: any) => ({
+      const res = await api.get<ApiProductionRecord[]>("production/records/");
+      return (res.data || []).map((r) => ({
         id: r.id,
         livestockId: r.livestock,
         productionType: r.production_type?.toLowerCase() || "milk",

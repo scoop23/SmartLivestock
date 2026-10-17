@@ -21,13 +21,13 @@
  */
 
 import {
-  BarangayGISData,
-  EnvironmentalWindInput,
-  MonthlySimulationResult,
-  MonthlyWindData,
-  SimulatedBarangayState,
-  SimulationParameters,
-  TimelineMonth,
+BarangayGISData,
+EnvironmentalWindInput,
+MonthlySimulationResult,
+MonthlyWindData,
+SimulatedBarangayState,
+SimulationParameters,
+TimelineMonth,
 } from './types';
 
 // Official geodesic areas (km²) calculated from polygon coordinates in padre-garcia-barangays.json
@@ -335,7 +335,9 @@ export function computeAnnualSimulationTrajectory(
   // Step 1: Initial ground truth seeds from PostgreSQL database
   let currentInfected: Record<string, number> = {};
   for (const b of barangays) {
-    const liveCases = b.active_cases > 0 ? b.active_cases : b.disease_cases > 0 ? 1 : 0;
+    // This compatibility field counts approved reports from the last 90 days.
+    // Historical-only reports must not create current scenario seeds.
+    const liveCases = Math.max(0, b.active_cases);
     currentInfected[b.name] = liveCases;
   }
 

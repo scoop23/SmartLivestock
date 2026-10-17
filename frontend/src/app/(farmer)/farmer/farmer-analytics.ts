@@ -1,7 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import type { InventoryApiItem, BatchApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import type { RawDiseaseCase, RawMortalityRecord } from "@/app/(sibat)/sibat/sibat-analytics";
+import type { ApiProductionRecord } from "@/app/(farmer)/production-dashboard/production-analytics";
 import api from "@/lib/axios";
+import { useQuery } from "@tanstack/react-query";
 
 // ---------------------------------------------------------------------------
 // Farmer Dashboard Analytics types
@@ -30,10 +33,10 @@ export interface FarmerActivityItem {
   type: "INVENTORY" | "PRODUCTION" | "DISEASE" | "MORTALITY";
   title: string;
   description: string;
-  status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+  status: string;
   date: string;
   remarks?: string | null;
-  rawItem?: any;
+  rawItem?: InventoryApiItem | BatchApiItem | ApiProductionRecord | RawDiseaseCase | RawMortalityRecord;
 }
 
 export interface StatusBreakdownPoint {
@@ -99,11 +102,11 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     api.get("diseases/mortality/"),
   ]);
 
-  const inventories: any[] = invRes.status === "fulfilled" && Array.isArray(invRes.value.data) ? invRes.value.data : [];
-  const batches: any[] = batchRes.status === "fulfilled" && Array.isArray(batchRes.value.data) ? batchRes.value.data : [];
-  const productions: any[] = prodRes.status === "fulfilled" && Array.isArray(prodRes.value.data) ? prodRes.value.data : [];
-  const diseaseCases: any[] = diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data) ? diseaseRes.value.data : [];
-  const mortalities: any[] = mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data) ? mortRes.value.data : [];
+  const inventories: InventoryApiItem[] = invRes.status === "fulfilled" && Array.isArray(invRes.value.data) ? invRes.value.data : [];
+  const batches: BatchApiItem[] = batchRes.status === "fulfilled" && Array.isArray(batchRes.value.data) ? batchRes.value.data : [];
+  const productions: ApiProductionRecord[] = prodRes.status === "fulfilled" && Array.isArray(prodRes.value.data) ? prodRes.value.data : [];
+  const diseaseCases: RawDiseaseCase[] = diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data) ? diseaseRes.value.data : [];
+  const mortalities: RawMortalityRecord[] = mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data) ? mortRes.value.data : [];
 
   // 1. Livestock Inventory calculations
   let totalHeads = 0;
@@ -132,7 +135,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       pendingHeads += qty;
     }
 
-    const species = (item.livestock_type_name || item.livestock_type?.name || "Other Livestock").trim();
+    const species = (item.livestock_type_name || "Other Livestock").trim();
     speciesMap.set(species, (speciesMap.get(species) || 0) + qty);
 
     const breed = (item.breed || "Standard").trim();

@@ -1,67 +1,67 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import {
-  CalendarCheck,
-  CalendarDays,
-  CalendarPlus,
-  Check,
-  CheckCircle2,
-  Clock,
-  Clock3,
-  Info,
-  Loader2,
-  MapPin,
-  Pencil,
-  Phone,
-  CloudRain,
-  RefreshCw,
-  Sparkles,
-  X,
-} from "lucide-react";
-import { PageHeader } from "@/app/components/page-header";
 import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+CommunityEmptyState,
+CommunitySkeleton,
+PROGRAM_TIME_SLOTS,
+daysUntil,
+formatLongDate,
+formatTime,
+isUpcoming,
+} from "@/app/components/community/community-ui";
+import { PageHeader } from "@/app/components/page-header";
+import {
+AlertDialog,
+AlertDialogAction,
+AlertDialogCancel,
+AlertDialogContent,
+AlertDialogDescription,
+AlertDialogFooter,
+AlertDialogHeader,
+AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
-import api, { getActiveApiUrl } from "@/lib/axios";
+import { Progress } from "@/components/ui/progress";
+import api,{ getActiveApiUrl } from "@/lib/axios";
 import {
-  ProgramBooking,
-  ProgramSchedule,
-  apiError,
-  getBookings,
-  getSchedules,
+ProgramBooking,
+ProgramSchedule,
+apiError,
+getBookings,
+getSchedules,
 } from "@/lib/community-api";
 import {
-  CommunityEmptyState,
-  CommunitySkeleton,
-  PROGRAM_TIME_SLOTS,
-  daysUntil,
-  formatLongDate,
-  formatTime,
-  isUpcoming,
-} from "@/app/components/community/community-ui";
+CalendarCheck,
+CalendarDays,
+CalendarPlus,
+Check,
+CheckCircle2,
+Clock,
+Clock3,
+CloudRain,
+Info,
+Loader2,
+MapPin,
+Pencil,
+Phone,
+RefreshCw,
+Sparkles,
+X,
+} from "lucide-react";
+import Image from "next/image";
+import { useCallback,useEffect,useMemo,useState } from "react";
 
 function localDateFromIso(value: string): Date {
   const [year, month, day] = value.slice(0, 10).split("-").map(Number);

@@ -1,31 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/auth-context';
-import {
-  ShieldCheck,
-  CheckCircle2,
-  FileText,
-  Lock,
-  Eye,
-  AlertCircle,
-  Sparkles,
-  LogOut,
-  MapPin,
-  Shield,
-} from 'lucide-react';
-import { Icon } from 'lucide-react';
-import { cowHead } from '@lucide/lab';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/auth-context';
+import { cowHead } from '@lucide/lab';
+import {
+CheckCircle2,
+Eye,
+FileText,
+Icon,
+Lock,
+LogOut,
+Shield,
+ShieldCheck,
+Sparkles
+} from 'lucide-react';
+import { useEffect,useState } from 'react';
 import { toast } from 'sonner';
 
 export function PrivacyConsentModal() {

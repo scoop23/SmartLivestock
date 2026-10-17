@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/auth-context";
-import { Sidebar } from "@/app/components/sidebar";
-import { UserProfileView } from "@/components/user-profile-view";
 import { PageHeader } from "@/app/components/page-header";
+import { Sidebar } from "@/app/components/sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { UserProfileView } from "@/components/user-profile-view";
+import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function ProfilePage() {
   const router = useRouter();

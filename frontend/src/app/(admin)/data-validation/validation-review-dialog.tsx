@@ -1,30 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  ShieldCheck,
-  CheckCircle2,
-  Sparkles,
-  RotateCcw,
-  Layers,
-  MapPin,
-  User,
-  AlertCircle,
-  FileCheck,
-  Check,
-  Camera,
-  ZoomIn,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
+Camera,
+FileCheck,
+RotateCcw,
+ShieldCheck,
+Sparkles,
+User,
+ZoomIn
 } from "lucide-react";
+import { useEffect,useState } from "react";
 
 export interface ReviewTargetItem {
   id: string | number;
@@ -66,23 +61,21 @@ const PRESET_REVISION_NOTES = [
   "Incorrect ear tag or farmer profile association; please rectify.",
 ];
 
-export function ValidationReviewDialog({
+export function ValidationReviewDialog(props: ValidationReviewDialogProps) {
+  return <ValidationReviewDialogContent key={`${props.open}:${props.items.map(item => item.id).join(",")}`} {...props} />;
+}
+
+function ValidationReviewDialogContent({
   open,
   onOpenChange,
   items,
   onConfirmAction,
 }: ValidationReviewDialogProps) {
-  const [remarks, setRemarks] = useState("");
+  const [remarks, setRemarks] = useState(items.length === 1 ? items[0].currentRemarks || "" : "");
   const [presetCategory, setPresetCategory] = useState<"approval" | "revision">("approval");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setRemarks(items.length === 1 && items[0].currentRemarks ? items[0].currentRemarks : "");
-      setPresetCategory("approval");
-      setIsSubmitting(false);
-    }
-  }, [open, items]);
+
 
   if (!items || items.length === 0) return null;
 

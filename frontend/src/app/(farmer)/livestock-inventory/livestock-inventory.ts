@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 
 export type EntryType = "INDIVIDUAL" | "BATCH";
 export type StatusType = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
@@ -41,6 +41,8 @@ export interface LivestockInventoryItem {
 
 export interface InventoryApiItem {
   id: string;
+  livestock_type?: number;
+  date_acquired?: string | null;
   farmer_name: string;
   livestock_type_name: string;
   entry_type: EntryType;
@@ -94,6 +96,18 @@ export interface LivestockBatchItem {
   animals?: LivestockInventoryItem[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BatchApiItem {
+  id: number; farmer: number; farmer_name: string; barangay_id: number;
+  barangay_name: string; livestock_type: number; livestock_type_name: string;
+  batch_name: string; batch_code: string; photo?: string | null; photo_url?: string | null;
+  photos?: string[]; housing_pen: string; feed_type: string; target_weight?: number | string | null;
+  target_harvest_date: string | null; status: LivestockBatchItem["status"];
+  review_status?: LivestockBatchItem["reviewStatus"]; review_remarks?: string;
+  reviewed_by_name?: string; reviewed_by_role?: string; reviewed_at?: string;
+  notes: string; total_animals: number; average_weight?: number | string | null;
+  animals?: InventoryApiItem[]; created_at: string; updated_at: string;
 }
 
 export interface CreateBatchPayload {
@@ -480,7 +494,7 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   reviewedAt: item.reviewed_at,
   createdAt: item.created_at,
   photoUrl: item.photo_url || item.photo || null,
-  avatarKey: (item as any).avatar_key || null,
+  avatarKey: item.avatar_key || null,
   batchId: item.batch || null,
   batchCode: item.batch_code || null,
   batchName: item.batch_name || null,
@@ -527,7 +541,7 @@ export async function deleteInventoryRecord(id: string) {
 export async function fetchLivestockBatches(includeRoster = true): Promise<LivestockBatchItem[]> {
   // Detailed herd screens need canonical animal rows; inventory overview and
   // registration only need the fast summary fields.
-  const res = await api.get<any[]>("livestock/batches/", includeRoster ? { params: { include_roster: true } } : undefined);
+  const res = await api.get<BatchApiItem[]>("livestock/batches/", includeRoster ? { params: { include_roster: true } } : undefined);
   return res.data.map((b) => ({
     id: b.id,
     farmer: b.farmer,

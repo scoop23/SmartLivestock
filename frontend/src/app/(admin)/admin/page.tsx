@@ -1,23 +1,32 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { PageHeader } from '@/app/components/page-header';
 import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
-import {
-  LayoutDashboard,
-  Users, CheckSquare, Map, TrendingUp, AlertTriangle,
-  FileText, Download, FileSpreadsheet,
-  FileBarChart, Database, Milk, Scale, ChevronRight,
-  ClipboardList
-} from 'lucide-react';
-import { Icon } from 'lucide-react';
-import { cowHead } from '@lucide/lab';
-import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
+import { PageHeader } from '@/app/components/page-header';
 import { Button } from "@/components/ui/button";
+import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from '@/components/validation-loading-screen';
+import { cowHead } from '@lucide/lab';
+import {
+AlertTriangle,
+CheckSquare,
+ChevronRight,
+ClipboardList,
+Database,
+Download,
+FileBarChart,
+FileSpreadsheet,
+FileText,
+Icon,
+LayoutDashboard,
+Map,
+Milk,Scale,
+TrendingUp,
+Users
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAdminDashboardAnalytics } from './admin-charts';
 import { AdminChartsView } from './admin-charts-view';
 import { AdminOperationsView } from './admin-operations-view';
-import { useAdminDashboardAnalytics } from './admin-charts';
-import { ValidationLoadingScreen, useLoadingScreenTransition } from '@/components/validation-loading-screen';
 
 const CowHeadIcon = ({ className }: { className?: string }) => (
   <Icon iconNode={cowHead} className={className} />

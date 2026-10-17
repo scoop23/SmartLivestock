@@ -1,18 +1,20 @@
 "use client";
 
-import { municipalRead } from "@/lib/municipal-read";
-import { useQuery } from "@tanstack/react-query";
+import type { BatchApiItem, InventoryApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import type { RawDiseaseCase, RawMortalityRecord, RawCalvingRecord, RawInventoryRecord } from "@/app/(sibat)/sibat/sibat-analytics";
 import type { InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import {
-  CensusSubmissionRecord,
-  mapCensusSubmission,
-  ApiCensusSubmission,
-} from "@/app/(sibat)/sibat/sibat-analytics";
-import {
-  ProductionRecordItem,
-  mapProductionRecord,
-  ApiProductionRecord,
+ApiProductionRecord,
+ProductionRecordItem,
+mapProductionRecord,
 } from "@/app/(farmer)/production-dashboard/production-analytics";
+import {
+ApiCensusSubmission,
+CensusSubmissionRecord,
+mapCensusSubmission,
+} from "@/app/(sibat)/sibat/sibat-analytics";
+import { municipalRead } from "@/lib/municipal-read";
+import { useQuery } from "@tanstack/react-query";
 
 // ── Types: Validation Domains ──
 
@@ -93,7 +95,7 @@ export interface ValidationInventoryItem {
   housingPen?: string;
   feedType?: string;
   targetWeight?: number;
-  animals?: any[];
+  animals?: InventoryApiItem[];
   photoUrl?: string;
   photoName?: string;
 }
@@ -182,6 +184,14 @@ type PaginatedList<T> = {
   results: T[];
 };
 
+interface ApiLiveSale {
+  id: number; quantity: number; total_price: string | number | null;
+  buyer_name?: string; destination?: string; farmer_name?: string; barangay_name?: string;
+  sale_method?: string; sale_date: string; created_at: string; status: string;
+  review_remarks?: string | null; tag_number?: string; livestock_type_name?: string;
+  purpose?: string;
+}
+
 // The livestock list APIs return every row when `page` is omitted. Read them
 // in bounded pages so the validation portal does not wait on one huge response.
 async function fetchAllLivestockPages<T>(endpoint: string): Promise<T[]> {
@@ -213,8 +223,8 @@ async function fetchAllLivestockPages<T>(endpoint: string): Promise<T[]> {
 export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryItem[]> {
   try {
     const [inventory, batches] = await Promise.all([
-      fetchAllLivestockPages("livestock/inventory/?include_inactive=true"),
-      fetchAllLivestockPages("livestock/batches/"),
+      fetchAllLivestockPages<RawInventoryRecord>("livestock/inventory/?include_inactive=true"),
+      fetchAllLivestockPages<BatchApiItem>("livestock/batches/"),
     ]);
 
     const results: ValidationInventoryItem[] = [];
@@ -225,7 +235,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           id: item.id,
           rawId: item.id,
           isBatch: false,
-          farmerName: item.farmer_name || (item.farmer ? `Farmer #${item.farmer}` : "Registered Farmer"),
+          farmerName: item.farmer_name || ("Registered Farmer"),
           barangayName: item.barangay_name || "Padre Garcia",
           livestockType: item.livestock_type_name || "Livestock",
           tagNumber: item.tag_number || `TAG-${item.id}`,
@@ -244,8 +254,8 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           reviewedBy: item.reviewed_by_name || null,
           reviewedAt: item.reviewed_at || null,
           createdAt: item.created_at || new Date().toISOString(),
-          batchId: item.batch || item.batch_id || null,
-          batch: item.batch || item.batch_id || null,
+          batchId: item.batch || null,
+          batch: item.batch || null,
           batchCode: item.batch_code || undefined,
           batchName: item.batch_name || undefined,
           isPostApprovalAddition: item.is_post_approval_addition ?? false,
@@ -310,19 +320,19 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
       if (!Array.isArray(result.value.data)) throw new Error("Unexpected incident response.");
     }
 
-    const diseaseCases: any[] =
+    const diseaseCases: RawDiseaseCase[] =
       diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data)
         ? diseaseRes.value.data
         : [];
-    const mortalities: any[] =
+    const mortalities: RawMortalityRecord[] =
       mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data)
         ? mortRes.value.data
         : [];
-    const sales: any[] =
+    const sales: ApiLiveSale[] =
       salesRes.status === "fulfilled" && Array.isArray(salesRes.value.data)
         ? salesRes.value.data
         : [];
-    const calvings: any[] =
+    const calvings: RawCalvingRecord[] =
       calvingRes.status === "fulfilled" && Array.isArray(calvingRes.value.data)
         ? calvingRes.value.data
         : [];
@@ -330,8 +340,8 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
     const incidents: ValidationIncidentItem[] = [];
 
     diseaseCases.forEach((dc) => {
-      const pUrl = (dc as any).photo_url || (dc as any).photo || undefined;
-      const inspUrl = (dc as any).inspector_photo_url || (dc as any).inspector_photo || undefined;
+      const pUrl = dc.photo_url || dc.photo || undefined;
+      const inspUrl = dc.inspector_photo_url || dc.inspector_photo || undefined;
       const isSibatDone = !!(dc.reviewed_by_name || dc.review_remarks || inspUrl || (dc.status || "").toUpperCase() === "VERIFIED");
 
       incidents.push({
@@ -372,8 +382,8 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
     });
 
     mortalities.forEach((m) => {
-      const pUrl = (m as any).photo_url || (m as any).photo || undefined;
-      const inspUrl = (m as any).inspector_photo_url || (m as any).inspector_photo || undefined;
+      const pUrl = m.photo_url || m.photo || undefined;
+      const inspUrl = m.inspector_photo_url || m.inspector_photo || undefined;
       const isSibatDone = !!(m.reviewed_by_name || m.review_remarks || inspUrl || (m.status || "").toUpperCase() === "VERIFIED");
 
       const affectedTags = Array.isArray(m.affected_animals)
@@ -459,7 +469,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
       });
     });
 
-    const inspections: any[] =
+    const inspections: InspectionRecord[] =
       inspRes.status === "fulfilled" && Array.isArray(inspRes.value.data)
         ? inspRes.value.data
         : [];

@@ -1,30 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  MapPin,
-  Calendar,
-  Eye,
-  Milk,
-  TrendingUp,
-  AlertTriangle,
-  Skull,
-  Scale,
-  FileSpreadsheet,
-  Boxes,
-  Search,
-} from "lucide-react";
-import { Icon } from "lucide-react";
-import { cowHead } from "@lucide/lab";
+import type { OverviewRecord } from "./data-overview-types";
 import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
+import { Badge } from "@/components/ui/badge";
+import { Card,CardContent } from "@/components/ui/card";
+import { cowHead } from "@lucide/lab";
+import {
+AlertTriangle,
+Boxes,
+Calendar,
+Eye,
+FileSpreadsheet,
+Icon,
+MapPin,
+Milk,
+Scale,
+Search,
+Skull,
+TrendingUp,
+} from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
 import { DataTab } from "./data-overview-types";
 
 interface DataOverviewCardsProps {
   activeTab: DataTab;
-  items: any[];
-  onSelectRecord: (record: any, domain: DataTab) => void;
+  items: OverviewRecord[];
+  onSelectRecord: (record: OverviewRecord, domain: DataTab) => void;
 }
 
 export function DataOverviewCards({
@@ -36,9 +37,6 @@ export function DataOverviewCards({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
 
   const totalItems = items.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -66,7 +64,7 @@ export function DataOverviewCards({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-        {paginatedItems.map((item: any) => (
+        {paginatedItems.map((item) => (
           <Card
             key={item.id}
             onClick={() => onSelectRecord(item, activeTab)}

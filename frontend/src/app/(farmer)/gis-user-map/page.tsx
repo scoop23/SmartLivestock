@@ -25,7 +25,6 @@
  *    - Disease simulation, mortality hot-spot analysis, and admin tools are strictly disabled.
  */
 
-import React from 'react';
 import { RoleAwareGISContainer } from '@/components/gis/RoleAwareGISContainer';
 
 export default function FarmerGISMapPage() {

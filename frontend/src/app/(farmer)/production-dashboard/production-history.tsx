@@ -2,46 +2,45 @@
 
 import ProductionValuation from "./production-valuation";
 
-import { useState, useMemo, useEffect } from "react";
-import { AxiosError } from "axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  Search,
-  Filter,
-  ChevronRight,
-  ArrowDownWideNarrow,
-  ArrowUpDown,
-  SlidersHorizontal,
-  Trash2,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { STATUS_CHIPS, type SortKey } from "../livestock-inventory/livestock-record-list";
-
+import { Card,CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
-  PRODUCTION_TYPE_LABELS,
-  fetchProductionRecords,
-  deleteProductionRecord,
-  formatProductionStatus,
-  type ProductionRecordItem,
-  type ProductionStatus,
-  type ProductionType,
-} from "./production-analytics";
-import ProductionRecordDialog from "./production-record-dialog";
-import ProductionDeleteDialog from "./production-delete-dialog";
-import ProductionApprovalCard from "./production-approval-card";
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from "@/components/ui/select";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import { AxiosError } from "axios";
+import {
+ArrowDownWideNarrow,
+ArrowUpDown,
+ChevronRight,
+Filter,
+Search,
+SlidersHorizontal,
+Trash2,
+} from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
+import { toast } from "sonner";
+import { STATUS_CHIPS,type SortKey } from "../livestock-inventory/livestock-record-list";
+
 import { Separator } from "@/components/ui/separator";
+import {
+PRODUCTION_TYPE_LABELS,
+deleteProductionRecord,
+fetchProductionRecords,
+formatProductionStatus,
+type ProductionRecordItem,
+type ProductionStatus,
+type ProductionType,
+} from "./production-analytics";
+import ProductionApprovalCard from "./production-approval-card";
+import ProductionDeleteDialog from "./production-delete-dialog";
+import ProductionRecordDialog from "./production-record-dialog";
 
 export interface ApiError {
   detail?: string;

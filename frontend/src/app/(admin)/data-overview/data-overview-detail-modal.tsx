@@ -1,53 +1,47 @@
 "use client";
 
-import React, { useState } from "react";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
-import Link from "next/link";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import type { OverviewRecord } from "./data-overview-types";
+import { QrCodePass } from "@/components/qr-code-pass";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  MapPin,
-  Calendar,
-  User,
-  Phone,
-  Tag,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
-  Printer,
-  Copy,
-  Boxes,
-  ExternalLink,
-  QrCode,
-  Scale,
-  Milk,
-  FileSpreadsheet,
-  Activity,
-  Check,
-  Building2,
-  Clock,
-  Info,
-  Layers,
-} from "lucide-react";
-import { Icon } from "lucide-react";
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs,TabsList,TabsTrigger } from "@/components/ui/tabs";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
+import { livestockBatchQrPayload,livestockIdentityQrPayload } from "@/lib/livestock-identity";
 import { cowHead } from "@lucide/lab";
+import {
+AlertTriangle,
+Boxes,
+Check,
+CheckCircle2,
+Clock,
+Copy,
+ExternalLink,
+Icon,
+Info,
+Layers,
+MapPin,
+Phone,
+Printer,
+ShieldCheck,
+Tag,
+User
+} from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
 import { toast } from "sonner";
 import { DataTab } from "./data-overview-types";
-import { QrCodePass } from "@/components/qr-code-pass";
-import { livestockBatchQrPayload, livestockIdentityQrPayload } from "@/lib/livestock-identity";
 
 interface DataOverviewDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  record: any | null;
+  record: OverviewRecord | null;
   domain: DataTab;
 }
 
@@ -215,7 +209,7 @@ export function DataOverviewDetailModal({
         <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-100 bg-slate-50/80 shrink-0">
           <Tabs
             value={activeSubTab}
-            onValueChange={(val) => setActiveSubTab(val as any)}
+            onValueChange={(val) => { if (val === "overview" || val === "origin" || val === "qr" || val === "roster") setActiveSubTab(val); }}
             className="w-full"
           >
             <TabsList className="bg-slate-200/70 p-1.5 rounded-xl h-auto w-full sm:w-auto flex flex-wrap sm:flex-nowrap gap-1.5 border border-slate-300/60 shadow-2xs">
@@ -285,7 +279,7 @@ export function DataOverviewDetailModal({
                           href={
                             individualHerdUrl ||
                             `/data-validation/batches?batchId=${encodeURIComponent(
-                              record.batchId || record.batchCode || record.batchName
+                              record.batchId || record.batchCode || record.batchName || ""
                             )}`
                           }
                           onClick={() => onOpenChange(false)}
@@ -824,11 +818,11 @@ export function DataOverviewDetailModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {record.animals?.map((animal: any) => (
+                    {record.animals?.map((animal) => (
                       <tr key={animal.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="p-2.5 font-mono font-bold text-emerald-950 flex items-center gap-1.5">
                           <Tag className="size-3 text-emerald-600" />
-                          {animal.tag_number || animal.tagNumber || `ID-${animal.id}`}
+                          {animal.tag_number || animal.tag_number || `ID-${animal.id}`}
                         </td>
                         <td className="p-2.5 text-slate-700">{animal.breed || "Standard"}</td>
                         <td className="p-2.5 text-slate-700">{animal.sex || "—"}</td>
@@ -844,8 +838,8 @@ export function DataOverviewDetailModal({
                               href={`/data-validation/batches?batchId=${encodeURIComponent(
                                 targetBatchId
                               )}&animalId=${encodeURIComponent(animal.id)}${
-                                animal.tag_number || animal.tagNumber
-                                  ? `&tag=${encodeURIComponent(animal.tag_number || animal.tagNumber)}`
+                                animal.tag_number || animal.tag_number
+                                  ? `&tag=${encodeURIComponent(animal.tag_number || animal.tag_number)}`
                                   : ""
                               }`}
                               onClick={() => onOpenChange(false)}

@@ -1,40 +1,40 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
-import {
-  Stethoscope,
-  Skull,
-  Send,
-  Camera,
-  Calendar,
-  X,
-  Icon,
-} from "lucide-react";
-import { cowHead } from "@lucide/lab";
-import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/axios";
-import { useQueryClient } from "@tanstack/react-query";
-import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
-import { ReportType, FarmerReport } from "../report-observation-types";
-import { saveAttachedPhoto } from "@/lib/photo-storage";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+import { saveAttachedPhoto } from "@/lib/photo-storage";
+import { cowHead } from "@lucide/lab";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+Calendar,
+Camera,
+Icon,
+Send,
+Skull,
+Stethoscope,
+X,
+} from "lucide-react";
+import React,{ useMemo,useState } from "react";
+import { toast } from "sonner";
+import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
+import { FarmerReport,ReportType } from "../report-observation-types";
 
 interface ReportIllnessDialogProps {
   open: boolean;
@@ -91,7 +91,8 @@ function ReportIllnessDialogContent({
   });
   const [selectedInventoryIds, setSelectedInventoryIds] = useState<string[]>(() => {
     if (isEditMode && existingReport) {
-      const affected = existingReport.rawItem?.affected_animals;
+      const affected = existingReport.rawItem && "affected_animals" in existingReport.rawItem
+        ? existingReport.rawItem.affected_animals : undefined;
       if (Array.isArray(affected) && affected.length) {
         return affected.map((animal: { id: number }) => String(animal.id));
       }
@@ -372,17 +373,17 @@ function ReportIllnessDialogContent({
   const isDisease = reportType === "DISEASE";
 
   return (
-    <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-3xl border-0 shadow-2xl">
+    <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-2xl border-0 shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[90dvh] sm:rounded-3xl">
         {/* Header with Type Switcher */}
         <div
-          className={`p-6 text-white transition-colors relative overflow-hidden ${
+          className={`p-4 text-white transition-colors relative overflow-hidden sm:p-6 ${
             isDisease
               ? "bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800"
               : "bg-gradient-to-br from-rose-950 via-rose-800 to-rose-700"
           }`}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
                 {isDisease ? (
                   <Stethoscope className="size-6 text-emerald-200" />
@@ -391,7 +392,7 @@ function ReportIllnessDialogContent({
                 )}
               </div>
               <div>
-                <DialogTitle className="text-lg font-black text-white tracking-tight">
+                <DialogTitle className="break-words text-base font-black text-white tracking-tight sm:text-lg">
                   {isEditMode
                     ? `Edit ${isDisease ? "Disease Report" : "Mortality Report"}`
                     : isDisease

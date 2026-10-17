@@ -1,35 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ClipboardCheck,
-  Plus,
-  X,
-  Search,
-  CheckCircle2,
-  Clock,
-  RotateCcw,
-  Send,
-  TableIcon,
-  LayoutGrid,
-  QrCode,
-  Loader2,
-  Map,
-} from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
+import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-  InspectionRecord,
-  InspectionStatusTab,
-  fetchInspections,
+CheckCircle2,
+ClipboardCheck,
+Clock,
+LayoutGrid,
+Loader2,
+Map,
+Plus,
+QrCode,
+RotateCcw,
+Search,
+Send,
+TableIcon,
+X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import {
+InspectionRecord,
+InspectionStatusTab,
+fetchInspections,
 } from "./auction-analytics";
 import { InspectionDetailsDialog } from "./inspection-details-dialog";
 import { InspectionsListView } from "./inspections-list-view";
-import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 export default function AuctionInspections() {
   const router = useRouter();

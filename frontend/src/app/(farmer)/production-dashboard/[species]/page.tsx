@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/app/components/page-header";
+import { useParams,useRouter,useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
-import ProductionDashboardView from "../production-dashboard-view";
 import EnterpriseEmptyState from "../components/enterprise-empty-state";
+import ProductionDashboardView from "../production-dashboard-view";
 
 export default function SpeciesProductionPage() {
   const params = useParams();

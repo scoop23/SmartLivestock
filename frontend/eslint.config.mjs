@@ -5,10 +5,16 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    files: ["tests/**/*.cjs"],
+    // These Node test harnesses intentionally execute CommonJS modules.
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next-qa/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

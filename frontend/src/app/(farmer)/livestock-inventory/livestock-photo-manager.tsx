@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Camera, ImagePlus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LIVESTOCK_AVATAR_PRESETS, getAvatarById, type LivestockAvatarOption } from "./livestock-inventory";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
+import { Camera,ImagePlus,Trash2 } from "lucide-react";
+import { useEffect,useMemo,useState,type ReactNode } from "react";
+import { LIVESTOCK_AVATAR_PRESETS,getAvatarById,type LivestockAvatarOption } from "./livestock-inventory";
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);

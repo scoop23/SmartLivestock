@@ -1,30 +1,30 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
-import {
-  CalendarDays,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  ShieldCheck,
-  Syringe,
-  Tag,
-  Weight,
-  X,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/components/ui/utils";
-import { getAvatarById, type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
-import { formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import { formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
+import {
+CalendarDays,
+Check,
+ChevronLeft,
+ChevronRight,
+Search,
+ShieldCheck,
+Syringe,
+Tag,
+Weight,
+X,
+} from "lucide-react";
+import { useMemo,useState,useSyncExternalStore } from "react";
+import { getAvatarById,type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import type { ProductionType } from "./production-analytics";
 
 interface SelectLivestockDialogProps {

@@ -1,43 +1,43 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Beef,
-  Calendar,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Egg,
-  Info,
-  Milk,
-  Package,
-  Send,
-  ShieldCheck,
-  Sparkles,
-  Tag,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/components/ui/utils";
-import ProductionFormFields, {
-  ProductionFormState,
-} from "./production-form-fields";
-import SelectLivestockDialog from "./select-livestock-dialog";
+import {
+Beef,
+Calendar,
+Check,
+ChevronDown,
+ChevronLeft,
+ChevronRight,
+Egg,
+Info,
+Milk,
+Package,
+Send,
+ShieldCheck,
+Sparkles,
+Tag,
+} from "lucide-react";
+import { useState } from "react";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import type { WizardMode } from "./production-dashboard-view";
+import ProductionFormFields,{
+ProductionFormState,
+} from "./production-form-fields";
+import SelectLivestockDialog from "./select-livestock-dialog";
 
-import { type ProductionType, ProductionRecordItem } from "./production-analytics";
+import { type ProductionType,ProductionRecordItem } from "./production-analytics";
 
 export type ProductionPayload = {
   livestock: number;

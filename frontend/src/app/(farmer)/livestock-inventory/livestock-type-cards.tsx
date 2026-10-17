@@ -1,35 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { LivestockInventoryItem } from "./page";
-import type { LivestockBatchItem } from "./livestock-inventory";
+import { Card,CardDescription,CardTitle } from "@/components/ui/card";
 import {
-  Layers,
-  LayoutGrid,
-  Table as TableIcon,
-  ChevronRight,
-  Beef,
-  Shield,
-  Sparkles,
-  Package,
-  Egg,
-  Tag,
-  CheckCircle2,
-  Clock,
-  HelpCircle,
-} from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
+import {
+Beef,
+ChevronRight,
+Egg,
+Layers,
+LayoutGrid,
+Package,
+Shield,
+Sparkles,
+Table as TableIcon,
+Tag
+} from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import type { LivestockBatchItem } from "./livestock-inventory";
+import type { LivestockInventoryItem } from "./page";
 
 interface LivestockTypeCardsProps {
   inventories: LivestockInventoryItem[];

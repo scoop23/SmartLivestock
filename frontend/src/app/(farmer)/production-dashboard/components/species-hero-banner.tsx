@@ -1,22 +1,20 @@
 "use client";
 
+import { cowHead } from "@lucide/lab";
 import {
-  Baby,
-  CalendarDays,
-  CheckCircle2,
-  Clock,
-  Icon,
-  Milk,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
+Baby,
+CalendarDays,
+CheckCircle2,
+Clock,
+Icon,
+Milk,
+ShieldCheck,
+Sparkles
 } from "lucide-react";
-import { ENTERPRISE_CONFIGS } from "../production-enterprise-hub";
-import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import type { ProductionRecordItem } from "../production-analytics";
-import type { CalvingRecordItem } from "../production-calving-tab";
-import { cowHead } from "@lucide/lab";
+import type { BirthingSpeciesTerminology,CalvingRecordItem } from "../production-calving-tab";
+import { ENTERPRISE_CONFIGS } from "../production-enterprise-hub";
 
 interface SpeciesHeroBannerProps {
   species?: string | null;

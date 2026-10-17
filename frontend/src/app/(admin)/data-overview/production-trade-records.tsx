@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { fetchInspections, type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { OverviewRecord } from "./data-overview-types";
+import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
+import { fetchInspections,type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
+import { Alert,AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTableSection } from "@/components/ui/data-table-section";
-import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
+import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
+import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
+import { useQuery } from "@tanstack/react-query";
+import { Search } from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
 import { DataOverviewCards } from "./data-overview-cards";
 import { DataOverviewTable } from "./data-overview-table";
-import type { DataTab, SalesRecord } from "./data-overview-types";
+import type { DataTab,SalesRecord } from "./data-overview-types";
 
 type OwnershipTransfer = {
   id: number;
@@ -115,7 +116,7 @@ export function ProductionTradeRecords({
 }: {
   salesRecords: SalesRecord[];
   viewMode: "table" | "cards";
-  onSelectSalesRecord: (record: any, domain: DataTab) => void;
+  onSelectSalesRecord: (record: OverviewRecord, domain: DataTab) => void;
   onResetFilters: () => void;
   search: string;
   statusFilter: string;

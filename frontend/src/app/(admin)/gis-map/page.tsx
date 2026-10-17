@@ -8,7 +8,6 @@
  * Full municipal scope, all 18 barangays, 2D/3D perspective, and epidemic simulation enabled.
  */
 
-import React from 'react';
 import { RoleAwareGISContainer } from '@/components/gis/RoleAwareGISContainer';
 
 export default function GISMapPage() {

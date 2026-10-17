@@ -1,23 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import {
-  Activity,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  XCircle,
-  ChevronRight,
-  Milk,
-  Stethoscope,
-  Skull,
-  RotateCcw,
-} from "lucide-react";
-import { Icon } from "lucide-react";
-import { cowHead } from "@lucide/lab";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
+import { cowHead } from "@lucide/lab";
+import {
+Activity,
+CheckCircle2,
+ChevronRight,
+Clock,
+Icon,
+Milk,
+RotateCcw,
+Skull,
+Stethoscope
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { FarmerActivityItem } from "./farmer-analytics";
 
 interface FarmerActivityFeedProps {
@@ -140,7 +138,7 @@ export default function FarmerActivityFeed({
                   );
                 } else if (item.type === "PRODUCTION") {
                   const recordId = String(item.id).replace(/^prod-/, "");
-                  const productionType = String(item.rawItem?.production_type || "").toLowerCase();
+                  const productionType = String(item.rawItem && "production_type" in item.rawItem ? item.rawItem.production_type : "").toLowerCase();
                   const params = new URLSearchParams({ recordId });
                   if (["milk", "meat", "eggs", "wool"].includes(productionType)) {
                     params.set("type", productionType);

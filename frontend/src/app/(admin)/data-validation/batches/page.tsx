@@ -1,100 +1,87 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import api from "@/lib/axios";
+import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 import { PageHeader } from "@/app/components/page-header";
 import { QrCodePass } from "@/components/qr-code-pass";
-import { livestockBatchQrPayload } from "@/lib/livestock-identity";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+AlertDialog,
+AlertDialogAction,
+AlertDialogCancel,
+AlertDialogContent,
+AlertDialogDescription,
+AlertDialogFooter,
+AlertDialogHeader,
+AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+Card,
+CardContent
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import {
-  ShieldCheck,
-  Layers,
-  ArrowLeft,
-  Search,
-  Filter,
-  Eye,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  RotateCcw,
-  Sparkles,
-  Printer,
-  ChevronRight,
-  ChevronDown,
-  Tag,
-  Scale,
-  Calendar,
-  Building2,
-  MapPin,
-  User,
-  Activity,
-  QrCode,
-  Copy,
-  Check,
-  LayoutGrid,
-  List,
-  RefreshCw,
-  ExternalLink,
-  Info,
-  ClipboardList,
-  Camera,
-  ImageIcon,
-  ChevronLeft,
-  ArrowRight,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import api from "@/lib/axios";
+import { livestockBatchQrPayload } from "@/lib/livestock-identity";
+import { keepPreviousData,useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import {
+AlertTriangle,
+ArrowLeft,
+ArrowRight,
+Building2,
+Camera,
+Check,
+CheckCircle2,
+ChevronDown,
+ChevronLeft,
+ChevronRight,
+ClipboardList,
+Clock,
+Copy,
+Eye,
+ImageIcon,
+Layers,
+LayoutGrid,
+List,
+MapPin,
+Printer,
+QrCode,
+RefreshCw,
+Search,
+ShieldCheck,
+Tag,
+User
 } from "lucide-react";
-import { PADRE_GARCIA_BARANGAYS } from "../../admin/admin-charts";
-import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
-import { RecordDetailDialog, type DetailRecordData } from "../record-detail-dialog";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter,useSearchParams } from "next/navigation";
+import React,{ Suspense,useEffect,useMemo,useRef,useState } from "react";
+import { toast } from "sonner";
+import { RecordDetailDialog,type DetailRecordData } from "../record-detail-dialog";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

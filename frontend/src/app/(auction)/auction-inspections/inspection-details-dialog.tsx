@@ -1,38 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import QRCode from "qrcode";
-import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { cowHead } from "@lucide/lab";
 import axios from "axios";
 import {
-  FileDown,
-  Send,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  RotateCcw,
-  MapPin,
-  Map,
-  Truck,
-  Building,
-  Calendar,
-  Check,
+AlertCircle,
+Building,
+Calendar,
+Check,
+CheckCircle2,
+Clock,
+FileDown,
+Icon,
+Loader2,
+Map,
+MapPin,
+RotateCcw,
+Send,
+Truck,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { InspectionRecord, resubmitInspection, submitFarmerRequest } from "./auction-analytics";
-import { cowHead } from "@lucide/lab";
-import { Icon } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import QRCode from "qrcode";
+import { useEffect,useState } from "react";
+import { InspectionRecord,resubmitInspection,submitFarmerRequest } from "./auction-analytics";
 
 const CowHeadIcon = ({ className }: { className?: string }) => (
   <Icon iconNode={cowHead} className={className} />

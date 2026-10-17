@@ -1,31 +1,31 @@
 "use client";
 
+import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Milk,
-  Egg,
-  Layers,
-  MapPin,
-  Calendar,
-  Eye,
-  ShieldCheck,
-  ChevronRight,
-  CheckCircle2,
+Calendar,
+CheckCircle2,
+ChevronRight,
+Egg,
+Eye,
+Layers,
+MapPin,
+Milk,
+ShieldCheck,
 } from "lucide-react";
-import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
-import { ReviewTargetItem } from "../validation-review-dialog";
 import { DetailRecordData } from "../record-detail-dialog";
 import { getStatusPill } from "../validation-analytics";
+import { ReviewTargetItem } from "../validation-review-dialog";
 
 interface ProductionTableProps {
   records: ProductionRecordItem[];
@@ -383,7 +383,7 @@ export function ProductionTable({
 
                 {prod.notes && (
                   <p className="text-[11px] text-gray-500 italic bg-gray-50/80 px-3 py-1.5 rounded-xl truncate">
-                    "{prod.notes}"
+                    &quot;{prod.notes}&quot;
                   </p>
                 )}
 

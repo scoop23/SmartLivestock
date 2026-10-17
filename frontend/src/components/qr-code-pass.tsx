@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import QRCode from "qrcode";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Download, Printer, QrCode, ShieldCheck, CheckCircle2, Info } from "lucide-react";
+import { Check,CheckCircle2,Copy,Download,Info,Printer,QrCode,ShieldCheck } from "lucide-react";
+import QRCode from "qrcode";
+import React,{ useEffect,useState } from "react";
 import { toast } from "sonner";
 
 export interface QrCodePassProps {

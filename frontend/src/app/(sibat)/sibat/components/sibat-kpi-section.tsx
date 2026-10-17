@@ -1,10 +1,10 @@
 "use client";
 
-import { CheckCircle2, Clock, FileSpreadsheet, Milk, Sparkles, Stethoscope, Tag, HeartHandshake } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { UnifiedSubmissionItem, CensusSubmissionRecord } from "../sibat-analytics";
 import type { SibatValidationRecord } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
+import { Card,CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FileSpreadsheet,Milk,Stethoscope,Tag } from "lucide-react";
+import type { CensusSubmissionRecord,UnifiedSubmissionItem } from "../sibat-analytics";
 
 interface SibatKpiSectionProps {
   healthRecords: SibatValidationRecord[];

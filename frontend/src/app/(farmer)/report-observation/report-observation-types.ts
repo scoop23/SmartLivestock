@@ -1,3 +1,4 @@
+import type { RawDiseaseCase, RawMortalityRecord } from "@/app/(sibat)/sibat/sibat-analytics";
 export type ReportType = "DISEASE" | "MORTALITY";
 
 export type BackendStatus =
@@ -5,6 +6,7 @@ export type BackendStatus =
   | "VERIFIED"
   | "APPROVED"
   | "SUBJECT_TO_REVISION"
+  | "SUBJECT_FOR_REVISION"
   | "REJECTED";
 
 export interface FarmerReport {
@@ -29,7 +31,7 @@ export interface FarmerReport {
   reviewRemarks?: string | null;
   farmerName?: string;
   barangayName?: string;
-  rawItem?: any;
+  rawItem?: RawDiseaseCase | RawMortalityRecord;
 }
 
 export interface ObservationLogPayload {

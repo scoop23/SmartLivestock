@@ -1,9 +1,9 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Activity, FileSpreadsheet, Milk, Scissors, Tag } from "lucide-react";
-import { VALIDATION_DOMAINS, ValidationDomain } from "../validation-analytics";
+import { Tabs,TabsList,TabsTrigger } from "@/components/ui/tabs";
+import { Activity,FileSpreadsheet,Milk,Scissors,Tag } from "lucide-react";
+import { VALIDATION_DOMAINS,ValidationDomain } from "../validation-analytics";
 
 const DOMAIN_CARD_CONFIG: Record<
   ValidationDomain,

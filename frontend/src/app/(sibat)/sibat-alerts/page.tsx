@@ -1,45 +1,43 @@
 "use client";
 
-import React, { Suspense, useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import {
-  ShieldAlert,
-  CheckCircle2,
-  Clock,
-  MapPin,
-  ShieldCheck,
-  Search,
-  X,
-  RotateCcw,
-  Stethoscope,
-  Skull,
-  Tag,
-  ArrowRight,
-  Camera,
-  AlertTriangle,
-  Info,
-  Calendar,
-} from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import {
-  useClinicalHealthRecords,
-  useReviewClinicalHealth,
-} from "../sibat/sibat-analytics";
+ArrowRight,
+Calendar,
+Camera,
+CheckCircle2,
+Clock,
+MapPin,
+RotateCcw,
+Search,
+ShieldAlert,
+ShieldCheck,
+Skull,
+Stethoscope,
+Tag,
+X
+} from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense,useMemo,useState } from "react";
+import { toast } from "sonner";
 import {
-  SibatInspectionDialog,
-  type SibatValidationRecord,
-  type SibatInspectionData,
-  type SibatStatus,
+SibatInspectionDialog,
+type SibatInspectionData,
+type SibatStatus,
+type SibatValidationRecord,
 } from "../sibat-validation/sibat-inspection-dialog";
+import {
+useClinicalHealthRecords,
+useReviewClinicalHealth,
+} from "../sibat/sibat-analytics";
 
 type StatusFilterOption = "All Statuses" | "Needs Review" | "Reviewed" | "Forwarded to MAO";
 

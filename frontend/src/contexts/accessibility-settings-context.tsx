@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
+import { createContext,useContext,useEffect,useSyncExternalStore } from "react";
 
 export type FontScale = "standard" | "comfortable" | "extra-large";
 

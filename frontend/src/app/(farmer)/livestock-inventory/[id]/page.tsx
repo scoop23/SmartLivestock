@@ -1,113 +1,104 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
-import QRCode from "qrcode";
-import Image from "next/image";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { httpError } from "@/lib/http-error";
+import type { ProductionType } from "@/app/(farmer)/production-dashboard/production-analytics";
 import {
-  ArrowLeft,
-  Tag,
-  Scale,
-  Calendar,
-  Activity,
-  ShieldCheck,
-  TrendingUp,
-  Stethoscope,
-  QrCode,
-  Printer,
-  Download,
-  Plus,
-  Layers,
-  Sparkles,
-  Info,
-  CheckCircle2,
-  Clock,
-  Beef,
-  Milk,
-  Egg,
-  Heart,
-  AlertTriangle,
-  ChevronRight,
-  Baby,
-  HeartPulse,
-  Dna,
-} from "lucide-react";
+getBirthingTerminology,
+type CalvingRecordItem,
+} from "@/app/(farmer)/production-dashboard/production-calving-tab";
+import type { ProductionFormState } from "@/app/(farmer)/production-dashboard/production-form-fields";
+import ProductionWizard,{
+getProductionTypesForLivestock,
+type ProductionPayload,
+} from "@/app/(farmer)/production-dashboard/production-wizard";
 import { PageHeader } from "@/app/components/page-header";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-import { toast } from "sonner";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/components/ui/tabs";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
 import api from "@/lib/axios";
-import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
 import {
-  formatAgeClassification,
-  formatCalendarDate,
-  formatLivestockAge,
-  localCalendarDateToday,
+formatCalendarDate,
+localCalendarDateToday
 } from "@/lib/livestock-age";
+import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-  useUserInventory,
-  type LivestockInventoryItem,
-  getAvatarById,
-} from "../livestock-inventory";
-import { OperationalStatusBadge } from "../operational-status-badge";
-import { OwnershipTransferPanel } from "../ownership-transfer-panel";
-import { LivestockPhotoManager } from "../livestock-photo-manager";
-import { LivestockMilkForecastTab } from "../livestock-milk-forecast-tab";
+AlertTriangle,
+ArrowLeft,
+Baby,
+CheckCircle2,
+Clock,
+Dna,
+Download,
+Heart,
+HeartPulse,
+Info,
+Layers,
+Milk,
+Plus,
+Printer,
+Scale,
+ShieldCheck,
+Stethoscope,
+TrendingUp
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useParams,useRouter } from "next/navigation";
+import QRCode from "qrcode";
+import React,{ useEffect,useMemo,useState } from "react";
+import {
+CartesianGrid,
+Line,
+LineChart,
+ResponsiveContainer,
+Tooltip,
+XAxis,
+YAxis,
+} from "recharts";
+import { toast } from "sonner";
+import ProductionSubmissionSuccessDialog from "../../production-dashboard/production-submission-success-dialog";
 import { LivestockInfographicHero } from "../components/livestock-infographic-hero";
 import { LivestockSlidingPanel } from "../components/livestock-sliding-panel";
-import ProductionSubmissionSuccessDialog from "../../production-dashboard/production-submission-success-dialog";
 import LivestockEditDialog from "../livestock-edit-dialog";
-import { useLivestockTypes, type UpdateInventoryPayload } from "../livestock-inventory";
 import {
-  getBirthingTerminology,
-  type CalvingRecordItem,
-} from "@/app/(farmer)/production-dashboard/production-calving-tab";
-import ProductionWizard, {
-  getProductionTypesForLivestock,
-  type ProductionPayload,
-} from "@/app/(farmer)/production-dashboard/production-wizard";
-import type { ProductionFormState } from "@/app/(farmer)/production-dashboard/production-form-fields";
-import type { ProductionType } from "@/app/(farmer)/production-dashboard/production-analytics";
+getAvatarById,
+useLivestockTypes,
+useUserInventory,
+type LivestockInventoryItem,
+type UpdateInventoryPayload,
+} from "../livestock-inventory";
+import { LivestockMilkForecastTab } from "../livestock-milk-forecast-tab";
+import { LivestockPhotoManager } from "../livestock-photo-manager";
+import { OwnershipTransferPanel } from "../ownership-transfer-panel";
 
 const PRODUCTION_TYPE_CODES = {
   milk: "MILK",
@@ -580,8 +571,8 @@ export default function LivestockDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["inventory_item", rawId] });
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.error || err.response?.data?.weight?.[0] || "Failed to save weight record.";
+    onError: (err: unknown) => {
+      const msg = httpError(err)?.response?.data?.error || httpError(err)?.response?.data?.weight?.[0] || "Failed to save weight record.";
       toast.error(msg);
     },
   });
@@ -661,8 +652,8 @@ export default function LivestockDetailPage() {
         notes: "",
       });
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.calving_date?.[0] || err.response?.data?.error || err.response?.data?.non_field_errors?.[0] || `Failed to record ${terms.eventName.toLowerCase()} details.`;
+    onError: (err: unknown) => {
+      const msg = httpError(err)?.response?.data?.calving_date?.[0] || httpError(err)?.response?.data?.error || httpError(err)?.response?.data?.non_field_errors?.[0] || `Failed to record ${terms.eventName.toLowerCase()} details.`;
       toast.error(msg);
     },
   });

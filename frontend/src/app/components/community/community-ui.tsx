@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Activity, AlertTriangle, CalendarDays, ClipboardCheck, GraduationCap, HeartPulse, Megaphone, MapPin, RotateCw, ShieldAlert, ShoppingBasket, Syringe, Users, type LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Activity,AlertTriangle,CalendarDays,ClipboardCheck,GraduationCap,HeartPulse,MapPin,Megaphone,RotateCw,ShieldAlert,ShoppingBasket,Syringe,Users,type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 /** Default appointment times used for new schedules unless staff customize them. */
 export const PROGRAM_TIME_SLOTS = ["08:00", "09:30", "11:00", "13:30"] as const;

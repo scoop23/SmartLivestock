@@ -1,51 +1,45 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Legend,
-} from "recharts";
-import {
-  Milk,
-  Plus,
-  Package,
-  ShieldCheck,
-  Stethoscope,
-  Skull,
-  TrendingUp,
-  Activity,
-  CheckCircle2,
-  Clock,
-  RotateCcw,
-} from "lucide-react";
-import { Icon } from "lucide-react";
+Card,
+CardContent,
+CardDescription,
+CardHeader,
+CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cowHead } from "@lucide/lab";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+Activity,
+CheckCircle2,
+Icon,
+Milk,
+Package,
+Plus,
+ShieldCheck,
+TrendingUp
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
-  formatPeriodMonth,
-  formatQty,
-  type FarmerDashboardAnalytics,
+Area,
+AreaChart,
+Bar,
+BarChart,
+CartesianGrid,
+Cell,
+Pie,
+PieChart,
+ResponsiveContainer,
+Tooltip,
+XAxis,
+YAxis
+} from "recharts";
+import {
+formatPeriodMonth,
+formatQty,
+type FarmerDashboardAnalytics,
 } from "./farmer-analytics";
 
 export default function FarmerCharts({
@@ -166,7 +160,7 @@ export default function FarmerCharts({
                           fontSize: "12px",
                           fontWeight: "bold",
                         }}
-                        formatter={(value: any, name: any) => [`${value} heads`, name]}
+                        formatter={(value, name) => [`${value} heads`, name]}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -272,8 +266,8 @@ export default function FarmerCharts({
                           fontSize: "12px",
                           fontWeight: "bold",
                         }}
-                        formatter={(val: any) => [`${formatQty(val)} Liters`, "Milk Harvest"]}
-                        labelFormatter={(lbl: any) => `Period: ${formatPeriodMonth(lbl)}`}
+                        formatter={(val) => [`${formatQty(Number(val ?? 0))} Liters`, "Milk Harvest"]}
+                        labelFormatter={(lbl) => `Period: ${formatPeriodMonth(lbl)}`}
                       />
                       <Area
                         type="monotone"
@@ -367,7 +361,7 @@ export default function FarmerCharts({
                           fontSize: "12px",
                           fontWeight: "bold",
                         }}
-                        formatter={(val: any, name: any) => [`${val} Heads`, name]}
+                        formatter={(val, name) => [`${val} Heads`, name]}
                       />
                     </PieChart>
                   </ResponsiveContainer>

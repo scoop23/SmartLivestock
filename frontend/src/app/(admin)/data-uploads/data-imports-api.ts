@@ -1,4 +1,4 @@
-import api, { PRIMARY_API_URL } from "@/lib/axios";
+import api from "@/lib/axios";
 
 // ============================================================
 // DATA IMPORTS API CLIENT

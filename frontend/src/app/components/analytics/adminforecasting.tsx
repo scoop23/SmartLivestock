@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Play, Save, History, MapPin, 
-  Calendar, Layers, CheckCircle2, 
-  AlertTriangle, Database, Search,
-  Filter, MoreHorizontal, Download,
-  Info
+import {
+AlertTriangle,
+CheckCircle2,
+Database,
+Download,
+History,
+Play,Save
 } from 'lucide-react';
+import { useState } from 'react';
 
 // --- Prediction Record Type ---
 interface PredictionRecord {
@@ -66,7 +67,7 @@ export default function AdminForecastingSystem() {
         id: Math.random().toString(36).substring(2, 9),
         barangay: form.barangay,
         type: isProductionMode ? 'Production' : 'Health',
-        category: isProductionMode ? (form.category as any) : undefined,
+        category: isProductionMode ? (form.category as NonNullable<PredictionRecord["category"]>) : undefined,
         riskLevel: isProductionMode ? (yieldCount < 700 ? 'High' : 'Low') : (Math.random() > 0.5 ? 'High' : 'Medium'),
         productionForecast: isProductionMode ? yieldCount : undefined,
         model: form.model,
@@ -119,7 +120,7 @@ export default function AdminForecastingSystem() {
                 <select 
                   className="w-full mt-1 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-sm font-bold text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500"
                   value={form.category}
-                  onChange={(e) => setForm({...form, category: e.target.value as any})}
+                  onChange={(e) => setForm({...form, category: e.target.value})}
                 >
                   <option>Meat</option>
                   <option>Milk</option>

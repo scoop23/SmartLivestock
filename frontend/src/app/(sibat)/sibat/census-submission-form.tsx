@@ -1,49 +1,48 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { httpError } from "@/lib/http-error";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Plus,
-  Trash2,
-  Calendar,
-  MapPin,
-  FileSpreadsheet,
-  CheckCircle2,
-  Users,
-  Layers,
-  Sparkles,
-} from "lucide-react";
-import { toast } from "sonner";
-import api from "@/lib/axios";
 import { useAuth } from "@/contexts/auth-context";
+import api from "@/lib/axios";
 import {
-  CensusSubmissionRecord,
-  CensusItemEntry,
-  CreateCensusPayload,
-  LIVESTOCK_TYPES,
-  SAMPLE_CENSUS_ENTRIES as SAMPLE_ENTRIES,
-  useGetBarangays,
-  useFarmersByBarangay,
-  LivestockTypeOption,
+CheckCircle2,
+Layers,
+MapPin,
+Plus,
+Sparkles,
+Trash2,
+Users
+} from "lucide-react";
+import { useEffect,useMemo,useRef,useState } from "react";
+import { toast } from "sonner";
+import {
+CensusItemEntry,
+CensusSubmissionRecord,
+CreateCensusPayload,
+LIVESTOCK_TYPES,
+LivestockTypeOption,
+SAMPLE_CENSUS_ENTRIES as SAMPLE_ENTRIES,
+useFarmersByBarangay,
+useGetBarangays,
 } from "./sibat-analytics";
 
 export type { CensusItemEntry };
 
-import { useMutation } from "@tanstack/react-query";
 import { useLivestockTypes } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import { useMutation } from "@tanstack/react-query";
 
 interface CensusSubmissionFormProps {
   open: boolean;
@@ -167,7 +166,7 @@ export default function CensusSubmissionForm({
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleUpdateItem = (id: string, field: keyof CensusItemEntry, value: any) => {
+  const handleUpdateItem = (id: string, field: keyof CensusItemEntry, value: CensusItemEntry[keyof CensusItemEntry]) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -204,8 +203,8 @@ export default function CensusSubmissionForm({
       setRemarks("");
       setIsCertified(false);
     },
-    onError: (err: any) => {
-      const apiError = err?.response?.data?.error || err?.response?.data?.detail ||
+    onError: (err: unknown) => {
+      const apiError = httpError(err)?.response?.data?.error || httpError(err)?.response?.data?.detail ||
         "The census could not be saved. Please review the entries and try again.";
       toast.error(isRevision ? "Census resubmission failed" : "Census submission failed", {
         description: apiError,

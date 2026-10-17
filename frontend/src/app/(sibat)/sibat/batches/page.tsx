@@ -1,97 +1,89 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api from "@/lib/axios";
-import { PageHeader } from "@/app/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import {
-  ShieldCheck,
-  Layers,
-  ArrowLeft,
-  ArrowRight,
-  Camera,
-  Search,
-  Eye,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Tag,
-  Scale,
-  Calendar,
-  Building2,
-  MapPin,
-  User,
-  Activity,
-  Copy,
-  Check,
-  LayoutGrid,
-  List,
-  RefreshCw,
-  Info,
-  AlertCircle,
-  CheckSquare,
-  ClipboardList,
-  ClipboardCheck,
-  Download,
-  ImageIcon,
-} from "lucide-react";
 import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import { PageHeader } from "@/app/components/page-header";
+import {
+AlertDialog,
+AlertDialogAction,
+AlertDialogCancel,
+AlertDialogContent,
+AlertDialogDescription,
+AlertDialogFooter,
+AlertDialogHeader,
+AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+Card,
+CardContent
+} from "@/components/ui/card";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from "@/components/ui/select";
+import {
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import api from "@/lib/axios";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import {
+AlertCircle,
+AlertTriangle,
+ArrowLeft,
+ArrowRight,
+Building2,
+Calendar,
+Camera,
+Check,
+CheckCircle2,
+CheckSquare,
+ChevronDown,
+ChevronLeft,
+ChevronRight,
+ClipboardList,
+Clock,
+Copy,
+Download,
+Eye,
+ImageIcon,
+Info,
+Layers,
+LayoutGrid,
+List,
+MapPin,
+RefreshCw,
+Scale,
+Search,
+ShieldCheck,
+Tag,
+User
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter,useSearchParams } from "next/navigation";
+import React,{ Suspense,useEffect,useMemo,useRef,useState } from "react";
+import { toast } from "sonner";
 import SibatReviewDialog from "../components/sibat-review-dialog";
 import type { UnifiedSubmissionItem } from "../sibat-analytics";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -1825,7 +1817,7 @@ function SibatBatchesVerificationContent() {
                       Animals in this herd ({filteredChildAnimals.length})
                     </h3>
                     <p className="text-sm leading-5 text-slate-600">
-                      Check each animal's tag and details before marking it verified.
+                      Check each animal&apos;s tag and details before marking it verified.
                     </p>
                   </div>
 

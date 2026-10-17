@@ -1,5 +1,5 @@
-import { BadgeDollarSign, CircleDot, Scissors, Skull, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BadgeDollarSign,CircleDot,Scissors,Skull,Truck } from "lucide-react";
 import type { OperationalStatus } from "./livestock-inventory";
 
 const STATUS_CONFIG: Record<

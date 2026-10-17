@@ -2,37 +2,31 @@
 
 
 
-import React, { useEffect, useRef, useState, useMemo, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
+import { useRouter,useSearchParams } from "next/navigation";
+import { Suspense,useEffect,useMemo,useRef,useState } from "react";
 
-import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import { useAuth } from "@/contexts/auth-context";
+import { getSchedules,type ProgramSchedule } from "@/lib/community-api";
+import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-  Activity,
-  AlertTriangle,
-  ArrowRight,
-  Calendar,
-  CalendarDays,
-  Check,
-  CheckCircle2,
-  ClipboardList,
-  Clock3,
-  FileSpreadsheet,
-  Info,
-  MapPin,
-  Megaphone,
-  QrCode,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Send,
-  UsersRound,
+Activity,
+CalendarDays,
+Check,
+ClipboardList,
+Clock3,
+FileSpreadsheet,
+Info,
+MapPin,
+Megaphone,
+QrCode,
+RefreshCw,
+Search,
+Send
 } from "lucide-react";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
-import { getSchedules, type ProgramSchedule } from "@/lib/community-api";
 
 import { toast } from "sonner";
 
@@ -48,37 +42,29 @@ import SibatInventoryQueue from "./components/sibat-inventory-queue";
 import SibatReviewDialog from "./components/sibat-review-dialog";
 
 import {
-
-  SibatInspectionDialog,
-
-  type SibatValidationRecord,
-
-  type SibatInspectionData,
-
+SibatInspectionDialog,
+type SibatInspectionData,
+type SibatValidationRecord,
 } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
 
 import CensusDetailsDialog from "./census-details-dialog";
 
-import CensusSubmissionsView from "./census-submissions-view";
 import { ReviewWorkloadPanel } from "@/app/(admin)/admin/review-workload-panel";
-import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
 import { AskSmartLivestock } from "@/app/components/ask-smartlivestock";
+import CensusSubmissionsView from "./census-submissions-view";
+import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
 
 
 import {
+useCensusSubmission,
 
-  useSibatSubmissions,
+useClinicalHealthRecords,
 
-  useCensusSubmission,
-
-  useClinicalHealthRecords,
-
-  useReviewClinicalHealth,
-  useSibatFarmers,
-  type UnifiedSubmissionItem,
-
-  type CensusSubmissionRecord,
-
+useReviewClinicalHealth,
+useSibatFarmers,
+useSibatSubmissions,
+type CensusSubmissionRecord,
+type UnifiedSubmissionItem,
 } from "./sibat-analytics";
 
 

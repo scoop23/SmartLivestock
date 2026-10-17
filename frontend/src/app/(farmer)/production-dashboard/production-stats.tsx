@@ -1,22 +1,22 @@
 "use client";
 
+import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import {
-  ClipboardList,
-  Egg,
-  Milk,
-  Package,
-  PhilippinePeso,
-  TrendingDown,
-  TrendingUp,
-  Beef,
+Beef,
+ClipboardList,
+Egg,
+Milk,
+Package,
+PhilippinePeso,
+TrendingDown,
+TrendingUp,
 } from "lucide-react";
-import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import {
-  formatPeso,
-  formatQty,
-  PRODUCTION_TYPE_UNITS,
-  type ProductionAnalyticsSummary,
-  type ProductionType,
+formatPeso,
+formatQty,
+PRODUCTION_TYPE_UNITS,
+type ProductionAnalyticsSummary,
+type ProductionType,
 } from "./production-analytics";
 
 const TYPE_META: Record<

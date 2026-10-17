@@ -2,23 +2,23 @@
 
 import ProductionValuation from "./production-valuation";
 
-import { Beef, CalendarDays, Egg, Lock, Milk, Package, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
+import { Beef,CalendarDays,Egg,Lock,Milk,Package,Pencil,RotateCcw,Trash2 } from "lucide-react";
 import {
-  PRODUCTION_TYPE_UNITS,
-  formatRecordDate,
-  formatQty,
-  formatProductionStatus,
-  type ProductionRecordItem,
-  type ProductionStatus,
+PRODUCTION_TYPE_UNITS,
+formatProductionStatus,
+formatQty,
+formatRecordDate,
+type ProductionRecordItem,
+type ProductionStatus,
 } from "./production-analytics";
 
 const statusClasses: Record<ProductionStatus, string> = {

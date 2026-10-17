@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Sidebar } from "@/app/components/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function SlaughterhouseLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

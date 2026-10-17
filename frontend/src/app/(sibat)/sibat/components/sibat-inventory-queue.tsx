@@ -1,32 +1,28 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import {
-  Tag,
-  Search,
-  RotateCcw,
-  Calendar,
-  MapPin,
-  User,
-  Eye,
-  CheckCircle2,
-  Clock,
-  ShieldCheck,
-  ClipboardCheck,
-  Scale,
-  Layers,
-  Download,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import SibatStatusBadge from "./sibat-status-badge";
-import type { UnifiedSubmissionItem } from "../sibat-analytics";
 import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+ClipboardCheck,
+Download,
+Eye,
+Layers,
+MapPin,
+RotateCcw,
+Scale,
+Search,
+Tag,
+User
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect,useMemo,useState } from "react";
+import type { UnifiedSubmissionItem } from "../sibat-analytics";
+import SibatStatusBadge from "./sibat-status-badge";
 
 export type SibatInvStatusFilter = "all" | "pending" | "verified" | "approved" | "needs_correction" | "decided";
 
@@ -130,7 +126,11 @@ function exportLivestockCsv(records: UnifiedSubmissionItem[]) {
   window.setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
 }
 
-export default function SibatInventoryQueue({
+export default function SibatInventoryQueue(props: SibatInventoryQueueProps) {
+  return <SibatInventoryQueueContent key={JSON.stringify([props.statusFilter,props.entryTypeFilter,props.searchQuery])} {...props} />;
+}
+
+function SibatInventoryQueueContent({
   submissions,
   isLoading,
   onReview,
@@ -189,8 +189,9 @@ export default function SibatInventoryQueue({
 
   // Pagination
   const PAGE_SIZE = 10;
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(filteredSubmissions.length / PAGE_SIZE));
+  const page = requestedPage > pageCount ? 1 : requestedPage;
   const pagedSubmissions = useMemo(
     () =>
       filteredSubmissions.slice(
@@ -200,13 +201,9 @@ export default function SibatInventoryQueue({
     [filteredSubmissions, page],
   );
 
-  useEffect(() => {
-    if (page > pageCount) setPage(1);
-  }, [page, pageCount]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter, entryTypeFilter, searchQuery]);
+
+
 
   const hasActiveFilters =
     searchQuery.trim() !== "" || statusFilter !== "all" || entryTypeFilter !== "ALL";

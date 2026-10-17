@@ -8,7 +8,6 @@
  * Scoped to livestock transport movements, origin/destination flows, and cattle volume.
  */
 
-import React from 'react';
 import { RoleAwareGISContainer } from '@/components/gis/RoleAwareGISContainer';
 
 export default function AuctionGISPage() {

@@ -1,11 +1,11 @@
 "use client";
 
-import {
-  Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
 import type { ReactNode } from "react";
-import type { OfficialReport, ReportType } from "./report-api";
+import {
+Bar,BarChart,CartesianGrid,Cell,Legend,Line,LineChart,Pie,PieChart,
+ResponsiveContainer,Tooltip,XAxis,YAxis,
+} from "recharts";
+import type { OfficialReport,ReportType } from "./report-api";
 
 type Row = OfficialReport["rows"][number];
 const COLORS = ["#047857", "#0ea5e9", "#f59e0b", "#8b5cf6", "#ef4444", "#14b8a6", "#64748b"];

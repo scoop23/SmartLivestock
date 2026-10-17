@@ -57,9 +57,9 @@ export interface BarangayGISData {
   farmers_count: number;      // Registered farmers in this barangay
   batches_count: number;      // Active livestock batches/herds
   disease_cases: number;      // Historical/total disease cases count
-  active_cases: number;       // Current active/unresolved disease cases
+  active_cases: number;       // Approved reports in the last 90 days; legacy field name
   affected_heads: number;     // Animals affected by disease
-  disease_risk: 'low' | 'medium' | 'high'; // Derived from active outbreaks
+  disease_risk: 'low' | 'medium' | 'high'; // Derived from recent approved reports
   recent_diseases: string[];  // Symptoms / disease names reported
   milk: number;               // Total milk production in Liters
   farmer_meat: number;        // Farmer-reported on-farm meat production in kg (ProductionRecord)

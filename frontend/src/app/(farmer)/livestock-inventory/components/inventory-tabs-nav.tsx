@@ -1,13 +1,13 @@
 "use client";
 
-import { Layers, Tag, ShieldCheck } from "lucide-react";
-import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
 } from "@/components/ui/select";
+import { TabsList,TabsTrigger } from "@/components/ui/tabs";
+import { Layers,ShieldCheck,Tag } from "lucide-react";
 
 interface InventoryTabsNavProps {
   speciesCount: number;

@@ -1,65 +1,55 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { useAuth } from "@/contexts/auth-context";
-import { useAccessibilitySettings } from "@/contexts/accessibility-settings-context";
-import { useSearchParams } from "next/navigation";
-import api from "@/lib/axios";
-import { Card, CardContent } from "@/components/ui/card";
+import { QrCodePass } from "@/components/qr-code-pass";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/components/ui/tabs";
+import { useAccessibilitySettings } from "@/contexts/accessibility-settings-context";
+import { useAuth } from "@/contexts/auth-context";
+import api from "@/lib/axios";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { QrCodePass } from "@/components/qr-code-pass";
-import {
-  User as UserIcon,
-  Shield,
-  Key,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  Building2,
-  CheckCircle2,
-  Clock,
-  Bell,
-  Save,
-  ShieldCheck,
-  Activity,
-  History,
-  Lock,
-  Eye,
-  EyeOff,
-  LogOut,
-  Sparkles,
-  QrCode,
-  Award,
-  FileText,
-  Check,
-  AlertTriangle,
-  Smartphone,
-  ChevronRight,
-  Edit3,
-  Copy,
-  RefreshCw,
-  Trash2,
-  Globe,
-  Camera,
-  CheckCircle,
-  ExternalLink,
-  X,
+Activity,
+AlertTriangle,
+Award,
+Building2,
+Camera,
+Check,
+CheckCircle,
+CheckCircle2,
+Copy,
+Edit3,
+Eye,
+EyeOff,
+Globe,
+Key,
+Lock,
+LogOut,
+Mail,
+MapPin,
+Phone,
+QrCode,
+Save,
+Shield,
+ShieldCheck,
+Smartphone,
+Trash2,
+User as UserIcon,
+X
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import React,{ useEffect,useRef,useState } from "react";
+import { toast } from "sonner";
 
 export function UserProfileView() {
   const { user, logout, updateUser } = useAuth();
@@ -317,7 +307,7 @@ export function UserProfileView() {
       }
       toast.dismiss(toastId);
       toast.success("Profile photo updated successfully!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.dismiss(toastId);
       console.error("Photo upload error:", err);
       if (updateUser) {

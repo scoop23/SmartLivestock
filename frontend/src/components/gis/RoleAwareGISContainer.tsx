@@ -33,39 +33,38 @@
  *    - Auction / Slaughterhouse: Operational movement tracking and carcass yields.
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useIsMobile } from '@/components/ui/use-mobile';
 import api from '@/lib/axios';
-import {
-  GISTelemetryResponse,
-  BarangayGISData,
-  MapLayer,
-  MunicipalSummary,
-  ViewMode,
-  DiseaseSubMode,
-  SimulationParameters,
-  MonthlyWindData,
-  MovementRecord,
-} from './types';
-import {
-  precomputeSpatialMatrices,
-  computeAnnualSimulationTrajectory,
-  fetchPadreGarciaMonthlyWind,
-  STATIC_MONTHLY_WIND,
-  DEFAULT_SIMULATION_PARAMETERS,
-  TIMELINE_MONTHS,
-} from './simulation';
-import { GISMap } from './GISMap';
+import { ArrowLeft,Info,Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
+import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 import { GISControls } from './GISControls';
 import { GISLegend } from './GISLegend';
-import { GISTimeline } from './GISTimeline';
+import { GISMap } from './GISMap';
 import { GISSidebar } from './GISSidebar';
-import { GISFooter } from './GISFooter';
+import { GISTimeline } from './GISTimeline';
 import { MovementTimelinePlayer } from './MovementTimelinePlayer';
-import { toast } from 'sonner';
-import { Loader2, ArrowLeft, Info } from 'lucide-react';
-import { useIsMobile } from '@/components/ui/use-mobile';
+import {
+computeAnnualSimulationTrajectory,
+DEFAULT_SIMULATION_PARAMETERS,
+fetchPadreGarciaMonthlyWind,
+precomputeSpatialMatrices,
+STATIC_MONTHLY_WIND,
+TIMELINE_MONTHS,
+} from './simulation';
+import {
+BarangayGISData,
+DiseaseSubMode,
+GISTelemetryResponse,
+MapLayer,
+MonthlyWindData,
+MovementRecord,
+MunicipalSummary,
+SimulationParameters,
+ViewMode,
+} from './types';
 
 const DEFAULT_SUMMARY: MunicipalSummary = {
   total_livestock: 0,
@@ -170,7 +169,7 @@ export function RoleAwareGISContainer({
       if (isRefresh) {
         toast.success('GIS Telemetry synchronized with PostgreSQL database');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch GIS telemetry:', err);
       setError('Unable to load real-time municipal telemetry from backend.');
       toast.error('Could not connect to GIS aggregation service');
@@ -246,7 +245,7 @@ export function RoleAwareGISContainer({
       monthlyWindData,
       simulationParams
     );
-  }, [gisData?.barangays, gisData?.user_scope?.can_use_simulation, spatialMatrices, monthlyWindData, simulationParams]);
+  }, [gisData, spatialMatrices, monthlyWindData, simulationParams]);
 
   // Active simulated states
   const activeSimulatedStates = useMemo(() => {
@@ -297,7 +296,7 @@ export function RoleAwareGISContainer({
       if (m.date) set.add(m.date);
     }
     return Array.from(set).sort();
-  }, [gisData?.movements]);
+  }, [gisData]);
 
   const activeDisplayMovements = useMemo(() => {
     const allMoves = gisData?.movements || [];

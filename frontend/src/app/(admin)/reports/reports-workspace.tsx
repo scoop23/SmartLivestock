@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import axios from "axios";
-import { CalendarDays, ClipboardList, Download, FileSpreadsheet, FileText, HeartPulse, MapPinned, PawPrint, RefreshCw, Scissors } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { downloadOfficialReport, fetchOfficialReport, OfficialReport, ReportFilters, ReportType } from "./report-api";
+import axios from "axios";
+import { CalendarDays,ClipboardList,Download,FileSpreadsheet,FileText,HeartPulse,MapPinned,PawPrint,RefreshCw,Scissors } from "lucide-react";
+import { useState,type FormEvent } from "react";
+import { ReportAnalysis,ReportMethodology } from "./report-analysis";
+import { downloadOfficialReport,fetchOfficialReport,OfficialReport,ReportFilters,ReportType } from "./report-api";
 import { ReportCharts } from "./report-charts";
-import { ReportAnalysis, ReportMethodology } from "./report-analysis";
 
 const REPORTS: { id: ReportType; title: string; description: string; icon: typeof PawPrint }[] = [
   { id: "inventory", title: "Livestock Inventory", description: "Registered animals by species, owner, and operational status.", icon: PawPrint },

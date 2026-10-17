@@ -1,81 +1,79 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
-import { isAxiosError } from "axios";
-import {
-  ArrowLeft,
-  Plus,
-  Scale,
-  ShieldCheck,
-  AlertTriangle,
-  Search,
-  Eye,
-  CheckCircle2,
-  ClipboardList,
-  RefreshCw,
-  Tag,
-  Clock,
-  QrCode,
-  LayoutGrid,
-  Table as TableIcon,
-  Layers,
-  Users,
-  ArrowRight,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Camera,
-  ImageIcon,
-  Trash2,
-  Upload,
-} from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
+import { QrCodePass } from "@/components/qr-code-pass";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LivestockBreedField } from "@/components/livestock-breed-field";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-import { toast } from "sonner";
 import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  useLivestockBatches,
-  getDefaultAvatarForSpecies,
-  INVENTORY_QUERY_KEYS,
-} from "../livestock-inventory";
-import { LivestockPhotoManager } from "../livestock-photo-manager";
-import { QrCodePass } from "@/components/qr-code-pass";
 import { livestockBatchQrPayload } from "@/lib/livestock-identity";
+import { useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
+import {
+AlertTriangle,
+ArrowLeft,
+ArrowRight,
+Camera,
+Check,
+CheckCircle2,
+ChevronLeft,
+ChevronRight,
+ChevronsLeft,
+ChevronsRight,
+ClipboardList,
+Clock,
+Eye,
+ImageIcon,
+Layers,
+LayoutGrid,
+Plus,
+QrCode,
+RefreshCw,
+Scale,
+Search,
+ShieldCheck,
+Table as TableIcon,
+Tag,
+Trash2,
+Users
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter,useSearchParams } from "next/navigation";
+import React,{ useEffect,useMemo,useRef,useState } from "react";
+import { toast } from "sonner";
+import {
+getDefaultAvatarForSpecies,
+INVENTORY_QUERY_KEYS,
+useLivestockBatches,
+} from "../livestock-inventory";
 
 // ── Types for Individual Animals inside a Batch ──────────────────────────────
 export interface BatchIndividual {

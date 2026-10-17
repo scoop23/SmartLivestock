@@ -1,34 +1,34 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/auth-context";
-import {
-  Bell,
-  CheckCircle2,
-  CheckCheck,
-  AlertTriangle,
-  Calendar,
-  TrendingUp,
-  ShieldCheck,
-  CloudSun,
-  Inbox,
-  ExternalLink,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+Popover,
+PopoverContent,
+PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/components/ui/utils";
+import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
+import { useIsMutating,useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import {
+AlertTriangle,
+Bell,
+Calendar,
+CheckCheck,
+CheckCircle2,
+CloudSun,
+ExternalLink,
+Inbox,
+ShieldCheck,
+Sparkles,
+Trash2,
+TrendingUp,
+} from "lucide-react";
+import { usePathname,useRouter } from "next/navigation";
+import { useEffect,useState } from "react";
 import { toast } from "sonner";
-import { useQuery, useMutation, useQueryClient, useIsMutating } from "@tanstack/react-query";
 
 export type NotificationType =
   | "disease"
@@ -283,6 +283,31 @@ export const resolveNotificationLink = (
         ? healthId[1].toUpperCase() === "DIS" ? "DISEASE" : "MORTALITY"
         : healthDeclarationId?.[1].toLowerCase() === "disease" ? "DISEASE" : "MORTALITY";
       return `/sibat-alerts?recordType=${type}&recordId=${healthId?.[2] ?? healthDeclarationId?.[2]}`;
+    }
+  }
+
+  if (effectiveVariant === "farmer") {
+    const farmerRoutes: Record<string, (id: number) => string> = {
+      livestock_inventory: (id) => `/livestock-inventory/${id}`,
+      disease_case: (id) => `/report-observation?reportId=DIS-${id}`,
+      mortality_record: (id) => `/report-observation?reportId=MOR-${id}`,
+    };
+    const routeFromEntity = notification.related_entity_type
+      ? farmerRoutes[notification.related_entity_type]
+      : undefined;
+    if (routeFromEntity && notification.related_entity_id != null) {
+      return routeFromEntity(notification.related_entity_id);
+    }
+
+    // Older health notifications may not include related entity metadata.
+    const healthId = notification.title.match(/\b(DIS|MOR)-(\d+)\b/i);
+    const healthDeclarationId = notification.title.match(/\b(disease|mortality) declaration\s*#(\d+)/i);
+    if (healthId || healthDeclarationId) {
+      const type = healthId
+        ? healthId[1].toUpperCase() === "DIS" ? "DIS" : "MOR"
+        : healthDeclarationId?.[1].toLowerCase() === "disease" ? "DIS" : "MOR";
+      const id = healthId?.[2] ?? healthDeclarationId?.[2];
+      return `/report-observation?reportId=${type}-${id}`;
     }
   }
 

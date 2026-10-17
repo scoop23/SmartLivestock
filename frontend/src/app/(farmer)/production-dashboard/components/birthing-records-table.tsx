@@ -1,13 +1,12 @@
 "use client";
 
-import { Baby, Calendar, Dna, HeartPulse, PencilLine, Scale, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import type { BirthingSpeciesTerminology } from "../production-calving-tab";
-import type { CalvingRecordItem } from "../production-calving-tab";
-import Link from "next/link";
+import { Card,CardContent } from "@/components/ui/card";
 import { formatCalendarDate } from "@/lib/livestock-age";
+import { Baby,Calendar,Dna,HeartPulse,PencilLine,Scale,Tag } from "lucide-react";
+import Link from "next/link";
+import type { BirthingSpeciesTerminology,CalvingRecordItem } from "../production-calving-tab";
 
 interface BirthingRecordsTableProps {
   records: CalvingRecordItem[];

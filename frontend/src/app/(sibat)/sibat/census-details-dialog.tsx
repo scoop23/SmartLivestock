@@ -1,30 +1,27 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
 import {
-  FileSpreadsheet,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  RotateCcw,
-  MapPin,
-  Calendar,
-  User,
-  Layers,
-  FileDown,
-  Printer,
-  X,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import {
+AlertCircle,
+Calendar,
+CheckCircle2,
+Clock,
+FileDown,
+FileSpreadsheet,
+Layers,
+MapPin,
+RotateCcw,
+User
 } from "lucide-react";
 import { toast } from "sonner";
 import { CensusSubmissionRecord } from "./sibat-analytics";

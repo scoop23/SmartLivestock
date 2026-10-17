@@ -1,4 +1,4 @@
-import React, { SVGProps } from 'react'
+import React,{ SVGProps } from 'react';
 
 interface GisGlobePoiProps extends SVGProps<SVGSVGElement> {
   size?: string | number;

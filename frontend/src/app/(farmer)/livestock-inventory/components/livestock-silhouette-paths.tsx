@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 
 export type LivestockSpeciesKey = "cattle" | "swine" | "goat" | "sheep" | "carabao" | "horse" | "poultry" | "default";
 

@@ -1,42 +1,35 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import type { OverviewRecord } from "./data-overview-types";
+import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  MapPin,
-  Search,
-  Eye,
-  Boxes,
-  ExternalLink,
-} from "lucide-react";
-import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 import { DataTableSection } from "@/components/ui/data-table-section";
 import {
-  DataTab,
-  LivestockRecord,
-  BatchRecord,
-  ProductionRecord,
-  SalesRecord,
-  DiseaseRecord,
-  MortalityRecord,
-  SlaughterRecord,
-  CensusRecord,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
+} from "@/components/ui/table";
+import {
+Boxes,
+ExternalLink,
+Eye,
+MapPin,
+Search,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect,useMemo,useState } from "react";
+import {
+DataTab
 } from "./data-overview-types";
 
 interface DataOverviewTableProps {
   activeTab: DataTab;
-  items: any[];
-  onSelectRecord: (record: any, domain: DataTab) => void;
+  items: OverviewRecord[];
+  onSelectRecord: (record: OverviewRecord, domain: DataTab) => void;
   onResetFilters: () => void;
 }
 
@@ -51,9 +44,6 @@ export function DataOverviewTable({
   const [pageSize, setPageSize] = useState(10);
 
   // Reset to first page when tab changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
 
   const totalItems = items.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -298,7 +288,7 @@ export function DataOverviewTable({
             </TableHeader>
 
             <TableBody className="divide-y divide-slate-100">
-              {paginatedItems.map((item: any) => (
+              {paginatedItems.map((item) => (
                 <TableRow
                   key={item.id}
                   className="group hover:bg-slate-50/90 transition-colors cursor-pointer"

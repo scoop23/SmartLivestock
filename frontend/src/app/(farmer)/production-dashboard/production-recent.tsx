@@ -2,28 +2,25 @@
 
 import ProductionValuation from "./production-valuation";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
-import {
-  ArrowRight,
-  CalendarDays,
-  Droplets,
-  Edit2,
-  Filter,
-  Search,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  PRODUCTION_TYPE_LABELS,
-  formatRecordDate,
-  formatProductionStatus,
-  type ProductionRecordItem,
-  type ProductionStatus,
+ArrowRight,
+Droplets,
+Edit2,
+Search,
+Trash2
+} from "lucide-react";
+import Link from "next/link";
+import { useMemo,useState } from "react";
+import {
+PRODUCTION_TYPE_LABELS,
+formatProductionStatus,
+formatRecordDate,
+type ProductionRecordItem,
+type ProductionStatus,
 } from "./production-analytics";
 import ProductionRecordDialog from "./production-record-dialog";
 

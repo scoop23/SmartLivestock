@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { PageHeader } from '@/app/components/page-header';
-import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
-import { BarChart3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import DescriptiveAnalytics from '@/app/components/analytics/descriptive-analytics';
 import PredictiveAnalyticsView from '@/app/components/analytics/predictive-analytics-view';
 import PrescriptiveAnalyticsView from '@/app/components/analytics/prescriptive-analytics-view';
+import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
+import { PageHeader } from '@/app/components/page-header';
+import { Button } from '@/components/ui/button';
+import { BarChart3 } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export default function AnalyticsPage() {
   const [analyticsView, setAnalyticsView] = useState<'descriptive' | 'predictive' | 'prescriptive'>('descriptive');

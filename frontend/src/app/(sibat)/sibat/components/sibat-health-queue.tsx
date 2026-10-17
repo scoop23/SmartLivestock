@@ -1,31 +1,27 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
-import {
-  Stethoscope,
-  Skull,
-  Search,
-  RotateCcw,
-  Tag,
-  MapPin,
-  User,
-  Calendar,
-  Eye,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  ClipboardCheck,
-  ShieldCheck,
-  ChevronRight,
-  HeartPulse,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import SibatStatusBadge from "./sibat-status-badge";
 import type { SibatValidationRecord } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+Calendar,
+ChevronRight,
+ClipboardCheck,
+Eye,
+HeartPulse,
+MapPin,
+RotateCcw,
+Search,
+ShieldCheck,
+Skull,
+Stethoscope,
+User
+} from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
+import SibatStatusBadge from "./sibat-status-badge";
 
 interface SibatHealthQueueProps {
   records: SibatValidationRecord[];
@@ -60,7 +56,11 @@ const getAnimalEmoji = (typeStr: string = "") => {
   return "🐾";
 };
 
-export default function SibatHealthQueue({
+export default function SibatHealthQueue(props: SibatHealthQueueProps) {
+  return <SibatHealthQueueContent key={JSON.stringify([props.searchQuery,props.statusFilter,props.typeFilter,props.barangayFilter])} {...props} />;
+}
+
+function SibatHealthQueueContent({
   records,
   isLoading,
   onInspectRecord,
@@ -124,20 +124,17 @@ export default function SibatHealthQueue({
     barangayFilter !== "ALL";
 
   const PAGE_SIZE = 10;
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const page = requestedPage > pageCount ? 1 : requestedPage;
   const pagedRecords = useMemo(
     () => filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredRecords, page]
   );
 
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, statusFilter, typeFilter, barangayFilter]);
 
-  useEffect(() => {
-    if (page > pageCount) setPage(1);
-  }, [page, pageCount]);
+
+
 
   return (
     <div className="space-y-4">

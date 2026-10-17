@@ -20,23 +20,20 @@
  *    - Distinguishes APPROVED permits from PENDING/VERIFICATION stages.
  */
 
-import React from 'react';
-import { MovementRecord } from './types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Truck,
-  MapPin,
-  Calendar,
-  User,
-  FileCheck,
-  ShieldCheck,
-  Clock,
-  ArrowRight,
-  Info,
-  X,
-  Layers,
+Calendar,
+Clock,
+Info,
+Layers,
+MapPin,
+ShieldCheck,
+Truck,
+User,
+X
 } from 'lucide-react';
+import { MovementRecord } from './types';
 
 interface MovementDetailsModalProps {
   movement: MovementRecord;

@@ -1,18 +1,18 @@
 "use client";
 
-import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
 import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
-import {
-  ValidationDomain,
-  ValidationInventoryItem,
-  ValidationIncidentItem,
-} from "../validation-analytics";
+import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
 import { DetailRecordData } from "../record-detail-dialog";
+import {
+ValidationDomain,
+ValidationIncidentItem,
+ValidationInventoryItem,
+} from "../validation-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
 import { CensusTable } from "./census-table";
-import { ProductionTable } from "./production-table";
-import { InventoryTable } from "./inventory-table";
 import { IncidentsTable } from "./incidents-table";
+import { InventoryTable } from "./inventory-table";
+import { ProductionTable } from "./production-table";
 
 interface ActiveDomainTableProps {
   activeDomain: ValidationDomain;

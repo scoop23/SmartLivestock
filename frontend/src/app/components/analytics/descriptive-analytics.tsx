@@ -1,23 +1,24 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Line, LineChart,
-  Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
-import {
-  Activity, BarChart3, Beef, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, CircleAlert,
-  Download, HeartPulse, Info, Layers, MapPin, Package, RefreshCw, ShieldCheck, ShoppingBag,
-  Syringe, type LucideIcon,
-} from "lucide-react";
-import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card,CardContent,CardHeader } from "@/components/ui/card";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
+import api from "@/lib/axios";
 import { getSpeciesColor } from "@/lib/species-colors";
+import {
+Activity,BarChart3,Beef,CalendarDays,CheckCircle2,ChevronDown,ChevronUp,CircleAlert,
+Download,HeartPulse,Info,Layers,MapPin,
+RefreshCw,ShieldCheck,ShoppingBag,
+Syringe,type LucideIcon
+} from "lucide-react";
+import { useEffect,useState,type ReactNode } from "react";
+import {
+Area,AreaChart,Bar,BarChart,CartesianGrid,Cell,LabelList,Legend,Line,LineChart,
+Pie,PieChart,ResponsiveContainer,Tooltip,XAxis,YAxis,
+} from "recharts";
 
 interface SeriesPoint {
   month: string;

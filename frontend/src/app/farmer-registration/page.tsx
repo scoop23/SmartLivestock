@@ -1,48 +1,47 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { httpError } from "@/lib/http-error";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import api from '@/lib/axios';
+import { cowHead } from '@lucide/lab';
 import axios from 'axios';
 import {
-  User,
-  MapPin,
-  Upload,
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  Shield,
-  Camera,
-  AlertCircle,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  Loader2,
-  FileCheck,
-  Check,
-  X,
-  FileText,
-  BadgeCheck,
-  Lock,
-  Phone,
-  Mail,
-  Building2,
+AlertCircle,
+ArrowLeft,
+ArrowRight,
+BadgeCheck,
+Building2,
+Camera,
+Check,
+ExternalLink,
+Eye,
+EyeOff,
+FileCheck,
+FileText,
+Icon,
+Loader2,
+Lock,
+Mail,
+MapPin,
+Shield,
+Upload,
+User,
+X
 } from 'lucide-react';
-import { Icon } from 'lucide-react';
-import { cowHead } from '@lucide/lab';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React,{ useEffect,useRef,useState } from 'react';
 import { toast } from 'sonner';
-import api from '@/lib/axios';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 
 interface BarangayOption {
   id: number;
@@ -339,9 +338,9 @@ export default function FarmerRegistrationPage() {
       });
 
       router.push('/pending');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Registration error:', err);
-      if (axios.isAxiosError(err) && err.response?.data) {
+      if (axios.isAxiosError<Record<string, unknown>>(err) && err.response?.data) {
         const data = err.response.data;
         const newFieldErrors: Record<string, string> = {};
         const generalMessages: string[] = [];

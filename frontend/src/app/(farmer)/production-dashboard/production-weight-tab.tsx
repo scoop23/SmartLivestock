@@ -1,54 +1,50 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Calculator,
-  Calendar,
-  LineChart as LineChartIcon,
-  Plus,
-  Scale,
-  Sparkles,
-  TrendingUp,
-  Weight,
-} from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import {
+ChartContainer,
+ChartTooltip,
+ChartTooltipContent,
+type ChartConfig,
+} from "@/components/ui/chart";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import {
+Calculator,
+LineChart as LineChartIcon,
+Plus,
+Scale,
+TrendingUp,
+Weight
+} from "lucide-react";
+import { useMemo,useState } from "react";
+import {
+CartesianGrid,
+Line,
+LineChart,
+ResponsiveContainer,
+XAxis,
+YAxis,
+} from "recharts";
+import { toast } from "sonner";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 
 export interface WeightRecordItem {

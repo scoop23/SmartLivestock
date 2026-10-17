@@ -1,32 +1,26 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, KeyRound, Loader2 } from 'lucide-react';
+import { useBrowserSearch, useClientReady } from "@/hooks/use-browser-state";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import api from '@/lib/axios';
+import { ArrowLeft,CheckCircle2,KeyRound,Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect,useState,type FormEvent } from 'react';
 
 type ApiError = { response?: { data?: { detail?: string; new_password?: string[] } } };
 
 export default function ResetPasswordPage() {
-  const [uid, setUid] = useState('');
-  const [token, setToken] = useState('');
-  const [linkReady, setLinkReady] = useState(false);
+  const params = new URLSearchParams(useBrowserSearch());
+  const uid = params.get('uid') ?? '';
+  const token = params.get('token') ?? '';
+  const linkReady = useClientReady();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [complete, setComplete] = useState(false);
-
-  useEffect(() => {
-    // Read the signed link values from the URL only in the browser.
-    const params = new URLSearchParams(window.location.search);
-    setUid(params.get('uid') ?? '');
-    setToken(params.get('token') ?? '');
-    setLinkReady(true);
-  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

@@ -1,8 +1,8 @@
 import { useAuth } from "@/contexts/auth-context";
 import { municipalRead } from "@/lib/municipal-read";
-import { type PopulationSummary, speciesCategories } from "@/lib/population-metrics";
-import { useQuery } from "@tanstack/react-query";
+import { type PopulationSummary,speciesCategories } from "@/lib/population-metrics";
 import { getSpeciesColor } from "@/lib/species-colors";
+import { useQuery } from "@tanstack/react-query";
 
 // ─────────────────────────────────────────────────────────────
 // 1. DOMAIN & BACKEND MODEL ALIGNED INTERFACES

@@ -14,7 +14,7 @@ CMD ["npm", "run", "dev"]
 # Next.js needs the public API URL at build time because NEXT_PUBLIC_* values
 # are embedded into browser JavaScript during `next build`.
 FROM dependencies AS builder
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NODE_ENV=production
 COPY . .

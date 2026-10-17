@@ -34,10 +34,10 @@
  *   is understood as 'Low Disease' in disease mode, but 'Healthy Herd Concentration' in cattle mode.
  */
 
-import React from 'react';
-import { MapLayer, ViewMode, DiseaseSubMode } from './types';
 import { Badge } from '@/components/ui/badge';
-import { Zap, Box, TrendingUp, Activity } from 'lucide-react';
+import { Box,TrendingUp,Zap } from 'lucide-react';
+import React from 'react';
+import { DiseaseSubMode,MapLayer,ViewMode } from './types';
 
 interface GISLegendProps {
   layer: MapLayer;
@@ -64,15 +64,15 @@ export function GISLegend({
       }
       if (diseaseSubMode === 'trend') {
         return [
-          { color: '#9333ea', label: 'Elevated Activity (Active Cases)' },
+          { color: '#9333ea', label: 'Recent Approved Reports (90 days)' },
           { color: '#0284c7', label: 'Reported Activity (Past Records)' },
           { color: '#10b981', label: 'No Reported Disease Activity' },
         ];
       }
       return [
-        { color: '#D32F2F', label: 'High — Active Confirmed Cases' },
-        { color: '#FFA726', label: 'Medium — Reported / Suspected' },
-        { color: '#66BB6A', label: 'Low — Healthy / No Active Cases' },
+        { color: '#D32F2F', label: 'High — Elevated Recent Reports' },
+        { color: '#FFA726', label: 'Medium — Recent Approved Reports' },
+        { color: '#66BB6A', label: 'Low — No Recent Approved Reports' },
       ];
     }
 

@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import dynamic from 'next/dynamic';
-import {
-  Play, Pause, RotateCcw, ShieldAlert, Calendar,
-  Navigation, Activity, Zap, Clock, Beef
-} from 'lucide-react';
+import type { Feature, FeatureCollection } from "geojson";
+import type { GeoJSON as LeafletGeoJSON, Path, LeafletMouseEvent } from "leaflet";
 import 'leaflet/dist/leaflet.css';
+import {
+Activity,
+Calendar,
+Clock,
+Navigation,
+Pause,
+Play,
+RotateCcw,ShieldAlert,
+Zap
+} from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 
 // --- Dynamic Leaflet imports (SSR-safe) ---
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
@@ -85,7 +93,7 @@ const SEED: Record<string, number> = {
 };
 
 type Snapshot = Record<string, number>;
-const safeNum = (v: any) => (Number.isFinite(v) ? v : 0);
+const safeNum = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
 function stepSpread(prev: Snapshot): Snapshot {
   const next = { ...prev };
@@ -171,7 +179,7 @@ export default function PadreGarciaForecaster() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(700);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const geoJsonRef = useRef<any>(null);
+  const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
 
   const START_DATE = useMemo(() => new Date('2026-04-26T00:00:00'), []);
   const timeline = useMemo(() => buildTimeline(SEED), []);
@@ -209,7 +217,9 @@ export default function PadreGarciaForecaster() {
   useEffect(() => {
     const layer = geoJsonRef.current;
     if (!layer) return;
-    layer.eachLayer((sublayer: any) => {
+    layer.eachLayer((child) => {
+      const sublayer = child as Path & { feature?: Feature };
+      if (typeof sublayer.setStyle !== 'function') return;
       const name: string = sublayer.feature?.properties?.name;
       if (!name) return;
       const cases = activeSnapshot[name] ?? 0;
@@ -250,7 +260,7 @@ export default function PadreGarciaForecaster() {
     })).sort((a, b) => b.cases - a.cases),
     [activeSnapshot]);
 
-  const getStyle = useCallback((feature: any) => {
+  const getStyle = useCallback((feature?: Feature) => {
     const cases = activeSnapshot[feature?.properties?.name] ?? 0;
     return { fillColor: FILL[riskOf(cases)], fillOpacity: cases === 0 ? 0.35 : 0.72, color: cases > 0 ? '#ffffff' : '#94a3b8', weight: cases > 0 ? 2 : 1 };
   }, [activeSnapshot]);
@@ -327,9 +337,9 @@ export default function PadreGarciaForecaster() {
           <div style={{ height: 'calc(100% - 38px)' }}>
             <MapContainer center={[13.875, 121.215]} zoom={13} style={{ height: '100%', width: '100%' }}>
               <TileLayer attribution='&copy; CARTO' url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
-              <GeoJSON ref={geoJsonRef} data={PADRE_GARCIA_GEOJSON as any} style={getStyle} onEachFeature={(f, l) => {
+              <GeoJSON ref={geoJsonRef} data={PADRE_GARCIA_GEOJSON as FeatureCollection} style={getStyle} onEachFeature={(f, l) => {
                 l.bindTooltip(f.properties.name, { permanent: false, className: 'risk-tooltip', direction: 'center' });
-                l.on({ mouseover: (e: any) => e.target.setStyle({ weight: 3, fillOpacity: 0.9 }), mouseout: (e: any) => e.target.setStyle({ weight: (activeSnapshot[f.properties.name] ?? 0) > 0 ? 2 : 1, fillOpacity: (activeSnapshot[f.properties.name] ?? 0) === 0 ? 0.35 : 0.72 }) });
+                l.on({ mouseover: (e: LeafletMouseEvent) => e.target.setStyle({ weight: 3, fillOpacity: 0.9 }), mouseout: (e: LeafletMouseEvent) => e.target.setStyle({ weight: (activeSnapshot[f.properties.name] ?? 0) > 0 ? 2 : 1, fillOpacity: (activeSnapshot[f.properties.name] ?? 0) === 0 ? 0.35 : 0.72 }) });
               }} />
               {/* <Circle center={BARANGAY_CENTROIDS['Bawi']} radius={400} pathOptions={{ color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.25, weight: 2, dashArray: '6 4' }}>
                 <Tooltip permanent direction="top" className="risk-tooltip">⚠ Initial Infection Site</Tooltip>

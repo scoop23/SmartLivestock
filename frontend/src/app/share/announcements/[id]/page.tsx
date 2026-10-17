@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { getPublicAnnouncementShare } from "./share-data";
 import PublicAnnouncementPage from "./public-announcement-page";
+import { getPublicAnnouncementShare } from "./share-data";
 
 type RouteProps = { params: Promise<{ id: string }> };
 

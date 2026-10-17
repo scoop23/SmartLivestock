@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Camera, Loader2, QrCode, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { LivestockIdentityResult } from "@/components/livestock-identity-result";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import axios from "axios";
-import { lookupRegisteredLivestock, RegisteredLivestockLookup } from "./auction-analytics";
+import { AlertCircle,Camera,Loader2,QrCode,Search } from "lucide-react";
+import { useCallback,useEffect,useRef,useState } from "react";
+import { lookupRegisteredLivestock,RegisteredLivestockLookup } from "./auction-analytics";
 
 export function MovementLivestockQrDialog({
   open,

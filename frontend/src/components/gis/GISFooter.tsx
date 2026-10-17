@@ -27,9 +27,9 @@
  *    - On mobile: A compact one-line header with a collapsible 'Info & Disclaimers' drawer.
  */
 
-import React, { useState } from 'react';
-import { Database, MapPin, Wind, Sparkles, Info, ChevronUp, ChevronDown, Mail, ShieldAlert, CheckCircle2, Truck, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CheckCircle2,ChevronDown,ChevronUp,Database,Info,Mail,MapPin,Scissors,ShieldAlert,Sparkles,Truck,Wind } from 'lucide-react';
+import React,{ useState } from 'react';
 import { GISUserScope } from './types';
 
 interface GISFooterProps {

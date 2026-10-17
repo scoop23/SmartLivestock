@@ -1,76 +1,75 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import {
-  ArrowDownAZ,
-  ArrowDownWideNarrow,
-  ArrowUpDown,
-  CalendarDays,
-  CheckCircle2,
-  Clock,
-  Copy,
-  Download,
-  Eye,
-  Info,
-  Layers,
-  LayoutGrid,
-  List,
-  Pencil,
-  Plus,
-  RotateCcw,
-  Scale,
-  Search,
-  ShieldAlert,
-  ShieldCheck,
-  Tag,
-  Trash2,
-  Weight,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Camera,
-  ImageIcon,
-  Check,
-} from "lucide-react";
-import { Icon } from "lucide-react";
-import { cowHead } from "@lucide/lab";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
+import {
+Tooltip,
+TooltipContent,
+TooltipProvider,
+TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/components/ui/utils";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
+import { cowHead } from "@lucide/lab";
+import {
+ArrowDownAZ,
+ArrowDownWideNarrow,
+ArrowUpDown,
+CalendarDays,
+Camera,
+CheckCircle2,
+ChevronLeft,
+ChevronRight,
+ChevronsLeft,
+ChevronsRight,
+Clock,
+Copy,
+Download,
+Eye,
+Icon,
+ImageIcon,
+Info,
+Layers,
+LayoutGrid,
+List,
+Pencil,
+Plus,
+RotateCcw,
+Scale,
+Search,
+ShieldAlert,
+ShieldCheck,
+Tag,
+Trash2,
+Weight,
+X
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React,{ useMemo,useState } from "react";
 import { toast } from "sonner";
-import type { LivestockInventoryItem, StatusType, EntryType } from "./page";
 import type { OperationalStatus } from "./livestock-inventory";
 import { getAvatarById } from "./livestock-inventory";
 import { OperationalStatusBadge } from "./operational-status-badge";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import type { LivestockInventoryItem,StatusType } from "./page";
 
 /* ── Species Color Palette & Styling ── */
 interface SpeciesTheme {

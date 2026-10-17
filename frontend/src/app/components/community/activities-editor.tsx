@@ -1,27 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { CheckCircle2, Image as ImageIcon, Megaphone, MoreHorizontal, Pencil, Pin, Plus, Radio, RefreshCw, Search, Send, Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { KpiCard } from "@/components/ui/kpi-card";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/app/components/page-header";
+import {
+AlertDialog,AlertDialogAction,AlertDialogCancel,AlertDialogContent,
+AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import {
+DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/axios";
-import { Activity, AnnouncementAudience, apiError, BarangayOption, getActivities, getBarangays } from "@/lib/community-api";
-import { ACTIVITY_CATEGORIES, AUDIENCE_LABEL, activityCategory, CommunityEmptyState, CommunityErrorCard, CommunityRole, CommunitySkeleton, formatShortDate, formatTimeWindow } from "./community-ui";
+import { Activity,AnnouncementAudience,apiError,BarangayOption,getActivities,getBarangays } from "@/lib/community-api";
+import { CheckCircle2,Image as ImageIcon,Megaphone,MoreHorizontal,Pencil,Pin,Plus,Radio,RefreshCw,Search,Send,Trash2,X } from "lucide-react";
+import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
 import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
+import { ACTIVITY_CATEGORIES,activityCategory,AUDIENCE_LABEL,CommunityEmptyState,CommunityErrorCard,CommunityRole,CommunitySkeleton,formatShortDate } from "./community-ui";
 
 const blank = {
   title: "",

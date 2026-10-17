@@ -1,30 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowRight, CalendarDays, Clock3, MapPin } from "lucide-react";
+import {
+formatShortDate,
+formatTimeWindow,
+isUpcoming,
+} from "@/app/components/community/community-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  getSchedules,
-  getBookings,
-  type ProgramSchedule,
-  type ProgramBooking,
+getBookings,
+getSchedules,
+type ProgramBooking,
+type ProgramSchedule,
 } from "@/lib/community-api";
-import {
-  formatShortDate,
-  formatTimeWindow,
-  isUpcoming,
-} from "@/app/components/community/community-ui";
+import { ArrowRight,CalendarDays,Clock3,MapPin } from "lucide-react";
+import Link from "next/link";
+import { useEffect,useState } from "react";
 
 function getProgramBadge(title: string): { label: string; badge: string } {
   const lower = title.toLowerCase();

@@ -1,29 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Pencil, Tag } from "lucide-react";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LivestockBreedField } from "@/components/livestock-breed-field";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
-import type { EntryType, LivestockInventoryItem } from "./page";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+import { Pencil,Tag } from "lucide-react";
+import { useEffect,useState } from "react";
+import type { EntryType,LivestockInventoryItem } from "./page";
 
 export interface UpdateInventoryPayload {
   livestock_type: number;
@@ -90,7 +90,11 @@ interface LivestockEditDialogProps {
   onSubmit: (payload: UpdateInventoryPayload) => void;
 }
 
-export default function LivestockEditDialog({
+export default function LivestockEditDialog(props: LivestockEditDialogProps) {
+  return <LivestockEditDialogContent key={`${props.open}:${props.item?.id}`} {...props} />;
+}
+
+function LivestockEditDialogContent({
   item,
   open,
   hideBirthDate = false,
@@ -104,12 +108,7 @@ export default function LivestockEditDialog({
   );
   const [formError, setFormError] = useState("");
 
-  useEffect(() => {
-    if (item) {
-      setForm(toFormState(item));
-      setFormError("");
-    }
-  }, [item]);
+
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
 

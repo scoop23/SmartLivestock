@@ -1,29 +1,25 @@
 "use client";
 
-import {
-  ArrowUpRight,
-  Calculator,
-  CalendarDays,
-  FileSpreadsheet,
-  LineChart as LineChartIcon,
-  Milk,
-  PhilippinePeso,
-  Printer,
-  Sparkles,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
+FileSpreadsheet,
+LineChart as LineChartIcon,
+Milk,
+PhilippinePeso,
+Printer,
+Sparkles,
+Users
+} from "lucide-react";
+import {
+Bar,
+BarChart,
+CartesianGrid,
+ResponsiveContainer,
+Tooltip,
+XAxis,
+YAxis,
 } from "recharts";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import type { ProductionRecordItem } from "./production-analytics";

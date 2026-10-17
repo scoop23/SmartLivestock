@@ -1,25 +1,23 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import {
-  ClipboardCheck,
-  Eye,
-  TableIcon,
-  LayoutGrid,
-  MapPin,
-  ChevronRight,
-} from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
+import {
+ChevronRight,
+ClipboardCheck,
+Eye,
+MapPin
+} from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
 import { InspectionRecord } from "./auction-analytics";
 
 interface InspectionsListViewProps {
@@ -29,27 +27,28 @@ interface InspectionsListViewProps {
   getStatusBadge: (status: InspectionRecord["status"], record?: InspectionRecord) => React.ReactNode;
 }
 
-export function InspectionsListView({
+export function InspectionsListView(props: InspectionsListViewProps) {
+  return <InspectionsListViewContent key={props.inspections.length} {...props} />;
+}
+
+function InspectionsListViewContent({
   inspections,
   viewMode,
   onSelectInspection,
   getStatusBadge,
 }: InspectionsListViewProps) {
   const PAGE_SIZE = 10;
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(inspections.length / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
   const pagedInspections = useMemo(
     () => inspections.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [inspections, page]
   );
 
-  useEffect(() => {
-    setPage(1);
-  }, [inspections.length]);
 
-  useEffect(() => {
-    if (page > pageCount) setPage(1);
-  }, [page, pageCount]);
+
+
 
   const paginationControl = inspections.length > PAGE_SIZE && (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">

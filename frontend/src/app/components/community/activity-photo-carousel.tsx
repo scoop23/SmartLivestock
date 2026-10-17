@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  type CarouselApi,
+Carousel,
+CarouselContent,
+CarouselItem,
+type CarouselApi,
 } from "@/components/ui/carousel";
+import { ChevronLeft,ChevronRight,Image as ImageIcon } from "lucide-react";
+import { useEffect,useState } from "react";
 
 export function ActivityPhotoCarousel({
   photos,

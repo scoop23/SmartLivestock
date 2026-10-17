@@ -1,60 +1,53 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from '@/components/ui/dialog';
+import { Popover,PopoverContent,PopoverTrigger } from '@/components/ui/popover';
+import { Sheet,SheetContent,SheetTitle } from '@/components/ui/sheet';
+import { cn } from '@/components/ui/utils';
+import { UniversalQrScannerDialog } from '@/components/universal-qr-scanner-dialog';
+import { useAccessibilitySettings } from '@/contexts/accessibility-settings-context';
+import { useAuth } from '@/contexts/auth-context';
+import { cowHead } from '@lucide/lab';
+import {
+BarChart3,
+Bell,
+CalendarDays,
+ChevronDown,
+ClipboardCheck,
+Clock,
+Database,
+FileText,
+HelpCircle,
+History,
+Icon,
+Key,
+LayoutDashboard,
+LogOut,
+Map,
+Megaphone,
+Newspaper,
+Phone,
+Pin,
+PinOff,
+QrCode,
+Shield,
+ShieldCheck,
+Stethoscope,
+Upload,
+User as UserIcon,
+Users
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Users,
-  Map,
-  LogOut,
-  Database,
-  ShieldCheck,
-  FileText,
-  Upload,
-  Newspaper,
-  CalendarDays,
-  ClipboardCheck,
-  QrCode,
-  Bell,
-  Activity,
-  Megaphone,
-  BarChart3,
-  Stethoscope,
-  Pin,
-  PinOff,
-  HelpCircle,
-  Phone,
-  Mail,
-  MapPin,
-  Clock,
-  ExternalLink,
-  ChevronRight,
-  ChevronDown,
-  Sparkles,
-  Shield,
-  User as UserIcon,
-  Key,
-  History,
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/components/ui/utils';
-import { cowHead } from '@lucide/lab';
-import { Icon } from 'lucide-react';
-import { useAccessibilitySettings } from '@/contexts/accessibility-settings-context';
-import { UniversalQrScannerDialog } from '@/components/universal-qr-scanner-dialog';
+import { useEffect,useState } from 'react';
 import { MOBILE_NAV_EVENT } from './mobile-nav-open';
-import { useAuth } from '@/contexts/auth-context';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 
 const CowHeadIcon = ({ className }: { className?: string }) => (
   <Icon iconNode={cowHead} className={className} />

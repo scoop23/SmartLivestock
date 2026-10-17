@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, X } from "lucide-react";
+import { ShieldCheck,X } from "lucide-react";
 
 interface BulkActionDockProps {
   count: number;

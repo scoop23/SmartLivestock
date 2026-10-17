@@ -1,29 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Baby, Calendar, Check, Dna, RotateCcw, Scale, Tag } from "lucide-react";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
-import type { BirthingSpeciesTerminology } from "../production-calving-tab";
-import type { CalvingRecordItem } from "../production-calving-tab";
+import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { LivestockBreedField } from "@/components/livestock-breed-field";
+import { Baby,Calendar,Check,Dna,RotateCcw,Scale,Tag } from "lucide-react";
+import { useEffect,useState } from "react";
+import type { BirthingSpeciesTerminology,CalvingRecordItem } from "../production-calving-tab";
 
 export interface EditableCalvingFields {
   calf_tag: string;
@@ -46,7 +45,11 @@ interface CalvingResubmitDialogProps {
   isSubmitting: boolean;
 }
 
-export default function CalvingResubmitDialog({
+export default function CalvingResubmitDialog(props: CalvingResubmitDialogProps) {
+  return <CalvingResubmitDialogContent key={`${props.open}:${props.record?.id}`} {...props} />;
+}
+
+function CalvingResubmitDialogContent({
   open,
   onOpenChange,
   terms,
@@ -55,29 +58,18 @@ export default function CalvingResubmitDialog({
   onSubmit,
   isSubmitting,
 }: CalvingResubmitDialogProps) {
-  const [calfTag, setCalfTag] = useState("");
-  const [calfSex, setCalfSex] = useState<"MALE" | "FEMALE">("FEMALE");
-  const [birthWeight, setBirthWeight] = useState<string>("");
-  const [sireTag, setSireTag] = useState("");
+  const [calfTag, setCalfTag] = useState(record?.calf_tag || "");
+  const [calfSex, setCalfSex] = useState<"MALE" | "FEMALE">(record?.calf_sex === "MALE" ? "MALE" : "FEMALE");
+  const [birthWeight, setBirthWeight] = useState<string>(record?.birth_weight != null ? String(record.birth_weight) : "");
+  const [sireTag, setSireTag] = useState(record?.sire_tag || "");
   const [calvingDate, setCalvingDate] = useState(
-    localCalendarDateToday()
+    record?.calving_date || localCalendarDateToday()
   );
-  const [breed, setBreed] = useState("");
-  const [calvingEase, setCalvingEase] = useState("Normal / Unassisted");
-  const [notes, setNotes] = useState("");
+  const [breed, setBreed] = useState(record?.breed || "");
+  const [calvingEase, setCalvingEase] = useState(record?.calving_ease || "Normal / Unassisted");
+  const [notes, setNotes] = useState(record?.notes || "");
 
-  useEffect(() => {
-    if (record) {
-      setCalfTag(record.calf_tag || "");
-      setCalfSex(record.calf_sex === "MALE" ? "MALE" : "FEMALE");
-      setBirthWeight(record.birth_weight != null ? String(record.birth_weight) : "");
-      setSireTag(record.sire_tag || "");
-      setCalvingDate(record.calving_date || localCalendarDateToday());
-      setBreed(record.breed || "");
-      setCalvingEase(record.calving_ease || "Normal / Unassisted");
-      setNotes(record.notes || "");
-    }
-  }, [record]);
+
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();

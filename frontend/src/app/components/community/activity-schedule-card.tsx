@@ -1,22 +1,22 @@
 "use client";
 
+import {
+AlertDialog,
+AlertDialogAction,
+AlertDialogContent,
+AlertDialogDescription,
+AlertDialogFooter,
+AlertDialogHeader,
+AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import type { ProgramSchedule } from "@/lib/community-api";
+import { CalendarDays,ClipboardList,Clock,MapPin } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { CalendarDays, ClipboardList, Clock, MapPin } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import type { CommunityRole } from "./community-ui";
-import { formatLongDate, formatTimeWindow } from "./community-ui";
-import type { ProgramSchedule } from "@/lib/community-api";
+import { formatLongDate,formatTimeWindow } from "./community-ui";
 
 export function ActivityScheduleCard({
   schedule,

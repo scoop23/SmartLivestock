@@ -1,23 +1,23 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { AlertTriangle, CheckCircle2, ClipboardList, MapPinOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { AlertTriangle,CheckCircle2,ClipboardList,MapPinOff } from "lucide-react";
 import {
-  censusStatusMeta,
-  type CensusAnalytics,
+Bar,
+BarChart,
+CartesianGrid,
+Cell,
+LabelList,
+Pie,
+PieChart,
+ResponsiveContainer,
+Tooltip,
+XAxis,
+YAxis,
+} from "recharts";
+import {
+censusStatusMeta,
+type CensusAnalytics,
 } from "./census-analytics";
 
 interface CensusAnalyticsChartsProps {

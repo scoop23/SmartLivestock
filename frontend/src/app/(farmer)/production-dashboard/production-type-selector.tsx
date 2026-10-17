@@ -1,9 +1,9 @@
 "use client";
 
-import { Egg, Milk, Package, Beef } from "lucide-react";
+import { Beef,Egg,Milk,Package } from "lucide-react";
 import {
-  PRODUCTION_TYPE_LABELS,
-  type ProductionType,
+PRODUCTION_TYPE_LABELS,
+type ProductionType,
 } from "./production-analytics";
 
 const TYPE_ICONS: Record<ProductionType, typeof Milk> = {

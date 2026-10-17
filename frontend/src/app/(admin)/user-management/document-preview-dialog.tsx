@@ -1,5 +1,6 @@
 'use client';
 
+import { httpError } from "@/lib/http-error";
 /**
  * SmartLivestock — Authenticated Farmer Attachment Preview Dialog
  * 
@@ -17,27 +18,25 @@
  * Memory is reclaimed cleanly via `URL.revokeObjectURL` on unmount / document change.
  */
 
-import React, { useState, useEffect } from 'react';
-import api from '@/lib/axios';
-import { UserDocumentItem } from './user-management';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
-  ExternalLink,
-  Download,
-  AlertTriangle,
-  Loader2,
-  FileText,
-  RefreshCw,
-  Eye,
-  ShieldCheck,
+Dialog,
+DialogContent,
+DialogHeader,
+DialogTitle,
+} from '@/components/ui/dialog';
+import api from '@/lib/axios';
+import {
+AlertTriangle,
+Download,
+ExternalLink,
+FileText,
+Loader2,
+RefreshCw,
+ShieldCheck
 } from 'lucide-react';
+import React,{ useEffect,useState } from 'react';
+import { UserDocumentItem } from './user-management';
 
 interface DocumentPreviewDialogProps {
   document: UserDocumentItem | null;
@@ -92,11 +91,11 @@ export function DocumentPreviewDialog({
         setBlobUrl(url);
         setContentType(mime);
         setIsLoading(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!isMounted) return;
         console.error('Failed to load document preview:', err);
 
-        const status = err?.response?.status;
+        const status = httpError(err)?.response?.status;
         if (status === 401) {
           setErrorMessage('Authentication credentials were not provided.');
         } else if (status === 403) {

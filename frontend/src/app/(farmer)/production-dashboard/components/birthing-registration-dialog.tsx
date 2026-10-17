@@ -1,29 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { Baby, Calendar, Check, Dna, HeartPulse, Scale, Tag } from "lucide-react";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Button } from "@/components/ui/button";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
-import type { BirthingSpeciesTerminology } from "../production-calving-tab";
-import type { LivestockInventoryItem } from "../../livestock-inventory/page";
+import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { LivestockBreedField } from "@/components/livestock-breed-field";
+import { Baby,Calendar,Check,Dna,HeartPulse,Scale,Tag } from "lucide-react";
+import { useState } from "react";
+import type { LivestockInventoryItem } from "../../livestock-inventory/page";
+import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 
 interface BirthingRegistrationDialogProps {
   open: boolean;

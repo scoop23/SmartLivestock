@@ -1,77 +1,71 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, FormEvent, Suspense, useRef } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { toast } from "sonner";
-import {
-  CalendarDays,
-  Clock3,
-  MapPin,
-  Users,
-  Plus,
-  ArrowLeft,
-  Pencil,
-  Trash2,
-  Check,
-  RotateCcw,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  AlertTriangle,
-  Eye,
-  CheckCircle2,
-  Calendar as CalendarIcon,
-  HelpCircle,
-  ExternalLink,
-  Upload,
-  Camera,
-  ImageIcon,
-  Loader2,
-} from "lucide-react";
-import { PageHeader } from "@/app/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import api, { getActiveApiUrl } from "@/lib/axios";
-import {
-  getSchedules,
-  getBookings,
-  type ProgramSchedule,
-  type ProgramBooking,
-  apiError,
-  type ProgramFarmerAudience,
-} from "@/lib/community-api";
-import { formatLongDate, formatTime, todayIso } from "@/app/components/community/community-ui";
-import { useAuth } from "@/contexts/auth-context";
 import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
+import { formatLongDate,formatTime,todayIso } from "@/app/components/community/community-ui";
+import { PageHeader } from "@/app/components/page-header";
+import {
+AlertDialog,
+AlertDialogAction,
+AlertDialogCancel,
+AlertDialogContent,
+AlertDialogDescription,
+AlertDialogFooter,
+AlertDialogHeader,
+AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/auth-context";
+import api,{ getActiveApiUrl } from "@/lib/axios";
+import {
+apiError,
+getBookings,
+getSchedules,
+type ProgramBooking,
+type ProgramFarmerAudience,
+type ProgramSchedule,
+} from "@/lib/community-api";
+import {
+ArrowLeft,
+CalendarDays,
+Calendar as CalendarIcon,
+Camera,
+Check,
+ChevronLeft,
+ChevronRight,
+Clock3,
+Eye,
+ImageIcon,
+Loader2,
+MapPin,
+Pencil,
+Plus,
+Trash2,
+Upload,
+Users,
+X
+} from "lucide-react";
+import Image from "next/image";
+import { FormEvent,useCallback,useEffect,useMemo,useRef,useState } from "react";
+import { toast } from "sonner";
 
 // ── Types & Helpers ────────────────────────────────────────────────────────
 
@@ -1187,7 +1181,7 @@ function ScheduleForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BARANGAY_ONLY">Farmers in this program's barangay only</SelectItem>
+                  <SelectItem value="BARANGAY_ONLY">Farmers in this program&apos;s barangay only</SelectItem>
                   <SelectItem value="ALL_FARMERS">All farmers across barangays</SelectItem>
                 </SelectContent>
               </Select>

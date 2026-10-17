@@ -46,23 +46,23 @@
  *   adapting to any screen aspect ratio (mobile vs desktop ultrawide).
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { MapLayer, ViewMode, DiseaseSubMode, GISUserScope } from './types';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Compass,
-  Layers,
-  Zap,
-  RotateCcw,
-  PanelRightClose,
-  PanelRightOpen,
-  Activity,
-  TrendingUp,
-  Box,
-  ChevronDown,
-  ChevronUp,
+Activity,
+Box,
+ChevronDown,
+ChevronUp,
+Compass,
+Layers,
+PanelRightClose,
+PanelRightOpen,
+RotateCcw,
+TrendingUp,
+Zap,
 } from 'lucide-react';
+import { useEffect,useRef,useState } from 'react';
+import { DiseaseSubMode,GISUserScope,MapLayer,ViewMode } from './types';
 
 interface GISControlsProps {
   currentLayer: MapLayer;
@@ -494,7 +494,7 @@ export function GISControls({
 
                   {diseaseSubMode === 'trend' && (
                     <div className="bg-purple-50/80 px-2.5 py-1.5 rounded-lg border border-purple-200 text-[10.5px] text-purple-900 leading-tight">
-                      Surveillance Trend displays current active disease status from field reports. For statistical forecasts, see{' '}
+                      Surveillance Trend shows approved reports from the last 90 days, not unresolved clinical cases. For statistical forecasts, see{' '}
                       <a
                         href="/analytics"
                         className="font-bold underline underline-offset-2 hover:text-purple-950"

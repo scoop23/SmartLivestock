@@ -1,54 +1,54 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Baby,
-  ClipboardList,
-  LineChart as LineChartIcon,
-  Milk,
-  Plus,
-  RefreshCw,
-  Scale,
-  ShieldCheck,
-  ShoppingBag,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import {
+ArrowLeft,
+Baby,
+ClipboardList,
+LineChart as LineChartIcon,
+Milk,
+Plus,
+RefreshCw,
+Scale,
+ShieldCheck,
+ShoppingBag,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo,useState } from "react";
+import { toast } from "sonner";
 
 import SpeciesHeroBanner from "./components/species-hero-banner";
 import SpeciesKpiCards from "./components/species-kpi-cards";
-import ProductionCharts from "./production-charts";
-import ProductionRecent from "./production-recent";
-import ProductionTypeSelector from "./production-type-selector";
-import ProductionCalvingTab, {
-  getBirthingTerminology,
-  CalvingRecordItem,
+import ProductionCalvingTab,{
+CalvingRecordItem,
+getBirthingTerminology,
 } from "./production-calving-tab";
-import ProductionWeightTab from "./production-weight-tab";
-import ProductionSalesTab from "./production-sales-tab";
-import ProductionForecastsTab from "./production-forecasts-tab";
-import ProductionWizard, { getProductionTypesForLivestock } from "./production-wizard";
+import ProductionCharts from "./production-charts";
 import ProductionDeleteDialog from "./production-delete-dialog";
+import ProductionForecastsTab from "./production-forecasts-tab";
+import ProductionRecent from "./production-recent";
+import ProductionSalesTab from "./production-sales-tab";
 import ProductionSubmissionSuccessDialog from "./production-submission-success-dialog";
+import ProductionTypeSelector from "./production-type-selector";
+import ProductionWeightTab from "./production-weight-tab";
+import ProductionWizard,{ getProductionTypesForLivestock } from "./production-wizard";
 
+import { useUserInventory,type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import {
-  EMPTY_TYPE_ANALYTICS,
-  computeProductionAnalytics,
-  fetchProductionRecords,
-  deleteProductionRecord,
-  type ProductionRecordItem,
-  type ProductionType,
+EMPTY_TYPE_ANALYTICS,
+computeProductionAnalytics,
+deleteProductionRecord,
+fetchProductionRecords,
+type ProductionRecordItem,
+type ProductionType,
 } from "./production-analytics";
 import type { ProductionPayload } from "./production-wizard";
-import { useUserInventory, type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 
 export type UnitType = "liters" | "pieces" | "kilograms";
 

@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Info } from "lucide-react";
-import Link from "next/link";
 import { PageHeader } from "@/app/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Info } from "lucide-react";
+import Link from "next/link";
+import { useMemo,useState } from "react";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
-import RecordActivityChooser from "./record-activity-chooser";
 import EnterpriseEmptyState from "./components/enterprise-empty-state";
-import ProductionDashboardView from "./production-dashboard-view";
 import type { ProductionType } from "./production-analytics";
+import ProductionDashboardView from "./production-dashboard-view";
+import RecordActivityChooser from "./record-activity-chooser";
 
 type SelectedRecordActivity = {
   id: string;

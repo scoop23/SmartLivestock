@@ -1,33 +1,29 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import {
-  ShieldCheck,
-  ShieldAlert,
-  AlertTriangle,
-  Calendar,
-  Search,
-  CheckCircle2,
-  Clock,
-  Pencil,
-  Syringe,
-  Filter,
-  ArrowUpDown,
-  Tag,
-  Eye,
-} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
+import {
+AlertTriangle,
+Calendar,
+CheckCircle2,
+Eye,
+Pencil,
+Search,
+ShieldAlert,
+ShieldCheck,
+Syringe,
+Tag
+} from "lucide-react";
+import { useMemo,useState } from "react";
 import type { LivestockInventoryItem } from "./page";
 
 interface HealthTrackerTabProps {

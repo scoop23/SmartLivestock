@@ -1,3 +1,4 @@
+import type { InventoryApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 // Data Overview Domain Types & Datasets for Padre Garcia MAO
 // Aligned with Django backend models (livestock, production, diseases, movements)
 
@@ -37,7 +38,7 @@ export interface ActivityFeedItem {
   barangay: string;
   badge: string;
   badgeVariant: 'emerald' | 'sky' | 'amber' | 'rose' | 'orange' | 'default';
-  record?: any;
+  record?: OverviewRecord;
 }
 
 export interface LivestockRecord {
@@ -92,7 +93,7 @@ export interface BatchRecord {
   reviewedAt?: string;
   notes?: string;
   createdAt: string;
-  animals?: any[];
+  animals?: InventoryApiItem[];
 }
 
 export interface ProductionRecord {
@@ -233,3 +234,11 @@ export const SEED_MORTALITY: MortalityRecord[] = [];
 export const SEED_SLAUGHTER: SlaughterRecord[] = [];
 export const SEED_CENSUS: CensusRecord[] = [];
 export const SEED_ACTIVITY_FEED: ActivityFeedItem[] = [];
+
+type DomainRecord = LivestockRecord | BatchRecord | ProductionRecord | SalesRecord | DiseaseRecord | MortalityRecord | SlaughterRecord | CensusRecord;
+type DomainKeys<T> = T extends unknown ? keyof T : never;
+type DomainValue<T, K> = T extends unknown ? K extends keyof T ? T[K] : never : never;
+// A cross-domain display row: each tab supplies its own fields; identity is shared.
+export type OverviewRecord = { id: string; healthStatus?: string; reviewStatus?: string; review_status?: string; barangayName?: string; causeOfDeath?: string; deathCount?: number; investigatedBy?: string } & {
+  [K in Exclude<DomainKeys<DomainRecord>, "id">]?: DomainValue<DomainRecord, K> extends string ? string : DomainValue<DomainRecord, K>
+};

@@ -1,17 +1,18 @@
+import type { Feature } from "geojson";
+import { MapLayer } from '@/components/gis/types';
+import L from 'leaflet';
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
 const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
-import { useMap } from 'react-leaflet';
-import L from 'leaflet';
-import { MapLayer } from '@/components/gis/types';
 
 interface LeafletMapUserTypes {
   mapLayer: MapLayer;
   SAN_ROQUE_GEOJSON: GeoJSON.GeoJsonObject;
   getGeoJSONStyle: () => L.PathOptions;
-  onEachFeature: (feature: any, layer: L.Layer) => void;
+  onEachFeature: (feature: Feature, layer: L.Layer) => void;
 }
 
 

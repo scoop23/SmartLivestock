@@ -1,48 +1,39 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/app/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
-import { useUserInventory } from "../livestock-inventory/livestock-inventory";
-import { toast } from "sonner";
-import {
-  Stethoscope,
-  Send,
-  Camera,
-  Search,
-  CheckCircle2,
-  Clock,
-  Plus,
-  X,
-  FileText,
-  Activity,
-  HeartPulse,
-  Skull,
-  ShieldCheck,
-  Calendar,
-  RotateCcw,
-  ChevronRight,
-  Filter,
-  RefreshCw,
-} from "lucide-react";
-import { Icon } from "lucide-react";
+import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
+import {
+Activity,
+CheckCircle2,
+ChevronRight,
+Clock,
+HeartPulse,
+Icon,
+RefreshCw,
+RotateCcw,
+Search,
+ShieldCheck,
+Skull,
+Stethoscope
+} from "lucide-react";
+import React,{ useEffect,useMemo,useState } from "react";
+import { toast } from "sonner";
 
 import api from "@/lib/axios";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  FarmerReport,
-  ReportType,
-  BackendStatus,
-} from "./report-observation-types";
-import ReportIllnessDialog from "./components/report-illness-dialog";
-import ReportDetailDialog from "./components/report-detail-dialog";
 import { getAttachedPhoto } from "@/lib/photo-storage";
+import { useQuery,useQueryClient } from "@tanstack/react-query";
+import ReportDetailDialog from "./components/report-detail-dialog";
+import ReportIllnessDialog from "./components/report-illness-dialog";
+import {
+BackendStatus,
+FarmerReport,
+ReportType,
+} from "./report-observation-types";
 
 type HealthReportFilter = "ALL" | "DISEASE" | "MORTALITY" | "PENDING" | "REVISION" | "APPROVED";
 
@@ -125,7 +116,7 @@ export default function ReportObservationPage() {
   const reports: FarmerReport[] = useMemo(() => {
     const list: FarmerReport[] = [];
 
-    diseaseCases.forEach((dc: any) => {
+    diseaseCases.forEach((dc) => {
       const attached = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number);
       const photoUrl = dc.photo_url || dc.photo || (attached.isFarmerUpload ? attached.photoUrl : undefined);
       const photoName = (dc.photo_url || dc.photo) ? "Attached Field Photo" : (attached.isFarmerUpload ? attached.photoName : undefined);
@@ -153,7 +144,7 @@ export default function ReportObservationPage() {
       });
     });
 
-    mortalityRecords.forEach((m: any) => {
+    mortalityRecords.forEach((m) => {
       const affectedTags = Array.isArray(m.affected_animals)
         ? m.affected_animals.map((animal: { tag_number?: string }) => animal.tag_number).filter(Boolean)
         : [];

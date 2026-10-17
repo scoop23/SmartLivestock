@@ -22,7 +22,6 @@
  *      are reserved strictly for MAO/Admin leadership.
  */
 
-import React from 'react';
 import { RoleAwareGISContainer } from '@/components/gis/RoleAwareGISContainer';
 
 export default function SibatMonitoringPage() {

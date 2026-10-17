@@ -1,56 +1,56 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, QrCode } from "lucide-react";
-import { toast } from "sonner";
-import api from "@/lib/axios";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
+import api from "@/lib/axios";
+import { useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { QrCode,ShieldCheck } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Suspense,useMemo,useState } from "react";
+import { toast } from "sonner";
 
 // Domain & Analytics
-import {
-  ValidationDomain,
-  ValidationStatus,
-  useAdminCensusSubmissions,
-  useAdminProductionRecords,
-  useAdminInventoryRecords,
-  useAdminIncidentRecords,
-  ValidationIncidentItem,
-  ValidationInventoryItem,
-  getIncidentTypeBadge,
-} from "./validation-analytics";
-import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
 import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
+import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
+import {
+ValidationDomain,
+ValidationIncidentItem,
+ValidationInventoryItem,
+ValidationStatus,
+getIncidentTypeBadge,
+useAdminCensusSubmissions,
+useAdminIncidentRecords,
+useAdminInventoryRecords,
+useAdminProductionRecords,
+} from "./validation-analytics";
 
 // Extracted Modular Components
-import {
-  ValidationKpis,
-  ValidationToolbar,
-  DiseaseMortalityReviewDialog,
-  ValidationPagination,
-  DomainTabs,
-  HerdBatchesBanner,
-  BulkActionDock,
-  ActiveDomainTable,
-} from "./components";
-import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
-import { DataTableSection } from "@/components/ui/data-table-section";
-import { SlaughterReviewQueue } from "@/app/(admin)/slaughter-record-review/slaughter-review-queue";
 import { useAdminBarangays } from "@/app/(admin)/admin/admin-charts";
+import { SlaughterReviewQueue } from "@/app/(admin)/slaughter-record-review/slaughter-review-queue";
+import { DataTableSection } from "@/components/ui/data-table-section";
+import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
+import {
+ActiveDomainTable,
+BulkActionDock,
+DiseaseMortalityReviewDialog,
+DomainTabs,
+HerdBatchesBanner,
+ValidationKpis,
+ValidationPagination,
+ValidationToolbar,
+} from "./components";
 
 // Dialog Modals
 import {
-  ValidationReviewDialog,
-  ReviewTargetItem,
-} from "./validation-review-dialog";
-import {
-  RecordDetailDialog,
-  DetailRecordData,
+DetailRecordData,
+RecordDetailDialog,
 } from "./record-detail-dialog";
+import {
+ReviewTargetItem,
+ValidationReviewDialog,
+} from "./validation-review-dialog";
 
 function matchesStatusFilter(
   rawStatus: string | null | undefined,

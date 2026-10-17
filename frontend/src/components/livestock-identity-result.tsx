@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import type { RegisteredLivestockLookup } from "@/app/(auction)/auction-inspections/auction-analytics";
-import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 
 // Search and QR show the same database identity and server eligibility decision.
 export function LivestockIdentityResult({ record, onAdd, error, actionLabel = "Add to Movement Log" }: {

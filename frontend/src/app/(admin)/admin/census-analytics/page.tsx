@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { ClipboardList, RotateCw, Users, Boxes, FileCheck2, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select";
-import CensusAnalyticsCharts from "./census-analytics-charts";
+import { AlertTriangle,Boxes,ClipboardList,FileCheck2,RotateCw,Users } from "lucide-react";
+import { useState } from "react";
 import { useCensusAnalytics } from "./census-analytics";
+import CensusAnalyticsCharts from "./census-analytics-charts";
 
 export default function CensusAnalyticsPage() {
   // Undefined period = "let the backend pick the newest quarter with data".

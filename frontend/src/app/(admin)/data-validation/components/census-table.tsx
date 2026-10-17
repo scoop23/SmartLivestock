@@ -1,30 +1,30 @@
 "use client";
 
+import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  FileSpreadsheet,
-  Calendar,
-  Eye,
-  ShieldCheck,
-  ChevronRight,
-  CheckCircle2,
-  User,
-  Layers,
+Calendar,
+CheckCircle2,
+ChevronRight,
+Eye,
+FileSpreadsheet,
+Layers,
+ShieldCheck,
+User,
 } from "lucide-react";
-import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
-import { ReviewTargetItem } from "../validation-review-dialog";
 import { DetailRecordData } from "../record-detail-dialog";
 import { getStatusPill } from "../validation-analytics";
+import { ReviewTargetItem } from "../validation-review-dialog";
 
 interface CensusTableProps {
   records: CensusSubmissionRecord[];

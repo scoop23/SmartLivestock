@@ -1,32 +1,32 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import {
-  FileSpreadsheet,
-  Plus,
-  Search,
-  X,
-  CheckCircle2,
-  Clock,
-  Eye,
-  TableIcon,
-  LayoutGrid,
-  ChevronRight,
-  ShieldCheck,
-  RotateCcw,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
+import {
+CheckCircle2,
+ChevronRight,
+Clock,
+Eye,
+FileSpreadsheet,
+LayoutGrid,
+Plus,
+RotateCcw,
+Search,
+ShieldCheck,
+TableIcon,
+X,
+} from "lucide-react";
+import { useEffect,useMemo,useState } from "react";
 import { CensusSubmissionRecord } from "./sibat-analytics";
 
 interface CensusSubmissionsViewProps {
@@ -76,9 +76,10 @@ export default function CensusSubmissionsView({
   onOpenSubmitDialog,
   onSelectCensusForDetail,
 }: CensusSubmissionsViewProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, updateSearchQuery] = useState("");
+  const setSearchQuery = (value: string) => { updateSearchQuery(value); setPage(1); };
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
   const query = searchQuery.toLowerCase().trim();
@@ -95,18 +96,15 @@ export default function CensusSubmissionsView({
   }, [censusSubmissions, query]);
 
   const pageCount = Math.max(1, Math.ceil(filteredCensus.length / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
   const pagedCensus = useMemo(
     () => filteredCensus.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredCensus, page]
   );
 
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery]);
 
-  useEffect(() => {
-    if (page > pageCount) setPage(1);
-  }, [page, pageCount]);
+
+
 
   return (
     <div className="space-y-4">

@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { ClipboardCheck, Plus, Trash2, Loader2, AlertCircle, Search, ArrowLeft, Save, QrCode } from "lucide-react";
+import { LivestockIdentityResult } from "@/components/livestock-identity-result";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createInspection, updateInspection, searchRegisteredShippers, lookupRegisteredLivestock, InspectionRecord, RegisteredShipperOption, RegisteredAnimalOption } from "./auction-analytics";
+import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import axios from "axios";
-import { useAuth } from "@/contexts/auth-context";
+import { AlertCircle,ArrowLeft,ClipboardCheck,Loader2,Plus,QrCode,Save,Search,Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect,useMemo,useRef,useState } from "react";
+import { createInspection,InspectionRecord,lookupRegisteredLivestock,RegisteredAnimalOption,RegisteredShipperOption,searchRegisteredShippers,updateInspection } from "./auction-analytics";
 import { MovementLivestockQrDialog } from "./movement-livestock-qr-dialog";
-import { LivestockIdentityResult } from "@/components/livestock-identity-result";
 
 interface NewInspectionFormProps {
   onSubmitSuccess: () => void;

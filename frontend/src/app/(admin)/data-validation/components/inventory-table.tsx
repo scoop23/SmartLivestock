@@ -1,32 +1,31 @@
 "use client";
 
-import Link from "next/link";
+import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Tag,
-  MapPin,
-  Calendar,
-  Eye,
-  ShieldCheck,
-  ChevronRight,
-  CheckCircle2,
-  Scale,
-  Layers,
+CheckCircle2,
+ChevronRight,
+Eye,
+Layers,
+MapPin,
+Scale,
+ShieldCheck,
+Tag
 } from "lucide-react";
-import { ValidationInventoryItem, getStatusPill } from "../validation-analytics";
-import { ReviewTargetItem } from "../validation-review-dialog";
+import Link from "next/link";
 import { DetailRecordData } from "../record-detail-dialog";
-import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
+import { ValidationInventoryItem,getStatusPill } from "../validation-analytics";
+import { ReviewTargetItem } from "../validation-review-dialog";
 
 interface InventoryTableProps {
   records: ValidationInventoryItem[];

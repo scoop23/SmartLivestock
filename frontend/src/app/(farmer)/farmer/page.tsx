@@ -1,30 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { PageHeader } from "@/app/components/page-header";
-import {
-  RefreshCw,
-  Sparkles,
-  Map,
-  MapPin,
-  CalendarDays,
-  Megaphone,
-  Stethoscope,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
 import { useAuth } from "@/contexts/auth-context";
-import FarmerStats from "./farmer-stats";
-import FarmerCharts from "./farmer-charts";
+import {
+CalendarDays,
+Map,
+MapPin,
+Megaphone,
+RefreshCw,
+Sparkles,
+Stethoscope,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import FarmerReportsListDialog from "../components/farmer-reports-list-dialog";
+import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
+import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
+import { FarmerReport } from "../report-observation/report-observation-types";
 import FarmerProgramsVisits from "./components/farmer-programs-visits";
 import FarmerActivityFeed from "./farmer-activity-feed";
 import { useFarmerDashboardAnalytics } from "./farmer-analytics";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
-import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
-import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
-import FarmerReportsListDialog from "../components/farmer-reports-list-dialog";
-import { FarmerReport } from "../report-observation/report-observation-types";
+import FarmerCharts from "./farmer-charts";
+import FarmerStats from "./farmer-stats";
 
 export default function FarmerDashboard() {
   const router = useRouter();

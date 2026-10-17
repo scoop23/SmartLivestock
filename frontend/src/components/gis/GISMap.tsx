@@ -1,5 +1,7 @@
 'use client';
 
+import type { Feature } from "geojson";
+import type { Layer, Path, LeafletMouseEvent } from "leaflet";
 /**
  * ============================================================================
  * SmartLivestock GIS — Interactive Map Canvas (`GISMap.tsx`)
@@ -43,21 +45,21 @@
  *      heights and colors represent the currently selected GIS metric.
  */
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import dynamic from 'next/dynamic';
-import type { FeatureCollection } from 'geojson';
 import padreGarciaGeojson from '@/data/padre-garcia-barangays.json';
+import type { FeatureCollection } from 'geojson';
+import 'leaflet/dist/leaflet.css';
+import dynamic from 'next/dynamic';
+import React,{ useEffect,useLayoutEffect,useMemo,useRef,useState } from 'react';
 import { Giro3DBarangayView } from './Giro3DBarangayView';
 import {
-  BarangayGISData,
-  MapLayer,
-  MovementRecord,
-  SimulatedBarangayState,
-  ViewMode,
-  DiseaseSubMode,
-  GISUserScope,
+BarangayGISData,
+DiseaseSubMode,
+GISUserScope,
+MapLayer,
+MovementRecord,
+SimulatedBarangayState,
+ViewMode,
 } from './types';
-import 'leaflet/dist/leaflet.css';
 
 // Dynamic SSR-safe imports for Leaflet components
 const MapContainer = dynamic(
@@ -116,8 +118,8 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
       const targetBName = isRestricted ? userScope.allowed_barangays[0] : (selectedBarangay?.name ?? null);
 
       if (targetBName && !resetRequested) {
-        const feature = (padreGarciaGeojson as any).features?.find(
-          (f: any) => f.properties?.name?.toLowerCase() === targetBName.toLowerCase()
+        const feature = (padreGarciaGeojson as FeatureCollection).features?.find(
+          (f) => f.properties?.name?.toLowerCase() === targetBName.toLowerCase()
         );
         if (feature) {
           const featureLayer = L.geoJSON(feature);
@@ -130,7 +132,7 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
       }
 
       // Default: fit municipal boundary of Padre Garcia
-      const geoJsonLayer = L.geoJSON(padreGarciaGeojson as any);
+      const geoJsonLayer = L.geoJSON(padreGarciaGeojson as FeatureCollection);
       const bounds = geoJsonLayer.getBounds();
       if (bounds.isValid()) {
         map.fitBounds(bounds, { padding: defaultPadding });
@@ -256,7 +258,7 @@ export function GISMap({
   showMovementOverlay = false,
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
-  const [leafletLib, setLeafletLib] = useState<any>(null);
+  const [leafletLib, setLeafletLib] = useState<typeof import('leaflet') | null>(null);
   const [heightScale, setHeightScale] = useState<number>(1);
   const [heightScaleDraft, setHeightScaleDraft] = useState<number>(1);
   const mapRootRef = useRef<HTMLDivElement>(null);
@@ -274,6 +276,7 @@ export function GISMap({
   const selectedLivestockTypeRef = useRef(selectedLivestockType);
   const userScopeRef = useRef(userScope);
 
+  useLayoutEffect(() => {
   barangaysByNameRef.current = barangaysByName;
   activeLayerRef.current = activeLayer;
   diseaseSubModeRef.current = diseaseSubMode;
@@ -283,6 +286,7 @@ export function GISMap({
   viewModeRef.current = viewMode;
   selectedLivestockTypeRef.current = selectedLivestockType;
   userScopeRef.current = userScope;
+  }, [barangaysByName, activeLayer, diseaseSubMode, selectedBarangay, simulatedStates, onSelectBarangay, viewMode, selectedLivestockType, userScope]);
 
   useEffect(() => {
     const root = mapRootRef.current;
@@ -453,7 +457,7 @@ export function GISMap({
     }
   };
 
-  const getGeoJSONStyle = (feature: any) => {
+  const getGeoJSONStyle = (feature: Feature | undefined) => {
     const name = feature?.properties?.name;
     const data = name ? barangaysByName[name] : null;
     const isSelected = selectedBarangay?.name === name;
@@ -543,9 +547,9 @@ export function GISMap({
             : data.disease_cases > 0
             ? 'REPORTED ACTIVITY'
             : 'NO REPORTED ACTIVITY';
-        tooltipMetric = `Surveillance: ${trendStatus} (${data.active_cases} active, ${data.disease_cases} total)`;
+        tooltipMetric = `Surveillance: ${trendStatus} (${data.active_cases} recent reports (90 days), ${data.disease_cases} historical total)`;
       } else {
-        tooltipMetric = `${data.active_cases} active cases (${data.disease_risk.toUpperCase()})`;
+        tooltipMetric = `${data.active_cases} approved reports (90 days) (${data.disease_risk.toUpperCase()})`;
       }
     } else if (layer === 'milk') {
       tooltipMetric = `${data.milk.toLocaleString()} L milk`;
@@ -576,7 +580,7 @@ export function GISMap({
 
   // Bug A Fix: Attach hover and click listeners immediately on mount regardless of telemetry readiness.
   // Dynamic reads through refs ensure latest data is always accessible.
-  const onEachFeature = (feature: any, layer: any) => {
+  const onEachFeature = (feature: Feature, layer: Layer) => {
     const name = feature.properties?.name;
     if (!name) return;
 
@@ -591,7 +595,7 @@ export function GISMap({
     });
 
     layer.on({
-      mouseover: (e: any) => {
+      mouseover: (e: LeafletMouseEvent) => {
         // Dynamically update tooltip content on hover
         layer.setTooltipContent(buildTooltipText(name));
         const currentData = barangaysByNameRef.current[name];
@@ -606,7 +610,7 @@ export function GISMap({
           : { weight: 3.5, fillOpacity: is2DMap ? 0.65 : 0.95, color: '#ffffff' });
         e.target.bringToFront();
       },
-      mouseout: (e: any) => {
+      mouseout: (e: LeafletMouseEvent) => {
         e.target.setStyle(getGeoJSONStyle(feature));
       },
       click: () => {
@@ -694,8 +698,8 @@ export function GISMap({
             return acc;
           }, {} as Record<string, BarangayGISData>));
 
-    const isFarmerRole = userScopeRef.current?.role === 'FARMER';
-    const farmerAllowed = userScopeRef.current?.allowed_barangays || [];
+    const isFarmerRole = userScope?.role === 'FARMER';
+    const farmerAllowed = userScope?.allowed_barangays || [];
     const rawList = Object.values(sourceMap);
 
     // FARMER DATA ISOLATION: Farmers only see their own registered barangay!
@@ -704,7 +708,7 @@ export function GISMap({
       : rawList;
 
     return targetList.map((b) => {
-      const scope = userScopeRef.current;
+      const scope = userScope;
       const isInScope = b.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(b.name));
 
       const lHeads = getLivestockHeads(b, selectedLivestockType);
@@ -776,7 +780,7 @@ export function GISMap({
         icon: customIcon,
       };
     });
-  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, viewMode, selectedLivestockType]);
+  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, viewMode, selectedLivestockType, userScope]);
 
   const dataCount = Object.keys(barangaysByName).length;
 

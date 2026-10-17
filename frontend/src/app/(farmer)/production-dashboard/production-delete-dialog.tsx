@@ -1,22 +1,22 @@
 "use client";
 
-import { Beef, CalendarDays, Egg, Milk, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { Beef,CalendarDays,Egg,Milk,Package } from "lucide-react";
 import {
-  PRODUCTION_TYPE_LABELS,
-  PRODUCTION_TYPE_UNITS,
-  formatRecordDate,
-  type ProductionRecordItem,
+PRODUCTION_TYPE_LABELS,
+PRODUCTION_TYPE_UNITS,
+formatRecordDate,
+type ProductionRecordItem,
 } from "./production-analytics";
 
 const typeIcons = {

@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
-import ProductionHistory from "../production-history";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import type { ProductionType } from "../production-analytics";
+import ProductionHistory from "../production-history";
 
 const PRODUCTION_TYPES: ProductionType[] = ["milk", "meat", "eggs", "wool"];
 

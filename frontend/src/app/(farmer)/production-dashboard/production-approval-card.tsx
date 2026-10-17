@@ -2,35 +2,34 @@
 
 import ProductionValuation from "./production-valuation";
 
-import {
-  Beef,
-  CalendarDays,
-  CheckCircle2,
-  Clock,
-  Egg,
-  Info,
-  Lock,
-  MapPin,
-  MessageSquareQuote,
-  Milk,
-  Package,
-  ShieldAlert,
-  ShieldCheck,
-  Tag,
-  Trash2,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card,CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  PRODUCTION_TYPE_LABELS,
-  PRODUCTION_TYPE_UNITS,
-  formatRecordDate,
-  formatQty,
-  formatProductionStatus,
-  type ProductionRecordItem,
-  type ProductionStatus,
+Beef,
+CalendarDays,
+Clock,
+Egg,
+Info,
+Lock,
+MapPin,
+MessageSquareQuote,
+Milk,
+Package,
+ShieldAlert,
+ShieldCheck,
+Tag,
+Trash2
+} from "lucide-react";
+import {
+PRODUCTION_TYPE_LABELS,
+PRODUCTION_TYPE_UNITS,
+formatProductionStatus,
+formatQty,
+formatRecordDate,
+type ProductionRecordItem,
+type ProductionStatus,
 } from "./production-analytics";
 
 const statusClasses: Record<ProductionStatus, string> = {
@@ -126,7 +125,7 @@ export default function ProductionApprovalCard({
   const isApproved = record.status === "APPROVED";
   const isVerified = record.status === "VERIFIED";
   const isPending = record.status === "PENDING";
-  const isRejected = record.status === "SUBJECT_TO_REVISION" || (record.status as any) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED";
+  const isRejected = record.status === "SUBJECT_TO_REVISION" || String(record.status) === "SUBJECT_FOR_REVISION" || record.status === "REJECTED";
 
   const meta = typeMeta[record.productionType] ?? typeMeta.milk;
   const TypeIcon = meta.icon;

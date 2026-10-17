@@ -1,20 +1,19 @@
 'use client';
 
-import React from 'react';
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ReferenceLine,
+Area,
+AreaChart,
+Bar,
+BarChart,
+CartesianGrid,
+Legend,
+Line,
+LineChart,
+ReferenceLine,
+ResponsiveContainer,
+Tooltip,
+XAxis,
+YAxis,
 } from "recharts";
 
 export default function PredictiveCharts() {

@@ -1,8 +1,8 @@
 "use client";
 
-import { Beef, Layers, Mars, ShieldCheck, Venus } from "lucide-react";
-import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
-import type { LivestockInventoryItem, LivestockBatchItem } from "./livestock-inventory";
+import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
+import { Beef,Layers,Mars,ShieldCheck,Venus } from "lucide-react";
+import type { LivestockBatchItem,LivestockInventoryItem } from "./livestock-inventory";
 
 export interface InventoryCardConfig {
   label: string;

@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { PlusCircle, ShieldAlert, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card,CardContent } from "@/components/ui/card";
+import { PlusCircle,Sparkles } from "lucide-react";
+import Link from "next/link";
 
 export default function EnterpriseEmptyState() {
   return (
@@ -17,7 +17,7 @@ export default function EnterpriseEmptyState() {
             No Approved Livestock Found
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-            You don't have any approved animals in your livestock inventory yet. Add your cattle, goats, sheep, swine, or poultry to start logging daily yields, births, and weights.
+            You don&apos;t have any approved animals in your livestock inventory yet. Add your cattle, goats, sheep, swine, or poultry to start logging daily yields, births, and weights.
           </p>
         </div>
         <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">

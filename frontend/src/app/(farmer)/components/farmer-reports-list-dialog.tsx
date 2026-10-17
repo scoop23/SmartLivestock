@@ -1,34 +1,26 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Activity,
-  Search,
-  Stethoscope,
-  Skull,
-  Clock,
-  CheckCircle2,
-  RotateCcw,
-  ShieldCheck,
-  Plus,
-  ChevronRight,
-  Filter,
-} from "lucide-react";
-import { Icon } from "lucide-react";
-import { cowHead } from "@lucide/lab";
-import { useQuery } from "@tanstack/react-query";
+Dialog,
+DialogContent,
+DialogDescription,
+DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import api from "@/lib/axios";
-import { FarmerReport, BackendStatus } from "../report-observation/report-observation-types";
+import { useQuery } from "@tanstack/react-query";
+import {
+Activity,
+ChevronRight,
+Plus,
+Search,
+Skull,
+Stethoscope
+} from "lucide-react";
+import { useMemo,useState } from "react";
+import { BackendStatus,FarmerReport } from "../report-observation/report-observation-types";
 
 interface FarmerReportsListDialogProps {
   open: boolean;
@@ -68,7 +60,7 @@ export default function FarmerReportsListDialog({
   const reports: FarmerReport[] = useMemo(() => {
     const list: FarmerReport[] = [];
 
-    diseaseCases.forEach((dc: any) => {
+    diseaseCases.forEach((dc) => {
       list.push({
         id: `DIS-${dc.id}`,
         reportType: "DISEASE",
@@ -91,7 +83,7 @@ export default function FarmerReportsListDialog({
       });
     });
 
-    mortalityRecords.forEach((m: any) => {
+    mortalityRecords.forEach((m) => {
       const affectedTags = Array.isArray(m.affected_animals)
         ? m.affected_animals.map((animal: { tag_number?: string }) => animal.tag_number).filter(Boolean)
         : [];
@@ -145,16 +137,16 @@ export default function FarmerReportsListDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto p-0 rounded-3xl border-0 shadow-2xl">
+      <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-2xl border-0 shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[88dvh] sm:rounded-3xl">
         {/* Header */}
         <div className="p-6 bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800 text-white relative">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
                 <Activity className="size-6 text-emerald-200" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-black text-white tracking-tight">
+                <DialogTitle className="break-words text-lg font-black text-white tracking-tight">
                   My Health & Mortality Reports
                 </DialogTitle>
                 <DialogDescription className="text-xs text-emerald-100/90 font-medium mt-0.5">
@@ -169,7 +161,7 @@ export default function FarmerReportsListDialog({
                 onOpenChange(false);
                 onOpenNewReport();
               }}
-              className="rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 text-xs font-black h-9 px-3 gap-1.5 shadow-sm cursor-pointer"
+              className="h-10 w-full shrink-0 gap-1.5 rounded-xl bg-white px-3 text-xs font-black text-emerald-950 shadow-sm hover:bg-emerald-50 cursor-pointer sm:h-9 sm:w-auto"
             >
               <Plus className="size-3.5" />
               <span>New Report</span>
@@ -178,7 +170,7 @@ export default function FarmerReportsListDialog({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 space-y-4">
+        <div className="space-y-4 p-4 sm:p-6">
           {/* Filter Pills & Search */}
           <div className="space-y-3">
             <div className="flex flex-wrap gap-1.5">
@@ -216,7 +208,7 @@ export default function FarmerReportsListDialog({
           </div>
 
           {/* List of Reports */}
-          <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1.5 [scrollbar-width:thin]">
+          <div className="max-h-[38dvh] space-y-2.5 overflow-y-auto pr-1.5 [scrollbar-width:thin] sm:max-h-[420px]">
             {isLoading ? (
               <div className="space-y-2.5 py-6">
                 {[1, 2, 3].map((i) => (

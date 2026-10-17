@@ -1,35 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  Megaphone,
-  Pin,
-  RefreshCw,
-  Search,
-  Sparkles,
-  ShieldAlert,
-  X,
-} from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Activity, apiError, getActivities } from "@/lib/community-api";
+import { Activity,apiError,getActivities } from "@/lib/community-api";
 import {
-  ACTIVITY_FILTERS,
-  activityCategory,
-  categoryMatchesFilter,
-  CommunityEmptyState,
-  CommunityErrorCard,
-  CommunitySkeleton,
-  CommunityRole,
-  formatShortDate,
-} from "./community-ui";
+ArrowRight,
+Megaphone,
+Pin,
+RefreshCw,
+Search,
+ShieldAlert,
+X
+} from "lucide-react";
+import { useCallback,useEffect,useMemo,useState } from "react";
 import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
+import {
+ACTIVITY_FILTERS,
+activityCategory,
+categoryMatchesFilter,
+CommunityEmptyState,
+CommunityErrorCard,
+CommunityRole,
+CommunitySkeleton,
+formatShortDate,
+} from "./community-ui";
 
 export function ActivitiesFeed({ role }: { role: CommunityRole }) {
   const [items, setItems] = useState<Activity[]>([]);

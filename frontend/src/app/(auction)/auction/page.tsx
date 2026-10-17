@@ -1,42 +1,42 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ClipboardCheck,
-  CheckCircle2,
-  RotateCcw,
-  Clock,
-  Send,
-  Plus,
-  ChevronRight,
-  ArrowRight,
-  MapPin,
-  Map,
-  QrCode,
-  Loader2,
-  Megaphone,
-} from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-
+import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-  InspectionRecord,
-  fetchInspections,
-} from "../auction-inspections/auction-analytics";
+ArrowRight,
+CheckCircle2,
+ChevronRight,
+ClipboardCheck,
+Clock,
+Loader2,
+Map,
+MapPin,
+Megaphone,
+Plus,
+QrCode,
+RotateCcw,
+Send,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
+import {
+InspectionRecord,
+fetchInspections,
+} from "../auction-inspections/auction-analytics";
 import { InspectionDetailsDialog } from "../auction-inspections/inspection-details-dialog";
 
 export default function AuctionDashboard() {

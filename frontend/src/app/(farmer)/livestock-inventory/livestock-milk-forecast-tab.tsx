@@ -1,31 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CloudSun, LoaderCircle, Milk, RotateCcw, Sparkles } from "lucide-react";
-import {
-  Bar,
-  Cell,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
+import api from "@/lib/axios";
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle,CloudSun,LoaderCircle,Milk,RotateCcw,Sparkles } from "lucide-react";
+import { useState } from "react";
+import {
+Bar,
+CartesianGrid,
+Cell,
+Legend,
+Line,
+LineChart,
+ResponsiveContainer,
+Tooltip,
+XAxis,
+YAxis,
+} from "recharts";
 
 type MilkForecastResponse = {
   status: "READY" | "NOT_READY";

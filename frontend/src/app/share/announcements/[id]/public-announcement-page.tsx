@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, CalendarDays, Megaphone, ShieldCheck } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Activity, getActivities } from "@/lib/community-api";
 import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
-import { activityCategory, formatShortDate } from "@/app/components/community/community-ui";
+import { activityCategory,formatShortDate } from "@/app/components/community/community-ui";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
+import { Activity,getActivities } from "@/lib/community-api";
+import { ArrowLeft,CalendarDays,Megaphone,ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { useEffect,useMemo,useState } from "react";
 import type { PublicAnnouncementShare } from "./share-data";
 
 type ArticleData = {

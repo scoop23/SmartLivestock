@@ -1,14 +1,15 @@
+import type { BatchApiItem, InventoryApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 // ---------------------------------------------------------------------------
 // SIBAT Field Officer & Cooperative Analytics & Submissions
 //
 // Live data fetchers, query hooks, and review mutations for SIBAT validation.
 // ---------------------------------------------------------------------------
 
+import { mapProductionRecord,type ApiProductionRecord,type ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
+import type { BiosecurityAction,SeverityLevel,SibatInspectionData,SibatStatus,SibatValidationRecord } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
 import api from "@/lib/axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { mapProductionRecord, type ApiProductionRecord, type ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
-import type { SibatValidationRecord, SibatStatus, SibatInspectionData, SeverityLevel, BiosecurityAction } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
 import { getAttachedPhoto } from "@/lib/photo-storage";
+import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 
 // ── Types: Submission Statuses ──
 
@@ -51,7 +52,7 @@ export interface UnifiedSubmissionItem {
   housingPen?: string;
   feedType?: string;
   targetWeight?: number;
-  animals?: any[];
+  animals?: InventoryApiItem[];
   photoUrl?: string | null;
   lastVaccinationDate?: string | null;
   operationalStatus?: string;
@@ -161,6 +162,7 @@ export interface RawDiseaseCase {
 
 export interface RawMortalityRecord {
   id: number;
+  batch_code?: string | null;
   livestock: number;
   farmer_name?: string;
   tag_number?: string;
@@ -267,7 +269,7 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
   };
 };
 
-export const mapBatchToUnified = (b: any): UnifiedSubmissionItem => {
+export const mapBatchToUnified = (b: BatchApiItem): UnifiedSubmissionItem => {
   return {
     id: `batch-${b.id}`,
     rawId: b.id,
@@ -550,7 +552,7 @@ export async function fetchCensusSubmissions(): Promise<CensusSubmissionRecord[]
   return (response.data as ApiCensusSubmission[]).map(mapCensusSubmission);
 }
 
-export async function fetchRawBatches(): Promise<any[]> {
+export async function fetchRawBatches(): Promise<BatchApiItem[]> {
   const response = await api.get("livestock/batches/");
   return Array.isArray(response.data) ? response.data : [];
 }
@@ -843,7 +845,7 @@ export function useUpdateSubmissionData() {
     }: {
       id: number;
       isBatch: boolean;
-      data: Record<string, any>;
+      data: Record<string, unknown>;
     }) => {
       const endpoint = isBatch ? `livestock/batches/${id}/` : `livestock/inventory/${id}/`;
       const response = await api.patch(endpoint, data);
@@ -893,7 +895,7 @@ export function useReviewClinicalHealth() {
 
       const endpoint = isDisease ? `diseases/cases/${cleanId}/review/` : `diseases/mortality/${cleanId}/review/`;
 
-      let payload: any;
+      let payload: FormData | Record<string, unknown>;
       let headers: Record<string, string> = {};
 
       if (inspectionData.inspectorPhotoFile) {

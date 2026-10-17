@@ -1,39 +1,36 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Activity,
-  MapPin,
-  Calendar,
-  Eye,
-  ShieldCheck,
-  ChevronRight,
-  CheckCircle2,
-  AlertTriangle,
-  User,
-  Stethoscope,
-  Skull,
-  Beef,
-  Scale,
-  Sparkles,
+Activity,
+Beef,
+Calendar,
+CheckCircle2,
+ChevronRight,
+Eye,
+MapPin,
+Scale,
+ShieldCheck,
+Skull,
+Stethoscope
 } from "lucide-react";
+import { DetailRecordData } from "../record-detail-dialog";
 import {
-  ValidationIncidentItem,
-  getIncidentTypeBadge,
-  getStatusPill,
+ValidationIncidentItem,
+getIncidentTypeBadge,
+getStatusPill,
 } from "../validation-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
-import { DetailRecordData } from "../record-detail-dialog";
 
 function getIncidentStatusPill(incident: ValidationIncidentItem) {
   const pill = getStatusPill(incident.status);

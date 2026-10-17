@@ -1,28 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  Clock,
-  CheckCircle2,
-  Mail,
-  ShieldCheck,
-  Shield,
-  Phone,
-  MapPin,
-  HelpCircle,
-  ExternalLink,
-  ArrowRight,
-  Sparkles,
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
 } from '@/components/ui/dialog';
+import {
+ArrowRight,
+CheckCircle2,
+Clock,
+ExternalLink,
+HelpCircle,
+Phone,
+ShieldCheck,
+Sparkles
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function PendingPage() {
   const router = useRouter();

@@ -1,5 +1,6 @@
 'use client';
 
+import type { GISUserScope, FarmerPersonalStats } from "./types";
 /**
  * SmartLivestock GIS — Telemetry Sidebar (Desktop Right Overlay + Mobile Sheet)
  * ============================================================================
@@ -23,25 +24,24 @@
  *      complete with a dedicated close button.
  */
 
-import React, { useState, useEffect } from 'react';
 import {
-  BarangayGISData,
-  MunicipalSummary,
-  MovementRecord,
-  SimulatedBarangayState,
-  DiseaseSubMode,
-  ViewMode,
-  MapLayer,
-} from './types';
-import { BarangayDetails } from './BarangayDetails';
-import { MunicipalOverview } from './MunicipalOverview';
-import { MovementDetailsModal } from './MovementDetailsModal';
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
+Sheet,
+SheetContent,
+SheetDescription,
+SheetTitle,
 } from '@/components/ui/sheet';
+import { BarangayDetails } from './BarangayDetails';
+import { MovementDetailsModal } from './MovementDetailsModal';
+import { MunicipalOverview } from './MunicipalOverview';
+import {
+BarangayGISData,
+DiseaseSubMode,
+MapLayer,
+MovementRecord,
+MunicipalSummary,
+SimulatedBarangayState,
+ViewMode,
+} from './types';
 
 interface GISSidebarProps {
   isOpen: boolean;
@@ -59,8 +59,8 @@ interface GISSidebarProps {
   simulatedStates?: Record<string, SimulatedBarangayState>;
   selectedLivestockType?: string;
   renderMode?: 'desktop' | 'mobile-sheet' | 'auto';
-  userScope?: any;
-  farmerStats?: any;
+  userScope?: GISUserScope;
+  farmerStats?: FarmerPersonalStats | null;
   activeLayer?: MapLayer;
   selectedMovement?: MovementRecord | null;
   onSelectMovement?: (m: MovementRecord | null) => void;

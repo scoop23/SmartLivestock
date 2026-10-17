@@ -1,20 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { KpiCard } from "@/components/ui/kpi-card";
-import { Icon } from "lucide-react";
-import { cowHead } from "@lucide/lab";
-import {
-  Milk,
-  TrendingUp,
-  AlertTriangle,
-  Users,
-  Boxes,
-  Minimize2,
-  Maximize2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { cowHead } from "@lucide/lab";
+import { AlertTriangle,Boxes,Icon,Maximize2,Milk,Minimize2,TrendingUp,Users } from "lucide-react";
+import { useState } from "react";
 
 interface DataOverviewKpisProps {
   totalLivestock: number;

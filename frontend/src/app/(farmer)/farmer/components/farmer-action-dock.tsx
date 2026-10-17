@@ -1,38 +1,37 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
-  Stethoscope,
-  Skull,
-  Plus,
-  Package,
-  Command as CommandIcon,
-  Search,
-  ClipboardList,
-  CalendarDays,
-  Map,
-  Megaphone,
-  Bell,
-  Activity,
-  Milk,
-} from "lucide-react";
+CommandDialog,
+CommandEmpty,
+CommandGroup,
+CommandInput,
+CommandItem,
+CommandList,
+CommandSeparator,
+CommandShortcut,
+} from "@/components/ui/command";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+Tooltip,
+TooltipContent,
+TooltipProvider,
+TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-  CommandShortcut,
-} from "@/components/ui/command";
+Activity,
+Bell,
+CalendarDays,
+ClipboardList,
+Map,
+Megaphone,
+Milk,
+Package,
+Plus,
+Search,
+Skull,
+Stethoscope
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect,useState } from "react";
 
 interface FarmerActionDockProps {
   onOpenReportIllness: (defaultType?: "DISEASE" | "MORTALITY") => void;

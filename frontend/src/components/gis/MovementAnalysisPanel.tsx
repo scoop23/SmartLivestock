@@ -18,25 +18,19 @@
  *    - Approved permits are distinguished from pending applications.
  */
 
-import React, { useState, useMemo } from 'react';
-import { MovementRecord, MovementFilterState, MovementDatePreset } from './types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Truck,
-  MapPin,
-  Calendar,
-  Filter,
-  ArrowRight,
-  ShieldCheck,
-  Clock,
-  RotateCcw,
-  Search,
-  CheckCircle2,
-  AlertCircle,
-  TrendingUp,
+AlertCircle,
+Filter,
+MapPin,
+RotateCcw,
+Search,
+Truck
 } from 'lucide-react';
+import { useMemo,useState } from 'react';
+import { MovementDatePreset,MovementRecord } from './types';
 
 interface MovementAnalysisPanelProps {
   movements: MovementRecord[];

@@ -40,36 +40,35 @@
  *   The slider simply selects an index `0..11`, achieving 60 FPS performance even on mobile.
  */
 
-import React, { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Play,
-  Pause,
-  RotateCcw,
-  Zap,
-  Wind,
-  Calendar,
-  Sliders,
-  ChevronDown,
-  ChevronUp,
-  Activity,
+Activity,
+Calendar,
+ChevronDown,
+ChevronUp,
+Pause,
+Play,
+RotateCcw,
+Sliders,
+Wind,
+Zap,
 } from 'lucide-react';
+import { useMemo,useState } from 'react';
 import {
-  MonthlySimulationResult,
-  MonthlyWindData,
-  SimulationParameters,
-  TimelineMonth,
-} from './types';
+Area,
+AreaChart,
+Tooltip as RechartsTooltip,
+ReferenceLine,
+ResponsiveContainer,
+XAxis,
+} from 'recharts';
 import { TIMELINE_MONTHS } from './simulation';
 import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  Tooltip as RechartsTooltip,
-  ReferenceLine,
-} from 'recharts';
+MonthlySimulationResult,
+MonthlyWindData,
+SimulationParameters
+} from './types';
 
 interface GISTimelineProps {
   currentMonthIndex: number;

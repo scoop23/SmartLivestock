@@ -1,48 +1,43 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  BarangaySummary,
-  ActivityFeedItem,
-  DataTab,
-  BatchRecord,
-} from "./data-overview-types";
-import { Card, CardContent } from "@/components/ui/card";
+import type { OverviewRecord } from "./data-overview-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
-import {
-  MapPin,
-  Sparkles,
-  Layers,
-  Milk,
-  Scale,
-  AlertTriangle,
-  Users,
-  ArrowUpRight,
-  ShieldCheck,
-  Activity,
-  CheckCircle2,
-  Clock,
-  ChevronRight,
-  ChevronDown,
-  Calendar,
-  Boxes,
-  LayoutDashboard,
-  Eye,
-  Building2,
-  ExternalLink,
-} from "lucide-react";
-import { Icon } from "lucide-react";
 import { cowHead } from "@lucide/lab";
-import Link from "next/link";
+import {
+Activity,
+AlertTriangle,
+ArrowUpRight,
+Boxes,
+Building2,
+CheckCircle2,
+ChevronRight,
+ExternalLink,
+Eye,
+Icon,
+Layers,
+MapPin,
+Milk,
+Scale,
+ShieldCheck,
+Users
+} from "lucide-react";
+import { useState } from "react";
+import {
+ActivityFeedItem,
+BarangaySummary,
+BatchRecord,
+DataTab,
+} from "./data-overview-types";
 
 interface DataOverviewOverallViewProps {
   barangaySummaries: BarangaySummary[];
@@ -52,7 +47,7 @@ interface DataOverviewOverallViewProps {
   isLoading?: boolean;
   onSelectBarangay: (barangay: string) => void;
   onNavigateTab: (tab: DataTab) => void;
-  onSelectRecord?: (record: any, domain: DataTab) => void;
+  onSelectRecord?: (record: OverviewRecord, domain: DataTab) => void;
 }
 
 type FocusMode = "combined" | "matrix" | "batches" | "activity";

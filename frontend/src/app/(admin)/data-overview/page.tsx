@@ -1,60 +1,51 @@
 "use client";
 
-import { useAuth } from "@/contexts/auth-context";
-import { useState, useMemo } from "react";
+import type { BatchApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import type { OverviewRecord } from "./data-overview-types";
 import { PageHeader } from "@/app/components/page-header";
+import { useAuth } from "@/contexts/auth-context";
+import { useMemo,useState } from "react";
 import { toast } from "sonner";
 
 // Domain Types, Datasets & Utilities
 import {
-  DataTab,
-  BarangaySummary,
-  PADRE_GARCIA_BARANGAYS,
-  BARANGAY_MASTER_SUMMARIES,
-  SEED_LIVESTOCK,
-  SEED_PRODUCTION,
-  SEED_SALES,
-  SEED_DISEASE,
-  SEED_MORTALITY,
-  SEED_SLAUGHTER,
-  SEED_CENSUS,
-  SEED_ACTIVITY_FEED,
-  SEED_BATCHES,
-  LivestockRecord,
-  BatchRecord,
-  ProductionRecord,
-  SalesRecord,
-  DiseaseRecord,
-  MortalityRecord,
-  SlaughterRecord,
-  CensusRecord,
-  ActivityFeedItem,
+ActivityFeedItem,
+BarangaySummary,
+BatchRecord,
+CensusRecord,
+DataTab,
+DiseaseRecord,
+LivestockRecord,
+MortalityRecord,
+ProductionRecord,
+SalesRecord,
+SlaughterRecord
 } from "./data-overview-types";
 
 // Modular Components
+import { fetchInspections } from "@/app/(auction)/auction-inspections/auction-analytics";
+import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import api from "@/lib/axios";
+import { Activity,Boxes,Database,FileSpreadsheet,Layers,Milk } from "lucide-react";
+import { DataOverviewCards } from "./data-overview-cards";
+import { DataOverviewDetailModal } from "./data-overview-detail-modal";
 import { DataOverviewKpis } from "./data-overview-kpis";
-import { DataOverviewToolbar } from "./data-overview-toolbar";
 import { DataOverviewOverallView } from "./data-overview-overall-view";
 import { DataOverviewTable } from "./data-overview-table";
-import { DataOverviewCards } from "./data-overview-cards";
+import { DataOverviewToolbar } from "./data-overview-toolbar";
 import { ProductionTradeRecords } from "./production-trade-records";
-import { DataOverviewDetailModal } from "./data-overview-detail-modal";
-import api from "@/lib/axios";
-import { fetchInspections } from "@/app/(auction)/auction-inspections/auction-analytics";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
-import { Layers, Boxes, Milk, FileSpreadsheet, Activity, Database } from "lucide-react";
 
 // Backend TanStack hooks & API client for live database connectivity
-import { useQuery } from "@tanstack/react-query";
-import { municipalRead } from "@/lib/municipal-read";
-import {
-  useAdminInventoryRecords,
-  useAdminProductionRecords,
-  useAdminCensusSubmissions,
-  useAdminIncidentRecords,
-} from "../data-validation/validation-analytics";
 import { useGetBarangays } from "@/app/(sibat)/sibat/sibat-analytics";
-import { type OverviewSummary, overviewBarangays } from "@/lib/population-metrics";
+import { municipalRead } from "@/lib/municipal-read";
+import { type OverviewSummary,overviewBarangays } from "@/lib/population-metrics";
+import { useQuery } from "@tanstack/react-query";
+import {
+useAdminCensusSubmissions,
+useAdminIncidentRecords,
+useAdminInventoryRecords,
+useAdminProductionRecords,
+} from "../data-validation/validation-analytics";
 
 
 export default function DataOverviewPage() {
@@ -70,7 +61,7 @@ export default function DataOverviewPage() {
 
   // Record Detail Modal
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<OverviewRecord | null>(null);
   const [selectedRecordDomain, setSelectedRecordDomain] = useState<DataTab>("livestock");
 
   const { user } = useAuth();
@@ -98,7 +89,7 @@ export default function DataOverviewPage() {
   const { data: rawProduction, isLoading: isProdLoading, isError: isProductionError } = useAdminProductionRecords();
   const { data: rawCensus, isLoading: isCenLoading, isError: isCensusError } = useAdminCensusSubmissions();
   const { data: rawIncidents, isLoading: isIncLoading, isError: isIncidentError } = useAdminIncidentRecords();
-  const { data: rawBatches, isLoading: isBatchLoading, isError: isBatchError } = useQuery<any[]>({
+  const { data: rawBatches, isLoading: isBatchLoading, isError: isBatchError } = useQuery<BatchApiItem[]>({
     queryKey: ["admin-batches-overview"],
     queryFn: async ({ signal }) => {
       const res = await municipalRead("livestock/batches/?all=true&include_roster=true", { signal });
@@ -127,40 +118,40 @@ export default function DataOverviewPage() {
       .map((item) => {
       // Find matching herd from rawBatches or item fields
       const matchingBatch = rawBatches?.find(
-        (b: any) =>
-          (item.batchId && (b.id === item.batchId || b.rawId === item.batchId)) ||
-          ((item as any).batch && (b.id === (item as any).batch || b.rawId === (item as any).batch)) ||
+        (b) =>
+          (item.batchId && (b.id === item.batchId || b.id === item.batchId)) ||
+          (item.batch && (b.id === item.batch || b.id === item.batch)) ||
           (item.batchCode && b.batch_code === item.batchCode) ||
-          (b.animals && b.animals.some((a: any) => a.id === item.id || a.tag_number === item.tagNumber))
+          (b.animals && b.animals.some((a) => a.id === item.id || a.tag_number === item.tagNumber))
       );
 
       const batchCode =
         item.batchCode ||
-        (item as any).batch_code ||
+        item.batchCode ||
         matchingBatch?.batch_code ||
         undefined;
 
       const batchName =
         item.batchName ||
-        (item as any).batch_name ||
+        item.batchName ||
         matchingBatch?.batch_name ||
         (matchingBatch ? `Batch #${matchingBatch.id}` : undefined);
 
       const batchId =
         item.batchId ||
-        (item as any).batch ||
+        item.batch ||
         matchingBatch?.id ||
         null;
 
       const housingPen =
-        (item as any).housingPen ||
-        (item as any).housing_pen ||
+        item.housingPen ||
+        item.housingPen ||
         matchingBatch?.housing_pen ||
         undefined;
 
       const feedType =
-        (item as any).feedType ||
-        (item as any).feed_type ||
+        item.feedType ||
+        item.feedType ||
         matchingBatch?.feed_type ||
         undefined;
 
@@ -233,7 +224,7 @@ export default function DataOverviewPage() {
         ? "Cow Milk"
         : item.productionType?.toLowerCase() === "eggs"
         ? "Eggs"
-        : "Wool") as any,
+        : "Wool"),
       quantity: `${item.quantity} ${item.unit || "L"}`,
       quantityNumber: Number(item.quantity) || 0,
       unit: item.unit || "LITERS",
@@ -241,7 +232,7 @@ export default function DataOverviewPage() {
       collectionCenter: "Not recorded",
       estValuePhp: item.valuationSnapshot ? Number(item.valuationSnapshot.estimated_value) : null,
       date: item.recordDate || "",
-      status: (item.status === "APPROVED" ? "Certified" : "Pending Review") as any,
+      status: (item.status === "APPROVED" ? "Certified" : "Pending Review"),
     }));
   }, [rawProduction]);
 
@@ -299,7 +290,7 @@ export default function DataOverviewPage() {
         enumerator: item.submittedBy || "SIBAT Enumerator",
         verifiedByMAO: item.status === "APPROVED",
         submissionDate: item.submissionDate?.slice(0, 10) || "",
-        status: (item.status === "APPROVED" ? "MAO Verified" : "Pending Audit") as any,
+        status: (item.status === "APPROVED" ? "MAO Verified" : "Pending Audit"),
       };
     });
   }, [rawCensus]);
@@ -345,7 +336,7 @@ export default function DataOverviewPage() {
       disease: item.conditionName || "Reported Condition",
       symptoms: item.symptoms && item.symptoms.length > 0 ? item.symptoms : ["Clinical surveillance record"],
       affectedHeads: item.headCount || 1,
-      severity: (item.sibatInspection?.severity === "CRITICAL" ? "Critical" : item.sibatInspection?.severity === "MODERATE" ? "Moderate" : "Mild") as any,
+      severity: (item.sibatInspection?.severity === "CRITICAL" ? "Critical" : item.sibatInspection?.severity === "MODERATE" ? "Moderate" : "Mild"),
       status: item.status,
       veterinarian: item.reviewedBy || "Municipal Veterinary Office",
       quarantineZone: false,
@@ -369,7 +360,7 @@ export default function DataOverviewPage() {
       necropsyPerformed: Boolean(item.reviewedBy),
       necropsyFindings: item.reviewRemarks || undefined,
       disposalMethod: "Burial with Lime",
-      insuranceClaimStatus: (item.status === "APPROVED" ? "Approved" : "In Review") as any,
+      insuranceClaimStatus: (item.status === "APPROVED" ? "Approved" : "In Review"),
       verifiedBy: item.reviewedBy || "MAO Biosecurity Officer",
     }));
   }, [rawIncidents]);
@@ -391,7 +382,7 @@ export default function DataOverviewPage() {
       paymentMethod: "Cash",
       transportPermitNumber: "Not recorded",
       date: item.date || "",
-      status: (item.status === "APPROVED" ? "Completed" : "Pending Clearance") as any,
+      status: (item.status === "APPROVED" ? "Completed" : "Pending Clearance"),
     }));
   }, [rawIncidents]);
 
@@ -466,10 +457,10 @@ export default function DataOverviewPage() {
             status: inv.status || "PENDING",
             registrationDate: inv.createdAt?.slice(0, 10) || "",
             lastVaccinationDate: inv.lastVaccinationDate || null,
-            batchCode: inv.batchCode || (inv as any).batch_code,
-            batchName: inv.batchName || (inv as any).batch_name,
-            housingPen: (inv as any).housingPen || (inv as any).housing_pen,
-            feedType: (inv as any).feedType || (inv as any).feed_type,
+            batchCode: inv.batchCode || inv.batchCode,
+            batchName: inv.batchName || inv.batchName,
+            housingPen: inv.housingPen || inv.housingPen,
+            feedType: inv.feedType || inv.feedType,
           },
         });
       });
@@ -567,7 +558,7 @@ export default function DataOverviewPage() {
             goatCount: 0,
             enumerator: cen.submittedBy || "SIBAT Officer",
             submissionDate: cen.submissionDate?.slice(0, 10) || "",
-            status: (cen.status === "APPROVED" ? "MAO Verified" : "Pending Audit") as any,
+            status: (cen.status === "APPROVED" ? "MAO Verified" : "Pending Audit"),
           },
         });
       });
@@ -848,7 +839,7 @@ export default function DataOverviewPage() {
 
   // Filtered dataset for active tab
   const filteredData = useMemo(() => {
-    let raw: any[] = [];
+    let raw: OverviewRecord[] = [];
     switch (activeTab) {
       case "livestock":
         raw = livestockList;
@@ -875,7 +866,7 @@ export default function DataOverviewPage() {
         raw = censusList;
         break;
       default:
-        return barangayMasterSummaries;
+        return [];
     }
 
     return raw.filter((item) => {
@@ -928,7 +919,7 @@ export default function DataOverviewPage() {
   ]);
 
   // Handle Record Inspection
-  const handleSelectRecord = (record: any, domain: DataTab) => {
+  const handleSelectRecord = (record: OverviewRecord, domain: DataTab) => {
     if (domain && domain !== "overall") {
       setActiveTab(domain);
     }
@@ -1050,11 +1041,11 @@ export default function DataOverviewPage() {
     }
 
     const firstItem = filteredData[0];
-    const headers = Object.keys(firstItem).filter((k) => typeof firstItem[k] !== "object");
+    const headers = Object.keys(firstItem).filter((k) => typeof Object.fromEntries(Object.entries(firstItem))[k] !== "object");
     const rows = filteredData.map((item) =>
       headers
         .map((h) => {
-          const val = String(item[h] ?? "").replace(/"/g, '""');
+          const val = String(Object.fromEntries(Object.entries(item))[h] ?? "").replace(/"/g, '""');
           return `"${val}"`;
         })
         .join(",")
@@ -1215,14 +1206,14 @@ export default function DataOverviewPage() {
             statusFilter={filterStatus}
           />
         ) : viewMode === "table" ? (
-          <DataOverviewTable
+          <DataOverviewTable key={activeTab}
             activeTab={activeTab}
             items={filteredData}
             onSelectRecord={handleSelectRecord}
             onResetFilters={handleResetFilters}
           />
         ) : (
-          <DataOverviewCards
+          <DataOverviewCards key={activeTab}
             activeTab={activeTab}
             items={filteredData}
             onSelectRecord={handleSelectRecord}

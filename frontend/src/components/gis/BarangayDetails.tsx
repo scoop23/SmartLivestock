@@ -35,26 +35,25 @@
  *   `onSelectBarangay(data)`. This conditionally mounts `<BarangayDetails>` in the sidebar.
  */
 
-import React from 'react';
-import { BarangayGISData, SimulatedBarangayState, DiseaseSubMode, ViewMode } from './types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  X,
-  Activity,
-  AlertTriangle,
-  Milk,
-  Beef,
-  Skull,
-  Truck,
-  Users,
-  CheckCircle2,
-  TrendingUp,
-  Zap,
-  Wind,
-  Box,
-  ChevronLeft,
+Activity,
+Beef,
+Box,
+CheckCircle2,
+ChevronLeft,
+Milk,
+Skull,
+TrendingUp,
+Truck,
+Users,
+Wind,
+X,
+Zap
 } from 'lucide-react';
+import React from 'react';
+import { BarangayGISData,DiseaseSubMode,SimulatedBarangayState,ViewMode } from './types';
 
 interface BarangayDetailsProps {
   data: BarangayGISData;
@@ -265,11 +264,11 @@ export function BarangayDetails({
             </span>
             {data.active_cases > 0 ? (
               <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px] font-black px-1.5 py-0">
-                {data.active_cases} Active Outbreak{data.active_cases > 1 ? 's' : ''}
+                {data.active_cases} Recent Approved Report{data.active_cases > 1 ? 's' : ''}
               </Badge>
             ) : (
               <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold px-1.5 py-0">
-                Healthy
+                No Recent Reports
               </Badge>
             )}
           </div>
@@ -312,7 +311,7 @@ export function BarangayDetails({
                 </span>
               </div>
               <p className="text-[10.5px] text-purple-800 leading-relaxed">
-                Reflects verified active and past outbreak records in this barangay. For temporal 3/6/12-month statistical forecasts, visit Predictive Analytics.
+                Recent activity counts approved reports from the last 90 days; historical totals remain separate. This does not establish clinical case resolution. For statistical forecasts, visit Predictive Analytics.
               </p>
             </div>
           )}

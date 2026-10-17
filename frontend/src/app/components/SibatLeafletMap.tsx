@@ -1,9 +1,10 @@
+import type { LeafletMouseEvent } from "leaflet";
+import type { PathOptions } from 'leaflet';
 import dynamic from 'next/dynamic';
 
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
 const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
-import type { PathOptions } from 'leaflet';
 
 const CircleMarker = dynamic(
   () => import("react-leaflet").then((m) => m.CircleMarker),
@@ -44,12 +45,12 @@ const SibatLeafletMap = ({ geojsonStyle, PADRE_GARCIA_GEOJSON, setHoveredBaranga
           style={geojsonStyle}
           onEachFeature={(feature, layer) => {
             layer.on({
-              mouseover: (e: any) => {
+              mouseover: (e: LeafletMouseEvent) => {
                 const l = e.target;
                 l.setStyle({ fillOpacity: 0.7, weight: 3 });
                 setHoveredBarangay(feature.properties.name);
               },
-              mouseout: (e: any) => {
+              mouseout: (e: LeafletMouseEvent) => {
                 const l = e.target;
                 l.setStyle({ fillOpacity: 0.3, weight: 2 });
                 setHoveredBarangay(null);

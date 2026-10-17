@@ -1,27 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import type { ReactNode } from "react";
-import {
-  Camera,
-  Check,
-  Copy,
-  ExternalLink,
-  MessageCircle,
-  Phone,
-  Share2,
-  Smartphone,
-} from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
 import type { Activity } from "@/lib/community-api";
+import {
+Camera,
+Check,
+Copy,
+ExternalLink,
+MessageCircle,
+Phone,
+Share2,
+Smartphone,
+} from "lucide-react";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 async function copyText(value: string): Promise<void> {
   if (navigator.clipboard?.writeText) {

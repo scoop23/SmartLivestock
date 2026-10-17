@@ -1,7 +1,7 @@
 "use client";
 
-import { CheckCircle2, Clock, Sparkles, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { AlertCircle,CheckCircle2,Clock,Sparkles } from "lucide-react";
 import type { UnifiedStatus } from "../sibat-analytics";
 
 interface SibatStatusBadgeProps {

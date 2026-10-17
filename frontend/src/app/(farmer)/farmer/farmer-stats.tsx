@@ -1,13 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { AlertTriangle, Milk, ShieldCheck, Activity } from "lucide-react";
-import { Icon } from "lucide-react";
+import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
-import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
+import { AlertTriangle,Icon,Milk,ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 import {
-  formatQty,
-  type FarmerDashboardAnalytics,
+formatQty,
+type FarmerDashboardAnalytics,
 } from "./farmer-analytics";
 
 interface CardConfig {

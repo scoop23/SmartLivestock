@@ -1,48 +1,43 @@
 "use client";
 
-import { useState } from "react";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  Egg,
-  Milk,
-  Package,
-  PhilippinePeso,
-  Beef,
-  TrendingUp,
-  BarChart3,
-  LineChart as LineChartIcon,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+Card,
+CardContent,
+CardDescription,
+CardHeader,
+CardTitle,
 } from "@/components/ui/card";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
+ChartContainer,
+ChartTooltip,
+type ChartConfig
 } from "@/components/ui/chart";
 import {
-  formatPeso,
-  formatPesoCompact,
-  formatPeriodMonth,
-  PRODUCTION_TYPE_LABELS,
-  type ProductionType,
-  type ProductionTypeAnalytics,
+Beef,
+Egg,
+LineChart as LineChartIcon,
+Milk,
+Package,
+PhilippinePeso
+} from "lucide-react";
+import { useState } from "react";
+import {
+Area,
+AreaChart,
+Bar,
+BarChart,
+CartesianGrid,
+ResponsiveContainer,
+XAxis,
+YAxis
+} from "recharts";
+import {
+formatPeriodMonth,
+formatPeso,
+formatPesoCompact,
+PRODUCTION_TYPE_LABELS,
+type ProductionType,
+type ProductionTypeAnalytics,
 } from "./production-analytics";
 
 const TYPE_CHART: Record<
@@ -522,7 +517,7 @@ export default function ProductionCharts({
                   strokeWidth={3}
                   fillOpacity={1}
                   fill={`url(#areaCombinedGradient-${type}-${hasPending ? "blend" : "solid"})`}
-                  dot={(dotProps: any) => {
+                  dot={(dotProps: { cx?: number; cy?: number; index: number; payload?: { verifiedQuantity?: number; pendingQuantity?: number } }) => {
                     const { cx, cy, payload, index } = dotProps;
                     if (cx == null || cy == null || !payload) return null;
 

@@ -1,56 +1,64 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { LivestockBatchItem, CreateInventoryPayload } from "../livestock-inventory";
+import { httpError } from "@/lib/http-error";
+import { useMutation,useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEffect,useMemo,useRef,useState } from "react";
 import { toast } from "sonner";
 
 import {
-  Tag,
-  Layers,
-  Wand2,
-  Camera,
-  Upload,
-  Trash2,
-  Check,
-  Syringe,
-  Sparkles,
-  Minus,
-  Plus,
-  Users,
-  AlertCircle,
-  HelpCircle,
-  Info,
+AlertCircle,
+Camera,
+Check,
+HelpCircle,
+Layers,
+Minus,
+Plus,
+Sparkles,
+Syringe,
+Tag,
+Trash2,
+Upload,
+Users,
+Wand2
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from "@/components/ui/select";
+import {
+Tooltip,
+TooltipContent,
+TooltipProvider,
+TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 
 import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+import {
+type EntryType,
+getAvatarById,
+getDefaultAvatarForSpecies,
+getSpeciesPreset,
+LIVESTOCK_AVATAR_PRESETS,
+} from "../livestock-inventory";
 
 /* ── Inline Information Hover Tooltip ── */
 function InfoTooltip({ text }: { text: string }) {
@@ -76,13 +84,6 @@ function InfoTooltip({ text }: { text: string }) {
     </TooltipProvider>
   );
 }
-import {
-  type EntryType,
-  getSpeciesPreset,
-  LIVESTOCK_AVATAR_PRESETS,
-  getDefaultAvatarForSpecies,
-  getAvatarById,
-} from "../livestock-inventory";
 
 export interface BatchAnimalFormRow {
   id: string;
@@ -98,7 +99,7 @@ interface RegisterLivestockDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   livestockTypes: Record<string, number>;
-  userBatches?: any[];
+  userBatches?: LivestockBatchItem[];
   existingTags?: string[];
   onSuccess?: () => void;
 }
@@ -504,7 +505,7 @@ export function RegisterLivestockDialog({
             headers: { "Content-Type": "multipart/form-data" },
           });
         } else {
-          const payload: any = {
+          const payload: CreateInventoryPayload & { batch?: number; avatar_key?: string } = {
             livestock_type: typeId,
             entry_type: "INDIVIDUAL",
             quantity: 1,
@@ -636,12 +637,12 @@ export function RegisterLivestockDialog({
       }
       onSuccess?.();
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       console.error(err);
       const msg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.tag_number?.[0] ||
-        err?.response?.data?.animals?.[0] ||
+        httpError(err)?.response?.data?.detail ||
+        httpError(err)?.response?.data?.tag_number?.[0] ||
+        httpError(err)?.response?.data?.animals?.[0] ||
         "Failed to add livestock entry. Please check required fields.";
       toast.error(msg);
       setFormError(msg);
@@ -1734,7 +1735,7 @@ export function RegisterLivestockDialog({
                             </div>
                             <Select
                               value={animal.sex}
-                              onValueChange={(val: any) => updateBatchAnimalField(idx, "sex", val)}
+                              onValueChange={(val) => { if (val === "Male" || val === "Female") updateBatchAnimalField(idx, "sex", val); }}
                             >
                               <SelectTrigger className="h-8 text-xs rounded-lg">
                                 <SelectValue placeholder="Sex" />

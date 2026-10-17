@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo } from "react";
-import { Archive, ArrowLeft, CalendarDays, CircleDollarSign, Skull, Truck } from "lucide-react";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card,CardContent } from "@/components/ui/card";
+import { Archive,ArrowLeft,CalendarDays,CircleDollarSign,Skull,Truck } from "lucide-react";
+import Link from "next/link";
+import { useMemo } from "react";
+import type { LivestockInventoryItem,OperationalStatus } from "../livestock-inventory";
 import { useUserInventory } from "../livestock-inventory";
-import type { LivestockInventoryItem, OperationalStatus } from "../livestock-inventory";
 
 const HISTORY_STATUS: Record<Exclude<OperationalStatus, "ACTIVE">, {
   label: string;
