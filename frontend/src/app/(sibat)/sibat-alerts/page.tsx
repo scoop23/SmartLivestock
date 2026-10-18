@@ -25,8 +25,8 @@ Tag,
 X
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense,useMemo,useState } from "react";
+import { usePathname,useRouter,useSearchParams } from "next/navigation";
+import { Suspense,startTransition,useEffect,useMemo,useState } from "react";
 import { toast } from "sonner";
 import {
 SibatInspectionDialog,
@@ -89,6 +89,8 @@ function StatusBadge({ status }: { status: SibatStatus }) {
 }
 
 function SibatAlertsContent() {
+  const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const isCbat = user?.role?.toUpperCase() === "CBAT";
@@ -114,6 +116,12 @@ function SibatAlertsContent() {
   const notificationKey = recordTypeParam && recordIdParam
     ? `${normalizedRecordType}:${recordIdParam}`
     : null;
+  useEffect(() => {
+    if (!notificationKey && dismissedNotificationKey) {
+      startTransition(() => setDismissedNotificationKey(null));
+    }
+  }, [notificationKey, dismissedNotificationKey]);
+
   const notificationRecord =
     !isLoading && notificationPrefix && notificationKey && dismissedNotificationKey !== notificationKey
       ? records.find(
@@ -129,7 +137,7 @@ function SibatAlertsContent() {
     const url = new URL(window.location.href);
     url.searchParams.delete("recordType");
     url.searchParams.delete("recordId");
-    window.history.replaceState({}, "", url.toString());
+    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
   };
 
   const handleOpenInspection = (record: SibatValidationRecord) => {

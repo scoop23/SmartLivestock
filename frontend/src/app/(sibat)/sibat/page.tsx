@@ -147,7 +147,7 @@ function SibatPortalContent() {
 
     url.searchParams.set("tab", newTab);
 
-    window.history.replaceState({}, "", url.toString());
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   };
 
 
@@ -212,7 +212,7 @@ function SibatPortalContent() {
   const clearCensusLink = () => {
     const url = new URL(window.location.href);
     url.searchParams.delete("censusId");
-    window.history.replaceState({}, "", url.toString());
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   };
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -369,7 +369,7 @@ function SibatPortalContent() {
   const clearReviewLink = () => {
     const url = new URL(window.location.href);
     ["reviewType", "reviewId", "legacyType", "legacyMessage"].forEach((key) => url.searchParams.delete(key));
-    window.history.replaceState({}, "", url.toString());
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   };
 
   const handleReviewRecords = () => {

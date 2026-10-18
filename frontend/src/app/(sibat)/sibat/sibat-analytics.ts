@@ -154,6 +154,7 @@ export interface RawDiseaseCase {
   notes?: string;
   status: string;
   review_remarks?: string | null;
+  previous_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
   reviewed_by_role?: string | null;
@@ -182,6 +183,7 @@ export interface RawMortalityRecord {
   disposal_method?: string;
   status: string;
   review_remarks?: string | null;
+  previous_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
   reviewed_by_role?: string | null;

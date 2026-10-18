@@ -21,12 +21,13 @@ ShieldCheck,
 Skull,
 Stethoscope
 } from "lucide-react";
-import React,{ useEffect,useMemo,useState } from "react";
+import React,{ Suspense,startTransition,useEffect,useMemo,useRef,useState } from "react";
+import { usePathname,useRouter,useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import api from "@/lib/axios";
 import { getAttachedPhoto } from "@/lib/photo-storage";
-import { useQuery,useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import ReportDetailDialog from "./components/report-detail-dialog";
 import ReportIllnessDialog from "./components/report-illness-dialog";
 import {
@@ -37,8 +38,11 @@ ReportType,
 
 type HealthReportFilter = "ALL" | "DISEASE" | "MORTALITY" | "PENDING" | "REVISION" | "APPROVED";
 
-export default function ReportObservationPage() {
-  const queryClient = useQueryClient();
+function ReportObservationContent() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedReportId = searchParams.get("reportId");
 
   // ── Dialog States ──
   const [isReportIllnessOpen, setIsReportIllnessOpen] = useState<boolean>(false);
@@ -58,8 +62,10 @@ export default function ReportObservationPage() {
     const requestedType = url.searchParams.get("newReport");
     if (requestedType !== "DISEASE" && requestedType !== "MORTALITY") return;
 
-    setReportIllnessDefaultType(requestedType);
-    setIsReportIllnessOpen(true);
+    startTransition(() => {
+      setReportIllnessDefaultType(requestedType);
+      setIsReportIllnessOpen(true);
+    });
     url.searchParams.delete("newReport");
     window.history.replaceState(
       window.history.state,
@@ -140,6 +146,7 @@ export default function ReportObservationPage() {
         reviewedByName: dc.reviewed_by_name,
         reviewedAt: dc.reviewed_at,
         reviewRemarks: dc.review_remarks,
+        previousReviewRemarks: dc.previous_remarks,
         rawItem: dc,
       });
     });
@@ -171,6 +178,7 @@ export default function ReportObservationPage() {
         reviewedByName: m.reviewed_by_name,
         reviewedAt: m.reviewed_at,
         reviewRemarks: m.review_remarks,
+        previousReviewRemarks: m.previous_remarks,
         rawItem: m,
       });
     });
@@ -208,25 +216,35 @@ export default function ReportObservationPage() {
     });
   }, [reports, searchQuery, filterType]);
 
-  const [handledRecentActivityLink, setHandledRecentActivityLink] = useState(false);
+  const handledReportLinkRef = useRef<string | null>(null);
+  const missingReportLinkRef = useRef<string | null>(null);
   useEffect(() => {
-    if (isLoadingDiseases || isLoadingMortality || isDiseaseError || isMortalityError || handledRecentActivityLink) return;
-
-    const requestedReportId = new URLSearchParams(window.location.search).get("reportId");
     if (!requestedReportId) {
-      setHandledRecentActivityLink(true);
+      handledReportLinkRef.current = null;
+      missingReportLinkRef.current = null;
       return;
     }
+    if (isLoadingDiseases || isLoadingMortality || isDiseaseError || isMortalityError || handledReportLinkRef.current === requestedReportId) return;
 
     const requestedReport = reports.find((report) => report.id === requestedReportId);
     if (requestedReport) {
-      setSelectedReport(requestedReport);
-      setIsDetailOpen(true);
-    } else {
+      missingReportLinkRef.current = null;
+      startTransition(() => {
+        setSelectedReport(requestedReport);
+        setIsDetailOpen(true);
+      });
+      handledReportLinkRef.current = requestedReportId;
+    } else if (missingReportLinkRef.current !== requestedReportId) {
       toast.error("That health report could not be found in your reports.");
+      missingReportLinkRef.current = requestedReportId;
     }
-    setHandledRecentActivityLink(true);
-  }, [reports, isLoadingDiseases, isLoadingMortality, isDiseaseError, isMortalityError, handledRecentActivityLink]);
+  }, [requestedReportId, reports, isLoadingDiseases, isLoadingMortality, isDiseaseError, isMortalityError]);
+
+  const clearReportLink = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("reportId");
+    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+  };
 
   // KPI Metrics
   const totalDiseaseCases = reports.filter((r) => r.reportType === "DISEASE").length;
@@ -575,9 +593,26 @@ export default function ReportObservationPage() {
       <ReportDetailDialog
         report={selectedReport}
         open={isDetailOpen}
-        onOpenChange={setIsDetailOpen}
+        onOpenChange={(open) => {
+          setIsDetailOpen(open);
+          if (!open) {
+            setSelectedReport(null);
+            if (requestedReportId) {
+              handledReportLinkRef.current = requestedReportId;
+              clearReportLink();
+            }
+          }
+        }}
         onEditReport={handleEditReport}
       />
     </>
+  );
+}
+
+export default function ReportObservationPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading animal health reports...</div>}>
+      <ReportObservationContent />
+    </Suspense>
   );
 }

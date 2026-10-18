@@ -3,7 +3,8 @@
 import { cn } from "@/lib/utils";
 import { useMutation,useQueryClient } from "@tanstack/react-query";
 import { ChevronDown,RefreshCw } from "lucide-react";
-import { useEffect,useMemo,useState } from "react";
+import { Suspense,startTransition,useEffect,useMemo,useRef,useState } from "react";
+import { usePathname,useRouter,useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/app/components/page-header";
@@ -41,8 +42,13 @@ SpeciesDrilldownView,
 // Re-export types for any existing consumers
 export type { EntryType,InventoryApiItem,LivestockInventoryItem,LivestockType,StatusType };
 
-export default function LivestockInventoryPage() {
+function LivestockInventoryContent() {
   const queryClient = useQueryClient();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const livestockTypeParam = searchParams.get("livestockType");
+  const activityLivestockId = searchParams.get("livestockId");
   const [activeTab, setActiveTab] = useState<"types" | "all" | "health">("types");
   const [isKpiOpen, setIsKpiOpen] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -50,15 +56,13 @@ export default function LivestockInventoryPage() {
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [handledActivityLink, setHandledActivityLink] = useState(false);
+  const handledActivityLinkRef = useRef<string | null>(null);
 
   // Herd links preserve the livestock type so Back returns to the same
   // Manage Cattle (or other type) drilldown instead of the overview cards.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const livestockType = new URLSearchParams(window.location.search).get("livestockType");
-    if (livestockType) setSelectedType(livestockType);
-  }, []);
+    if (livestockTypeParam) startTransition(() => setSelectedType(livestockTypeParam));
+  }, [livestockTypeParam]);
 
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading, isError, refetch, isFetching } = useUserInventory();
@@ -69,22 +73,26 @@ export default function LivestockInventoryPage() {
   // farmer's own inventory query so the existing detail dialog gets the same
   // complete record object used by the normal inventory buttons.
   useEffect(() => {
-    if (typeof window === "undefined" || isLoading || isError || handledActivityLink) return;
-
-    const livestockId = new URLSearchParams(window.location.search).get("livestockId");
-    if (!livestockId) {
-      setHandledActivityLink(true);
+    if (!activityLivestockId) {
+      handledActivityLinkRef.current = null;
       return;
     }
+    if (isLoading || isError || handledActivityLinkRef.current === activityLivestockId) return;
 
-    const livestock = inventories.find((item) => String(item.id) === livestockId);
+    const livestock = inventories.find((item) => String(item.id) === activityLivestockId);
     if (livestock) {
-      setDetailTarget(livestock);
+      startTransition(() => setDetailTarget(livestock));
     } else {
       toast.error("That livestock record could not be found in your inventory.");
     }
-    setHandledActivityLink(true);
-  }, [inventories, isLoading, isError, handledActivityLink]);
+    handledActivityLinkRef.current = activityLivestockId;
+  }, [inventories, isLoading, isError, activityLivestockId]);
+
+  const clearActivityLink = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("livestockId");
+    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+  };
 
   // Herd Telemetry calculations
   const totalHeads = useMemo(
@@ -375,7 +383,13 @@ export default function LivestockInventoryPage() {
         <LivestockDetailsDialog
           livestock={detailTarget}
           open={!!detailTarget}
-          onOpenChange={() => setDetailTarget(null)}
+          onOpenChange={() => {
+            setDetailTarget(null);
+            if (activityLivestockId) {
+              handledActivityLinkRef.current = activityLivestockId;
+              clearActivityLink();
+            }
+          }}
         />
 
         {/* Edit Dialog */}
@@ -393,5 +407,13 @@ export default function LivestockInventoryPage() {
         />
       </div>
     </>
+  );
+}
+
+export default function LivestockInventoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading livestock inventory...</div>}>
+      <LivestockInventoryContent />
+    </Suspense>
   );
 }

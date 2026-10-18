@@ -14,6 +14,7 @@ SelectTrigger,
 SelectValue,
 } from "@/components/ui/select";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import { usePathname,useRouter } from "next/navigation";
 import { AxiosError } from "axios";
 import {
 ArrowDownWideNarrow,
@@ -24,7 +25,7 @@ Search,
 SlidersHorizontal,
 Trash2,
 } from "lucide-react";
-import { useEffect,useMemo,useState } from "react";
+import { startTransition,useEffect,useMemo,useRef,useState } from "react";
 import { toast } from "sonner";
 import { STATUS_CHIPS,type SortKey } from "../livestock-inventory/livestock-record-list";
 
@@ -83,6 +84,8 @@ export default function ProductionHistory({
   initialRecordId?: string | null;
 }) {
   const queryClient = useQueryClient();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const {
     data: userProductions = [],
@@ -102,12 +105,16 @@ export default function ProductionHistory({
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
   const [dialogRecord, setDialogRecord] = useState<ProductionRecordItem | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("newest");
-  const [handledInitialRecord, setHandledInitialRecord] = useState(false);
+  const handledInitialRecordRef = useRef<string | null>(null);
 
   // Dashboard activity links carry only the record ID. Resolve it against the
   // authenticated farmer's existing production query before opening its dialog.
   useEffect(() => {
-    if (!initialRecordId || isLoading || isError || handledInitialRecord) return;
+    if (!initialRecordId) {
+      handledInitialRecordRef.current = null;
+      return;
+    }
+    if (isLoading || isError || handledInitialRecordRef.current === initialRecordId) return;
 
     const requestedId = Number(initialRecordId);
     const requestedRecord = Number.isInteger(requestedId)
@@ -115,13 +122,21 @@ export default function ProductionHistory({
       : undefined;
 
     if (requestedRecord) {
-      setSelected(requestedRecord);
-      setDialogRecord(requestedRecord);
+      startTransition(() => {
+        setSelected(requestedRecord);
+        setDialogRecord(requestedRecord);
+      });
     } else {
       toast.error("That production record could not be found in your history.");
     }
-    setHandledInitialRecord(true);
-  }, [initialRecordId, isLoading, isError, handledInitialRecord, userProductions]);
+    handledInitialRecordRef.current = initialRecordId;
+  }, [initialRecordId, isLoading, isError, userProductions]);
+
+  const clearRecordLink = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("recordId");
+    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteProductionRecord(id),
@@ -499,7 +514,13 @@ export default function ProductionHistory({
         record={activeDialogRecord}
         open={dialogRecord !== null}
         onOpenChange={(open) => {
-          if (!open) setDialogRecord(null);
+          if (!open) {
+            setDialogRecord(null);
+            if (initialRecordId) {
+              handledInitialRecordRef.current = initialRecordId;
+              clearRecordLink();
+            }
+          }
         }}
         onDelete={handleDelete}
         isDeleting={deleteMutation.isPending}

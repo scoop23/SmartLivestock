@@ -3,6 +3,7 @@
 import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { printElement } from "@/lib/print-element";
 import {
 Dialog,
 DialogContent,
@@ -77,7 +78,7 @@ export default function ReportDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-2xl border-0 shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[92dvh] sm:rounded-3xl">
+      <DialogContent data-print-root className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-2xl border-0 shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[92dvh] sm:rounded-3xl">
         {/* Header */}
         <div
           className={`p-4 text-white relative overflow-hidden sm:p-6 ${
@@ -182,7 +183,7 @@ export default function ReportDetailDialog({
           </div>
 
           {/* 2. Official Inspector / Review Remarks Alert */}
-          {(report.status === "SUBJECT_TO_REVISION" || report.status === "SUBJECT_FOR_REVISION") && (
+          {(report.status === "SUBJECT_TO_REVISION" || report.status === "SUBJECT_FOR_REVISION" || report.status === "REJECTED") && (
             <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-300 text-rose-950 space-y-2">
               <div className="flex items-center gap-2">
                 <RotateCcw className="size-4 text-rose-700 shrink-0" />
@@ -196,6 +197,25 @@ export default function ReportDetailDialog({
               </p>
               {report.reviewedByName && (
                 <p className="text-[10px] text-rose-700 font-bold pt-1">
+                  Reviewed by: {report.reviewedByName} • {report.reviewedAt ? new Date(report.reviewedAt).toLocaleDateString() : "Recent"}
+                </p>
+              )}
+            </div>
+          )}
+
+          {report.status === "VERIFIED" && report.reviewRemarks?.trim() && (
+            <div className="p-4 rounded-2xl bg-sky-50/80 border border-sky-200 text-sky-950 space-y-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-4 text-sky-700 shrink-0" />
+                <h4 className="text-xs font-black uppercase tracking-wider text-sky-900">
+                  Field Verification Remarks
+                </h4>
+              </div>
+              <p className="text-xs font-medium text-sky-900 whitespace-pre-wrap break-words">
+                {report.reviewRemarks}
+              </p>
+              {report.reviewedByName && (
+                <p className="text-[10px] text-sky-700 font-bold pt-1">
                   Reviewed by: {report.reviewedByName} • {report.reviewedAt ? new Date(report.reviewedAt).toLocaleDateString() : "Recent"}
                 </p>
               )}
@@ -221,13 +241,24 @@ export default function ReportDetailDialog({
             </div>
           )}
 
+          {report.previousReviewRemarks?.trim() && (
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-950 space-y-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
+                Previous Field Review Remarks
+              </h4>
+              <p className="text-xs font-medium text-amber-900 whitespace-pre-wrap break-words">
+                {report.previousReviewRemarks}
+              </p>
+            </div>
+          )}
+
           {/* 3. Animal Metadata Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Ear Tag #
               </span>
-              <p className="text-xs font-black text-slate-900 mt-0.5 truncate">
+              <p className="text-xs font-black text-slate-900 mt-0.5 break-words">
                 {report.cattleTag}
               </p>
             </div>
@@ -236,7 +267,7 @@ export default function ReportDetailDialog({
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Breed / Type
               </span>
-              <p className="text-xs font-black text-slate-900 mt-0.5 truncate">
+              <p className="text-xs font-black text-slate-900 mt-0.5 break-words">
                 {report.cattleBreed} • {report.cattleType}
               </p>
             </div>
@@ -342,7 +373,7 @@ export default function ReportDetailDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => window.print()}
+                onClick={(event) => printElement(event.currentTarget.closest<HTMLElement>("[data-print-root]"))}
                 className="h-10 w-full gap-1.5 rounded-xl text-xs font-bold sm:h-9 sm:w-auto"
               >
                 <Printer className="size-3.5 text-slate-500" />

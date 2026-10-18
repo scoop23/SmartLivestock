@@ -29,6 +29,7 @@ export interface FarmerReport {
   reviewedByName?: string | null;
   reviewedAt?: string | null;
   reviewRemarks?: string | null;
+  previousReviewRemarks?: string | null;
   farmerName?: string;
   barangayName?: string;
   rawItem?: RawDiseaseCase | RawMortalityRecord;
