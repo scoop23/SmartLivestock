@@ -467,7 +467,12 @@ class PredictiveAnalyticsTests(TestCase):
 
         selection = eval_res["selection"]
         self.assertIn("baseline_model", selection)
-        self.assertEqual(selection["baseline_model"], "Naive Baseline")
+        self.assertIn(selection["baseline_model"], ("Naive Baseline", "Seasonal Naive"))
+        baseline_result = next(
+            model for model in eval_res["models"]
+            if model["name"] == selection["baseline_model"]
+        )
+        self.assertEqual(selection["baseline_mae"], baseline_result["mae"])
         self.assertIsNotNone(selection["baseline_mae"])
         self.assertIsNotNone(selection["selected_model_mae"])
         self.assertIn(selection["baseline_comparison"], ["MODEL_BEATS_BASELINE", "BASELINE_BEST"])
