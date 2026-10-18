@@ -230,7 +230,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
     const results: ValidationInventoryItem[] = [];
 
     if (Array.isArray(inventory)) {
-      inventory.forEach((item: any) => {
+      inventory.forEach((item) => {
         results.push({
           id: item.id,
           rawId: item.id,
@@ -266,7 +266,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
     }
 
     if (Array.isArray(batches)) {
-      batches.forEach((b: any) => {
+      batches.forEach((b) => {
         results.push({
           id: `batch-${b.id}`,
           rawId: b.id,

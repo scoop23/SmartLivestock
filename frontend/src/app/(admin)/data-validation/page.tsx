@@ -57,8 +57,9 @@ function matchesStatusFilter(
   statusFilter: ValidationStatus
 ): boolean {
   if (statusFilter === "ALL") return true;
-  if (statusFilter === "AWAITING_MAO") return false;
   const s = (rawStatus || "PENDING").toUpperCase();
+  // VERIFIED is the persisted handoff state: SIBAT has finished and MAO can act.
+  if (statusFilter === "AWAITING_MAO") return s === "VERIFIED";
   if (statusFilter === "SUBJECT_TO_REVISION") {
     return (
       s === "SUBJECT_TO_REVISION" ||
@@ -69,6 +70,12 @@ function matchesStatusFilter(
   }
   return s === statusFilter;
 }
+
+type DomainFilterState = {
+  searchQuery: string;
+  statusFilter: ValidationStatus;
+  barangayFilter: string;
+};
 
 // Herd members must move through review as a unit — never individually.
 // This splits review targets so herd animals are blocked from individual
@@ -113,9 +120,22 @@ function AdminDataValidationContent() {
       ? requestedDomain
       : "census"
   );
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ValidationStatus>("ALL");
-  const [barangayFilter, setBarangayFilter] = useState<string>("ALL");
+  const [domainFilters, setDomainFilters] = useState<Record<ValidationDomain, DomainFilterState>>({
+    census: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
+    production: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
+    inventory: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
+    incidents: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
+  });
+  const { searchQuery, statusFilter, barangayFilter } = domainFilters[activeDomain];
+  const updateActiveDomainFilter = <K extends keyof DomainFilterState>(
+    key: K,
+    value: DomainFilterState[K],
+  ) => {
+    setDomainFilters((current) => ({
+      ...current,
+      [activeDomain]: { ...current[activeDomain], [key]: value },
+    }));
+  };
   const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
 
   // Dialog states
@@ -436,7 +456,9 @@ function AdminDataValidationContent() {
         inc.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inc.type.toLowerCase().includes(searchQuery.toLowerCase());
       const matchStatus = statusFilter === "AWAITING_MAO"
-        ? inc.type === "inspection" && (inc.status || "PENDING").toUpperCase() === "PENDING"
+        ? (inc.type === "inspection"
+            ? (inc.status || "PENDING").toUpperCase() === "PENDING"
+            : (inc.status || "PENDING").toUpperCase() === "VERIFIED")
         : matchesStatusFilter(inc.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || inc.barangayName === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
@@ -885,22 +907,18 @@ function AdminDataValidationContent() {
         <ValidationToolbar
           searchQuery={searchQuery}
           onSearchChange={(q) => {
-            setSearchQuery(q);
+            updateActiveDomainFilter("searchQuery", q);
             setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
           }}
           barangayFilter={barangayFilter}
           onBarangayChange={(b) => {
-            setBarangayFilter(b);
+            updateActiveDomainFilter("barangayFilter", b);
             setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
           }}
           uniqueBarangays={barangayOptions}
           statusFilter={statusFilter}
           onStatusChange={(s) => {
-            setStatusFilter(s);
-            if (s === "AWAITING_MAO") {
-              setActiveDomain("incidents");
-              setActiveValidationView("records");
-            }
+            updateActiveDomainFilter("statusFilter", s);
             setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
           }}
           selectedCount={selectedIds.length}
