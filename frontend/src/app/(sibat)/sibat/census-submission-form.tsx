@@ -274,7 +274,7 @@ export default function CensusSubmissionForm({
       return [livestockType?.name ?? key, id];
     }));
     return array;
-  }, [livestockRecords]);
+  }, [livestockRecords, LIVESTOCK_TYPES]);
 
 
   if (!open) return null;

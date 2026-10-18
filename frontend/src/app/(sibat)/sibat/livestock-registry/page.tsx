@@ -61,11 +61,15 @@ function SibatLivestockRegistryContent() {
   const searchParams = useSearchParams();
   const batchId = searchParams.get("batchId");
 
-  const [query, setQuery] = useState("");
-  const [barangay, setBarangay] = useState("All Barangays");
-  const [recordType, setRecordType] = useState("All Record Types");
-  const [status, setStatus] = useState<RegistryStatusFilter>(() => (batchId ? "ALL" : "ALL"));
-  const [page, setPage] = useState(1);
+  const [query, updateQuery] = useState("");
+  const setQuery = (value: string) => { updateQuery(value); setPage(1); };
+  const [barangay, updateBarangay] = useState("All Barangays");
+  const setBarangay = (value: string) => { updateBarangay(value); setPage(1); };
+  const [recordType, updateRecordType] = useState("All Record Types");
+  const setRecordType = (value: string) => { updateRecordType(value); setPage(1); };
+  const [status, updateStatus] = useState<RegistryStatusFilter>(() => (batchId ? "ALL" : "ALL"));
+  const setStatus = (value: RegistryStatusFilter) => { updateStatus(value); setPage(1); };
+  const [requestedPage, setPage] = useState(1);
   const [selectedSubmission, setSelectedSubmission] = useState<UnifiedSubmissionItem | null>(null);
 
   const queryClient = useQueryClient();
@@ -217,19 +221,16 @@ function SibatLivestockRegistryContent() {
   }, [registryRecords, query, barangay, recordType, status]);
 
   // Reset page when any filter updates
-  useEffect(() => {
-    setPage(1);
-  }, [query, barangay, recordType, status]);
+
 
   const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
   const pageRecords = useMemo(
     () => filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredRecords, page]
   );
 
-  useEffect(() => {
-    if (page > pageCount) setPage(1);
-  }, [page, pageCount]);
+
 
   const isLoading = inventoryQuery.isLoading || (!batchId && batchesQuery.isLoading);
   const isInitialLoading = isLoading && registryRecords.length === 0;

@@ -470,19 +470,9 @@ function SibatPortalContent() {
       ? `Area • ${user.assignedBarangayName}`
       : "Area 2 • Banaba, Castillo, Pansol, and San Felipe";
 
-  const [currentDateStr, setCurrentDateStr] = useState<string>("");
-  useEffect(() => {
-    setCurrentDateStr(
-      new Intl.DateTimeFormat("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }).format(new Date()).toUpperCase()
-    );
-  }, []);
-
-  const currentHour = new Date().getHours();
+  const [clock] = useState(() => new Date());
+  const currentDateStr = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).format(clock).toUpperCase();
+  const currentHour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Manila" }).format(clock));
   const timeGreeting = currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
   const officerName = user?.firstName || user?.username || "Juan";
 
@@ -750,7 +740,7 @@ function SibatPortalContent() {
                 {/* Farmer Pending Records */}
                 {pendingFarmerSubmissions.slice(0, 2).map((item: UnifiedSubmissionItem) => {
                   const daysWaiting = Math.floor(
-                    (Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                    (clock.getTime() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60 * 24)
                   );
                   const isResubmitted = Boolean(
                     item.notes?.toLowerCase().includes("resubmitted") ||

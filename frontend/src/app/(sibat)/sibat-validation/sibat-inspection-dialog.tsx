@@ -142,7 +142,11 @@ interface SibatInspectionDialogProps {
   readOnly?: boolean;
 }
 
-export function SibatInspectionDialog({
+export function SibatInspectionDialog(props: SibatInspectionDialogProps) {
+  return <SibatInspectionDialogContent key={`${props.open}:${props.record?.id}`} {...props} />;
+}
+
+function SibatInspectionDialogContent({
   record,
   open,
   onOpenChange,
@@ -158,7 +162,7 @@ export function SibatInspectionDialog({
   const [temperature, setTemperature] = useState<string>(record?.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "");
   const [inspectorRemarks, setInspectorRemarks] = useState<string>(record?.inspection?.remarks ?? "");
   const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState<boolean>(false);
-  const [inspectorPhotoUrl, setInspectorPhotoUrl] = useState<string>("");
+  const [inspectorPhotoUrl, setInspectorPhotoUrl] = useState<string>(record?.inspection?.inspectorPhotoUrl ?? "");
   const [inspectorPhotoName, setInspectorPhotoName] = useState<string>("");
   const [inspectorPhotoFile, setInspectorPhotoFile] = useState<File | null>(null);
   const [confirmationAction, setConfirmationAction] = useState<"VERIFIED" | "FLAGGED" | null>(null);
@@ -191,39 +195,7 @@ export function SibatInspectionDialog({
 
   // Per-head diagnosis state: 'ALL' means shared/batch view, or a specific tagNumber for individual head
   const [selectedHeadTag, setSelectedHeadTag] = useState<string>("ALL");
-  const [headDiagnoses, setHeadDiagnoses] = useState<Record<string, HeadDiagnosis>>({});
-
-  // Sync state when record changes
-  React.useEffect(() => {
-    if (record) {
-      setTagConfirmed(record.inspection?.tagConfirmed ?? false);
-      setCountConfirmed(record.inspection?.countConfirmed ?? false);
-      const baseSymptoms = record.inspection?.confirmedSymptoms ?? [];
-      const baseTemp = record.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "";
-      setConfirmedSymptoms(baseSymptoms);
-      setSeverity(record.inspection?.severity ?? "");
-      setBiosecurityAction(record.inspection?.biosecurityAction ?? "");
-      setTemperature(baseTemp);
-      setInspectorRemarks(record.inspection?.remarks ?? "");
-      setInspectorPhotoUrl(record.inspection?.inspectorPhotoUrl ?? "");
-      setInspectorPhotoName("");
-      setInspectorPhotoFile(null);
-      setConfirmationAction(null);
-      setValidationError("");
-      setSelectedHeadTag("ALL");
-
-      // Initialize individual head diagnoses map
-      const initialMap: Record<string, HeadDiagnosis> = {};
-      heads.forEach((h) => {
-        initialMap[h.tagNumber] = {
-          tagNumber: h.tagNumber,
-          confirmedSymptoms: [...baseSymptoms],
-          temperature: baseTemp,
-        };
-      });
-      setHeadDiagnoses(initialMap);
-    }
-  }, [record, heads]);
+  const [headDiagnoses, setHeadDiagnoses] = useState<Record<string, HeadDiagnosis>>(() => Object.fromEntries(heads.map(head => [head.tagNumber, { tagNumber: head.tagNumber, confirmedSymptoms: [...(record?.inspection?.confirmedSymptoms ?? [])], temperature: record?.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "" }])));
 
   // Synchronize current findings across all affected heads
   const handleSyncToAll = () => {
@@ -474,7 +446,8 @@ export function SibatInspectionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden w-screen max-w-none rounded-none p-4 sm:w-full sm:max-w-4xl sm:rounded-2xl sm:p-6 md:max-w-5xl lg:max-w-6xl lg:p-8 bg-white border border-slate-100 shadow-2xl max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto">
+      <DialogContent aria-describedby="sibat-inspection-description" className="overflow-hidden w-screen max-w-none rounded-none p-4 sm:w-full sm:max-w-4xl sm:rounded-2xl sm:p-6 md:max-w-5xl lg:max-w-6xl lg:p-8 bg-white border border-slate-100 shadow-2xl max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto">
+        <p id="sibat-inspection-description" className="sr-only">Reported animal health details, original field inspection, and case follow-up history.</p>
 
         {/* ══ POPUP HEADER ══ */}
         <DialogHeader className="mb-3 sm:mb-4">
