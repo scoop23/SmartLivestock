@@ -53,6 +53,9 @@ import { toast } from "sonner";
 
 export function UserProfileView() {
   const { user, logout, updateUser } = useAuth();
+  const normalizedRole = user?.role?.toUpperCase();
+  const isFarmer = normalizedRole === "FARMER";
+  const isFieldReviewer = normalizedRole === "SIBAT" || normalizedRole === "CBAT";
   const { fontScale, setFontScale } = useAccessibilitySettings();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "overview";
@@ -565,7 +568,7 @@ export function UserProfileView() {
       </div>
 
       {/* Profile section. */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
+      <div className={`grid grid-cols-2 ${isFarmer ? "md:grid-cols-2" : "md:grid-cols-4"} gap-3 sm:gap-4 w-full`}>
         {/* Metric 1 */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
           <div className="flex items-center justify-between text-slate-400">
@@ -579,16 +582,17 @@ export function UserProfileView() {
           <span className="text-[10px] text-emerald-700 font-bold block">RSBSA Certified & Verified</span>
         </div>
 
-        {/* Metric 2 */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Biosecurity Clear</span>
-            <ShieldCheck className="size-4 text-[#2D5A27]" />
+        {!isFarmer && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Biosecurity Clear</span>
+              <ShieldCheck className="size-4 text-[#2D5A27]" />
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">Level 3</div>
+            <p className="text-[11px] text-slate-500 font-medium truncate">Outbreak Quarantine Exempt</p>
+            <span className="text-[10px] text-slate-400 font-semibold block">Audit: Q3 2026 Valid</span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900">Level 3</div>
-          <p className="text-[11px] text-slate-500 font-medium truncate">Outbreak Quarantine Exempt</p>
-          <span className="text-[10px] text-slate-400 font-semibold block">Audit: Q3 2026 Valid</span>
-        </div>
+        )}
 
         {/* Metric 3 */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
@@ -601,16 +605,23 @@ export function UserProfileView() {
           <span className="text-[10px] text-emerald-700 font-bold block">3 Authorized Sessions</span>
         </div>
 
-        {/* Metric 4 */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Municipal Scope</span>
-            <Building2 className="size-4 text-purple-700" />
+        {!isFarmer && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                {isFieldReviewer ? "Assigned Barangay/s" : "Municipal Scope"}
+              </span>
+              <Building2 className="size-4 text-purple-700" />
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">
+              {isFieldReviewer ? user?.assignedBarangayName || "Unassigned" : "18 Barangays"}
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium truncate">
+              {isFieldReviewer ? "Your assigned area" : "Padre Garcia Jurisdiction"}
+            </p>
+            {!isFieldReviewer && <span className="text-[10px] text-purple-700 font-bold block">Livestock Capital PH</span>}
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900">18 Barangays</div>
-          <p className="text-[11px] text-slate-500 font-medium truncate">Padre Garcia Jurisdiction</p>
-          <span className="text-[10px] text-purple-700 font-bold block">Livestock Capital PH</span>
-        </div>
+        )}
       </div>
 
       {/* Profile section. */}
