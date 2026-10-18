@@ -8,6 +8,7 @@ import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { printElement } from "@/lib/print-element";
 import {
 Dialog,
 DialogContent,
@@ -254,10 +255,6 @@ function RecordDetailDialogContent({
   };
 
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleAction = async (action: "APPROVED" | "SUBJECT_TO_REVISION") => {
     if (onConfirmAction) {
       setIsSubmitting(true);
@@ -322,7 +319,7 @@ function RecordDetailDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[98vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1000px] p-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-3.5 sm:[&>button]:right-5 [&>button]:top-3.5 sm:[&>button]:top-5 [&>button]:p-2 sm:[&>button]:p-2.5 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[94vh] flex flex-col">
+      <DialogContent data-print-root className="w-full max-w-[98vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1000px] p-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xl [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100 [&>button]:right-3.5 sm:[&>button]:right-5 [&>button]:top-3.5 sm:[&>button]:top-5 [&>button]:p-2 sm:[&>button]:p-2.5 [&>button]:rounded-full [&>button]:hover:bg-white/10 max-h-[94vh] flex flex-col">
 
         {/* ═══════════ MAO OFFICIAL BANNER HEADER ═══════════ */}
         <div className="bg-gradient-to-r from-emerald-950 via-[#0C3318] to-emerald-900 text-white p-4 sm:p-6 shrink-0 relative pr-12 sm:pr-14">
@@ -1256,7 +1253,7 @@ function RecordDetailDialogContent({
               type="button"
               variant="outline"
               size="sm"
-              onClick={handlePrint}
+              onClick={(event) => printElement(event.currentTarget.closest<HTMLElement>("[data-print-root]"))}
               className="text-xs font-bold rounded-xl h-8.5 gap-1.5 cursor-pointer bg-white flex-1 sm:flex-initial"
             >
               <Printer className="size-3.5 text-slate-500" />

@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { printElement } from "@/lib/print-element";
 import {
 Dialog,
 DialogContent,
@@ -424,7 +425,7 @@ export function InspectionDetailsDialog({
               variant="outline"
               size="sm"
               disabled={!clearanceQr}
-              onClick={() => window.print()}
+              onClick={() => printElement(document.getElementById("livestock-clearance-print"))}
               className="rounded-xl font-bold text-xs gap-1.5 cursor-pointer w-full sm:w-auto"
             >
               <FileDown className="w-3.5 h-3.5" /> Export / Print Permit

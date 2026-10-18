@@ -4,6 +4,7 @@ import type { OverviewRecord } from "./data-overview-types";
 import { QrCodePass } from "@/components/qr-code-pass";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { printElement } from "@/lib/print-element";
 import {
 Dialog,
 DialogContent,
@@ -97,10 +98,6 @@ export function DataOverviewDetailModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   // Status badge styling helper
   const renderStatusBadge = (statusStr: string | undefined) => {
     const s = String(statusStr || "PENDING").toUpperCase();
@@ -146,7 +143,7 @@ export function DataOverviewDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[95vw] sm:max-w-3xl md:max-w-4xl rounded-2xl sm:rounded-3xl p-0 overflow-hidden border border-slate-200 shadow-2xl bg-white flex flex-col max-h-[92vh]">
+      <DialogContent data-print-root className="w-full max-w-[95vw] sm:max-w-3xl md:max-w-4xl rounded-2xl sm:rounded-3xl p-0 overflow-hidden border border-slate-200 shadow-2xl bg-white flex flex-col max-h-[92vh]">
         {/* ── Remastered Executive Hero Header ── */}
         <div className="bg-gradient-to-r from-emerald-950 via-[#1E3D1A] to-slate-950 text-white p-4 sm:p-5 relative overflow-hidden shrink-0 border-b border-emerald-900/60">
           <div className="absolute top-0 right-0 w-80 h-full bg-gradient-to-l from-emerald-600/10 to-transparent pointer-events-none" />
@@ -876,7 +873,7 @@ export function DataOverviewDetailModal({
             <Button
               variant="outline"
               size="sm"
-              onClick={handlePrint}
+              onClick={(event) => printElement(event.currentTarget.closest<HTMLElement>("[data-print-root]"))}
               className="rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-100 gap-1.5 h-8.5"
             >
               <Printer className="size-3" />

@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { printElement } from "@/lib/print-element";
 import { Check,CheckCircle2,Copy,Download,Info,Printer,QrCode,ShieldCheck } from "lucide-react";
 import QRCode from "qrcode";
 import React,{ useEffect,useState } from "react";
@@ -101,12 +102,7 @@ export function QrCodePass({
   const handlePrint = (event: React.MouseEvent<HTMLButtonElement>) => {
     const pass = event.currentTarget.closest(".qr-code-pass");
     if (!pass) return;
-
-    pass.classList.add("qr-code-pass-print-active");
-    window.addEventListener("afterprint", () => {
-      pass.classList.remove("qr-code-pass-print-active");
-    }, { once: true });
-    window.print();
+    printElement(pass as HTMLElement, "qr-code-pass-print-active");
   };
 
   return (

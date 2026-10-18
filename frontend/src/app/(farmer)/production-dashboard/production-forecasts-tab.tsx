@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { printElement } from "@/lib/print-element";
 import {
 FileSpreadsheet,
 LineChart as LineChartIcon,
@@ -58,12 +59,8 @@ export default function ProductionForecastsTab({
     projectedHerd: activeHerdCount + Math.floor(idx * 0.4),
   }));
 
-  const handlePrintSummary = () => {
-    window.print();
-  };
-
   return (
-    <div className="space-y-6">
+    <div data-print-root className="space-y-6">
       {/* Top Forecast KPIs */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
@@ -107,7 +104,7 @@ export default function ProductionForecastsTab({
           </p>
         </div>
         <Button
-          onClick={handlePrintSummary}
+          onClick={(event) => printElement(event.currentTarget.closest<HTMLElement>("[data-print-root]"))}
           variant="outline"
           className="border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold gap-2"
         >

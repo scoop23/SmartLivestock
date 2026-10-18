@@ -2,6 +2,7 @@
 
 import { getDefaultAvatarForSpecies } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 import { PageHeader } from "@/app/components/page-header";
+import { printElement } from "@/lib/print-element";
 import { QrCodePass } from "@/components/qr-code-pass";
 import {
 AlertDialog,
@@ -2075,7 +2076,7 @@ function AdminBatchesDrilldownContent() {
           BATCH BIOSECURITY CERTIFICATE & QR PASS MODAL
       ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={isBatchCertificateOpen} onOpenChange={setIsBatchCertificateOpen}>
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200 max-h-[92vh] overflow-y-auto">
+        <DialogContent data-print-root className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200 max-h-[92vh] overflow-y-auto">
           <DialogHeader className="sr-only">
             <DialogTitle>
               {selectedBatch
@@ -2132,10 +2133,7 @@ function AdminBatchesDrilldownContent() {
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => {
-                    toast.success("Print clearance pass dispatched.");
-                    window.print();
-                  }}
+                  onClick={(event) => printElement(event.currentTarget.closest<HTMLElement>("[data-print-root]"))}
                   className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1"
                 >
                   <Printer className="w-3.5 h-3.5" />

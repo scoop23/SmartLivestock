@@ -1,6 +1,7 @@
 "use client";
 
 import { httpError } from "@/lib/http-error";
+import { printElement } from "@/lib/print-element";
 import type { ProductionType } from "@/app/(farmer)/production-dashboard/production-analytics";
 import {
 getBirthingTerminology,
@@ -1966,7 +1967,7 @@ export default function LivestockDetailPage() {
             <Button
               type="button"
               disabled={!livestockQrDataUrl}
-              onClick={() => window.print()}
+              onClick={(event) => printElement(event.currentTarget.closest<HTMLElement>("#livestock-identity-pass"))}
               className="livestock-id-pass-action rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex-1 gap-1.5 cursor-pointer shadow-sm"
             >
               <Printer className="size-3.5" /> Print Animal ID

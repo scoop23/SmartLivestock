@@ -2,9 +2,66 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Print only the selected pass, centered in normal page flow. */
+/* Isolate selected print targets while letting ordinary pages print normally. */
 @media print {
-  body * { visibility: hidden !important; }
+  /* Ordinary pages print normally. Isolate content only when a print action
+     explicitly marks a selected record or pass. */
+  body:has(#livestock-identity-pass, .qr-code-pass-print-active, #livestock-clearance-print) * {
+    visibility: hidden !important;
+  }
+
+  body.app-print-isolation-active > *:not(.app-print-target-active) {
+    display: none !important;
+  }
+
+  .app-print-target-active,
+  .app-print-target-active * {
+    visibility: visible !important;
+    max-height: none !important;
+    overflow: visible !important;
+    animation: none !important;
+    opacity: 1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .app-print-target-active {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 7.5in !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    translate: none !important;
+    box-shadow: none !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* Screen cards use Tailwind's truncate/line-clamp utilities to fit small
+     dialog columns. Printed reports need the complete values instead. */
+  .app-print-target-active .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .app-print-target-active [class*="line-clamp-"] {
+    display: block !important;
+    overflow: visible !important;
+    -webkit-box-orient: initial !important;
+    -webkit-line-clamp: unset !important;
+  }
+
+  .app-print-target-active button,
+  .app-print-target-active [role="button"],
+  .app-print-target-active [data-slot="dialog-close"],
+  .app-print-target-active .app-print-actions {
+    display: none !important;
+  }
 
   body:has(#livestock-identity-pass),
   body:has(.qr-code-pass-print-active),
