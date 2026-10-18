@@ -62,6 +62,10 @@ new Farmer-submitted cases start `OPEN`. No automatic clinical recovery period
 or vaccine-specific booster validity is assumed. SIBAT can view the history but
 cannot perform the new official-resolution action.
 
+See [clinical and notification requirements](docs/clinical-and-notification-requirements.md)
+for the approved policy and remaining MAO decisions. Vaccine-specific validity
+remains pending an approved schedule.
+
 The shared shadcn follow-up panel is available in Farmer report details, field
 health-report details, and MAO incident review/detail dialogs. CBAT receives
 inventory and health alerts within its authorized scope, including follow-up
