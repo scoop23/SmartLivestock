@@ -42,9 +42,11 @@ export default function AuctionGatePage() {
     const storageKey = "smartlivestock-gate-session";
     const session = sessionStorage.getItem(storageKey) || crypto.randomUUID();
     sessionStorage.setItem(storageKey, session);
-    setGateSession(session);
     api.get<CountedAnimal[]>("livestock/gate-verifications/", { params: { session } })
-      .then((response) => setAnimals(response.data))
+      .then((response) => {
+        setAnimals(response.data);
+        setGateSession(session);
+      })
       .catch(() => toast.error("Could not restore this gate session's verified count."));
   }, []);
 

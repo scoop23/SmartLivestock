@@ -4,7 +4,7 @@ import { PageHeader } from "@/app/components/page-header";
 import { Alert,AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
+import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Archive,Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo,useState } from "react";
+import { OwnershipTransferKpis } from "../ownership-transfer-kpis";
 
 type Transfer = {
   id: number;
@@ -60,10 +61,6 @@ export default function AuctionOwnershipTransferRegistryPage() {
     });
   }, [data, search, statusFilter]);
 
-  const pendingCount = data.filter((transfer) => transfer.status === "PENDING" || transfer.status === "VERIFIED").length;
-  const approvedCount = data.filter((transfer) => transfer.status === "APPROVED").length;
-  const soldCount = data.filter((transfer) => transfer.livestock_operational_status === "SOLD").length;
-
   return <>
     <PageHeader
       title="Ownership Transfer Records"
@@ -71,12 +68,8 @@ export default function AuctionOwnershipTransferRegistryPage() {
       variant="auction"
       action={<Button asChild variant="secondary"><Link href="/auction-ownership-transfers">Record a transfer</Link></Button>}
     />
-    <main className="mx-auto w-full max-w-7xl space-y-5 p-4 pb-24 sm:p-6 md:pb-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Your transfer records</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{data.length}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Awaiting MAO review</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{pendingCount}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Approved / sold animals</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{approvedCount} / {soldCount}</p></CardContent></Card>
-      </div>
+    <main className="mx-auto w-full max-w-none space-y-5 p-4 pb-24 sm:p-6 md:pb-6">
+      <OwnershipTransferKpis records={data} isLoading={isLoading} />
 
       <Card><CardContent className="flex flex-col gap-3 pt-5 sm:flex-row">
         <div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search seller, buyer, tag, or certificate number" className="pl-9" /></div>

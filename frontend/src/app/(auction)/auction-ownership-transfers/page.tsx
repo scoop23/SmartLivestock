@@ -13,7 +13,9 @@ import { Separator } from "@/components/ui/separator";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import api from "@/lib/axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight,QrCode,Search } from "lucide-react";
+import { OwnershipTransferKpis } from "./ownership-transfer-kpis";
+import Link from "next/link";
+import { ArrowLeft,ArrowLeftRight,QrCode,Search } from "lucide-react";
 import { useState,type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -225,7 +227,11 @@ export default function AuctionOwnershipTransfersPage() {
   return (
     <>
       <PageHeader title="Record Ownership Transfer" subtitle="Find the seller, select their livestock, then record the completed certificate." variant="auction" />
-      <main className="mx-auto w-full max-w-6xl space-y-6 p-4 pb-24 sm:p-6 md:pb-6">
+      <main className="mx-auto w-full max-w-none space-y-6 p-4 pb-24 sm:p-6 md:pb-6">
+        <Button asChild variant="ghost" className="-ml-3 min-h-10 gap-2 px-3 text-slate-600">
+          <Link href="/auction"><ArrowLeft className="size-4" />Back to Auction</Link>
+        </Button>
+        <OwnershipTransferKpis records={transfers} isLoading={isLoading} />
         <Card>
           <CardHeader>
             <div className="flex items-start gap-3">
