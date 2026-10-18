@@ -22,3 +22,19 @@ const serverSearch = () => "";
 export function useBrowserSearch() {
   return useSyncExternalStore(subscribeLocation, browserSearch, serverSearch);
 }
+
+function subscribeOnline(notify: () => void) {
+  window.addEventListener("online", notify);
+  window.addEventListener("offline", notify);
+  return () => {
+    window.removeEventListener("online", notify);
+    window.removeEventListener("offline", notify);
+  };
+}
+
+const browserOnline = () => navigator.onLine;
+const serverOnline = () => true;
+
+export function useOnlineStatus() {
+  return useSyncExternalStore(subscribeOnline, browserOnline, serverOnline);
+}

@@ -32,6 +32,9 @@ interface MovementTimelinePlayerProps {
   activeDateIndex: number;
   onDateIndexChange: (idx: number | ((prev: number) => number)) => void;
   uniqueDates: string[];
+  years: string[];
+  selectedYear: string;
+  onYearChange: (year: string) => void;
   isAllDatesMode: boolean;
   onToggleAllDatesMode: () => void;
   onClose?: () => void;
@@ -42,6 +45,9 @@ export function MovementTimelinePlayer({
   activeDateIndex,
   onDateIndexChange,
   uniqueDates,
+  years,
+  selectedYear,
+  onYearChange,
   isAllDatesMode,
   onToggleAllDatesMode,
   onClose,
@@ -98,12 +104,12 @@ export function MovementTimelinePlayer({
     }
   };
 
-  if (uniqueDates.length <= 1 && !isAllDatesMode) {
+  if (uniqueDates.length === 0) {
     return null;
   }
 
   const formattedCurrentDate = (() => {
-    if (isAllDatesMode) return 'All Historical Permits';
+    if (isAllDatesMode) return selectedYear === 'ALL' ? 'All-time permits' : `${selectedYear} permits`;
     try {
       const d = new Date(currentDate);
       return d.toLocaleDateString('en-US', {
@@ -118,6 +124,17 @@ export function MovementTimelinePlayer({
 
   return (
     <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xl p-3 sm:p-4 text-slate-800 space-y-2 pointer-events-auto">
+      <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter permits by year">
+        <Button type="button" size="sm" variant={selectedYear === 'ALL' ? 'default' : 'outline'} aria-pressed={selectedYear === 'ALL'} onClick={() => onYearChange('ALL')} className="h-7 shrink-0 px-2.5 text-[10px]">
+          All time
+        </Button>
+        {years.map((year) => (
+          <Button key={year} type="button" size="sm" variant={selectedYear === year ? 'default' : 'outline'} aria-pressed={selectedYear === year} onClick={() => onYearChange(year)} className="h-7 shrink-0 px-2.5 text-[10px]">
+            {year}
+          </Button>
+        ))}
+      </div>
+
       {/* Header Info */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -146,7 +163,7 @@ export function MovementTimelinePlayer({
               isAllDatesMode ? 'bg-blue-600 text-white' : 'text-slate-700'
             }`}
           >
-            {isAllDatesMode ? 'Cumulative' : 'Single Date'}
+            {isAllDatesMode ? 'Cumulative' : 'Single date'}
           </Button>
           {onClose && (
             <button

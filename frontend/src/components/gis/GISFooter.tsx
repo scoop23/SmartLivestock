@@ -1,5 +1,6 @@
 'use client';
 
+import { useClientReady } from "@/hooks/use-browser-state";
 /**
  * ============================================================================
  * SmartLivestock GIS — Municipal Metadata Footer (`GISFooter.tsx`)
@@ -325,10 +326,7 @@ export function GISFooter({ userScope }: GISFooterProps) {
 }
 
 function useMemoTime() {
-  const [timeStr, setTimeStr] = React.useState<string>('Live');
-  React.useEffect(() => {
-    const d = new Date();
-    setTimeStr(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
-  }, []);
-  return timeStr;
+  const ready = useClientReady();
+  const [date] = React.useState(() => new Date());
+  return ready ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' }) : 'Live';
 }

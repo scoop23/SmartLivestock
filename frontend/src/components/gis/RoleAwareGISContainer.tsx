@@ -1,5 +1,8 @@
 'use client';
 
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
+import { useClientReady } from "@/hooks/use-browser-state";
 /**
  * ============================================================================
  * SmartLivestock GIS — Unified Role-Aware Container (`RoleAwareGISContainer.tsx`)
@@ -98,22 +101,37 @@ export function RoleAwareGISContainer({
   const router = useRouter();
   const isMobile = useIsMobile();
 
-  // Telemetry state queried directly from Django REST Framework (`/api/analytics/gis/`)
-  const [gisData, setGisData] = useState<GISTelemetryResponse | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const ready = useClientReady();
+  const scopeKey = JSON.stringify([user?.email, user?.role, user?.accessScope, user?.assignedBarangayId]);
+  const telemetry = useQuery({
+    queryKey: ["gis-telemetry", scopeKey],
+    enabled: Boolean(user),
+    queryFn: async ({ signal }) => (await api.get<GISTelemetryResponse>('/api/analytics/gis/', { signal })).data,
+  });
+  const gisData = telemetry.data ?? null;
+  const isLoading = telemetry.isPending || telemetry.isFetching;
   const [showInitialLoadingScreen, setShowInitialLoadingScreen] = useState(true);
-  const [loadingScreenPortalRoot, setLoadingScreenPortalRoot] = useState<HTMLElement | null>(null);
+  const loadingScreenPortalRoot = ready ? document.body : null;
 
   // Active layer & perspective states
-  const [activeLayer, setActiveLayer] = useState<MapLayer>('cattle');
+  const [requestedLayer, setActiveLayer] = useState<MapLayer>('cattle');
+  const allowedLayers = gisData?.user_scope?.allowed_layers;
+  const activeLayer = allowedLayers?.length && !allowedLayers.includes(requestedLayer) ? allowedLayers[0] : requestedLayer;
   const [selectedLivestockType, setSelectedLivestockType] = useState<string>('Cattle');
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [diseaseSubMode, setDiseaseSubMode] = useState<DiseaseSubMode>('reported');
-  const [selectedBarangay, setSelectedBarangay] = useState<BarangayGISData | null>(null);
+  const [barangaySelection, setBarangaySelection] = useState<{ scope: string; name: string | null } | null>(null);
+  const initialName = gisData?.user_scope?.allowed_barangays?.length === 1 ? gisData.user_scope.allowed_barangays[0] : null;
+  const selectedName = barangaySelection?.scope === scopeKey ? barangaySelection.name : initialName;
+  const selectedBarangay = selectedName ? gisData?.barangays_dict?.[selectedName] ?? gisData?.barangays?.find(b => b.name === selectedName) ?? null : null;
+  const setSelectedBarangay = useCallback((value: BarangayGISData | null) => {
+    setBarangaySelection({ scope: scopeKey, name: value?.name ?? null });
+  }, [scopeKey]);
   const [selectedMovement, setSelectedMovement] = useState<MovementRecord | null>(null);
   const [showMovementOverlay, setShowMovementOverlay] = useState<boolean>(false);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [sidebarChoice, setSidebarOpen] = useState<boolean | null>(null);
+  const sidebarOpen = sidebarChoice ?? !isMobile;
   const [resetTrigger, setResetTrigger] = useState<number>(0);
 
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
@@ -121,13 +139,7 @@ export function RoleAwareGISContainer({
   // Movement timeline player states
   const [movementDateIndex, setMovementDateIndex] = useState<number>(0);
   const [isMovementAllDatesMode, setIsMovementAllDatesMode] = useState<boolean>(true);
-
-  // Open sidebar by default on desktop screens (>= 1024px)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      setSidebarOpen(true);
-    }
-  }, []);
+  const [selectedMovementYear, setSelectedMovementYear] = useState<string>('ALL');
 
   // Simulation timeline & environmental states (12-month Jan-Dec 2026 player)
   const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(3); // April 2026 baseline
@@ -139,52 +151,11 @@ export function RoleAwareGISContainer({
   const [monthlyWindData, setMonthlyWindData] = useState<MonthlyWindData[]>(STATIC_MONTHLY_WIND);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  /**
-   * DATA FLOW STEP 1: Backend API Fetching
-   * Fetches role-scoped GIS telemetry from PostgreSQL via Django REST Framework.
-   */
-  const fetchGISTelemetry = useCallback(async (isRefresh = false) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await api.get<GISTelemetryResponse>('/api/analytics/gis/');
-      setGisData(response.data);
-
-      // Align active layer if current layer is disallowed by user's role scope
-      if (response.data.user_scope?.allowed_layers && response.data.user_scope.allowed_layers.length > 0) {
-        if (!response.data.user_scope.allowed_layers.includes(activeLayer)) {
-          setActiveLayer(response.data.user_scope.allowed_layers[0]);
-        }
-      }
-
-      // If user has a single own/assigned barangay, automatically focus on it
-      if (response.data.user_scope?.allowed_barangays?.length === 1) {
-        const singleBName = response.data.user_scope.allowed_barangays[0];
-        const match = response.data.barangays_dict?.[singleBName] || response.data.barangays?.find(b => b.name === singleBName);
-        if (match) {
-          setSelectedBarangay(match);
-        }
-      }
-
-      if (isRefresh) {
-        toast.success('GIS Telemetry synchronized with PostgreSQL database');
-      }
-    } catch (err: unknown) {
-      console.error('Failed to fetch GIS telemetry:', err);
-      setError('Unable to load real-time municipal telemetry from backend.');
-      toast.error('Could not connect to GIS aggregation service');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeLayer]);
-
-  useEffect(() => {
-    setLoadingScreenPortalRoot(document.body);
-  }, []);
-
-  useEffect(() => {
-    fetchGISTelemetry();
-  }, [fetchGISTelemetry]);
+  const fetchGISTelemetry = async (isRefresh = false) => {
+    const result = await telemetry.refetch();
+    if (result.isError) toast.error('Could not connect to GIS aggregation service');
+    else if (isRefresh) toast.success('GIS telemetry refreshed');
+  };
 
   // Keep the first-load screen mounted briefly after the request ends so its opacity can fade out.
   // Later refreshes keep using the small syncing indicator and do not cover the interactive map.
@@ -214,7 +185,7 @@ export function RoleAwareGISContainer({
     return () => {
       isMounted = false;
     };
-  }, [gisData?.user_scope]);
+  }, [gisData?.user_scope, setSelectedBarangay]);
 
   // Fast O(1) dictionary join for GeoJSON features
   const barangaysByName = useMemo(() => {
@@ -261,13 +232,6 @@ export function RoleAwareGISContainer({
     return monthlyWindData[currentMonthIndex] || STATIC_MONTHLY_WIND[currentMonthIndex] || STATIC_MONTHLY_WIND[0];
   }, [monthlyWindData, currentMonthIndex]);
 
-  // Keep selectedBarangay reference synchronized with fresh data
-  useEffect(() => {
-    if (selectedBarangay && barangaysByName[selectedBarangay.name]) {
-      setSelectedBarangay(barangaysByName[selectedBarangay.name]);
-    }
-  }, [barangaysByName, selectedBarangay]);
-
   // Simulation Player Playback Loop
   useEffect(() => {
     if (isPlaying) {
@@ -289,24 +253,48 @@ export function RoleAwareGISContainer({
     };
   }, [isPlaying, playbackSpeed]);
 
-  const uniqueMovementDates = useMemo(() => {
+  const movementYears = useMemo(() => {
     if (!gisData?.movements) return [];
     const set = new Set<string>();
     for (const m of gisData.movements) {
+      if (m.date) set.add(m.date.slice(0, 4));
+    }
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [gisData]);
+
+  const activeMovementYear = selectedMovementYear === 'ALL' || movementYears.includes(selectedMovementYear)
+    ? selectedMovementYear
+    : 'ALL';
+  const periodMovements = useMemo(() => {
+    const allMoves = gisData?.movements || [];
+    return activeMovementYear === 'ALL'
+      ? allMoves
+      : allMoves.filter((movement) => movement.date?.startsWith(`${activeMovementYear}-`));
+  }, [gisData?.movements, activeMovementYear]);
+
+  const uniqueMovementDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of periodMovements) {
       if (m.date) set.add(m.date);
     }
     return Array.from(set).sort();
-  }, [gisData]);
+  }, [periodMovements]);
 
   const activeDisplayMovements = useMemo(() => {
-    const allMoves = gisData?.movements || [];
+    const allMoves = periodMovements;
     if (isMovementAllDatesMode || uniqueMovementDates.length <= 1) {
       return allMoves;
     }
     const targetDate = uniqueMovementDates[movementDateIndex];
     if (!targetDate) return allMoves;
     return allMoves.filter((m) => m.date === targetDate);
-  }, [gisData?.movements, isMovementAllDatesMode, uniqueMovementDates, movementDateIndex]);
+  }, [periodMovements, isMovementAllDatesMode, uniqueMovementDates, movementDateIndex]);
+
+  const handleMovementYearChange = useCallback((year: string) => {
+    setSelectedMovementYear(year);
+    setMovementDateIndex(0);
+    setIsMovementAllDatesMode(true);
+  }, []);
 
   const handleSelectBarangay = useCallback((b: BarangayGISData) => {
     setSelectedMovement(null);
@@ -316,7 +304,7 @@ export function RoleAwareGISContainer({
     } else {
       setMobileDrawerOpen(true);
     }
-  }, []);
+  }, [setSelectedBarangay]);
 
   const handleSelectMovement = useCallback((m: MovementRecord | null) => {
     setSelectedMovement(m);
@@ -328,7 +316,7 @@ export function RoleAwareGISContainer({
         setMobileDrawerOpen(true);
       }
     }
-  }, []);
+  }, [setSelectedBarangay]);
 
   const handleClearSelectedMovement = useCallback(() => {
     setSelectedMovement(null);
@@ -340,7 +328,7 @@ export function RoleAwareGISContainer({
       return;
     }
     setSelectedBarangay(null);
-  }, [gisData?.user_scope]);
+  }, [gisData?.user_scope, setSelectedBarangay]);
 
   const handleResetBounds = useCallback(() => {
     setResetTrigger((prev) => prev + 1);
@@ -378,6 +366,7 @@ export function RoleAwareGISContainer({
 
   return (
     <div className="relative w-full h-full max-h-full min-h-0 overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
+      {telemetry.isError && <p role="alert" className="z-[1000] bg-red-950 p-3 text-sm text-white">Map data could not be loaded. Use Refresh to retry.</p>}
       {/* 0. Mobile Back Button Header */}
       <button
         type="button"
@@ -466,13 +455,16 @@ export function RoleAwareGISContainer({
         )}
 
         {/* 4b. Movement Historical Timeline Scrubber (When in Movement Layer) */}
-        {activeLayer === 'movement' && uniqueMovementDates.length > 1 && (
+        {activeLayer === 'movement' && movementYears.length > 0 && (
           <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-lg">
             <MovementTimelinePlayer
-              movements={gisData?.movements || []}
+              movements={periodMovements}
               activeDateIndex={movementDateIndex}
               onDateIndexChange={setMovementDateIndex}
               uniqueDates={uniqueMovementDates}
+              years={movementYears}
+              selectedYear={activeMovementYear}
+              onYearChange={handleMovementYearChange}
               isAllDatesMode={isMovementAllDatesMode}
               onToggleAllDatesMode={() => setIsMovementAllDatesMode((prev) => !prev)}
             />

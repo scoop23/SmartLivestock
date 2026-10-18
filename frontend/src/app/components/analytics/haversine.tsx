@@ -1,5 +1,6 @@
 'use client';
 
+import { useClientReady } from "@/hooks/use-browser-state";
 import type { Feature, FeatureCollection } from "geojson";
 import type { GeoJSON as LeafletGeoJSON, Path, LeafletMouseEvent } from "leaflet";
 import 'leaflet/dist/leaflet.css';
@@ -172,7 +173,7 @@ const PADRE_GARCIA_GEOJSON: GeoJSON.FeatureCollection = {
 export default function PadreGarciaForecaster() {
   const [mode, setMode] = useState<'real' | 'simulation'>('real');
   const [targetDate, setTargetDate] = useState('2026-05-15');
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useClientReady();
 
   // Simulation state
   const [dayIndex, setDayIndex] = useState(0);
@@ -184,7 +185,7 @@ export default function PadreGarciaForecaster() {
   const START_DATE = useMemo(() => new Date('2026-04-26T00:00:00'), []);
   const timeline = useMemo(() => buildTimeline(SEED), []);
 
-  useEffect(() => { setIsMounted(true); }, []);
+
 
   const activeSnapshot: Snapshot = useMemo(() => {
     if (mode === 'simulation') return timeline[dayIndex] ?? timeline[0];
