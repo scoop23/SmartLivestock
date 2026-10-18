@@ -18,13 +18,6 @@ DialogTitle,
 import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Label } from "@/components/ui/label";
-import {
-Select,
-SelectContent,
-SelectItem,
-SelectTrigger,
-SelectValue,
-} from "@/components/ui/select";
 import api from "@/lib/axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
@@ -45,7 +38,8 @@ XAxis,
 YAxis,
 } from "recharts";
 import { toast } from "sonner";
-import type { LivestockInventoryItem } from "../livestock-inventory/page";
+import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
+import { LivestockPickerField } from "./select-livestock-dialog";
 
 export interface WeightRecordItem {
   id: number;
@@ -352,25 +346,17 @@ export default function ProductionWeightTab({
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="weight-animal">Select Animal / Tag *</Label>
-              <Select
-                value={selectedLivestockId}
-                onValueChange={setSelectedLivestockId}
-              >
-                <SelectTrigger id="weight-animal" className="bg-slate-50">
-                  <SelectValue placeholder="Choose cattle from inventory" />
-                </SelectTrigger>
-                <SelectContent>
-                  {approvedInventories.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.tagNumber || `Batch #${item.id}`} ({item.livestockTypeName} - {item.breed || "Standard"})
-                      {item.weight != null ? ` [Current: ${item.weight} kg]` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <LivestockPickerField
+              id="weight-animal"
+              label="Select Animal / Tag *"
+              placeholder="Choose livestock to weigh"
+              items={approvedInventories}
+              selectedId={selectedLivestockId}
+              onSelect={(item) => setSelectedLivestockId(item.id)}
+              dialogTitle="Choose Livestock to Weigh"
+              dialogDescription="Choose an approved animal or herd from your inventory. Current weights are shown on each card."
+              emptyStateText="No approved livestock is available for weight logging."
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">

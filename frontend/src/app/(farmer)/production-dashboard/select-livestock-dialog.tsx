@@ -9,6 +9,7 @@ DialogHeader,
 DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/components/ui/utils";
 import { formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import {
@@ -22,6 +23,7 @@ Syringe,
 Tag,
 Weight,
 X,
+  ChevronDown,
 } from "lucide-react";
 import { useMemo,useState,useSyncExternalStore } from "react";
 import { getAvatarById,type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
@@ -34,6 +36,22 @@ interface SelectLivestockDialogProps {
   selectedId: string | null;
   onSelect: (item: LivestockInventoryItem) => void;
   productionType?: ProductionType;
+  title?: string;
+  description?: string;
+  emptyStateText?: string;
+}
+
+interface LivestockPickerFieldProps {
+  items: LivestockInventoryItem[];
+  id: string;
+  selectedId: string;
+  onSelect: (item: LivestockInventoryItem) => void;
+  label: string;
+  placeholder: string;
+  dialogTitle?: string;
+  dialogDescription?: string;
+  emptyStateText?: string;
+  disabled?: boolean;
 }
 
 const PAGE_SIZE = 6;
@@ -87,6 +105,9 @@ export default function SelectLivestockDialog({
   selectedId,
   onSelect,
   productionType,
+  title = "Choose Production Livestock",
+  description,
+  emptyStateText,
 }: SelectLivestockDialogProps) {
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("ALL");
@@ -151,12 +172,12 @@ export default function SelectLivestockDialog({
             </div>
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-lg sm:text-xl font-black text-white leading-tight break-words">
-                Choose Production Livestock
+                {title}
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm text-white/75 mt-1 break-words">
-                {productionType === "milk"
+                {description ?? (productionType === "milk"
                   ? `Showing female livestock of milk-capable species; calves and yearlings are excluded (${eligibleItems.length} eligible).`
-                  : `All ${eligibleItems.length} MAO-approved livestock records are available below.`}
+                  : `All ${eligibleItems.length} MAO-approved livestock records are available below.`)}
               </DialogDescription>
             </div>
           </div>
@@ -226,7 +247,7 @@ export default function SelectLivestockDialog({
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6">
           {eligibleItems.length === 0 ? (
-            <EmptyState text={productionType === "milk" ? "No approved female livestock of a milk-capable species is available." : "No approved livestock is available for production logging."} />
+            <EmptyState text={emptyStateText ?? (productionType === "milk" ? "No approved female livestock of a milk-capable species is available." : "No approved livestock is available for production logging.")} />
           ) : filtered.length === 0 ? (
             <EmptyState text="No livestock matches the current search and species filter." />
           ) : (
@@ -320,6 +341,72 @@ export default function SelectLivestockDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function LivestockPickerField({
+  items,
+  id,
+  selectedId,
+  onSelect,
+  label,
+  placeholder,
+  dialogTitle = "Choose Livestock",
+  dialogDescription = "Choose from your approved livestock records.",
+  emptyStateText = "No approved livestock is available.",
+  disabled = false,
+}: LivestockPickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const selectedItem = items.find((item) => item.id === selectedId);
+  const selectedName = selectedItem
+    ? selectedItem.entryType === "INDIVIDUAL"
+      ? selectedItem.tagNumber || `Animal #${selectedItem.id}`
+      : selectedItem.batchCode || selectedItem.batchName || `Herd #${selectedItem.id}`
+    : null;
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Button
+        type="button"
+        id={id}
+        variant="outline"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        className="h-auto min-h-11 w-full justify-between gap-3 rounded-xl border-slate-200 bg-slate-50 px-3 py-2 text-left font-normal hover:bg-white"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          {selectedItem ? (
+            <LivestockPicture item={selectedItem} selected={false} />
+          ) : (
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-slate-400">
+              <Tag className="size-5" />
+            </span>
+          )}
+          <span className="min-w-0">
+            <span className="block truncate font-semibold text-slate-900">
+              {selectedName ?? placeholder}
+            </span>
+            {selectedItem && (
+              <span className="block truncate text-xs text-slate-500">
+                {selectedItem.livestockTypeName} · {selectedItem.breed || "Breed not specified"} · {selectedItem.sex || "Sex not specified"}
+              </span>
+            )}
+          </span>
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-slate-500" />
+      </Button>
+      <SelectLivestockDialog
+        open={open}
+        onOpenChange={setOpen}
+        items={items}
+        selectedId={selectedId || null}
+        onSelect={onSelect}
+        title={dialogTitle}
+        description={dialogDescription}
+        emptyStateText={emptyStateText}
+      />
+    </div>
   );
 }
 

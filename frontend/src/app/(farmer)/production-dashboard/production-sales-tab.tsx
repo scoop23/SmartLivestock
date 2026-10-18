@@ -34,6 +34,7 @@ Truck
 import { useState } from "react";
 import { toast } from "sonner";
 import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
+import { LivestockPickerField } from "./select-livestock-dialog";
 
 export interface LiveSaleItem {
   id: number;
@@ -146,6 +147,7 @@ export default function ProductionSalesTab({
       toast.success("Animal commercial intent declared!");
       setIsIntentOpen(false);
       setIntentLivestockId("");
+      setTargetDate("");
       setTargetDestination("");
       setIntentNotes("");
       queryClient.invalidateQueries({ queryKey: ["animal_dispositions"] });
@@ -422,21 +424,18 @@ export default function ProductionSalesTab({
           </DialogHeader>
 
           <form onSubmit={handleSaleSubmit} className="space-y-4 mt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="sale-animal">Select Animal / Tag *</Label>
-              <Select value={saleLivestockId} onValueChange={setSaleLivestockId} disabled={!!editingSale}>
-                <SelectTrigger id="sale-animal" className="bg-slate-50">
-                  <SelectValue placeholder={editingSale?.batch ? "Original herd retained" : "Choose livestock sold"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {approvedInventories.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.tagNumber || `Batch #${item.id}`} ({item.livestockTypeName} - {item.breed || "Standard"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <LivestockPickerField
+              id="sale-animal"
+              label="Select Animal / Tag *"
+              placeholder={editingSale?.batch ? "Original herd retained" : "Choose livestock sold"}
+              items={approvedInventories}
+              selectedId={saleLivestockId}
+              onSelect={(item) => setSaleLivestockId(item.id)}
+              dialogTitle="Choose Livestock for Sale"
+              dialogDescription="Choose the approved animal or herd included in this sale."
+              emptyStateText="No approved livestock is available for sale recording."
+              disabled={!!editingSale}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -562,21 +561,17 @@ export default function ProductionSalesTab({
           </DialogHeader>
 
           <form onSubmit={handleIntentSubmit} className="space-y-4 mt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="intent-animal">Select Livestock *</Label>
-              <Select value={intentLivestockId} onValueChange={setIntentLivestockId}>
-                <SelectTrigger id="intent-animal" className="bg-slate-50">
-                  <SelectValue placeholder="Choose animal" />
-                </SelectTrigger>
-                <SelectContent className="z-[var(--z-popover-dialog)]">
-                  {approvedInventories.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.tagNumber || `Batch #${item.id}`} ({item.livestockTypeName})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <LivestockPickerField
+              id="intent-animal"
+              label="Select Livestock *"
+              placeholder="Choose livestock"
+              items={approvedInventories}
+              selectedId={intentLivestockId}
+              onSelect={(item) => setIntentLivestockId(item.id)}
+              dialogTitle="Choose Livestock for Sale or Movement"
+              dialogDescription="Choose the approved animal or herd for this commercial intent."
+              emptyStateText="No approved livestock is available for sale or movement planning."
+            />
 
             <div className="space-y-1.5">
               <Label htmlFor="intent-type">Commercial Intent *</Label>
@@ -593,6 +588,16 @@ export default function ProductionSalesTab({
                   <SelectItem value="FOR_MOVEMENT">Farm Transfer / Pasture Movement</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="intent-target-date">Target date (optional)</Label>
+              <Input
+                id="intent-target-date"
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+              />
             </div>
 
             <div className="space-y-1.5">
