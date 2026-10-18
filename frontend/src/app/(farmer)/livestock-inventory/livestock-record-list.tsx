@@ -557,11 +557,12 @@ function LivestockSplitCard({
               type="button"
               variant="outline"
               size="sm"
+              aria-label={`View details for ${item.tagNumber || `livestock ${item.id}`}`}
               onClick={() => onView(item)}
               className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 cursor-pointer"
             >
               <Eye className="size-3.5" />
-              <span>Profile</span>
+              <span>Details</span>
             </Button>
 
             <TooltipProvider delayDuration={200}>
@@ -634,15 +635,20 @@ export default function LivestockRecordList({
   const [viewMode, setViewMode] = useState<"grid" | "table">(defaultViewMode ?? "grid");
 
   // Filtering states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusType | "ALL">("ALL");
-  const [operationalFilter, setOperationalFilter] = useState<OperationalStatus | "ALL">("ALL");
-  const [typeFilter, setTypeFilter] = useState<string>("ALL");
-  const [sortBy, setSortBy] = useState<SortKey>("newest");
+  const [searchQuery, updateSearchQuery] = useState("");
+  const setSearchQuery = (value: string) => { updateSearchQuery(value); setCurrentPage(1); };
+  const [statusFilter, updateStatusFilter] = useState<StatusType | "ALL">("ALL");
+  const setStatusFilter = (value: StatusType | "ALL") => { updateStatusFilter(value); setCurrentPage(1); };
+  const [operationalFilter, updateOperationalFilter] = useState<OperationalStatus | "ALL">("ALL");
+  const setOperationalFilter = (value: OperationalStatus | "ALL") => { updateOperationalFilter(value); setCurrentPage(1); };
+  const [typeFilter, updateTypeFilter] = useState<string>("ALL");
+  const setTypeFilter = (value: string) => { updateTypeFilter(value); setCurrentPage(1); };
+  const [sortBy, updateSortBy] = useState<SortKey>("newest");
+  const setSortBy = (value: SortKey) => { updateSortBy(value); setCurrentPage(1); };
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(12);
+  const pageSize = 12;
 
   /* Count active filters */
   const activeFilterCount = [
@@ -716,9 +722,7 @@ export default function LivestockRecordList({
   }, [items, searchQuery, statusFilter, operationalFilter, typeFilter, sortBy]);
 
   /* Reset pagination to page 1 whenever filters change */
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, statusFilter, operationalFilter, typeFilter, sortBy, pageSize]);
+
 
   /* Paginated slice */
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -1334,7 +1338,7 @@ export default function LivestockRecordList({
                         <Button
                           variant="outline"
                           size="sm"
-                          aria-label={`View profile for ${item.tagNumber || `livestock ${item.id}`}`}
+                          aria-label={`View details for ${item.tagNumber || `livestock ${item.id}`}`}
                           onClick={() => onView(item)}
                           className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900"
                         >

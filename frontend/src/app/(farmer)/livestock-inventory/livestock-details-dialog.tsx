@@ -7,6 +7,7 @@ import {
 Dialog,
 DialogContent,
 DialogDescription,
+DialogFooter,
 DialogHeader,
 DialogTitle,
 } from "@/components/ui/dialog";
@@ -25,7 +26,6 @@ Milk,
 RotateCcw,
 Scale,
 ShieldCheck,
-Tag
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getAvatarById } from "./livestock-inventory";
@@ -326,34 +326,7 @@ export default function LivestockDetailsDialog({
                           <ExternalLink className="size-3" />
                         </Button>
                       </div>
-                    ) : (
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div className="flex items-start gap-2.5">
-                          <div className="size-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0">
-                            <Tag className="size-4" />
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-black text-slate-900">
-                              Complete Animal Profile & Records
-                            </h4>
-                            <p className="text-[11px] text-slate-600 mt-0.5">
-                              View full weight charts, yield logs, pedigree, and printable QR ear tag.
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            onOpenChange();
-                            router.push(`/livestock-inventory/${livestock.tagNumber || livestock.id}`);
-                          }}
-                          className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 shrink-0"
-                        >
-                          <span>View Full Profile</span>
-                          <ExternalLink className="size-3" />
-                        </Button>
-                      </div>
-                    )}
+                    ) : null}
 
                     {/* Quick Specs Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -536,6 +509,27 @@ export default function LivestockDetailsDialog({
               </TabsContent>
             </div>
           </Tabs>
+        )}
+
+        {livestock && (
+          <DialogFooter className="mt-auto shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">
+                Open this animal’s complete profile, records, and management tools.
+              </p>
+              <Button
+                size="lg"
+                onClick={() => {
+                  onOpenChange();
+                  router.push(`/livestock-inventory/${livestock.tagNumber || livestock.id}`);
+                }}
+                className="h-11 w-full gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 sm:w-auto"
+              >
+                <span>View Profile</span>
+                <ExternalLink className="size-4" />
+              </Button>
+            </div>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

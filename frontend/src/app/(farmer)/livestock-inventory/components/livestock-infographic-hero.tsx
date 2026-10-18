@@ -61,7 +61,11 @@ interface LivestockInfographicHeroProps {
   avatar?: { emoji: string; bgGradient: string };
 }
 
-export function LivestockInfographicHero({
+export function LivestockInfographicHero(props: LivestockInfographicHeroProps) {
+  return <LivestockInfographicHeroContent key={`${props.activeItem.id}:${props.photoUrl || ""}`} {...props} />;
+}
+
+function LivestockInfographicHeroContent({
   activeItem,
   latestWeight,
   latestAdg,
@@ -86,12 +90,10 @@ export function LivestockInfographicHero({
   const anchors = SILHOUETTE_ANCHORS[speciesKey];
 
   // View Mode: Silhouette blueprint vs Optional Full View Photo
-  const [viewMode, setViewMode] = useState<"silhouette" | "photo">("silhouette");
+  const [viewMode, setViewMode] = useState<"silhouette" | "photo">(photoUrl ? "photo" : "silhouette");
   const [isFullPhotoModalOpen, setIsFullPhotoModalOpen] = useState(false);
 
-  useEffect(() => {
-    setViewMode(photoUrl ? "photo" : "silhouette");
-  }, [activeItem.id, photoUrl]);
+
 
   // Natural Age Classification
   const normClass = (activeItem.ageClassification || "").toUpperCase();

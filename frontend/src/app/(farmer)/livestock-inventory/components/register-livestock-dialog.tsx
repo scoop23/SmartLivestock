@@ -160,7 +160,13 @@ function createDefaultBatchAnimals(prefix: string, usedTags: string[]): BatchAni
   });
 }
 
-export function RegisterLivestockDialog({
+export function RegisterLivestockDialog(props: RegisterLivestockDialogProps) {
+  const { user } = useAuth();
+  const identity = [user?.firstName, user?.lastName, user?.username].join(":");
+  return <RegisterLivestockDialogContent key={`${props.open}:${identity}`} {...props} />;
+}
+
+function RegisterLivestockDialogContent({
   open,
   onOpenChange,
   livestockTypes,
@@ -177,7 +183,7 @@ export function RegisterLivestockDialog({
 
   const [formError, setFormError] = useState("");
   const [submittedLivestock, setSubmittedLivestock] = useState<{ id: string; tagNumber: string } | null>(null);
-  const [formData, setFormData] = useState(initialFormData);
+  const [formData, setFormData] = useState(() => ({ ...initialFormData, tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "" }));
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [batchPhotoFiles, setBatchPhotoFiles] = useState<File[]>([]);
   const [batchPhotoDataUrls, setBatchPhotoDataUrls] = useState<string[]>([]);
@@ -189,28 +195,6 @@ export function RegisterLivestockDialog({
   const [batchAnimals, setBatchAnimals] = useState<BatchAnimalFormRow[]>(() =>
     createDefaultBatchAnimals(ownerTagPrefix, existingTags)
   );
-
-  // A new individual starts with the next unused tag for this farmer.
-  useEffect(() => {
-    if (open && ownerTagPrefix && !formData.tagNumber) {
-      setFormData((previous) => ({
-        ...previous,
-        tagNumber: nextOwnerTag(ownerTagPrefix, existingTags),
-      }));
-    }
-    if (open && ownerTagPrefix) {
-      setBatchAnimals((previous) => {
-        if (!previous.some((animal) => !animal.tagNumber)) return previous;
-        const used = [...existingTags, ...previous.map((animal) => animal.tagNumber).filter(Boolean)];
-        return previous.map((animal) => {
-          if (animal.tagNumber) return animal;
-          const tagNumber = nextOwnerTag(ownerTagPrefix, used);
-          used.push(tagNumber);
-          return { ...animal, tagNumber };
-        });
-      });
-    }
-  }, [open, ownerTagPrefix, existingTags, formData.tagNumber]);
 
   const tagError = (tag: string, otherTags: string[] = []) => {
     const normalizedTag = tag.trim().toUpperCase();
