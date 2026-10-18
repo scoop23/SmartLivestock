@@ -41,11 +41,16 @@ class DataImportBatchSerializer(serializers.ModelSerializer):
 class ValidateImportRequestSerializer(serializers.Serializer):
     dataset_type = serializers.ChoiceField(choices=DataImportBatch.DatasetType.choices)
     file = serializers.FileField()
+    edited_rows = serializers.CharField(required=False, allow_blank=True, default="[]")
+    column_mapping = serializers.CharField(required=False, allow_blank=True, default="{}")
+    preview_page = serializers.IntegerField(required=False, min_value=1, default=1)
 
 
 class ExecuteImportRequestSerializer(serializers.Serializer):
     dataset_type = serializers.ChoiceField(choices=DataImportBatch.DatasetType.choices)
     file = serializers.FileField()
+    edited_rows = serializers.CharField(required=False, allow_blank=True, default="[]")
+    column_mapping = serializers.CharField(required=False, allow_blank=True, default="{}")
     skip_duplicates = serializers.BooleanField(default=True)
     target_status = serializers.ChoiceField(
         choices=DataImportBatch.TargetStatus.choices,

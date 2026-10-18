@@ -33,6 +33,7 @@ FileSpreadsheet,
 FileUp,
 Filter,
 Info,
+  Pencil,
 RefreshCw,
 Search,
 ShieldCheck,
@@ -48,8 +49,8 @@ executeBatchImport,
 fetchBatches,
 fetchDatasets,
 validateImportFile,
-type DataImportBatchItem,
-type DatasetInfo,
+  type EditedImportRow,
+  type ImportColumnMapping,
 type ImportSummary,
 type PreviewRow,
 type ValidationResult,
@@ -64,6 +65,13 @@ const DATASET_ICONS: Record<string, string> = {
   auction: "🏷️",
 };
 
+const completeColumnMapping = (
+  mapping: ImportColumnMapping,
+  fields: string[]
+): ImportColumnMapping => Object.fromEntries(
+  fields.map((field) => [field, mapping[field] ?? ""])
+);
+
 export default function DataUploadsPage() {
   const { user } = useAuth();
   const datasetsQuery = useQuery({ queryKey: ["import-datasets", user?.email], queryFn: fetchDatasets });
@@ -76,6 +84,9 @@ export default function DataUploadsPage() {
   // Validation state
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [columnMapping, setColumnMapping] = useState<ImportColumnMapping>({});
+  const [appliedColumnMapping, setAppliedColumnMapping] = useState<ImportColumnMapping>({});
+  const [mappingNeedsApply, setMappingNeedsApply] = useState(false);
 
   // Import execution state
   const [isImporting, setIsImporting] = useState<boolean>(false);
@@ -83,6 +94,11 @@ export default function DataUploadsPage() {
   const [targetStatus, setTargetStatus] = useState<"APPROVED" | "PENDING">("APPROVED");
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const [showSummaryDialog, setShowSummaryDialog] = useState<boolean>(false);
+  const [validatedEdits, setValidatedEdits] = useState<Record<number, Record<string, string | number | null>>>({});
+  const [draftEdits, setDraftEdits] = useState<Record<number, Record<string, string | number | null>>>({});
+  const [editingRow, setEditingRow] = useState<PreviewRow | null>(null);
+  const [editDraft, setEditDraft] = useState<Record<string, string>>({});
+  const [previewPage, setPreviewPage] = useState(1);
 
   // Table filtering state
   const [statusFilter, setStatusFilter] = useState<"ALL" | "VALID" | "WARNING" | "ERROR">("ALL");
@@ -124,12 +140,19 @@ export default function DataUploadsPage() {
 
   const handleSelectedFile = (selectedFile: File) => {
     const ext = selectedFile.name.substring(selectedFile.name.lastIndexOf(".")).toLowerCase();
-    if (ext !== ".csv" && ext !== ".xlsx" && ext !== ".xlsm") {
-      toast.error("Unsupported file format. Please upload a .csv, .xlsx, or .xlsm spreadsheet.");
+    if (ext !== ".csv" && ext !== ".json" && ext !== ".xlsx" && ext !== ".xlsm") {
+      toast.error("Unsupported file format. Please upload a .csv, .json, .xlsx, or .xlsm file.");
       return;
     }
     setFile(selectedFile);
     setValidationResult(null); // Reset preview on new file
+    setColumnMapping({});
+    setAppliedColumnMapping({});
+    setMappingNeedsApply(false);
+    setValidatedEdits({});
+    setDraftEdits({});
+    setEditingRow(null);
+    setPreviewPage(1);
   };
 
   const handleValidate = async () => {
@@ -142,6 +165,13 @@ export default function DataUploadsPage() {
     try {
       const result = await validateImportFile(selectedDataset, file);
       setValidationResult(result);
+      const completeMapping = completeColumnMapping(result.column_mapping, availableFields);
+      setColumnMapping(completeMapping);
+      setAppliedColumnMapping(completeMapping);
+      setMappingNeedsApply(false);
+      setValidatedEdits({});
+      setDraftEdits({});
+      setPreviewPage(1);
       if (result.error_count === 0 && result.warning_count === 0) {
         toast.success(`Validation passed! All ${result.valid_count} rows are ready for import.`);
       } else if (result.error_count > 0) {
@@ -156,7 +186,70 @@ export default function DataUploadsPage() {
     } catch (err: unknown) {
       const errorMsg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        "Validation failed. Please verify spreadsheet structure.";
+        "Validation failed. Please check the file format, headers, and row values.";
+      toast.error(errorMsg);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const serializeEdits = (
+    edits: Record<number, Record<string, string | number | null>>
+  ): EditedImportRow[] => Object.entries(edits).map(([rowNumber, data]) => ({
+    row_number: Number(rowNumber),
+    data,
+  }));
+
+  const handleRevalidateEdits = async () => {
+    if (!file || !validationResult) return;
+    const combinedEdits = { ...validatedEdits, ...draftEdits };
+    setIsValidating(true);
+    try {
+      const result = await validateImportFile(
+        selectedDataset,
+        file,
+        serializeEdits(combinedEdits),
+        previewPage,
+        columnMapping
+      );
+      setValidationResult(result);
+      const completeMapping = completeColumnMapping(result.column_mapping, availableFields);
+      setColumnMapping(completeMapping);
+      setAppliedColumnMapping(completeMapping);
+      setMappingNeedsApply(false);
+      setValidatedEdits(combinedEdits);
+      setDraftEdits({});
+      toast.success("Edits revalidated. Review the updated row statuses before importing.");
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        "Edits could not be revalidated. Please check the values and try again.";
+      toast.error(errorMsg);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handlePreviewPageChange = async (page: number) => {
+    if (!file || !validationResult || pendingEditCount > 0) return;
+    const pageCount = Math.max(1, Math.ceil(validationResult.total_rows / validationResult.preview_page_size));
+    if (page < 1 || page > pageCount || page === previewPage) return;
+
+    setIsValidating(true);
+    try {
+      const result = await validateImportFile(
+        selectedDataset,
+        file,
+        serializeEdits(validatedEdits),
+        page,
+        appliedColumnMapping
+      );
+      setValidationResult(result);
+      setPreviewPage(page);
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        "Could not load that preview page. Please try again.";
       toast.error(errorMsg);
     } finally {
       setIsValidating(false);
@@ -172,7 +265,9 @@ export default function DataUploadsPage() {
         selectedDataset,
         file,
         skipDuplicates,
-        targetStatus
+        targetStatus,
+        serializeEdits(validatedEdits),
+        appliedColumnMapping
       );
       setImportSummary(summary);
       setShowSummaryDialog(true);
@@ -195,7 +290,7 @@ export default function DataUploadsPage() {
     try {
       await downloadTemplate(selectedDataset, format);
       toast.success(`Downloaded official ${selectedDataset} template (${format.toUpperCase()}).`);
-    } catch (err: unknown) {
+    } catch {
       toast.error("Failed to download template.");
     }
   };
@@ -203,15 +298,47 @@ export default function DataUploadsPage() {
   const resetForm = () => {
     setFile(null);
     setValidationResult(null);
+    setColumnMapping({});
+    setAppliedColumnMapping({});
+    setMappingNeedsApply(false);
     setImportSummary(null);
+    setValidatedEdits({});
+    setDraftEdits({});
+    setEditingRow(null);
+    setPreviewPage(1);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
+  const openRowEditor = (row: PreviewRow) => {
+    const values = draftEdits[row.row_number] ?? validatedEdits[row.row_number] ?? row.editable_data;
+    setEditingRow(row);
+    setEditDraft(Object.fromEntries(
+      Object.entries(values).map(([key, value]) => [key, value == null ? "" : String(value)])
+    ));
+  };
+
+  const saveRowEdit = () => {
+    if (!editingRow) return;
+    setDraftEdits((current) => ({ ...current, [editingRow.row_number]: editDraft }));
+    setEditingRow(null);
+  };
+
+  const pendingEditCount = Object.keys(draftEdits).length;
+  const handleColumnMappingChange = (field: string, header: string) => {
+    setColumnMapping((current) => ({ ...current, [field]: header }));
+    setMappingNeedsApply(true);
+  };
+  const previewPageCount = validationResult
+    ? Math.max(1, Math.ceil(validationResult.total_rows / validationResult.preview_page_size))
+    : 1;
+
   // Filter preview rows
   const currentDatasetInfo = datasets.find((d) => d.code === selectedDataset);
   const hasLivestockTypeField = currentDatasetInfo?.available_fields.includes("livestock_type") ?? false;
+  const requiredFields = currentDatasetInfo?.required_fields ?? [];
+  const availableFields = currentDatasetInfo?.available_fields ?? [];
   const previewRows: PreviewRow[] = (validationResult?.preview_rows || []).filter((row) => {
     if (statusFilter !== "ALL" && row.status !== statusFilter) {
       return false;
@@ -282,6 +409,12 @@ export default function DataUploadsPage() {
                   onClick={() => {
                     setSelectedDataset(d.code);
                     setValidationResult(null); // Reset preview on domain switch
+                    setColumnMapping({});
+                    setAppliedColumnMapping({});
+                    setMappingNeedsApply(false);
+                    setValidatedEdits({});
+                    setDraftEdits({});
+                    setPreviewPage(1);
                   }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     isSelected
@@ -340,7 +473,7 @@ export default function DataUploadsPage() {
         <section className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 space-y-4">
           <h2 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
             <FileUp className="w-4 h-4 text-[#1E4D2B]" />
-            Step 2: Upload Spreadsheet (CSV, XLSX, or XLSM)
+            Step 2: Upload File (CSV, JSON, XLSX, or XLSM)
           </h2>
 
           <div
@@ -360,7 +493,7 @@ export default function DataUploadsPage() {
               ref={fileInputRef}
               type="file"
               onChange={handleFileChange}
-              accept=".csv, .xlsx, .xlsm"
+              accept=".csv, .json, .xlsx, .xlsm"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
 
@@ -383,10 +516,13 @@ export default function DataUploadsPage() {
               ) : (
                 <div>
                   <p className="text-sm font-bold text-slate-800">
-                    Drag and drop your CSV or XLSX file here, or click to browse
+                    Drag and drop your CSV, JSON, or Excel file here, or click to browse
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Supports Excel (.xlsx, .xlsm) and CSV (.csv) files up to 25MB
+                    Supports CSV, JSON, and Excel (.xlsx, .xlsm) files up to 25MB
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    JSON should be an array of row objects (or an object with a rows array) using the template column names.
                   </p>
                 </div>
               )}
@@ -441,6 +577,9 @@ export default function DataUploadsPage() {
                 <p className="text-xs text-slate-500 mt-0.5">
                   File: <strong className="text-slate-800">{validationResult.file_name}</strong> &bull;{" "}
                   Domain: <strong className="text-slate-800">{validationResult.dataset_label}</strong>
+                </p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Edit rows on each page, then revalidate your changes before importing.
                 </p>
               </div>
 
@@ -512,6 +651,50 @@ export default function DataUploadsPage() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+              <div>
+                <h3 className="text-xs font-black text-slate-800">Match spreadsheet columns</h3>
+                <p className="mt-1 text-[11px] text-slate-600">
+                  Choose which uploaded column contains each SmartLivestock field. Required fields are marked; optional fields can stay unmapped.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {availableFields.map((field) => {
+                  const selectedHeader = columnMapping[field] ?? "";
+                  return (
+                    <label key={field} className="space-y-1 text-[11px] font-semibold text-slate-700">
+                      <span>
+                        {field.replace(/_/g, " ")}
+                        {requiredFields.includes(field) && <span className="ml-1 text-rose-600">Required</span>}
+                      </span>
+                      <select
+                        value={selectedHeader}
+                        onChange={(event) => handleColumnMappingChange(field, event.target.value)}
+                        disabled={isValidating || isImporting}
+                        className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-xs font-medium text-slate-800 focus:outline-emerald-600 disabled:opacity-60"
+                      >
+                        <option value="">Do not map</option>
+                        {validationResult.source_headers.map((header) => (
+                          <option
+                            key={`${field}-${header}`}
+                            value={header}
+                            disabled={Object.entries(columnMapping).some(([otherField, otherHeader]) => otherField !== field && otherHeader === header)}
+                          >
+                            {header}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                })}
+              </div>
+              {mappingNeedsApply && (
+                <p className="border-t border-blue-100 pt-3 text-xs text-blue-900">
+                  Column choices changed. Apply and revalidate them before importing.
+                </p>
+              )}
+            </div>
+
             {/* Filters and Search Bar */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
               <div className="flex items-center gap-1.5 w-full sm:w-auto">
@@ -550,6 +733,32 @@ export default function DataUploadsPage() {
               </div>
             </div>
 
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+              <p className="text-xs text-slate-600">
+                Page {previewPage} of {previewPageCount} ({validationResult.preview_page_size} rows per page)
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePreviewPageChange(previewPage - 1)}
+                  disabled={previewPage <= 1 || isValidating || pendingEditCount > 0 || mappingNeedsApply}
+                >
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePreviewPageChange(previewPage + 1)}
+                  disabled={previewPage >= previewPageCount || isValidating || pendingEditCount > 0 || mappingNeedsApply}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+
             {/* Interactive Preview Table */}
             <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[380px] overflow-y-auto">
               <Table>
@@ -576,12 +785,15 @@ export default function DataUploadsPage() {
                     <TableHead className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
                       Validation Notes &amp; Issues
                     </TableHead>
+                    <TableHead className="text-[11px] font-black text-slate-500 uppercase tracking-wider text-right">
+                      Edit
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-slate-100">
                   {previewRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-400 text-xs">
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-400 text-xs">
                         No rows matching the current filter.
                       </TableCell>
                     </TableRow>
@@ -658,6 +870,24 @@ export default function DataUploadsPage() {
                               </span>
                             )}
                           </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openRowEditor(r)}
+                              disabled={Object.keys(r.editable_data).length === 0}
+                              className="h-7 px-2 text-xs text-emerald-800 hover:bg-emerald-50"
+                            >
+                              <Pencil className="mr-1 size-3" />
+                              Edit
+                            </Button>
+                            {(draftEdits[r.row_number] || validatedEdits[r.row_number]) && (
+                              <span className="ml-1 text-[10px] font-semibold text-amber-700">
+                                Edited
+                              </span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })
@@ -667,6 +897,24 @@ export default function DataUploadsPage() {
             </div>
 
             {/* Bottom Actions */}
+            {(pendingEditCount > 0 || mappingNeedsApply) && (
+              <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-amber-900">
+                  {pendingEditCount > 0 && `${pendingEditCount} row(s) have unsaved edits. `}
+                  {mappingNeedsApply && "Column mapping changed. "}Apply changes before importing.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRevalidateEdits}
+                  disabled={isValidating || isImporting}
+                  className="h-8 border-amber-300 text-xs font-bold text-amber-900"
+                >
+                  {isValidating ? "Revalidating…" : "Apply Changes & Revalidate"}
+                </Button>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
               <Button
                 variant="outline"
@@ -681,7 +929,7 @@ export default function DataUploadsPage() {
                 onClick={handleExecuteImport}
                 disabled={
                   validationResult.valid_count + (skipDuplicates ? 0 : validationResult.warning_count) === 0 ||
-                  isImporting
+                  isImporting || isValidating || pendingEditCount > 0 || mappingNeedsApply
                 }
                 className="w-full sm:w-auto h-9 bg-[#1E4D2B] hover:bg-[#163b21] text-white px-6 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
@@ -822,6 +1070,35 @@ export default function DataUploadsPage() {
             </TableBody>
           </Table>
         </section>
+
+        <Dialog open={Boolean(editingRow)} onOpenChange={(open) => !open && setEditingRow(null)}>
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Edit uploaded row {editingRow?.row_number}</DialogTitle>
+              <DialogDescription>
+                Correct the source values, then revalidate this file before importing. The uploaded file itself is not changed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 py-2 sm:grid-cols-2">
+              {Object.entries(editDraft).map(([field, value]) => (
+                <label key={field} className="space-y-1 text-xs font-semibold text-slate-700">
+                  <span className="capitalize">{field.replaceAll("_", " ")}</span>
+                  <Input
+                    value={value}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, [field]: event.target.value }))}
+                    className="h-9 text-sm"
+                  />
+                </label>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingRow(null)}>Cancel</Button>
+              <Button type="button" onClick={saveRowEdit} className="bg-[#1E4D2B] text-white hover:bg-[#163b21]">
+                Save Row Edits
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* ═══ Import Summary Dialog ═══ */}

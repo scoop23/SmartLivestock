@@ -176,3 +176,32 @@ def map_columns(
                 break
 
     return mapping
+
+
+def resolve_column_mapping(
+    uploaded_headers: List[str],
+    field_alias_map: Dict[str, List[str]],
+    requested_mapping: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
+    """Combine automatic header aliases with explicit, validated user choices."""
+    mapping = map_columns(uploaded_headers, field_alias_map)
+    if not requested_mapping:
+        return mapping
+
+    allowed_fields = set(field_alias_map)
+    valid_headers = set(uploaded_headers)
+    for field, header in requested_mapping.items():
+        if field not in allowed_fields:
+            raise ValueError(f"'{field}' is not a supported field for this dataset.")
+        if not isinstance(header, str):
+            raise ValueError(f"The selected column for '{field}' must be a header name.")
+        if not header:
+            mapping.pop(field, None)
+            continue
+        if header not in valid_headers:
+            raise ValueError(f"'{header}' is not a column in the uploaded file.")
+        mapping[field] = header
+
+    if len(set(mapping.values())) != len(mapping):
+        raise ValueError("Each spreadsheet column can only be assigned to one system field.")
+    return mapping

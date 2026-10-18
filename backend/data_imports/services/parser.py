@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import os
 from typing import Any, Tuple, List, Dict, Optional
 import openpyxl
@@ -181,6 +182,48 @@ def parse_xlsx(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]
         return [], [], f"Failed to parse Excel file: {str(e)}"
 
 
+def parse_json(file_obj) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]]:
+    """Parse a JSON array of row objects (or an object containing a `rows` array)."""
+    try:
+        raw_bytes = file_obj.read()
+        if len(raw_bytes) > MAX_FILE_SIZE_BYTES:
+            return [], [], f"File size exceeds maximum allowed limit of {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB."
+
+        payload = json.loads(raw_bytes.decode("utf-8-sig"))
+        if isinstance(payload, dict):
+            payload = payload.get("rows")
+        if not isinstance(payload, list) or not payload:
+            return [], [], "JSON must contain a non-empty array of row objects, or an object with a non-empty 'rows' array."
+        if len(payload) > MAX_IMPORT_ROWS:
+            return [], [], f"File exceeds maximum supported row limit of {MAX_IMPORT_ROWS} rows."
+        if any(not isinstance(row, dict) for row in payload):
+            return [], [], "Every JSON row must be an object with column names as keys."
+
+        normalized_rows = [{str(key).strip(): value for key, value in row.items() if str(key).strip()} for row in payload]
+        headers = list(dict.fromkeys(key for row in normalized_rows for key in row))
+        if not headers:
+            return [], [], "JSON rows do not contain any column names."
+
+        rows: List[Dict[str, Any]] = []
+        for row_number, source in enumerate(normalized_rows, start=2):
+            row_data: Dict[str, Any] = {"_row_number": row_number}
+            for header in headers:
+                value = source.get(header)
+                if isinstance(value, (dict, list)):
+                    return [], [], f"JSON field '{header}' in row {row_number} must be a simple value."
+                row_data[header] = sanitize_cell_value(value)
+            if any(value is not None for key, value in row_data.items() if key != "_row_number"):
+                rows.append(row_data)
+
+        if not rows:
+            return headers, [], "The uploaded JSON contains no data rows."
+        return headers, rows, None
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        return [], [], f"Failed to parse JSON file: {str(e)}"
+    except Exception as e:
+        return [], [], f"Failed to parse JSON file: {str(e)}"
+
+
 def parse_file(file_obj, filename: str) -> Tuple[List[str], List[Dict[str, Any]], Optional[str]]:
     """
     Unified entry point for CSV and XLSX file parsing.
@@ -189,9 +232,11 @@ def parse_file(file_obj, filename: str) -> Tuple[List[str], List[Dict[str, Any]]
     ext = os.path.splitext(filename)[1].lower()
     if ext == ".csv":
         return parse_csv(file_obj)
+    elif ext == ".json":
+        return parse_json(file_obj)
     elif ext in [".xlsx", ".xlsm"]:
         return parse_xlsx(file_obj)
     elif ext == ".xls":
         return [], [], "Legacy .xls format is not supported. Please save and upload as .xlsx, .xlsm, or .csv."
     else:
-        return [], [], f"Unsupported file format '{ext}'. Please upload a .csv, .xlsx, or .xlsm file."
+        return [], [], f"Unsupported file format '{ext}'. Please upload a .csv, .json, .xlsx, or .xlsm file."

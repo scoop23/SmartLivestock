@@ -48,8 +48,16 @@ export interface PreviewRow {
   row_number: number;
   status: "VALID" | "WARNING" | "ERROR";
   data: Record<string, string | number | null>;
+  editable_data: Record<string, string | number | null>;
   issues: ValidationIssue[];
 }
+
+export interface EditedImportRow {
+  row_number: number;
+  data: Record<string, string | number | null>;
+}
+
+export type ImportColumnMapping = Record<string, string>;
 
 // ValidationResult:
 // The full response from POST /api/data-imports/validate/
@@ -63,7 +71,10 @@ export interface ValidationResult {
   warning_count: number;
   error_count: number;
   column_mapping: Record<string, string>;
+  source_headers: string[];
   preview_rows: PreviewRow[];
+  preview_page: number;
+  preview_page_size: number;
   issues_sample: Array<{
     row_number: number;
     barangay: string;
@@ -135,11 +146,17 @@ export async function fetchDatasets(): Promise<DatasetInfo[]> {
 // The 60s timeout allows the backend to validate large files row-by-row.
 export async function validateImportFile(
   datasetType: string,
-  file: File
+  file: File,
+  editedRows: EditedImportRow[] = [],
+  previewPage = 1,
+  columnMapping: ImportColumnMapping = {}
 ): Promise<ValidationResult> {
   const formData = new FormData();
   formData.append("dataset_type", datasetType);
   formData.append("file", file);
+  formData.append("edited_rows", JSON.stringify(editedRows));
+  formData.append("preview_page", String(previewPage));
+  formData.append("column_mapping", JSON.stringify(columnMapping));
 
   const response = await api.post<ValidationResult>(
     "/api/data-imports/validate/",
@@ -165,13 +182,17 @@ export async function executeBatchImport(
   datasetType: string,
   file: File,
   skipDuplicates = true,
-  targetStatus = "APPROVED"
+  targetStatus = "APPROVED",
+  editedRows: EditedImportRow[] = [],
+  columnMapping: ImportColumnMapping = {}
 ): Promise<ImportSummary> {
   const formData = new FormData();
   formData.append("dataset_type", datasetType);
   formData.append("file", file);
   formData.append("skip_duplicates", String(skipDuplicates));
   formData.append("target_status", targetStatus);
+  formData.append("edited_rows", JSON.stringify(editedRows));
+  formData.append("column_mapping", JSON.stringify(columnMapping));
 
   const response = await api.post<ImportSummary>(
     "/api/data-imports/import/",

@@ -12,9 +12,11 @@ from .normalizer import (
     normalize_date,
     normalize_decimal,
     normalize_integer,
-    map_columns,
+    resolve_column_mapping,
 )
+from .parser import sanitize_cell_value
 
+IMPORT_PREVIEW_PAGE_SIZE = 200
 
 # =============================================================
 # VALIDATION ENGINE
@@ -472,12 +474,14 @@ class ValidationEngine:
         self,
         rows: List[Dict[str, Any]],
         headers: List[str],
+        preview_page: int = 1,
+        column_mapping: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Validate all rows in the parsed spreadsheet.
         Returns summary metrics, column mapping, issues, and preview records.
         """
-        col_map = map_columns(headers, self.config.field_aliases)
+        col_map = resolve_column_mapping(headers, self.config.field_aliases, column_mapping)
         seen_tags_in_batch: Set[str] = set()
 
         valid_count = 0
@@ -488,7 +492,9 @@ class ValidationEngine:
         all_issues: List[Dict[str, Any]] = []
         normalized_records: List[Dict[str, Any]] = []
 
-        for row in rows:
+        page_start = (preview_page - 1) * IMPORT_PREVIEW_PAGE_SIZE
+        page_end = page_start + IMPORT_PREVIEW_PAGE_SIZE
+        for row_index, row in enumerate(rows):
             clean_data, issues, status = self.validate_row(row, col_map, seen_tags_in_batch)
             row_num = row.get("_row_number", 0)
 
@@ -526,8 +532,8 @@ class ValidationEngine:
             clean_data["_raw"] = {k: v for k, v in row.items() if not k.startswith("_")}
             normalized_records.append(clean_data)
 
-            # Store preview rows (e.g. up to first 200 rows for UI display)
-            if len(preview_rows) < 200:
+            # Only serialize one page for the UI; validation and counts still cover every row.
+            if page_start <= row_index < page_end:
                 # Format dates and decimals for JSON serialization
                 serializable_data = {}
                 for k, v in clean_data.items():
@@ -548,6 +554,11 @@ class ValidationEngine:
                     "row_number": row_num,
                     "status": status,
                     "data": serializable_data,
+                    "editable_data": {
+                        field: self._serialize_edit_value(row.get(header))
+                        for field, header in col_map.items()
+                        if header in row
+                    },
                     "issues": issues,
                 })
 
@@ -560,6 +571,53 @@ class ValidationEngine:
             "error_count": error_count,
             "column_mapping": col_map,
             "preview_rows": preview_rows,
+            "preview_page": preview_page,
+            "preview_page_size": IMPORT_PREVIEW_PAGE_SIZE,
             "all_issues": all_issues,
             "normalized_records": normalized_records,
         }
+
+    @staticmethod
+    def _serialize_edit_value(value: Any) -> Any:
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, Decimal):
+            return float(value)
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        return str(value)
+
+
+def apply_row_edits(
+    rows: List[Dict[str, Any]],
+    headers: List[str],
+    config: BaseDatasetConfig,
+    edits: List[Dict[str, Any]],
+    column_mapping: Optional[Dict[str, str]] = None,
+) -> None:
+    """Apply user edits to parsed source cells before the normal validator runs again."""
+    resolved_mapping = resolve_column_mapping(headers, config.field_aliases, column_mapping)
+    if not edits:
+        return
+    rows_by_number = {row.get("_row_number"): row for row in rows}
+    seen_rows: Set[int] = set()
+    for edit in edits:
+        if not isinstance(edit, dict) or not isinstance(edit.get("row_number"), int):
+            raise ValueError("Each row edit must include an integer row_number.")
+        row_number = edit["row_number"]
+        if row_number in seen_rows:
+            raise ValueError(f"Row {row_number} was included more than once in the edits.")
+        seen_rows.add(row_number)
+        row = rows_by_number.get(row_number)
+        if row is None:
+            raise ValueError(f"Row {row_number} is not part of the uploaded file.")
+        values = edit.get("data")
+        if not isinstance(values, dict):
+            raise ValueError(f"Edited values for row {row_number} must be an object.")
+        for field, value in values.items():
+            source_header = resolved_mapping.get(field)
+            if not source_header:
+                raise ValueError(f"Field '{field}' is not an editable column in this upload.")
+            if isinstance(value, (dict, list)):
+                raise ValueError(f"Field '{field}' must contain a simple value.")
+            row[source_header] = sanitize_cell_value(value)

@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes, renderer_classes
@@ -18,7 +19,7 @@ from .serializers import (
 )
 from .services.datasets import DATASET_REGISTRY, get_dataset_config
 from .services.parser import parse_file
-from .services.validation import ValidationEngine
+from .services.validation import ValidationEngine, apply_row_edits
 from .services.import_service import execute_batch_import
 from .services.templates import generate_template_file
 
@@ -32,6 +33,31 @@ def _can_use_imports(user, dataset_type=None):
     # Slaughterhouse operators may submit only daily slaughter totals. They
     # cannot use the broader municipal import service for other datasets.
     return False
+
+
+def _decode_edited_rows(value):
+    try:
+        edits = json.loads(value or "[]")
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Edited rows must be valid JSON.") from exc
+    if not isinstance(edits, list):
+        raise ValueError("Edited rows must be a JSON array.")
+    return edits
+
+
+def _decode_column_mapping(value):
+    if not value:
+        return None
+    try:
+        decoded = json.loads(value)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Column mapping must be a valid JSON object.") from exc
+    if not isinstance(decoded, dict) or not all(
+        isinstance(field, str) and isinstance(header, str)
+        for field, header in decoded.items()
+    ):
+        raise ValueError("Column mapping must match system fields to spreadsheet headers.")
+    return decoded
 
 
 # =============================================================
@@ -160,9 +186,21 @@ def validate_import(request):
     if not rows:
         return Response({"error": "The uploaded spreadsheet contains no data rows."}, status=status.HTTP_400_BAD_REQUEST)
 
+    try:
+        column_mapping = _decode_column_mapping(serializer.validated_data.get("column_mapping"))
+        edited_rows = _decode_edited_rows(serializer.validated_data.get("edited_rows"))
+        apply_row_edits(rows, headers, config, edited_rows, column_mapping)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     # 2. Run Validation Engine
     engine = ValidationEngine(config)
-    results = engine.validate_batch(rows, headers)
+    results = engine.validate_batch(
+        rows,
+        headers,
+        preview_page=serializer.validated_data["preview_page"],
+        column_mapping=column_mapping,
+    )
 
     return Response({
         "file_name": uploaded_file.name,
@@ -173,6 +211,7 @@ def validate_import(request):
         "warning_count": results["warning_count"],
         "error_count": results["error_count"],
         "column_mapping": results["column_mapping"],
+        "source_headers": headers,
         "preview_rows": results["preview_rows"],
         "issues_sample": results["all_issues"][:100],
     }, status=status.HTTP_200_OK)
@@ -244,9 +283,16 @@ def execute_import(request):
     if not rows:
         return Response({"error": "The uploaded spreadsheet contains no data rows."}, status=status.HTTP_400_BAD_REQUEST)
 
+    try:
+        column_mapping = _decode_column_mapping(serializer.validated_data.get("column_mapping"))
+        edited_rows = _decode_edited_rows(serializer.validated_data.get("edited_rows"))
+        apply_row_edits(rows, headers, config, edited_rows, column_mapping)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     # 2. Validate rows
     engine = ValidationEngine(config)
-    val_results = engine.validate_batch(rows, headers)
+    val_results = engine.validate_batch(rows, headers, column_mapping=column_mapping)
 
     if val_results["valid_count"] == 0 and val_results["warning_count"] == 0:
         return Response({
