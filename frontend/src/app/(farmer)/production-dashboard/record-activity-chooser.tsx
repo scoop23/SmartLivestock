@@ -117,9 +117,9 @@ export default function RecordActivityChooser({
               </article>
             );
           })}
-          <article className="flex min-h-56 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)]">
+          <article className="group flex min-h-56 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)] transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]">
             <div className="flex items-start gap-3 p-4 sm:p-5">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100 transition group-hover:bg-emerald-100">
                 <ClipboardList className="size-5" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
