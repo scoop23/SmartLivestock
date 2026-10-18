@@ -75,16 +75,11 @@ export function UserProfileView() {
       });
     }, 120);
   };
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(
-    user?.profileImage || null
-  );
+  const [photoDraft, setPhotoDraft] = useState<{ source: string | null; value: string | null } | null>(null);
+  const sourcePhoto = user?.profileImage || null;
+  const profilePhotoUrl = photoDraft?.source === sourcePhoto ? photoDraft.value : sourcePhoto;
+  const setProfilePhotoUrl = (value: string | null) => setPhotoDraft({ source: sourcePhoto, value });
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-
-  useEffect(() => {
-    if (user?.profileImage) {
-      setProfilePhotoUrl(user.profileImage);
-    }
-  }, [user?.profileImage]);
 
   // Profile Information State
   const [formData, setFormData] = useState({

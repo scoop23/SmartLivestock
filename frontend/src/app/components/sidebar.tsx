@@ -137,12 +137,12 @@ const sibatLinks: SidebarLink[] = [
 ];
 
 const auctionLinks: SidebarLink[] = [
-  { path: '/auction', label: 'Market Dashboard', icon: LayoutDashboard },
-  { path: '/auction-gate', label: 'Main Gate Verification', icon: QrCode },
-  { path: '/auction-ownership-transfers', label: 'Record Ownership Transfer', icon: FileText },
-  { path: '/auction-ownership-transfers/registry', label: 'Ownership Transfer Records', icon: ClipboardCheck },
-  { path: '/auction-inspections', label: 'Livestock Intake & Movement Logs', icon: ClipboardCheck },
-  { path: '/auction-gis', label: 'GIS Movement Map', icon: Map },
+  { path: '/auction', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/auction-gate', label: 'Gate Check', icon: QrCode },
+  { path: '/auction-ownership-transfers', label: 'Record Transfer', icon: FileText, exactMatch: true },
+  { path: '/auction-ownership-transfers/registry', label: 'Transfer Records', icon: ClipboardCheck },
+  { path: '/auction-inspections', label: 'Intake Logs', icon: ClipboardCheck },
+  { path: '/auction-gis', label: 'Movement Map', icon: Map },
   { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },
 ];
 
@@ -290,7 +290,7 @@ function SidebarNav({
       </div>
 
       {/* Main Navigation Links */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3 space-y-1.5 scrollbar-thin scrollbar-thumb-white/20">
+      <nav className="sidebar-nav-scrollbar flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-1.5">
         <p
           className={cn(
             "px-3 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-200/50 whitespace-nowrap transition-all duration-200",

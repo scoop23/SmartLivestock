@@ -52,8 +52,11 @@ function DialogContent({
   className,
   children,
   style,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  const returnFocus = React.useRef<HTMLElement | null>(null);
   return (
     // Radix portals this layer to document.body so page overflow and local
     // stacking contexts (including transformed KPI cards) cannot clip it.
@@ -66,6 +69,20 @@ function DialogContent({
           className,
         )}
         style={{ ...style, zIndex: "var(--z-dialog)" }}
+        onOpenAutoFocus={(event) => {
+          returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          onOpenAutoFocus?.(event);
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          // Controlled report dialogs can open without a Radix DialogTrigger.
+          // Restore their actual launching control when it still exists.
+          const control = returnFocus.current;
+          if (!event.defaultPrevented && control?.isConnected && control !== document.body) {
+            event.preventDefault();
+            control.focus();
+          }
+        }}
         {...props}
       >
         {children}

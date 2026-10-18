@@ -46,7 +46,12 @@ interface DocumentPreviewDialogProps {
   getDocStatusBadge: (status: string) => React.ReactNode;
 }
 
-export function DocumentPreviewDialog({
+export function DocumentPreviewDialog(props: DocumentPreviewDialogProps) {
+  if (!props.open || !props.document) return null;
+  return <DocumentPreviewDialogContent key={props.document.id} {...props} />;
+}
+
+function DocumentPreviewDialogContent({
   document: doc,
   open,
   onOpenChange,
@@ -55,27 +60,17 @@ export function DocumentPreviewDialog({
 }: DocumentPreviewDialogProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [contentType, setContentType] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState<number>(0);
 
   useEffect(() => {
-    if (!open || !doc) {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-        setBlobUrl(null);
-      }
-      setContentType(null);
-      setErrorMessage(null);
-      setIsLoading(false);
-      return;
-    }
+    if (!open || !doc) return;
 
     let isMounted = true;
     let createdUrl: string | null = null;
 
     const fetchDocument = async () => {
-      setIsLoading(true);
       setErrorMessage(null);
       try {
         const response = await api.get(`/api/users/documents/${doc.id}/view/`, {
@@ -188,7 +183,7 @@ export function DocumentPreviewDialog({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setReloadTrigger((prev) => prev + 1)}
+                onClick={() => { setIsLoading(true); setErrorMessage(null); setReloadTrigger((prev) => prev + 1); }}
                 className="gap-1.5 text-xs text-slate-700 hover:bg-slate-100"
               >
                 <RefreshCw className="size-3.5" /> Retry Loading

@@ -1,5 +1,6 @@
 "use client";
 
+import { useClientReady } from "@/hooks/use-browser-state";
 import {
 CommandDialog,
 CommandEmpty,
@@ -44,10 +45,10 @@ export default function FarmerActionDock({
 }: FarmerActionDockProps) {
   const router = useRouter();
   const [isCommandOpen, setIsCommandOpen] = useState(false);
-  const [isMac, setIsMac] = useState(false);
+  const ready = useClientReady();
+  const isMac = ready && navigator.platform.toUpperCase().includes("MAC");
 
   useEffect(() => {
-    setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd+K or Ctrl+K

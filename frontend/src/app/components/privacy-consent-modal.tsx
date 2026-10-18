@@ -1,5 +1,6 @@
 'use client';
 
+import { useClientReady } from "@/hooks/use-browser-state";
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -28,37 +29,16 @@ import { toast } from 'sonner';
 
 export function PrivacyConsentModal() {
   const { user, logout } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [agreed, setAgreed] = useState(false);
-
-  useEffect(() => {
-    if (!user || !user.email) {
-      setOpen(false);
-      return;
-    }
-
-    // Only display the onboarding privacy consent popup for FARMER users
-    const isFarmer = user.role?.toUpperCase() === 'FARMER';
-    if (!isFarmer) {
-      setOpen(false);
-      return;
-    }
-
-    try {
-      const storageKey = `smartlivestock_privacy_agreed_${user.email.toLowerCase()}`;
-      const hasAgreed = localStorage.getItem(storageKey);
-
-      // If farmer has not accepted policy yet, display the mandatory onboarding consent modal
-      if (!hasAgreed) {
-        setOpen(true);
-        setAgreed(false);
-      } else {
-        setOpen(false);
-      }
-    } catch {
-      // Ignore storage read errors
-    }
-  }, [user]);
+  const ready = useClientReady();
+  const email = user?.email?.toLowerCase() ?? '';
+  const [acceptedEmail, setAcceptedEmail] = useState<string | null>(null);
+  const [agreedEmail, setAgreedEmail] = useState<string | null>(null);
+  const agreed = agreedEmail === email;
+  const setAgreed = (value: boolean) => setAgreedEmail(value ? email : null);
+  const setOpen = (value: boolean) => { if (!value) setAcceptedEmail(email); };
+  let storedConsent = false;
+  try { if (ready && email) storedConsent = Boolean(localStorage.getItem(`smartlivestock_privacy_agreed_${email}`)); } catch {}
+  const open = ready && Boolean(email) && user?.role?.toUpperCase() === 'FARMER' && acceptedEmail !== email && !storedConsent;
 
   const handleAccept = () => {
     if (!agreed || !user?.email) return;
