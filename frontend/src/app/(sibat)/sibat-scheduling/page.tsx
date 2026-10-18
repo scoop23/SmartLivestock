@@ -1,5 +1,7 @@
 "use client";
 
+import { useOnlineStatus } from "@/hooks/use-browser-state";
+import { useQuery } from "@tanstack/react-query";
 import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
 import { formatLongDate,formatTime,todayIso } from "@/app/components/community/community-ui";
 import { PageHeader } from "@/app/components/page-header";
@@ -205,9 +207,7 @@ export default function SibatSchedulingPage() {
   const { user } = useAuth();
   const [view, setView] = useState<"schedules" | "schedule-form">("schedules");
   const [tab, setTab] = useState<"Upcoming" | "Past">("Upcoming");
-  const [rawSchedules, setRawSchedules] = useState<ProgramSchedule[]>([]);
-  const [bookings, setBookings] = useState<ProgramBooking[]>([]);
-  const [loading, setLoading] = useState(true);
+
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleItem | null>(null);
   const [editTarget, setEditTarget] = useState<ScheduleItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ScheduleItem | null>(null);
@@ -218,41 +218,16 @@ export default function SibatSchedulingPage() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-indexed
 
-  // Online status
-  const [isOnline, setIsOnline] = useState(true);
-  useEffect(() => {
-    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
-  // Fetch live schedules and bookings
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [schedulesRes, bookingsRes] = await Promise.allSettled([
-        getSchedules(),
-        getBookings(),
-      ]);
-
-      if (schedulesRes.status === "fulfilled") setRawSchedules(schedulesRes.value);
-      if (bookingsRes.status === "fulfilled") setBookings(bookingsRes.value);
-    } catch (e) {
-      toast.error(apiError(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const isOnline = useOnlineStatus();
+  const schedulesQuery = useQuery({ queryKey: ["field-schedules", user?.email, user?.accessScope, user?.assignedBarangayId], queryFn: () => getSchedules() });
+  const bookingsQuery = useQuery({ queryKey: ["field-bookings", user?.email, user?.accessScope, user?.assignedBarangayId], queryFn: () => getBookings() });
+  const rawSchedules = schedulesQuery.data ?? [];
+  const bookings = bookingsQuery.data ?? [];
+  const loading = schedulesQuery.isFetching || bookingsQuery.isFetching;
+  const loadData = async () => {
+    const results = await Promise.all([schedulesQuery.refetch(), bookingsQuery.refetch()]);
+    if (results.some(result => result.isError)) toast.error("Schedules or bookings could not be refreshed.");
+  };
 
   // Formatted schedule items
   const schedules: ScheduleItem[] = useMemo(() => {

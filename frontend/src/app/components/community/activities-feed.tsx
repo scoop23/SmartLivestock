@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,36 +33,19 @@ formatShortDate,
 } from "./community-ui";
 
 export function ActivitiesFeed({ role }: { role: CommunityRole }) {
-  const [items, setItems] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isFetching, setIsFetching] = useState(false);
-  const [error, setError] = useState("");
+  const { user } = useAuth();
   const [filter, setFilter] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Activity | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      // The authenticated community API returns announcements visible to this role;
-      // category and text filtering happens locally after retrieval.
-      setItems(await getActivities());
-      setError("");
-    } catch (e) {
-      setError(apiError(e));
-    } finally {
-      setLoading(false);
-      setIsFetching(false);
-    }
-  }, []);
-
-  const refresh = useCallback(async () => {
-    setIsFetching(true);
-    await load();
-  }, [load]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const query = useQuery({
+    queryKey: ["community-activities", user?.email, role, user?.accessScope, user?.assignedBarangayId],
+    queryFn: () => getActivities(),
+  });
+  const items = query.data ?? [];
+  const loading = query.isPending;
+  const isFetching = query.isFetching;
+  const error = query.isError ? apiError(query.error) : "";
+  const refresh = () => query.refetch();
 
   const term = search.toLowerCase().trim();
 

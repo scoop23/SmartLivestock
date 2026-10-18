@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent,CardHeader } from "@/components/ui/card";
@@ -392,36 +394,21 @@ function downloadBarangayReport(rows: BarangayReportRow[], period: { start: stri
 }
 
 export default function DescriptiveAnalytics() {
-  const [response, setResponse] = useState<DescriptiveResponse | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [attempt, setAttempt] = useState(0);
   const [productKey, setProductKey] = useState("");
   const [showMethodology, setShowMethodology] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    setLoading(true);
-    setError("");
-
-    api.get<DescriptiveResponse>("analytics/dashboard/", { signal: controller.signal })
-      .then(({ data }) => {
-        if (!data.descriptive) throw new Error("Descriptive analytics are unavailable.");
-        if (active) setResponse(data);
-      })
-      .catch(() => {
-        if (active) setError("We could not load the municipal analytics. Please check network connectivity and try again.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [attempt]);
+  const query = useQuery({
+    queryKey: ["descriptive-analytics", user?.email, user?.accessScope, user?.assignedBarangayId, attempt],
+    queryFn: async ({ signal }) => {
+      const { data } = await api.get<DescriptiveResponse>("analytics/dashboard/", { signal });
+      if (!data.descriptive) throw new Error("Descriptive analytics are unavailable.");
+      return data;
+    },
+  });
+  const response = query.data ?? null;
+  const loading = query.isPending;
+  const error = query.isError ? "We could not load the municipal analytics. Please check network connectivity and try again." : "";
 
   if (loading) {
     return (

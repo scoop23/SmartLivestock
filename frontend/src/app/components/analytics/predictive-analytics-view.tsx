@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
@@ -467,190 +469,60 @@ const ANALYTICS_TOOLTIP_CURSOR = {
 };
 
 export default function PredictiveAnalyticsView() {
-  // Domain & Parameter States
-  const [activeDomain, setActiveDomain] = useState<AnalyticsDomain>("production");
+  const { user } = useAuth();
+  const [activeDomain, updateActiveDomain] = useState<AnalyticsDomain>("production");
   const [productionType, setProductionType] = useState<string>("MILK");
   const [unit, setUnit] = useState<string>("LITERS");
   const [targetMetric, setTargetMetric] = useState<string>("ALL");
   const [horizon, setHorizon] = useState<number>(6);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-
-  // Data States
-  const [evalData, setEvalData] = useState<EvaluationResponse | null>(null);
-  const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
-  const [descriptiveData, setDescriptiveData] = useState<DescriptiveData | null>(null);
-
-  // Loading & UI States
-  const [loading, setLoading] = useState<boolean>(true);
-  const [forecastLoading, setForecastLoading] = useState<boolean>(false);
-  const [forecastError, setForecastError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
-  const [showMethodology, setShowMethodology] = useState<boolean>(false);
-
-  // Synchronize default target and unit whenever activeDomain changes
-  useEffect(() => {
-    if (activeDomain === "production") {
-      setProductionType("MILK");
-      setUnit("LITERS");
-      setTargetMetric("MILK");
-    } else if (activeDomain === "disease") {
-      setTargetMetric("ALL");
-      setUnit("CASES");
-    } else if (activeDomain === "mortality") {
-      setTargetMetric("ALL");
-      setUnit("HEADS");
-    } else if (activeDomain === "slaughter") {
-      setTargetMetric("ALL");
-      setUnit("HEADS");
-    } else if (activeDomain === "auction") {
-      setTargetMetric("ALL");
-      setUnit("HEADS");
-    }
-  }, [activeDomain]);
-
-  // Fetch descriptive dashboard summary for domain breakdowns & risk indicators
-  useEffect(() => {
-    let active = true;
-    api
-      .get<DescriptiveData>("analytics/dashboard/")
-      .then(({ data }) => {
-        if (active) setDescriptiveData(data);
-      })
-      .catch((err) => {
-        console.warn("Descriptive dashboard fetch optional fallback:", err);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showMethodology, setShowMethodology] = useState(false);
+  const setActiveDomain = (domain: AnalyticsDomain) => {
+    updateActiveDomain(domain);
+    setProductionType("MILK");
+    setUnit(domain === "production" ? "LITERS" : domain === "disease" ? "CASES" : "HEADS");
+    setTargetMetric(domain === "production" ? "MILK" : "ALL");
+  };
+  const scope = [user?.email, user?.accessScope, user?.assignedBarangayId];
+  const params: Record<string, string> = { domain: activeDomain, unit, horizon: String(horizon),
+    target: activeDomain === "production" ? productionType : targetMetric };
+  if (activeDomain === "production") params.production_type = productionType;
+  const evaluation = useQuery({
+    queryKey: ["predictive-evaluation", ...scope, params, refreshTrigger],
+    queryFn: async ({ signal }) => {
+      const { data } = await api.get<EvaluationResponse>("analytics/predictive/", { params, signal });
+      if (data.status === "error") throw new Error(data.message || "The predictive service could not evaluate this dataset.");
+      return data;
+    },
+  });
+  const evalData = evaluation.data ?? null;
+  const loading = evaluation.isPending;
+  const error = evaluation.isError ? evaluation.error.message : null;
+  const modelScope = JSON.stringify([...scope, params, refreshTrigger]);
+  const [modelChoice, setModelChoice] = useState<{ scope: string; value: string | null } | null>(null);
+  const selectedModel = modelChoice?.scope === modelScope ? modelChoice.value
+    : evalData?.status === "ready" ? evalData.selection?.selected_model ?? null : null;
+  const setSelectedModel = (value: string | null) => setModelChoice({ scope: modelScope, value });
+  const descriptive = useQuery({
+    queryKey: ["predictive-descriptive", ...scope, refreshTrigger],
+    queryFn: async ({ signal }) => (await api.get<DescriptiveData>("analytics/dashboard/", { signal })).data,
+  });
+  const descriptiveData = descriptive.data ?? null;
+  const projection = useQuery({
+    queryKey: ["predictive-projection", ...scope, params, selectedModel, refreshTrigger],
+    enabled: evalData?.status === "ready",
+    queryFn: async ({ signal }) => {
+      const { data } = await api.get<ForecastResponse>("analytics/predictive/forecast/", {
+        params: { ...params, ...(selectedModel ? { model: selectedModel } : {}) }, signal,
       });
-
-    return () => {
-      active = false;
-    };
-  }, [refreshTrigger]);
-
-  // Fetch model evaluation benchmark
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-
-    const params: Record<string, string> = {
-      domain: activeDomain,
-      unit,
-      horizon: String(horizon),
-    };
-    if (activeDomain === "production") {
-      params.production_type = productionType;
-      params.target = productionType;
-    } else {
-      params.target = targetMetric;
-    }
-
-    api
-      .get<EvaluationResponse>("analytics/predictive/", {
-        params,
-        signal: controller.signal,
-      })
-      .then(({ data }) => {
-        if (!active) return;
-        // Django may return a JSON error payload with HTTP 200 while DEBUG is
-        // enabled. Axios then enters .then(), so check the API's own status too;
-        // otherwise neither the error panel nor the analytics panels render.
-        if (data.status === "error") {
-          setEvalData(null);
-          setSelectedModel(null);
-          setError(data.message || "The predictive analytics service could not evaluate this dataset.");
-          return;
-        }
-        setEvalData(data);
-        if (data.status === "ready" && data.selection?.selected_model) {
-          setSelectedModel(data.selection.selected_model);
-        } else {
-          setSelectedModel(null);
-        }
-      })
-      .catch((err) => {
-        if (!active) return;
-        if (err.name !== "CanceledError" && err.name !== "AbortError") {
-          setError("Failed to load predictive analytics evaluation. Please verify server connectivity.");
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [activeDomain, productionType, targetMetric, unit, horizon, refreshTrigger]);
-
-  // Fetch the actual future points separately from model evaluation. Evaluation
-  // scores tell us how candidates performed in backtests; this endpoint returns
-  // the projection plotted on the purple line. Keep API failures visible in the UI.
-  useEffect(() => {
-    if (evalData?.status !== "ready") {
-      setForecastData(null);
-      setForecastError(null);
-      return;
-    }
-
-    let active = true;
-    const controller = new AbortController();
-    setForecastLoading(true);
-    setForecastError(null);
-    setForecastData(null);
-
-    const params: Record<string, string | number> = {
-      domain: activeDomain,
-      unit,
-      horizon,
-    };
-    if (activeDomain === "production") {
-      params.production_type = productionType;
-      params.target = productionType;
-    } else {
-      params.target = targetMetric;
-    }
-    if (selectedModel) {
-      params.model = selectedModel;
-    }
-
-    api
-      .get<ForecastResponse>("analytics/predictive/forecast/", {
-        params,
-        signal: controller.signal,
-      })
-      .then(({ data }) => {
-        if (!active) return;
-        if (data.status !== "ready" || !data.forecast_available || !data.forecast?.length) {
-          setForecastData(null);
-          setForecastError(data.message || "The server did not return forecast values for this selection.");
-          return;
-        }
-        setForecastData(data);
-      })
-      .catch((err) => {
-        if (!active) return;
-        if (err.name !== "CanceledError" && err.name !== "AbortError") {
-          console.error("Forecast fetch error:", err);
-          const responseMessage = (err as { response?: { data?: { message?: string; detail?: string } } })
-            ?.response?.data;
-          setForecastData(null);
-          setForecastError(
-            responseMessage?.message || responseMessage?.detail ||
-            "Could not load the projection. Check the selected data and try again."
-          );
-        }
-      })
-      .finally(() => {
-        if (active) setForecastLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [activeDomain, productionType, targetMetric, unit, horizon, selectedModel, evalData?.status]);
+      if (data.status !== "ready" || !data.forecast_available || !data.forecast?.length)
+        throw new Error(data.message || "The server did not return forecast values for this selection.");
+      return data;
+    },
+  });
+  const forecastData = evalData?.status === "ready" ? projection.data ?? null : null;
+  const forecastLoading = projection.isFetching;
+  const forecastError = projection.isError ? projection.error.message : null;
 
   // Format unit label helper
   const unitLabel = useMemo(() => {

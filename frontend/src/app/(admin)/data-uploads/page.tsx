@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +65,9 @@ const DATASET_ICONS: Record<string, string> = {
 };
 
 export default function DataUploadsPage() {
-  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
+  const { user } = useAuth();
+  const datasetsQuery = useQuery({ queryKey: ["import-datasets", user?.email], queryFn: fetchDatasets });
+  const datasets = datasetsQuery.data ?? [];
   const [selectedDataset, setSelectedDataset] = useState<string>("livestock_inventory");
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState<boolean>(false);
@@ -84,39 +88,13 @@ export default function DataUploadsPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | "VALID" | "WARNING" | "ERROR">("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // History state
-  const [history, setHistory] = useState<DataImportBatchItem[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
-
-  // Initial load
+  const historyQuery = useQuery({ queryKey: ["import-history", user?.email], queryFn: fetchBatches });
+  const history = historyQuery.data ?? [];
+  const isLoadingHistory = historyQuery.isFetching;
+  const loadHistory = () => historyQuery.refetch();
   useEffect(() => {
-    loadDatasets();
-    loadHistory();
-  }, []);
-
-  const loadDatasets = async () => {
-    try {
-      const data = await fetchDatasets();
-      setDatasets(data);
-      if (data.length > 0 && !selectedDataset) {
-        setSelectedDataset(data[0].code);
-      }
-    } catch (err: unknown) {
-      toast.error("Failed to load dataset definitions from server.");
-    }
-  };
-
-  const loadHistory = async () => {
-    setIsLoadingHistory(true);
-    try {
-      const data = await fetchBatches();
-      setHistory(data);
-    } catch (err: unknown) {
-      console.error(err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
+    if (datasetsQuery.isError || historyQuery.isError) toast.error("Import definitions or history could not be loaded. Please refresh to retry.");
+  }, [datasetsQuery.isError, historyQuery.isError]);
 
   // Drag and drop handlers
   const handleDrag = (e: React.DragEvent) => {
