@@ -39,7 +39,7 @@ useClinicalHealthRecords,
 useReviewClinicalHealth,
 } from "../sibat/sibat-analytics";
 
-type StatusFilterOption = "All Statuses" | "Needs Review" | "Reviewed" | "Forwarded to MAO";
+type StatusFilterOption = "All Reports" | "Needs Review" | "Reviewed" | "Forwarded to MAO";
 
 function StatusBadge({ status }: { status: SibatStatus }) {
   const s = (status || "PENDING").toUpperCase();
@@ -80,6 +80,15 @@ function StatusBadge({ status }: { status: SibatStatus }) {
     );
   }
 
+  if (s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION" || s === "REJECTED") {
+    return (
+      <Badge className="border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-800">
+        <RotateCcw className="mr-1 size-3 text-rose-600" />
+        Returned for Correction
+      </Badge>
+    );
+  }
+
   return (
     <Badge className="bg-rose-50 text-rose-800 border border-rose-200 text-[11px] font-bold px-2 py-0.5">
       <RotateCcw className="size-3 mr-1 text-rose-600" />
@@ -97,7 +106,7 @@ function SibatAlertsContent() {
 
   // Filter States matching DiseasesPage design basis
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilterOption>("All Statuses");
+  const [status, setStatus] = useState<StatusFilterOption>("All Reports");
 
   const { records, isLoading } = useClinicalHealthRecords();
   const reviewMutation = useReviewClinicalHealth();
@@ -203,7 +212,7 @@ function SibatAlertsContent() {
 
       if (!matchSearch) return false;
 
-      if (status === "All Statuses") return true;
+      if (status === "All Reports") return true;
 
       if (status === "Needs Review") {
         return d.status === "PENDING";
@@ -233,6 +242,8 @@ function SibatAlertsContent() {
     user?.accessScope === "ALL_BARANGAYS"
       ? "All Barangays"
       : user?.assignedBarangayName || "your assigned barangays";
+  const needsReviewCount = records.filter((record) => record.status === "PENDING").length;
+  const forwardedCount = records.filter((record) => record.status === "VERIFIED").length;
 
   useEffect(() => {
     if (!highlightedRecordId) return;
@@ -249,42 +260,37 @@ function SibatAlertsContent() {
     <div className="min-h-screen bg-slate-50/70 pb-16">
       {/* ── PageHeader ── */}
       <PageHeader
-        title="Disease Reports"
+        title="Health Reports"
         subtitle="Review signs and symptoms reported by farmers. Reports are not confirmed diagnoses."
-        icon={<Stethoscope className="h-5 w-5 text-rose-600" />}
+        icon={<Stethoscope className="size-6 text-white" />}
         variant="sibat"
         maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 w-full max-w-7xl mx-auto space-y-4">
+      <div className="w-full max-w-none space-y-4 px-2 py-3 sm:px-4 md:space-y-5 md:py-5">
         {/* ── Scope Strip ── */}
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-sky-50 border border-sky-200 text-xs font-semibold text-sky-950 shadow-2xs">
+        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-sky-950 sm:px-4">
           <MapPin className="size-4.5 text-sky-700 shrink-0" />
           <span>
-            Showing only reports from your assigned barangays:{" "}
+            {user?.accessScope === "ALL_BARANGAYS" ? "Showing reports from all authorized barangays:" : "Showing only reports from your assigned barangay:"}{" "}
             <strong className="font-black text-sky-900">{assignedScopeLabel}</strong>.
           </span>
         </div>
 
-        {/* ── Warning Strip ── */}
-        <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 shadow-2xs">
-          <div className="size-8 rounded-xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
-            <Stethoscope className="size-4.5" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white p-3.5 sm:p-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600"><Clock className="size-6" /></span>
+            <div><p className="text-xs font-bold text-rose-800">Needs Review</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : needsReviewCount}</p><p className="mt-1 text-xs text-slate-500">Awaiting action</p></div>
           </div>
-          <div className="space-y-0.5">
-            <b className="text-xs font-black uppercase tracking-wider text-amber-950 block">
-              Use reported information only
-            </b>
-            <span className="text-xs text-amber-900/90 leading-relaxed font-medium block">
-              Review and forward reports to authorized personnel when needed. Do
-              not treat a report as a confirmed disease.
-            </span>
+          <div className="flex items-center gap-3 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white p-3.5 sm:p-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600"><ShieldCheck className="size-6" /></span>
+            <div><p className="text-xs font-bold text-sky-800">Forwarded to MAO</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : forwardedCount}</p><p className="mt-1 text-xs text-slate-500">Sent for further review</p></div>
           </div>
         </div>
 
         {/* ── Filter Card ── */}
-        <Card className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
-          <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <CardContent className="flex flex-col items-stretch gap-2.5 p-2.5 sm:flex-row sm:items-center sm:p-3.5">
             {/* Search Box */}
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
@@ -292,8 +298,8 @@ function SibatAlertsContent() {
                 aria-label="Search disease reports"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by farmer, barangay, or report ID"
-                className="pl-10 pr-9 bg-slate-50/70 border-slate-200 rounded-xl h-11 text-sm font-medium focus-visible:ring-[#1A365D]/30"
+                placeholder="Search by farmer, barangay, or report ID..."
+                className="h-10 rounded-lg border-slate-200 bg-white pl-10 pr-9 text-sm font-medium focus-visible:ring-[#1A365D]/30"
               />
               {query && (
                 <Button
@@ -310,16 +316,16 @@ function SibatAlertsContent() {
             </div>
 
             {/* Status Select */}
-            <div className="w-full md:w-56 shrink-0">
+            <div className="w-full shrink-0 sm:w-52">
               <Select value={status} onValueChange={(value) => setStatus(value as StatusFilterOption)}>
                 <SelectTrigger
                   aria-label="Filter disease status"
-                  className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30"
+                  className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="All Statuses">All Statuses</SelectItem>
+                  <SelectItem value="All Reports">All Reports</SelectItem>
                   <SelectItem value="Needs Review">Needs Review</SelectItem>
                   <SelectItem value="Reviewed">Reviewed</SelectItem>
                   <SelectItem value="Forwarded to MAO">Forwarded to MAO</SelectItem>
@@ -328,45 +334,29 @@ function SibatAlertsContent() {
             </div>
 
             {/* Secondary actions / reset */}
-            {(query || status !== "All Statuses") && (
+            {(query || status !== "All Reports") && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   setQuery("");
-                  setStatus("All Statuses");
+                  setStatus("All Reports");
                 }}
-                className="h-11 rounded-xl text-xs font-bold text-slate-600 gap-1.5 shrink-0"
+                className="h-10 rounded-lg text-xs font-bold text-slate-600 gap-1.5 shrink-0"
               >
                 <RotateCcw className="size-3.5" />
                 <span>Reset</span>
               </Button>
             )}
 
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="text-xs font-bold text-[#1A365D] hover:bg-slate-100 rounded-xl h-11 px-3 shrink-0 ml-auto hidden lg:inline-flex"
-            >
-              <Link href="/sibat?tab=health">
-                Field Inspection Center
-                <ArrowRight className="size-3.5 ml-1" />
-              </Link>
-            </Button>
+
           </CardContent>
         </Card>
 
         {/* ── Results Summary Counter ── */}
         <div className="flex items-center justify-between px-1">
-          <p className="text-xs font-bold text-slate-600">
-            Showing{" "}
-            <span className="text-slate-900 font-black tabular-nums">
-              {filtered.length}
-            </span>{" "}
-            report{filtered.length !== 1 ? "s" : ""}
-          </p>
-          {status !== "All Statuses" && (
+          <div><h2 className="text-base font-bold text-slate-900">Reports</h2><p className="mt-0.5 text-xs text-slate-500">Showing {filtered.length} reports</p></div>
+          {status !== "All Reports" && (
             <Badge variant="outline" className="text-[10px] font-bold text-slate-500 bg-white">
               Filter: {status}
             </Badge>
@@ -375,12 +365,12 @@ function SibatAlertsContent() {
 
         {/* ── Report List ── */}
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="rounded-2xl border-slate-200 bg-white">
-                <CardContent className="p-5 space-y-3">
+              <Card key={i} className="rounded-xl border-slate-200 bg-white">
+                <CardContent className="space-y-3 p-4">
                   <div className="flex gap-3">
-                    <Skeleton className="size-12 rounded-2xl" />
+                    <Skeleton className="size-11 rounded-full" />
                     <div className="space-y-2 flex-1">
                       <Skeleton className="h-5 w-1/4" />
                       <Skeleton className="h-6 w-1/2" />
@@ -392,7 +382,7 @@ function SibatAlertsContent() {
             ))}
           </div>
         ) : (
-          <div className="space-y-3.5">
+          <div className="space-y-2">
             {filtered.map((d) => {
               const isDisease = d.reportType === "DISEASE";
               const reportedSigns =
@@ -413,15 +403,14 @@ function SibatAlertsContent() {
                 <Card
                   key={d.id}
                   id={`sibat-alert-record-${d.id}`}
-                  className={`rounded-2xl border shadow-2xs hover:shadow-xs transition-all duration-200 overflow-hidden ${d.id === highlightedRecordId ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200/90 bg-white hover:border-[#1A365D]/40"}`}
+                  className={`overflow-hidden rounded-xl border shadow-2xs transition-all ${d.id === highlightedRecordId ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200 bg-white"}`}
                 >
-                  <CardContent className="p-4 sm:p-5">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <CardContent className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.15fr)_minmax(220px,0.95fr)_auto] sm:items-center sm:p-3.5">
                       {/* Left: Report Marker + Info */}
                       <div className="flex items-start gap-3.5 flex-1 min-w-0">
                         {/* report-marker */}
                         <div
-                          className={`size-11 sm:size-12 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border ${
+                          className={`grid size-11 shrink-0 place-items-center rounded-full border ${
                             isDisease
                               ? "bg-rose-50 text-rose-700 border-rose-200"
                               : "bg-amber-50 text-amber-700 border-amber-200"
@@ -435,10 +424,10 @@ function SibatAlertsContent() {
                         </div>
 
                         {/* report-info */}
-                        <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="min-w-0 flex-1 space-y-1">
                           {/* Row 1: ID + Status + Tag */}
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-xs font-black text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                            <span className="font-mono text-xs font-black text-slate-800">
                               {d.id}
                             </span>
                             <StatusBadge status={d.status} />
@@ -451,7 +440,7 @@ function SibatAlertsContent() {
                           </div>
 
                           {/* Row 2: Farmer Name */}
-                          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight truncate">
+                          <h2 className="truncate text-sm font-bold text-slate-900">
                             {d.farmerName || "Registered Farmer"}
                           </h2>
 
@@ -468,50 +457,38 @@ function SibatAlertsContent() {
                             </span>
                           </p>
 
-                          {/* Row 4: Reported signs */}
-                          <div className="text-xs bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-slate-700">
-                            <b className="font-bold text-slate-900">Reported signs: </b>
-                            <span className="text-slate-800 font-medium">
-                              {reportedSigns}
-                            </span>
-                          </div>
-
-                          {/* Row 5: Cattle / Animal Identification */}
-                          <div className="flex items-center gap-2 text-xs font-bold text-amber-800 pt-0.5">
+                          <div className="flex items-center gap-2 truncate pt-0.5 text-[11px] font-medium text-slate-500">
                             <Tag className="size-3.5 text-amber-700 shrink-0" />
                             <span className="truncate">{cattleLabel}</span>
                           </div>
 
                           {/* Photos indicator if present */}
                           {(farmerPhoto || inspectorPhoto) && (
-                            <div className="flex items-center gap-2 pt-1 text-[11px] font-bold text-slate-500">
+                            <div className="flex items-center gap-1 pt-0.5 text-[10px] font-medium text-slate-500">
                               <Camera className="size-3.5 text-slate-400" />
                               <span>
-                                Attached media:{" "}
-                                {[
-                                  farmerPhoto ? "Farmer photo" : null,
-                                  inspectorPhoto ? "Field inspection photo" : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" • ")}
+                                Attached report media
                               </span>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Right: Button */}
-                      <div className="w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex sm:flex-col justify-end">
+                      <div className="min-h-16 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-700">
+                        <p className="mb-1 text-[11px] font-semibold text-slate-500">Reported signs</p>
+                        <p className="line-clamp-2 leading-relaxed">{reportedSigns}</p>
+                      </div>
+
+                      <div className="w-full shrink-0 sm:w-auto">
                         <Button
                           variant="secondary"
                           onClick={() => handleOpenInspection(d)}
-                          className="w-full sm:w-auto rounded-xl font-bold text-xs h-10 px-4 bg-slate-100 hover:bg-[#1A365D] hover:text-white text-slate-800 border border-slate-200 transition-all cursor-pointer shadow-2xs gap-1.5"
+                          className="h-10 w-full gap-1.5 rounded-lg bg-sky-50 px-4 text-xs font-bold text-sky-700 hover:bg-sky-100 sm:w-auto"
                         >
                           <span>View Report</span>
                           <ArrowRight className="size-3.5" />
                         </Button>
                       </div>
-                    </div>
                   </CardContent>
                 </Card>
               );
@@ -519,9 +496,9 @@ function SibatAlertsContent() {
 
             {/* ── Empty State ── */}
             {filtered.length === 0 && (
-              <Card className="rounded-2xl border-dashed border-slate-300 bg-white py-14 text-center">
+              <Card className="rounded-xl border-dashed border-slate-300 bg-white py-14 text-center">
                 <CardContent className="flex flex-col items-center justify-center space-y-3 px-6">
-                  <div className="size-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shadow-2xs">
+                  <div className="grid size-12 place-items-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-2xs">
                     <Stethoscope className="size-6" />
                   </div>
                   <h3 className="text-base font-bold text-slate-900">
@@ -530,13 +507,13 @@ function SibatAlertsContent() {
                   <p className="text-xs text-slate-500 max-w-sm font-medium">
                     Try changing your search or status filter.
                   </p>
-                  {(query || status !== "All Statuses") && (
+                  {(query || status !== "All Reports") && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         setQuery("");
-                        setStatus("All Statuses");
+                        setStatus("All Reports");
                       }}
                       className="rounded-xl text-xs font-bold gap-1.5 mt-1"
                     >
