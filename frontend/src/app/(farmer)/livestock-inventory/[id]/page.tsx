@@ -1239,14 +1239,6 @@ export default function LivestockDetailPage() {
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
                     Log daily milk volume, egg count, or harvest yield for Tag #{activeItem.tagNumber} to track output.
                   </p>
-                  <Button
-                    onClick={openProductionDialog}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl border-emerald-300 text-emerald-800 font-bold text-xs"
-                  >
-                    <Plus className="size-3.5 mr-1" /> Log First Yield Output
-                  </Button>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-slate-200 overflow-hidden mt-4">
@@ -1360,14 +1352,6 @@ export default function LivestockDetailPage() {
                       When this animal has a newborn, add its birth details here.
                     </p>
                   </div>
-                  <Button
-                    onClick={() => setIsCalvingDialogOpen(true)}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl border-pink-300 text-pink-700 hover:bg-pink-50 font-bold text-xs"
-                  >
-                    <Plus className="size-3.5 mr-1" /> Log First {terms.eventName}
-                  </Button>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-slate-200 overflow-hidden mt-4">

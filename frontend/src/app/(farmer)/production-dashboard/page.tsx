@@ -42,7 +42,17 @@ export default function ProductionDashboardPage() {
             <div className="space-y-1">
               <p className="font-medium">Livestock awaiting approval: {awaitingSpecies.join(", ")}</p>
               <p className="text-xs leading-relaxed">You can record activities after the livestock is approved.</p>
-              <Link href="/livestock-inventory" className="inline-flex min-h-11 items-center text-xs font-medium underline underline-offset-4">View My Livestock</Link>
+              <div className="flex flex-wrap gap-x-4">
+                {awaitingSpecies.map((species) => (
+                  <Link
+                    key={species}
+                    href={`/livestock-inventory?highlightType=${encodeURIComponent(species)}`}
+                    className="inline-flex min-h-11 items-center text-xs font-medium underline underline-offset-4"
+                  >
+                    View {species} livestock
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         )}

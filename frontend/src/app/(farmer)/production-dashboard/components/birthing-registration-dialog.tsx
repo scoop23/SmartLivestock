@@ -20,9 +20,10 @@ SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { Baby,Calendar,Check,Dna,HeartPulse,Scale,Tag } from "lucide-react";
+import { Baby,Calendar,Check,Dna,Scale,Tag } from "lucide-react";
 import { useState } from "react";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
+import { LivestockPickerField } from "../select-livestock-dialog";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
 
 interface BirthingRegistrationDialogProps {
@@ -113,22 +114,17 @@ export default function BirthingRegistrationDialog({
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
           {/* Mother Selection */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-              <HeartPulse className="size-3.5 text-rose-500" />
-              Select {terms.damName} *
-            </Label>
-            <Select value={damId} onValueChange={setDamId} required>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={`Choose mother (${terms.damName})`} />
-              </SelectTrigger>
-              <SelectContent>
-                {femaleLivestock.map((item) => (
-                  <SelectItem key={item.id} value={String(item.id)}>
-                    {item.tagNumber ? `Tag #${item.tagNumber}` : `Batch #${item.id}`} — {item.breed || "Standard"} ({item.livestockTypeName})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LivestockPickerField
+              items={femaleLivestock}
+              id="calving-dam"
+              selectedId={damId}
+              onSelect={(item) => setDamId(String(item.id))}
+              label={`Select ${terms.damName} *`}
+              placeholder={`Choose mother (${terms.damName})`}
+              dialogTitle={`Choose ${terms.damName}`}
+              dialogDescription={`Select the female livestock linked to this ${terms.eventName.toLowerCase()} record.`}
+              emptyStateText="No active female inventory found for this species. Register female breeding stock in Livestock Inventory first."
+            />
             {femaleLivestock.length === 0 && (
               <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
                 No active female inventory found for this species. Please register female breeding stock in Livestock Inventory first.

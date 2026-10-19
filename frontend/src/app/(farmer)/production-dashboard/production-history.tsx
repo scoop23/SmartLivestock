@@ -39,7 +39,6 @@ type ProductionRecordItem,
 type ProductionStatus,
 type ProductionType,
 } from "./production-analytics";
-import ProductionApprovalCard from "./production-approval-card";
 import ProductionDeleteDialog from "./production-delete-dialog";
 import ProductionRecordDialog from "./production-record-dialog";
 
@@ -218,14 +217,6 @@ export default function ProductionHistory({
     return result;
   }, [userProductions, searchQuery, statusFilter, typeFilter, sortBy]);
 
-  const activeRecord = useMemo(() => {
-    if (selected) {
-      const found = filtered.find((item) => item.id === selected.id);
-      if (found) return found;
-    }
-    return filtered.length > 0 ? filtered[0] : null;
-  }, [selected, filtered]);
-
   const activeDialogRecord = useMemo(() => {
     if (!dialogRecord) return null;
     return filtered.find((item) => item.id === dialogRecord.id) ?? dialogRecord;
@@ -299,7 +290,7 @@ export default function ProductionHistory({
                   }`}
                 >
                   {!isActive && <span className={`w-1.5 h-1.5 rounded-full ${chip.dotClass}`}></span>}
-                  {chip.label}
+                  {chip.value === "APPROVED" ? "Approved by MAO" : chip.label}
                   <span
                     className={`
                     text-[10px] font-extrabold tabular-nums ml-0.5 px-1.5 py-0.5 rounded-full leading-none
@@ -339,37 +330,24 @@ export default function ProductionHistory({
           </Button>
         </Card>
       ) : filtered.length === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-          <div className="md:col-span-7">
-            <Card className="p-10 text-center border-dashed border-slate-200 bg-white">
-              <p className="text-slate-500 font-medium">
-                No production records match your filter criteria.
-              </p>
-            </Card>
-          </div>
-          <div className="hidden md:block md:col-span-5">
-            <ProductionApprovalCard
-              record={null}
-              totalApprovedCount={statusCounts.APPROVED ?? 0}
-              totalRecordsCount={userProductions.length}
-            />
-          </div>
-        </div>
+        <Card className="p-10 text-center border-dashed border-slate-200 bg-white">
+          <p className="text-slate-500 font-medium">
+            No production records match your filter criteria.
+          </p>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-          {/* Left: Production Records List */}
-          <div className="md:col-span-7 space-y-3">
+        <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Showing {filtered.length} {filtered.length === 1 ? "Record" : "Records"}
               </p>
               <p className="text-xs text-slate-400 hidden md:block">
-                Click any record to view approval & remark details on the right
+                Click any record to view its approval and remark details
               </p>
             </div>
 
             {filtered.map((record: ProductionRecordItem, index: number) => {
-              const isSelected = activeRecord?.id === record.id;
+              const isSelected = selected?.id === record.id;
               const isApproved = record.status === "APPROVED";
 
               return (
@@ -379,17 +357,13 @@ export default function ProductionHistory({
                   tabIndex={0}
                   onClick={() => {
                     setSelected(record);
-                    if (typeof window !== "undefined" && window.innerWidth < 768) {
-                      setDialogRecord(record);
-                    }
+                    setDialogRecord(record);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       setSelected(record);
-                      if (typeof window !== "undefined" && window.innerWidth < 768) {
-                        setDialogRecord(record);
-                      }
+                      setDialogRecord(record);
                     }
                   }}
                   className="w-full text-left transition-all cursor-pointer group focus:outline-none"
@@ -419,11 +393,6 @@ export default function ProductionHistory({
                             >
                               {formatProductionStatus(record.status)}
                             </Badge>
-                            {isSelected && (
-                              <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full">
-                                Selected Details
-                              </span>
-                            )}
                           </div>
 
                           <ProductionValuation record={record} compact />
@@ -494,22 +463,10 @@ export default function ProductionHistory({
                 </div>
               );
             })}
-          </div>
-
-          {/* Right: Approval & Remark Details Side Card */}
-          <div className="hidden md:block md:col-span-5 md:sticky md:top-6 space-y-4">
-            <ProductionApprovalCard
-              record={activeRecord}
-              onDelete={handleDelete}
-              isDeleting={deleteMutation.isPending}
-              totalApprovedCount={statusCounts.APPROVED ?? 0}
-              totalRecordsCount={userProductions.length}
-            />
-          </div>
         </div>
       )}
 
-      {/* Mobile Detailed Dialog */}
+      {/* Record details dialog */}
       <ProductionRecordDialog
         record={activeDialogRecord}
         open={dialogRecord !== null}

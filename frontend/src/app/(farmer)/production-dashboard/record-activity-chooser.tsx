@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Baby,Beef,ClipboardList,Egg,Milk,Scale,Scissors,ShoppingBag,Truck } from "lucide-react";
+import { Baby,Beef,Egg,Milk,Scale,Scissors,ShoppingBag,Truck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -75,7 +75,7 @@ export default function RecordActivityChooser({
       <div className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(120deg,#123b2c_0%,#1f593e_52%,#39734a_100%)] p-5 text-white shadow-[0_18px_50px_rgba(20,83,45,0.16)] sm:p-7 lg:p-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 -z-10 size-80 rounded-full border-[36px] border-white/[0.06]" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-64 rounded-full bg-lime-200/[0.08] blur-2xl" />
-        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-50">
               <span className="size-1.5 rounded-full bg-lime-300" /> Farm activity log
@@ -83,6 +83,9 @@ export default function RecordActivityChooser({
             <h2 id="record-activity-title" className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">What would you like to record?</h2>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-emerald-50/80 sm:text-base">Choose an activity to open its existing form. You’ll select the animal before saving.</p>
           </div>
+          <Button asChild variant="outline" className="min-h-11 w-full shrink-0 rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:w-auto">
+            <Link href="/production-dashboard/history">All production records</Link>
+          </Button>
         </div>
       </div>
 
@@ -117,24 +120,6 @@ export default function RecordActivityChooser({
               </article>
             );
           })}
-          <article className="group flex min-h-56 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)] transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]">
-            <div className="flex items-start gap-3 p-4 sm:p-5">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100 transition group-hover:bg-emerald-100">
-                <ClipboardList className="size-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-slate-900">All production records</h3>
-                <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                  See your milk, meat, wool, and egg records in one list.
-                </p>
-              </div>
-            </div>
-            <div className="mt-auto border-t border-slate-100 bg-slate-50/70 p-3 sm:px-4">
-              <Button asChild variant="outline" className="min-h-10 w-full rounded-xl border-slate-200 bg-white">
-                <Link href="/production-dashboard/history">View all records</Link>
-              </Button>
-            </div>
-          </article>
         </div>
       )}
       <p className="text-xs text-slate-500">Only activities supported for your approved, active livestock are shown. Forecasts and combined history remain available from the records page.</p>

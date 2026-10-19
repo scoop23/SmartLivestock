@@ -432,9 +432,9 @@ export function formatRecordDate(date: string): string {
 export function formatProductionStatus(status: ProductionStatus): string {
   switch (status) {
     case "APPROVED":
-      return "Verified";
+      return "Approved by MAO";
     case "VERIFIED":
-      return "Field Verified";
+      return "Verified by SIBAT";
     case "PENDING":
       return "Awaiting Verification";
     case "SUBJECT_TO_REVISION":

@@ -449,16 +449,16 @@ export default function ProductionDashboardView({
   return (
     <div className="space-y-6">
       {focusedActivity && focusedMode ? (
-        <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">{selectedSpecies === "ALL" ? "All livestock" : selectedSpecies}</p>
-            <h2 className="mt-1 text-lg font-bold text-slate-900">{focusedMode === "record" ? "Record activity" : "Activity records"}</h2>
-            <p className="mt-1 text-sm text-slate-600">{focusedMode === "record" ? "Complete the existing form. Choose the animal and review your entry before saving." : "Review the records and their review status for this activity."}</p>
-          </div>
+        <div className="space-y-3">
           <Button type="button" variant="outline" className="min-h-11 shrink-0 rounded-xl" onClick={returnToActivityChooser}>
             <ArrowLeft className="mr-2 size-4" /> Choose another activity
           </Button>
-        </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">{selectedSpecies === "ALL" ? "All livestock" : selectedSpecies}</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">{focusedMode === "record" ? "Record activity" : "Activity records"}</h2>
+            <p className="mt-1 text-sm text-slate-600">{focusedMode === "record" ? "Complete the existing form. Choose the animal and review your entry before saving." : "Review the records and their review status for this activity."}</p>
+          </section>
+        </div>
       ) : null}
       <div className={focusedActivity ? "hidden" : "space-y-6"}>
       {/* Top Enterprise Header & Switcher */}
