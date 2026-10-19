@@ -574,7 +574,7 @@ class ProductionRecordAPITests(APITestCase):
         record_count = ProductionRecord.objects.count()
         animal = self.swine_animal()
         self.client.force_authenticate(user=self.farmer_user)
-        response = self.client.post("/diseases/mortality/", {"livestock": animal.pk, "death_count": 1,
+        response = self.client.post("/diseases/mortality/", {"livestocks": [animal.pk], "death_count": 1,
             "cause": "Accident", "record_date": "2026-01-16"})
         self.assertEqual(response.status_code, 201, response.data)
         mortality_id = response.data["id"]
@@ -622,7 +622,11 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(slaughter.quantity, 3)
         self.assertEqual(float(slaughter.carcass_weight), 210)
         self.assertEqual(herd.animals.filter(operational_status="ACTIVE").count(), 10)
-        self.assertTrue(Notification.objects.filter(user=self.sibat_user, title="New Production Entry Awaiting Verification", link="/sibat?tab=production").exists())
+        self.assertTrue(Notification.objects.filter(
+            user=self.sibat_user,
+            title="New Production Entry Awaiting Verification",
+            link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
+        ).exists())
         self.client.force_authenticate(user=self.mao_user)
         self.assertEqual(self.client.post(f"/production/records/{record.pk}/review/", {"status": "APPROVED"}).status_code, 400)
         self.client.force_authenticate(user=self.sibat_user)

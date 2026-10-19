@@ -235,7 +235,8 @@ class LivestockInspectionWorkflowTests(TestCase):
                     "id", "tag_number", "livestock_type", "livestock_type_name", "breed", "sex",
                     "birth_date", "age", "age_classification",
                     "registration_status", "operational_status", "eligible", "ineligibility_reason",
-                    "owner_id", "owner_name", "origin", "barangay",
+                    "owner_id", "owner_name", "origin", "barangay", "photo_url",
+                    "ownership_certificate_number",
                 })
             else:
                 self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -344,7 +345,7 @@ class LivestockInspectionWorkflowTests(TestCase):
         self.assertEqual(result.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("items", result.data)
 
-    def test_farmer_can_create_inspection_for_own_livestock(self):
+    def test_farmer_cannot_create_inspection_for_own_livestock(self):
         self.client.force_authenticate(user=self.farmer_user)
         payload = {
             "destination": "San Juan Livestock Market",
@@ -364,21 +365,10 @@ class LivestockInspectionWorkflowTests(TestCase):
             ],
         }
         response = self.client.post("/api/inspections/", payload, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["status"], "PENDING")
-        self.assertEqual(response.data["shipper"], self.farmer.id)
-        self.assertEqual(response.data["shipper_name"], "farmer_juan")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(LivestockInspection.objects.exists())
 
-        # Confirm notification sent to Auction officers
-        notif = Notification.objects.filter(
-            user=self.auction_user,
-            related_entity_type="inspection",
-            related_entity_id=response.data["id"],
-        ).first()
-        self.assertIsNotNone(notif)
-        self.assertIn("New Livestock Inspection", notif.title)
-
-    def test_farmer_cannot_create_inspection_with_other_farmers_animal(self):
+    def test_auction_cannot_attach_another_shippers_animal(self):
         # Create second farmer and animal
         other_user = User.objects.create_user(
             username="farmer_maria",
@@ -403,9 +393,12 @@ class LivestockInspectionWorkflowTests(TestCase):
             created_by=other_user,
         )
 
-        # Farmer Juan attempts to include Maria's cow
-        self.client.force_authenticate(user=self.farmer_user)
+        # Auction encodes for Juan but attempts to include Maria's cow.
+        self.client.force_authenticate(user=self.auction_user)
         payload = {
+            "shipper": self.farmer.id,
+            "shipper_name": self.farmer_user.username,
+            "shipper_address": self.farmer.address,
             "destination": "Tanauan",
             "purpose": "SLAUGHTER",
             "inspection_date": str(timezone.now().date()),
@@ -424,9 +417,12 @@ class LivestockInspectionWorkflowTests(TestCase):
         self.assertIn("items", response.data)
 
     def test_farmer_cannot_approve_own_inspection(self):
-        # Create inspection as farmer
-        self.client.force_authenticate(user=self.farmer_user)
+        # Auction creates the inspection; a Farmer cannot submit or approve it.
+        self.client.force_authenticate(user=self.auction_user)
         payload = {
+            "shipper": self.farmer.id,
+            "shipper_name": self.farmer_user.username,
+            "shipper_address": self.farmer.address,
             "destination": "Batangas City",
             "purpose": "SLAUGHTER",
             "inspection_date": str(timezone.now().date()),
@@ -441,8 +437,10 @@ class LivestockInspectionWorkflowTests(TestCase):
             ],
         }
         res = self.client.post("/api/inspections/", payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
         insp_id = res.data["id"]
 
+        self.client.force_authenticate(user=self.farmer_user)
         verify_res = self.client.post(f"/api/inspections/{insp_id}/verify/")
         self.assertEqual(verify_res.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -639,9 +637,12 @@ class LivestockInspectionWorkflowTests(TestCase):
         self.assertIsNotNone(approve_res.data["date_issued"])
 
     def test_farmer_resubmit_after_subject_to_revision_resets_to_pending(self):
-        # 1. Farmer creates inspection
-        self.client.force_authenticate(user=self.farmer_user)
+        # 1. Auction encodes the farmer's transport request.
+        self.client.force_authenticate(user=self.auction_user)
         payload = {
+            "shipper": self.farmer.id,
+            "shipper_name": self.farmer_user.username,
+            "shipper_address": self.farmer.address,
             "destination": "Batangas City",
             "purpose": "SLAUGHTER",
             "inspection_date": str(timezone.now().date()),
@@ -656,28 +657,20 @@ class LivestockInspectionWorkflowTests(TestCase):
             ],
         }
         create_res = self.client.post("/api/inspections/", payload, format="json")
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED, create_res.data)
         insp_id = create_res.data["id"]
 
-        # MAO cannot review a Farmer request before Auction submits it.
+        # Auction-created inspection requests go directly to MAO review.
         self.client.force_authenticate(user=self.mao_user)
-        early = self.client.post(f"/api/inspections/{insp_id}/review/",
-                                 {"status": "APPROVED"}, format="json")
-        self.assertEqual(early.status_code, status.HTTP_409_CONFLICT)
-        self.client.force_authenticate(user=self.auction_user)
-        forward = self.client.post(f"/api/inspections/{insp_id}/verify/")
-        self.assertEqual(forward.status_code, status.HTTP_200_OK)
-        self.assertEqual(forward.data["status"], "VERIFIED")
-
-        # MAO returns for revision.
-        self.client.force_authenticate(user=self.mao_user)
-        self.client.post(
+        revision = self.client.post(
             f"/api/inspections/{insp_id}/review/",
             {"status": "SUBJECT_TO_REVISION", "remarks": "Please provide vehicle plate number."},
             format="json",
         )
+        self.assertEqual(revision.status_code, status.HTTP_200_OK, revision.data)
 
-        # 4. Farmer edits and resubmits
-        self.client.force_authenticate(user=self.farmer_user)
+        # 4. The record creator corrects and resubmits the returned request.
+        self.client.force_authenticate(user=self.auction_user)
         edit_res = self.client.patch(
             f"/api/inspections/{insp_id}/",
             {"vehicle_plate_number": "NDB-1234"},
@@ -689,10 +682,6 @@ class LivestockInspectionWorkflowTests(TestCase):
         resubmit_res = self.client.post(f"/api/inspections/{insp_id}/resubmit/")
         self.assertEqual(resubmit_res.status_code, status.HTTP_200_OK)
         self.assertEqual(resubmit_res.data["status"], "PENDING")
-        self.client.force_authenticate(user=self.auction_user)
-        forward_again = self.client.post(f"/api/inspections/{insp_id}/verify/")
-        self.assertEqual(forward_again.status_code, status.HTTP_200_OK)
-        self.assertEqual(forward_again.data["status"], "VERIFIED")
 
     def test_submission_is_not_clearance_or_official_gis_movement(self):
         self.client.force_authenticate(user=self.auction_user)
@@ -829,7 +818,7 @@ class StaleNotificationDeletionTests(TestCase):
             "livestock_type": self.livestock_type.id,
             "entry_type": "INDIVIDUAL",
             "quantity": 1,
-            "tag_number": "COW-AAA-01",
+            "tag_number": "FARMER-A-001",
             "breed": "Brahman",
             "sex": "FEMALE",
         }
@@ -843,7 +832,7 @@ class StaleNotificationDeletionTests(TestCase):
             "livestock_type": self.livestock_type.id,
             "entry_type": "INDIVIDUAL",
             "quantity": 1,
-            "tag_number": "COW-BBB-02",
+            "tag_number": "FARMER-B-001",
             "breed": "Simmental",
             "sex": "MALE",
         }

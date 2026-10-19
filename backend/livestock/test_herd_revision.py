@@ -107,11 +107,11 @@ class HerdRevisionTests(APITestCase):
         self.client.force_authenticate(user=self.farmer_user)
         response = self.client.post(
             f"/livestock/batches/{self.batch.pk}/animals/",
-            {"animals": [{"tag_number": "HERD-NEW", "breed": "Native", "sex": "Female"}]},
+            {"animals": [{"tag_number": "HERD-FARMER-001", "breed": "Native", "sex": "Female"}]},
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
-        new_animal = LivestockInventory.objects.get(tag_number="HERD-NEW")
+        new_animal = LivestockInventory.objects.get(tag_number="HERD-FARMER-001")
         self.assertEqual(new_animal.status, LivestockInventory.StatusType.PENDING)
         self.assertTrue(new_animal.is_post_approval_addition)
         approved.refresh_from_db()

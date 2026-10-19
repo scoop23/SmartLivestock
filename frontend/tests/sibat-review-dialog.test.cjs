@@ -23,6 +23,10 @@ function loadComponent(source) {
   require: (id) => {
     if (id.startsWith("@/components/ui/")) return new Proxy({}, { get: () => wrapper });
     if (id === "@/components/livestock-breed-field") return { LivestockBreedField: wrapper };
+    if (id === "@/lib/http-error") return loadComponent(ts.transpileModule(
+      fs.readFileSync(path.join(__dirname, "../src/lib/http-error.ts"), "utf8"),
+      { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+    ).outputText);
     if (id === "@/lib/livestock-age") return loadComponent(ts.transpileModule(
       fs.readFileSync(path.join(__dirname, "../src/lib/livestock-age.ts"), "utf8"),
       { compilerOptions: { module: ts.ModuleKind.CommonJS } },

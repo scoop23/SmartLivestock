@@ -152,7 +152,7 @@ class LivestockInventoryReviewTests(APITestCase):
                 "livestock_type": self.cattle_type.pk,
                 "entry_type": LivestockInventory.EntryType.INDIVIDUAL,
                 "quantity": 1,
-                "tag_number": "TAG-NOTIFY-1",
+                "tag_number": "FMR-000001-001",
                 "breed": "Brahman",
                 "sex": "FEMALE",
             },
@@ -161,24 +161,27 @@ class LivestockInventoryReviewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         notification = Notification.objects.get(user=self.sibat_user)
         self.assertEqual(notification.title, "New Livestock Entry Awaiting Verification")
-        self.assertEqual(notification.link, "/sibat-validation")
+        self.assertEqual(
+            notification.link,
+            f"/sibat?tab=inventory&reviewType=INVENTORY&reviewId={response.data['id']}",
+        )
         self.assertFalse(notification.is_read)
 
     def test_birth_date_is_optional_and_future_dates_are_rejected(self):
         self.client.force_authenticate(user=self.farmer_user)
         payload = {"livestock_type": self.cattle_type.pk, "entry_type": "INDIVIDUAL", "quantity": 1,
-                   "tag_number": "LEGACY-NO-BIRTH", "birth_date": None}
+                   "tag_number": "FMR-000001-002", "birth_date": None}
         response = self.client.post("/livestock/inventory/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertIsNone(response.data["birth_date"])
         self.assertIsNone(response.data["age"])
         self.assertEqual(response.data["age_classification"], "UNKNOWN")
-        payload["tag_number"] = "KNOWN-BIRTH"
+        payload["tag_number"] = "FMR-000001-003"
         payload["birth_date"] = "2020-01-15"
         response = self.client.post("/livestock/inventory/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(response.data["birth_date"], "2020-01-15")
-        payload["tag_number"] = "FUTURE-BIRTH"
+        payload["tag_number"] = "FMR-000001-004"
         payload["birth_date"] = "2999-01-01"
         response = self.client.post("/livestock/inventory/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -240,14 +243,14 @@ class LivestockBatchAPITests(APITestCase):
             "target_weight": "95.00",
             "animals": [
                 {
-                    "tag_number": "SW-01",
+                    "tag_number": "FARMER-BATCH-TEST-001",
                     "breed": "Large White",
                     "sex": "MALE",
                     "weight": "42.50",
                     "avatar_key": "swine-large-white",
                 },
                 {
-                    "tag_number": "SW-02",
+                    "tag_number": "FARMER-BATCH-TEST-002",
                     "breed": "Landrace",
                     "sex": "FEMALE",
                     "weight": "39.00",
@@ -266,8 +269,8 @@ class LivestockBatchAPITests(APITestCase):
         animals = LivestockInventory.objects.filter(batch__batch_code="BATCH-SWINE-001")
         self.assertEqual(animals.count(), 2)
         tags = set(animals.values_list("tag_number", flat=True))
-        self.assertIn("SW-01", tags)
-        self.assertIn("SW-02", tags)
+        self.assertIn("FARMER-BATCH-TEST-001", tags)
+        self.assertIn("FARMER-BATCH-TEST-002", tags)
 
     def test_add_animals_to_existing_batch(self):
         self.client.force_authenticate(user=self.farmer_user)
@@ -284,7 +287,7 @@ class LivestockBatchAPITests(APITestCase):
             {
                 "animals": [
                     {
-                        "tag_number": "SW-EXTRA-1",
+                        "tag_number": "FARMER-BATCH-TEST-003",
                         "breed": "Duroc",
                         "sex": "MALE",
                         "weight": "25.00",
@@ -298,7 +301,7 @@ class LivestockBatchAPITests(APITestCase):
         animal = batch.animals.first()
         self.assertIsNotNone(animal)
         assert animal is not None
-        self.assertEqual(animal.tag_number, "SW-EXTRA-1")
+        self.assertEqual(animal.tag_number, "FARMER-BATCH-TEST-003")
 
     def test_farmer_scope_parameters_do_not_expose_other_batches(self):
         other_user = User.objects.create_user(
@@ -435,7 +438,10 @@ class CensusPermissionWorkflowTests(APITestCase):
             user=self.mao_user,
             title="Census Submission Awaiting MAO Approval",
         )
-        self.assertEqual(notification.link, "/data-validation?domain=census")
+        self.assertEqual(
+            notification.link,
+            f"/data-validation?domain=census&recordType=CENSUS&recordId={response.data['id']}",
+        )
 
     def test_census_period_is_unique_per_barangay_but_history_is_allowed(self):
         self.client.force_authenticate(user=self.sibat_user)
@@ -602,7 +608,10 @@ class CensusPermissionWorkflowTests(APITestCase):
             user=self.mao_user,
             title="Census Submission Resubmitted",
         )
-        self.assertEqual(notification.link, "/data-validation?domain=census")
+        self.assertEqual(
+            notification.link,
+            f"/data-validation?domain=census&recordType=CENSUS&recordId={self.submission.pk}",
+        )
 
     def test_mao_cannot_review_an_already_approved_census(self):
         self.submission.status = CensusSubmission.StatusType.APPROVED

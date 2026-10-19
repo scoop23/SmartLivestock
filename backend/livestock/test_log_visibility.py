@@ -116,7 +116,7 @@ class LogVisibilityTests(APITestCase):
 
     def test_inventory_notification_and_review_chain(self):
         self.client.force_authenticate(self.owner)
-        response = self.client.post("/livestock/inventory/",{"livestock_type":self.cattle.pk,"quantity":1,"entry_type":"INDIVIDUAL"},format="json")
+        response = self.client.post("/livestock/inventory/",{"livestock_type":self.cattle.pk,"quantity":1,"entry_type":"INDIVIDUAL","tag_number":"OWNER-001"},format="json")
         self.assertEqual(response.status_code,201,response.data)
         self.assertTrue(Notification.objects.filter(user=self.sibat).exists())
         self.assertFalse(Notification.objects.filter(user__in=[self.other_sibat,self.unassigned]).exists())
@@ -130,7 +130,7 @@ class LogVisibilityTests(APITestCase):
         self.assertEqual(response.status_code,200,response.data)
         self.assertTrue(Notification.objects.filter(user=self.owner).exists())
         self.client.force_authenticate(self.owner)
-        response=self.client.patch(f"/livestock/inventory/{pk}/",{"tag_number":"TEST-RESUBMITTED"},format="json")
+        response=self.client.patch(f"/livestock/inventory/{pk}/",{"tag_number":"OWNER-002"},format="json")
         self.assertEqual(response.status_code,200,response.data)
         self.assertEqual(response.data["status"],"PENDING")
         self.client.force_authenticate(self.sibat)

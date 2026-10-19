@@ -36,6 +36,11 @@ class FreezeWorkflowTests(APITestCase):
         self.assertEqual(response.status_code,201,(path,response.data))
         return response.data
 
+    def animal_tag(self):
+        sequence = getattr(self, "tag_sequence", 0) + 1
+        self.tag_sequence = sequence
+        return f"{self.prefix}FARMER-{sequence:03d}"
+
     def review(self,path,pk,role,status):
         self.as_role(role)
         response=self.client.post(f"{path}{pk}/review/",{"status":status,"remarks":"Synthetic audit check"},format="json")
@@ -47,13 +52,14 @@ class FreezeWorkflowTests(APITestCase):
         self.review(path,pk,"MAO","APPROVED")
 
     def animal(self):
-        animal=self.submit("/livestock/inventory/",{"livestock_type":self.cattle.pk,"entry_type":"INDIVIDUAL","quantity":1,"sex":"FEMALE","tag_number":self.prefix+uuid4().hex[:6]})
+        animal=self.submit("/livestock/inventory/",{"livestock_type":self.cattle.pk,"entry_type":"INDIVIDUAL","quantity":1,"sex":"FEMALE","tag_number":self.animal_tag()})
         self.approve("/livestock/inventory/",animal["id"])
         return animal["id"]
 
     def herd(self,count):
-        herd=self.submit("/livestock/batches/",{"livestock_type":self.cattle.pk,"batch_code":self.prefix+uuid4().hex[:6],"batch_name":"SYNTHETIC AUDIT HERD","animals":[{"tag_number":self.prefix+uuid4().hex[:6],"sex":"FEMALE"} for _ in range(count)]})
-        self.approve("/livestock/batches/",herd["id"])
+        herd=self.submit("/livestock/batches/",{"livestock_type":self.cattle.pk,"batch_code":self.prefix+uuid4().hex[:6],"batch_name":"SYNTHETIC AUDIT HERD","animals":[{"tag_number":self.animal_tag(),"sex":"FEMALE"} for _ in range(count)]})
+        for animal in LivestockInventory.objects.filter(batch_id=herd["id"]).order_by("pk"):
+            self.approve("/livestock/inventory/",animal.pk)
         return LivestockBatch.objects.get(pk=herd["id"])
 
     def test_production_revision_notifications_and_approval(self):
@@ -111,7 +117,7 @@ class FreezeWorkflowTests(APITestCase):
         self.assertEqual(LivestockInventory.objects.get(pk=victim).operational_status,"DECEASED")
         self.assertFalse(ProductionRecord.objects.filter(livestock_id=victim).exists())
         dam=self.animal()
-        birth=self.submit("/production/calving/",{"dam":dam,"calving_date":"2026-09-01","calf_tag":self.prefix+"CALF","calf_sex":"FEMALE"})
+        birth=self.submit("/production/calving/",{"dam":dam,"calving_date":"2026-09-01","calf_tag":self.animal_tag(),"calf_sex":"FEMALE"})
         self.approve("/production/calving/",birth["id"])
         event=CalvingRecord.objects.get(pk=birth["id"])
         self.assertIsNotNone(event.offspring_inventory_id)
@@ -119,7 +125,7 @@ class FreezeWorkflowTests(APITestCase):
 
     def test_pending_herd_with_history_returns_conflict_and_preserves_records(self):
         from diseases.models import DiseaseCase
-        herd=self.submit("/livestock/batches/",{"livestock_type":self.cattle.pk,"batch_code":self.prefix+"PROTECTED","batch_name":"SYNTHETIC PROTECTED HERD","animals":[{"tag_number":self.prefix+"PROTECTED-1"}]})
+        herd=self.submit("/livestock/batches/",{"livestock_type":self.cattle.pk,"batch_code":self.prefix+"PROTECTED","batch_name":"SYNTHETIC PROTECTED HERD","animals":[{"tag_number":self.animal_tag()}]})
         child=LivestockInventory.objects.get(batch_id=herd["id"])
         disease=DiseaseCase.objects.create(livestock=child,name="Synthetic protected history",affected_count=1,created_by=self.actors["FARMER"])
         response=self.client.delete(f"/livestock/batches/{herd['id']}/")
@@ -130,7 +136,7 @@ class FreezeWorkflowTests(APITestCase):
 
     def test_herd_only_history_is_not_detached_by_deletion(self):
         from diseases.models import DiseaseCase
-        herd=self.submit("/livestock/batches/",{"livestock_type":self.cattle.pk,"batch_code":self.prefix+"HERD-HISTORY","batch_name":"SYNTHETIC HERD HISTORY","animals":[{"tag_number":self.prefix+"HISTORY-1"}]})
+        herd=self.submit("/livestock/batches/",{"livestock_type":self.cattle.pk,"batch_code":self.prefix+"HERD-HISTORY","batch_name":"SYNTHETIC HERD HISTORY","animals":[{"tag_number":self.animal_tag()}]})
         event=DiseaseCase.objects.create(batch_id=herd["id"],name="Synthetic herd disease",affected_count=1,created_by=self.actors["FARMER"])
         response=self.client.delete(f"/livestock/batches/{herd['id']}/")
         self.assertEqual(response.status_code,409,response.data)
