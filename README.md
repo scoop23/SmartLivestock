@@ -40,6 +40,11 @@ verification remains with SIBAT; final municipal approval remains with MAO/Admin
 Returned records require remarks. Editing and deletion depend on role, ownership
 and record state, enforced by the backend.
 
+Current review workflows do not expose a terminal `REJECTED` transition;
+corrections use `SUBJECT_TO_REVISION` and can be resubmitted. Some frontend views
+still recognize `REJECTED` to display legacy records without treating them as
+active review work.
+
 Census is submitted by SIBAT as `VERIFIED`, then approved or returned by MAO/Admin.
 Auction inspection and ownership certificates have their own municipal review
 paths. Do not assume every domain uses an identical sequence.
@@ -229,8 +234,10 @@ service. Review root `.env.example` for local overrides. The frontend API base
 is `http://localhost:8000` without an extra `/api` suffix.
 
 Production Docker targets use Gunicorn for Django and a Next production build.
-Build-time API configuration, migration execution, persistent media/R2, SMTP,
-static files and HTTPS need explicit deployment configuration. The existing
+The production frontend build requires a public backend URL, for example:
+`docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.org -f frontend/Dockerfile frontend`.
+Migration execution, persistent media/R2, SMTP, static files and HTTPS also need
+explicit deployment configuration. The existing
 `build.sh` scripts install requirements, collect static files and apply migrations;
 root `start.sh` starts development processes.
 

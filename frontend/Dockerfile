@@ -14,10 +14,11 @@ CMD ["npm", "run", "dev"]
 # Next.js needs the public API URL at build time because NEXT_PUBLIC_* values
 # are embedded into browser JavaScript during `next build`.
 FROM dependencies AS builder
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NODE_ENV=production
 COPY . .
+RUN test -n "$NEXT_PUBLIC_API_URL" || (echo "NEXT_PUBLIC_API_URL must be set to the deployed backend URL" >&2 && exit 1)
 RUN npm run build && npm prune --omit=dev
 
 # Production runtime contains only the built app and production dependencies.

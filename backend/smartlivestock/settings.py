@@ -257,7 +257,7 @@ os.makedirs(STATIC_ROOT, exist_ok=True)
 # ==============================================================================
 # Local media fallback settings (used in development or when R2 is unconfigured)
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # Cloudflare R2 Credentials & Endpoint
