@@ -664,6 +664,10 @@ function SibatPortalContent() {
             </div>
           </section>
 
+          {user?.role === "SIBAT" && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId) && (
+            <ReviewWorkloadPanel scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned: ${user.assignedBarangayName || "Assigned barangay"}`} hideMaoQueue />
+          )}
+
         </section>
 
         <aside className="min-w-0 space-y-4" aria-label="CBAT quick access">
@@ -703,10 +707,6 @@ function SibatPortalContent() {
               ))}
             </div>
           </section>
-
-          {user?.role === "SIBAT" && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId) && (
-            <ReviewWorkloadPanel scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned: ${user.assignedBarangayName || "Assigned barangay"}`} hideMaoQueue />
-          )}
 
           <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="recent-updates-title">
             <div className="flex items-center justify-between gap-2"><div><h2 id="recent-updates-title" className="font-bold text-slate-900">Recent Updates</h2><p className="mt-1 text-sm text-slate-600">Latest activity in your assigned area.</p></div><Button type="button" variant="ghost" size="sm" onClick={() => router.push("/sibat-alerts")} className="shrink-0">View All</Button></div>
