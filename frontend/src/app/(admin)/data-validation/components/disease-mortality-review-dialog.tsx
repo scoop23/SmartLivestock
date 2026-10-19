@@ -514,13 +514,13 @@ export function DiseaseMortalityReviewDialog({
                   <div className="space-y-2 pt-1">
                     <div className="flex items-center gap-1 text-[10px] font-black text-emerald-800 uppercase tracking-wider">
                       <Sparkles className="size-3.5 text-amber-500" />
-                      <span>MAO Preset Suggestions</span>
+                      <span>Common MAO Remarks</span>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      {(isMortality
-                        ? MAO_MORTALITY_APPROVAL_PRESETS
-                        : MAO_DISEASE_APPROVAL_PRESETS
-                      ).map((preset, idx) => (
+                      {[
+                        ...(isMortality ? MAO_MORTALITY_APPROVAL_PRESETS : MAO_DISEASE_APPROVAL_PRESETS),
+                        ...MAO_REVISION_PRESETS,
+                      ].map((preset, idx) => (
                         <button
                           key={idx}
                           type="button"
@@ -553,7 +553,7 @@ export function DiseaseMortalityReviewDialog({
                   type="button"
                   variant="outline"
                   onClick={() => handleAction("SUBJECT_TO_REVISION")}
-                  disabled={!canMaoReview}
+                  disabled={!canMaoReview || !remarks.trim()}
                   className="py-5 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-2xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
                 >
                   <RotateCcw className="size-4 text-amber-700" />
@@ -569,6 +569,9 @@ export function DiseaseMortalityReviewDialog({
                   Close
                 </Button>
               </div>
+              {canMaoReview && !remarks.trim() && (
+                <p className="text-xs font-semibold text-amber-800">Add a reason in the remarks box before returning this report for revision.</p>
+              )}
             </div>
           </div>
         </div>

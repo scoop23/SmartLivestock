@@ -805,11 +805,6 @@ function AdminDataValidationContent() {
     remarks: string,
     recordId: string
   ) => {
-    setLocalIncidentOverrides((prev) => ({
-      ...prev,
-      [recordId]: { status: action, remarks },
-    }));
-
     try {
       if (recordId.startsWith("dis-")) {
         const cleanId = recordId.replace("dis-", "");
@@ -818,6 +813,10 @@ function AdminDataValidationContent() {
         const cleanId = recordId.replace("mor-", "");
         await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
       }
+      setLocalIncidentOverrides((prev) => ({
+        ...prev,
+        [recordId]: { status: action, remarks },
+      }));
       queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       const actionVerb = action === "APPROVED" ? "certified & approved" : "returned for revision";
@@ -826,7 +825,12 @@ function AdminDataValidationContent() {
       });
     } catch (err) {
       console.error("Failed to review health incident:", err);
-      toast.error("Failed to update health review status.");
+      const responseData = axios.isAxiosError(err)
+        ? (err.response?.data as { remarks?: string; error?: string; status?: string } | undefined)
+        : undefined;
+      toast.error("Failed to update health review status.", {
+        description: responseData?.remarks || responseData?.error || responseData?.status || "Please refresh the record and try again.",
+      });
     }
   };
 
