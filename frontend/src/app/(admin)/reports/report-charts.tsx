@@ -84,15 +84,6 @@ function Bars({ data, horizontal = false, unit }: { data: { name: string; value:
   </BarChart></ResponsiveContainer>;
 }
 
-function StackedBars({ data, series, unit }: { data: Record<string, string | number>[]; series: string[]; unit: string }) {
-  if (!data.length || !series.length) return null;
-  return <ResponsiveContainer width="100%" height="100%"><BarChart data={data} layout="vertical" margin={{ top: 8, right: 18, left: 8, bottom: 4 }}>
-    <CartesianGrid strokeDasharray="3 3" horizontal={false} /><XAxis type="number" tickFormatter={(v) => Number(v).toLocaleString()} /><YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 11 }} />
-    <Tooltip formatter={(v) => [`${Number(v).toLocaleString()} ${unit}`, "Heads"]} /><Legend />
-    {series.map((name, index) => <Bar key={name} dataKey={name} stackId="heads" fill={COLORS[index % COLORS.length]} />)}
-  </BarChart></ResponsiveContainer>;
-}
-
 function MultiTrend({ data, series, unit }: { data: Record<string, string | number>[]; series: string[]; unit: string }) {
   if (!data.length || !series.length) return null;
   return <ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 8, right: 14, left: -12, bottom: 4 }}>
@@ -128,7 +119,7 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
   const rows = report.rows;
   const records = (kind: string) => rows.filter((row) => row.record_kind === kind);
   const descriptions: Record<ReportType, string> = {
-    inventory: "This report summarizes approved livestock inventory in the selected period. Species and barangay charts show how recorded heads are distributed across the municipality.",
+    inventory: "This report summarizes approved livestock inventory in the selected period. Charts break down recorded heads by species, sex, and operational status.",
     production: "This report summarizes approved production records in the selected period. Production types stay grouped by their original unit, so liters, kilograms, and pieces are never combined into one percentage.",
     disease_mortality: "This report summarizes approved disease and mortality records. Disease charts describe reported case counts and affected heads, while mortality charts show recorded deaths over time and by species.",
     slaughter: "This report summarizes approved slaughter records, including animals processed and recorded carcass weights. Species distribution and monthly trends describe activity without combining head counts with kilograms.",
@@ -137,20 +128,11 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
   };
   const description = <p className="text-sm leading-6 text-slate-600">{descriptions[reportType]}</p>;
   if (reportType === "inventory") {
-    const species = [...new Set(rows.map((row) => label(row, "species")))].sort();
-    const composition = [...new Set(rows.map((row) => label(row, "barangay")))].map((name) => {
-      const entry: Record<string, string | number> = { name };
-      for (const row of rows.filter((item) => label(item, "barangay") === name)) {
-        const key = label(row, "species");
-        entry[key] = Number(entry[key] ?? 0) + amount(row, "quantity");
-      }
-      return entry;
-    }).sort((a, b) => species.reduce((total, key) => total + Number(b[key] ?? 0), 0) - species.reduce((total, key) => total + Number(a[key] ?? 0), 0));
     return <div className="space-y-4">{description}<div className="grid min-w-0 gap-4 lg:grid-cols-2">
-      <ChartCard title="Livestock by Barangay" note="Approved registered heads, ranked high to low." empty={!rows.length}><Bars data={sumBy(rows, "barangay", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
+      <ChartCard title="Livestock by Sex" note="Approved registered heads grouped by recorded sex in the selected reporting area." empty={!rows.length}><Bars data={sumBy(rows, "sex", "quantity")} horizontal unit="heads" /></ChartCard>
       <ChartCard title="Livestock Distribution by Species" note="Share of registered livestock heads. Pie charts suit a small set of categories that make up a whole." empty={!rows.length}><Donut data={sumBy(rows, "species", "quantity")} /></ChartCard>
       <ChartCard title="Historical Inventory Trend" note="The current inventory records do not contain dated historical stock snapshots." empty emptyMessage="No historical inventory trend available." ><p /></ChartCard>
-      <ChartCard title="Species Composition by Barangay" note="Stacked approved head counts show how livestock mix differs by barangay." empty={!rows.length}><StackedBars data={composition} series={species} unit="heads" /></ChartCard>
+      <ChartCard title="Livestock by Operational Status" note="Approved heads grouped by their current operational status." empty={!rows.length}><Bars data={sumBy(rows, "operational_status", "quantity")} horizontal unit="heads" /></ChartCard>
     </div></div>;
   }
   if (reportType === "production") {

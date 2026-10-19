@@ -2,7 +2,6 @@
 
 import { downloadOfficialReport,fetchOfficialReport,type OfficialReport,type ReportFilters,type ReportType } from "@/app/(admin)/reports/report-api";
 import { ReportCharts } from "@/app/(admin)/reports/report-charts";
-import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/comp
 import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { CalendarDays,Download,FileSpreadsheet,FileText,RefreshCw } from "lucide-react";
+import { ArrowLeftRight,BarChart3,CalendarDays,ClipboardCheck,Download,FileSpreadsheet,FileText,HeartPulse,MapPin,RefreshCw,ShieldCheck } from "lucide-react";
 import { useState,type FormEvent } from "react";
 
 const REPORT_OPTIONS: { value: ReportType; label: string }[] = [
@@ -24,6 +23,24 @@ const REPORT_OPTIONS: { value: ReportType; label: string }[] = [
   { value: "movement", label: "Auction and movement" },
   { value: "inspection", label: "Inspection and clearance" },
 ];
+
+const REPORT_DESCRIPTIONS: Record<ReportType, string> = {
+  inventory: "Livestock population and inventory records for your reporting area.",
+  production: "Approved production records submitted during the selected period.",
+  disease_mortality: "Health and mortality records.",
+  slaughter: "Approved slaughter records and totals.",
+  movement: "Auction and livestock movement records.",
+  inspection: "Inspection and clearance activity records.",
+};
+
+const REPORT_ICONS = {
+  inventory: BarChart3,
+  production: ClipboardCheck,
+  disease_mortality: HeartPulse,
+  slaughter: ShieldCheck,
+  movement: ArrowLeftRight,
+  inspection: FileSpreadsheet,
+} as const;
 
 const today = () => {
   const now = new Date();
@@ -111,40 +128,41 @@ export function SibatReportsWorkspace({ reportingScope, isAllBarangays }: { repo
   const summaryMetrics = report?.analysis.executive_summary ?? [];
 
   return <>
-    <PageHeader
-      title="Barangay Reports"
-      subtitle={isAllBarangays ? "Review approved livestock activity across all barangays." : "Review approved livestock activity for your assigned barangay."}
-      icon={<FileText className="size-5 text-emerald-800" />}
-      variant="sibat"
-      maxWidthClass="w-full"
-    />
     <main className="mx-auto w-full max-w-screen-2xl space-y-5 px-3.5 py-4 pb-12 sm:px-6 lg:px-8 lg:py-6">
-      <Card className="gap-0 overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 to-white py-0 shadow-sm">
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Reporting scope</p>
-          <h1 className="mt-1 break-words text-xl font-black text-slate-950">{reportingScope || "Barangay not assigned"}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">{isAllBarangays ? "Reports include approved records across all barangays. Your account sets this scope." : "Reports include approved records from your assigned barangay. Your account sets this scope."}</p>
-        </div>
-        <Badge variant="outline" className="w-fit shrink-0 border-emerald-200 bg-white text-emerald-900">{isAllBarangays ? "All barangays" : "Barangay-scoped"}</Badge>
+      <header className="flex items-center gap-4 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
+        <span className="grid size-14 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800 sm:size-16"><FileText className="size-7 sm:size-8" /></span>
+        <div className="min-w-0"><h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Reports</h1><p className="mt-0.5 text-sm text-slate-600">View and manage livestock reports in your assigned reporting area.</p></div>
+      </header>
+
+      <Card className="gap-0 overflow-hidden border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-50/40 py-0 shadow-none">
+        <CardContent className="flex items-center gap-3 p-3 sm:p-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800"><MapPin className="size-6" /></span>
+          <div className="min-w-0"><p className="text-sm font-bold text-slate-800">Reporting area: <span className="text-emerald-800">{reportingScope || "Not assigned"}</span></p><p className="mt-0.5 text-xs text-slate-600">{isAllBarangays ? "Your account can view reports across all barangays." : `You can view reports for ${reportingScope || "your assigned barangay"} only. Data is restricted to your assigned barangay.`}</p></div>
         </CardContent>
       </Card>
 
+      <section aria-labelledby="report-type-heading" className="space-y-3">
+        <div><h2 id="report-type-heading" className="text-lg font-black text-slate-950">Choose a Report Type</h2><p className="text-sm text-slate-600">Select a category to build and export a report.</p></div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {REPORT_OPTIONS.map((option) => {
+            const Icon = REPORT_ICONS[option.value as keyof typeof REPORT_ICONS];
+            const selected = reportType === option.value;
+            return <button key={option.value} type="button" aria-pressed={selected} onClick={() => setReportType(option.value)} className={`flex min-h-28 items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${selected ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100" : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40"}`}>
+              <span className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800"><Icon className="size-6" /></span>
+              <span className="min-w-0"><span className="block font-extrabold text-slate-900">{option.label}</span><span className="mt-1 block text-sm leading-relaxed text-slate-600">{REPORT_DESCRIPTIONS[option.value]}</span></span>
+            </button>;
+          })}
+        </div>
+      </section>
+
       <Card aria-labelledby="barangay-report-form-title" className="gap-0 py-0 shadow-sm">
         <CardHeader className="px-4 pt-4 sm:px-5 sm:pt-5">
-          <CardTitle id="barangay-report-form-title" className="text-lg font-black text-slate-950">Build a field report</CardTitle>
-          <CardDescription>Choose the records and reporting period you need.</CardDescription>
+          <CardTitle id="barangay-report-form-title" className="text-lg font-black text-slate-950">Set Report Filters</CardTitle>
+          <CardDescription>Choose a reporting period and optional livestock type.</CardDescription>
         </CardHeader>
         <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
         <form onSubmit={generate} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="min-w-0 space-y-2">
-              <Label htmlFor="report-category">Record category</Label>
-              <Select value={reportType} onValueChange={(value) => setReportType(value as ReportType)}>
-                <SelectTrigger id="report-category" className="h-11 w-full rounded-xl"><SelectValue placeholder="Choose a category" /></SelectTrigger>
-                <SelectContent>{REPORT_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="min-w-0 space-y-2"><Label htmlFor="report-date-from">From</Label><Input id="report-date-from" required type="date" value={dateFrom} max={dateTo} onChange={(event) => setDateFrom(event.target.value)} className="h-11 min-w-0 rounded-xl" /></div>
             <div className="min-w-0 space-y-2"><Label htmlFor="report-date-to">To</Label><Input id="report-date-to" required type="date" value={dateTo} min={dateFrom} max={today()} onChange={(event) => setDateTo(event.target.value)} className="h-11 min-w-0 rounded-xl" /></div>
             <div className="min-w-0 space-y-2">
