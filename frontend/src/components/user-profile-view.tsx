@@ -61,6 +61,15 @@ export function UserProfileView() {
   const initialTab = searchParams.get("tab") || "overview";
 
   const [activeTab, setActiveTab] = useState(initialTab);
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab") || "overview";
+    const tabAliases: Record<string, string> = {
+      alerts: "notifications",
+    };
+    const resolvedTab = tabAliases[requestedTab] || requestedTab;
+    const validTabs = ["overview", "security", "notifications", "activity", "text-size"];
+    setActiveTab(validTabs.includes(resolvedTab) ? resolvedTab : "overview");
+  }, [searchParams]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showIdPassModal, setShowIdPassModal] = useState(false);
