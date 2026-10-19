@@ -317,6 +317,7 @@ function LivestockSplitCard({
 
   return (
     <Card
+      data-tour="livestock-record-card"
       className={cn(
         "group overflow-hidden rounded-xl border transition-all duration-200 flex flex-col sm:flex-row justify-between",
         "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md",
@@ -324,7 +325,7 @@ function LivestockSplitCard({
       )}
     >
       {/* ── LEFT HERO IMAGE SECTION ── */}
-      <div className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-60 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+      <div data-tour="record-card-identity" className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-60 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
         {currentPhoto ? (
           <Image
             src={currentPhoto}
@@ -411,7 +412,7 @@ function LivestockSplitCard({
       <div className="flex flex-1 flex-col justify-between p-3 sm:p-3.5 space-y-2 min-w-0">
         <div className="space-y-2">
           {/* Header Row: Title & Regulatory Status */}
-          <div className="flex items-start justify-between gap-2">
+          <div data-tour="record-card-review" className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Link
@@ -464,7 +465,7 @@ function LivestockSplitCard({
           {/* Core Stats: 2x2 Grid */}
           <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold text-slate-700">
             {/* Weight */}
-            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+            <div data-tour="record-card-weight" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
               <div className="p-1 rounded-md bg-white text-[#1E4D2B] shadow-2xs shrink-0">
                 <Weight className="size-3.5 text-[#1E4D2B]" />
               </div>
@@ -479,7 +480,7 @@ function LivestockSplitCard({
             </div>
 
             {/* Immunization */}
-            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+            <div data-tour="record-card-immunization" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
               <div className="p-1 rounded-md bg-white shadow-2xs shrink-0">
                 {hasVax ? (
                   <ShieldCheck className="size-3.5 text-emerald-600" />
@@ -504,7 +505,7 @@ function LivestockSplitCard({
             </div>
 
             {/* Life Stage */}
-            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+            <div data-tour="record-card-life-stage" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
               <div className="p-1 rounded-md bg-white text-slate-700 shadow-2xs shrink-0">
                 <Icon iconNode={cowHead} className="size-3.5 text-slate-600" />
               </div>
@@ -519,7 +520,7 @@ function LivestockSplitCard({
             </div>
 
             {/* Birth Date / Registered */}
-            <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
+            <div data-tour="record-card-birth" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
               <div className="p-1 rounded-md bg-white text-teal-700 shadow-2xs shrink-0">
                 <CalendarDays className="size-3.5 text-teal-700" />
               </div>
@@ -536,7 +537,7 @@ function LivestockSplitCard({
 
           {/* Officer remarks if present */}
           {item.reviewRemarks && (
-            <div className="p-2 rounded-lg bg-rose-50/80 border border-rose-200/80 text-[11px] text-rose-950 flex items-start gap-1.5">
+            <div data-tour="record-card-remarks" className="p-2 rounded-lg bg-rose-50/80 border border-rose-200/80 text-[11px] text-rose-950 flex items-start gap-1.5">
               <Info className="size-3.5 text-rose-600 shrink-0 mt-0.5" />
               <p className="line-clamp-2 leading-relaxed min-w-0">
                 <strong className="font-bold text-rose-900">Officer Note:</strong> {item.reviewRemarks}
@@ -546,7 +547,7 @@ function LivestockSplitCard({
         </div>
 
         {/* Footer Bar: Date left, Actions right */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+        <div data-tour="record-card-actions" className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
             <CalendarDays className="size-3.5 text-slate-400" />
             <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Registered"}</span>
@@ -935,7 +936,7 @@ export default function LivestockRecordList({
       </div>}
 
       {/* ═══ 3. Sub-Header & Controls Bar ═══ */}
-      <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+      <div data-tour="records-controls" className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
         {/* Clean Search Bar */}
         <div className="relative w-full min-w-0 flex-1 sm:min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />

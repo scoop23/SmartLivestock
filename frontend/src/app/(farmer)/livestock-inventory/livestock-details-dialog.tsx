@@ -16,6 +16,9 @@ import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/components/ui/tabs";
 import api from "@/lib/axios";
 import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import { useQuery } from "@tanstack/react-query";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import {
 Baby,
 CheckCircle2,
@@ -28,6 +31,7 @@ Scale,
 ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useCallback, useEffect } from "react";
 import { getAvatarById } from "./livestock-inventory";
 import { OperationalStatusBadge } from "./operational-status-badge";
 import type { LivestockInventoryItem } from "./page";
@@ -171,11 +175,124 @@ export default function LivestockDetailsDialog({
   const photoUrl = livestock?.photoUrl || localPhoto;
   const avatar = getAvatarById(livestock?.avatarKey || localAvatar, livestock?.livestockTypeName);
 
+  const startDetailsTour = useCallback(() => {
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    const steps: DriveStep[] = [
+      {
+        element: '[data-tour="details-header"]',
+        popover: {
+          title: "Animal identity and status",
+          description: "The top of the dialog shows the animal’s tag, livestock type, breed, sex, and current review and herd status.",
+          side: "bottom",
+          align: "start",
+        },
+      },
+      {
+        element: isMobile
+          ? '[data-tour="details-mobile-profile"]'
+          : '[data-tour="details-profile"]',
+        popover: {
+          title: isMobile ? "Basic information" : "Overview profile",
+          description: "Find the animal’s tag, herd, weight, birth date, age class, vaccination status, and registration date here.",
+          side: "top",
+          align: "start",
+        },
+      },
+    ];
+
+    if (!isMobile) {
+      steps.push({
+        element: '[data-tour="details-tabs"]',
+        popover: {
+          title: "More record sections",
+          description: "The tabs organize this animal’s overview, production yields, weight history, and calf records. Select a tab to view that section.",
+          side: "bottom",
+          align: "start",
+        },
+      });
+      steps.push(
+        {
+          element: '[data-tour="details-yields-tab"]',
+          popover: {
+            title: "Yields",
+            description: "Open this tab to review production entries recorded for this animal.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="details-weights-tab"]',
+          popover: {
+            title: "Weight logs",
+            description: "Open this tab to review weighing dates, recorded weights, and changes between measurements.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="details-calves-tab"]',
+          popover: {
+            title: "Calves",
+            description: "For a dam, this tab shows linked calving and offspring records.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+      );
+
+      if (livestock?.reviewRemarks) {
+        steps.push({
+          element: '[data-tour="details-review-remarks"]',
+          popover: {
+            title: "Review remarks",
+            description: "Any SIBAT or MAO review note for this record appears in the profile section.",
+            side: "top",
+            align: "start",
+          },
+        });
+      }
+    }
+
+    steps.push({
+      element: '[data-tour="details-footer"]',
+      popover: {
+        title: "Open the full profile",
+        description: "Use View Profile to open this animal’s complete page and management tools.",
+        side: "top",
+        align: "end",
+      },
+    });
+
+    startGuidedTutorial({
+      showProgress: true,
+      animate: true,
+      allowClose: true,
+      nextBtnText: "Next",
+      prevBtnText: "Back",
+      doneBtnText: "Finish",
+      progressText: "{{current}} of {{total}}",
+      steps,
+    });
+  }, [livestock?.reviewRemarks]);
+
+  useEffect(() => {
+    if (!open || !livestock?.id) return;
+    const tutorialKey = "smartlivestock-livestock-details-tour";
+    if (!shouldAutoStartTutorial(tutorialKey)) return;
+
+    const timer = window.setTimeout(() => {
+      markTutorialSeen(tutorialKey);
+      startDetailsTour();
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [open, livestock?.id, startDetailsTour]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] sm:w-[95vw] sm:max-w-2xl sm:h-[600px] sm:max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden rounded-3xl border-slate-200 shadow-2xl">
         {/* Header Ribbon */}
-        <DialogHeader className="p-4 pr-12 sm:p-6 sm:pr-14 pb-4 border-b border-slate-100 bg-white shrink-0">
+        <DialogHeader data-tour="details-header" className="p-4 pr-12 sm:p-6 sm:pr-14 pb-4 border-b border-slate-100 bg-white shrink-0">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative shrink-0">
@@ -208,6 +325,9 @@ export default function LivestockDetailsDialog({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={startDetailsTour} className="h-8 rounded-lg bg-white text-xs font-bold">
+                Tutorial
+              </Button>
               {getStatusBadge(livestock?.status)}
               {livestock && <OperationalStatusBadge status={livestock.operationalStatus} />}
             </div>
@@ -218,7 +338,7 @@ export default function LivestockDetailsDialog({
         {livestock && (
           <div className="flex min-h-0 flex-1 flex-col sm:hidden">
             <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-5">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+              <div data-tour="details-mobile-profile" className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Basic Information</p>
                 <dl className="mt-3 divide-y divide-emerald-100">
                   <div className="flex items-start justify-between gap-4 py-2 first:pt-0">
@@ -269,17 +389,17 @@ export default function LivestockDetailsDialog({
           <Tabs defaultValue="profile" className="hidden sm:flex flex-1 flex-col min-h-0 overflow-hidden">
             <div className="px-5 sm:px-6 py-2 bg-slate-50 border-b border-slate-100 shrink-0">
               <ScrollArea className="w-full">
-                <TabsList className="bg-slate-200/70 p-1 h-auto inline-flex gap-1 rounded-xl">
+                <TabsList data-tour="details-tabs" className="bg-slate-200/70 p-1 h-auto inline-flex gap-1 rounded-xl">
                   <TabsTrigger value="profile" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
                     Overview Profile
                   </TabsTrigger>
-                  <TabsTrigger value="production" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
+                  <TabsTrigger data-tour="details-yields-tab" value="production" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
                     Yields ({animalProductions.length})
                   </TabsTrigger>
-                  <TabsTrigger value="weights" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
+                  <TabsTrigger data-tour="details-weights-tab" value="weights" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
                     Weight Logs ({animalWeights.length})
                   </TabsTrigger>
-                  <TabsTrigger value="calving" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
+                  <TabsTrigger data-tour="details-calves-tab" value="calving" className="px-3.5 py-1.5 text-xs font-bold rounded-lg">
                     Calves ({animalCalves.length})
                   </TabsTrigger>
                 </TabsList>
@@ -288,7 +408,7 @@ export default function LivestockDetailsDialog({
 
             <div className="flex-1 min-h-0 relative">
               {/* Tab 1: Profile & Registry Details */}
-              <TabsContent value="profile" className="m-0 h-full focus-visible:outline-none">
+              <TabsContent data-tour="details-profile" value="profile" className="m-0 h-full focus-visible:outline-none">
                 <ScrollArea className="h-full w-full">
                   <div className="p-5 sm:p-6 space-y-4">
                     {/* Batch vs Individual Deep Dive Callout */}
@@ -372,7 +492,7 @@ export default function LivestockDetailsDialog({
 
                     {/* Official Review Remarks */}
                     {livestock.reviewRemarks && (
-                      <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-xs">
+                      <div data-tour="details-review-remarks" className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-xs">
                         <div className="flex items-center gap-1.5 font-bold text-emerald-950 mb-1">
                           <ShieldCheck className="size-4 text-emerald-700" />
                           <span>Municipal SIBAT / MAO Review Remarks</span>
@@ -512,7 +632,7 @@ export default function LivestockDetailsDialog({
         )}
 
         {livestock && (
-          <DialogFooter className="mt-auto shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
+          <DialogFooter data-tour="details-footer" className="mt-auto shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 Open this animal’s complete profile, records, and management tools.

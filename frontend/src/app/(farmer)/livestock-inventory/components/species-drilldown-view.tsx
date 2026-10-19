@@ -37,7 +37,7 @@ export function SpeciesDrilldownView({
 
   return (
     <div className="space-y-4">
-      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+      <div data-tour="species-header" className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -70,7 +70,7 @@ export function SpeciesDrilldownView({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div data-tour="species-herds" className="space-y-3">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-4 rounded-2xl bg-teal-50/40 border border-teal-900/10">
             <div className="flex items-center gap-3 min-w-0">
               <div className="size-9 rounded-xl bg-teal-900/10 text-teal-900 flex items-center justify-center shrink-0">
@@ -107,17 +107,19 @@ export function SpeciesDrilldownView({
           </div>
       </div>
 
-      <LivestockRecordList
-        items={items}
-        isLoading={isLoading}
-        livestockTypes={livestockTypes}
-        showMetrics={false}
-        defaultViewMode="grid"
-        onView={onView}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onAddRecord={onAddRecord}
-      />
+      <div data-tour="species-records">
+        <LivestockRecordList
+          items={items}
+          isLoading={isLoading}
+          livestockTypes={livestockTypes}
+          showMetrics={false}
+          defaultViewMode="grid"
+          onView={onView}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onAddRecord={onAddRecord}
+        />
+      </div>
     </div>
   );
 }

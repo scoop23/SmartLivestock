@@ -79,7 +79,7 @@ export default function HealthTrackerTab({
   return (
     <div className="space-y-6">
       {/* ═══ Executive Health & Biosecurity Strip ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div data-tour="health-summary" className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: Vaccination Rate Gauge */}
         <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-900/90 to-teal-950 text-white border border-emerald-700/30 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -150,7 +150,7 @@ export default function HealthTrackerTab({
       </div>
 
       {/* ═══ Action & Filter Bar ═══ */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      <div data-tour="health-filters" className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -196,7 +196,7 @@ export default function HealthTrackerTab({
       </div>
 
       {/* ═══ Inventory Health Table ═══ */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div data-tour="health-records" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center py-16">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />

@@ -3,9 +3,12 @@
 import { cn } from "@/lib/utils";
 import { useMutation,useQueryClient } from "@tanstack/react-query";
 import { ChevronDown,RefreshCw } from "lucide-react";
-import { Suspense,startTransition,useEffect,useMemo,useRef,useState } from "react";
+import { Suspense,startTransition,useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { usePathname,useRouter,useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
 
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -48,6 +51,7 @@ function LivestockInventoryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const livestockTypeParam = searchParams.get("livestockType");
+  const highlightTypeParam = searchParams.get("highlightType");
   const activityLivestockId = searchParams.get("livestockId");
   const [activeTab, setActiveTab] = useState<"types" | "all" | "health">("types");
   const [isKpiOpen, setIsKpiOpen] = useState(true);
@@ -56,7 +60,74 @@ function LivestockInventoryContent() {
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [highlightedType, setHighlightedType] = useState<string | null>(null);
   const handledActivityLinkRef = useRef<string | null>(null);
+  const requestedInventoryTourRef = useRef<"manage" | "all" | "health" | null>(null);
+
+  const startInventoryTour = useCallback(() => {
+    setSelectedType(null);
+    setActiveTab("types");
+    setIsKpiOpen(true);
+
+    window.setTimeout(() => {
+      startGuidedTutorial({
+        showProgress: true,
+        animate: true,
+        allowClose: true,
+        nextBtnText: "Next",
+        prevBtnText: "Back",
+        doneBtnText: "Finish",
+        progressText: "{{current}} of {{total}}",
+        steps: [
+          {
+            element: '[data-tour="register-livestock"]',
+            popover: {
+              title: "Register livestock",
+              description: "Start here to add a livestock record to your farm inventory.",
+              side: "bottom",
+              align: "center",
+            },
+          },
+          {
+            element: '[data-tour="inventory-tools"]',
+            popover: {
+              title: "Inventory tools",
+              description: "Open More to view livestock history, ownership history, or export your list as a CSV file.",
+              side: "bottom",
+              align: "end",
+            },
+          },
+          {
+            element: '[data-tour="inventory-kpis"]',
+            popover: {
+              title: "Herd overview",
+              description: "Review cattle and herd counts, sex breakdowns, and vaccination information. Use Hide or Show to collapse or expand these figures.",
+              side: "bottom",
+              align: "start",
+            },
+          },
+          {
+            element: '[data-tour="inventory-tabs"]',
+            popover: {
+              title: "Choose an inventory view",
+              description: "Browse livestock by type, open the full list of records, or switch to health and vaccination information.",
+              side: "bottom",
+              align: "center",
+            },
+          },
+          {
+            element: '[data-tour="livestock-types"]',
+            popover: {
+              title: "Browse by livestock type",
+              description: "Select a livestock type to view and manage the animals and herds in that group.",
+              side: "top",
+              align: "center",
+            },
+          },
+        ],
+      });
+    }, 100);
+  }, []);
 
   // Herd links preserve the livestock type so Back returns to the same
   // Manage Cattle (or other type) drilldown instead of the overview cards.
@@ -68,6 +139,232 @@ function LivestockInventoryContent() {
   const { data: inventories = [], isLoading, isError, refetch, isFetching } = useUserInventory();
   const { data: allTagInventory = [] } = useUserInventory({ includeInactive: true });
   const { data: userBatches = [], isLoading: isBatchesLoading } = useLivestockBatches({ includeRoster: false });
+
+  useEffect(() => {
+    if (!highlightTypeParam || isLoading || isError) return;
+    setActiveTab("types");
+    setSelectedType(null);
+    setHighlightedType(highlightTypeParam);
+
+    const timer = window.setTimeout(() => {
+      const target = Array.from(document.querySelectorAll<HTMLElement>("[data-livestock-type]"))
+        .find((element) => element.dataset.livestockType?.toLowerCase() === highlightTypeParam.toLowerCase());
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [highlightTypeParam, isLoading, isError]);
+
+  useEffect(() => {
+    if (isLoading || isError || livestockTypeParam || activityLivestockId) return;
+    const tutorialKey = "smartlivestock-inventory-tour";
+    if (!shouldAutoStartTutorial(tutorialKey)) return;
+
+    const timer = window.setTimeout(() => {
+      markTutorialSeen(tutorialKey);
+      startInventoryTour();
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, isError, livestockTypeParam, activityLivestockId, startInventoryTour]);
+
+  useEffect(() => {
+    const requestedTour = requestedInventoryTourRef.current;
+    if (!requestedTour) return;
+    if (requestedTour === "manage" && !selectedType) return;
+    if ((requestedTour === "all" || requestedTour === "health") && activeTab !== requestedTour) return;
+
+    requestedInventoryTourRef.current = null;
+    const timer = window.setTimeout(() => {
+      const steps: DriveStep[] = requestedTour === "manage"
+        ? [
+            {
+              element: '[data-tour="species-header"]',
+              popover: {
+                title: `${selectedType} overview`,
+                description: "This header summarizes the selected livestock type and shows its total animals and records.",
+                side: "bottom" as const,
+                align: "start" as const,
+              },
+            },
+            {
+              element: '[data-tour="species-herds"]',
+              popover: {
+                title: "Herds for this livestock type",
+                description: "Use Check Herd to review group-managed animals, or continue to the individual and batch records below.",
+                side: "bottom" as const,
+                align: "start" as const,
+              },
+            },
+            {
+              element: '[data-tour="species-records"]',
+              popover: {
+                title: `${selectedType} records`,
+                description: "This section contains the record cards for the selected livestock type. Scroll through the cards to review each animal.",
+                side: "top" as const,
+                align: "start" as const,
+              },
+            },
+          ]
+        : requestedTour === "all"
+          ? [
+              {
+                element: '[data-tour="all-livestock-view"][data-state="active"] [data-tour="records-controls"]',
+                popover: {
+                  title: "Find and manage records",
+                  description: "Search your livestock and filter by species, review status, or lifecycle. You can also change sorting and export the results.",
+                  side: "bottom" as const,
+                  align: "start" as const,
+                },
+              },
+              {
+                element: '[data-tour="all-livestock-view"][data-state="active"]',
+                popover: {
+                  title: "Your livestock records",
+                  description: "Browse your matching animals here, then open a record to view its details or make an update.",
+                  side: "top" as const,
+                  align: "start" as const,
+                },
+              },
+            ]
+          : [
+              {
+                element: '[data-tour="health-view"][data-state="active"] [data-tour="health-summary"]',
+                popover: {
+                  title: "Vaccination summary",
+                  description: "Review the herd immunization rate, vaccinated headcount, and animals that still need a vaccine record.",
+                  side: "bottom" as const,
+                  align: "start" as const,
+                },
+              },
+              {
+                element: '[data-tour="health-view"][data-state="active"] [data-tour="health-filters"]',
+                popover: {
+                  title: "Search and filter health records",
+                  description: "Find an animal by tag, breed, or type, then filter the list to all animals, vaccinated animals, or those needing a vaccine.",
+                  side: "bottom" as const,
+                  align: "start" as const,
+                },
+              },
+              {
+                element: '[data-tour="health-view"][data-state="active"] [data-tour="health-records"]',
+                popover: {
+                  title: "Health and vaccination records",
+                  description: "Check each animal’s vaccination status and last vaccine date. Use View or Update to open its record.",
+                  side: "top" as const,
+                  align: "start" as const,
+                },
+              },
+            ];
+
+      if (requestedTour === "manage") {
+        const recordCards = Array.from(
+          document.querySelectorAll<HTMLElement>(
+            '[data-tour="species-records"] [data-tour="livestock-record-card"]'
+          )
+        );
+        const recordCard = recordCards.find((card) =>
+          card.querySelector('[data-tour="record-card-remarks"]')
+        ) ?? recordCards[0];
+
+        if (recordCard) {
+          steps.push({
+            element: recordCard,
+            popover: {
+              title: "Livestock record card",
+              description: "Each card represents one registered animal or livestock record. We’ll walk through the information shown on this card.",
+              side: "top" as const,
+              align: "start" as const,
+            },
+          });
+
+          const addCardStep = (
+            selector: string,
+            title: string,
+            description: string,
+            side: "top" | "bottom" = "bottom"
+          ) => {
+            const element = recordCard.querySelector<HTMLElement>(selector);
+            if (element) {
+              steps.push({
+                element,
+                popover: { title, description, side, align: "start" as const },
+              });
+            }
+          };
+
+          addCardStep(
+            '[data-tour="record-card-identity"]',
+            "Photo, type, and tag",
+            "This area identifies the animal. It can show a photo or avatar, livestock type, ear tag, and linked herd."
+          );
+          addCardStep(
+            '[data-tour="record-card-review"]',
+            "Record review status",
+            "The badge shows the livestock office review status. The text below the animal name shows breed, sex, and age when recorded."
+          );
+          addCardStep(
+            '[data-tour="record-card-weight"]',
+            "Weight",
+            "The recorded weight appears here; it says Unrecorded when no weight has been entered."
+          );
+          addCardStep(
+            '[data-tour="record-card-immunization"]',
+            "Immunization",
+            "See the last recorded vaccination date, or a reminder when a vaccine is due."
+          );
+          addCardStep(
+            '[data-tour="record-card-life-stage"]',
+            "Life stage",
+            "This field groups the animal by its age classification."
+          );
+          addCardStep(
+            '[data-tour="record-card-birth"]',
+            "Birth date or age",
+            "The card displays the birth date when available, otherwise it shows the recorded age."
+          );
+          addCardStep(
+            '[data-tour="record-card-remarks"]',
+            "Officer note",
+            "If the record was returned with remarks, the livestock office’s note appears here.",
+            "top"
+          );
+          addCardStep(
+            '[data-tour="record-card-actions"]',
+            "Record actions",
+            "Use Details to inspect the full record. Edit and delete are available when the record’s status allows them.",
+            "top"
+          );
+        }
+      }
+
+      startGuidedTutorial({
+        showProgress: true,
+        animate: true,
+        allowClose: true,
+        nextBtnText: "Next",
+        prevBtnText: "Back",
+        doneBtnText: "Finish",
+        progressText: "{{current}} of {{total}}",
+        steps,
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [activeTab, selectedType]);
+
+  const handleSelectType = (type: string) => {
+    requestedInventoryTourRef.current = "manage";
+    setSelectedType(type);
+  };
+
+  const handleTabChange = (nextTab: "types" | "all" | "health") => {
+    setActiveTab(nextTab);
+    if (nextTab !== "types") setSelectedType(null);
+    if (nextTab === "all" || nextTab === "health") {
+      requestedInventoryTourRef.current = nextTab;
+    }
+  };
 
   // Recent-activity links contain only a livestock ID. Resolve it from the
   // farmer's own inventory query so the existing detail dialog gets the same
@@ -213,26 +510,39 @@ function LivestockInventoryContent() {
         variant="farmer"
         maxWidthClass="w-full"
         action={
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => refetch()}
-            className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
-            title="Refresh Inventory Records"
-          >
-            <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={startInventoryTour}
+              className="h-11 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white sm:rounded-2xl"
+              aria-label="Start livestock inventory tutorial"
+            >
+              Tutorial
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => refetch()}
+              className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+              title="Refresh Inventory Records"
+            >
+              <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         }
       />
 
       <div className="w-full min-w-0 max-w-full space-y-2 p-4 md:p-8">
         {/* Livestock overview and inventory actions */}
         {!selectedType && (
+          <div data-tour="inventory-hero">
           <InventoryHeroBanner
             totalRecords={inventories.length}
             onExportCsv={exportCSV}
             onOpenRegister={() => setIsAddOpen(true)}
           />
+          </div>
         )}
 
         {/* Registration Modal Dialog */}
@@ -246,6 +556,7 @@ function LivestockInventoryContent() {
 
         {/* Cattle and Herd KPIs: animated collapse/expand and fade/slide transition */}
         <div
+          data-tour="inventory-kpis"
           className={cn(
             "grid transition-all duration-350 ease-in-out",
             !selectedType && activeTab === "types"
@@ -305,22 +616,22 @@ function LivestockInventoryContent() {
           value={activeTab}
           onValueChange={(val) => {
             const nextTab = val as "types" | "all" | "health";
-            setActiveTab(nextTab);
-            if (nextTab !== "types") setSelectedType(null);
+            handleTabChange(nextTab);
           }}
           className="-space-y-2 w-full min-w-0 max-w-full pt-2"
         >
           {!selectedType && (
+            <div data-tour="inventory-tabs">
             <InventoryTabsNav
               speciesCount={speciesCount}
               totalRecords={inventories.length}
               vaxRate={vaxRate}
               activeTab={activeTab}
               onTabChange={(nextTab) => {
-                setActiveTab(nextTab);
-                if (nextTab !== "types") setSelectedType(null);
+                handleTabChange(nextTab);
               }}
             />
+            </div>
           )}
 
           <TabsContent value="types" className="w-full min-w-0 max-w-full space-y-4 pt-2 outline-hidden">
@@ -338,16 +649,19 @@ function LivestockInventoryContent() {
                 onAddRecord={() => setIsAddOpen(true)}
               />
             ) : (
+              <div data-tour="livestock-types">
               <LivestockTypeCards
                 inventories={inventories}
                 batches={userBatches}
                 isLoading={isLoading || isBatchesLoading}
-                onSelectType={setSelectedType}
+                highlightedType={highlightedType}
+                onSelectType={handleSelectType}
               />
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="all" className="space-y-4 pt-2 outline-hidden">
+          <TabsContent value="all" data-tour="all-livestock-view" className="space-y-4 pt-2 outline-hidden">
             <LivestockRecordList
               items={inventories}
               isLoading={isLoading}
@@ -359,7 +673,7 @@ function LivestockInventoryContent() {
             />
           </TabsContent>
 
-          <TabsContent value="health" className="space-y-4 pt-2 outline-hidden">
+          <TabsContent value="health" data-tour="health-view" className="space-y-4 pt-2 outline-hidden">
             <HealthTrackerTab
               inventories={inventories}
               isLoading={isLoading}

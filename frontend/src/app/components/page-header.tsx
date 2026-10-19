@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TutorialAutoToggle } from "@/components/tutorial-auto-toggle";
 import { HeaderMenuButton } from "./header-menu-button";
 import { HeaderNotifications } from "./header-notifications";
 
@@ -95,6 +96,7 @@ export function PageHeader({
           <div className={`shrink-0 flex gap-2 sm:gap-2.5 ${variant === "farmer" ? (mobileActionsRow ? "w-full items-center justify-end border-t border-white/15 pt-3 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0" : "ml-0 items-center justify-end sm:ml-2") : variant === "sibat" ? "w-full items-center justify-end border-t border-white/15 pt-3 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0" : "ml-2 items-center"}`}>
             <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-0 sm:gap-2.5">
               {showNotifications && <HeaderNotifications variant={variant} />}
+              {variant === "farmer" && <TutorialAutoToggle dark />}
               {action ? action : null}
             </div>
           </div>

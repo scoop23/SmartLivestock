@@ -32,6 +32,7 @@ interface LivestockTypeCardsProps {
   inventories: LivestockInventoryItem[];
   batches: LivestockBatchItem[];
   isLoading: boolean;
+  highlightedType?: string | null;
   onSelectType: (name: string) => void;
 }
 
@@ -174,6 +175,7 @@ export default function LivestockTypeCards({
   inventories,
   batches,
   isLoading,
+  highlightedType,
   onSelectType,
 }: LivestockTypeCardsProps) {
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
@@ -271,8 +273,9 @@ export default function LivestockTypeCards({
             return (
               <Card
                 key={type.name}
+                data-livestock-type={type.name}
                 onClick={() => onSelectType(type.name)}
-                className={`group relative w-full min-w-0 overflow-hidden rounded-2xl border-2 ${config.border} ${config.cardBg} shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between`}
+                className={`group relative w-full min-w-0 overflow-hidden rounded-2xl border-2 ${config.border} ${config.cardBg} shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between ${highlightedType?.toLowerCase() === type.name.toLowerCase() ? "!border-emerald-500 ring-4 ring-emerald-300/70 shadow-lg shadow-emerald-200" : ""}`}
               >
                 {/* Visual Image Banner (if available) */}
                 {config.image ? (
@@ -413,8 +416,9 @@ export default function LivestockTypeCards({
                   return (
                     <TableRow
                       key={type.name}
+                      data-livestock-type={type.name}
                       onClick={() => onSelectType(type.name)}
-                      className="cursor-pointer border-b border-slate-100 hover:bg-emerald-50/40 transition-colors"
+                      className={`cursor-pointer border-b border-slate-100 hover:bg-emerald-50/40 transition-colors ${highlightedType?.toLowerCase() === type.name.toLowerCase() ? "bg-emerald-100 ring-2 ring-inset ring-emerald-500" : ""}`}
                     >
                       {/* Livestock Type Name + Icon + Thumbnail */}
                       <TableCell className="py-3 pl-5">

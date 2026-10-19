@@ -103,18 +103,22 @@ export default function FarmerStats({
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-      {allCards.map((card) => (
-        <KpiCard
+      {allCards.map((card, index) => (
+        <div
           key={card.label}
-          title={card.label}
-          value={card.value}
-          icon={card.icon}
-          badge={card.sub}
-          badgeClassName={card.subClass}
-          variant={card.variant}
-          description={card.description}
-          wrapText
-        />
+          data-tour={["my-livestock-stat", "production-stat", "health-stat", "record-status-stat"][index]}
+        >
+          <KpiCard
+            title={card.label}
+            value={card.value}
+            icon={card.icon}
+            badge={card.sub}
+            badgeClassName={card.subClass}
+            variant={card.variant}
+            description={card.description}
+            wrapText
+          />
+        </div>
       ))}
     </div>
   );

@@ -8,7 +8,7 @@ DropdownMenuContent,
 DropdownMenuItem,
 DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Activity,Archive,FileDown,Plus } from "lucide-react";
+import { Activity,Archive,ArrowLeftRight,FileDown,Plus } from "lucide-react";
 import Link from "next/link";
 
 interface InventoryHeroBannerProps {
@@ -51,6 +51,7 @@ export function InventoryHeroBanner({
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
+            data-tour="register-livestock"
             onClick={onOpenRegister}
             className="h-11 gap-2 rounded-xl bg-emerald-500 px-4 font-black text-emerald-950 shadow-lg shadow-emerald-950/40 transition-all hover:bg-emerald-400 active:scale-95"
           >
@@ -61,6 +62,7 @@ export function InventoryHeroBanner({
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
+                data-tour="inventory-tools"
                 variant="outline"
                 className="min-h-11 rounded-xl border-emerald-700/50 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-emerald-300"
               >
@@ -75,7 +77,10 @@ export function InventoryHeroBanner({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="min-h-11 cursor-pointer text-sm">
-                <Link href="/livestock-inventory/ownership-history">Ownership history</Link>
+                <Link href="/livestock-inventory/ownership-history">
+                  <ArrowLeftRight className="size-4 text-emerald-700" />
+                  Ownership history
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onExportCsv} className="min-h-11 cursor-pointer text-sm">
                 <FileDown className="size-4 text-emerald-700" />

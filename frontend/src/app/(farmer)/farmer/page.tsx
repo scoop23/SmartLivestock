@@ -15,7 +15,9 @@ Sparkles,
 Stethoscope,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import "driver.js/dist/driver.css";
+import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import FarmerReportsListDialog from "../components/farmer-reports-list-dialog";
 import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
 import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
@@ -38,6 +40,132 @@ export default function FarmerDashboard() {
     isFetching,
   } = useFarmerDashboardAnalytics();
   const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading);
+
+  const startDashboardTour = useCallback(() => {
+    startGuidedTutorial({
+      showProgress: true,
+      animate: true,
+      allowClose: true,
+      nextBtnText: "Next",
+      prevBtnText: "Back",
+      doneBtnText: "Finish",
+      progressText: "{{current}} of {{total}}",
+      steps: [
+        {
+          element: '[data-tour="record-activity"]',
+          popover: {
+            title: "Record an activity",
+            description: "Use this shortcut to record milk production, births, weights, and other farm activities.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="my-livestock"]',
+          popover: {
+            title: "My livestock",
+            description: "Open your livestock records to find an animal or update its details.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="report-health"]',
+          popover: {
+            title: "Report an animal health issue",
+            description: "Use this shortcut to notify the livestock office about a disease or other health concern.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="my-livestock-stat"]',
+          popover: {
+            title: "Livestock count",
+            description: "See how many livestock are registered to your farm and whether any are still awaiting review.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="production-stat"]',
+          popover: {
+            title: "Production this month",
+            description: "Check this month’s recorded milk production and its change from the previous month.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="health-stat"]',
+          popover: {
+            title: "Animal health reports",
+            description: "Keep an eye on animal health reports that are waiting for review.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="record-status-stat"]',
+          popover: {
+            title: "Record status",
+            description: "See how much of your livestock information has been reviewed by the livestock office.",
+            side: "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: '[data-tour="recent-activity"]',
+          popover: {
+            title: "Recent activity",
+            description: "Follow updates to your submitted records and see whether they are pending, verified, or approved.",
+            side: "top",
+            align: "start",
+          },
+        },
+        {
+          element: '[data-tour="programs-visits"]',
+          popover: {
+            title: "Programs and visits",
+            description: "Keep up with agriculture programs and scheduled farm visits.",
+            side: "top",
+            align: "start",
+          },
+        },
+        {
+          element: '[data-tour="farm-summary"]',
+          popover: {
+            title: "Farm summary and charts",
+            description: "Open this section whenever you want to explore production trends, livestock breakdowns, and record status charts.",
+            side: "top",
+            align: "start",
+          },
+        },
+        {
+          element: '[data-tour="farm-services"]',
+          popover: {
+            title: "Farm services and links",
+            description: "Expand this section to find Programs & Visits, the Farm Map, and Activities.",
+            side: "top",
+            align: "start",
+          },
+        },
+      ],
+    });
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || keepLoadingScreenMounted || isError) return;
+    const tutorialKey = "smartlivestock-farmer-dashboard-tour";
+    if (!shouldAutoStartTutorial(tutorialKey)) return;
+
+    const timer = window.setTimeout(() => {
+      markTutorialSeen(tutorialKey);
+      startDashboardTour();
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, keepLoadingScreenMounted, isError, startDashboardTour]);
 
   // ── Dialog States ──
   const [isReportIllnessOpen, setIsReportIllnessOpen] = useState(false);
@@ -85,6 +213,16 @@ export default function FarmerDashboard() {
               </span>
             ) : null}
             <Button
+              type="button"
+              variant="ghost"
+              onClick={startDashboardTour}
+              className="h-11 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white sm:rounded-2xl"
+              aria-label="Start farmer dashboard tutorial"
+            >
+              <Sparkles className="mr-1.5 size-4" />
+              Tutorial
+            </Button>
+            <Button
               variant="ghost"
               size="icon"
               onClick={() => refetch()}
@@ -122,15 +260,15 @@ export default function FarmerDashboard() {
             <p className="mt-0.5 text-sm text-slate-600">Common tasks for managing your farm</p>
           </div>
           <div className="grid gap-3 lg:grid-cols-3">
-            <button type="button" onClick={() => router.push("/production-dashboard")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-emerald-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-400 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            <button type="button" data-tour="record-activity" onClick={() => router.push("/production-dashboard")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-emerald-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-400 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800"><Sparkles className="size-5" aria-hidden="true" /></span>
               <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">Record an activity</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Milk, birth, weight, and more</span></span>
             </button>
-            <button type="button" onClick={() => router.push("/livestock-inventory")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            <button type="button" data-tour="my-livestock" onClick={() => router.push("/livestock-inventory")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-emerald-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><MapPin className="size-5" aria-hidden="true" /></span>
               <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">My livestock</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Find an animal or update its details</span></span>
             </button>
-            <button type="button" onClick={() => router.push("/report-observation?newReport=DISEASE")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-xs transition hover:border-amber-400 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
+            <button type="button" data-tour="report-health" onClick={() => router.push("/report-observation?newReport=DISEASE")} className="flex min-h-24 min-w-0 items-center gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-xs transition hover:border-amber-400 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800"><Stethoscope className="size-5" aria-hidden="true" /></span>
               <span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold leading-snug text-slate-900 sm:text-base">Report an animal health issue</span><span className="mt-1 block break-words text-sm leading-snug text-slate-600">Tell the livestock office what happened</span></span>
             </button>
@@ -149,17 +287,19 @@ export default function FarmerDashboard() {
             </Button>
           </Card>
         ) : (
-          <FarmerStats data={analytics} />
+        <div data-tour="farm-stats"><FarmerStats data={analytics} /></div>
         )}
 
-        <FarmerActivityFeed
-          activities={analytics?.recent_activities}
-          isLoading={isLoading}
-        />
+        <div data-tour="recent-activity">
+          <FarmerActivityFeed
+            activities={analytics?.recent_activities}
+            isLoading={isLoading}
+          />
+        </div>
 
-        <FarmerProgramsVisits />
+        <div data-tour="programs-visits"><FarmerProgramsVisits /></div>
 
-        <details className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5">
+        <details data-tour="farm-summary" className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5">
           <summary className="cursor-pointer list-none rounded-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
             <span className="flex items-center justify-between gap-3"><span>Farm summary and charts</span><span className="text-sm font-medium text-emerald-800 group-open:hidden">View</span><span className="hidden text-sm font-medium text-emerald-800 group-open:inline">Hide</span></span>
             <span className="mt-1 block text-sm font-normal text-slate-600">Production trends, livestock breakdown, and record status.</span>
@@ -169,7 +309,7 @@ export default function FarmerDashboard() {
           </div>
         </details>
 
-        <details className="group rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5">
+        <details data-tour="farm-services" className="group rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-xs font-bold text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
             <span>Farm services and links</span>
             <span className="font-semibold text-emerald-800 group-open:hidden">Show</span><span className="hidden font-semibold text-emerald-800 group-open:inline">Hide</span>
