@@ -223,11 +223,11 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     event.preventDefault();
     setError("");
     const payload: SchedulePayload = { ...form, farmer_audience: role === "admin" ? "ALL_FARMERS" : form.farmer_audience, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), description: form.description.trim(), objectives: form.objectives.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim(), eligibility: form.eligibility.trim(), contact_information: form.contact_information.trim(), registration_opens: form.registration_opens || null, registration_deadline: form.registration_deadline || null, barangay: form.barangay ? Number(form.barangay) : null };
-    if (!Number.isInteger(payload.capacity) || payload.capacity < 1 || payload.capacity > 10000) {
-      setError("Capacity must be a whole number from 1 to 10,000.");
+    if (form.capacity.trim() === "" || !Number.isInteger(payload.capacity) || payload.capacity < 0 || payload.capacity > 10000) {
+      setError("Capacity must be unlimited or a whole number from 1 to 10,000.");
       return;
     }
-    if (editing && payload.capacity < editing.booking_count) {
+    if (editing && payload.capacity > 0 && payload.capacity < editing.booking_count) {
       setError(`Capacity cannot be lower than the ${editing.booking_count} confirmed bookings.`);
       return;
     }
@@ -534,20 +534,20 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({roster.length})</h3>
-                        <span className="text-sm font-semibold text-slate-500">Capacity: {schedule.capacity} slots</span>
+                        <span className="text-sm font-semibold text-slate-500">Capacity: {schedule.capacity === 0 ? "No limit" : `${schedule.capacity} slots`}</span>
                       </div>
                       {roster.length === 0 ? (
                         <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-500"><Users className="size-8 text-slate-400" /><span>No farmer bookings recorded yet for this session.</span></div>
                       ) : (
                         <div className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div><p className="font-bold text-slate-900">{schedule.booking_count} of {schedule.capacity} slots booked</p><p className="mt-1 text-sm text-slate-500">{schedule.remaining_slots} slots remaining</p><Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="mt-3 h-2 max-w-md bg-slate-200 [&>div]:rounded-full [&>div]:bg-emerald-600" /></div>
+                          <div><p className="font-bold text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count} farmers booked · No limit` : `${schedule.booking_count} of ${schedule.capacity} slots booked`}</p>{schedule.capacity > 0 ? <><p className="mt-1 text-sm text-slate-500">{schedule.remaining_slots} slots remaining</p><Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="mt-3 h-2 max-w-md bg-slate-200 [&>div]:rounded-full [&>div]:bg-emerald-600" /></> : null}</div>
                           <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-10 shrink-0 font-bold text-blue-700"><Users className="mr-2 size-4" /> View Farmers ({roster.length})</Button>
                         </div>
                       )}
                       {roster.length === 0 ? <Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="sr-only" /> : null}
                     </section>
 
-                    <section className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 sm:p-5">
+                      {schedule.can_manage ? <section className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 sm:p-5">
                       <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
                       <p className="mb-4 mt-1 text-sm text-slate-500">Manage registration and activity actions separately.</p>
                       <div className="grid gap-3 lg:grid-cols-2">
@@ -566,7 +566,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                           </div>
                         </div>
                       </div>
-                    </section>
+                    </section> : <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">View-only program · Created by another CBAT officer.</p>}
 
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                       <p className="flex flex-wrap gap-2 text-xs text-slate-500"><Badge variant="outline" className="text-[11px]">{schedule.farmer_audience === "ALL_FARMERS" ? "All Barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}</Badge><Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge></p>
@@ -685,20 +685,33 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   ) : null}
                 </label>
 
-                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-capacity">
-                  Maximum Slots
-                  <Input
+                <div className="space-y-1.5 text-xs font-bold text-slate-700 sm:text-sm">
+                  <label htmlFor="schedule-capacity-mode">Maximum Slots</label>
+                  <Select
+                    value={form.capacity === "0" ? "UNLIMITED" : "LIMITED"}
+                    onValueChange={(value) => setForm({ ...form, capacity: value === "UNLIMITED" ? "0" : form.capacity === "0" ? "4" : form.capacity })}
+                  >
+                    <SelectTrigger id="schedule-capacity-mode" className="h-10 w-full text-sm font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LIMITED">Set a maximum</SelectItem>
+                      <SelectItem value="UNLIMITED">No limits</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.capacity !== "0" ? <Input
                     id="schedule-capacity"
                     type="number"
                     required
                     min={1}
                     max={10000}
                     step={1}
+                    aria-label="Maximum number of program slots"
                     value={form.capacity}
                     onChange={(event) => setForm({ ...form, capacity: event.target.value })}
                     className="h-10 text-sm font-medium"
-                  />
-                </label>
+                  /> : <p className="text-xs font-medium text-slate-500">Farmers can register without a slot cap.</p>}
+                </div>
                 <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-opens">
                   Registration opens <span className="font-normal text-slate-400">(optional)</span>
                   <Input id="schedule-opens" type="date" max={form.date || undefined} value={form.registration_opens} onChange={(event) => setForm({ ...form, registration_opens: event.target.value })} className="h-10 text-sm font-medium" />
@@ -845,7 +858,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({selectedBookings.length})</h3>
-                  <span className="text-sm font-semibold text-slate-500">Capacity: {selected.capacity} slots</span>
+                  <span className="text-sm font-semibold text-slate-500">Capacity: {selected.capacity === 0 ? "No limit" : `${selected.capacity} slots`}</span>
                 </div>
 
                 {selectedBookings.length === 0 ? (
@@ -915,7 +928,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 )}
               </section>
 
-              <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
+              {selected.can_manage ? <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
                 <h3 className="mb-1 flex items-center gap-2 text-lg font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
                 <p className="mb-4 text-sm text-slate-500">Manage registration and activity actions separately.</p>
                 <div className="grid gap-3 lg:grid-cols-2">
@@ -932,7 +945,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     </div>
                   </div>
                 </div>
-              </section>
+              </section> : <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">View-only program · Created by another CBAT officer.</p>}
             </div>
           ) : null}
         </DialogContent>

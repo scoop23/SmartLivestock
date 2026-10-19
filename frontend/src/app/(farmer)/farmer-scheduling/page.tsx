@@ -181,7 +181,7 @@ export default function FarmerSchedulingPage() {
     [bookings],
   );
   const selectedAvailableTimes = selected?.available_times?.length ? selected.available_times : PROGRAM_TIME_SLOTS;
-  const availableTimes = useMemo(() => (selected?.remaining_slots ? selectedAvailableTimes : []), [selected, selectedAvailableTimes]);
+  const availableTimes = useMemo(() => (selected && (selected.capacity === 0 || selected.remaining_slots > 0) ? selectedAvailableTimes : []), [selected, selectedAvailableTimes]);
 
   async function book() {
     if (!scheduleId || !time || confirmedScheduleIds.has(Number(scheduleId))) return;
@@ -627,7 +627,7 @@ export default function FarmerSchedulingPage() {
                     <div className={`grid gap-4 ${programsOnDate.length > 1 ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"}`}>
                       {programsOnDate.map((schedule) => {
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
-                        const isFull = schedule.registration_status === "FULL" || schedule.remaining_slots === 0;
+                        const isFull = schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0);
                         const isClosed = !schedule.is_open || schedule.registration_status === "CLOSED" || schedule.registration_status === "NOT_OPEN" || schedule.registration_status === "CANCELLED" || schedule.registration_status === "COMPLETED";
                         const isSelected = selected?.id === schedule.id;
                         const programPhotos = [
@@ -725,20 +725,20 @@ export default function FarmerSchedulingPage() {
                               <div className="space-y-1.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
                                 <div className="flex items-center justify-between text-xs sm:text-sm">
                                   <span className="font-medium text-slate-700">
-                                    Capacity: <strong className="font-bold text-slate-900">{schedule.booking_count}</strong>/{schedule.capacity}
+                                    {schedule.capacity === 0 ? <>Farmers booked: <strong className="font-bold text-slate-900">{schedule.booking_count}</strong> · No limit</> : <>Capacity: <strong className="font-bold text-slate-900">{schedule.booking_count}</strong>/{schedule.capacity}</>}
                                   </span>
                                   <span className="font-bold text-emerald-800">
-                                    {isFull ? (
+                                    {schedule.capacity === 0 ? "No limit" : isFull ? (
                                       <span className="text-amber-800">0 left</span>
                                     ) : (
                                       `${schedule.remaining_slots} left`
                                     )}
                                   </span>
                                 </div>
-                                <Progress
+                                {schedule.capacity > 0 ? <Progress
                                   value={bookedPercent}
                                   className="h-1.5 rounded-full bg-slate-200 [&>div]:bg-emerald-600"
-                                />
+                                /> : null}
                               </div>
                             </div>
 
@@ -819,7 +819,7 @@ export default function FarmerSchedulingPage() {
                             variant="outline"
                             className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs sm:text-sm px-3 py-1"
                           >
-                            {selected.remaining_slots} slots available
+                            {selected.capacity === 0 ? "No slot limit" : `${selected.remaining_slots} slots available`}
                           </Badge>
                         </div>
 
@@ -836,7 +836,7 @@ export default function FarmerSchedulingPage() {
                                   key={slot}
                                   type="button"
                                   variant={isSlotActive ? "default" : "outline"}
-                                  disabled={busy || selected.remaining_slots === 0 || confirmedScheduleIds.has(selected.id)}
+                                  disabled={busy || (selected.capacity > 0 && selected.remaining_slots === 0) || confirmedScheduleIds.has(selected.id)}
                                   onClick={() => setTime(slot)}
                                   className={`h-11 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                                     isSlotActive

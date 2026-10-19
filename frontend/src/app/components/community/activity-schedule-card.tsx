@@ -84,13 +84,11 @@ export function ActivityScheduleCard({
             <span className="truncate font-medium text-slate-700">{schedule.location}</span>
           </div>
         ) : null}
-        {schedule.capacity > 0 ? (
-          <div className="flex items-center gap-2 text-slate-600 font-medium">
-            <span className="font-bold text-slate-800">{schedule.booking_count}</span> booked
-            <span className="text-slate-300">·</span>
-            <span className="font-bold text-emerald-700">{Math.max(0, schedule.capacity - schedule.booking_count)}</span> slots available
-          </div>
-        ) : null}
+        <div className="flex items-center gap-2 text-slate-600 font-medium">
+          <span className="font-bold text-slate-800">{schedule.booking_count}</span> booked
+          <span className="text-slate-300">·</span>
+          {schedule.capacity === 0 ? <span className="font-bold text-emerald-700">No slot limit</span> : <><span className="font-bold text-emerald-700">{Math.max(0, schedule.capacity - schedule.booking_count)}</span> slots available</>}
+        </div>
       </div>
 
       {role === "farmer" && schedule.farmer_notes ? (

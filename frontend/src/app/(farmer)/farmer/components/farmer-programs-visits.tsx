@@ -144,7 +144,7 @@ export default function FarmerProgramsVisits() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {upcomingSchedules.map((schedule) => {
             const isBooked = confirmedBookingIds.has(schedule.id);
-            const isFull = schedule.registration_status === "FULL" || schedule.remaining_slots === 0;
+            const isFull = schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0);
             const isClosed = !schedule.is_open || schedule.registration_status === "CLOSED";
             const categoryBadge = getProgramBadge(schedule.program);
 
@@ -199,7 +199,7 @@ export default function FarmerProgramsVisits() {
                       <span className="text-slate-400">Closed</span>
                     ) : (
                       <span className="text-slate-600">
-                        <strong className="text-emerald-700 font-semibold">{schedule.remaining_slots}</strong> slots remaining
+                        {schedule.capacity === 0 ? <strong className="text-emerald-700 font-semibold">No slot limit</strong> : <><strong className="text-emerald-700 font-semibold">{schedule.remaining_slots}</strong> slots remaining</>}
                       </span>
                     )}
                   </div>
@@ -292,7 +292,7 @@ export default function FarmerProgramsVisits() {
                   </p>
                 </div>
                 <Badge className="shrink-0 border-emerald-200 bg-emerald-50 text-emerald-800">
-                  {detailsSchedule.remaining_slots} slot{detailsSchedule.remaining_slots === 1 ? "" : "s"} left
+                  {detailsSchedule.capacity === 0 ? "No slot limit" : `${detailsSchedule.remaining_slots} slot${detailsSchedule.remaining_slots === 1 ? "" : "s"} left`}
                 </Badge>
               </div>
 

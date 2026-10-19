@@ -250,12 +250,10 @@ def schedules(request):
             else:
                 qs = qs.filter(farmer_audience=ProgramSchedule.FarmerAudience.ALL_FARMERS)
         elif role in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
-            if not has_all_barangay_access(request.user):
-                visible_programs = Q(farmer_audience=ProgramSchedule.FarmerAudience.ALL_FARMERS)
-                assigned_barangay_id = getattr(request.user, "assigned_barangay_id", None)
-                if assigned_barangay_id is not None:
-                    visible_programs |= Q(barangay_id=assigned_barangay_id)
-                qs = qs.filter(visible_programs)
+            # The CBAT dashboard currently authenticates through the SIBAT
+            # role in existing deployments. Both field-officer roles can
+            # browse programs across barangays; booking rosters stay scoped.
+            pass
         return Response(ProgramScheduleSerializer(qs, many=True, context={"request": request}).data)
     denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT, Role.UserRoles.CBAT)
     if denied:
@@ -287,7 +285,7 @@ def schedule_detail(request, pk):
         with transaction.atomic():
             schedules = ProgramSchedule.objects.select_for_update().filter(deleted_at__isnull=True)
             if role_of(request.user) in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
-                schedules = scope_reviewer_queryset(schedules, request.user)
+                schedules = schedules.filter(created_by=request.user)
             schedule = get_object_or_404(schedules, pk=pk)
             if schedule.date < timezone.localdate():
                 # Keep past program records for history even when there are no
@@ -303,7 +301,7 @@ def schedule_detail(request, pk):
     with transaction.atomic():
         schedules = ProgramSchedule.objects.select_for_update().filter(deleted_at__isnull=True)
         if role_of(request.user) in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
-            schedules = scope_reviewer_queryset(schedules, request.user)
+            schedules = schedules.filter(created_by=request.user)
         schedule = get_object_or_404(schedules, pk=pk)
         serializer = ProgramScheduleSerializer(schedule, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -389,7 +387,7 @@ def bookings(request):
             ):
                 return Response({"detail": "This program is not available to your barangay."}, status=403)
             confirmed_count = schedule.bookings.filter(status=ProgramBooking.Status.CONFIRMED).count()
-            if confirmed_count >= schedule.capacity:
+            if schedule.capacity > 0 and confirmed_count >= schedule.capacity:
                 return Response({"detail": "This program is fully booked."}, status=400)
             booking = serializer.save(farmer=request.user, schedule=schedule)
     except IntegrityError:

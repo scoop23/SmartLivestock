@@ -305,7 +305,7 @@ class ProgramSchedule(models.Model):
         ordering = ["date", "program"]
         constraints = [
             models.UniqueConstraint(fields=["date", "program"], name="unique_program_per_day"),
-            models.CheckConstraint(condition=models.Q(capacity__gte=1), name="program_capacity_at_least_one"),
+            models.CheckConstraint(condition=models.Q(capacity__gte=0), name="program_capacity_nonnegative"),
         ]
 
     def save(self, *args, **kwargs):

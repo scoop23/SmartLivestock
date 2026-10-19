@@ -50,7 +50,8 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
     booked_times = serializers.SerializerMethodField()
     booking_count = serializers.SerializerMethodField()
     remaining_slots = serializers.SerializerMethodField()
-    capacity = serializers.IntegerField(min_value=1, max_value=10000, required=False, default=4)
+    # Zero means unlimited registration slots.
+    capacity = serializers.IntegerField(min_value=0, max_value=10000, required=False, default=4)
     available_times = MultiValueListField(
         child=serializers.RegexField(regex=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
         min_length=1,
@@ -61,6 +62,7 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
     barangay_name = serializers.CharField(source="barangay.barangay_name", read_only=True, allow_null=True)
     remove_cover_image = serializers.BooleanField(write_only=True, required=False, default=False)
     photos = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
     photo_uploads = MultiValueListField(
         child=serializers.ImageField(),
         write_only=True,
@@ -117,6 +119,7 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             "registration_status",
             "deleted_at",
             "created_at",
+            "can_manage",
         ]
         read_only_fields = [
             "created_at",
@@ -134,6 +137,15 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             # Prefetched bookings are filtered by the view; no extra query per schedule.
             bookings = obj.scoped_bookings if hasattr(obj, "scoped_bookings") else scope_reviewer_queryset(obj.bookings.all(), request.user)
         return [booking for booking in bookings if booking.status == ProgramBooking.Status.CONFIRMED]
+
+    def get_can_manage(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        role = role_name(request.user)
+        if role in ("SIBAT", "CBAT"):
+            return obj.created_by_id == request.user.pk
+        return role in ("MAO", "ADMIN")
 
     def get_booked_times(self, obj):
         return [booking.time.strftime("%H:%M") for booking in self._confirmed_bookings(obj)]
@@ -155,14 +167,14 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
             obj.registration_deadline and obj.registration_deadline < timezone.localdate()
         ):
             return "CLOSED"
-        if self.get_remaining_slots(obj) == 0:
+        if obj.capacity > 0 and self.get_remaining_slots(obj) == 0:
             return "FULL"
         return "AVAILABLE"
 
     def validate_capacity(self, value):
         if self.instance is not None:
             confirmed = self.instance.bookings.filter(status=ProgramBooking.Status.CONFIRMED).count()
-            if value < confirmed:
+            if value > 0 and value < confirmed:
                 raise serializers.ValidationError(
                     f"Capacity cannot be lower than the {confirmed} confirmed bookings."
                 )

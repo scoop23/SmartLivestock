@@ -35,6 +35,7 @@ export type ProgramSchedule = {
   registration_status: ScheduleStatus;
   deleted_at?: string | null;
   created_at: string;
+  can_manage: boolean;
 };
 
 export type ActivityPhoto = { id: number; image: string; position: number };
