@@ -7,7 +7,8 @@ AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card,CardContent,CardDescription,CardFooter,CardHeader,CardTitle } from "@/components/ui/card";
+import { Calendar,CalendarDayButton } from "@/components/ui/calendar";
+import { Card,CardContent,CardDescription,CardTitle } from "@/components/ui/card";
 import { Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -17,10 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type ProgramBooking,type ProgramFarmerAudience,type ProgramPublicationStatus,type ProgramSchedule } from "@/lib/community-api";
-import { CalendarDays,ClipboardList,Clock3,Image as ImageIcon,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Trash2,UnlockKeyhole,Users } from "lucide-react";
+import { ArrowLeft,CalendarDays,ClipboardList,Clock3,FileText,Image as ImageIcon,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
 import Image from "next/image";
 import { useCallback,useEffect,useMemo,useState,type FormEvent } from "react";
-import { ActivityPhotoCarousel } from "./activity-photo-carousel";
 import { CommunityEmptyState,CommunityErrorCard,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
@@ -35,10 +35,33 @@ function localTimeNow(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
+function timesInWindow(start: string, end: string, availableTimes: readonly string[] = PROGRAM_TIME_SLOTS): string[] {
+  if (!start || !end || end < start) return [];
+  return [...new Set([start, end, ...availableTimes.filter((time) => time >= start && time <= end)])].sort();
+}
+
 function coverPreviewUrl(path: string): string {
   if (path.startsWith("blob:")) return path;
   if (/^https?:\/\//i.test(path)) return path;
   return `${(api.defaults.baseURL || "").replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function localDateFromIso(value: string): Date {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function isoFromLocalDate(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function ProgramCalendarDayButton(props: React.ComponentProps<typeof CalendarDayButton>) {
+  return (
+    <CalendarDayButton {...props}>
+      {props.children}
+      {props.modifiers.programDate ? <span aria-hidden="true" className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current opacity-80" /> : null}
+    </CalendarDayButton>
+  );
 }
 
 export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
@@ -53,7 +76,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProgramSchedule | null>(null);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
-  const [timeToAdd, setTimeToAdd] = useState("");
+  const [startTime, setStartTime] = useState(PROGRAM_TIME_SLOTS[0]);
+  const [endTime, setEndTime] = useState(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1]);
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
   const [bookingCancelTarget, setBookingCancelTarget] = useState<ProgramBooking | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -62,6 +86,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [coverPreview, setCoverPreview] = useState("");
   const [removeCover, setRemoveCover] = useState(false);
   const [search, setSearch] = useState("");
+  const [calendarDate, setCalendarDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<"all" | "upcoming" | "published" | "draft" | "completed" | "cancelled">("all");
 
   const load = useCallback(async () => {
@@ -138,20 +163,23 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     setEditing(null);
     const canChooseBarangay = role === "admin" || user?.accessScope === "ALL_BARANGAYS";
     setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS], barangay: canChooseBarangay ? "" : String(user?.assignedBarangayId ?? ""), farmer_audience: role === "admin" || canChooseBarangay ? "ALL_FARMERS" : "BARANGAY_ONLY" });
+    setStartTime(PROGRAM_TIME_SLOTS[0]);
+    setEndTime(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1]);
     setCoverFile(null);
     setCoverPreview("");
     setRemoveCover(false);
-    setTimeToAdd("");
     setFormOpen(true);
   }
 
   function startEdit(schedule: ProgramSchedule) {
     setEditing(schedule);
-    setForm({ ...emptyForm, date: schedule.date, program: schedule.program, description: schedule.description || "", objectives: schedule.objectives || "", category: schedule.category || "OTHER", location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS], registration_opens: schedule.registration_opens || "", registration_deadline: schedule.registration_deadline || "", eligibility: schedule.eligibility || "", contact_information: schedule.contact_information || "", barangay: schedule.barangay ? String(schedule.barangay) : "", farmer_audience: role === "admin" ? "ALL_FARMERS" : schedule.farmer_audience || (schedule.barangay ? "BARANGAY_ONLY" : "ALL_FARMERS"), publication_status: schedule.publication_status || "PUBLISHED" });
+    const scheduleTimes = [...(schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS)].sort();
+    setStartTime(scheduleTimes[0]);
+    setEndTime(scheduleTimes[scheduleTimes.length - 1]);
+    setForm({ ...emptyForm, date: schedule.date, program: schedule.program, description: schedule.description || "", objectives: schedule.objectives || "", category: schedule.category || "OTHER", location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: scheduleTimes, registration_opens: schedule.registration_opens || "", registration_deadline: schedule.registration_deadline || "", eligibility: schedule.eligibility || "", contact_information: schedule.contact_information || "", barangay: schedule.barangay ? String(schedule.barangay) : "", farmer_audience: role === "admin" ? "ALL_FARMERS" : schedule.farmer_audience || (schedule.barangay ? "BARANGAY_ONLY" : "ALL_FARMERS"), publication_status: schedule.publication_status || "PUBLISHED" });
     setCoverFile(null);
     setCoverPreview(schedule.cover_image || "");
     setRemoveCover(false);
-    setTimeToAdd("");
     setFormOpen(true);
   }
 
@@ -183,7 +211,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       setCoverFile(null);
       setCoverPreview("");
       setRemoveCover(false);
-      setTimeToAdd("");
       await refresh();
     } catch (e) {
       setError(apiError(e));
@@ -204,8 +231,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       setError(`Capacity cannot be lower than the ${editing.booking_count} confirmed bookings.`);
       return;
     }
+    if (endTime < startTime) {
+      setError("The end time must be the same as or later than the start time.");
+      return;
+    }
     if (payload.available_times.length === 0) {
-      setError("Add at least one appointment time for farmers to choose.");
+      setError("Choose a valid start and end time for the activity.");
       return;
     }
     if (payload.farmer_audience === "BARANGAY_ONLY" && !payload.barangay) {
@@ -214,6 +245,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     }
     if (payload.date === todayIso()) {
       const now = localTimeNow();
+      if (startTime <= now) {
+        setError("For today's activity, choose a start time later than the current time.");
+        return;
+      }
       const pastTimes = payload.available_times.filter(
         (time) => time <= now && !editing?.booked_times.includes(time),
       );
@@ -301,6 +336,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       || (filter === "cancelled" && schedule.publication_status === "CANCELLED");
     return matchesSearch && matchesFilter;
   });
+  const visibleProgramDates = new Set(visibleSchedules.map((schedule) => schedule.date));
+  const displayedSchedules = calendarDate
+    ? visibleSchedules.filter((schedule) => schedule.date === isoFromLocalDate(calendarDate))
+    : visibleSchedules;
   const accent = role === "sibat" ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]";
   const pageTitle = "Livestock Programs";
 
@@ -386,6 +425,34 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           </div>
         </div>
 
+        <div className="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[21rem_minmax(0,1fr)] lg:gap-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5 lg:sticky lg:top-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><CalendarDays className="size-5 text-blue-600" /> Program Calendar</h2>
+              <p className="mt-1 text-xs text-slate-500">Select a highlighted date to view its programs.</p>
+            </div>
+            <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
+              <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-blue-600" /> {visibleProgramDates.size} scheduled dates</span>
+              {calendarDate ? <button type="button" onClick={() => setCalendarDate(null)} className="text-blue-700 hover:text-blue-900">Clear date</button> : null}
+            </div>
+          </div>
+          <div className="mx-auto max-w-xl rounded-xl border border-slate-100 bg-slate-50/70 p-2 sm:p-3 lg:max-w-none">
+            <Calendar
+              mode="single"
+              selected={calendarDate ?? undefined}
+              onSelect={(day) => setCalendarDate(day ?? null)}
+              components={{ DayButton: ProgramCalendarDayButton }}
+              disabled={(day) => !visibleProgramDates.has(isoFromLocalDate(day))}
+              modifiers={{ programDate: [...visibleProgramDates].map(localDateFromIso) }}
+              modifiersClassNames={{ programDate: "bg-blue-100 font-extrabold text-blue-950 hover:bg-blue-200" }}
+              className="mx-auto w-full [--cell-size:2.5rem] sm:[--cell-size:2.75rem]"
+              classNames={{ caption_label: "text-base font-extrabold text-slate-900", weekday: "flex-1 text-center text-xs font-bold text-slate-500", day_button: "mx-auto aspect-square h-auto max-h-(--cell-size) w-full max-w-(--cell-size) text-sm font-semibold" }}
+            />
+          </div>
+        </section>
+
+        <div className="min-w-0 space-y-4">
         {/* Schedule Grid */}
         {loading ? (
           <CommunitySkeleton cards={4} />
@@ -407,10 +474,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             </CardContent>
           </Card>
         ) : (
-          visibleSchedules.length === 0 ? (
+          displayedSchedules.length === 0 ? (
             <Card className="rounded-xl border border-slate-200 bg-white shadow-xs"><CardContent className="p-6"><CommunityEmptyState icon={<Search className="size-5" />} title="No programs match" description="Try another search or filter." /></CardContent></Card>
-          ) : <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {visibleSchedules.map((schedule) => {
+          ) : <div className="grid grid-cols-1 gap-5">
+            {displayedSchedules.map((schedule) => {
               const roster = bookingsBySchedule.get(schedule.id) ?? [];
               const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
               const hasHistory = roster.length > 0;
@@ -432,182 +499,87 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               return (
                 <Card
                   key={schedule.id}
-                  className="flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs transition-all hover:border-slate-300 hover:shadow-sm"
+                  className="min-w-0 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xs transition-shadow hover:shadow-md"
                 >
-                  <div className="h-36 w-full bg-slate-100">
-                    <ActivityPhotoCarousel
-                      photos={[
-                        ...(schedule.cover_image ? [coverPreviewUrl(schedule.cover_image)] : []),
-                        ...schedule.photos.map((photo) => coverPreviewUrl(photo.image)),
-                      ]}
-                      alt={`${schedule.program} activity`}
-                    />
-                  </div>
-                  <CardHeader className="gap-2 p-4 sm:p-4.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <CardTitle className="truncate text-base sm:text-lg font-black tracking-tight text-slate-900">
-                          {schedule.program}
-                        </CardTitle>
-                        <CardDescription className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs sm:text-sm text-slate-500 font-medium">
-                          <span className="inline-flex items-center gap-1.5 text-slate-700 font-semibold">
-                            <CalendarDays className="size-3.5 text-emerald-700" />
-                            {formatLongDate(schedule.date)}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Clock3 className="size-3.5 text-slate-400" />
-                            {scheduleTimes.length > 1
-                              ? `${formatTime(scheduleTimes[0])} – ${formatTime(scheduleTimes[scheduleTimes.length - 1])}`
-                              : formatTime(scheduleTimes[0])}
-                          </span>
-                          {schedule.location ? (
-                            <span className="inline-flex items-center gap-1.5 text-slate-600">
-                              <MapPin className="size-3.5 text-rose-500" />
-                              <span className="truncate max-w-[200px]">{schedule.location}</span>
-                            </span>
-                          ) : null}
-                        </CardDescription>
+                  <CardContent className="space-y-4 p-4 sm:space-y-5 sm:p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                      <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white"><CalendarDays className="size-8" /></div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-800">{schedule.category.replaceAll("_", " ")}</Badge>
+                          <Badge variant="outline" className="border-slate-200 text-slate-700">{schedule.date >= todayIso() ? "Upcoming" : "Past activity"}</Badge>
+                          <Badge variant="outline" className={statusConfig.className}>{statusConfig.label}</Badge>
+                        </div>
+                        <CardTitle className="break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{schedule.program}</CardTitle>
+                        <CardDescription className="mt-1 text-sm text-slate-500 sm:text-base">Activity scheduled for {formatLongDate(schedule.date)}</CardDescription>
                       </div>
-
-                      <Badge
-                        variant="outline"
-                        className={`shrink-0 text-xs font-bold uppercase tracking-wider ${statusConfig.className}`}
-                      >
-                        {statusConfig.label}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-3 px-4 pb-4 sm:px-4.5">
-                    {schedule.description ? <p className="line-clamp-3 text-sm leading-relaxed text-slate-700">{schedule.description}</p> : null}
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="text-[11px]">{schedule.category.replaceAll("_", " ")}</Badge>
-                      {schedule.barangay_name ? <Badge variant="outline" className="text-[11px]">{schedule.barangay_name}</Badge> : <Badge variant="outline" className="text-[11px]">Municipality-wide</Badge>}
-                      <Badge variant="outline" className="text-[11px]">
-                        {schedule.farmer_audience === "ALL_FARMERS" ? "All Barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}
-                      </Badge>
-                      <Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge>
-                    </div>
-                    {schedule.farmer_notes ? (
-                      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
-                        <ClipboardList className="mt-0.5 size-4 shrink-0 text-amber-700" />
-                        <div><p className="font-bold">Farmer reminder</p><p className="mt-0.5 whitespace-pre-wrap">{schedule.farmer_notes}</p></div>
-                      </div>
-                    ) : null}
-                    {/* Capacity Display & Progress Bar */}
-                    <div className="space-y-1.5 rounded-lg bg-slate-50/80 p-2.5 border border-slate-100">
-                      <div className="flex items-center justify-between text-xs sm:text-sm">
-                        <span className="font-medium text-slate-700">
-                          <strong className="font-semibold text-slate-900">{schedule.booking_count}</strong> / {schedule.capacity} booked
-                        </span>
-                        <span className="font-medium">
-                          {schedule.remaining_slots > 0 ? (
-                            <span className="text-emerald-700 font-semibold">{schedule.remaining_slots} slots remaining</span>
-                          ) : (
-                            <span className="text-amber-700 font-semibold">0 slots remaining</span>
-                          )}
-                        </span>
-                      </div>
-                      <Progress
-                        value={bookedPercent}
-                        aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`}
-                        className="h-2 rounded-full bg-slate-200/80 [&>div]:bg-emerald-600 [&>div]:rounded-full"
-                      />
                     </div>
 
-                    {/* Time slots breakdown */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {scheduleTimes.map((slot) => {
-                        const slotBookings = schedule.booked_times.filter((t) => t === slot).length;
-                        return (
-                          <span
-                            key={slot}
-                            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${
-                              slotBookings > 0
-                                ? "border-amber-200 bg-amber-50 text-amber-900"
-                                : "border-slate-200/80 bg-slate-50 text-slate-600"
-                            }`}
-                          >
-                            <Clock3 className="size-3 text-slate-400" />
-                            {formatTime(slot)}
-                            {slotBookings > 0 ? (
-                              <span className="font-semibold text-amber-800">({slotBookings})</span>
-                            ) : null}
-                          </span>
-                        );
-                      })}
+                    <div className="grid gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4 sm:grid-cols-3 sm:gap-0 sm:p-5">
+                      <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-4 sm:first:pl-1"><Clock3 className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time Window</p><p className="mt-1 font-bold text-slate-900">{scheduleTimes.length > 1 ? `${formatTime(scheduleTimes[0])} – ${formatTime(scheduleTimes[scheduleTimes.length - 1])}` : formatTime(scheduleTimes[0])}</p></div></div>
+                      <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-5"><MapPin className="size-7 shrink-0 text-blue-600" /><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p><p className="mt-1 break-words font-bold text-slate-900">{schedule.location || "Location not set"}</p></div></div>
+                      <div className="flex items-center gap-3 sm:px-5"><CalendarDays className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p><Badge className={`mt-1 ${schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{schedule.is_open ? "Registration Open" : "Registration Closed"}</Badge></div></div>
+                    </div>
+
+                    <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
+                      <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><FileText className="size-5 text-blue-600" /> Instructions &amp; Description</h3>
+                      <p className="min-h-14 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">{schedule.description || "No activity description provided."}</p>
+                    </section>
+
+                    <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 sm:p-5">
+                      <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><ClipboardList className="size-5 text-amber-600" /> Relevant Notes for Farmers</h3>
+                      <p className="min-h-12 whitespace-pre-wrap break-words rounded-lg bg-amber-100/60 p-4 text-sm text-slate-700">{schedule.farmer_notes || "No additional notes for farmers."}</p>
+                    </section>
+
+                    <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({roster.length})</h3>
+                        <span className="text-sm font-semibold text-slate-500">Capacity: {schedule.capacity} slots</span>
+                      </div>
+                      {roster.length === 0 ? (
+                        <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-500"><Users className="size-8 text-slate-400" /><span>No farmer bookings recorded yet for this session.</span></div>
+                      ) : (
+                        <div className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div><p className="font-bold text-slate-900">{schedule.booking_count} of {schedule.capacity} slots booked</p><p className="mt-1 text-sm text-slate-500">{schedule.remaining_slots} slots remaining</p><Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="mt-3 h-2 max-w-md bg-slate-200 [&>div]:rounded-full [&>div]:bg-emerald-600" /></div>
+                          <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-10 shrink-0 font-bold text-blue-700"><Users className="mr-2 size-4" /> View Farmers ({roster.length})</Button>
+                        </div>
+                      )}
+                      {roster.length === 0 ? <Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="sr-only" /> : null}
+                    </section>
+
+                    <section className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 sm:p-5">
+                      <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
+                      <p className="mb-4 mt-1 text-sm text-slate-500">Manage registration and activity actions separately.</p>
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-white p-4">
+                          <div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Registration Control</p><Badge className={schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}>{schedule.is_open ? "Registration is Open" : "Registration is Closed"}</Badge></div>
+                          <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Registration controls are unavailable for a past activity." : undefined} onClick={() => setPendingAction({ schedule, action: schedule.is_open ? "close" : "reopen" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{schedule.is_open ? <><LockKeyhole className="mr-2 size-4" /> Close Registration</> : <><UnlockKeyhole className="mr-2 size-4" /> Reopen Registration</>}</Button>
+                        </div>
+                        <div className="rounded-lg border border-blue-200 bg-white p-4">
+                          <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700"><Zap className="size-4" /> Activity Actions</p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" variant="outline" onClick={() => startEdit(schedule)} className="h-10 font-bold text-blue-700"><Pencil className="mr-2 size-4" /> Edit Activity</Button>
+                            {schedule.publication_status === "PUBLISHED" && schedule.date <= todayIso() ? <Button type="button" variant="outline" onClick={() => setPendingAction({ schedule, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
+                            {schedule.publication_status === "DRAFT" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be published." : undefined} onClick={() => setPendingAction({ schedule, action: "publish" })} className="h-10 font-bold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Publish</Button> : schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be unpublished." : undefined} onClick={() => setPendingAction({ schedule, action: "unpublish" })} className="h-10 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Unpublish</Button> : null}
+                            {schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "A past activity can no longer be cancelled." : undefined} onClick={() => setPendingAction({ schedule, action: "cancel" })} className="h-10 font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Cancel Activity</Button> : null}
+                            <Button type="button" variant="outline" title={hasHistory && !isPastSchedule ? "Schedules with bookings can be deleted after their date." : "Delete program"} disabled={hasHistory && !isPastSchedule} onClick={() => setPendingAction({ schedule, action: "delete" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="mr-2 size-4" /> Delete</Button>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                      <p className="flex flex-wrap gap-2 text-xs text-slate-500"><Badge variant="outline" className="text-[11px]">{schedule.farmer_audience === "ALL_FARMERS" ? "All Barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}</Badge><Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge></p>
+                      <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-9 font-bold text-blue-700"><Users className="mr-2 size-4" /> View Bookings ({roster.length})</Button>
                     </div>
                   </CardContent>
-
-                  {/* Actions Bar */}
-                  <CardFooter className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/40 px-4 py-2.5 sm:px-4.5">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelected(schedule)}
-                      className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100"
-                    >
-                      <Users className="size-3.5 text-slate-500" />
-                      View bookings ({roster.length})
-                    </Button>
-
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => startEdit(schedule)}
-                        className="h-9 gap-1 rounded-xl px-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100"
-                      >
-                        <Pencil className="size-3" /> Edit
-                      </Button>
-                      {schedule.publication_status === "DRAFT" ? (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "publish" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-emerald-700">Publish</Button>
-                      ) : schedule.publication_status === "PUBLISHED" ? (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "unpublish" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-slate-700">Unpublish</Button>
-                      ) : null}
-                      {schedule.publication_status === "PUBLISHED" ? (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "cancel" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-rose-700">Cancel</Button>
-                      ) : null}
-                      {schedule.publication_status === "PUBLISHED" && schedule.date <= todayIso() ? (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setPendingAction({ schedule, action: "complete" })} className="h-9 rounded-xl px-2.5 text-xs font-bold text-sky-700">Complete</Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setPendingAction({ schedule, action: schedule.is_open ? "close" : "reopen" })}
-                        className="h-9 gap-1 rounded-xl px-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100"
-                      >
-                    {schedule.is_open ? (
-                          <>
-                            <LockKeyhole className="size-3 text-slate-500" /> Close
-                          </>
-                        ) : (
-                          <>
-                            <UnlockKeyhole className="size-3 text-slate-500" /> Reopen
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        title={hasHistory && !isPastSchedule ? "Schedules with bookings can be deleted after their date." : isPastSchedule ? "Remove completed schedule; booking history will be preserved." : "Delete program"}
-                        disabled={hasHistory && !isPastSchedule}
-                        onClick={() => setPendingAction({ schedule, action: "delete" })}
-                        className="h-8 gap-1 rounded-lg px-2 text-xs font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
-                      >
-                        <Trash2 className="size-3" /> Delete
-                      </Button>
-                    </div>
-                  </CardFooter>
                 </Card>
               );
             })}
           </div>
         )}
+        </div>
+        </div>
       </main>
 
       {/* Create / Edit Program Dialog */}
@@ -700,11 +672,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     disabled={Boolean(editing && editing.date < todayIso())}
                     onChange={(event) => {
                       const nextDate = event.target.value;
+                      const availableTimes = timesInWindow(startTime, endTime, editing?.available_times?.length ? editing.available_times : PROGRAM_TIME_SLOTS);
                       const nextTimes = nextDate === todayIso()
-                        ? form.available_times.filter(
-                            (time) => time > localTimeNow() || Boolean(editing?.booked_times.includes(time)),
-                          )
-                        : form.available_times;
+                        ? availableTimes.filter((time) => time > localTimeNow() || Boolean(editing?.booked_times.includes(time)))
+                        : availableTimes;
                       setForm({ ...form, date: nextDate, available_times: nextTimes });
                     }}
                     className="h-10 text-sm font-medium"
@@ -739,60 +710,33 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               </div>
 
               <div className="space-y-2">
-                <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-available-time">
-                  Appointment Times
-                  <span className="block text-[11px] font-normal text-slate-500">Choose the times farmers can book for this program.</span>
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    id="schedule-available-time"
-                    type="time"
-                    min={form.date === todayIso() ? localTimeNow() : undefined}
-                    value={timeToAdd}
-                    onChange={(event) => setTimeToAdd(event.target.value)}
-                    className="h-10 min-w-0 text-sm font-medium"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={
-                      !timeToAdd ||
-                      form.available_times.includes(timeToAdd) ||
-                      (form.date === todayIso() && timeToAdd <= localTimeNow())
-                    }
-                    onClick={() => {
-                      setForm({ ...form, available_times: [...form.available_times, timeToAdd].sort() });
-                      setTimeToAdd("");
-                    }}
-                    className="h-10 shrink-0 gap-1.5"
-                  >
-                    <Plus className="size-4" /> Add time
-                  </Button>
+                <div>
+                  <p className="text-xs font-bold text-slate-700">Activity Time</p>
+                  <p className="mt-1 text-[11px] font-normal text-slate-500">Set the time window. Existing appointment choices within the window remain bookable, along with its start and end.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1.5 text-xs font-bold text-slate-700" htmlFor="schedule-start-time">
+                    Start Time
+                    <Input id="schedule-start-time" type="time" step={60} required min={form.date === todayIso() ? localTimeNow() : undefined} max={endTime || undefined} value={startTime} onChange={(event) => {
+                      const nextStart = event.target.value;
+                      setStartTime(nextStart);
+                      const times = timesInWindow(nextStart, endTime, editing?.available_times?.length ? editing.available_times : PROGRAM_TIME_SLOTS);
+                      setForm({ ...form, available_times: form.date === todayIso() ? times.filter((time) => time > localTimeNow() || Boolean(editing?.booked_times.includes(time))) : times });
+                    }} className="h-10 text-sm font-medium" />
+                  </label>
+                  <label className="block space-y-1.5 text-xs font-bold text-slate-700" htmlFor="schedule-end-time">
+                    End Time
+                    <Input id="schedule-end-time" type="time" step={60} required min={startTime || undefined} value={endTime} onChange={(event) => {
+                      const nextEnd = event.target.value;
+                      setEndTime(nextEnd);
+                      const times = timesInWindow(startTime, nextEnd, editing?.available_times?.length ? editing.available_times : PROGRAM_TIME_SLOTS);
+                      setForm({ ...form, available_times: form.date === todayIso() ? times.filter((time) => time > localTimeNow() || Boolean(editing?.booked_times.includes(time))) : times });
+                    }} className="h-10 text-sm font-medium" />
+                  </label>
                 </div>
                 {form.date === todayIso() ? (
-                  <p className="text-[11px] font-medium text-amber-800">For today, only times later than {formatTime(localTimeNow())} can be added.</p>
+                  <p className="text-[11px] font-medium text-amber-800">The activity start time must be later than {formatTime(localTimeNow())} today.</p>
                 ) : null}
-                <div className="flex flex-wrap gap-2">
-                  {form.available_times.map((time) => {
-                    const hasBooking = Boolean(editing?.booked_times.includes(time));
-                    return (
-                      <Badge key={time} variant="outline" className="gap-1.5 border-slate-200 bg-white px-2.5 py-1.5 text-xs">
-                        <Clock3 className="size-3 text-slate-500" />
-                        {formatTime(time)}
-                        <button
-                          type="button"
-                          aria-label={`Remove ${formatTime(time)}`}
-                          title={hasBooking ? "Confirmed bookings use this time" : "Remove time"}
-                          disabled={hasBooking}
-                          onClick={() => setForm({ ...form, available_times: form.available_times.filter((value) => value !== time) })}
-                          className="ml-1 rounded-full text-slate-500 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    );
-                  })}
-                </div>
               </div>
 
               <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700" htmlFor="schedule-location">
@@ -861,46 +805,47 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
       {/* View Bookings Dialog */}
       <Dialog open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl rounded-2xl border border-slate-200">
+        <DialogContent className="max-h-[94dvh] w-[calc(100vw-1rem)] max-w-none overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-2xl sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:p-7">
           {selected ? (
-            <>
-              <div className="-mx-6 -mt-6 h-48 overflow-hidden rounded-t-2xl bg-slate-100 sm:h-64">
-                <ActivityPhotoCarousel
-                  photos={[
-                    ...(selected.cover_image ? [coverPreviewUrl(selected.cover_image)] : []),
-                    ...selected.photos.map((photo) => coverPreviewUrl(photo.image)),
-                  ]}
-                  alt={`${selected.program} activity`}
-                  variant="dialog"
-                />
-              </div>
-              <DialogHeader>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <DialogTitle className="text-base sm:text-xl font-black text-slate-900 tracking-tight">{selected.program}</DialogTitle>
-                  <Badge variant="outline" className="text-xs sm:text-sm font-bold">
-                    {selectedBookings.length} {selectedBookings.length === 1 ? "farmer" : "farmers"} registered
-                  </Badge>
-                </div>
-                <DialogDescription className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs sm:text-sm text-slate-500 font-medium pt-0.5">
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-slate-700">
-                    <CalendarDays className="size-3.5 text-emerald-700" />
-                    {formatLongDate(selected.date)}
-                  </span>
-                  {selected.location ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <MapPin className="size-3.5 text-rose-500" />
-                      {selected.location}
-                    </span>
-                  ) : null}
-                </DialogDescription>
-              </DialogHeader>
+            <div className="space-y-4 sm:space-y-5">
+              <button type="button" onClick={() => setSelected(null)} className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-bold text-blue-700 hover:text-blue-900">
+                <ArrowLeft className="size-4" /> Back to Activities
+              </button>
 
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">Registered Farmers</h3>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-500">
-                    Capacity: {selected.booking_count} / {selected.capacity}
-                  </span>
+              <section className="flex flex-col gap-4 sm:flex-row sm:items-center rounded-2xl border border-blue-100 bg-white p-4 sm:p-6">
+                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm"><CalendarDays className="size-8" /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-800">{selected.category.replaceAll("_", " ")}</Badge>
+                    <Badge variant="outline" className="border-slate-200 text-slate-700">{selected.date >= todayIso() ? "Upcoming" : "Past activity"}</Badge>
+                  </div>
+                  <DialogHeader className="space-y-1 text-left">
+                    <DialogTitle className="break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{selected.program}</DialogTitle>
+                    <DialogDescription className="text-sm text-slate-500 sm:text-base">Activity scheduled for {formatLongDate(selected.date)}</DialogDescription>
+                  </DialogHeader>
+                </div>
+              </section>
+
+              <section className="grid gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 sm:grid-cols-3 sm:gap-0 sm:p-5">
+                <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-4 sm:first:pl-1"><Clock3 className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time Window</p><p className="mt-1 font-bold text-slate-900">{selected.available_times?.length ? `${formatTime(selected.available_times[0])} – ${formatTime(selected.available_times[selected.available_times.length - 1])}` : "Schedule not set"}</p></div></div>
+                <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-5"><MapPin className="size-7 shrink-0 text-blue-600" /><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p><p className="mt-1 break-words font-bold text-slate-900">{selected.location || "Location not set"}</p></div></div>
+                <div className="flex items-center gap-3 sm:px-5"><CalendarDays className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p><Badge className={`mt-1 ${selected.publication_status === "CANCELLED" ? "bg-rose-100 text-rose-800" : selected.is_open ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{selected.publication_status === "CANCELLED" ? "Cancelled" : selected.is_open ? "Registration Open" : "Registration Closed"}</Badge></div></div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <h3 className="mb-3 flex items-center gap-2 text-lg font-extrabold text-slate-900"><FileText className="size-5 text-blue-600" /> Instructions &amp; Description</h3>
+                <p className="whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">{selected.description || "No activity description provided."}</p>
+              </section>
+
+              <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 sm:p-5">
+                <h3 className="mb-3 flex items-center gap-2 text-lg font-extrabold text-slate-900"><ClipboardList className="size-5 text-amber-600" /> Relevant Notes for Farmers</h3>
+                <p className="whitespace-pre-wrap break-words rounded-xl bg-amber-100/60 p-4 text-sm text-slate-700">{selected.farmer_notes || "No additional notes for farmers."}</p>
+              </section>
+
+              <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({selectedBookings.length})</h3>
+                  <span className="text-sm font-semibold text-slate-500">Capacity: {selected.capacity} slots</span>
                 </div>
 
                 {selectedBookings.length === 0 ? (
@@ -968,26 +913,27 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     </div>
                   </>
                 )}
-              </div>
+              </section>
 
-              <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-3 border-t border-slate-100">
-                <Button type="button" variant="outline" onClick={() => startEdit(selected)} className="h-10 px-4 rounded-xl text-xs sm:text-sm font-bold">
-                  <Pencil className="mr-1.5 size-3.5" /> Edit program
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setPendingAction({ schedule: selected, action: selected.is_open ? "close" : "reopen" })}
-                  className="h-10 px-4 rounded-xl text-xs sm:text-sm font-bold"
-                >
-                  {selected.is_open ? (
-                    <><LockKeyhole className="mr-1.5 size-3.5 text-slate-500" /> Close program</>
-                  ) : (
-                    <><UnlockKeyhole className="mr-1.5 size-3.5 text-slate-500" /> Reopen program</>
-                  )}
-                </Button>
-              </DialogFooter>
-            </>
+              <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
+                <h3 className="mb-1 flex items-center gap-2 text-lg font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
+                <p className="mb-4 text-sm text-slate-500">Manage registration and activity actions separately.</p>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white p-4">
+                    <div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Registration Control</p><Badge className={selected.is_open ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}>{selected.is_open ? "Registration is Open" : "Registration is Closed"}</Badge></div>
+                    <Button type="button" variant="outline" disabled={busy || selected.date < todayIso()} title={selected.date < todayIso() ? "Registration controls are unavailable for a past activity." : undefined} onClick={() => setPendingAction({ schedule: selected, action: selected.is_open ? "close" : "reopen" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{selected.is_open ? <><LockKeyhole className="mr-2 size-4" /> Close Registration</> : <><UnlockKeyhole className="mr-2 size-4" /> Reopen Registration</>}</Button>
+                  </div>
+                  <div className="rounded-xl border border-blue-200 bg-white p-4">
+                    <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700"><Zap className="size-4" /> Activity Actions</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" disabled={busy} onClick={() => startEdit(selected)} className="h-10 font-bold text-blue-700"><Pencil className="mr-2 size-4" /> Edit Activity</Button>
+                      {selected.publication_status === "PUBLISHED" && selected.date <= todayIso() ? <Button type="button" variant="outline" disabled={busy || selected.publication_status === "COMPLETED" || selected.publication_status === "CANCELLED"} onClick={() => setPendingAction({ schedule: selected, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
+                      <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction({ schedule: selected, action: "delete" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50"><Trash2 className="mr-2 size-4" /> Delete</Button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>
