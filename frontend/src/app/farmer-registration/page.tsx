@@ -279,12 +279,12 @@ export default function FarmerRegistrationPage() {
     const hasGovernmentId = Boolean(
       documents.governmentIdFront || documents.governmentIdBack || documents.governmentIdPdf
     );
-    if (governmentIdType && !hasGovernmentId) {
-      setError('Upload one PDF or both front and back ID photos for the selected ID type.');
+    if (!governmentIdType) {
+      setError('Select your government ID type.');
       return;
     }
-    if (hasGovernmentId && !governmentIdType) {
-      setError('Choose your government ID type before uploading its document.');
+    if (!hasGovernmentId) {
+      setError('Upload one complete ID PDF or both front and back ID photos.');
       return;
     }
     if (Boolean(documents.governmentIdFront) !== Boolean(documents.governmentIdBack)) {
@@ -519,7 +519,7 @@ export default function FarmerRegistrationPage() {
               {/* Email Address */}
               <div className="space-y-1">
                 <Label htmlFor="email" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                  <span>Email Address (Login ID) <span className="text-rose-500">*</span></span>
+                  <span>Email Address <span className="text-rose-500">*</span></span>
                   <span className="text-[10px] text-slate-400 font-normal">Used to sign in</span>
                 </Label>
                 <div className="relative">
@@ -872,10 +872,11 @@ export default function FarmerRegistrationPage() {
               <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="governmentIdType" className="text-[11px] font-extrabold uppercase text-slate-700">
-                    Government ID type <span className="font-medium normal-case text-slate-400">(optional)</span>
+                    Government ID type <span className="text-rose-500">*</span> <span className="font-medium normal-case text-slate-400">(required)</span>
                   </Label>
                   <select
                     id="governmentIdType"
+                    required
                     value={governmentIdType}
                     onChange={(e) => {
                       setGovernmentIdType(e.target.value);
@@ -883,7 +884,7 @@ export default function FarmerRegistrationPage() {
                     }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/15"
                   >
-                    <option value="">Choose an ID before uploading</option>
+                    <option value="">Select ID type</option>
                     <option value="PHILID">PhilID / National ID</option>
                     <option value="DRIVERS_LICENSE">Driver’s License</option>
                     <option value="VOTERS_ID">Voter’s ID</option>
@@ -894,7 +895,7 @@ export default function FarmerRegistrationPage() {
                     <option value="OTHER_GOV_ID">Other Government ID</option>
                   </select>
                   <p className="text-[10px] leading-relaxed text-slate-500">
-                    Optional. Take a clear photo of the front, then the back, or upload one PDF containing both sides.
+                    Take a clear photo of the front, then the back, or upload one PDF containing both sides.
                   </p>
                 </div>
 
@@ -1103,7 +1104,7 @@ export default function FarmerRegistrationPage() {
           <p className="text-xs text-slate-500 font-medium">
             Already registered?{' '}
             <Link href="/login" className="text-[#2D5A27] font-black hover:underline">
-              Sign In to Your Account
+              Log In
             </Link>
           </p>
         </div>
