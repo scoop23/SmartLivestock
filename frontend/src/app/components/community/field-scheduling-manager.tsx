@@ -136,7 +136,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   function startCreate() {
     setEditing(null);
-    setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS], barangay: user?.accessScope === "ALL_BARANGAYS" ? "" : String(user?.assignedBarangayId ?? ""), farmer_audience: user?.accessScope === "ALL_BARANGAYS" ? "ALL_FARMERS" : "BARANGAY_ONLY" });
+    const canChooseBarangay = role === "admin" || user?.accessScope === "ALL_BARANGAYS";
+    setForm({ ...emptyForm, available_times: [...PROGRAM_TIME_SLOTS], barangay: canChooseBarangay ? "" : String(user?.assignedBarangayId ?? ""), farmer_audience: role === "admin" || canChooseBarangay ? "ALL_FARMERS" : "BARANGAY_ONLY" });
     setCoverFile(null);
     setCoverPreview("");
     setRemoveCover(false);
@@ -146,7 +147,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   function startEdit(schedule: ProgramSchedule) {
     setEditing(schedule);
-    setForm({ ...emptyForm, date: schedule.date, program: schedule.program, description: schedule.description || "", objectives: schedule.objectives || "", category: schedule.category || "OTHER", location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS], registration_opens: schedule.registration_opens || "", registration_deadline: schedule.registration_deadline || "", eligibility: schedule.eligibility || "", contact_information: schedule.contact_information || "", barangay: schedule.barangay ? String(schedule.barangay) : "", farmer_audience: schedule.farmer_audience || (schedule.barangay ? "BARANGAY_ONLY" : "ALL_FARMERS"), publication_status: schedule.publication_status || "PUBLISHED" });
+    setForm({ ...emptyForm, date: schedule.date, program: schedule.program, description: schedule.description || "", objectives: schedule.objectives || "", category: schedule.category || "OTHER", location: schedule.location, farmer_notes: schedule.farmer_notes || "", capacity: String(schedule.capacity), available_times: schedule.available_times || [...PROGRAM_TIME_SLOTS], registration_opens: schedule.registration_opens || "", registration_deadline: schedule.registration_deadline || "", eligibility: schedule.eligibility || "", contact_information: schedule.contact_information || "", barangay: schedule.barangay ? String(schedule.barangay) : "", farmer_audience: role === "admin" ? "ALL_FARMERS" : schedule.farmer_audience || (schedule.barangay ? "BARANGAY_ONLY" : "ALL_FARMERS"), publication_status: schedule.publication_status || "PUBLISHED" });
     setCoverFile(null);
     setCoverPreview(schedule.cover_image || "");
     setRemoveCover(false);
@@ -194,7 +195,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   function saveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    const payload: SchedulePayload = { ...form, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), description: form.description.trim(), objectives: form.objectives.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim(), eligibility: form.eligibility.trim(), contact_information: form.contact_information.trim(), registration_opens: form.registration_opens || null, registration_deadline: form.registration_deadline || null, barangay: form.barangay ? Number(form.barangay) : null };
+    const payload: SchedulePayload = { ...form, farmer_audience: role === "admin" ? "ALL_FARMERS" : form.farmer_audience, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), description: form.description.trim(), objectives: form.objectives.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim(), eligibility: form.eligibility.trim(), contact_information: form.contact_information.trim(), registration_opens: form.registration_opens || null, registration_deadline: form.registration_deadline || null, barangay: form.barangay ? Number(form.barangay) : null };
     if (!Number.isInteger(payload.capacity) || payload.capacity < 1 || payload.capacity > 10000) {
       setError("Capacity must be a whole number from 1 to 10,000.");
       return;
@@ -483,7 +484,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                       <Badge variant="outline" className="text-[11px]">{schedule.category.replaceAll("_", " ")}</Badge>
                       {schedule.barangay_name ? <Badge variant="outline" className="text-[11px]">{schedule.barangay_name}</Badge> : <Badge variant="outline" className="text-[11px]">Municipality-wide</Badge>}
                       <Badge variant="outline" className="text-[11px]">
-                        {schedule.farmer_audience === "ALL_FARMERS" ? "All farmers · all barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}
+                        {schedule.farmer_audience === "ALL_FARMERS" ? "All Barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}
                       </Badge>
                       <Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge>
                     </div>
@@ -676,8 +677,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 <Select value={form.farmer_audience} onValueChange={(value: ProgramFarmerAudience) => setForm({ ...form, farmer_audience: value })}>
                   <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="BARANGAY_ONLY">Farmers in the program barangay only</SelectItem>
-                    <SelectItem value="ALL_FARMERS">All farmers across barangays</SelectItem>
+                    {role === "sibat" && <SelectItem value="BARANGAY_ONLY">Farmers in {barangays.find((barangay) => String(barangay.id) === form.barangay)?.barangay_name || user?.assignedBarangayName || "this barangay"}</SelectItem>}
+                    <SelectItem value="ALL_FARMERS">All Barangays</SelectItem>
                   </SelectContent>
                 </Select>
                 <span className="block text-[11px] font-normal text-slate-500">Controls which farmers can see and book this program.</span>
