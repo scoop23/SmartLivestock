@@ -666,7 +666,7 @@ function SibatReviewDialogContent({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 pb-1 border-b border-slate-100">
               <ShieldCheck className="size-3.5 text-[#1A365D]" />
-              <span>SIBAT Validation Actions</span>
+              <span>Field Verification</span>
             </div>
 
             {/* Workflow status box */}
@@ -681,7 +681,7 @@ function SibatReviewDialogContent({
             }`}>
               <div className="flex items-center gap-2 font-bold text-xs">
                 <Info className="size-4 shrink-0" />
-                <span>Validation Protocol Guidelines</span>
+                <span>Verification Guidelines</span>
               </div>
               <p className="text-[11px] leading-relaxed opacity-90">
                 {isPending
@@ -699,8 +699,8 @@ function SibatReviewDialogContent({
             {/* SIBAT Remarks Textarea */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                <span>{isPending ? "SIBAT Field Verification Remarks" : "Reviewer Remarks"}</span>
-                {isPending && <span className="text-[10px] text-slate-500 font-normal">Required to return · Optional to verify</span>}
+                <span>{isPending ? "Verification Remarks" : "Reviewer Remarks"}</span>
+                {isPending && <span className="text-[10px] text-slate-500 font-normal">Optional</span>}
               </Label>
               <Textarea
                 placeholder="Enter field observation notes, ear tag confirmation, or validation remarks..."
