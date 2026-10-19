@@ -289,6 +289,15 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"government_id_pdf": "Upload one PDF or both front and back ID photos."}
             )
+        if self.instance is None:
+            if not id_type:
+                raise serializers.ValidationError(
+                    {"government_id_type": "Government ID type is required."}
+                )
+            if not pdf and not (front and back) and not legacy_file:
+                raise serializers.ValidationError(
+                    {"government_id_pdf": "Upload one complete ID PDF or both front and back ID photos."}
+                )
         return attrs
 
     @transaction.atomic
