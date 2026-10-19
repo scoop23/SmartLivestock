@@ -133,8 +133,11 @@ from Farmer inventory.
   density assumptions. Hypothetical seeds are labeled. Normalized pressure is
   not an infection probability or a scientifically calibrated epidemic forecast.
 - **Ask SmartLivestock:** live retrieval uses allowlisted, rules-first parsing and
-  scoped ORM queries. A separate TF-IDF/logistic-regression experiment is used for
-  offline comparison; it is not the live general-purpose language engine.
+  scoped ORM queries. MAO/Admin can also request an exact farmer's current
+  approved-active individual livestock count; ambiguous names are clarified,
+  and SIBAT cannot run farmer-specific queries. A separate
+  TF-IDF/logistic-regression experiment is used for offline comparison; it is
+  not the live general-purpose language engine.
 
 ## Technology and source layout
 

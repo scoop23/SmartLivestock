@@ -24,14 +24,20 @@ type Visualization = {
   columns: { key: string; label: string }[];
 };
 type AskResponse = {
-  status: "answered" | "clarification" | "unsupported";
+  status: "answered" | "clarification" | "unsupported" | "not_found" | "ambiguous";
   question: string;
   intent?: string;
   answer: string;
   interpreted?: {
     metric: string;
     group_by: string | null;
-    filters: { barangay: string | null; livestock_type: string | null; production_type: string | null };
+    filters: {
+      barangay: string | null;
+      livestock_type: string | null;
+      production_type: string | null;
+      farmer: string | null;
+      approval_status: string | null;
+    };
   };
   period?: { start: string; end: string; label: string } | null;
   visualization?: Visualization | null;
@@ -47,6 +53,8 @@ const EXAMPLES = [
   "Which submissions are waiting for MAO approval?",
   "Break down production by type.",
   "Ilang baka ang registered ngayon?",
+  "How many cattle does Farmer Juan Dela Cruz have?",
+  "Ilan ang baka ni Farmer Juan Dela Cruz?",
 ];
 const SPECIES_COLORS = ["#2d5a27", "#0f766e", "#2563eb", "#c2410c", "#7e22ce", "#be123c", "#475569"];
 const numberFormat = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 2 });
@@ -141,6 +149,7 @@ function ResultVisualization({ response }: { response: AskResponse }) {
 
 export function AskSmartLivestock() {
   const { user } = useAuth();
+  const canAskAboutIndividualFarmers = ["MAO", "ADMIN"].includes(user?.role?.toUpperCase() ?? "");
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState("");
@@ -188,7 +197,9 @@ export function AskSmartLivestock() {
             maxLength={500}
             aria-label="Ask a livestock analytics question"
             aria-describedby="ask-help"
-            placeholder="Ask about population, production, disease, mortality, or MAO queues…"
+            placeholder={canAskAboutIndividualFarmers
+              ? "Ask about livestock analytics or a farmer's current inventory…"
+              : "Ask about population, production, disease, mortality, or MAO queues…"}
             className="h-11 rounded-xl"
             disabled={loading}
           />
@@ -201,7 +212,10 @@ export function AskSmartLivestock() {
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Example questions">
         <span className="mr-1 text-[11px] font-semibold text-slate-500">Try:</span>
-        {EXAMPLES.filter((example) => user?.role?.toUpperCase() !== "SIBAT" || !example.includes("MAO approval")).map((example) => <Button key={example} type="button" variant="outline" size="sm" onClick={() => setQuestion(example)} disabled={loading} className="h-auto max-w-full whitespace-normal rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-600">{example}</Button>)}
+        {EXAMPLES.filter((example) => {
+          if (!canAskAboutIndividualFarmers && example.includes("Farmer ")) return false;
+          return user?.role?.toUpperCase() !== "SIBAT" || !example.includes("MAO approval");
+        }).map((example) => <Button key={example} type="button" variant="outline" size="sm" onClick={() => setQuestion(example)} disabled={loading} className="h-auto max-w-full whitespace-normal rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-600">{example}</Button>)}
       </div>
       {loading ? <p role="status" className="mt-3 flex items-center gap-2 text-sm text-slate-600"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Checking authorized records…</p> : null}
 
@@ -217,6 +231,8 @@ export function AskSmartLivestock() {
                 {response.interpreted?.filters.livestock_type ? <Badge variant="outline">{response.interpreted.filters.livestock_type}</Badge> : null}
                 {response.interpreted?.filters.production_type ? <Badge variant="outline">{response.interpreted.filters.production_type}</Badge> : null}
                 {response.interpreted?.filters.barangay ? <Badge variant="outline">{response.interpreted.filters.barangay}</Badge> : null}
+                {response.interpreted?.filters.farmer ? <Badge variant="outline">Farmer: {response.interpreted.filters.farmer}</Badge> : null}
+                {response.interpreted?.filters.approval_status ? <Badge variant="outline">{response.interpreted.filters.approval_status.replaceAll("_", " ")}</Badge> : null}
               </div>
               <p className="text-sm font-semibold text-slate-900">{response.answer}</p>
               {response.interpreted ? <p className="text-xs text-slate-500">Metric: {response.interpreted.metric.replaceAll("_", " ")}{response.interpreted.group_by ? ` · Grouped by ${response.interpreted.group_by.replaceAll("_", " ")}` : ""}</p> : null}
@@ -224,8 +240,14 @@ export function AskSmartLivestock() {
               {response.coverage_note ? <p className="text-xs leading-relaxed text-slate-500">{response.coverage_note}</p> : null}
             </>
           ) : (
-            <Alert variant={response.status === "unsupported" ? "destructive" : "default"}>
-              <AlertTitle>{response.status === "unsupported" ? "Unsupported question" : "Please clarify your question"}</AlertTitle>
+            <Alert variant={response.status === "clarification" ? "default" : "destructive"}>
+              <AlertTitle>{response.status === "unsupported"
+                ? "Unsupported question"
+                : response.status === "not_found"
+                  ? "Farmer not found"
+                  : response.status === "ambiguous"
+                    ? "Farmer name is ambiguous"
+                    : "Please clarify your question"}</AlertTitle>
               <AlertDescription>{response.answer}</AlertDescription>
             </Alert>
           )}
