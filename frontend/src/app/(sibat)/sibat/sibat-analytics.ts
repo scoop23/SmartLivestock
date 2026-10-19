@@ -154,6 +154,7 @@ export interface RawDiseaseCase {
   notes?: string;
   status: string;
   review_remarks?: string | null;
+  inspection_details?: Partial<SibatInspectionData> | null;
   previous_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
@@ -183,6 +184,7 @@ export interface RawMortalityRecord {
   disposal_method?: string;
   status: string;
   review_remarks?: string | null;
+  inspection_details?: Partial<SibatInspectionData> | null;
   previous_remarks?: string | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string | null;
@@ -370,17 +372,19 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
     photoUrl: resolvedPhotoUrl,
     photoName: resolvedPhotoName,
     status: statusNorm,
-    inspection: dc.reviewed_by_name || dc.inspector_photo_url || dc.inspector_photo
+    inspection: dc.inspection_details || dc.reviewed_by_name || dc.inspector_photo_url || dc.inspector_photo
       ? {
+          ...dc.inspection_details,
           verifiedBy: dc.reviewed_by_name || "SIBAT field officer",
           verifiedAt: dc.reviewed_at ? dc.reviewed_at.replace("T", " ").slice(0, 16) : "",
-          tagConfirmed: true,
-          countConfirmed: true,
-          confirmedCount: dc.affected_count || 1,
-          confirmedSymptoms: [dc.name],
-          severity: "MODERATE" as SeverityLevel,
-          biosecurityAction: "PEN_ISOLATION" as BiosecurityAction,
-          remarks: dc.review_remarks || "Verified on-farm by SIBAT field inspector.",
+          tagConfirmed: dc.inspection_details?.tagConfirmed ?? true,
+          countConfirmed: dc.inspection_details?.countConfirmed ?? true,
+          confirmedCount: dc.inspection_details?.confirmedCount ?? dc.affected_count ?? 1,
+          confirmedSymptoms: dc.inspection_details?.confirmedSymptoms ?? [dc.name],
+          severity: dc.inspection_details?.severity ?? "MODERATE" as SeverityLevel,
+          biosecurityAction: dc.inspection_details?.biosecurityAction ?? "PEN_ISOLATION" as BiosecurityAction,
+          remarks: dc.inspection_details?.remarks || dc.review_remarks || "Verified on-farm by SIBAT field inspector.",
+          temperatureCelsius: dc.inspection_details?.temperatureCelsius,
           inspectorPhotoUrl: dc.inspector_photo_url || dc.inspector_photo || undefined,
         }
       : undefined,
@@ -422,17 +426,19 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
     photoUrl: resolvedPhotoUrl,
     photoName: resolvedPhotoName,
     status: statusNorm,
-    inspection: m.reviewed_by_name || m.inspector_photo_url || m.inspector_photo
+    inspection: m.inspection_details || m.reviewed_by_name || m.inspector_photo_url || m.inspector_photo
       ? {
+          ...m.inspection_details,
           verifiedBy: m.reviewed_by_name || "SIBAT field officer",
           verifiedAt: m.reviewed_at ? m.reviewed_at.replace("T", " ").slice(0, 16) : "",
-          tagConfirmed: true,
-          countConfirmed: true,
-          confirmedCount: m.death_count || 1,
-          confirmedSymptoms: [m.cause],
-          severity: "CRITICAL" as SeverityLevel,
-          biosecurityAction: "BIOSECURE_BURIAL" as BiosecurityAction,
-          remarks: m.review_remarks || "Verified on-farm by SIBAT field inspector.",
+          tagConfirmed: m.inspection_details?.tagConfirmed ?? true,
+          countConfirmed: m.inspection_details?.countConfirmed ?? true,
+          confirmedCount: m.inspection_details?.confirmedCount ?? m.death_count ?? 1,
+          confirmedSymptoms: m.inspection_details?.confirmedSymptoms ?? [m.cause],
+          severity: m.inspection_details?.severity ?? "CRITICAL" as SeverityLevel,
+          biosecurityAction: m.inspection_details?.biosecurityAction ?? "BIOSECURE_BURIAL" as BiosecurityAction,
+          remarks: m.inspection_details?.remarks || m.review_remarks || "Verified on-farm by SIBAT field inspector.",
+          temperatureCelsius: m.inspection_details?.temperatureCelsius,
           inspectorPhotoUrl: m.inspector_photo_url || m.inspector_photo || undefined,
         }
       : undefined,
@@ -899,11 +905,17 @@ export function useReviewClinicalHealth() {
 
       let payload: FormData | Record<string, unknown>;
       let headers: Record<string, string> = {};
+      const savedInspection = Object.fromEntries(
+        Object.entries(inspectionData).filter(([key, value]) =>
+          key !== "inspectorPhotoFile" && key !== "inspectorPhotoUrl" && value !== undefined,
+        ),
+      );
 
       if (inspectionData.inspectorPhotoFile) {
         const formData = new FormData();
         formData.append("status", reviewStatus);
         formData.append("remarks", formattedRemarks);
+        formData.append("inspection_details", JSON.stringify(savedInspection));
         formData.append("inspector_photo", inspectionData.inspectorPhotoFile);
         payload = formData;
         headers = { "Content-Type": "multipart/form-data" };
@@ -911,6 +923,7 @@ export function useReviewClinicalHealth() {
         payload = {
           status: reviewStatus,
           remarks: formattedRemarks,
+          inspection_details: savedInspection,
         };
       }
 

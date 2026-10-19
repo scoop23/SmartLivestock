@@ -61,6 +61,7 @@ class DiseaseCase(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_remarks = models.TextField(null=True, blank=True)
+    inspection_details = models.JSONField(null=True, blank=True)
     previous_remarks = models.TextField(
         null=True,
         blank=True,
@@ -171,6 +172,7 @@ class MortalityRecord(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_remarks = models.TextField(null=True, blank=True)
+    inspection_details = models.JSONField(null=True, blank=True)
     previous_remarks = models.TextField(
         null=True,
         blank=True,

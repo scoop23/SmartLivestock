@@ -1,4 +1,5 @@
 from smartlivestock.workflows import scope_reviewer_queryset
+import json
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -438,6 +439,14 @@ def review_disease_case(request, pk):
     record = get_object_or_404(scope_reviewer_queryset(DiseaseCase.objects.select_for_update(of=("self",)), request.user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
+    inspection_details = request.data.get("inspection_details")
+    if isinstance(inspection_details, str):
+        try:
+            inspection_details = json.loads(inspection_details)
+        except json.JSONDecodeError:
+            return Response({"inspection_details": "Must be valid JSON."}, status=status.HTTP_400_BAD_REQUEST)
+    if inspection_details is not None and not isinstance(inspection_details, dict):
+        return Response({"inspection_details": "Must be a JSON object."}, status=status.HTTP_400_BAD_REQUEST)
 
     if not new_status:
         return Response(
@@ -485,6 +494,8 @@ def review_disease_case(request, pk):
     record.status = new_status
     record.reviewed_by = user
     record.review_remarks = remarks
+    if inspection_details is not None:
+        record.inspection_details = inspection_details
     record.reviewed_at = timezone.now()
     record.save()
 
@@ -655,6 +666,14 @@ def review_mortality_record(request, pk):
     )
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
+    inspection_details = request.data.get("inspection_details")
+    if isinstance(inspection_details, str):
+        try:
+            inspection_details = json.loads(inspection_details)
+        except json.JSONDecodeError:
+            return Response({"inspection_details": "Must be valid JSON."}, status=status.HTTP_400_BAD_REQUEST)
+    if inspection_details is not None and not isinstance(inspection_details, dict):
+        return Response({"inspection_details": "Must be a JSON object."}, status=status.HTTP_400_BAD_REQUEST)
 
     if not new_status:
         return Response(
@@ -702,6 +721,8 @@ def review_mortality_record(request, pk):
     record.status = new_status
     record.reviewed_by = user
     record.review_remarks = remarks
+    if inspection_details is not None:
+        record.inspection_details = inspection_details
     record.reviewed_at = timezone.now()
     record.save()
     if new_status == MortalityRecord.MortalityRecordStatus.APPROVED:

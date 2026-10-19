@@ -14,12 +14,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { getAttachedPhoto,saveAttachedPhoto } from "@/lib/photo-storage";
 import {
 AlertTriangle,
+ArrowLeft,
 Beef,
 Calendar,
 Camera,
 CheckCircle2,
 ClipboardCheck,
+Clock,
 ExternalLink,
+MapPin,
 Maximize2,
 Milk,
 Scale,
@@ -107,6 +110,136 @@ export interface SibatValidationRecord {
     productionUnit?: string;
     salePricePhp?: number;
   };
+}
+
+function DiseaseReadOnlyDetails({
+  record,
+  photoUrl,
+  onClose,
+  onOpenPhoto,
+}: {
+  record: SibatValidationRecord;
+  photoUrl: string;
+  onClose: () => void;
+  onOpenPhoto: () => void;
+}) {
+  const isApproved = record.status === "APPROVED";
+  const isForwarded = record.status === "VERIFIED";
+  const inspection = record.inspection;
+  const severity = inspection?.severity ? inspection.severity.charAt(0) + inspection.severity.slice(1).toLowerCase() : "Not recorded";
+  const biosecurityLabels: Record<BiosecurityAction, string> = {
+    NONE: "No additional action",
+    PEN_ISOLATION: "Temporary Pen Isolation (7 Days)",
+    TREATMENT_PRESCRIBED: "Supportive Treatment Prescribed",
+    BIOSECURE_BURIAL: "Biosecure Deep Pit Burial & Lime",
+    LAB_SAMPLE_SENT: "Sample Sent to Laboratory",
+  };
+  const biosecurity = inspection?.biosecurityAction ? biosecurityLabels[inspection.biosecurityAction] : "Not recorded";
+  const statusLabel = isApproved ? "MAO Approved" : isForwarded ? "Under MAO Review" : "Needs Review";
+
+  return (
+    <div className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden bg-slate-50 p-3 sm:space-y-4 sm:p-5">
+      <p id="sibat-inspection-description" className="sr-only">Reported animal information, field inspection findings, and case follow-up history.</p>
+      <Button type="button" variant="ghost" onClick={onClose} className="h-8 gap-2 px-2 text-sm font-semibold text-slate-800 hover:bg-slate-200">
+        <ArrowLeft className="size-4" /> Back to Disease Reports
+      </Button>
+
+      <header className="flex flex-col gap-4 rounded-xl bg-gradient-to-r from-[#12365f] to-[#1e4e80] p-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className="grid size-16 shrink-0 place-items-center rounded-full bg-sky-400/25 text-white"><Stethoscope className="size-8" /></span>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-sky-100">Disease Report · {record.id}</p>
+            <DialogTitle className="mt-0.5 text-xl font-black leading-tight text-white sm:text-2xl">Field Inspection Details</DialogTitle>
+            <p className="mt-1 text-sm text-sky-100"><strong>Farmer:</strong> {record.farmerName} <span className="mx-2">|</span> <strong>Barangay:</strong> {record.barangayName}</p>
+          </div>
+        </div>
+        <Badge className="w-fit shrink-0 border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-950">
+          <Clock className="mr-1.5 size-4" />{statusLabel}
+        </Badge>
+      </header>
+
+      <section className="flex items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3.5 text-sky-950 sm:px-5">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700"><ShieldCheck className="size-7" /></span>
+        <div><h3 className="font-bold">{isApproved ? "MAO Review Completed" : isForwarded ? "Field Inspection Completed" : "Field Inspection Pending"}</h3><p className="text-sm text-sky-900">{isApproved ? "The report was approved by MAO." : isForwarded ? "The CBAT has checked this report and sent it to the MAO for review." : "This report is awaiting an on-site field inspection."}</p></div>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><User className="size-6 text-blue-700" />1. Animal & Farmer Information</h3>
+        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Ear Tag Number", value: record.livestockTag || "Not recorded", icon: <Tag className="size-6" /> },
+            { label: "Animal / Species", value: `${record.livestockType || "Livestock"}${record.livestockBreed ? ` (${record.livestockBreed})` : ""}`, icon: <Beef className="size-6" /> },
+            { label: "Farmer", value: record.farmerName || "Registered Farmer", icon: <User className="size-6" /> },
+            { label: "Barangay", value: record.barangayName || "Not recorded", icon: <MapPin className="size-6" /> },
+          ].map((item) => (
+            <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <span className="shrink-0 text-blue-700">{item.icon}</span><div className="min-w-0"><p className="text-xs font-semibold text-slate-500">{item.label}</p><p className="truncate font-bold text-slate-900">{item.value}</p></div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div><h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ClipboardCheck className="size-6 text-blue-700" />2. Reported Health Concerns</h3><p className="ml-8 text-sm text-slate-600">Reported by the farmer — not a confirmed diagnosis.</p></div>
+        {record.farmerSymptoms.length ? <div className="flex flex-wrap gap-2 pl-1 sm:pl-8">{record.farmerSymptoms.map((symptom) => <Badge key={symptom} className="border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-bold text-rose-900">{symptom}</Badge>)}</div> : <p className="pl-1 text-sm text-slate-600 sm:pl-8">{record.farmerDescription || record.name || "No health concerns were recorded."}</p>}
+        <p className="pl-1 text-xs text-slate-500 sm:pl-8">Reported {record.reportedDate} · {record.reportedCount} head{record.reportedCount === 1 ? "" : "s"}</p>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ShieldCheck className="size-6 text-blue-700" />3. CBAT Field Inspection</h3>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2.5">
+            <p className="flex items-center gap-2 text-sm text-slate-800"><CheckCircle2 className={`size-5 ${inspection?.tagConfirmed ? "text-emerald-600" : "text-slate-400"}`} />Ear tag {inspection?.tagConfirmed ? "checked and verified" : "not verified"}.</p>
+            <p className="flex items-center gap-2 text-sm text-slate-800"><CheckCircle2 className={`size-5 ${inspection?.countConfirmed ? "text-emerald-600" : "text-slate-400"}`} />Physical count {inspection?.countConfirmed ? `checked (${inspection.confirmedCount} head${inspection.confirmedCount === 1 ? "" : "s"})` : "not verified"}.</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-600">Body Temperature</p><p className="font-bold text-slate-900">{inspection?.temperatureCelsius ? `${inspection.temperatureCelsius} °C` : "Not recorded"}</p></div>
+          </div>
+          <div className="space-y-2.5 border-slate-200 lg:border-l lg:pl-4">
+            <h4 className="font-bold text-slate-900">Field Observations (CBAT)</h4>
+            <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">{inspection?.remarks || "No field observations recorded."}</p>
+            <div className="flex flex-wrap gap-2 text-xs font-bold">
+              <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950"><AlertTriangle className="mr-1 inline size-4" />Severity: {severity}</span>
+              <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-950"><ShieldCheck className="mr-1 inline size-4" />Biosecurity Action: {biosecurity}</span>
+            </div>
+          </div>
+        </div>
+        {photoUrl ? (
+          <div className="grid gap-3 border-t border-slate-200 pt-3 sm:grid-cols-[220px_minmax(0,1fr)]">
+            <button type="button" onClick={onOpenPhoto} className="h-32 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 sm:h-28"><img src={photoUrl} alt={`Inspection photo for ${record.livestockTag}`} className="size-full object-cover" /></button>
+            <div className="flex flex-col justify-center rounded-xl border border-slate-200 bg-slate-50 p-3"><h4 className="font-bold text-slate-900">Inspection Photo</h4><p className="text-sm text-slate-600">Photo taken during the on-farm inspection.</p><Button type="button" variant="outline" onClick={onOpenPhoto} className="mt-2 w-fit border-sky-200 text-sky-800"><ExternalLink className="mr-2 size-4" />View Full Photo</Button></div>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ClipboardCheck className="size-6 text-blue-700" />4. Follow-up & Case Status</h3>
+        <Badge className="border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-950"><Clock className="mr-1.5 size-4" />{isApproved ? "Awaiting Case Resolution" : isForwarded ? "Awaiting MAO Decision" : "Awaiting Field Inspection"}</Badge>
+        {isForwarded ? (
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-slate-900">Follow-up and case resolution</h4>
+            <p className="text-sm text-slate-700">No case resolution recorded yet. Follow-up records and the final outcome will appear here after MAO review.</p>
+          </div>
+        ) : isApproved ? (
+          <>
+            <p className="text-sm text-slate-700">The report is approved. The case outcome can be recorded separately.</p>
+            <DiseaseCaseFollowUp key={record.id} caseId={record.id} />
+          </>
+        ) : (
+          <p className="text-sm text-slate-700">Case follow-up becomes available after the report is reviewed.</p>
+        )}
+      </section>
+
+      <details className="group rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+        <summary className="flex cursor-pointer list-none items-center gap-3 font-bold text-slate-900 [&::-webkit-details-marker]:hidden"><Calendar className="size-6 text-blue-800" /><span className="flex-1">Inspection History<small className="block font-normal text-slate-600">View remarks and updates</small></span><span aria-hidden="true" className="text-xl text-slate-500 transition-transform group-open:rotate-180">⌄</span></summary>
+        <div className="mt-4 space-y-2 border-t border-slate-200 pt-3 text-sm text-slate-700">
+          <p><strong>Inspected by:</strong> {inspection?.verifiedBy || "Not recorded"}</p>
+          <p><strong>Inspection date:</strong> {inspection?.verifiedAt ? new Date(inspection.verifiedAt).toLocaleString() : "Not recorded"}</p>
+          <p><strong>Remarks:</strong> {inspection?.remarks || "No inspection remarks recorded."}</p>
+        </div>
+      </details>
+
+      <div className="flex justify-end"><Button type="button" variant="outline" onClick={onClose}>Close</Button></div>
+    </div>
+  );
 }
 
 const CLINICAL_SYMPTOMS_LIST = [
@@ -261,6 +394,7 @@ function SibatInspectionDialogContent({
   const isReadOnly = readOnly || !isPending;
   const isApproved = normStatus === "APPROVED";
   const isVerified = normStatus === "VERIFIED";
+  const isRevision = normStatus === "SUBJECT_FOR_REVISION" || normStatus === "SUBJECT_TO_REVISION";
 
   // Active symptoms & temperature depending on whether 'ALL' or a specific head is selected
   const activeSymptoms = selectedHeadTag === "ALL"
@@ -446,11 +580,38 @@ function SibatInspectionDialogContent({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby="sibat-inspection-description" className="overflow-hidden w-screen max-w-none rounded-none p-4 sm:w-full sm:max-w-4xl sm:rounded-2xl sm:p-6 md:max-w-5xl lg:max-w-6xl lg:p-8 bg-white border border-slate-100 shadow-2xl max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto">
+      <DialogContent
+        aria-describedby="sibat-inspection-description"
+        className={isDisease && isReadOnly
+          ? "max-h-[96dvh] w-[calc(100vw-0.5rem)] max-w-none overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-4rem)] sm:max-w-none sm:rounded-xl"
+          : isRevision
+            ? "max-h-[96dvh] w-[calc(100vw-0.5rem)] max-w-none overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-3 shadow-2xl sm:w-[calc(100vw-4rem)] sm:max-w-none sm:rounded-xl sm:p-5"
+          : "max-h-[100dvh] w-screen max-w-none overflow-y-auto rounded-none border border-slate-100 bg-white p-4 shadow-2xl sm:max-h-[92vh] sm:w-full sm:max-w-4xl sm:rounded-2xl sm:p-6 md:max-w-5xl lg:max-w-6xl lg:p-8"}
+      >
+        {isDisease && isReadOnly ? (
+          <DiseaseReadOnlyDetails
+            record={record}
+            photoUrl={lightboxPhotoUrl}
+            onClose={() => onOpenChange(false)}
+            onOpenPhoto={() => setIsPhotoLightboxOpen(true)}
+          />
+        ) : (
+        <>
         <p id="sibat-inspection-description" className="sr-only">Reported animal health details, original field inspection, and case follow-up history.</p>
 
         {/* ══ POPUP HEADER ══ */}
-        <DialogHeader className="mb-3 sm:mb-4">
+        {isRevision ? (
+          <header className="mb-4 flex items-center gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#245889] p-3.5 text-white shadow-sm sm:mb-5 sm:gap-4 sm:p-5">
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-sky-500 text-white sm:size-14"><Stethoscope className="size-7" /></span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-black uppercase tracking-wide text-blue-100 sm:text-xs">
+                <span>{record.reportType} REPORT</span><span>{record.id}</span><Badge className="border border-rose-200 bg-rose-100 text-rose-800">Subject for Revision</Badge>
+              </div>
+              <DialogTitle className="mt-1 text-lg font-extrabold leading-tight text-white sm:text-2xl">Field Examination – Revision</DialogTitle>
+              <p className="mt-0.5 text-xs text-blue-100 sm:text-sm">Update the field findings based on MAO feedback and resubmit.</p>
+            </div>
+          </header>
+        ) : <DialogHeader className="mb-3 sm:mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3.5">
               <div
@@ -520,17 +681,33 @@ function SibatInspectionDialogContent({
               </span>
             </div>
           </div>
-        </DialogHeader>
+        </DialogHeader>}
+
+        {isRevision ? (
+          <section className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 sm:mb-5 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-rose-600 text-white"><AlertTriangle className="size-4" /></span>
+                <div><h2 className="text-sm font-extrabold text-rose-800">Needs Revision</h2><p className="text-xs leading-relaxed text-rose-700">The MAO reviewed this report and requested additional information. Update the required items below.</p></div>
+              </div>
+              <details className="group relative shrink-0">
+                <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 shadow-xs [&::-webkit-details-marker]:hidden"><ClipboardCheck className="size-4" /> View MAO Feedback <span className="border-l border-rose-200 pl-2">⌄</span></summary>
+                <div className="mt-2 rounded-lg border border-rose-200 bg-white p-3 text-xs leading-relaxed text-slate-700 sm:absolute sm:right-0 sm:z-20 sm:w-80 sm:shadow-lg">{record.maoApproval?.remarks || "No MAO feedback details were attached to this revision."}</div>
+              </details>
+            </div>
+          </section>
+        ) : null}
 
         {/* ══ 2-COLUMN EXPANDED SIBAT INSPECTION LAYOUT ══ */}
-        {isDisease && <div className="mb-5"><DiseaseCaseFollowUp key={record.id} caseId={record.id} /></div>}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+        {isDisease && isReadOnly && <div className="mb-5"><DiseaseCaseFollowUp key={record.id} caseId={record.id} /></div>}
+        <div className={`grid grid-cols-1 gap-4 sm:gap-5 ${isRevision ? "lg:grid-cols-12" : "lg:grid-cols-12 lg:gap-6"}`}>
           {/* ── LEFT COLUMN (6 COLS): LIVESTOCK & FARMER INITIAL REPORT ── */}
-          <div className="min-w-0 lg:col-span-6 space-y-4">
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3.5">
+          <div className={`min-w-0 space-y-4 ${isRevision ? "lg:col-span-12" : "lg:col-span-6"}`}>
+            <div className={`space-y-3.5 rounded-2xl border ${isRevision ? "border-blue-100 bg-white p-3.5 sm:p-4" : "border-slate-200/90 bg-slate-50 p-4 sm:p-5"}`}>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black uppercase text-slate-400 tracking-widest block">
-                  1. Livestock & Raiser Profile
+                <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-700">
+                  {isRevision ? <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm text-white">1</span> : null}
+                  {isRevision ? "Farmer & Animal Information" : "1. Livestock & Raiser Profile"}
                 </span>
                 <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
                   <Calendar className="size-3.5 text-slate-400" />
@@ -538,7 +715,7 @@ function SibatInspectionDialogContent({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <div className={`grid grid-cols-2 gap-2.5 text-xs ${isRevision ? "xl:grid-cols-4" : ""}`}>
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Tag Number</span>
                   <span className="font-black text-slate-900 text-sm sm:text-base">
@@ -804,13 +981,13 @@ function SibatInspectionDialogContent({
           </div>
 
           {/* ── RIGHT COLUMN (6 COLS): SIBAT CLINICAL FORM & ACTIONS ── */}
-          <div className="min-w-0 lg:col-span-6 space-y-4">
-            <div className="p-4 sm:p-5 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-3.5">
-              <div className="flex items-center justify-between">
+          <div className={`min-w-0 space-y-4 ${isRevision ? "lg:col-span-12" : "lg:col-span-6"}`}>
+            <div className={`space-y-3.5 rounded-2xl border p-3.5 sm:p-4 ${isRevision ? "grid grid-cols-1 gap-3.5 border-blue-100 bg-white sm:grid-cols-2 sm:space-y-0" : "border-sky-200 bg-sky-50/70 sm:p-5"}`}>
+              <div className={`flex items-center justify-between ${isRevision ? "border-b border-blue-100 pb-2 sm:col-span-2" : ""}`}>
                 <div className="flex items-center gap-2">
-                  <Stethoscope className="size-5 text-sky-800" />
-                  <span className="text-xs sm:text-sm font-black uppercase text-sky-950 tracking-wider">
-                    {isReadOnly ? "2. Field Inspection Record" : "2. Physical On-Farm Examination (Step 2)"}
+                  {isRevision ? <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">2</span> : <Stethoscope className="size-5 text-sky-800" />}
+                  <span className="text-xs font-black uppercase tracking-wider text-sky-950 sm:text-sm">
+                    {isRevision ? "Update Field Examination Details" : isReadOnly ? "2. Field Inspection Record" : "2. Physical On-Farm Examination (Step 2)"}
                   </span>
                 </div>
                 <Badge className={`${isApproved ? "bg-emerald-200 text-emerald-900" : isVerified ? "bg-sky-200 text-sky-900" : "bg-slate-200 text-slate-800"} border-none font-black text-[10px] uppercase`}>
@@ -818,8 +995,12 @@ function SibatInspectionDialogContent({
                 </Badge>
               </div>
 
+              {isRevision ? <p className="-mt-2 text-[11px] text-slate-500 sm:col-span-2">Edit or add the missing information requested by the MAO.</p> : null}
+
+              {/* Revision uses the compact two-column examination layout from the field form. */}
+              <div className={isRevision ? "space-y-2 sm:col-start-1" : "contents"}>
               {/* Ear Tag Verification Checkbox */}
-              <label className={`flex items-center gap-3 p-3.5 bg-white rounded-xl border border-sky-200 transition-all ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
+              <label className={`flex items-center gap-3 rounded-xl border border-sky-200 bg-white p-2.5 transition-all sm:p-3 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
                 <input
                   type="checkbox"
                   checked={tagConfirmed}
@@ -841,7 +1022,7 @@ function SibatInspectionDialogContent({
                 </div>
               </label>
 
-              <label className={`flex min-h-12 items-center gap-3 rounded-xl border border-sky-200 bg-white p-3.5 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
+              <label className={`flex min-h-12 items-center gap-3 rounded-xl border border-sky-200 bg-white p-2.5 sm:p-3 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
                 <input
                   type="checkbox"
                   checked={countConfirmed}
@@ -857,33 +1038,53 @@ function SibatInspectionDialogContent({
                   I verified the physical count in person ({record.reportedCount} head{record.reportedCount > 1 ? "s" : ""}).
                 </span>
               </label>
+              </div>
 
-              {/* Body Temperature */}
-              <div className="space-y-1">
-                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                  <span>
-                    Body Temp (°C) {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "" : "(Optional)"}:
-                  </span>
-                  {selectedHeadTag !== "ALL" && (
-                    <span className="text-[10px] text-sky-700 font-bold bg-sky-100/70 px-2 py-0.5 rounded-full">
-                      Head: {selectedHeadTag}
+              <div className={isRevision ? "space-y-2.5 sm:col-start-2 sm:row-start-3" : "contents"}>
+                {/* Body Temperature */}
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                    <span>
+                      Body Temp (°C) {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "" : "(Optional)"}:
                     </span>
-                  )}
-                </label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder={isReadOnly ? "Not recorded" : "e.g. 39.5"}
-                  value={activeTemperature}
-                  disabled={isReadOnly}
-                  onChange={(e) => handleTemperatureChange(e.target.value)}
-                  className="bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
-                />
+                    {selectedHeadTag !== "ALL" && (
+                      <span className="text-[10px] text-sky-700 font-bold bg-sky-100/70 px-2 py-0.5 rounded-full">
+                        Head: {selectedHeadTag}
+                      </span>
+                    )}
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder={isReadOnly ? "Not recorded" : "e.g. 39.5"}
+                    value={activeTemperature}
+                    disabled={isReadOnly}
+                    onChange={(e) => handleTemperatureChange(e.target.value)}
+                    className="bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {isRevision ? (
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-black text-slate-800">Severity Rating:</label>
+                      <select value={severity} disabled={isReadOnly} onChange={(e) => { if (!isReadOnly) setSeverity(e.target.value as SeverityLevel | ""); }} className="h-10 w-full rounded-xl border border-sky-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-800">
+                        <option value="">Not assessed</option><option value="MILD">Mild (Monitoring Required)</option><option value="MODERATE">Moderate (Treatment Needed)</option><option value="SEVERE">Severe (Urgent Intervention)</option><option value="CRITICAL">Critical / Fatal</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-black text-slate-800">Biosecurity Action:</label>
+                      <select value={biosecurityAction} disabled={isReadOnly} onChange={(e) => { if (!isReadOnly) setBiosecurityAction(e.target.value as BiosecurityAction | ""); }} className="h-10 w-full rounded-xl border border-sky-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-800">
+                        <option value="">No action recorded</option><option value="NONE">None / General Advisory</option><option value="PEN_ISOLATION">Temporary Pen Isolation (7 Days)</option><option value="TREATMENT_PRESCRIBED">Supportive Treatment Prescribed</option><option value="BIOSECURE_BURIAL">Biosecure Deep Pit Burial &amp; Lime</option><option value="LAB_SAMPLE_SENT">Blood/Tissue Sample Sent to Lab</option>
+                      </select>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {/* Multi-head Selector & Sync Controls */}
               {heads.length >= 2 && (
-                <div className="p-3.5 bg-white rounded-xl border border-sky-200 shadow-2xs space-y-2.5">
+                <div className={`p-3.5 bg-white rounded-xl border border-sky-200 shadow-2xs space-y-2.5 ${isRevision ? "sm:col-span-2" : ""}`}>
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <Tag className="size-3.5 text-sky-700" />
@@ -960,7 +1161,7 @@ function SibatInspectionDialogContent({
               )}
 
               {/* Interactive Symptoms Checklist */}
-              <div className="space-y-1.5">
+              <div className={`space-y-1.5 ${isRevision ? "sm:col-start-1" : ""}`}>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-slate-800 block">
                     Clinically Observed Signs {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "(Recorded)" : "(Click to toggle)"}:
@@ -1010,7 +1211,7 @@ function SibatInspectionDialogContent({
               </div>
 
               {/* Severity & Biosecurity Protocol */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              {!isRevision ? <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-black text-slate-800">
                     Severity Rating:
@@ -1053,11 +1254,11 @@ function SibatInspectionDialogContent({
                     <option value="LAB_SAMPLE_SENT">Blood/Tissue Sample Sent to Lab</option>
                   </select>
                 </div>
-              </div>
+              </div> : null}
 
               {/* SIBAT Inspection Photo preview / upload */}
               {!isReadOnly ? (
-                <div className="space-y-1.5 pt-1">
+                <div className={`space-y-1.5 pt-1 ${isRevision ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-6" : "sm:col-start-2 sm:row-start-5" : ""}`}>
                   <label className="text-xs font-black text-slate-800 block">
                     SIBAT Field Inspection Photo (Optional):
                   </label>
@@ -1126,7 +1327,7 @@ function SibatInspectionDialogContent({
               ) : null}
 
               {/* Inspector Remarks & Presets */}
-              <div className="space-y-1.5 pt-1">
+              <div className={`space-y-1.5 pt-1 ${isRevision ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-5" : "sm:col-start-2 sm:row-start-4" : ""}`}>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-slate-800">
                     SIBAT Field Audit Remarks:
@@ -1173,7 +1374,7 @@ function SibatInspectionDialogContent({
               </div>
 
               {/* Inspector Stamp */}
-              <div className="p-2.5 bg-white rounded-xl border border-sky-200 flex items-center justify-between text-xs text-slate-600 flex-wrap gap-1">
+              <div className={`p-2.5 bg-white rounded-xl border border-sky-200 flex items-center justify-between text-xs text-slate-600 flex-wrap gap-1 ${isRevision ? "sm:col-span-2" : ""}`}>
                 <span className="font-bold flex items-center gap-1.5">
                   <User className="size-3.5 text-sky-700" />
                   {record.inspection?.verifiedBy ? `Inspected by: ${record.inspection.verifiedBy}` : "Review recorded under SIBAT field account"}
@@ -1185,7 +1386,16 @@ function SibatInspectionDialogContent({
             </div>
 
             {/* Decision Actions / Read-Only Status Notice */}
-            <div className="space-y-2 pt-1">
+            <div className={`space-y-2 pt-1 ${isRevision ? "rounded-2xl border border-blue-100 bg-white p-3.5 sm:p-4" : ""}`}>
+              {isRevision ? (
+                <div className="mb-3">
+                  <div className="mb-2 flex items-center gap-2"><span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">3</span><div><h3 className="text-sm font-extrabold text-slate-900">Review &amp; Resubmit</h3><p className="text-[11px] text-slate-500">Make sure all required information is complete before sending to MAO.</p></div></div>
+                  <div className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs ${tagConfirmed && countConfirmed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+                    <div><p className="font-bold">{tagConfirmed && countConfirmed ? "Ready to resubmit" : "Complete the field checklist"}</p><p>{tagConfirmed && countConfirmed ? "Required field checks are complete. You can send the updated report to the MAO." : "Confirm the physical ear tag and animal count above before resubmitting."}</p></div>
+                  </div>
+                </div>
+              ) : null}
               {isReadOnly ? (
                 <div className="space-y-3">
                   {isApproved ? (
@@ -1254,12 +1464,12 @@ function SibatInspectionDialogContent({
                     <div role="alertdialog" aria-live="polite" className="space-y-3 rounded-xl border border-sky-300 bg-sky-50 p-4">
                       <p className="text-sm font-semibold text-slate-900">
                         {confirmationAction === "VERIFIED"
-                          ? "Confirm the physical checks and send this record to MAO for its decision?"
+                          ? isRevision ? "Confirm the updated field examination and resubmit this report to the MAO?" : "Confirm the physical checks and send this record to MAO for its decision?"
                           : "Flag this report as needing follow-up? The existing workflow will return it with your remarks."}
                       </p>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Button type="button" onClick={confirmAction} disabled={isSubmitting} className="min-h-11 bg-[#1A365D] text-white hover:bg-[#152c4d]">
-                          {isSubmitting ? "Sending to MAO..." : "Confirm and send"}
+                          {isSubmitting ? "Sending to MAO..." : isRevision ? "Confirm updates and send to MAO" : "Confirm and send"}
                         </Button>
                         <Button type="button" variant="outline" onClick={() => setConfirmationAction(null)} disabled={isSubmitting} className="min-h-11">Go back</Button>
                       </div>
@@ -1270,10 +1480,10 @@ function SibatInspectionDialogContent({
                         type="button"
                         onClick={() => handleAction("VERIFIED")}
                         disabled={isSubmitting}
-                        className="min-h-12 w-full bg-[#1A365D] text-white hover:bg-[#152c4d] rounded-xl font-bold"
+                        className={`min-h-12 w-full rounded-xl font-bold ${isRevision ? "bg-[#1A365D] text-white hover:bg-[#152c4d]" : "bg-[#1A365D] text-white hover:bg-[#152c4d]"}`}
                       >
                         <ShieldCheck className="mr-2 size-5 text-emerald-300" />
-                        Confirm details and send to MAO
+                        {isRevision ? "Confirm updates and send to MAO" : "Confirm details and send to MAO"}
                       </Button>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Button
@@ -1294,6 +1504,8 @@ function SibatInspectionDialogContent({
             </div>
           </div>
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
 
