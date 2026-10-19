@@ -8,6 +8,7 @@ import { Suspense,useEffect,useMemo,useRef,useState } from "react";
 
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
 import { useAuth } from "@/contexts/auth-context";
 import { getSchedules,type ProgramSchedule } from "@/lib/community-api";
@@ -15,7 +16,6 @@ import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
 Activity,
 CalendarDays,
-Check,
 ClipboardList,
 Clock3,
 FileSpreadsheet,
@@ -23,9 +23,7 @@ Info,
 MapPin,
 Megaphone,
 QrCode,
-RefreshCw,
-Search,
-Send
+Search
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -33,11 +31,6 @@ import { toast } from "sonner";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 
 
-
-import SibatHealthQueue from "./components/sibat-health-queue";
-import SibatProductionQueue from "./components/sibat-production-queue";
-
-import SibatInventoryQueue from "./components/sibat-inventory-queue";
 
 import SibatReviewDialog from "./components/sibat-review-dialog";
 
@@ -48,10 +41,8 @@ type SibatValidationRecord,
 } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
 
 import CensusDetailsDialog from "./census-details-dialog";
-
 import { ReviewWorkloadPanel } from "@/app/(admin)/admin/review-workload-panel";
-import { AskSmartLivestock } from "@/app/components/ask-smartlivestock";
-import CensusSubmissionsView from "./census-submissions-view";
+
 import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
 
 
@@ -68,8 +59,6 @@ type UnifiedSubmissionItem,
 } from "./sibat-analytics";
 
 
-
-type SibatActiveTab = "inventory" | "production" | "health" | "calving" | "census";
 
 function resolveLegacyReviewSubmission(
   submissions: UnifiedSubmissionItem[],
@@ -132,25 +121,10 @@ function SibatPortalContent() {
 
 
 
-  // Active Tab: "health" | "production" | "inventory" | "census"
-
-  const tabParam = searchParams.get("tab") as SibatActiveTab | null;
-  const tabOptions: SibatActiveTab[] = ["inventory", "production", "health", "calving", "census"];
-  const [activeTabState, setActiveTabState] = useState<SibatActiveTab>("health");
-  const activeTab = tabParam && tabOptions.includes(tabParam) ? tabParam : activeTabState;
   const [isFarmerFinderOpen, setIsFarmerFinderOpen] = useState(false);
+  const [isReviewRecordsOpen, setIsReviewRecordsOpen] = useState(false);
+  const [selectedReviewCategory, setSelectedReviewCategory] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const handleTabChange = (newTab: SibatActiveTab) => {
-
-    setActiveTabState(newTab);
-    const url = new URL(window.location.href);
-
-    url.searchParams.set("tab", newTab);
-
-    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
-  };
-
-
 
   // Clinical health and mortality review state.
 
@@ -163,16 +137,6 @@ function SibatPortalContent() {
 
   const [isInspectionDialogOpen, setIsInspectionDialogOpen] = useState(false);
 
-  const [healthStatusFilter, setHealthStatusFilter] = useState("ALL");
-
-  const [healthTypeFilter, setHealthTypeFilter] = useState<"ALL" | "DISEASE" | "MORTALITY">("ALL");
-
-  const [healthBarangayFilter, setHealthBarangayFilter] = useState("ALL");
-
-  const [healthSearchQuery, setHealthSearchQuery] = useState("");
-
-
-
   const reviewHealthMutation = useReviewClinicalHealth();
 
 
@@ -183,18 +147,6 @@ function SibatPortalContent() {
   const { data: farmers = [], isLoading: isLoadingFarmers, isError: isFarmersError, refetch: refetchFarmers } = useSibatFarmers(scopeKey, isFarmerFinderOpen);
   const [selectedSubmissionForReview, setSelectedSubmissionForReview] = useState<UnifiedSubmissionItem | null>(null);
   const attemptedReviewLinkRef = useRef<string | null>(null);
-
-
-
-  // Production Filters
-  const [prodStatusFilter, setProdStatusFilter] = useState<"all" | "pending" | "verified" | "approved" | "needs_correction" | "decided">("all");
-  const [prodSearchQuery, setProdSearchQuery] = useState("");
-  const [prodTypeFilter, setProdTypeFilter] = useState("ALL");
-
-  // Inventory Filters
-  const [invStatusFilter, setInvStatusFilter] = useState<"all" | "pending" | "verified" | "approved" | "needs_correction" | "decided">("all");
-  const [invSearchQuery, setInvSearchQuery] = useState("");
-  const [invEntryTypeFilter, setInvEntryTypeFilter] = useState<"ALL" | "INDIVIDUAL" | "BATCH">("ALL");
 
 
 
@@ -216,18 +168,6 @@ function SibatPortalContent() {
   };
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-
-
-
-  // Health Inspection Dialog triggers
-
-  const handleOpenInspection = (record: SibatValidationRecord) => {
-
-    setSelectedHealthRecord(record);
-
-    setIsInspectionDialogOpen(true);
-
-  };
 
 
 
@@ -333,12 +273,6 @@ function SibatPortalContent() {
 
   const handleOpenSubmission = (item: UnifiedSubmissionItem) => {
     setSelectedSubmissionForReview(item);
-    const tab: SibatActiveTab = item.sourceType === "INVENTORY" || item.sourceType === "BATCH"
-      ? "inventory"
-      : item.sourceType === "CALVING"
-        ? "calving"
-        : "production";
-    handleTabChange(tab);
   };
 
   // Notification links carry the canonical queue type and record ID. Resolve
@@ -373,18 +307,8 @@ function SibatPortalContent() {
   };
 
   const handleReviewRecords = () => {
-    const pendingHealth = healthRecords.find((record) => record.status === "PENDING");
-    if (pendingHealth) {
-      handleOpenInspection(pendingHealth);
-      handleTabChange("health");
-      return;
-    }
-    const pendingSubmission = submissions.find((item) => item.status === "PENDING");
-    if (pendingSubmission) {
-      handleOpenSubmission(pendingSubmission);
-      return;
-    }
-    handleTabChange("census");
+    setSelectedReviewCategory(null);
+    setIsReviewRecordsOpen(true);
   };
 
   const handleRefreshQueues = async () => {
@@ -404,10 +328,7 @@ function SibatPortalContent() {
 
 
   // Counts for Badges
-  const pendingHealthCount = healthRecords.filter((r) => r.status === "PENDING").length;
-  const pendingProdCount = submissions.filter((s) => (s.sourceType === "PRODUCTION" || s.sourceType === "SALE") && s.status === "PENDING").length;
   const pendingInvCount = submissions.filter((s) => (s.sourceType === "INVENTORY" || s.sourceType === "BATCH") && s.status === "PENDING").length;
-  const pendingCalvingCount = submissions.filter((item) => item.sourceType === "CALVING" && item.status === "PENDING").length;
   const pendingCensusCount = censuses.filter((item) => item.status === "PENDING").length;
 
   const allSubmissions = [
@@ -416,15 +337,6 @@ function SibatPortalContent() {
   ];
   const pendingSubmissions = allSubmissions.filter((record) => record.status === "PENDING");
   const waitingForReviewCount = pendingSubmissions.length + pendingCensusCount;
-  const farmersToAssistCount = new Set(
-    pendingSubmissions.map((record) => record.farmerName.trim().toLowerCase()).filter(Boolean)
-  ).size;
-  const sentToMaoCount =
-    allSubmissions.filter((record) => record.status === "VERIFIED").length +
-    censuses.filter((record) => record.status === "VERIFIED").length;
-  const needsCorrectionCount =
-    allSubmissions.filter((record) => ["SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"].includes(record.status)).length +
-    censuses.filter((record) => ["SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"].includes(record.status)).length;
 
   // Community schedules query for upcoming field activities
   const { data: schedules = [] } = useQuery<ProgramSchedule[]>({
@@ -451,27 +363,108 @@ function SibatPortalContent() {
     return healthRecords.filter((r) => r.status === "PENDING");
   }, [healthRecords]);
 
-  const pendingFarmerSubmissions = useMemo(() => {
-    return submissions.filter((s) => s.status === "PENDING");
-  }, [submissions]);
+  const openSubmissionReviewRoute = (item: UnifiedSubmissionItem) => {
+    setIsReviewRecordsOpen(false);
+    if (item.sourceType === "INVENTORY") {
+      router.push(`/sibat/livestock-registry?reviewType=INVENTORY&reviewId=${item.rawId}`);
+      return;
+    }
+    if (item.sourceType === "BATCH") {
+      router.push(`/sibat/batches?batchId=${item.rawId}`);
+      return;
+    }
+    router.push(`/sibat/production-records?reviewType=${item.sourceType}&reviewId=${item.rawId}`);
+  };
 
-  const recentUpdates = useMemo(() => {
-    return submissions.slice(0, 3).map((item) => ({
-      id: item.id,
-      title: `${item.farmerName} submitted ${item.submissionTypeLabel}`,
-      time: new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    }));
-  }, [submissions]);
+  const reviewCategories = [
+    {
+      title: "Livestock Records",
+      icon: <ClipboardList className="size-4 text-emerald-700" />,
+      items: submissions.filter((item) => item.status === "PENDING" && ["INVENTORY", "BATCH"].includes(item.sourceType)).map((item) => ({
+        id: item.id,
+        title: item.detailsTitle || item.submissionTypeLabel,
+        detail: `${item.farmerName} · ${item.barangayName}`,
+        onSelect: () => openSubmissionReviewRoute(item),
+      })),
+    },
+    {
+      title: "Production Records",
+      icon: <FileSpreadsheet className="size-4 text-sky-700" />,
+      items: submissions.filter((item) => item.status === "PENDING" && item.sourceType === "PRODUCTION").map((item) => ({
+        id: item.id,
+        title: item.detailsTitle || item.submissionTypeLabel,
+        detail: `${item.farmerName} · ${item.barangayName}`,
+        onSelect: () => openSubmissionReviewRoute(item),
+      })),
+    },
+    {
+      title: "Sales Records",
+      icon: <FileSpreadsheet className="size-4 text-indigo-700" />,
+      items: submissions.filter((item) => item.status === "PENDING" && item.sourceType === "SALE").map((item) => ({
+        id: item.id,
+        title: item.detailsTitle || item.submissionTypeLabel,
+        detail: `${item.farmerName} · ${item.barangayName}`,
+        onSelect: () => openSubmissionReviewRoute(item),
+      })),
+    },
+    {
+      title: "Calving & Birth Records",
+      icon: <CalendarDays className="size-4 text-purple-700" />,
+      items: submissions.filter((item) => item.status === "PENDING" && item.sourceType === "CALVING").map((item) => ({
+        id: item.id,
+        title: item.detailsTitle || item.submissionTypeLabel,
+        detail: `${item.farmerName} · ${item.barangayName}`,
+        onSelect: () => openSubmissionReviewRoute(item),
+      })),
+    },
+    {
+      title: "Disease Reports",
+      icon: <Activity className="size-4 text-amber-700" />,
+      items: pendingDiseaseCases.filter((item) => item.reportType === "DISEASE").map((item) => ({
+        id: item.id,
+        title: item.name || "Disease report",
+        detail: `${item.farmerName} · ${item.barangayName}`,
+        onSelect: () => {
+          setIsReviewRecordsOpen(false);
+          router.push(`/sibat-alerts?recordType=DISEASE&recordId=${encodeURIComponent(item.id.replace(/^DIS-/, ""))}`);
+        },
+      })),
+    },
+    {
+      title: "Mortality Reports",
+      icon: <Info className="size-4 text-rose-700" />,
+      items: pendingDiseaseCases.filter((item) => item.reportType === "MORTALITY").map((item) => ({
+        id: item.id,
+        title: item.name || "Mortality report",
+        detail: `${item.farmerName} · ${item.barangayName}`,
+        onSelect: () => {
+          setIsReviewRecordsOpen(false);
+          router.push(`/sibat-alerts?recordType=MORTALITY&recordId=${encodeURIComponent(item.id.replace(/^MOR-/, ""))}`);
+        },
+      })),
+    },
+    {
+      title: "Census Submissions",
+      icon: <ClipboardList className="size-4 text-teal-700" />,
+      items: censuses.filter((item) => item.status === "PENDING").map((item) => ({
+        id: String(item.id),
+        title: `${item.barangay} · Q${item.reportQuarter} ${item.reportYear}`,
+        detail: `${item.totalHeads} heads · Submitted by ${item.submittedBy}`,
+        onSelect: () => {
+          setIsReviewRecordsOpen(false);
+          router.push(`/sibat/census-submissions?censusId=${encodeURIComponent(String(item.id))}`);
+        },
+      })),
+    },
+  ];
 
-  const assignedAreaDescription =
-    user?.accessScope === "ALL_BARANGAYS"
-      ? "All 18 Barangays • Padre Garcia Livestock Verification Hub"
-      : user?.assignedBarangayName
-      ? `Area • ${user.assignedBarangayName}`
-      : "Area 2 • Banaba, Castillo, Pansol, and San Felipe";
+  const recentUpdates = useMemo(() => submissions.slice(0, 3).map((item) => ({
+    id: item.id,
+    title: `${item.farmerName} submitted ${item.submissionTypeLabel}`,
+    time: new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+  })), [submissions]);
 
   const [clock] = useState(() => new Date());
-  const currentDateStr = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).format(clock).toUpperCase();
   const currentHour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Manila" }).format(clock));
   const timeGreeting = currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
   const officerName = user?.firstName || user?.username || "Juan";
@@ -580,586 +573,209 @@ function SibatPortalContent() {
           </div>
         )}
 
-        {/* Header Greeting & Action */}
-        <div>
-          {currentDateStr && (
-            <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1E3A2F]">
-              {currentDateStr}
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+        <section className="min-w-0 space-y-4 sm:space-y-5" aria-labelledby="sibat-dashboard-title">
+          <header>
+            <h1 id="sibat-dashboard-title" className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+              {timeGreeting}, {officerName}!
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Field Officer · {user?.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user?.assignedBarangayName || "Assigned area"}
             </p>
-          )}
-          <div className="mt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                {timeGreeting}, {officerName}
-              </h1>
-              <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-medium text-slate-500">
-                {assignedAreaDescription}
-              </p>
-            </div>
-            <Button
+          </header>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
               type="button"
               onClick={handleReviewRecords}
-              className="bg-[#1E3A2F] hover:bg-[#152e24] text-white font-semibold rounded-xl px-4 py-2.5 h-auto text-xs sm:text-sm shrink-0 flex items-center justify-center gap-2 shadow-xs transition-colors w-full sm:w-auto cursor-pointer"
+              className="group col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
-              <Check className="size-4" />
-              Verify farmer records
-            </Button>
-          </div>
-        </div>
-
-        {/* Notice Strip */}
-        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/70 p-3 sm:px-4 text-xs sm:text-sm text-emerald-950 shadow-2xs">
-          <Info className="size-4.5 sm:size-5 text-emerald-700 shrink-0 mt-0.5 sm:mt-0" />
-          <span className="leading-relaxed">
-            <b className="font-bold">Field Validation Hub:</b> Reviewing records for {assignedAreaDescription}. Verify farmer-submitted livestock data before forwarding each record to the MAO.
-          </span>
-        </div>
-
-        {/* Summary Grid: 4 Clickable Action Cards (2 cols on mobile, 4 on desktop) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-          {/* Card 1: Pending Records (Green) */}
-          <button
-            type="button"
-            onClick={handleReviewRecords}
-            className="group relative flex flex-col justify-between rounded-2xl border border-emerald-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer"
-          >
-            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
-              <div className="size-9 sm:size-11 rounded-xl bg-emerald-100/80 text-emerald-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <ClipboardList className="size-4.5 sm:size-5.5" />
-              </div>
-              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                {waitingForReviewCount}
-              </strong>
-            </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Pending Records</h3>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Farmer records waiting for review</p>
-            </div>
-            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-emerald-700 mt-2 sm:mt-3 group-hover:text-emerald-800 group-hover:translate-x-0.5 transition-all">
-              Review records <span>→</span>
-            </span>
-          </button>
-
-          {/* Card 2: Disease Reports (Orange / Amber) */}
-          <button
-            type="button"
-            onClick={() => handleTabChange("health")}
-            className="group relative flex flex-col justify-between rounded-2xl border border-amber-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-amber-300 transition-all cursor-pointer"
-          >
-            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
-              <div className="size-9 sm:size-11 rounded-xl bg-amber-100/80 text-amber-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <Activity className="size-4.5 sm:size-5.5" />
-              </div>
-              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                {pendingDiseaseCases.length}
-              </strong>
-            </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Disease Reports</h3>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Reports that need your attention</p>
-            </div>
-            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-amber-700 mt-2 sm:mt-3 group-hover:text-amber-800 group-hover:translate-x-0.5 transition-all">
-              View reports <span>→</span>
-            </span>
-          </button>
-
-          {/* Card 3: Upcoming Activities (Blue / Sky) */}
-          <button
-            type="button"
-            onClick={() => router.push("/sibat-scheduling")}
-            className="group relative flex flex-col justify-between rounded-2xl border border-sky-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-sky-300 transition-all cursor-pointer"
-          >
-            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
-              <div className="size-9 sm:size-11 rounded-xl bg-sky-100/80 text-sky-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <CalendarDays className="size-4.5 sm:size-5.5" />
-              </div>
-              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                {upcomingSchedulesCount}
-              </strong>
-            </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Upcoming Activities</h3>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Scheduled animal health activities</p>
-            </div>
-            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-sky-700 mt-2 sm:mt-3 group-hover:text-sky-800 group-hover:translate-x-0.5 transition-all">
-              View schedule <span>→</span>
-            </span>
-          </button>
-
-          {/* Card 4: Forwarded to MAO (Teal / Soft) */}
-          <button
-            type="button"
-            onClick={() => {
-              setInvStatusFilter("verified");
-              setProdStatusFilter("verified");
-              setHealthStatusFilter("VERIFIED");
-            }}
-            className="group relative flex flex-col justify-between rounded-2xl border border-teal-200/80 bg-white p-3.5 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-teal-300 transition-all cursor-pointer"
-          >
-            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
-              <div className="size-9 sm:size-11 rounded-xl bg-teal-100/80 text-teal-800 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <Send className="size-4.5 sm:size-5.5" />
-              </div>
-              <strong className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                {sentToMaoCount}
-              </strong>
-            </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Forwarded to MAO</h3>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 hidden sm:block">Records sent for MAO review</p>
-            </div>
-            <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold text-teal-700 mt-2 sm:mt-3 group-hover:text-teal-800 group-hover:translate-x-0.5 transition-all">
-              View records <span>→</span>
-            </span>
-          </button>
-        </div>
-
-        {/* Main Section: Left = Submission Queues, Right = Sidebar */}
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] gap-6 items-start">
-          {/* LEFT COLUMN: Main Queue Content */}
-          <div className="min-w-0 space-y-6">
-            {/* Needs Attention Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
-              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <ClipboardList className="size-5 shrink-0 text-emerald-700" />
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900">Needs Attention</h2>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Review these recently submitted items.</p>
+                  <p className="text-sm font-medium text-slate-600">Records for Review</p>
+                  <p className="mt-0.5 text-2xl font-bold text-slate-900">{waitingForReviewCount}</p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleReviewRecords}
-                  className="text-xs font-semibold rounded-xl text-slate-700 hover:text-slate-900 cursor-pointer"
-                >
-                  View All
-                </Button>
               </div>
+              <span className="mt-2 inline-block text-sm font-semibold text-emerald-800 group-hover:underline">Review Records →</span>
+            </button>
 
-              <div className="p-4 sm:p-5 space-y-3">
-                {/* Farmer Pending Records */}
-                {pendingFarmerSubmissions.slice(0, 2).map((item: UnifiedSubmissionItem) => {
-                  const daysWaiting = Math.floor(
-                    (clock.getTime() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-                  );
-                  const isResubmitted = Boolean(
-                    item.notes?.toLowerCase().includes("resubmitted") ||
-                    item.notes?.toLowerCase().includes("correction")
-                  );
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 hover:border-slate-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    >
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="size-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <ClipboardList className="size-5" />
-                        </div>
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-bold text-slate-900 truncate">
-                              {item.submissionTypeLabel}
-                            </h3>
-                            <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-black px-2 py-0.5">
-                              Pending Review
-                            </span>
-                            {isResubmitted && (
-                              <span className="rounded-full bg-blue-50 text-blue-800 border border-blue-200/80 text-[10px] font-black px-2 py-0.5">
-                                Correction resubmitted
-                              </span>
-                            )}
-                            {!isResubmitted && daysWaiting >= 2 && (
-                              <span className="rounded-full bg-rose-50 text-rose-800 border border-rose-200/80 text-[10px] font-black px-2 py-0.5">
-                                Waiting for {daysWaiting} days
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-600">
-                            <b className="font-bold text-slate-900">{item.farmerName}</b> • {item.barangayName || "Assigned Barangay"}
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            Submitted {new Date(item.createdAt).toLocaleDateString()} • {item.tagNumber || item.detailsTitle || item.id}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenSubmission(item)}
-                        className="w-full sm:w-auto shrink-0 text-xs font-bold rounded-xl text-emerald-800 border-emerald-200 hover:bg-emerald-50 justify-center cursor-pointer"
-                      >
-                        Review Record
-                      </Button>
-                    </div>
-                  );
-                })}
-
-                {/* Urgent Disease Report */}
-                {pendingDiseaseCases.slice(0, 1).map((caseItem: SibatValidationRecord) => (
-                  <div
-                    key={caseItem.id}
-                    className="p-3 sm:p-3.5 rounded-xl border border-rose-200/80 bg-rose-50/50 hover:bg-rose-50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="size-10 rounded-xl bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5">
-                        <Activity className="size-5" />
-                      </div>
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                          <h3 className="text-sm font-bold text-rose-950 truncate">
-                            Disease Report
-                          </h3>
-                          <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-black px-2 py-0.5">
-                            Needs Review
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-700">
-                          <b className="font-bold text-slate-900">{caseItem.farmerName}</b> • {caseItem.barangayName}
-                        </p>
-                        <p className="text-[11px] text-rose-800/80">
-                          Reported {new Date(caseItem.reportedAt).toLocaleDateString()} • {caseItem.name || caseItem.livestockTag || caseItem.id}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenInspection(caseItem)}
-                      className="w-full sm:w-auto shrink-0 text-xs font-bold rounded-xl text-rose-900 border-rose-300 hover:bg-rose-100 justify-center cursor-pointer"
-                    >
-                      View Report
-                    </Button>
-                  </div>
-                ))}
-
-                {pendingFarmerSubmissions.length === 0 && pendingDiseaseCases.length === 0 && (
-                  <div className="py-6 text-center text-xs text-slate-400">
-                    No pending items requiring immediate attention. All records are up to date!
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
-              {/* Card Header */}
-              <div className="p-3.5 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/sibat-alerts")}
+              className="group rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+            >
+              <div className="flex items-center gap-3">
+                <Activity className="size-5 shrink-0 text-amber-700" />
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                    Recent farmer submissions
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                    Verify farmer-submitted livestock records before forwarding them to the MAO.
-                  </p>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefreshQueues}
-                    disabled={isRefreshing}
-                    className="h-8.5 sm:h-9 px-3 text-xs font-semibold rounded-xl text-slate-600 hover:text-slate-900 flex-1 sm:flex-none justify-center cursor-pointer"
-                  >
-                    <RefreshCw className={`size-3.5 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
-                  <span className="inline-flex items-center rounded-xl bg-slate-100 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold text-slate-700 shrink-0">
-                    {waitingForReviewCount} pending
-                  </span>
+                  <p className="text-sm font-medium text-slate-600">Disease Reports</p>
+                  <p className="mt-0.5 text-2xl font-bold text-slate-900">{pendingDiseaseCases.length}</p>
                 </div>
               </div>
+              <span className="mt-2 inline-block text-sm font-semibold text-amber-800 group-hover:underline">View Reports →</span>
+            </button>
 
-              {/* Queue Navigation Tabs with horizontal touch scroll */}
-              <div className="flex overflow-x-auto no-scrollbar scrollbar-none gap-2 border-b border-slate-100 px-3.5 sm:px-5 py-2.5 sm:py-3 bg-slate-50/50" role="tablist" aria-label="Field review tasks">
-                {([
-                  { id: "inventory", label: "Livestock registration", count: pendingInvCount },
-                  { id: "production", label: "Production & sales", count: pendingProdCount },
-                  { id: "health", label: "Health & mortality", count: pendingHealthCount },
-                  { id: "calving", label: "Calving & births", count: pendingCalvingCount },
-                  { id: "census", label: "Census", count: pendingCensusCount },
-                ] as const).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === tab.id}
-                    onClick={() => handleTabChange(tab.id)}
-                    className={`flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "bg-[#1E3A2F] text-white shadow-xs"
-                        : "bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    {tab.count > 0 && (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-bold ${
-                          activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                ))}
+            <button
+              type="button"
+              onClick={() => router.push("/sibat-scheduling")}
+              className="group rounded-xl border border-sky-200 bg-sky-50/60 p-4 text-left transition hover:border-sky-300 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+            >
+              <div className="flex items-center gap-3">
+                <CalendarDays className="size-5 shrink-0 text-sky-700" />
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Upcoming Activities</p>
+                  <p className="mt-0.5 text-2xl font-bold text-slate-900">{upcomingSchedulesCount}</p>
+                </div>
               </div>
-
-              {/* Active Tab Queue Content */}
-              <div className="p-3.5 sm:p-5">
-                {activeTab === "health" && (
-                  <SibatHealthQueue
-                    records={healthRecords}
-                    isLoading={isLoadingHealth}
-                    onInspectRecord={handleOpenInspection}
-                    statusFilter={healthStatusFilter}
-                    onStatusFilterChange={setHealthStatusFilter}
-                    typeFilter={healthTypeFilter}
-                    onTypeFilterChange={setHealthTypeFilter}
-                    barangayFilter={healthBarangayFilter}
-                    onBarangayFilterChange={setHealthBarangayFilter}
-                    searchQuery={healthSearchQuery}
-                    onSearchChange={setHealthSearchQuery}
-                  />
-                )}
-
-                {(activeTab === "production" || activeTab === "calving") && (
-                  <SibatProductionQueue
-                    submissions={submissions}
-                    isLoading={isLoadingSubmissions}
-                    onReview={handleOpenSubmission}
-                    statusFilter={prodStatusFilter}
-                    onStatusFilterChange={setProdStatusFilter}
-                    searchQuery={prodSearchQuery}
-                    onSearchChange={setProdSearchQuery}
-                    prodTypeFilter={activeTab === "calving" ? "Calving" : prodTypeFilter}
-                    onProdTypeFilterChange={(type) => {
-                      setProdTypeFilter(type);
-                      handleTabChange(type === "Calving" ? "calving" : "production");
-                    }}
-                  />
-                )}
-
-                {activeTab === "inventory" && (
-                  <SibatInventoryQueue
-                    submissions={submissions}
-                    isLoading={isLoadingSubmissions}
-                    onReview={handleOpenSubmission}
-                    statusFilter={invStatusFilter}
-                    onStatusFilterChange={setInvStatusFilter}
-                    searchQuery={invSearchQuery}
-                    onSearchChange={setInvSearchQuery}
-                    entryTypeFilter={invEntryTypeFilter}
-                    onEntryTypeFilterChange={setInvEntryTypeFilter}
-                  />
-                )}
-
-                {activeTab === "census" && (
-                  <CensusSubmissionsView
-                    censusSubmissions={censuses}
-                    onOpenSubmitDialog={handleOpenNewCensus}
-                    onSelectCensusForDetail={(census) => setSelectedCensusForDetail(census)}
-                  />
-                )}
-              </div>
-            </div>
-
-            {(user?.accessScope === "ALL_BARANGAYS" || Boolean(user?.assignedBarangayId)) && (
-              <AskSmartLivestock />
-            )}
+              <span className="mt-2 inline-block text-sm font-semibold text-sky-800 group-hover:underline">View Schedule →</span>
+            </button>
           </div>
 
-          {/* RIGHT COLUMN: Sidebar (Next Activity + Quick Actions + Workload + Recent Updates) */}
-          <aside className="min-w-0 space-y-6">
-            {/* Next Activity Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between mb-1">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">Next Activity</h2>
-                  <p className="text-xs text-slate-500">Your next animal health schedule.</p>
-                </div>
-                <span className="rounded-lg bg-[#1E3A2F] text-white font-bold text-[10px] px-2 py-0.5">
-                  Upcoming
+          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="needs-attention-title">
+            <div className="border-b border-slate-100 p-4">
+              <h2 id="needs-attention-title" className="font-bold text-slate-900">Needs Attention</h2>
+              <p className="mt-1 text-sm text-slate-600">Items that may need your action.</p>
+            </div>
+            <div className="divide-y divide-slate-100 px-4">
+              <button
+                type="button"
+                onClick={() => router.push("/sibat/livestock-registry")}
+                className="flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+              >
+                <Info className="size-4 shrink-0 text-amber-700" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-slate-900">Animal Records</span>
+                  <span className="mt-0.5 block text-sm text-slate-600">{pendingInvCount} records waiting for review</span>
                 </span>
-              </div>
-
-              {upcomingSchedule ? (
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-center gap-3.5">
-                    <div className="size-13 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex flex-col items-center justify-center text-center shrink-0 shadow-2xs">
-                      <b className="text-lg font-black text-emerald-950 leading-none">
-                        {new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}
-                      </b>
-                      <span className="text-[10px] font-black uppercase text-emerald-700 leading-none mt-1">
-                        {new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-slate-900 truncate">
-                        {upcomingSchedule.program}
-                      </h3>
-                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                        <Clock3 className="size-3.5 text-slate-400 shrink-0" />
-                        <span>
-                          {upcomingSchedule.available_times?.[0] || "8:00 AM"} – {upcomingSchedule.available_times?.[upcomingSchedule.available_times.length - 1] || "11:30 AM"}
-                        </span>
-                      </p>
-                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
-                        <MapPin className="size-3.5 text-slate-400 shrink-0" />
-                        <span>{upcomingSchedule.location || (user?.assignedBarangayName ? `${user.assignedBarangayName} Barangay Hall` : "Padre Garcia")}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/sibat-scheduling")}
-                    className="w-full text-xs font-semibold rounded-xl text-slate-700 hover:text-slate-900 border-slate-200 cursor-pointer"
-                  >
-                    View Schedule
-                  </Button>
-                </div>
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-400">
-                  No upcoming activity scheduled.
-                </div>
-              )}
+                <span aria-hidden="true" className="text-lg text-slate-500">›</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/sibat-alerts")}
+                className="flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+              >
+                <Activity className="size-4 shrink-0 text-rose-700" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-slate-900">Disease Reports</span>
+                  <span className="mt-0.5 block text-sm text-slate-600">{pendingDiseaseCases.length} reports need attention</span>
+                </span>
+                <span aria-hidden="true" className="text-lg text-slate-500">›</span>
+              </button>
             </div>
+          </section>
 
-            {/* Quick Actions Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Quick Actions</h2>
-                <p className="text-xs text-slate-500">Start a common task.</p>
-              </div>
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={handleReviewRecords}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                      <ClipboardList className="size-4" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800">Review Farmer Records</span>
-                  </div>
-                  <span className="text-xs font-bold text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all">→</span>
-                </button>
+        </section>
 
-                <button
-                  type="button"
-                  onClick={() => router.push("/sibat-scheduling")}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
-                      <CalendarDays className="size-4" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800">Create Schedule</span>
-                  </div>
-                  <span className="text-xs font-bold text-slate-400 group-hover:text-sky-700 group-hover:translate-x-0.5 transition-all">→</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => router.push("/sibat-announcement")}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-                      <Megaphone className="size-4" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800">Post Announcement</span>
-                  </div>
-                  <span className="text-xs font-bold text-slate-400 group-hover:text-amber-700 group-hover:translate-x-0.5 transition-all">→</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsScannerOpen(true)}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-                      <QrCode className="size-4" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800">Scan Livestock QR</span>
-                  </div>
-                  <span className="text-xs font-bold text-slate-400 group-hover:text-teal-700 group-hover:translate-x-0.5 transition-all">→</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleOpenNewCensus}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left group cursor-pointer border border-transparent hover:border-slate-200/70"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0">
-                      <FileSpreadsheet className="size-4" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800">Record Census</span>
-                  </div>
-                  <span className="text-xs font-bold text-slate-400 group-hover:text-indigo-700 group-hover:translate-x-0.5 transition-all">→</span>
-                </button>
-              </div>
+        <aside className="min-w-0 space-y-4" aria-label="CBAT quick access">
+          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="next-activity-title">
+            <div>
+              <h2 id="next-activity-title" className="font-bold text-slate-900">Next Activity</h2>
+              <p className="mt-1 text-sm text-slate-600">Your next animal health schedule.</p>
             </div>
-
-            {/* Review Workload Panel in Sidebar */}
-            {user?.role === "SIBAT" && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId ? (
-              <ReviewWorkloadPanel
-                scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned: ${user.assignedBarangayName || "Assigned barangay"}`}
-                hideMaoQueue
-              />
-            ) : (
-              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4" aria-label="Review workload unavailable">
-                <h2 className="text-sm font-bold text-amber-950">Review Workload</h2>
-                <p className="mt-1 text-xs text-amber-900">
-                  This account has no assigned barangay, so a barangay-specific workload cannot be shown. Ask MAO/Admin to assign the SIBAT account to a barangay.
-                </p>
-              </section>
-            ))}
-
-            {/* Recent Updates Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">Recent Updates</h2>
-                  <p className="text-xs text-slate-500">Latest activity in your assigned area.</p>
+            {upcomingSchedule ? (
+              <div className="flex items-center gap-3">
+                <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-center">
+                  <span><strong className="block text-lg leading-5 text-emerald-950">{new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span className="text-[10px] font-bold uppercase text-emerald-700">{new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}</span></span>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push("/sibat-alerts")}
-                  className="text-xs font-semibold text-slate-600 hover:text-slate-900 h-8 px-2 cursor-pointer"
-                >
-                  View All
-                </Button>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900">{upcomingSchedule.program}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-600"><Clock3 className="size-3.5 shrink-0" />{upcomingSchedule.available_times?.[0] || "8:00 AM"}–{upcomingSchedule.available_times?.[upcomingSchedule.available_times.length - 1] || "11:30 AM"}</p>
+                  <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-slate-600"><MapPin className="size-3.5 shrink-0" />{upcomingSchedule.location || user?.assignedBarangayName || "Padre Garcia"}</p>
+                </div>
               </div>
+            ) : <p className="py-2 text-sm text-slate-600">No upcoming activity scheduled.</p>}
+            <Button type="button" variant="outline" onClick={() => router.push("/sibat-scheduling")} className="min-h-10 w-full rounded-lg">View Schedule</Button>
+          </section>
 
-              <div className="space-y-2.5">
-                {recentUpdates.slice(0, 3).map((item: { id: string; title: string; time: string }) => (
-                  <div key={item.id} className="flex items-start gap-2.5 text-left">
-                    <span className="size-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-slate-800 line-clamp-1">{item.title}</p>
-                      <p className="text-[10px] text-slate-400">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
-                {recentUpdates.length === 0 && (
-                  <p className="text-xs text-slate-400 py-2 text-center">No recent updates.</p>
-                )}
-              </div>
+          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="quick-actions-title">
+            <div><h2 id="quick-actions-title" className="font-bold text-slate-900">Quick Actions</h2><p className="mt-1 text-sm text-slate-600">Start a common task.</p></div>
+            <div className="space-y-1">
+              {[
+                { label: "Review Farmer Records", icon: <ClipboardList className="size-4" />, color: "text-emerald-700", action: handleReviewRecords },
+                { label: "Create Schedule", icon: <CalendarDays className="size-4" />, color: "text-sky-700", action: () => router.push("/sibat-scheduling") },
+                { label: "Post Announcement", icon: <Megaphone className="size-4" />, color: "text-amber-700", action: () => router.push("/sibat-announcement") },
+                { label: "Scan Livestock QR", icon: <QrCode className="size-4" />, color: "text-teal-700", action: () => setIsScannerOpen(true) },
+                { label: "Record Census", icon: <FileSpreadsheet className="size-4" />, color: "text-indigo-700", action: handleOpenNewCensus },
+              ].map((item) => (
+                <button key={item.label} type="button" onClick={item.action} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                  <span className={item.color}>{item.icon}</span>{item.label}<span className="ml-auto text-slate-400">→</span>
+                </button>
+              ))}
             </div>
-          </aside>
+          </section>
+
+          {user?.role === "SIBAT" && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId) && (
+            <ReviewWorkloadPanel scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned: ${user.assignedBarangayName || "Assigned barangay"}`} hideMaoQueue />
+          )}
+
+          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="recent-updates-title">
+            <div className="flex items-center justify-between gap-2"><div><h2 id="recent-updates-title" className="font-bold text-slate-900">Recent Updates</h2><p className="mt-1 text-sm text-slate-600">Latest activity in your assigned area.</p></div><Button type="button" variant="ghost" size="sm" onClick={() => router.push("/sibat-alerts")} className="shrink-0">View All</Button></div>
+            {recentUpdates.length ? <div className="space-y-3">{recentUpdates.map((item) => <div key={item.id} className="flex gap-2.5 text-sm"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-emerald-600" /><div className="min-w-0"><p className="line-clamp-2 font-medium text-slate-800">{item.title}</p><p className="mt-0.5 text-xs text-slate-500">{item.time}</p></div></div>)}</div> : <p className="text-sm text-slate-600">No recent updates.</p>}
+          </section>
+        </aside>
         </div>
       </div>
 
 
+
+      <Dialog open={isReviewRecordsOpen} onOpenChange={(open) => {
+        setIsReviewRecordsOpen(open);
+        if (!open) setSelectedReviewCategory(null);
+      }}>
+        <DialogContent className="max-h-[88dvh] max-w-4xl overflow-y-auto rounded-2xl p-4 sm:p-6">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-xl font-bold text-slate-900">
+              {selectedReviewCategory ?? "Records for Review"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedReviewCategory
+                ? "Select a pending record to review."
+                : "Choose a category to view its pending records."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedReviewCategory ? (() => {
+            const category = reviewCategories.find((item) => item.title === selectedReviewCategory);
+            if (!category) return null;
+
+            return (
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <Button type="button" variant="ghost" onClick={() => setSelectedReviewCategory(null)} className="m-2 h-9 px-3 text-sm text-emerald-800">
+                  ← All categories
+                </Button>
+                {category.items.length ? (
+                  <div className="divide-y divide-slate-100 border-t border-slate-100">
+                    {category.items.map((item) => (
+                      <button key={item.id} type="button" onClick={item.onSelect} className="flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-700">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-slate-900">{item.title}</span>
+                          <span className="mt-0.5 block truncate text-xs text-slate-600">{item.detail}</span>
+                        </span>
+                        <span aria-hidden="true" className="text-lg text-slate-400">›</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="border-t border-slate-100 px-3 py-4 text-sm text-slate-500">No records waiting for review in this category.</p>
+                )}
+              </section>
+            );
+          })() : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {reviewCategories.map((category) => (
+                <button key={category.title} type="button" onClick={() => setSelectedReviewCategory(category.title)} className="flex min-h-20 items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-50">{category.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-slate-900">{category.title}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{category.items.length} pending {category.items.length === 1 ? "record" : "records"}</span>
+                  </span>
+                  <span aria-hidden="true" className="text-xl text-slate-400">›</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Clinical health physical inspection dialog */}
 

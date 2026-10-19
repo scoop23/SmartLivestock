@@ -36,7 +36,7 @@ Tag,
 X
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense,useEffect,useMemo,useState } from "react";
 import SibatReviewDialog from "../components/sibat-review-dialog";
 import SibatStatusBadge from "../components/sibat-status-badge";
@@ -58,8 +58,11 @@ type RegistryBatchRecord = BatchApiItem;
  * Based on the reference RecordsPage pattern with responsive mobile cards and desktop table.
  */
 function SibatLivestockRegistryContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const batchId = searchParams.get("batchId");
+  const reviewId = searchParams.get("reviewId");
+  const reviewType = searchParams.get("reviewType");
 
   const [query, updateQuery] = useState("");
   const setQuery = (value: string) => { updateQuery(value); setPage(1); };
@@ -71,6 +74,7 @@ function SibatLivestockRegistryContent() {
   const setStatus = (value: RegistryStatusFilter) => { updateStatus(value); setPage(1); };
   const [requestedPage, setPage] = useState(1);
   const [selectedSubmission, setSelectedSubmission] = useState<UnifiedSubmissionItem | null>(null);
+  const [focusedRecordId, setFocusedRecordId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -145,6 +149,22 @@ function SibatLivestockRegistryContent() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [inventoryQuery.data, batchesQuery.data, batchId]);
+
+  // Open an inventory review dialog after navigating here from the review queue.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!reviewId || inventoryQuery.isLoading) return;
+    const submission = registryRecords.find(
+      (record) => record.sourceType === (reviewType || "INVENTORY") && String(record.rawId) === reviewId,
+    );
+    if (submission) {
+      setFocusedRecordId(submission.id);
+      setSelectedSubmission(submission);
+    }
+  }, [inventoryQuery.isLoading, registryRecords, reviewId, reviewType]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const focusRecordKey = focusedRecordId || (reviewId ? `inv-${reviewId}` : null);
 
   // Unique barangays in loaded data
   const availableBarangays = useMemo(() => {
@@ -224,11 +244,27 @@ function SibatLivestockRegistryContent() {
 
 
   const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
-  const page = Math.min(requestedPage, pageCount);
+  const focusedIndex = focusRecordKey
+    ? filteredRecords.findIndex((record) => record.id === focusRecordKey)
+    : -1;
+  const focusedPage = focusedIndex >= 0 ? Math.floor(focusedIndex / PAGE_SIZE) + 1 : null;
+  const page = focusedPage ?? Math.min(requestedPage, pageCount);
   const pageRecords = useMemo(
     () => filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredRecords, page]
   );
+
+  useEffect(() => {
+    if (!focusRecordKey) return;
+    const frame = window.requestAnimationFrame(() => {
+      const matches = document.querySelectorAll<HTMLElement>(`[data-review-record-id="${focusRecordKey}"]`);
+      Array.from(matches).find((element) => element.getClientRects().length > 0)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRecordKey, pageRecords, reviewId]);
 
 
 
@@ -534,9 +570,13 @@ function SibatLivestockRegistryContent() {
                       return (
                         <TableRow
                           key={`${r.sourceType}-${r.rawId}`}
-                          className="cursor-pointer border-b border-slate-100 hover:bg-slate-50/80 transition-colors"
+                          data-review-record-id={r.id}
+                          className={`cursor-pointer border-b border-slate-100 transition-colors ${r.id === focusRecordKey ? "bg-emerald-50 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/80"}`}
                           onClick={() => {
-                            if (isIndividual) setSelectedSubmission(r);
+                            if (isIndividual) {
+                              setFocusedRecordId(r.id);
+                              setSelectedSubmission(r);
+                            }
                           }}
                         >
                           {/* Record ID */}
@@ -616,6 +656,7 @@ function SibatLivestockRegistryContent() {
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setFocusedRecordId(r.id);
                                     setSelectedSubmission(r);
                                   }}
                                   className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-[#1A365D] hover:text-white text-slate-800 border-slate-200 transition-all cursor-pointer"
@@ -643,7 +684,8 @@ function SibatLivestockRegistryContent() {
                 return (
                   <article
                     key={`mobile-${r.sourceType}-${r.rawId}`}
-                    className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-2.5 transition-all"
+                    data-review-record-id={r.id}
+                    className={`rounded-2xl border p-4 shadow-2xs space-y-2.5 transition-all ${r.id === focusRecordKey ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200/90 bg-white"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <b className="font-mono text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">
@@ -682,7 +724,7 @@ function SibatLivestockRegistryContent() {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setSelectedSubmission(r)}
+                          onClick={() => { setFocusedRecordId(r.id); setSelectedSubmission(r); }}
                           className="w-full h-10 rounded-xl text-xs font-extrabold bg-[#1A365D] text-white hover:bg-[#132742] cursor-pointer shadow-2xs"
                         >
                           <Eye className="size-3.5 mr-1" /> Review Record
@@ -769,7 +811,10 @@ function SibatLivestockRegistryContent() {
           submission={selectedSubmission}
           open={selectedSubmission !== null}
           onOpenChange={(open) => {
-            if (!open) setSelectedSubmission(null);
+            if (!open) {
+              setSelectedSubmission(null);
+              if (reviewId) router.replace("/sibat/livestock-registry", { scroll: false });
+            }
           }}
           onReviewSuccess={() => {
             void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });

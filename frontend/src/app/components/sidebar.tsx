@@ -124,9 +124,9 @@ const sibatLinks: SidebarLink[] = [
     label: 'Field Tasks',
     icon: ClipboardCheck,
     subLinks: [
-      { path: '/sibat', label: 'Overview' },
       { path: '/sibat/livestock-registry', label: 'Animals' },
       { path: '/sibat/batches', label: 'Herds', badge: 'Herds' },
+      { path: '/sibat/production-records', label: 'Production Records' },
     ],
   },
   { path: '/sibat-monitoring', label: 'Map', icon: Map },
@@ -167,7 +167,7 @@ function getRoleBadge(role: SidebarProps['role']): { label: string; bg: string; 
     case 'farmer':
       return { label: 'Livestock Raiser', bg: 'bg-emerald-400/20', text: 'text-emerald-300' };
     case 'sibat':
-      return { label: 'SIBAT Inspector', bg: 'bg-amber-400/20', text: 'text-amber-300' };
+      return { label: 'CBAT', bg: 'bg-amber-400/20', text: 'text-amber-300' };
     case 'auction':
       return { label: 'Auction Staff', bg: 'bg-sky-400/20', text: 'text-sky-300' };
     case 'slaughterhouse':
@@ -205,7 +205,9 @@ function SidebarNav({
   const { user } = useAuth();
   const roleBadge = getRoleBadge(role);
 
-  const userDisplayName = user?.firstName
+  const userDisplayName = role === 'sibat'
+    ? 'CBAT Field Officer'
+    : user?.firstName
     ? `${user.firstName} ${user.lastName || ''}`.trim()
     : user?.email?.split('@')[0] || 'Authenticated User';
 

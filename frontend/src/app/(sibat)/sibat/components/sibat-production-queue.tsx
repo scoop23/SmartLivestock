@@ -30,6 +30,8 @@ interface SibatProductionQueueProps {
   onSearchChange: (q: string) => void;
   prodTypeFilter: string;
   onProdTypeFilterChange: (type: string) => void;
+  focusRecordId?: string | null;
+  scrollFocusKey?: string;
 }
 
 const STATUS_TABS: Array<{
@@ -70,6 +72,8 @@ function SibatProductionQueueContent({
   onSearchChange,
   prodTypeFilter,
   onProdTypeFilterChange,
+  focusRecordId,
+  scrollFocusKey,
 }: SibatProductionQueueProps) {
   // Keep sales in the same review pipeline as production and calving.
   const prodSubmissions = useMemo(() => {
@@ -128,15 +132,26 @@ function SibatProductionQueueContent({
   const PAGE_SIZE = 10;
   const [requestedPage, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(filteredSubmissions.length / PAGE_SIZE));
-  const page = requestedPage > pageCount ? 1 : requestedPage;
+  const focusedIndex = focusRecordId
+    ? filteredSubmissions.findIndex((item) => item.id === focusRecordId)
+    : -1;
+  const focusedPage = focusedIndex >= 0 ? Math.floor(focusedIndex / PAGE_SIZE) + 1 : null;
+  const page = focusedPage ?? (requestedPage > pageCount ? 1 : requestedPage);
   const pagedSubmissions = useMemo(
     () => filteredSubmissions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredSubmissions, page]
   );
 
-
-
-
+  useEffect(() => {
+    if (!focusRecordId || focusedIndex < 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`production-record-${focusRecordId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRecordId, focusedIndex, page, scrollFocusKey]);
 
   return (
     <div className="space-y-4">
@@ -302,7 +317,12 @@ function SibatProductionQueueContent({
             return (
               <Card
                 key={item.id}
-                className="group border-slate-200/80 bg-white hover:border-[#1A365D]/30 transition-all shadow-2xs hover:shadow-md rounded-3xl overflow-hidden"
+                id={`production-record-${item.id}`}
+                className={`group rounded-3xl border transition-all shadow-2xs hover:shadow-md overflow-hidden ${
+                  item.id === focusRecordId
+                    ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300 shadow-md"
+                    : "border-slate-200/80 bg-white hover:border-[#1A365D]/30"
+                }`}
               >
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
