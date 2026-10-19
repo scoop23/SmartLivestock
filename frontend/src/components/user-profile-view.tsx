@@ -582,7 +582,7 @@ export function UserProfileView() {
           <span className="text-[10px] text-emerald-700 font-bold block">RSBSA Certified & Verified</span>
         </div>
 
-        {!isFarmer && (
+        {!isFarmer && !isFieldReviewer && (
           <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
             <div className="flex items-center justify-between text-slate-400">
               <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Biosecurity Clear</span>
@@ -614,7 +614,11 @@ export function UserProfileView() {
               <Building2 className="size-4 text-purple-700" />
             </div>
             <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {isFieldReviewer ? user?.assignedBarangayName || "Unassigned" : "18 Barangays"}
+              {isFieldReviewer
+                ? user?.accessScope === "ALL_BARANGAYS"
+                  ? "All Barangays"
+                  : user?.assignedBarangayName || "Unassigned"
+                : "18 Barangays"}
             </div>
             <p className="text-[11px] text-slate-500 font-medium truncate">
               {isFieldReviewer ? "Your assigned area" : "Padre Garcia Jurisdiction"}
