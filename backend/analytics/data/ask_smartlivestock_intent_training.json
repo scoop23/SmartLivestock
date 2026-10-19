@@ -160,11 +160,11 @@
     "intent": "mortality_comparison"
   },
   {
-    "question": "What submissions are still in the municipal approval queue",
+    "question": "What submissions are still in the MAO approval queue",
     "intent": "pending_reviews"
   },
   {
-    "question": "Show records waiting for the agriculture office to approve",
+    "question": "Show records waiting for MAO to approve",
     "intent": "pending_reviews"
   },
   {
@@ -176,27 +176,27 @@
     "intent": "pending_reviews"
   },
   {
-    "question": "Ilista ang mga pending na record para sa municipal review",
+    "question": "Ilista ang mga pending na record para sa review ng MAO",
     "intent": "pending_reviews"
   },
   {
     "question": "How many entries need final approval",
+    "intent": "clarification"
+  },
+  {
+    "question": "Show the current pending review backlog for MAO",
     "intent": "pending_reviews"
   },
   {
-    "question": "Show the current backlog for MAO reviewers",
+    "question": "Are there any submissions awaiting MAO review",
     "intent": "pending_reviews"
   },
   {
-    "question": "Are there any submissions awaiting municipal review",
+    "question": "Which production submissions are waiting for MAO sign-off",
     "intent": "pending_reviews"
   },
   {
-    "question": "Which production submissions are waiting for final sign off",
-    "intent": "pending_reviews"
-  },
-  {
-    "question": "Ano pa ang hindi inaaprubahan ng opisina ng agrikultura",
+    "question": "Ano pa ang pending na aprubahan ng MAO",
     "intent": "pending_reviews"
   },
   {

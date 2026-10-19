@@ -1,0 +1,2 @@
+# Optional offline experiment only. The production endpoint does not load spaCy.
+spacy==3.8.16

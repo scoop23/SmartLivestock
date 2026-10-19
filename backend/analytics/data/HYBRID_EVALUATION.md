@@ -1,8 +1,16 @@
 # Ask SmartLivestock hybrid experiment
 
+> **Historical baseline:** The comparison below is the older 40-question,
+> English-heavy regression experiment. Its results are not the multilingual
+> held-out results. See [MULTILINGUAL_NLP_EVALUATION.md](MULTILINGUAL_NLP_EVALUATION.md)
+> for the grouped English/Tagalog/Taglish evaluation, current corpus, and
+> three-way comparison including spaCy.
+
 ## Audit and final architecture
 
 The current API accepts MAO/Admin and SIBAT, validates a question of at most 500 characters, resolves vocabulary inside the reviewer scope, and uses existing approved-record query handlers. It supports population_summary, production_trend, production_breakdown, disease_by_barangay, mortality_comparison and pending_reviews. Owner/animal identifiers, sales, separate slaughter counts, rates and forecasts have no assistant handler. Farmer access to this API remains denied; this does not change other Farmer inventory permissions.
+
+The API view allows MAO/Admin and SIBAT. The service repeats a role check and also only allows MAO/Admin to request MAO review-queue counts. The shared reviewer-scope helper recognizes CBAT, but this particular API's permission and service checks do not currently authorize a CBAT role. This experiment does not widen those permissions. For authorized SIBAT requests, the parser's barangay vocabulary is limited to the user's visible barangays and analytics handlers retain their scoped querysets.
 
 Production: question -> shared normalization/tokenization -> rule intent and filter validation -> backend authorization/scoping -> existing analytics handlers -> result metadata -> frontend. The new nlp_pipeline.py wraps the existing parser; it does not duplicate calculations or create a second analytics system. Its executable flag describes interpretation, never permission.
 
