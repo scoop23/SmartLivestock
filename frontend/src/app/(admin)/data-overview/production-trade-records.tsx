@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { useEffect,useMemo,useState } from "react";
+import { useMemo,useState } from "react";
 import { DataOverviewCards } from "./data-overview-cards";
 import { DataOverviewTable } from "./data-overview-table";
 import type { DataTab,SalesRecord } from "./data-overview-types";
@@ -122,8 +122,13 @@ export function ProductionTradeRecords({
   statusFilter: string;
 }) {
   const [activeRecordView, setActiveRecordView] = useState<"sales" | "ownership" | "movement">("sales");
-  const [ownershipPage, setOwnershipPage] = useState(1);
-  const [movementPage, setMovementPage] = useState(1);
+  const filterKey = `${search}\u0000${statusFilter}`;
+  const [ownershipPageState, setOwnershipPageState] = useState({ filterKey, page: 1 });
+  const [movementPageState, setMovementPageState] = useState({ filterKey, page: 1 });
+  const ownershipPage = ownershipPageState.filterKey === filterKey ? ownershipPageState.page : 1;
+  const movementPage = movementPageState.filterKey === filterKey ? movementPageState.page : 1;
+  const setOwnershipPage = (page: number) => setOwnershipPageState({ filterKey, page });
+  const setMovementPage = (page: number) => setMovementPageState({ filterKey, page });
   const { user } = useAuth();
   const queryScope = [user?.email, user?.accessScope, user?.assignedBarangayId];
 
@@ -160,12 +165,6 @@ export function ProductionTradeRecords({
       ...record.items.flatMap((item) => [item.livestock_type_name, item.classification, item.remarks, item.quantity]),
     ], search)
   ), [movementsQuery.data, search, statusFilter]);
-
-  // Keep each registry on a valid first page when its search or status filter changes.
-  useEffect(() => {
-    setOwnershipPage(1);
-    setMovementPage(1);
-  }, [search, statusFilter]);
 
   const ownershipTotalPages = Math.max(1, Math.ceil(transfers.length / RECORDS_PER_PAGE));
   const safeOwnershipPage = Math.min(ownershipPage, ownershipTotalPages);

@@ -584,14 +584,31 @@ function SibatBatchesVerificationContent() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   const BATCH_PAGE_SIZE = 10;
-  const [batchPage, setBatchPage] = useState(1);
+  const batchFilterKey = JSON.stringify([searchQuery, speciesFilter, statusFilter, barangayFilter]);
+  const [batchPageState, setBatchPageState] = useState({ filterKey: batchFilterKey, page: 1 });
+  const batchPage = batchPageState.filterKey === batchFilterKey ? batchPageState.page : 1;
+  const setBatchPage = (nextPage: number | ((currentPage: number) => number)) =>
+    setBatchPageState({
+      filterKey: batchFilterKey,
+      page: typeof nextPage === "function" ? nextPage(batchPage) : nextPage,
+    });
 
   const [selectedBatch, setSelectedBatch] = useState<BatchItem | null>(null);
   const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
   const [selectedAnimalReview, setSelectedAnimalReview] = useState<UnifiedSubmissionItem | null>(null);
   const [animalSearchQuery, setAnimalSearchQuery] = useState("");
   const [animalStatusFilter, setAnimalStatusFilter] = useState<string>("ALL");
-  const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>([]);
+  const animalSelectionKey = JSON.stringify([selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
+  const [animalSelectionState, setAnimalSelectionState] = useState({ key: animalSelectionKey, ids: [] as number[] });
+  const selectedAnimalIds = animalSelectionState.key === animalSelectionKey ? animalSelectionState.ids : [];
+  const setSelectedAnimalIds = (nextIds: number[] | ((currentIds: number[]) => number[])) =>
+    setAnimalSelectionState((current) => {
+      const currentIds = current.key === animalSelectionKey ? current.ids : [];
+      return {
+        key: animalSelectionKey,
+        ids: typeof nextIds === "function" ? nextIds(currentIds) : nextIds,
+      };
+    });
   const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false);
   const [bulkVerifying, setBulkVerifying] = useState(false);
 
@@ -601,14 +618,9 @@ function SibatBatchesVerificationContent() {
 
 
   const [batchNoteText, setBatchNoteText] = useState("");
-  const [showBatchNotes, setShowBatchNotes] = useState(true);
+  const [showBatchNotes, setShowBatchNotes] = useState(false);
 
   const [copiedTag, setCopiedTag] = useState<string | null>(null);
-
-  useEffect(() => {
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
-    setShowBatchNotes(!isMobile);
-  }, []);
 
   // ── Data Fetching ────────────────────────────────────────────────────────
   const {
@@ -638,13 +650,18 @@ function SibatBatchesVerificationContent() {
     queryFn: async ({ signal }) => (await api.get(`livestock/batches/${selectedBatch?.id}/`, { signal })).data,
     staleTime: 30_000,
   });
+  // React Query refreshes the selected herd detail independently from local UI state.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (detailQuery.data && detailQuery.data.id === selectedBatch?.id) {
       setSelectedBatch(detailQuery.data);
     }
   }, [detailQuery.data, selectedBatch?.id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Automatically select and open drilldown if `batchId` is present in URL
+  // The URL is external navigation state; reflect its matching herd in the drilldown.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!batchIdParam || !batches || batches.length === 0) return;
 
@@ -664,6 +681,7 @@ function SibatBatchesVerificationContent() {
       setIsDrilldownOpen(true);
     }
   }, [batchIdParam, batches]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── KPI Metrics ──────────────────────────────────────────────────────────
   // The API aggregates statuses from individual rows, so herd list KPIs stay accurate without loading every roster.
@@ -740,34 +758,35 @@ function SibatBatchesVerificationContent() {
 
   // ── Pagination: Batch Table View ─────────────────────────────────────────
   const pageCountBatches = Math.max(1, Math.ceil(filteredBatches.length / BATCH_PAGE_SIZE));
+  const safeBatchPage = Math.min(batchPage, pageCountBatches);
   const pagedBatches = useMemo(
     () =>
       filteredBatches.slice(
-        (batchPage - 1) * BATCH_PAGE_SIZE,
-        (batchPage - 1) * BATCH_PAGE_SIZE + BATCH_PAGE_SIZE,
+        (safeBatchPage - 1) * BATCH_PAGE_SIZE,
+        (safeBatchPage - 1) * BATCH_PAGE_SIZE + BATCH_PAGE_SIZE,
       ),
-    [filteredBatches, batchPage],
+    [filteredBatches, safeBatchPage],
   );
-
-  useEffect(() => {
-    setBatchPage(1);
-  }, [searchQuery, speciesFilter, statusFilter, barangayFilter]);
-
-  useEffect(() => {
-    if (batchPage > pageCountBatches) setBatchPage(pageCountBatches);
-  }, [batchPage, pageCountBatches]);
 
   // ── Pagination: Individual Animal Roster ─────────────────────────────────
   const ANIMAL_PAGE_SIZE = 10;
-  const [animalPage, setAnimalPage] = useState(1);
+  const animalPageFilterKey = JSON.stringify([selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
+  const [animalPageState, setAnimalPageState] = useState({ filterKey: animalPageFilterKey, page: 1 });
+  const animalPage = animalPageState.filterKey === animalPageFilterKey ? animalPageState.page : 1;
+  const setAnimalPage = (nextPage: number | ((currentPage: number) => number)) =>
+    setAnimalPageState({
+      filterKey: animalPageFilterKey,
+      page: typeof nextPage === "function" ? nextPage(animalPage) : nextPage,
+    });
   const pageCountAnimals = Math.max(1, Math.ceil(filteredChildAnimals.length / ANIMAL_PAGE_SIZE));
+  const safeAnimalPage = Math.min(animalPage, pageCountAnimals);
   const pagedChildAnimals = useMemo(
     () =>
       filteredChildAnimals.slice(
-        (animalPage - 1) * ANIMAL_PAGE_SIZE,
-        (animalPage - 1) * ANIMAL_PAGE_SIZE + ANIMAL_PAGE_SIZE,
+        (safeAnimalPage - 1) * ANIMAL_PAGE_SIZE,
+        (safeAnimalPage - 1) * ANIMAL_PAGE_SIZE + ANIMAL_PAGE_SIZE,
       ),
-    [filteredChildAnimals, animalPage],
+    [filteredChildAnimals, safeAnimalPage],
   );
   const visiblePendingAnimalIds = pagedChildAnimals
     .filter((animal) => (animal.status || "PENDING").toUpperCase() === "PENDING")
@@ -778,16 +797,9 @@ function SibatBatchesVerificationContent() {
   const allVisiblePendingAnimalsSelected = visiblePendingAnimalIds.length > 0
     && visiblePendingAnimalIds.every((id) => selectedAnimalIds.includes(id));
 
-  useEffect(() => {
-    if (animalPage > pageCountAnimals) setAnimalPage(1);
-  }, [animalPage, pageCountAnimals]);
-
-  useEffect(() => {
-    setAnimalPage(1);
-    setSelectedAnimalIds([]);
-  }, [selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
-
   // Automatically focus on and page to target animal if `animalId` or `tag` is present in URL
+  // Deep-link parameters identify the roster row and require updating the drilldown controls.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isDrilldownOpen || !selectedBatch?.animals || selectedBatch.animals.length === 0) {
       return;
@@ -816,6 +828,7 @@ function SibatBatchesVerificationContent() {
       setAnimalPage(targetPage);
     }
   }, [isDrilldownOpen, selectedBatch?.id, selectedBatch?.animals, animalIdParam, tagParam]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Smoothly scroll down and focus on target animal once rendered in DOM
   useEffect(() => {
@@ -1436,12 +1449,12 @@ function SibatBatchesVerificationContent() {
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-2 py-2 text-xs">
               <span className="text-[11px] text-slate-500 font-medium">
-                Showing herds {(batchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(batchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length}
+                Showing herds {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length}
               </span>
               <div className="flex items-center gap-1.5">
-                <Button variant="outline" size="sm" disabled={batchPage <= 1} onClick={() => setBatchPage((p) => p - 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">‹ Previous</Button>
-                <span className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white">Page {batchPage} of {pageCountBatches}</span>
-                <Button variant="outline" size="sm" disabled={batchPage >= pageCountBatches} onClick={() => setBatchPage((p) => p + 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">Next ›</Button>
+                <Button variant="outline" size="sm" disabled={safeBatchPage <= 1} onClick={() => setBatchPage((p) => p - 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">‹ Previous</Button>
+                <span className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white">Page {safeBatchPage} of {pageCountBatches}</span>
+                <Button variant="outline" size="sm" disabled={safeBatchPage >= pageCountBatches} onClick={() => setBatchPage((p) => p + 1)} className="min-h-10 rounded-lg px-3 text-sm font-semibold">Next ›</Button>
               </div>
             </div>
           </div>
@@ -1580,26 +1593,26 @@ function SibatBatchesVerificationContent() {
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-xs">
               <span className="text-[11px] text-slate-500 font-medium">
-                Showing herds {(batchPage - 1) * BATCH_PAGE_SIZE + 1}–
-                {Math.min(batchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length}
+                Showing herds {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–
+                {Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} of {filteredBatches.length}
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={batchPage <= 1}
+                  disabled={safeBatchPage <= 1}
                   onClick={() => setBatchPage((p) => p - 1)}
                   className="min-h-10 rounded-lg px-3 text-sm font-semibold"
                 >
                   ‹ Previous
                 </Button>
                 <span className="rounded-lg bg-emerald-700 px-2.5 py-1 text-[10px] font-black text-white">
-                  Page {batchPage} of {pageCountBatches}
+                  Page {safeBatchPage} of {pageCountBatches}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={batchPage >= pageCountBatches}
+                  disabled={safeBatchPage >= pageCountBatches}
                   onClick={() => setBatchPage((p) => p + 1)}
                   className="min-h-10 rounded-lg px-3 text-sm font-semibold"
                 >
@@ -2106,26 +2119,26 @@ function SibatBatchesVerificationContent() {
                 {filteredChildAnimals.length > ANIMAL_PAGE_SIZE && (
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-1 pt-3 text-xs">
                     <span className="text-[11px] text-slate-500 font-medium">
-                      Showing {(animalPage - 1) * ANIMAL_PAGE_SIZE + 1}–
-                      {Math.min(animalPage * ANIMAL_PAGE_SIZE, filteredChildAnimals.length)} of {filteredChildAnimals.length} heads
+                      Showing {(safeAnimalPage - 1) * ANIMAL_PAGE_SIZE + 1}–
+                      {Math.min(safeAnimalPage * ANIMAL_PAGE_SIZE, filteredChildAnimals.length)} of {filteredChildAnimals.length} heads
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={animalPage <= 1}
+                        disabled={safeAnimalPage <= 1}
                         onClick={() => setAnimalPage((p) => p - 1)}
                         className="h-7 rounded-lg text-[10px] font-bold"
                       >
                         ‹ Prev
                       </Button>
                       <span className="px-2.5 py-1 rounded-lg bg-sky-700 text-white font-black text-[10px]">
-                        Page {animalPage} / {pageCountAnimals}
+                        Page {safeAnimalPage} / {pageCountAnimals}
                       </span>
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={animalPage >= pageCountAnimals}
+                        disabled={safeAnimalPage >= pageCountAnimals}
                         onClick={() => setAnimalPage((p) => p + 1)}
                         className="h-7 rounded-lg text-[10px] font-bold"
                       >

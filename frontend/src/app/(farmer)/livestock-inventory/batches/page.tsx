@@ -725,6 +725,8 @@ export default function BatchOverviewPage() {
   }, [filteredIndividuals, safeAnimalPage]);
 
   // Deep links from an animal profile open its herd and select that animal in the roster.
+  // The router's query parameters select an external record, so reflect them in the visible roster.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (
       !isHerdDetailsOpen ||
@@ -756,6 +758,7 @@ export default function BatchOverviewPage() {
     tagParam,
     filteredIndividuals,
   ]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!highlightedAnimalId || scrolledAnimalIdRef.current === highlightedAnimalId) return;

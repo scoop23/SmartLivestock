@@ -85,6 +85,8 @@ export default function CensusSubmissionForm({
   const draftLoaded = useRef(false);
   const draftKey = "smartlivestock:census-draft:" + (submissionToRevise?.id ?? "new");
 
+  // Opening the dialog hydrates the form from browser storage or the selected revision record.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     draftLoaded.current = false;
@@ -125,6 +127,7 @@ export default function CensusSubmissionForm({
     setIsCertified(false);
     draftLoaded.current = true;
   }, [open, submissionToRevise, currentYear, initialQuarter, draftKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!open || !draftLoaded.current) return;

@@ -181,9 +181,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setAccessToken(null);
   }, []);
 
+  // On provider mount, restore the authenticated user from browser tokens and the current-user API.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <AuthContext.Provider

@@ -489,18 +489,26 @@ function AdminBatchesDrilldownContent() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const BATCH_PAGE_SIZE = 10;
   const ANIMAL_PAGE_SIZE = 10;
-  const [batchPage, setBatchPage] = useState(1);
-  const [animalPage, setAnimalPage] = useState(1);
 
   // Selected batch for drilldown inspection
   const [selectedBatch, setSelectedBatch] = useState<BatchItem | null>(null);
   const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
   const [reviewAnimal, setReviewAnimal] = useState<DetailRecordData | null>(null);
-  const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>([]);
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
   const [bulkApproving, setBulkApproving] = useState(false);
   const [animalSearchQuery, setAnimalSearchQuery] = useState("");
   const [animalStatusFilter, setAnimalStatusFilter] = useState<string>("ALL");
+  const animalSelectionKey = JSON.stringify([selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
+  const [animalSelectionState, setAnimalSelectionState] = useState({ key: animalSelectionKey, ids: [] as number[] });
+  const selectedAnimalIds = animalSelectionState.key === animalSelectionKey ? animalSelectionState.ids : [];
+  const setSelectedAnimalIds = (nextIds: number[] | ((currentIds: number[]) => number[])) =>
+    setAnimalSelectionState((current) => {
+      const currentIds = current.key === animalSelectionKey ? current.ids : [];
+      return {
+        key: animalSelectionKey,
+        ids: typeof nextIds === "function" ? nextIds(currentIds) : nextIds,
+      };
+    });
 
   // Review confirmation modals
 
@@ -508,13 +516,7 @@ function AdminBatchesDrilldownContent() {
 
   // Reviewer notes (append-only audit trail)
   const [batchNoteText, setBatchNoteText] = useState("");
-  const [showBatchNotes, setShowBatchNotes] = useState(true);
-
-  // Collapse the notes panel on small screens so the animal roster stays visible
-  useEffect(() => {
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
-    setShowBatchNotes(!isMobile);
-  }, []);
+  const [showBatchNotes, setShowBatchNotes] = useState(false);
 
   // Passport & Print Modal
   const [passportAnimal, setPassportAnimal] = useState<ChildAnimal | null>(null);
@@ -528,7 +530,14 @@ function AdminBatchesDrilldownContent() {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
-  useEffect(() => setBatchPage(1), [debouncedSearch, speciesFilter, statusFilter, barangayFilter]);
+  const batchFilterKey = JSON.stringify([debouncedSearch, speciesFilter, statusFilter, barangayFilter]);
+  const [batchPageState, setBatchPageState] = useState({ filterKey: batchFilterKey, page: 1 });
+  const batchPage = batchPageState.filterKey === batchFilterKey ? batchPageState.page : 1;
+  const setBatchPage = (nextPage: number | ((currentPage: number) => number)) =>
+    setBatchPageState({
+      filterKey: batchFilterKey,
+      page: typeof nextPage === "function" ? nextPage(batchPage) : nextPage,
+    });
   const params = { summary: "true", page: batchPage, page_size: BATCH_PAGE_SIZE,
     search: debouncedSearch, species: speciesFilter, review_status: statusFilter, barangay: barangayFilter };
   const { data: batchPageData, isLoading, isFetching: isRefetching, isError, refetch } = useQuery<BatchPage>({
@@ -557,14 +566,19 @@ function AdminBatchesDrilldownContent() {
     },
     staleTime: 30 * 1000,
   });
+  // React Query owns the fetched detail; sync its refreshed data into the open editor.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (detailQuery.data) {
       setSelectedBatch(detailQuery.data);
       if (batchIdParam) setIsDrilldownOpen(true);
     }
   }, [detailQuery.data, batchIdParam]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Automatically select and open drilldown if `batchId` is present in URL and matches loaded batches list
+  // The URL is external navigation state; reflect its matching record in the drilldown.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!batchIdParam || !batches || batches.length === 0) return;
 
@@ -584,6 +598,7 @@ function AdminBatchesDrilldownContent() {
       setIsDrilldownOpen(true);
     }
   }, [batchIdParam, batches]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const references = useQuery<{ species: { name: string }[]; barangays: { barangay_name: string }[] }>({
     queryKey: ["admin-batch-filter-options"],
     queryFn: async () => {
@@ -626,9 +641,18 @@ function AdminBatchesDrilldownContent() {
   }, [selectedBatch, animalSearchQuery, animalStatusFilter]);
 
   const pageCountAnimals = Math.max(1, Math.ceil(filteredChildAnimals.length / ANIMAL_PAGE_SIZE));
+  const animalPageFilterKey = JSON.stringify([selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
+  const [animalPageState, setAnimalPageState] = useState({ filterKey: animalPageFilterKey, page: 1 });
+  const animalPage = animalPageState.filterKey === animalPageFilterKey ? animalPageState.page : 1;
+  const setAnimalPage = (nextPage: number | ((currentPage: number) => number)) =>
+    setAnimalPageState({
+      filterKey: animalPageFilterKey,
+      page: typeof nextPage === "function" ? nextPage(animalPage) : nextPage,
+    });
+  const safeAnimalPage = Math.min(animalPage, pageCountAnimals);
   const pagedChildAnimals = filteredChildAnimals.slice(
-    (animalPage - 1) * ANIMAL_PAGE_SIZE,
-    animalPage * ANIMAL_PAGE_SIZE,
+    (safeAnimalPage - 1) * ANIMAL_PAGE_SIZE,
+    safeAnimalPage * ANIMAL_PAGE_SIZE,
   );
   const visibleVerifiedAnimalIds = pagedChildAnimals
     .filter((animal) => animal.status === "VERIFIED")
@@ -640,16 +664,9 @@ function AdminBatchesDrilldownContent() {
     visibleVerifiedAnimalIds.length > 0 &&
     visibleVerifiedAnimalIds.every((id) => selectedAnimalIds.includes(id));
 
-  useEffect(() => {
-    setAnimalPage(1);
-    setSelectedAnimalIds([]);
-  }, [selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
-
-  useEffect(() => {
-    if (animalPage > pageCountAnimals) setAnimalPage(pageCountAnimals);
-  }, [animalPage, pageCountAnimals]);
-
   // Automatically focus on and page to target animal if animalId or tag is present in URL
+  // Deep-link parameters identify the roster row and require updating the drilldown controls.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isDrilldownOpen || !selectedBatch?.animals || selectedBatch.animals.length === 0) {
       return;
@@ -690,6 +707,7 @@ function AdminBatchesDrilldownContent() {
       }, 50);
     }
   }, [isDrilldownOpen, selectedBatch?.id, selectedBatch?.animals, animalIdParam, tagParam]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Smoothly scroll down and focus on target animal once rendered in DOM
   useEffect(() => {
@@ -1882,7 +1900,7 @@ function AdminBatchesDrilldownContent() {
                   </Table>
                 </div>
                 {filteredChildAnimals.length > ANIMAL_PAGE_SIZE && (
-                  <BatchPager page={animalPage} pageSize={ANIMAL_PAGE_SIZE} total={filteredChildAnimals.length} onPageChange={setAnimalPage} />
+                  <BatchPager page={safeAnimalPage} pageSize={ANIMAL_PAGE_SIZE} total={filteredChildAnimals.length} onPageChange={setAnimalPage} />
                 )}
               </div>
 
