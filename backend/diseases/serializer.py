@@ -137,6 +137,13 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 "You can only report disease cases against your own livestock inventory."
             )
+        if value.status not in (
+            LivestockInventory.StatusType.VERIFIED,
+            LivestockInventory.StatusType.APPROVED,
+        ):
+            raise ValidationError(
+                "Disease can only be reported for verified or approved livestock."
+            )
         if value.operational_status != value.OperationalStatus.ACTIVE:
             raise ValidationError("Disease can only be reported for active livestock.")
         return value

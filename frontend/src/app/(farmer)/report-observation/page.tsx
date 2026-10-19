@@ -36,7 +36,7 @@ FarmerReport,
 ReportType,
 } from "./report-observation-types";
 
-type HealthReportFilter = "ALL" | "DISEASE" | "MORTALITY" | "PENDING" | "REVISION" | "APPROVED";
+type HealthReportFilter = "ALL" | "DISEASE" | "MORTALITY" | "PENDING" | "REVISION" | "VERIFIED" | "APPROVED";
 
 function ReportObservationContent() {
   const pathname = usePathname();
@@ -210,7 +210,8 @@ function ReportObservationContent() {
         const s = (rep.status || "") as string;
         return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION";
       }
-      if (filterType === "APPROVED") return rep.status === "APPROVED" || rep.status === "VERIFIED";
+      if (filterType === "VERIFIED") return rep.status === "VERIFIED";
+      if (filterType === "APPROVED") return rep.status === "APPROVED";
 
       return true;
     });
@@ -250,7 +251,9 @@ function ReportObservationContent() {
   const totalDiseaseCases = reports.filter((r) => r.reportType === "DISEASE").length;
   const totalMortality = reports.filter((r) => r.reportType === "MORTALITY").length;
   const pendingVerification = reports.filter((r) => r.status === "PENDING").length;
-  const approvedCases = reports.filter(
+  const approvedCases = reports.filter((r) => r.status === "APPROVED").length;
+  const verifiedCases = reports.filter((r) => r.status === "VERIFIED").length;
+  const verifiedAndApprovedCases = reports.filter(
     (r) => r.status === "APPROVED" || r.status === "VERIFIED"
   ).length;
 
@@ -284,7 +287,7 @@ function ReportObservationContent() {
     },
     {
       label: "Verified & Approved",
-      value: approvedCases,
+      value: verifiedAndApprovedCases,
       sub: "Certified by MAO Vet",
       icon: <ShieldCheck className="size-4.5" />,
       variant: "emerald",
@@ -294,8 +297,8 @@ function ReportObservationContent() {
   return (
     <>
       <PageHeader
-        title="Animal Health"
-        subtitle="Report an illness or animal death and follow its review status."
+        title="Record"
+        subtitle="Report sick or deceased livestock."
         variant="farmer"
         maxWidthClass="w-full"
         action={
@@ -389,6 +392,7 @@ function ReportObservationContent() {
                   { id: "MORTALITY", label: `Deceased (${totalMortality})` },
                   { id: "PENDING", label: `Pending (${pendingVerification})` },
                   { id: "REVISION", label: "Needs Revision" },
+                  { id: "VERIFIED", label: `Verified (${verifiedCases})` },
                   { id: "APPROVED", label: `Approved (${approvedCases})` },
                 ] satisfies ReadonlyArray<{ id: HealthReportFilter; label: string }>).map((tab) => (
                   <button

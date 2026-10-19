@@ -105,7 +105,12 @@ export function DiseaseCaseFollowUp({ caseId }: { caseId: string | number }) {
     <Card className="min-w-0 border-emerald-200 print:break-inside-avoid">
       <CardHeader className="space-y-2">
         <CardTitle className="text-base">Follow-up and case resolution</CardTitle>
-        <Badge variant="outline" className="w-fit">{statusLabels[data.clinical_status]}</Badge>
+        <Badge
+          variant="outline"
+          className={`w-fit ${data.clinical_status === "NOT_RECORDED" ? "border-rose-300 bg-rose-50 text-rose-800 font-bold" : ""}`}
+        >
+          {statusLabels[data.clinical_status]}
+        </Badge>
         <p className="text-sm text-muted-foreground">
           Farmer observations request follow-up. CBAT or MAO records the official outcome separately from report approval.
         </p>

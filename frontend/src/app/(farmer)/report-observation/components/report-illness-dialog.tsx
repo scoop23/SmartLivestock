@@ -80,9 +80,7 @@ function ReportIllnessDialogContent({
   const { data: inventories = [] } = useUserInventory();
   const isEditMode = mode === "edit" && !!existingReport;
 
-  const [reportType, setReportType] = useState<ReportType>(() =>
-    isEditMode && existingReport ? (existingReport.reportType || defaultType) : defaultType
-  );
+  const reportType = isEditMode && existingReport ? (existingReport.reportType || defaultType) : defaultType;
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>(() => {
     if (isEditMode && existingReport) {
       return String(existingReport.inventoryId || existingReport.rawItem?.livestock || defaultInventoryId || "");
@@ -127,8 +125,7 @@ function ReportIllnessDialogContent({
   );
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  const effectiveInventoryId = selectedInventoryId || (inventories[0] ? String(inventories[0].id) : "");
+  const [animalSort, setAnimalSort] = useState<"TYPE" | "TAG" | "OLDEST" | "YOUNGEST">("TYPE");
 
   const selectedCattle = useMemo(() => {
     return inventories.find((inv) => String(inv.id) === String(selectedInventoryId));
@@ -140,12 +137,35 @@ function ReportIllnessDialogContent({
         (inventory) =>
           inventory.entryType === "INDIVIDUAL" &&
           inventory.quantity === 1 &&
+          (inventory.status === "VERIFIED" || inventory.status === "APPROVED") &&
           (reportType !== "MORTALITY" ||
             (inventory.status === "APPROVED" && inventory.operationalStatus === "ACTIVE")),
       ),
     [inventories, reportType],
   );
-  const editableInventoryOptions = reportType === "MORTALITY" ? selectableAnimals : inventories;
+  const sortedSelectableAnimals = useMemo(
+    () => [...selectableAnimals].sort((a, b) => {
+      const tagA = a.tagNumber || `Animal #${a.id}`;
+      const tagB = b.tagNumber || `Animal #${b.id}`;
+      const typeA = a.livestockTypeName || "Livestock";
+      const typeB = b.livestockTypeName || "Livestock";
+      const tagOrder = () => tagA.localeCompare(tagB) || typeA.localeCompare(typeB);
+      if (animalSort === "TYPE") return typeA.localeCompare(typeB) || tagA.localeCompare(tagB);
+      if (animalSort === "TAG") return tagOrder();
+
+      const ageA = a.age?.total_months ?? null;
+      const ageB = b.age?.total_months ?? null;
+      if (ageA === null && ageB !== null) return 1;
+      if (ageA !== null && ageB === null) return -1;
+      if (ageA !== null && ageB !== null && ageA !== ageB) {
+        return animalSort === "OLDEST" ? ageB - ageA : ageA - ageB;
+      }
+      return tagOrder();
+    }),
+    [animalSort, selectableAnimals],
+  );
+  const editableInventoryOptions = selectableAnimals;
+  const effectiveInventoryId = selectedInventoryId || (selectableAnimals[0] ? String(selectableAnimals[0].id) : "");
   const selectedAnimals = useMemo(
     () => selectableAnimals.filter((inventory) => selectedInventoryIds.includes(String(inventory.id))),
     [selectableAnimals, selectedInventoryIds],
@@ -185,14 +205,16 @@ function ReportIllnessDialogContent({
     const targetInventoryIds = isEditMode
       ? reportType === "MORTALITY"
         ? selectedAnimals.map((animal) => String(animal.id))
-        : effectiveInventoryId ? [effectiveInventoryId] : []
+        : selectableAnimals.some((animal) => String(animal.id) === String(effectiveInventoryId))
+          ? [effectiveInventoryId]
+          : []
       : selectedAnimals.map((animal) => String(animal.id));
 
     if (targetInventoryIds.length === 0) {
       toast.error(
         reportType === "MORTALITY"
           ? "Select an approved, active individual animal to report as deceased."
-          : "Select at least one individual animal from your livestock.",
+          : "Select at least one verified or approved individual animal from your livestock.",
       );
       return;
     }
@@ -355,26 +377,11 @@ function ReportIllnessDialogContent({
     }
   };
 
-  const handleSelectReportType = (type: ReportType) => {
-    setReportType(type);
-    if (!isEditMode) {
-      if (type === "MORTALITY") {
-        if (!conditionName || !EASY_MORTALITY_CAUSES.includes(conditionName)) {
-          setConditionName(DEFAULT_MORTALITY_CAUSE);
-        }
-      } else {
-        if (conditionName === DEFAULT_MORTALITY_CAUSE || EASY_MORTALITY_CAUSES.includes(conditionName)) {
-          setConditionName("");
-        }
-      }
-    }
-  };
-
   const isDisease = reportType === "DISEASE";
 
   return (
     <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-2xl border-0 shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[90dvh] sm:rounded-3xl">
-        {/* Header with Type Switcher */}
+        {/* Header uses the report type selected from the observation page. */}
         <div
           className={`p-4 text-white transition-colors relative overflow-hidden sm:p-6 ${
             isDisease
@@ -382,7 +389,7 @@ function ReportIllnessDialogContent({
               : "bg-gradient-to-br from-rose-950 via-rose-800 to-rose-700"
           }`}
         >
-          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
                 {isDisease ? (
@@ -407,27 +414,6 @@ function ReportIllnessDialogContent({
               </div>
             </div>
 
-            {/* Type Selector Pills */}
-            <div className="flex bg-black/20 p-1 rounded-xl border border-white/10">
-              <button
-                type="button"
-                onClick={() => handleSelectReportType("DISEASE")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                  isDisease ? "bg-white text-emerald-950 shadow-sm" : "text-white/70 hover:text-white"
-                }`}
-              >
-                Sick Animal
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectReportType("MORTALITY")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                  !isDisease ? "bg-white text-rose-950 shadow-sm" : "text-white/70 hover:text-white"
-                }`}
-              >
-                Deceased
-              </button>
-            </div>
           </div>
         </div>
 
@@ -476,11 +462,26 @@ function ReportIllnessDialogContent({
                   <p className="p-3 text-xs text-slate-600">
                     {reportType === "MORTALITY"
                       ? "No approved, active individual animals are available to report as deceased."
-                      : "No individual animals are available to select."}
+                      : "No verified or approved individual animals are available to select."}
                   </p>
                 ) : (
+                  <>
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2">
+                    <span className="text-xs font-semibold text-slate-600">Sort by</span>
+                    <Select value={animalSort} onValueChange={(value) => setAnimalSort(value as typeof animalSort)}>
+                      <SelectTrigger className="h-8 w-40 rounded-lg border-slate-200 text-xs font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="TYPE" className="text-xs">Livestock type</SelectItem>
+                        <SelectItem value="TAG" className="text-xs">Ear tag</SelectItem>
+                        <SelectItem value="OLDEST" className="text-xs">Oldest first</SelectItem>
+                        <SelectItem value="YOUNGEST" className="text-xs">Youngest first</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="max-h-48 divide-y divide-slate-200 overflow-y-auto">
-                    {selectableAnimals.map((animal) => {
+                    {sortedSelectableAnimals.map((animal) => {
                       const id = String(animal.id);
                       const checked = selectedInventoryIds.includes(id);
                       return (
@@ -499,6 +500,7 @@ function ReportIllnessDialogContent({
                       );
                     })}
                   </div>
+                  </>
                 )}
                 <p className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
                   {selectedAnimals.length} animal{selectedAnimals.length === 1 ? "" : "s"} selected
@@ -533,7 +535,7 @@ function ReportIllnessDialogContent({
                       className={`p-2.5 rounded-xl text-left border text-xs font-bold transition-all cursor-pointer flex flex-col justify-between ${
                         isChecked
                           ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs"
-                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                          : "bg-emerald-50/80 text-slate-700 border-emerald-200 hover:bg-emerald-100"
                       }`}
                     >
                       <span>{sign.label}</span>
