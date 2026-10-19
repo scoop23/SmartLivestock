@@ -631,13 +631,12 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             recent_mortality_total += deaths
 
     # 10. Livestock Movements & Transport Inspections
-    # Records from LivestockInspection with clearance certificates.
-    # DATA INTEGRITY RULE: Only APPROVED clearance records contribute to official
-    # municipal statistics (movement_out), while all valid movements can be explored
-    # with their authoritative clearance status (APPROVED, PENDING, VERIFIED, etc.).
+    # Only approved clearances represent official movements on the GIS layer.
     inspections_qs = (
         scope_reviewer_queryset(
-            LivestockInspection.objects.filter(clearance__isnull=False),
+            LivestockInspection.objects.filter(
+                clearance__status=LivestockInspectionClearance.StatusType.APPROVED
+            ),
             user,
         )
         .select_related("shipper", "shipper__barangay", "clearance")
