@@ -346,16 +346,18 @@ function SibatPortalContent() {
   });
 
   const upcomingSchedule = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     return (
       schedules
         .filter((s) => s.publication_status === "PUBLISHED" && s.date >= today)
-        .sort((a, b) => a.date.localeCompare(b.date))[0] || schedules[0] || null
+        .sort((a, b) => a.date.localeCompare(b.date))[0] || null
     );
   }, [schedules]);
 
   const upcomingSchedulesCount = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     return schedules.filter((s) => s.publication_status === "PUBLISHED" && s.date >= today).length;
   }, [schedules]);
 
