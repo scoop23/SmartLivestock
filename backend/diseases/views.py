@@ -12,7 +12,7 @@ from rest_framework.exceptions import PermissionDenied
 from smartlivestock.workflows import require_action, validate_review_transition
 
 from users.models import User, Notification
-from users.notification_views import create_notification, health_notification_recipients, notify_review_revision
+from users.notification_views import create_notification, health_notification_recipients, notify_review_revision, notify_role
 from .models import DiseaseCase, MortalityRecord
 from .serializer import DiseaseCaseSerializer, MortalityRecordSerializer
 from livestock.reconciliation import reconcile_approved_mortality
@@ -93,6 +93,19 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         message=f"Official municipal veterinary certification approved for {animal_desc}.{f' Directives: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
+                farmer = (record.livestock or record.batch).farmer
+                notify_role(
+                    "SIBAT",
+                    notification_type=Notification.NotificationType.GENERAL,
+                    priority=Notification.Priority.MEDIUM,
+                    title=f"Disease Report DIS-{record.id} Approved by MAO",
+                    message=f"MAO approved the disease report for {animal_desc}.{f' Remarks: {remarks}' if remarks else ''}",
+                    link=f"/sibat-alerts?recordType=DISEASE&recordId={record.pk}",
+                    barangay_id=farmer.barangay_id,
+                    include_cbat=True,
+                    related_entity_type="disease_case",
+                    related_entity_id=record.pk,
+                )
             elif new_status == DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION:
                 for farmer_user in target_farmers:
                     create_notification(
@@ -221,6 +234,19 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         message=f"Official municipal mortality certification issued for {animal_desc}. Herd census updated.{f' Directives: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
+                farmer = (record.livestock or record.batch).farmer
+                notify_role(
+                    "SIBAT",
+                    notification_type=Notification.NotificationType.GENERAL,
+                    priority=Notification.Priority.MEDIUM,
+                    title=f"Mortality Report MOR-{record.id} Approved by MAO",
+                    message=f"MAO approved the mortality report for {animal_desc}.{f' Remarks: {remarks}' if remarks else ''}",
+                    link=f"/sibat-alerts?recordType=MORTALITY&recordId={record.pk}",
+                    barangay_id=farmer.barangay_id,
+                    include_cbat=True,
+                    related_entity_type="mortality_record",
+                    related_entity_id=record.pk,
+                )
             elif new_status == MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION:
                 for farmer_user in target_farmers:
                     create_notification(
