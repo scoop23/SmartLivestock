@@ -103,6 +103,7 @@ function SibatAlertsContent() {
   const reviewMutation = useReviewClinicalHealth();
 
   const [selectedRecord, setSelectedRecord] = useState<SibatValidationRecord | null>(null);
+  const [focusedRecordId, setFocusedRecordId] = useState<string | null>(null);
   const [dismissedNotificationKey, setDismissedNotificationKey] = useState<string | null>(null);
 
   const recordTypeParam = searchParams.get("recordType");
@@ -132,6 +133,12 @@ function SibatAlertsContent() {
       : null;
 
   const activeRecord = selectedRecord ?? notificationRecord;
+  const highlightedRecordId = selectedRecord?.id ?? notificationRecord?.id ?? focusedRecordId;
+
+  useEffect(() => {
+    if (!notificationRecord) return;
+    startTransition(() => setFocusedRecordId(notificationRecord.id));
+  }, [notificationRecord?.id]);
 
   const clearRecordLink = () => {
     const url = new URL(window.location.href);
@@ -141,6 +148,7 @@ function SibatAlertsContent() {
   };
 
   const handleOpenInspection = (record: SibatValidationRecord) => {
+    setFocusedRecordId(record.id);
     setSelectedRecord(record);
   };
 
@@ -225,6 +233,17 @@ function SibatAlertsContent() {
     user?.accessScope === "ALL_BARANGAYS"
       ? "All Barangays"
       : user?.assignedBarangayName || "your assigned barangays";
+
+  useEffect(() => {
+    if (!highlightedRecordId) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`sibat-alert-record-${highlightedRecordId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [highlightedRecordId, notificationKey, filtered]);
 
   return (
     <div className="min-h-screen bg-slate-50/70 pb-16">
@@ -393,7 +412,8 @@ function SibatAlertsContent() {
               return (
                 <Card
                   key={d.id}
-                  className="rounded-2xl border border-slate-200/90 bg-white hover:border-[#1A365D]/40 shadow-2xs hover:shadow-xs transition-all duration-200 overflow-hidden"
+                  id={`sibat-alert-record-${d.id}`}
+                  className={`rounded-2xl border shadow-2xs hover:shadow-xs transition-all duration-200 overflow-hidden ${d.id === highlightedRecordId ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200/90 bg-white hover:border-[#1A365D]/40"}`}
                 >
                   <CardContent className="p-4 sm:p-5">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
