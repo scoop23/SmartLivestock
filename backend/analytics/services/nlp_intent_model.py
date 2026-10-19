@@ -28,6 +28,7 @@ ALLOWED_INTENTS = {
     "disease_by_barangay",
     "mortality_comparison",
     "pending_reviews",
+    "farmer_livestock_count",
     "unsupported",
     "clarification",
 }

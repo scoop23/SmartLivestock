@@ -7,6 +7,7 @@ from analytics.services.nlp_evaluation import (
     BARANGAYS, SPECIES, EVALUATION_DATE, EVALUATION_PATH,
     classification_metrics, compare_pipelines, select_rejection_threshold,
 )
+from analytics.services.nlp_intent_model import TRAINING_DATA_PATH
 
 CONTEXT = {"today": EVALUATION_DATE, "barangays": BARANGAYS, "species_names": SPECIES}
 
@@ -28,7 +29,7 @@ class NLPPipelineTests(SimpleTestCase):
                 self.assertEqual(diagnostics["executable"], result["status"] == "parsed")
 
     def test_high_model_score_never_overrides_deterministic_safety(self):
-        for question in ("How many cattle does Farmer A own?", "Show swine milk output",
+        for question in ("Show Farmer A's livestock inventory.", "Show swine milk output",
                          "How many cattle and goats are registered?", "Show milk output yesterday"):
             with self.subTest(question=question):
                 result = interpret_question(question, **CONTEXT,
@@ -71,10 +72,11 @@ class NLPPipelineTests(SimpleTestCase):
 
     def test_comparison_has_separate_fit_validation_and_test_and_no_live_ml(self):
         report = compare_pipelines()
-        self.assertEqual(report["training"]["fit"], 64)
-        self.assertEqual(report["training"]["validation"], 16)
-        self.assertEqual(report["training"]["test"], 40)
+        training_total = len(json.loads(TRAINING_DATA_PATH.read_text(encoding="utf-8")))
+        evaluation_total = len(json.loads(EVALUATION_PATH.read_text(encoding="utf-8")))
+        self.assertEqual(report["training"]["fit"] + report["training"]["validation"], training_total)
+        self.assertEqual(report["training"]["test"], evaluation_total)
         self.assertFalse(report["ml_routing_enabled"])
         self.assertEqual(report["hybrid"]["outcome_accuracy"], report["baseline"]["outcome_accuracy"])
         self.assertIsNone(report["ml"]["parameter_accuracy"])
-        self.assertEqual(sum(sum(row) for row in report["ml"]["confusion_matrix"]["rows"]), 40)
+        self.assertEqual(sum(sum(row) for row in report["ml"]["confusion_matrix"]["rows"]), evaluation_total)

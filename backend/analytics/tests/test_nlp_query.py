@@ -30,7 +30,7 @@ class AskSmartLivestockParserTests(TestCase):
     def test_evaluation_examples_match_expected_intent_and_parameters(self):
         examples = json.loads(EVALUATION_PATH.read_text(encoding="utf-8"))
         self.assertGreaterEqual(len(examples), 30)
-        self.assertLessEqual(len(examples), 40)
+        self.assertLessEqual(len(examples), 60)
         exact_status = 0
         exact_intent = 0
         expected_parameter_count = 0
@@ -130,7 +130,58 @@ class AskSmartLivestockParserTests(TestCase):
         self.assertEqual(result["parameters"]["species"], "Cattle")
         result = parse_question("How many cattle does Alice have?", today=TODAY,
                                 barangays=self.barangays, species_names=self.species)
-        self.assertEqual(result["status"], "unsupported")
+        self.assertEqual(result["intent"], "farmer_livestock_count")
+        self.assertEqual(result["parameters"]["farmer_query"], "alice")
+
+    def test_farmer_count_parser_handles_tagalog_taglish_and_safe_clarifications(self):
+        questions = [
+            "How many cattle does Farmer A have?",
+            "Count Farmer A's cattle.",
+            "How many registered cows belong to Juan Dela Cruz?",
+            "Ilan ang baka ni Farmer A?",
+            "Ilang cattle ang registered kay Farmer A?",
+            "Bilangin ang mga kambing ni magsasakang Jose Reyes!",
+            "HOW MANY APPROVED CATTLE DOES FARMER A HAVE?!",
+        ]
+        for question in questions:
+            with self.subTest(question=question):
+                result = parse_question(question, today=TODAY,
+                                        barangays=self.barangays, species_names=self.species)
+                self.assertEqual(result["status"], "parsed", result)
+                self.assertEqual(result["intent"], "farmer_livestock_count")
+
+        self.assertEqual(parse_question(
+            "How many cattle does a farmer have?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "clarification")
+        self.assertEqual(parse_question(
+            "How many does Farmer Juan Dela Cruz have?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "clarification")
+        self.assertEqual(parse_question(
+            "How many llamas does Farmer Juan Dela Cruz have?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "clarification")
+        self.assertEqual(parse_question(
+            "How many cattle and goats does Farmer Juan Dela Cruz have?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "clarification")
+        self.assertEqual(parse_question(
+            "How many cattle and llamas does Farmer Juan Dela Cruz have?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "clarification")
+        self.assertEqual(parse_question(
+            "How many rejected cattle does Farmer Juan Dela Cruz have?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "clarification")
+        self.assertEqual(parse_question(
+            "How many cattle does Farmer Juan Dela Cruz have for sale?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "unsupported")
+        self.assertEqual(parse_question(
+            "Show Farmer Juan Dela Cruz's livestock inventory.", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )["status"], "unsupported")
 
 
 class AskSmartLivestockQueryTests(TestCase):
@@ -140,6 +191,10 @@ class AskSmartLivestockQueryTests(TestCase):
         self.sibat = self.make_user("sibat", "SIBAT")
         self.farmer_user = self.make_user("farmer_one", "FARMER")
         self.other_farmer_user = self.make_user("farmer_two", "FARMER")
+        self.farmer_user.first_name, self.farmer_user.last_name = "Juan", "Dela Cruz"
+        self.farmer_user.save(update_fields=["first_name", "last_name"])
+        self.other_farmer_user.first_name, self.other_farmer_user.last_name = "Maria", "Santos"
+        self.other_farmer_user.save(update_fields=["first_name", "last_name"])
         self.san_roque = Barangay.objects.create(
             barangay_name="San Roque", latitude=Decimal("13.880000"), longitude=Decimal("121.210000"),
         )
@@ -318,14 +373,80 @@ class AskSmartLivestockQueryTests(TestCase):
             {"livestock_type": "Goat", "current_heads": 2},
         ])
 
-    def test_individual_owner_queries_do_not_fall_back_to_municipal_inventory(self):
-        for user in (self.mao, self.sibat):
-            result = self.ask(user, "How many cattle does Farmer A own?")
-            self.assertEqual(result["status"], "unsupported")
-            self.assertEqual(result["results"], [])
-            self.assertIn("capability limitation", result["answer"])
+    def test_farmer_count_never_falls_back_to_municipal_inventory(self):
+        result = self.ask(self.mao, "How many cattle does Farmer A own?")
+        self.assertEqual(result["status"], "not_found")
+        self.assertEqual(result["results"], [])
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.sibat, "How many cattle does Farmer A own?")
         with self.assertRaises(PermissionDenied):
             self.ask(self.farmer_user, "How many cattle are mine?")
+
+    def test_farmer_count_defaults_to_current_approved_individual_inventory(self):
+        self.make_individual_heads(self.farmer, self.cattle, 3)
+        sold = self.make_individual_heads(self.farmer, self.cattle, 1)[0]
+        sold.operational_status = LivestockInventory.OperationalStatus.SOLD
+        sold.save(update_fields=["operational_status"])
+        # A registered buyer is counted from their own approved current record;
+        # the seller's sold row stays in historical ownership.
+        self.make_individual_heads(self.other_farmer, self.cattle, 1)
+
+        result = self.ask(self.mao, "How many cattle does Farmer Juan Dela Cruz have?")
+        self.assertEqual(result["status"], "answered")
+        self.assertEqual(result["intent"], "farmer_livestock_count")
+        self.assertEqual(result["results"], [{
+            "farmer": "Juan Dela Cruz", "livestock_type": "Cattle", "count": 3,
+            "approval_status": "APPROVED",
+        }])
+        self.assertIn("current inventory", result["answer"])
+        self.assertNotIn("farmer_id", result["results"][0])
+
+    def test_farmer_count_can_explicitly_count_pending_registration_records(self):
+        self.make_individual_heads(self.farmer, self.cattle, 3)
+        self.make_individual_heads(self.farmer, self.cattle, 2, status="PENDING")
+        result = self.ask(self.mao, "How many pending cattle does Farmer Juan Dela Cruz have?")
+        self.assertEqual(result["results"][0]["count"], 2)
+        self.assertEqual(result["results"][0]["approval_status"], "PENDING")
+        self.assertIn("not approved current inventory", result["answer"])
+
+        self.make_individual_heads(self.farmer, self.cattle, 1, status="VERIFIED")
+        self.make_individual_heads(self.farmer, self.cattle, 1, status="SUBJECT_TO_REVISION")
+        for status, wording in (("VERIFIED", "verified"), ("SUBJECT_TO_REVISION", "subject to revision")):
+            with self.subTest(status=status):
+                status_phrase = "cattle subject to revision" if status == "SUBJECT_TO_REVISION" else f"{wording} cattle"
+                result = self.ask(self.mao, f"How many {status_phrase} does Farmer Juan Dela Cruz have?")
+                self.assertEqual(result["results"][0]["count"], 1)
+                self.assertEqual(result["results"][0]["approval_status"], status)
+
+    def test_farmer_resolution_is_exact_and_never_guesses_ambiguous_names(self):
+        unknown = self.ask(self.mao, "How many cattle does Farmer Not Registered have?")
+        self.assertEqual(unknown["status"], "not_found")
+
+        duplicate = self.make_user("farmer_duplicate", "FARMER")
+        duplicate.first_name, duplicate.last_name = "Juan", "Dela Cruz"
+        duplicate.save(update_fields=["first_name", "last_name"])
+        Farmer.objects.create(user=duplicate, barangay=self.san_roque, address="Test")
+        ambiguous = self.ask(self.mao, "How many cattle does Farmer Juan Dela Cruz have?")
+        self.assertEqual(ambiguous["status"], "ambiguous")
+        self.assertEqual(ambiguous["results"], [])
+
+    def test_farmer_count_is_denied_to_sibat_and_allowed_for_admin(self):
+        question = "How many cattle does Farmer Juan Dela Cruz have?"
+        self.make_individual_heads(self.farmer, self.cattle, 2)
+        self.client.force_authenticate(self.mao)
+        mao_response = self.client.post(reverse("nlp-query"), {"question": question}, format="json")
+        self.assertEqual(mao_response.status_code, 200)
+        self.assertEqual(mao_response.data["results"][0]["count"], 2)
+
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.sibat, question)
+        self.client.force_authenticate(self.sibat)
+        self.assertEqual(self.client.post(reverse("nlp-query"), {"question": question}, format="json").status_code, 403)
+        admin = self.make_user("admin_farmer_count", "ADMIN")
+        self.client.force_authenticate(admin)
+        response = self.client.post(reverse("nlp-query"), {"question": question}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["intent"], "farmer_livestock_count")
 
     def test_sibat_production_and_health_scopes_and_missing_assignment(self):
         self.make_production(self.other_cattle_record, self.other_farmer, "MILK", "LITERS",
@@ -358,8 +479,9 @@ class AskSmartLivestockQueryTests(TestCase):
             self.client.force_authenticate(user)
             result = self.client.get(url)
             self.assertEqual(result.status_code, 200)
-            self.assertEqual(result.data["total"], 40)
-            self.assertEqual(result.data["passed"], 40)
+            expected_total = len(json.loads(EVALUATION_PATH.read_text(encoding="utf-8")))
+            self.assertEqual(result.data["total"], expected_total)
+            self.assertEqual(result.data["passed"], expected_total)
             self.assertEqual(self.client.post(url, {}).status_code, 405)
         self.assertEqual(self.client.get(url, {"compare": "invalid"}).status_code, 400)
         self.client.force_authenticate(None)

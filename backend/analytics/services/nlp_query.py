@@ -11,12 +11,12 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from diseases.models import DiseaseCase, MortalityRecord
-from livestock.models import Barangay, LivestockType
+from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
 from production.models import ProductionRecord
 from production.serializer import allowed_production_types
 from smartlivestock.workflows import role_name, scope_reviewer_queryset
 
-from .population import population_summary
+from .population import official_inventory, population_summary
 from .review_workload import review_workload_summary
 
 
@@ -25,6 +25,7 @@ MAX_EXPLICIT_PERIOD_DAYS = 366 * 5
 SUPPORTED_INTENTS = frozenset({
     "population_summary", "production_trend", "production_breakdown",
     "disease_by_barangay", "mortality_comparison", "pending_reviews",
+    "farmer_livestock_count",
 })
 
 PRODUCTION_ALIASES = {
@@ -283,6 +284,143 @@ def _unknown_species_reference(text, species_names):
     return None
 
 
+def _has_farmer_count_request(text):
+    """Recognize only per-farmer count wording, not inventory/comparison asks."""
+    count_request = any(_contains(text, phrase) for phrase in (
+        "how many", "count", "number of", "total", "ilan", "ilang", "bilangin",
+    ))
+    if not count_request or _contains(text, "registered farmers"):
+        return False
+    return (
+        any(_contains(text, phrase) for phrase in (
+            "farmer", "farmers", "raiser", "raisers", "magsasaka", "my", "mine", "akin",
+        ))
+        or bool(re.search(r"\bmagsasakang\b", text))
+        or bool(re.search(r"\b(?:does|do)\s+.+\s+(?:have|own|owns)\b", text))
+        or bool(re.search(r"\bbelongs?\s+to\b|\bowned\s+by\b|\b(?:ni|kay)\s+", text))
+    )
+
+
+def _trim_farmer_reference(value, species_names):
+    """Stop a captured name at known question words or livestock names."""
+    stop_words = {
+        "s", "have", "has", "own", "owns", "belong", "belongs",
+        "registered", "currently", "current", "active", "approved", "pending", "verified",
+        "rejected", "inventory", "livestock", "count", "head", "heads", "number",
+        "is", "are", "was", "were", "ni", "kay", "of", "for", "to", "please",
+        "today", "this", "last", "month", "quarter", "year", "show", "tell", "me",
+    }
+    stop_words.update(alias for aliases in SPECIES_ALIASES.values() for alias in aliases)
+    stop_words.update(
+        token for name in species_names for token in normalize_question(name).split()
+    )
+    words = value.split()
+    end = next((index for index, word in enumerate(words) if word in stop_words), len(words))
+    return " ".join(words[:end]).strip()
+
+
+def _extract_farmer_reference(text, species_names):
+    """Extract a name-shaped phrase from a small set of supported templates."""
+    marker = re.search(r"\b(farmer|raiser|magsasaka(?:ng)?)\b", text)
+    if marker:
+        name = _trim_farmer_reference(text[marker.end():].strip(), species_names)
+        return f"{marker.group(1)} {name}".strip() if name else None
+
+    patterns = (
+        r"\b(?:does|do)\s+(.+?)\s+(?:have|own|owns)\b",
+        r"\bbelongs?\s+to\s+(.+)$",
+        r"\bowned\s+by\s+(.+)$",
+        r"\b(?:ni|kay|of)\s+(.+)$",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            name = _trim_farmer_reference(match.group(1).strip(), species_names)
+            if name:
+                return name
+
+    # The normalizer separates possessive apostrophes, so support both common
+    # English forms while retaining exact-name resolution downstream.
+    possessive = re.search(r"\bcount\s+(.+?)\s+s\s+(?:cattle|cows?|baka|carabao|kalabaw|goats?|kambing|sheep|tupa|swine|pigs?|baboy|poultry|chickens?|manok|ducks?|itik)\b", text)
+    if possessive:
+        return _trim_farmer_reference(possessive.group(1).strip(), species_names)
+    return None
+
+
+def _parse_farmer_livestock_count(text, *, today, species_names):
+    """Parse the first supported farmer-specific count without guessing entities."""
+    farmer_query = _extract_farmer_reference(text, species_names)
+    if not farmer_query:
+        return {"status": "clarification", "message": "Which farmer should I look up? Include the farmer's exact registered name."}
+
+    if any(_contains(text, phrase) for phrase in (
+        "production", "milk", "dairy", "gatas", "eggs", "itlog", "meat", "karne",
+        "wool", "disease", "sickness", "mortality", "death", "died", "namatay",
+        "sales", "sale", "sold", "revenue", "profit", "slaughter", "compare",
+        "most", "forecast", "predict", "rate", "percentage",
+    )):
+        return {"status": "unsupported", "message": "This farmer-specific query currently answers livestock counts only. Ask one count question without production, health, sales, comparison, or forecast filters."}
+
+    species, species_error = _resolve_species(text, species_names)
+    if species_error:
+        return {"status": "clarification", "message": species_error}
+    if len(species) > 1:
+        return {"status": "clarification", "message": "Please ask about one livestock type at a time."}
+    count_phrase = re.search(r"\b(?:how many|ilan|ilang)\s+(.+?)\s+(?:does|do|belong|belongs|ni|kay)\b", text)
+    if count_phrase:
+        known_tokens = {token for aliases in SPECIES_ALIASES.values() for alias in aliases for token in alias.split()}
+        known_tokens.update(token for name in species_names for token in normalize_question(name).split())
+        ordinary = {
+            "registered", "current", "currently", "active", "approved", "pending", "verified",
+            "subject", "to", "revision", "the", "a", "an", "mga", "na", "ang", "livestock", "animal", "animals", "head", "heads",
+            "and", "of", "per", "total", "number", "how", "many", "ilan", "ilang",
+        }
+        unknown_in_count_phrase = next((word for word in count_phrase.group(1).split()
+                                        if word not in known_tokens and word not in ordinary), None)
+        if unknown_in_count_phrase:
+            return {"status": "clarification", "message": "I could not match that livestock type to one currently registered in SmartLivestock."}
+
+    if not species:
+        unknown_species = _unknown_species_reference(text, species_names)
+        if unknown_species:
+            return {"status": "clarification", "message": "I could not match that livestock type to one currently registered in SmartLivestock."}
+        return {"status": "clarification", "message": "Which one livestock type should I count for that farmer?"}
+
+    if _contains(text, "rejected"):
+        return {"status": "clarification", "message": "Livestock registrations do not use a REJECTED status in this system. Ask for approved, pending, verified, or subject-to-revision records."}
+    status_aliases = {
+        "APPROVED": ("approved",),
+        "PENDING": ("pending",),
+        "VERIFIED": ("verified",),
+        "SUBJECT_TO_REVISION": ("subject to revision", "revision"),
+    }
+    statuses = [status for status, aliases in status_aliases.items()
+                if any(_contains(text, alias) for alias in aliases)]
+    if len(statuses) > 1:
+        return {"status": "clarification", "message": "Please ask about one registration status at a time."}
+
+    period, period_error = _parse_period(text, today, "population_summary")
+    if period_error:
+        return {"status": "clarification", "message": period_error}
+    if period:
+        return {"status": "clarification", "message": "Farmer livestock counts are a current snapshot; historical livestock counts are not available through this query."}
+
+    return {
+        "status": "parsed",
+        "intent": "farmer_livestock_count",
+        "parameters": {
+            "period": None,
+            "barangay_id": None,
+            "barangay": None,
+            "farmer_query": farmer_query,
+            "species": species[0],
+            "approval_status": statuses[0] if statuses else None,
+            "production_type": None,
+            "group_by": None,
+        },
+    }
+
+
 def parse_question(question, *, today=None, barangays=(), species_names=()):
     """Parse questions with explicit rules; never return ORM fields or SQL."""
     normalized = normalize_question(question)
@@ -292,8 +430,12 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         return {"status": "clarification", "message": f"Keep the question to {MAX_QUESTION_LENGTH} characters or fewer."}
 
     today = today or timezone.localdate()
-    # Named-owner and animal filters are not implemented. Reject the filter,
-    # rather than answering a different question with municipal totals.
+    if _has_farmer_count_request(normalized):
+        return _parse_farmer_livestock_count(
+            normalized, today=today, species_names=species_names,
+        )
+    # Other named-owner and animal filters remain unsupported. Never answer a
+    # different question with municipal totals.
     if any(_contains(normalized, word) for word in ("farmer", "farmers", "raiser", "raisers", "magsasaka", "my", "mine", "akin", "own", "owns", "owner", "owned", "tag", "animal id", "farmer id")) or re.search(r"\bdoes\s+.+\s+have\b|\blivestock\s+\d+\b", normalized):
         return {"status": "unsupported", "message": "The assistant does not yet implement farmer-count, individual-owner, or animal-ID filters. This is a query capability limitation, not a decision about your permissions. Use the authorized farmer directory or inventory instead."}
     queue_request = _contains(normalized, "mao") and any(_contains(normalized, word) for word in ("waiting", "pending", "approval", "review"))
@@ -498,6 +640,8 @@ def _result_response(*, question, parsed, answer, results, visualization, covera
                 "barangay": parameters["barangay"],
                 "livestock_type": parameters["species"],
                 "production_type": parameters["production_type"],
+                "farmer": parameters.get("farmer_name"),
+                "approval_status": parameters.get("approval_status"),
             },
         },
         "period": _period_meta(parameters) if parameters["period"] else None,
@@ -654,6 +798,122 @@ def _mortality_results(parameters, user):
     ]
 
 
+def _resolve_farmer_reference(farmer_query):
+    """Resolve an exact registered name or username; never choose a partial match."""
+    normalized = normalize_question(farmer_query)
+    variants = {normalized}
+    for prefix in ("farmer ", "raiser ", "magsasaka ", "magsasakang "):
+        if normalized.startswith(prefix):
+            variants.add(normalized[len(prefix):].strip())
+
+    candidates = []
+    farmers = Farmer.objects.filter(
+        user__role__role_name="FARMER",
+        user__account_status="APPROVED",
+        user__is_active=True,
+    ).select_related("user").only(
+        "id", "user_id", "user__first_name", "user__last_name", "user__username",
+    )
+    for farmer in farmers:
+        user = farmer.user
+        full_name = normalize_question(user.get_full_name())
+        username = normalize_question(user.username)
+        if full_name in variants or username in variants:
+            candidates.append(farmer)
+
+    if len(candidates) == 1:
+        farmer = candidates[0]
+        return farmer, (farmer.user.get_full_name() or farmer.user.username), None
+    if len(candidates) > 1:
+        return None, None, "ambiguous"
+    return None, None, "not_found"
+
+
+def _farmer_livestock_count(question, parameters):
+    """Count an exact farmer's current individual inventory using official rules."""
+    farmer, farmer_name, resolution = _resolve_farmer_reference(parameters["farmer_query"])
+    if resolution == "ambiguous":
+        return {
+            "status": "ambiguous", "question": question,
+            "answer": "More than one registered farmer has that exact name. Add the farmer's middle name or exact username; I will not choose a match.",
+            "results": [],
+        }
+    if resolution == "not_found":
+        return {
+            "status": "not_found", "question": question,
+            "answer": "I could not find an active, approved Farmer account with that exact registered name or username. Check the spelling and try again.",
+            "results": [],
+        }
+
+    livestock_type = LivestockType.objects.filter(name__iexact=parameters["species"]).first()
+    if livestock_type is None:
+        return {
+            "status": "clarification", "question": question,
+            "answer": "I could not match that livestock type to one currently registered in SmartLivestock.",
+            "results": [],
+        }
+
+    approval_status = parameters.get("approval_status") or LivestockInventory.StatusType.APPROVED
+    if approval_status == LivestockInventory.StatusType.APPROVED:
+        inventory = official_inventory()
+        scope_label = "approved active current inventory"
+    else:
+        inventory = LivestockInventory.objects.filter(
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            status=approval_status,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            quantity__gt=0,
+        )
+        scope_label = f"{approval_status.lower().replace('_', ' ')} individual registration records"
+
+    count = inventory.filter(
+        farmer_id=farmer.pk,
+        livestock_type_id=livestock_type.pk,
+    ).aggregate(total=Count("pk", distinct=True))["total"] or 0
+    parameters.update({
+        "farmer_id": farmer.pk,
+        "farmer_name": farmer_name,
+        "species": livestock_type.name,
+        "approval_status": approval_status,
+        "period": None,
+        "barangay_id": None,
+        "barangay": None,
+        "production_type": None,
+        "group_by": None,
+    })
+    parsed = {"intent": "farmer_livestock_count", "parameters": parameters}
+    if approval_status == LivestockInventory.StatusType.APPROVED:
+        answer = f"{farmer_name} has {count:,} approved active {livestock_type.name} animal(s) in current inventory."
+        note = (
+            "Counts approved, active individual animal records linked to the farmer's current account. "
+            "Herd containers and legacy aggregate rows are excluded. A transferred animal remains with its seller as SOLD; "
+            "a registered buyer is counted after their separate inventory record is approved."
+        )
+    else:
+        answer = f"Found {count:,} {scope_label} for {livestock_type.name} linked to {farmer_name}. These records are not approved current inventory."
+        note = "Counts individual registration records in the explicitly requested status; herd containers and legacy aggregate rows are excluded."
+
+    columns = [
+        {"key": "farmer", "label": "Farmer"},
+        {"key": "livestock_type", "label": "Livestock type"},
+        {"key": "count", "label": "Count"},
+        {"key": "approval_status", "label": "Record status"},
+    ]
+    return _result_response(
+        question=question,
+        parsed=parsed,
+        answer=answer,
+        results=[{
+            "farmer": farmer_name,
+            "livestock_type": livestock_type.name,
+            "count": count,
+            "approval_status": approval_status,
+        }],
+        visualization={"type": "table", "x_key": "livestock_type", "y_key": "count", "columns": columns},
+        coverage_note=note,
+    )
+
+
 def execute_question(question, *, user, today=None):
     """Parse one question, then execute only fixed, permission-scoped analytics."""
     # Defense in depth: the service is also safe when called without its view.
@@ -677,6 +937,10 @@ def execute_question(question, *, user, today=None):
     parameters = parsed["parameters"]
     intent = parsed["intent"]
     parameters["intent"] = intent
+    if intent == "farmer_livestock_count":
+        if role_name(user) not in ("MAO", "ADMIN"):
+            raise PermissionDenied("Only MAO and Admin users can query livestock counts for individual farmers.")
+        return _farmer_livestock_count(question, parameters)
     if intent == "pending_reviews":
         if role_name(user) not in ("MAO", "ADMIN"):
             raise PermissionDenied("Your role cannot access MAO review-queue counts.")

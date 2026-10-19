@@ -1,6 +1,6 @@
 # Ask SmartLivestock parser evaluation set
 
-`ask_smartlivestock_eval.json` contains 40 natural-language prompts with expected parser handling. It is a test fixture only; it contains no production or farmer records and is never loaded by the application.
+`ask_smartlivestock_eval.json` contains 51 natural-language prompts with expected parser handling. It is a test fixture only; it contains no production or farmer records and is never loaded by the application. Added farmer names are fictional parser examples; database tests use separately created test accounts.
 
 Run the focused evaluation and API tests from `backend/`:
 

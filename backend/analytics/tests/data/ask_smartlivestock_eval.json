@@ -240,11 +240,11 @@
   },
   {
     "question": "How many livestock does Farmer A own?",
-    "status": "unsupported"
+    "status": "clarification"
   },
   {
     "question": "Ilang livestock ang akin?",
-    "status": "unsupported"
+    "status": "clarification"
   },
   {
     "question": "Show milk output for animal id 123",
@@ -265,5 +265,97 @@
   {
     "question": "How many cattle and goats are registered?",
     "status": "clarification"
+  },
+  {
+    "question": "How many cattle does Farmer Juan Dela Cruz have?",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "farmer juan dela cruz",
+      "species": "Cattle",
+      "approval_status": null
+    }
+  },
+  {
+    "question": "Count Farmer Maria Santos's cattle.",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "farmer maria santos",
+      "species": "Cattle",
+      "approval_status": null
+    }
+  },
+  {
+    "question": "How many registered cows belong to Juan Dela Cruz?",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "juan dela cruz",
+      "species": "Cattle",
+      "approval_status": null
+    }
+  },
+  {
+    "question": "Ilan ang baka ni Farmer Juan Dela Cruz?",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "farmer juan dela cruz",
+      "species": "Cattle",
+      "approval_status": null
+    }
+  },
+  {
+    "question": "Ilang baka ang meron si Farmer Maria Santos?",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "farmer maria santos",
+      "species": "Cattle",
+      "approval_status": null
+    }
+  },
+  {
+    "question": "Ilang cattle ang registered kay Farmer Pedro Lim?",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "farmer pedro lim",
+      "species": "Cattle",
+      "approval_status": null
+    }
+  },
+  {
+    "question": "Pa-check ng total cattle ni Farmer Ana Cruz.",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "farmer ana cruz",
+      "species": "Cattle",
+      "approval_status": null
+    }
+  },
+  {
+    "question": "HOW MANY APPROVED CATTLE DOES FARMER MARIA SANTOS HAVE?!",
+    "status": "parsed",
+    "intent": "farmer_livestock_count",
+    "parameters": {
+      "farmer_query": "farmer maria santos",
+      "species": "Cattle",
+      "approval_status": "APPROVED"
+    }
+  },
+  {
+    "question": "How many cattle does a farmer have?",
+    "status": "clarification"
+  },
+  {
+    "question": "How many llamas does Farmer Juan Dela Cruz have?",
+    "status": "clarification"
+  },
+  {
+    "question": "Show Farmer Juan Dela Cruz's livestock inventory.",
+    "status": "unsupported"
   }
 ]

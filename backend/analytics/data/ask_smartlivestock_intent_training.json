@@ -318,5 +318,37 @@
   {
     "question": "Give me production numbers without choosing a production output",
     "intent": "clarification"
+  },
+  {
+    "question": "Count approved cattle owned by Farmer Juan Dela Cruz",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "How many registered cows belong to Maria Santos?",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "How many approved goats are registered under Jose Reyes?",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "Bilangin ang mga kambing ni magsasakang Jose Reyes",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "Ilang cattle ang registered kay Farmer Maria Santos?",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "Ilang aprubadong kambing ang kay Jose Reyes?",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "Show mo yung livestock count ni Farmer Pedro Lim",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "How many pending swine registrations does Farmer Rosa Mendoza have?",
+    "intent": "farmer_livestock_count"
   }
 ]

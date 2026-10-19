@@ -107,11 +107,11 @@ def select_rejection_threshold(expected, predictions):
 
 @lru_cache(maxsize=1)
 def compare_pipelines():
-    """Compare rules, raw ML and rules-first shadow mode on the SAME 40 cases.
+    """Compare rules, raw ML and rules-first shadow on the checked-in cases.
 
-    Split the separate 80-label development corpus into 64 fit / 16 validation
-    examples. The model and validation-derived cutoff are frozen before the
-    40-question regression test is examined. There is no database access here.
+    Split the separate development corpus into fit / validation examples. The
+    model and validation-derived cutoff are frozen before the separate parser
+    regression corpus is examined. There is no database access here.
     """
     from sklearn.model_selection import train_test_split
     from .nlp_intent_model import TRAINING_DATA_PATH, _make_pipeline
@@ -155,4 +155,4 @@ def compare_pipelines():
                              [row["intent"] for row in validation_predictions])},
             "production_strategy": "rules_first", "ml_routing_enabled": False,
             "decision": "Retain rules. Shadow ML provides no validated new executable requests; this small experiment does not justify live fallback.",
-            "limitations": "The 40-case corpus is a developer-maintained regression set, not a blind field study. Only two validation questions per label; probabilities are uncalibrated. End-to-end values and scope are tested separately."}
+            "limitations": "The regression corpus is developer-maintained, not a blind field study. The stratified validation set is small and probabilities are uncalibrated. End-to-end values and scope are tested separately."}
