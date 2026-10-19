@@ -878,7 +878,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
               onClick={() => setHelpDialogOpen(false)}
               className="w-full py-5 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black rounded-2xl text-xs uppercase tracking-wider"
             >
-              Close Help Center
+              Close
             </Button>
           </div>
         </DialogContent>

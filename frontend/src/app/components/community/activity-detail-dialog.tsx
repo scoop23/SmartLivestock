@@ -166,7 +166,7 @@ export function ActivityDetailDialog({
                   onClick={() => onOpenChange(false)}
                   className="h-10 w-full sm:w-auto rounded-xl px-5 text-sm font-bold text-slate-700 hover:bg-slate-100"
                 >
-                  Close Reader
+                  Close
                 </Button>
               </div>
             </div>
