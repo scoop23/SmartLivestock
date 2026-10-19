@@ -12,12 +12,11 @@ import {
 DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { KpiCard } from "@/components/ui/kpi-card";
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/axios";
 import { Activity,AnnouncementAudience,apiError,BarangayOption,getActivities,getBarangays } from "@/lib/community-api";
-import { CheckCircle2,Image as ImageIcon,Megaphone,MoreHorizontal,Pencil,Pin,Plus,Radio,RefreshCw,Search,Send,Trash2,X } from "lucide-react";
+import { CheckCircle2,Image as ImageIcon,Megaphone,MoreHorizontal,Pencil,Pin,PinOff,Plus,RefreshCw,Search,Send,Trash2,X } from "lucide-react";
 import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
 import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
@@ -228,6 +227,21 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
     }
   }
 
+  async function togglePinned(item: Activity) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await api.patch<Activity>(`/community/announcements/${item.id}/`, { is_pinned: !item.is_pinned });
+      setItems((current) => current.map((announcement) => announcement.id === item.id ? response.data : announcement));
+      setNotice(response.data.is_pinned ? "Announcement pinned." : "Announcement unpinned.");
+    } catch (e) {
+      setError(apiError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const term = search.toLowerCase().trim();
   const visible = useMemo(() => items.filter((item) => {
     if (filter === "published" && !item.is_published) return false;
@@ -246,13 +260,10 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
     return new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime();
   }), [items, filter, categoryFilter, term]);
 
-  const totalCount = items.length;
-  const publishedCount = items.filter((item) => item.is_published).length;
-
   return (
     <>
       <PageHeader
-        title="Activities & Announcements"
+        title="Announcements"
         subtitle="Share municipal programs, events, and important updates with farmers and SIBAT."
         icon={<Megaphone className="size-5 text-slate-800" />}
         variant={role}
@@ -289,34 +300,6 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       />
 
       <main className="w-full space-y-4 p-3 sm:p-4 md:p-6">
-        {/* Quick Highlights / KPIs */}
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
-          <KpiCard
-            title="Total Announcements"
-            value={totalCount}
-            icon={<Megaphone className="size-4" />}
-            description="Official announcements & advisories"
-            variant={role === "sibat" ? "sky" : "emerald"}
-            isLoading={loading}
-          />
-          <KpiCard
-            title="Published Live"
-            value={publishedCount}
-            icon={<Radio className="size-4" />}
-            description="Active & visible to community"
-            variant="emerald"
-            isLoading={loading}
-          />
-          <KpiCard
-            title="Pinned Updates"
-            value={items.filter((item) => item.is_pinned).length}
-            icon={<Pin className="size-4" />}
-            description="Announcements highlighted for readers"
-            variant="sky"
-            isLoading={loading}
-          />
-        </div>
-
         {error && !open ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs sm:text-sm font-bold text-red-800">{error}</div> : null}
         {notice ? <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-xs sm:text-sm font-bold text-emerald-800"><CheckCircle2 className="size-4" />{notice}</div> : null}
 
@@ -586,7 +569,11 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                               <MoreHorizontal className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-36">
+                          <DropdownMenuContent align="end" className="w-36" onClick={(event) => event.stopPropagation()}>
+                            <DropdownMenuItem disabled={busy} onSelect={() => void togglePinned(item)} className="text-xs sm:text-sm font-semibold">
+                              {item.is_pinned ? <PinOff className="mr-2 size-3.5" /> : <Pin className="mr-2 size-3.5" />}
+                              {item.is_pinned ? "Unpin" : "Pin"}
+                            </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => startEdit(item)} className="text-xs sm:text-sm font-semibold">
                               <Pencil className="mr-2 size-3.5" /> Edit
                             </DropdownMenuItem>
