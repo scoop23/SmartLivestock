@@ -1482,6 +1482,7 @@ function SibatBatchesVerificationContent() {
         hideIconOnMobile
         showTutorialToggle={false}
         mobileActionsInline
+        showBreadcrumbs={!isDrilldownOpen}
       />
 
       <div className={isDrilldownOpen ? "hidden" : "mx-auto w-full space-y-4 p-3 pb-16 sm:space-y-5 sm:p-4 sm:pb-6 md:p-6"}>
