@@ -40,7 +40,6 @@ import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components
 import api from "@/lib/axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-AlertCircle,
 AlertTriangle,
 ArrowLeft,
 ArrowRight,
@@ -64,10 +63,13 @@ LayoutGrid,
 List,
 MapPin,
 RefreshCw,
+RotateCcw,
 Scale,
 Search,
 ShieldCheck,
-User
+User,
+Maximize2,
+X
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -225,6 +227,331 @@ function HerdPhoto({ batch, compact = false }: { batch: BatchItem; compact?: boo
         </>
       )}
     </div>
+  );
+}
+
+interface GalleryPhoto {
+  url: string;
+  label: string;
+  sublabel?: string;
+}
+
+function HerdProfileGallery({ batch }: { batch: BatchItem }) {
+  const photos = useMemo<GalleryPhoto[]>(() => {
+    const list: GalleryPhoto[] = [];
+    const seen = new Set<string>();
+
+    const addPhoto = (
+      rawUrl: string | undefined | null,
+      label: string,
+      sublabel?: string
+    ) => {
+      if (!rawUrl || typeof rawUrl !== "string") return;
+      let norm = rawUrl.trim();
+      if (!norm) return;
+      try {
+        const parsed = new URL(norm, "http://localhost");
+        norm = parsed.pathname;
+      } catch {
+        // use rawUrl
+      }
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        list.push({ url: rawUrl, label, sublabel });
+      }
+    };
+
+    // Primary herd cover photo uploaded by the farmer
+    if (batch.photo_url) {
+      addPhoto(
+        batch.photo_url,
+        "Cover Photo",
+        `${batch.batch_name} (${batch.batch_code})`
+      );
+    }
+
+    // Additional herd/pen photos uploaded by the farmer
+    if (batch.photos && Array.isArray(batch.photos)) {
+      batch.photos.forEach((url) => {
+        addPhoto(url, `Herd Photo ${list.length + 1}`, batch.batch_name);
+      });
+    }
+
+    return list;
+  }, [batch.photos, batch.photo_url, batch.batch_name, batch.batch_code]);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  const currentIndex = photos.length > 0 ? ((activeIndex % photos.length) + photos.length) % photos.length : 0;
+  const currentPhoto = photos[currentIndex];
+
+  const handlePrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setActiveIndex((prev) => (prev === 0 ? photos.length - 1 : prev - 1));
+  };
+
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setActiveIndex((prev) => (prev + 1) % photos.length);
+  };
+
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsLightboxOpen(false);
+      } else if (e.key === "ArrowLeft") {
+        setActiveIndex((prev) => (prev === 0 ? photos.length - 1 : prev - 1));
+      } else if (e.key === "ArrowRight") {
+        setActiveIndex((prev) => (prev + 1) % photos.length);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLightboxOpen, photos.length]);
+
+  const avatar = getDefaultAvatarForSpecies(batch.livestock_type_name);
+
+  if (photos.length === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs flex flex-col items-center justify-center text-center min-h-[260px] h-full">
+        <div className="size-16 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl mb-3 shadow-inner">
+          {avatar.emoji}
+        </div>
+        <h3 className="text-sm font-bold text-slate-800">No Herd Photos Uploaded</h3>
+        <p className="text-xs text-slate-500 max-w-xs mt-1">
+          The farmer has not uploaded photos for this herd or housing pen yet.
+        </p>
+        <span className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
+          <Camera className="size-3 text-slate-400" /> 0 herd photos
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs flex flex-col">
+        {/* Gallery Header Bar */}
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50/60">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="size-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <Camera className="size-4" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">Herd Photo Gallery</h3>
+              <span className="text-[10px] text-slate-500 font-medium truncate block">
+                {photos.length} photo{photos.length === 1 ? "" : "s"} • {batch.batch_name}
+              </span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsLightboxOpen(true)}
+            className="h-7 px-2 text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-50 rounded-lg gap-1 cursor-pointer shrink-0"
+          >
+            <Maximize2 className="size-3.5" /> Fullscreen
+          </Button>
+        </div>
+
+        {/* Hero Photo Box */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsLightboxOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setIsLightboxOpen(true);
+          }}
+          className="relative aspect-[16/10] sm:aspect-[16/9] w-full bg-slate-950 overflow-hidden cursor-zoom-in group select-none"
+        >
+          {currentPhoto && (
+            <Image
+              src={currentPhoto.url}
+              alt={currentPhoto.label}
+              fill
+              unoptimized
+              sizes="(max-width: 1024px) 100vw, 45vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-102"
+            />
+          )}
+
+          {/* Top Right Counter & Expand */}
+          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs">
+              <Camera className="size-3" /> {currentIndex + 1} / {photos.length}
+            </span>
+            <div className="size-7 rounded-full bg-black/70 backdrop-blur-xs text-white flex items-center justify-center hover:bg-black/90 transition-colors shadow-xs">
+              <Maximize2 className="size-3.5" />
+            </div>
+          </div>
+
+          {/* Bottom Caption Overlay */}
+          <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3 pt-6 text-white flex items-end justify-between gap-2 pointer-events-none">
+            <div className="min-w-0">
+              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-0.5 bg-emerald-600/90 text-white">
+                Herd Photo
+              </span>
+              <p className="text-xs sm:text-sm font-bold truncate text-white drop-shadow-xs">
+                {currentPhoto?.label}
+              </p>
+              {currentPhoto?.sublabel && (
+                <p className="text-[11px] text-slate-300 truncate">
+                  {currentPhoto.sublabel}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Prev / Next Arrows */}
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous photo"
+                onClick={handlePrev}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 size-8 sm:size-9 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center backdrop-blur-xs transition-transform active:scale-95 cursor-pointer shadow-md"
+              >
+                <ChevronLeft className="size-4 sm:size-5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next photo"
+                onClick={handleNext}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 size-8 sm:size-9 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center backdrop-blur-xs transition-transform active:scale-95 cursor-pointer shadow-md"
+              >
+                <ChevronRight className="size-4 sm:size-5" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Thumbnail Strip (if multiple photos) */}
+        {photos.length > 1 && (
+          <div className="p-2 sm:p-2.5 bg-slate-50/80 border-t border-slate-100 flex items-center gap-2 overflow-x-auto scrollbar-thin">
+            {photos.map((item, idx) => {
+              const isSelected = idx === currentIndex;
+              return (
+                <button
+                  key={`${item.url}-${idx}`}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveIndex(idx);
+                  }}
+                  className={`relative shrink-0 h-14 w-18 sm:h-16 sm:w-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-emerald-600 ring-2 ring-emerald-600/40 scale-102"
+                      : "border-slate-200/80 opacity-70 hover:opacity-100"
+                  }`}
+                  aria-label={`Select photo ${idx + 1}: ${item.label}`}
+                >
+                  <Image
+                    src={item.url}
+                    alt={item.label}
+                    fill
+                    unoptimized
+                    sizes="80px"
+                    className="object-cover"
+                  />
+                  <span className="absolute bottom-1 right-1 bg-black/75 px-1 py-0.2 rounded text-[9px] font-bold text-white">
+                    {idx + 1}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Fullscreen Lightbox Modal */}
+      {isLightboxOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Full-size herd photo view"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-black/95 backdrop-blur-md p-3 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          {/* Lightbox Header */}
+          <div
+            className="w-full flex items-center justify-between text-white py-2 px-1 max-w-5xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="min-w-0">
+              <span className="text-xs text-slate-400 font-medium">
+                Photo {currentIndex + 1} of {photos.length} • {batch.batch_name}
+              </span>
+              <h4 className="text-sm sm:text-base font-bold truncate text-white">
+                {currentPhoto?.label}
+              </h4>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsLightboxOpen(false)}
+              className="size-9 rounded-full bg-white/10 hover:bg-white/20 text-white p-0 flex items-center justify-center cursor-pointer"
+              aria-label="Close fullscreen view"
+            >
+              <X className="size-5" />
+            </Button>
+          </div>
+
+          {/* Lightbox Image Container */}
+          <div
+            className="relative flex-1 w-full max-w-5xl flex items-center justify-center my-auto min-h-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {currentPhoto && (
+              <div className="relative h-full w-full max-h-[75vh] flex items-center justify-center">
+                <Image
+                  src={currentPhoto.url}
+                  alt={currentPhoto.label}
+                  fill
+                  unoptimized
+                  sizes="100vw"
+                  className="object-contain"
+                />
+              </div>
+            )}
+
+            {photos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous photo"
+                  onClick={handlePrev}
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 size-10 sm:size-12 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center backdrop-blur-xs transition-transform active:scale-95 cursor-pointer shadow-xl border border-white/20"
+                >
+                  <ChevronLeft className="size-6" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next photo"
+                  onClick={handleNext}
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 size-10 sm:size-12 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center backdrop-blur-xs transition-transform active:scale-95 cursor-pointer shadow-xl border border-white/20"
+                >
+                  <ChevronRight className="size-6" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Lightbox Footer Caption */}
+          <div
+            className="w-full text-center py-2 text-xs text-slate-300 max-w-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {currentPhoto?.sublabel && <p className="truncate">{currentPhoto.sublabel}</p>}
+            <p className="text-[11px] text-slate-500 mt-0.5">Use Left/Right arrows to navigate, Esc or click backdrop to close</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -604,6 +931,16 @@ function SibatBatchesVerificationContent() {
     });
   const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false);
   const [bulkVerifying, setBulkVerifying] = useState(false);
+
+  const [animalViewMode, setAnimalViewMode] = useState<"card" | "table">("card");
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) {
+      setAnimalViewMode("table");
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const [highlightedAnimalId, setHighlightedAnimalId] = useState<number | null>(null);
   const scrolledAnimalIdRef = useRef<number | null>(null);
@@ -1074,11 +1411,14 @@ function SibatBatchesVerificationContent() {
     return (
       <>
         <PageHeader
-          title="Herds"
-          subtitle="Choose a herd to see its animals and check their records."
+          title="Herds & Batches"
+          subtitle="Choose a registered livestock herd to inspect individual animals and verify records."
           variant="farmer"
           maxWidthClass="w-full"
           icon={<Layers className="size-5 text-white" />}
+          hideIconOnMobile
+          showTutorialToggle={false}
+          mobileActionsInline
         />
         <div className="mx-auto w-full p-3 sm:p-5 lg:px-8 lg:py-6">
           <ValidationLoadingScreen
@@ -1118,13 +1458,31 @@ function SibatBatchesVerificationContent() {
 
   return (
     <>
-      {!isDrilldownOpen && <PageHeader
-        title="Herds"
-        subtitle="Choose a herd to see its animals and check their records."
+      <PageHeader
+        title={
+          isDrilldownOpen && selectedBatch ? (
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <span className="truncate">{selectedBatch.batch_name}</span>
+              <span className="rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[11px] font-mono font-bold text-white shrink-0">
+                {selectedBatch.batch_code}
+              </span>
+            </div>
+          ) : (
+            "Herds & Batches"
+          )
+        }
+        subtitle={
+          isDrilldownOpen && selectedBatch
+            ? `Farmer: ${selectedBatch.farmer_name} • Brgy. ${selectedBatch.barangay_name} • ${selectedBatch.animals?.length || selectedBatch.total_animals} Heads`
+            : "Choose a registered livestock herd to inspect individual animals and verify records."
+        }
         variant="farmer"
         maxWidthClass="w-full"
         icon={<Layers className="size-5 text-white" />}
-      />}
+        hideIconOnMobile
+        showTutorialToggle={false}
+        mobileActionsInline
+      />
 
       <div className={isDrilldownOpen ? "hidden" : "mx-auto w-full space-y-4 p-3 pb-16 sm:space-y-5 sm:p-4 sm:pb-6 md:p-6"}>
         {/* Navigation Breadcrumb / Top Bar */}
@@ -1638,420 +1996,608 @@ function SibatBatchesVerificationContent() {
 
       {/* Inline herd details and individual livestock roster */}
       {isDrilldownOpen && (
-        <section className="w-full pb-16" aria-label="Herd details">
+        <section className="mx-auto w-full space-y-4 p-3 pb-32 sm:space-y-5 sm:p-4 sm:pb-28 md:p-6" aria-label="Herd details">
           {detailQuery.isLoading ? (
             <div
-              className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
+              className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200/90 bg-white p-6 text-center shadow-2xs"
               role="status"
               aria-live="polite"
             >
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
                 <RefreshCw className="size-6 animate-spin" />
               </div>
               <div className="space-y-1">
-                <h1 className="text-xl font-bold text-slate-900">Loading herd and animals</h1>
-                <p className="text-base leading-6 text-slate-600">
-                  Please wait. The animal list is on its way.
+                <h2 className="text-lg font-bold text-slate-900">Loading herd and animals…</h2>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  Please wait while the animal roster is being loaded.
                 </p>
               </div>
             </div>
           ) : detailQuery.isError ? (
-            <div className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+            <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/50 p-6 text-center shadow-2xs">
               <AlertTriangle className="size-8 text-rose-600" />
               <div className="space-y-1">
-                <h1 className="text-lg font-bold text-slate-900">We could not open this herd</h1>
-                <p className="text-base leading-6 text-slate-600">
-                  Check your internet connection, then try again.
+                <h2 className="text-lg font-bold text-slate-900">We could not open this herd</h2>
+                <p className="text-xs sm:text-sm text-slate-600">
+                  Check your network connection and try again.
                 </p>
               </div>
-              <Button type="button" variant="outline" size="lg" onClick={() => void detailQuery.refetch()} className="min-h-12 rounded-xl px-5 text-base font-bold">
+              <Button type="button" variant="outline" size="sm" onClick={() => void detailQuery.refetch()} className="rounded-xl px-4 text-xs font-bold border-rose-300 text-rose-800">
                 Try again
               </Button>
             </div>
           ) : selectedBatch && (
-            <div className="w-full">
-              <div id="selected-herd-review-record" className={`flex shrink-0 items-start gap-3 px-4 py-5 text-white sm:px-8 sm:py-6 ${batchIdParam ? "bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 ring-4 ring-inset ring-emerald-300" : "bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-900"}`}>
-                <Button type="button" variant="ghost" size="icon" onClick={closeHerdDrilldown} className="mt-0.5 size-10 shrink-0 text-emerald-100 hover:bg-white/10 hover:text-white" aria-label="Back to herds">
-                  <ArrowLeft className="size-5" />
-                </Button>
-                <div className="min-w-0 space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="rounded-full border border-emerald-400/30 bg-emerald-500/20 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-200">
-                      {selectedBatch.livestock_type_name} herd
-                    </span>
-                    <span className="font-mono text-xs font-bold text-emerald-100">
-                      {selectedBatch.batch_code}
-                    </span>
-                    {getStatusBadge(selectedBatch.review_status)}
+            <div className="space-y-4 sm:space-y-5">
+              {/* Top Navigation Bar: Back button (upper left, outside) + Breadcrumbs + Status */}
+              <div
+                id="selected-herd-review-record"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={closeHerdDrilldown}
+                    className="h-9 gap-1.5 rounded-xl border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 cursor-pointer shadow-2xs shrink-0"
+                  >
+                    <ArrowLeft className="size-3.5" /> Back to herds
+                  </Button>
+
+                  <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-slate-500 font-medium min-w-0">
+                    <Link href="/sibat" className="hover:text-slate-900 transition-colors shrink-0">SmartLivestock</Link>
+                    <span className="text-slate-300">/</span>
+                    <button type="button" onClick={closeHerdDrilldown} className="hover:text-slate-900 transition-colors shrink-0 font-medium cursor-pointer">Herds</button>
+                    <span className="text-slate-300">/</span>
+                    <span className="text-slate-900 font-bold truncate">{selectedBatch.batch_code}</span>
+                  </nav>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+                  {getStatusBadge(selectedBatch.review_status)}
+                </div>
+              </div>
+
+              {/* Herd Profile & Husbandry Overview */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+                {/* Photo Gallery Column (5 cols on lg) */}
+                <div className="lg:col-span-5">
+                  <HerdProfileGallery batch={selectedBatch} />
+                </div>
+
+                {/* Herd Summary & KPI Metrics Column (7 cols on lg) */}
+                <div className="lg:col-span-7 space-y-3 sm:space-y-3.5">
+                  {/* Herd Identification Card */}
+                  <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full mb-1.5">
+                          Herd Profile
+                        </span>
+                        <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight truncate">
+                          {selectedBatch.batch_name}
+                        </h2>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 font-medium flex-wrap">
+                          <span>Farmer: <strong className="text-slate-800">{selectedBatch.farmer_name}</strong></span>
+                          <span className="text-slate-300">•</span>
+                          <span>Brgy. <strong className="text-slate-800">{selectedBatch.barangay_name}</strong></span>
+                          <span className="text-slate-300">•</span>
+                          <span>Code: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] text-slate-700 font-mono">{selectedBatch.batch_code}</code></span>
+                        </div>
+                      </div>
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center text-xl shadow-xs shrink-0">
+                        {getDefaultAvatarForSpecies(selectedBatch.livestock_type_name).emoji}
+                      </div>
+                    </div>
+
+                    {selectedBatch.notes && (
+                      <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600 italic bg-slate-50/70 p-2.5 rounded-xl">
+                        &ldquo;{selectedBatch.notes}&rdquo;
+                      </div>
+                    )}
                   </div>
-                  <h1 className="text-xl font-black text-white sm:text-2xl">
-                    {selectedBatch.batch_name}
-                  </h1>
-                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-emerald-100/90">
-                    <span className="inline-flex items-center gap-1.5"><User className="size-4" />Farmer: <strong>{selectedBatch.farmer_name}</strong></span>
-                    <span className="inline-flex items-center gap-1.5"><MapPin className="size-4" />Barangay: <strong>{selectedBatch.barangay_name}</strong></span>
-                    <span className="inline-flex items-center gap-1.5"><Layers className="size-4" />Enrolled: <strong>{selectedBatch.animals?.length || selectedBatch.total_animals} Heads</strong></span>
+
+                  {/* Husbandry & Environment Summary KPI Cards */}
+                  <div className="grid grid-cols-2 gap-3 sm:gap-3.5">
+                    <div className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 bg-white shadow-2xs flex flex-col justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-8 sm:size-9 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200/60 flex items-center justify-center shrink-0">
+                          <Layers className="size-4" />
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">Commodity</span>
+                      </div>
+                      <div className="mt-2.5">
+                        <span className="text-base sm:text-lg font-black text-slate-900 block truncate">
+                          {selectedBatch.livestock_type_name}
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-500 block truncate">
+                          Code: {selectedBatch.batch_code}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 bg-white shadow-2xs flex flex-col justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-8 sm:size-9 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/60 flex items-center justify-center shrink-0">
+                          <ShieldCheck className="size-4" />
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">Enrolled Herd</span>
+                      </div>
+                      <div className="mt-2.5">
+                        <span className="text-base sm:text-lg font-black text-slate-900 block">
+                          {selectedBatch.animals?.length || selectedBatch.total_animals} <span className="text-xs font-semibold text-slate-500">Heads</span>
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500 block">
+                          Total capacity: {selectedBatch.enrolled_animals ?? selectedBatch.total_animals}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 bg-white shadow-2xs flex flex-col justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-8 sm:size-9 rounded-xl bg-sky-50 text-sky-700 border border-sky-200/60 flex items-center justify-center shrink-0">
+                          <Scale className="size-4" />
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">Average Weight</span>
+                      </div>
+                      <div className="mt-2.5">
+                        <span className="text-base sm:text-lg font-black text-slate-900 block">
+                          {selectedBatch.average_weight ? `${selectedBatch.average_weight} kg` : "—"}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 block truncate">
+                          Target: {selectedBatch.target_weight ? `${selectedBatch.target_weight} kg` : "Not set"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 bg-white shadow-2xs flex flex-col justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-8 sm:size-9 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60 flex items-center justify-center shrink-0">
+                          <Building2 className="size-4" />
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider truncate">Facility &amp; Feed</span>
+                      </div>
+                      <div className="mt-2.5">
+                        <span className="text-base sm:text-lg font-black text-slate-900 block truncate">
+                          {selectedBatch.housing_pen || "Standard Pen"}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 block truncate">
+                          Feed: {selectedBatch.feed_type || "Standard"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Protocol Guidance Banner */}
+              <div className="flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-950 shadow-2xs">
+                <div className="size-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Info className="size-4.5" />
+                </div>
+                <div className="space-y-0.5 text-xs sm:text-sm">
+                  <p className="font-bold text-emerald-950">Field Review &amp; Ear Tag Verification</p>
+                  <p className="text-emerald-800/90 leading-relaxed text-xs">
+                    Inspect physical ear tags and livestock condition on site. Select checked animals via checkboxes to verify in bulk, or click individual rows to inspect detailed history.
                   </p>
                 </div>
               </div>
 
-              <div className="mx-auto w-full max-w-[1600px] space-y-4 p-3 sm:p-5 lg:px-8">
-              {/* Husbandry & Environment Summary Bar */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
-                  <span className="grid size-14 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800"><Building2 className="size-7" /></span>
-                  <div className="min-w-0"><p className="text-sm font-semibold text-slate-500">Housing Facility</p><p className="mt-1 truncate text-lg font-bold text-slate-900">{selectedBatch.housing_pen || "Standard Pen"}</p><p className="text-sm text-slate-500">Feed: {selectedBatch.feed_type || "—"}</p></div>
-                </div>
-
-                <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
-                  <span className="grid size-14 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700"><Scale className="size-7" /></span>
-                  <div><p className="text-sm font-semibold text-slate-500">Average Weight</p><p className="mt-1 text-lg font-bold text-slate-900">{selectedBatch.average_weight ? `${selectedBatch.average_weight} kg` : "N/A"}</p><p className="text-sm text-slate-500">Target: {selectedBatch.target_weight ? `${selectedBatch.target_weight} kg` : "Unspecified"}</p></div>
-                </div>
-
-                <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
-                  <span className="grid size-14 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Layers className="size-7" /></span>
-                  <div><p className="text-sm font-semibold text-slate-500">Animals in Herd</p><p className="mt-1 text-lg font-bold text-slate-900">{selectedBatch.animals?.length || selectedBatch.total_animals}</p><p className="text-sm text-slate-500">Enrolled: {selectedBatch.enrolled_animals ?? selectedBatch.total_animals}</p></div>
-                </div>
-              </div>
-
-              {/* Individual Animals Drilldown Section */}
-              <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3">
-                <section className="grid gap-5 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 sm:grid-cols-[1.5fr_1fr] sm:items-center sm:p-5" aria-label="How to verify animals">
-                  <div className="flex items-start gap-4">
-                    <div className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-800 text-white" aria-hidden="true"><Info className="size-6" /></div>
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-bold text-emerald-950">How to Verify Animals</h3>
-                      <ol className="mt-3 space-y-2 text-sm leading-6 text-slate-800 sm:text-base">
-                        <li className="flex items-center gap-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-800 text-xs font-bold text-white">1</span>Check the animal details and ear tag.</li>
-                        <li className="flex items-center gap-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-800 text-xs font-bold text-white">2</span>Tick the box beside each animal you checked.</li>
-                        <li className="flex items-center gap-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-800 text-xs font-bold text-white">3</span><span>Press <strong>Verify Selected Animals</strong>.</span></li>
-                      </ol>
+              {/* Individual Animals Roster Container */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-2xs space-y-4">
+                {/* Roster Toolbar */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3 w-full lg:w-auto">
+                    <div className="flex items-center gap-2.5">
+                      <div className="size-8.5 rounded-xl bg-slate-100 text-emerald-800 flex items-center justify-center shrink-0">
+                        <ClipboardList className="size-4.5" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">
+                          Individual Animal Records
+                        </h2>
+                        <span className="text-xs text-slate-500 font-medium">
+                          {filteredChildAnimals.length} animal{filteredChildAnimals.length === 1 ? "" : "s"} listed
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3 border-emerald-300 pl-0 text-sm leading-6 text-emerald-950 sm:border-l sm:py-2 sm:pl-6 sm:text-base">
-                    <AlertCircle className="mt-1 size-5 shrink-0 fill-emerald-800 text-white" />
-                    <p>Select only animals you checked in the field. Verified animals go to MAO for final approval.</p>
-                  </div>
-                </section>
-                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-                  <div className="flex items-center gap-3">
-                    <ClipboardList className="size-6 shrink-0 text-sky-700" />
-                    <h3 className="text-lg font-bold text-slate-900">Animal Records</h3>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{selectedBatch.animals?.length ?? 0} total</span>
-                  </div>
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    <div className="relative w-full sm:w-72">
-                      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                      <Input placeholder="Search by ear tag..." value={animalSearchQuery} onChange={(e) => setAnimalSearchQuery(e.target.value)} className="min-h-10 rounded-lg border-slate-300 pl-9" />
-                    </div>
-                    <Select value={animalStatusFilter} onValueChange={setAnimalStatusFilter}>
-                      <SelectTrigger className="min-h-10 w-full rounded-lg border-slate-300 sm:w-36"><SelectValue placeholder="All status" /></SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        <SelectItem value="ALL">All Status</SelectItem><SelectItem value="PENDING">Pending</SelectItem><SelectItem value="VERIFIED">Verified</SelectItem><SelectItem value="APPROVED">Approved</SelectItem><SelectItem value="SUBJECT_TO_REVISION">Revision</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                  <Button type="button" variant="outline" size="sm" onClick={() => toggleFilteredPendingAnimals(!allFilteredPendingAnimalsSelected)} disabled={filteredPendingAnimalIds.length === 0} className="min-h-10 rounded-lg border-slate-300 px-4 text-sm font-semibold">
-                    <CheckSquare className="mr-2 size-4" />{allFilteredPendingAnimalsSelected ? "Deselect All" : "Select All"}
-                  </Button>
-                </div>
-
-                {/* Stacked animal cards keep every field and action readable on phones. */}
-                <div className="space-y-3 md:hidden">
-                  {filteredChildAnimals.length === 0 ? (
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 text-center text-base text-slate-600">No animals match this search or status.</div>
-                  ) : pagedChildAnimals.map((animal) => {
-                    const mobileWeight = animal.weight == null ? null : Number(animal.weight);
-                    const isPending = (animal.status || "PENDING").toUpperCase() === "PENDING";
-                    const isTarget = highlightedAnimalId === animal.id;
-                    return (
-                      <article
-                        key={animal.id}
-                        id={`animal-card-${animal.id}`}
-                        className={`rounded-2xl border p-4 shadow-sm transition-all duration-500 ${
-                          isTarget
-                            ? "border-emerald-500 bg-emerald-50/90 ring-2 ring-emerald-600 shadow-md"
-                            : "border-slate-200 bg-white"
+                    {/* View Mode Toggler (Cards / Table) */}
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAnimalViewMode("card")}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          animalViewMode === "card"
+                            ? "bg-white text-emerald-800 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-800"
                         }`}
+                        aria-label="Cards view"
+                        title="Cards view"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl pr-1">
-                            <input
-                              type="checkbox"
-                              aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for field verification`}
-                              checked={selectedAnimalIds.includes(animal.id)}
-                              disabled={!isPending}
-                              onChange={(event) => setSelectedAnimalIds((current) => event.target.checked
-                                ? Array.from(new Set([...current, animal.id]))
-                                : current.filter((id) => id !== animal.id))}
-                              className="size-6 shrink-0 rounded border-slate-400 accent-sky-700 disabled:opacity-40"
-                            />
-                            <span className="min-w-0">
-                              <span className="flex items-center gap-1.5 flex-wrap">
-                                <span className="block break-all font-mono text-base font-bold text-slate-900">
-                                  {animal.tag_number || `Animal #${animal.id}`}
-                                </span>
-                                {isTarget && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-black text-white shadow-xs">
-                                    <Check className="size-2.5" /> Selected Record
-                                  </span>
-                                )}
-                              </span>
-                              <span className="block text-sm text-slate-600">Tap to select for checking</span>
-                            </span>
-                          </label>
-                          <div className="shrink-0">{getAnimalStatusBadge(animal.status)}</div>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm">
-                          <div><span className="block text-xs font-semibold text-slate-500">Breed</span><span className="break-words font-semibold text-slate-900">{animal.breed || "Not recorded"}</span></div>
-                          <div><span className="block text-xs font-semibold text-slate-500">Sex</span><span className="font-semibold text-slate-900">{animal.sex || "Not recorded"}</span></div>
-                          <div><span className="block text-xs font-semibold text-slate-500">Age</span><span className="font-semibold text-slate-900">{animal.age?.total_months != null ? `${animal.age.total_months} months` : "Not recorded"}</span></div>
-                          <div><span className="block text-xs font-semibold text-slate-500">Weight</span><span className="font-semibold text-slate-900">{mobileWeight == null ? "Not recorded" : `${mobileWeight} kg`}</span></div>
-                          <div><span className="block text-xs font-semibold text-slate-500">Last vaccination</span><span className="font-semibold text-slate-900">{animal.last_vaccination_date || "No date recorded"}</span></div>
-                        </div>
-                        <Button
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                        <span className="text-[11px]">Cards</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnimalViewMode("table")}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          animalViewMode === "table"
+                            ? "bg-white text-emerald-800 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                        aria-label="Table view"
+                        title="Table view"
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        <span className="text-[11px]">Table</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search, Filter & Bulk Select Controls */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative flex-1 sm:w-60 min-w-[160px]">
+                      <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <Input
+                        placeholder="Search by ear tag or ID..."
+                        value={animalSearchQuery}
+                        onChange={(e) => setAnimalSearchQuery(e.target.value)}
+                        className="h-9.5 rounded-xl border-slate-200 pl-8.5 text-xs focus-visible:ring-1 focus-visible:ring-emerald-700"
+                      />
+                      {animalSearchQuery && (
+                        <button
                           type="button"
-                          variant="outline"
-                          onClick={() => openAnimalReview(selectedBatch, animal)}
-                          className="mt-3 min-h-12 w-full rounded-xl border-sky-200 text-base font-semibold text-sky-900"
+                          onClick={() => setAnimalSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                         >
-                          <Eye className="mr-2 size-5" /> {isPending ? "Review animal details" : "View animal details"}
-                        </Button>
-                      </article>
-                    );
-                  })}
+                          <RotateCcw className="size-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="relative min-w-[130px]">
+                      <select
+                        value={animalStatusFilter}
+                        onChange={(e) => setAnimalStatusFilter(e.target.value)}
+                        className="h-9.5 w-full pl-3 pr-7 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-700 cursor-pointer appearance-none"
+                      >
+                        <option value="ALL">All Status</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="VERIFIED">Verified</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="SUBJECT_TO_REVISION">Revision</option>
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleFilteredPendingAnimals(!allFilteredPendingAnimalsSelected)}
+                      disabled={filteredPendingAnimalIds.length === 0}
+                      className="h-9.5 rounded-xl border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <CheckSquare className="mr-1.5 size-3.5 text-slate-500" />
+                      {allFilteredPendingAnimalsSelected ? "Deselect All" : "Select Pending"}
+                    </Button>
+
+                    {selectedAnimalIds.length > 0 && (
+                      <Button
+                        type="button"
+                        onClick={() => setBulkVerifyOpen(true)}
+                        className="h-9.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3.5 flex items-center gap-1.5 shadow-2xs animate-in fade-in cursor-pointer"
+                      >
+                        <ShieldCheck className="size-4" />
+                        Verify ({selectedAnimalIds.length})
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Wider screens use a table; phones use the stacked cards above. */}
-                <div className="hidden w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white md:block">
-                  <Table className="min-w-[1050px]">
-                    <TableHeader className="bg-slate-50">
-                      <TableRow>
-                        <TableHead className="w-12 text-sm font-bold text-slate-700">Select</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                          Ear Tag #
-                        </TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Breed</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Sex</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Age (months)</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500 hidden md:table-cell">
-                          Weight (kg)
-                        </TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500 hidden sm:table-cell">
-                          Vaccination
-                        </TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                          Status
-                        </TableHead>
-                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500 text-right sticky right-0 z-10 bg-slate-50 border-l border-slate-200 shadow-[-4px_0_8px_-8px_rgba(0,0,0,0.25)]">
-                          Actions
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredChildAnimals.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8 text-base text-slate-600">
-                            No individual animals found matching filter criteria.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        pagedChildAnimals.map((animal) => {
-                          const isTarget = highlightedAnimalId === animal.id;
-                          const avatar = getDefaultAvatarForSpecies(selectedBatch.livestock_type_name);
-                          const animalWeight = animal.weight ? Number(animal.weight) : null;
-                          const batchAvg = selectedBatch.average_weight ? Number(selectedBatch.average_weight) : null;
-                          const weightDiff = animalWeight && batchAvg ? (animalWeight - batchAvg).toFixed(1) : null;
+                {/* Animal Records Display (Card View or Table View based on toggler) */}
+                {animalViewMode === "card" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {filteredChildAnimals.length === 0 ? (
+                      <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-xs sm:text-sm text-slate-500 font-medium">
+                        No individual animals match this search or filter.
+                      </div>
+                    ) : (
+                      pagedChildAnimals.map((animal) => {
+                        const mobileWeight = animal.weight == null ? null : Number(animal.weight);
+                        const isPending = (animal.status || "PENDING").toUpperCase() === "PENDING";
+                        const isTarget = highlightedAnimalId === animal.id;
+                        const avatar = getDefaultAvatarForSpecies(selectedBatch.livestock_type_name);
 
-                          return (
-                            <TableRow
-                              key={animal.id}
-                              id={`animal-row-${animal.id}`}
-                              className={`transition-all duration-500 ${
-                                isTarget
-                                  ? "bg-emerald-100/90 ring-2 ring-emerald-600 ring-inset shadow-md font-medium"
-                                  : "hover:bg-slate-50/70"
-                              }`}
-                            >
-                              <TableCell>
+                        return (
+                          <article
+                            key={animal.id}
+                            id={`animal-card-${animal.id}`}
+                            className={`rounded-2xl border p-3.5 shadow-2xs transition-all ${
+                              isTarget
+                                ? "border-emerald-500 bg-emerald-50/90 ring-2 ring-emerald-600 shadow-md"
+                                : selectedAnimalIds.includes(animal.id)
+                                  ? "border-emerald-300 bg-emerald-50/40"
+                                  : "border-slate-200/90 bg-white"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2.5">
+                              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
                                 <input
                                   type="checkbox"
                                   aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for field verification`}
                                   checked={selectedAnimalIds.includes(animal.id)}
-                                  disabled={(animal.status || "PENDING").toUpperCase() !== "PENDING"}
+                                  disabled={!isPending}
                                   onChange={(event) => setSelectedAnimalIds((current) => event.target.checked
                                     ? Array.from(new Set([...current, animal.id]))
                                     : current.filter((id) => id !== animal.id))}
-                                  className="size-5 rounded border-slate-400 accent-sky-700 disabled:opacity-40"
+                                  className="size-5 shrink-0 rounded border-slate-300 accent-emerald-700 disabled:opacity-40"
                                 />
-                              </TableCell>
-                              {/* Tag Number */}
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className={`size-8 rounded-xl flex items-center justify-center text-sm border shadow-2xs shrink-0 ${avatar.bgGradient}`}
-                                  >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className={`size-8 rounded-xl flex items-center justify-center text-xs border shadow-2xs shrink-0 ${avatar.bgGradient}`}>
                                     {avatar.emoji}
                                   </div>
-                                  <div>
+                                  <div className="min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="font-mono font-black text-xs text-slate-900">
+                                      <span className="font-mono text-sm font-bold text-slate-900 truncate">
                                         {animal.tag_number || `#${animal.id}`}
                                       </span>
-                                      {isTarget && (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2 py-0.5 text-[9px] font-black text-white shadow-xs animate-pulse">
-                                          <Check className="size-2.5" /> Selected Record
-                                        </span>
+                                      {animal.tag_number && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleCopyTag(animal.tag_number);
+                                          }}
+                                          className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+                                          title="Copy tag number"
+                                        >
+                                          {copiedTag === animal.tag_number ? (
+                                            <Check className="size-3 text-emerald-600" />
+                                          ) : (
+                                            <Copy className="size-3" />
+                                          )}
+                                        </button>
                                       )}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCopyTag(animal.tag_number)}
-                                        className="text-slate-400 hover:text-slate-700"
-                                        title="Copy tag number"
-                                      >
-                                        {copiedTag === animal.tag_number ? (
-                                          <Check className="w-3 h-3 text-emerald-600" />
-                                        ) : (
-                                          <Copy className="w-3 h-3" />
-                                        )}
-                                      </button>
                                     </div>
-                                    <span className="text-[10px] text-slate-400 font-mono">
-                                      ID: {animal.id}
-                                    </span>
+                                    <span className="text-[10px] font-mono text-slate-400 block">ID: {animal.id}</span>
                                   </div>
                                 </div>
-                              </TableCell>
+                              </label>
+                              <div className="shrink-0">{getAnimalStatusBadge(animal.status)}</div>
+                            </div>
 
-                              {/* Breed */}
-                              <TableCell className="text-xs">
-                                <span className="font-bold text-slate-800">{animal.breed || "Standard Breed"}</span>
-                              </TableCell>
+                            <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50/80 p-2.5 text-xs">
+                              <div><span className="block text-[10px] uppercase font-bold text-slate-400">Breed</span><span className="font-bold text-slate-800 truncate block">{animal.breed || "Standard"}</span></div>
+                              <div><span className="block text-[10px] uppercase font-bold text-slate-400">Sex</span><span className="font-bold text-slate-800">{animal.sex || "—"}</span></div>
+                              <div><span className="block text-[10px] uppercase font-bold text-slate-400">Age</span><span className="font-bold text-slate-800">{animal.age?.total_months != null ? `${animal.age.total_months} mos` : "—"}</span></div>
+                              <div><span className="block text-[10px] uppercase font-bold text-slate-400">Weight</span><span className="font-bold text-slate-800">{mobileWeight == null ? "—" : `${mobileWeight} kg`}</span></div>
+                            </div>
 
-                              {/* Sex */}
-                              <TableCell>
-                                <span
-                                  className={`inline-block px-1.5 py-0.2 rounded text-[10px] font-bold ${animal.sex === "Female"
-                                    ? "text-rose-700 bg-rose-50"
-                                    : animal.sex === "Male"
-                                      ? "text-blue-700 bg-blue-50"
-                                      : "text-amber-700 bg-amber-50"
-                                    }`}
-                                >
-                                  {animal.sex || "Unspecified"}
-                                </span>
-                              </TableCell>
-
-                              {/* Age */}
-                              <TableCell className="text-xs font-medium text-slate-700">{animal.age?.total_months != null ? animal.age.total_months : "—"}</TableCell>
-
-                              {/* Weight */}
-                              <TableCell className="hidden md:table-cell text-xs">
-                                <div className="font-mono font-bold text-slate-900">
-                                  {animalWeight ? `${animalWeight} kg` : "N/A"}
-                                </div>
-                                {weightDiff && (
-                                  <span
-                                    className={`text-[10px] font-mono font-bold ${Number(weightDiff) >= 0 ? "text-emerald-700" : "text-amber-700"
-                                      }`}
-                                  >
-                                    {Number(weightDiff) >= 0 ? `+${weightDiff}` : weightDiff} kg vs avg
-                                  </span>
-                                )}
-                              </TableCell>
-
-                              {/* Vaccination */}
-                              <TableCell className="hidden sm:table-cell text-xs">
-                                <span className="font-medium text-slate-700 block">
-                                  {animal.last_vaccination_date || "Up to Date"}
-                                </span>
-                                <span className="text-[10px] text-emerald-700 font-bold">
-                                  ✓ Biosecure
-                                </span>
-                              </TableCell>
-
-                              {/* Status */}
-                              <TableCell>{getAnimalStatusBadge(animal.status)}</TableCell>
-
-                              {/* Row Actions */}
-                              <TableCell className="sticky right-0 z-10 bg-white border-l border-slate-200 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="outline"
-                                    onClick={() => openAnimalReview(selectedBatch, animal)}
-                                    className="size-9 rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50"
-                                    aria-label={`${animal.status === "PENDING" ? "Review" : "View"} individual animal ${animal.tag_number || animal.id}`}
-                                    title={`${animal.status === "PENDING" ? "Review" : "View"} animal`}
-                                  >
-                                    <Eye className="size-3.5" />
-                                  </Button>
-                                </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => openAnimalReview(selectedBatch, animal)}
+                              className="mt-3 h-9 w-full rounded-xl border-emerald-200/80 bg-emerald-50/60 hover:bg-emerald-100 text-emerald-900 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                            >
+                              <Eye className="size-3.5" />
+                              {isPending ? "Review animal details" : "View animal details"}
+                            </Button>
+                          </article>
+                        );
+                      })
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium px-1 md:hidden">
+                      <span>← Scroll horizontally to inspect roster columns →</span>
+                    </div>
+                    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/90 bg-white">
+                      <Table className="min-w-[1050px]">
+                        <TableHeader className="bg-slate-50/90">
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="w-12 text-center text-xs font-bold text-slate-700">Select</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Ear Tag #</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Breed</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Sex</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Age (mos)</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Weight (kg)</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Vaccination</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Status</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500 text-right sticky right-0 z-10 bg-slate-50 border-l border-slate-200 shadow-[-4px_0_8px_-8px_rgba(0,0,0,0.25)]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredChildAnimals.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={9} className="text-center py-8 text-xs sm:text-sm text-slate-500">
+                                No individual animals found matching filter criteria.
                               </TableCell>
                             </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                          ) : (
+                            pagedChildAnimals.map((animal) => {
+                              const isTarget = highlightedAnimalId === animal.id;
+                              const avatar = getDefaultAvatarForSpecies(selectedBatch.livestock_type_name);
+                              const animalWeight = animal.weight ? Number(animal.weight) : null;
+                              const batchAvg = selectedBatch.average_weight ? Number(selectedBatch.average_weight) : null;
+                              const weightDiff = animalWeight && batchAvg ? (animalWeight - batchAvg).toFixed(1) : null;
 
+                              return (
+                                <TableRow
+                                  key={animal.id}
+                                  id={`animal-row-${animal.id}`}
+                                  className={`transition-all ${
+                                    isTarget
+                                      ? "bg-emerald-100/90 ring-2 ring-emerald-600 ring-inset shadow-md font-medium"
+                                      : selectedAnimalIds.includes(animal.id)
+                                        ? "bg-emerald-50/50"
+                                        : "hover:bg-slate-50/70"
+                                  }`}
+                                >
+                                  <TableCell className="text-center">
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for field verification`}
+                                      checked={selectedAnimalIds.includes(animal.id)}
+                                      disabled={(animal.status || "PENDING").toUpperCase() !== "PENDING"}
+                                      onChange={(event) => setSelectedAnimalIds((current) => event.target.checked
+                                        ? Array.from(new Set([...current, animal.id]))
+                                        : current.filter((id) => id !== animal.id))}
+                                      className="size-4.5 rounded border-slate-300 accent-emerald-700 disabled:opacity-40"
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <div className={`size-8 rounded-xl flex items-center justify-center text-xs border shadow-2xs shrink-0 ${avatar.bgGradient}`}>
+                                        {avatar.emoji}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="font-mono font-bold text-xs text-slate-900">
+                                            {animal.tag_number || `#${animal.id}`}
+                                          </span>
+                                          {animal.tag_number && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleCopyTag(animal.tag_number)}
+                                              className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                              title="Copy tag number"
+                                            >
+                                              {copiedTag === animal.tag_number ? (
+                                                <Check className="size-3 text-emerald-600" />
+                                              ) : (
+                                                <Copy className="size-3" />
+                                              )}
+                                            </button>
+                                          )}
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 font-mono block">ID: {animal.id}</span>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs font-semibold text-slate-800">
+                                    {animal.breed || "Standard"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      animal.sex === "Female"
+                                        ? "text-rose-700 bg-rose-50 border border-rose-200/60"
+                                        : animal.sex === "Male"
+                                          ? "text-blue-700 bg-blue-50 border border-blue-200/60"
+                                          : "text-slate-700 bg-slate-50 border border-slate-200"
+                                    }`}>
+                                      {animal.sex || "—"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-xs font-medium text-slate-700">
+                                    {animal.age?.total_months != null ? `${animal.age.total_months} mos` : "—"}
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    <span className="font-mono font-bold text-slate-900">
+                                      {animalWeight ? `${animalWeight} kg` : "—"}
+                                    </span>
+                                    {weightDiff && (
+                                      <span className={`ml-1 text-[10px] font-mono font-bold ${Number(weightDiff) >= 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                                        {Number(weightDiff) >= 0 ? `+${weightDiff}` : weightDiff}
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-slate-600">
+                                    {animal.last_vaccination_date || "Up to Date"}
+                                  </TableCell>
+                                  <TableCell>{getAnimalStatusBadge(animal.status)}</TableCell>
+                                  <TableCell className="sticky right-0 z-10 bg-white border-l border-slate-200 text-right">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openAnimalReview(selectedBatch, animal)}
+                                      className="h-8 px-2.5 rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50 text-xs font-bold flex items-center gap-1 shadow-2xs cursor-pointer"
+                                    >
+                                      <Eye className="size-3.5" />
+                                      <span>Review</span>
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pagination & Status Footer */}
                 {filteredChildAnimals.length > 0 && (
-                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-sm font-medium text-slate-500">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs">
+                    <span className="text-xs font-medium text-slate-500">
                       Showing {(safeAnimalPage - 1) * ANIMAL_PAGE_SIZE + 1}–{Math.min(safeAnimalPage * ANIMAL_PAGE_SIZE, filteredChildAnimals.length)} of {filteredChildAnimals.length} animals
                     </span>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      {filteredChildAnimals.length > ANIMAL_PAGE_SIZE && <>
-                        <Button variant="outline" size="sm" disabled={safeAnimalPage <= 1} onClick={() => setAnimalPage((p) => p - 1)} className="h-9 rounded-lg text-xs font-bold">‹ Prev</Button>
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs">Page {safeAnimalPage} / {pageCountAnimals}</span>
-                        <Button variant="outline" size="sm" disabled={safeAnimalPage >= pageCountAnimals} onClick={() => setAnimalPage((p) => p + 1)} className="h-9 rounded-lg text-xs font-bold">Next ›</Button>
-                      </>}
-                      <Button type="button" onClick={() => setBulkVerifyOpen(true)} disabled={selectedAnimalIds.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length} className="min-h-11 rounded-lg bg-emerald-800 px-5 text-sm font-bold text-white hover:bg-emerald-900 disabled:bg-slate-300 disabled:text-slate-600">
-                        <ShieldCheck className="mr-2 size-4" />Verify Selected Animals ({selectedAnimalIds.length})
-                      </Button>
-                    </div>
+                    {filteredChildAnimals.length > ANIMAL_PAGE_SIZE && (
+                      <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={safeAnimalPage <= 1}
+                          onClick={() => setAnimalPage((p) => p - 1)}
+                          className="h-8 px-2.5 rounded-lg text-xs font-bold border-slate-200 cursor-pointer"
+                        >
+                          ‹ Prev
+                        </Button>
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs">
+                          {safeAnimalPage} / {pageCountAnimals}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={safeAnimalPage >= pageCountAnimals}
+                          onClick={() => setAnimalPage((p) => p + 1)}
+                          className="h-8 px-2.5 rounded-lg text-xs font-bold border-slate-200 cursor-pointer"
+                        >
+                          Next ›
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Reviewer Notes (append-only audit trail) */}
-              <div className="px-3 sm:px-5 py-3 bg-slate-50 border-b border-slate-200 shrink-0">
+              {/* Reviewer Notes & Audit Trail Card */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-3">
                 <button
                   type="button"
                   onClick={() => setShowBatchNotes(!showBatchNotes)}
-                  className="w-full flex items-center justify-between gap-2 text-left"
+                  className="w-full flex items-center justify-between gap-2 text-left cursor-pointer"
                   aria-expanded={showBatchNotes}
                 >
-                  <span className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                    <ClipboardList className="w-4 h-4 text-sky-700 shrink-0" />
-                    Reviewer Notes &amp; Audit Trail
+                  <span className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <ClipboardList className="size-4 text-emerald-800 shrink-0" />
+                    Reviewer Notes &amp; Batch Audit Trail
                     {selectedBatch.notes && (
-                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                        {selectedBatch.notes.split("\n").filter(Boolean).length}
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {selectedBatch.notes.split("\n").filter(Boolean).length} entries
                       </span>
                     )}
                   </span>
                   <ChevronDown
-                    className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ${showBatchNotes ? "rotate-180" : ""}`}
+                    className={`size-4 text-slate-400 transition-transform shrink-0 ${showBatchNotes ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 {showBatchNotes && (
-                  <div className="mt-2.5 space-y-2.5">
-                    <pre className="text-[11px] text-slate-600 font-sans whitespace-pre-wrap leading-relaxed bg-white border border-slate-200 rounded-xl p-3 max-h-32 overflow-y-auto">
-                      {selectedBatch.notes || "No notes recorded for this batch yet."}
+                  <div className="pt-2 space-y-3 border-t border-slate-100">
+                    <pre className="text-xs text-slate-700 font-sans whitespace-pre-wrap leading-relaxed bg-slate-50 border border-slate-200 rounded-xl p-3.5 max-h-40 overflow-y-auto">
+                      {selectedBatch.notes || "No audit notes recorded for this batch yet."}
                     </pre>
-                    <div className="flex gap-2 items-start">
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                       <Textarea
                         value={batchNoteText}
                         onChange={(e) => setBatchNoteText(e.target.value)}
-                        placeholder="Add a field inspection note for the farmer..."
-                        className="h-14 sm:h-16 text-xs rounded-xl border-slate-200"
+                        placeholder="Add inspection observations or remarks for this batch..."
+                        className="text-xs rounded-xl border-slate-200 focus-visible:ring-1 focus-visible:ring-emerald-700 min-h-[70px]"
                       />
                       <Button
                         size="sm"
@@ -2063,30 +2609,53 @@ function SibatBatchesVerificationContent() {
                             text: batchNoteText.trim(),
                           });
                         }}
-                        className="h-14 shrink-0 rounded-xl bg-emerald-700 px-3 text-[10px] font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 sm:h-16 sm:px-4"
+                        className="h-10 sm:h-[70px] shrink-0 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 cursor-pointer shadow-2xs"
                       >
-                        {addBatchNoteMutation.isPending ? "Adding..." : "Add Note"}
+                        {addBatchNoteMutation.isPending ? "Adding…" : "Add Note"}
                       </Button>
                     </div>
                   </div>
                 )}
               </div>
+            </div>
+          )}
 
-              {/* Modal Footer */}
-              <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-                <span className="text-[11px] sm:text-xs text-slate-500">
-                  Batangas Livestock Tracking System • SIBAT Field Sector of Padre Garcia
+          {/* Floating Sticky Bottom Verification Bar */}
+          {selectedAnimalIds.length > 0 && (
+            <div className="fixed bottom-10 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-between gap-2.5 sm:gap-3 bg-slate-900/95 text-white backdrop-blur-md px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl shadow-2xl border border-slate-700 animate-in slide-in-from-bottom-4 duration-200 w-[calc(100%-1.75rem)] sm:w-auto sm:min-w-[420px] max-w-lg">
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                <span className="size-6 rounded-full bg-emerald-500 text-slate-950 text-xs font-black flex items-center justify-center shrink-0">
+                  {selectedAnimalIds.length}
                 </span>
+                <span className="text-xs font-semibold text-slate-200 truncate">
+                  <span className="hidden sm:inline">
+                    animal{selectedAnimalIds.length === 1 ? "" : "s"} selected for verification
+                  </span>
+                  <span className="sm:hidden">
+                    {selectedAnimalIds.length === 1 ? "animal selected" : "animals selected"}
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <Button
-                  variant="outline"
+                  type="button"
+                  variant="ghost"
                   size="sm"
-                  onClick={closeHerdDrilldown}
-                  className="rounded-xl font-bold text-xs w-full sm:w-auto"
+                  onClick={() => setSelectedAnimalIds([])}
+                  className="h-8 px-2 sm:px-2.5 text-xs text-slate-300 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer"
                 >
-                  Back to herds
+                  Clear
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setBulkVerifyOpen(true)}
+                  className="h-8.5 px-3 sm:px-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                >
+                  <ShieldCheck className="size-4" />
+                  Verify Now
                 </Button>
               </div>
-            </div>
             </div>
           )}
         </section>
@@ -2153,11 +2722,14 @@ export default function SibatBatchesVerificationPage() {
       fallback={
         <>
           <PageHeader
-            title="Herds"
-            subtitle="Choose a herd to see its animals and check their records."
+            title="Herds & Batches"
+            subtitle="Choose a registered livestock herd to inspect individual animals and verify records."
             variant="farmer"
             maxWidthClass="w-full"
             icon={<Layers className="size-5 text-white" />}
+            hideIconOnMobile
+            showTutorialToggle={false}
+            mobileActionsInline
           />
           <div className="mx-auto w-full p-3 sm:p-5 lg:px-8 lg:py-6">
             <ValidationLoadingScreen
