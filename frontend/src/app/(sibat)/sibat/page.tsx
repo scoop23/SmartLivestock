@@ -15,7 +15,9 @@ import { getSchedules,type ProgramSchedule } from "@/lib/community-api";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
 Activity,
+ArrowRight,
 CalendarDays,
+ChevronRight,
 ClipboardList,
 Clock3,
 FileSpreadsheet,
@@ -577,91 +579,196 @@ function SibatPortalContent() {
 
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
         <section className="min-w-0 space-y-4 sm:space-y-5" aria-labelledby="sibat-dashboard-title">
-          <header>
-            <h1 id="sibat-dashboard-title" className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-              {timeGreeting}, {officerName}!
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Field Officer · {user?.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user?.assignedBarangayName || "Assigned area"}
-            </p>
+          <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div>
+              <h1 id="sibat-dashboard-title" className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+                {timeGreeting}, <span className="text-emerald-800">{officerName}</span>!
+              </h1>
+              <p className="mt-1 flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-500 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200/80 shadow-2xs">
+                  <MapPin className="size-3 text-emerald-600" />
+                  {user?.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user?.assignedBarangayName || "Assigned area"}
+                </span>
+                <span className="text-slate-300">•</span>
+                <span>Field Sector Oversight</span>
+              </p>
+            </div>
           </header>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <button
               type="button"
               onClick={handleReviewRecords}
-              className="group col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              className="group relative col-span-2 overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 via-emerald-50/40 to-white p-5 sm:p-6 text-left shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
-              <div className="flex items-center gap-3">
-                <ClipboardList className="size-5 shrink-0 text-emerald-700" />
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Records for Review</p>
-                  <p className="mt-0.5 text-2xl font-bold text-slate-900">{waitingForReviewCount}</p>
+              {/* Subtle decorative background watermark */}
+              <div className="pointer-events-none absolute -right-4 -bottom-6 size-36 opacity-[0.06] text-emerald-950">
+                <ClipboardList className="size-full" />
+              </div>
+
+              <div className="relative z-10 flex flex-col justify-between h-full gap-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="size-12 sm:size-13 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform duration-200 shrink-0">
+                      <ClipboardList className="size-6 text-white" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/70 border border-emerald-200/60 px-2 py-0.5 rounded-md inline-block mb-1">
+                        Queue Active
+                      </span>
+                      <h2 className="text-sm sm:text-base font-bold text-slate-700 leading-tight">
+                        Records for Review
+                      </h2>
+                    </div>
+                  </div>
+
+                  <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 leading-none">
+                    {waitingForReviewCount}
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-100/80 flex items-center justify-between text-xs sm:text-sm font-extrabold text-emerald-800 group-hover:text-emerald-950">
+                  <span className="inline-flex items-center gap-1.5">
+                    Review Records
+                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Click to open queue
+                  </span>
                 </div>
               </div>
-              <span className="mt-2 inline-block text-sm font-semibold text-emerald-800 group-hover:underline">Review Records →</span>
             </button>
 
+            {/* Disease Reports Card */}
             <button
               type="button"
               onClick={() => router.push("/sibat-alerts")}
-              className="group rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+              className="group relative overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/80 via-amber-50/30 to-white p-4 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-amber-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
             >
-              <div className="flex items-center gap-3">
-                <Activity className="size-5 shrink-0 text-amber-700" />
+              <div className="flex flex-col justify-between h-full gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="size-10 sm:size-11 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform duration-200 shrink-0">
+                    <Activity className="size-5" />
+                  </div>
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">
+                    {pendingDiseaseCases.length}
+                  </span>
+                </div>
+
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Disease Reports</p>
-                  <p className="mt-0.5 text-2xl font-bold text-slate-900">{pendingDiseaseCases.length}</p>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-700 leading-tight">
+                    Disease Reports
+                  </h3>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-amber-900 group-hover:text-amber-950">
+                    View Reports
+                    <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                  </span>
                 </div>
               </div>
-              <span className="mt-2 inline-block text-sm font-semibold text-amber-800 group-hover:underline">View Reports →</span>
             </button>
 
+            {/* Upcoming Activities Card */}
             <button
               type="button"
               onClick={() => router.push("/sibat-scheduling")}
-              className="group rounded-xl border border-sky-200 bg-sky-50/60 p-4 text-left transition hover:border-sky-300 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+              className="group relative overflow-hidden rounded-2xl border border-sky-200/90 bg-gradient-to-br from-sky-50/80 via-sky-50/30 to-white p-4 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-sky-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
             >
-              <div className="flex items-center gap-3">
-                <CalendarDays className="size-5 shrink-0 text-sky-700" />
+              <div className="flex flex-col justify-between h-full gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="size-10 sm:size-11 rounded-xl bg-gradient-to-br from-sky-600 to-blue-700 text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform duration-200 shrink-0">
+                    <CalendarDays className="size-5" />
+                  </div>
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">
+                    {upcomingSchedulesCount}
+                  </span>
+                </div>
+
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Upcoming Activities</p>
-                  <p className="mt-0.5 text-2xl font-bold text-slate-900">{upcomingSchedulesCount}</p>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-700 leading-tight">
+                    Upcoming Activities
+                  </h3>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-sky-900 group-hover:text-sky-950">
+                    View Schedule
+                    <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                  </span>
                 </div>
               </div>
-              <span className="mt-2 inline-block text-sm font-semibold text-sky-800 group-hover:underline">View Schedule →</span>
             </button>
           </div>
 
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="needs-attention-title">
-            <div className="border-b border-slate-100 p-4">
-              <h2 id="needs-attention-title" className="font-bold text-slate-900">Needs Attention</h2>
-              <p className="mt-1 text-sm text-slate-600">Items that may need your action.</p>
+          {/* Needs Attention Card */}
+          <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs" aria-labelledby="needs-attention-title">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/40">
+              <div>
+                <h2 id="needs-attention-title" className="text-sm sm:text-base font-black text-slate-900 leading-tight">
+                  Needs Attention
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500 font-medium">
+                  Items that may require your field inspection or verification.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[11px] font-bold shrink-0">
+                {pendingInvCount + pendingDiseaseCases.length} items
+              </span>
             </div>
-            <div className="divide-y divide-slate-100 px-4">
+
+            <div className="divide-y divide-slate-100 p-2 sm:p-3 space-y-1 sm:space-y-1.5">
               <button
                 type="button"
                 onClick={() => router.push("/sibat/livestock-registry")}
-                className="flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+                className="group flex w-full items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl hover:bg-slate-50/90 transition-all text-left cursor-pointer border border-transparent hover:border-slate-200/70"
               >
-                <Info className="size-4 shrink-0 text-amber-700" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-slate-900">Animal Records</span>
-                  <span className="mt-0.5 block text-sm text-slate-600">{pendingInvCount} records waiting for review</span>
-                </span>
-                <span aria-hidden="true" className="text-lg text-slate-500">›</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 sm:size-10 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/70 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                    <Info className="size-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950 transition-colors">
+                      Animal Records
+                    </span>
+                    <span className="mt-0.5 block text-xs text-slate-500 font-medium truncate">
+                      {pendingInvCount} record{pendingInvCount === 1 ? "" : "s"} waiting for review
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
+                    {pendingInvCount} pending
+                  </span>
+                  <div className="size-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
+                    <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                </div>
               </button>
+
               <button
                 type="button"
                 onClick={() => router.push("/sibat-alerts")}
-                className="flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+                className="group flex w-full items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl hover:bg-slate-50/90 transition-all text-left cursor-pointer border border-transparent hover:border-slate-200/70"
               >
-                <Activity className="size-4 shrink-0 text-rose-700" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-slate-900">Disease Reports</span>
-                  <span className="mt-0.5 block text-sm text-slate-600">{pendingDiseaseCases.length} reports need attention</span>
-                </span>
-                <span aria-hidden="true" className="text-lg text-slate-500">›</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-9 sm:size-10 rounded-xl bg-rose-50 text-rose-700 border border-rose-200/70 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                    <Activity className="size-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950 transition-colors">
+                      Disease Reports
+                    </span>
+                    <span className="mt-0.5 block text-xs text-slate-500 font-medium truncate">
+                      {pendingDiseaseCases.length} report{pendingDiseaseCases.length === 1 ? "" : "s"} need attention
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/60 text-[11px] font-bold">
+                    {pendingDiseaseCases.length} urgent
+                  </span>
+                  <div className="size-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
+                    <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                </div>
               </button>
             </div>
           </section>

@@ -261,9 +261,17 @@ function SibatAlertsContent() {
       {/* ── PageHeader ── */}
       <PageHeader
         title="Health Reports"
-        subtitle="Review signs and symptoms reported by farmers. Reports are not confirmed diagnoses."
+        subtitle={
+          <>
+            <span className="hidden sm:inline">Review signs and symptoms reported by farmers. Reports are not confirmed diagnoses.</span>
+            <span className="sm:hidden">Review farmer symptom reports.</span>
+          </>
+        }
         icon={<Stethoscope className="size-6 text-white" />}
-        variant="sibat"
+        variant="farmer"
+        hideIconOnMobile
+        showTutorialToggle={false}
+        mobileActionsInline
         maxWidthClass="w-full"
       />
 

@@ -301,11 +301,24 @@ function SibatLivestockRegistryContent() {
     return (
       <>
         <PageHeader
-          title="Farmer Records"
-          subtitle="Find, review, and validate information submitted by farmers."
+          title={
+            <>
+              <span className="hidden sm:inline">Farmer &amp; Livestock Records</span>
+              <span className="sm:hidden">Farmer Records</span>
+            </>
+          }
+          subtitle={
+            <>
+              <span className="hidden sm:inline">Find, review, and validate information submitted by farmers.</span>
+              <span className="sm:hidden">Validate farmer livestock entries.</span>
+            </>
+          }
           variant="farmer"
           maxWidthClass="w-full"
           icon={<ClipboardList className="size-5 text-white" />}
+          hideIconOnMobile
+          showTutorialToggle={false}
+          mobileActionsInline
         />
         <div className="mx-auto w-full p-3.5 sm:p-6 lg:px-8">
           <ValidationLoadingScreen
@@ -346,11 +359,24 @@ function SibatLivestockRegistryContent() {
   return (
     <>
       <PageHeader
-        title="Farmer Records"
-        subtitle="Find, review, and validate information submitted by farmers."
+        title={
+          <>
+            <span className="hidden sm:inline">Farmer &amp; Livestock Records</span>
+            <span className="sm:hidden">Farmer Records</span>
+          </>
+        }
+        subtitle={
+          <>
+            <span className="hidden sm:inline">Find, review, and validate information submitted by farmers.</span>
+            <span className="sm:hidden">Validate farmer livestock entries.</span>
+          </>
+        }
         variant="farmer"
         maxWidthClass="w-full"
         icon={<ClipboardList className="size-5 text-white" />}
+        hideIconOnMobile
+        showTutorialToggle={false}
+        mobileActionsInline
       />
 
       <main className="mx-auto w-full min-w-0 space-y-4 px-3.5 py-4 sm:p-6 lg:px-8">
@@ -831,11 +857,24 @@ export default function SibatLivestockRegistryPage() {
       fallback={
         <>
           <PageHeader
-            title="Farmer Records"
-            subtitle="Find, review, and validate information submitted by farmers."
+            title={
+              <>
+                <span className="hidden sm:inline">Farmer &amp; Livestock Records</span>
+                <span className="sm:hidden">Farmer Records</span>
+              </>
+            }
+            subtitle={
+              <>
+                <span className="hidden sm:inline">Find, review, and validate information submitted by farmers.</span>
+                <span className="sm:hidden">Validate farmer livestock entries.</span>
+              </>
+            }
             variant="farmer"
             maxWidthClass="w-full"
             icon={<ClipboardList className="size-5 text-white" />}
+            hideIconOnMobile
+            showTutorialToggle={false}
+            mobileActionsInline
           />
           <div className="mx-auto w-full p-3.5 sm:p-6 lg:px-8">
             <ValidationLoadingScreen

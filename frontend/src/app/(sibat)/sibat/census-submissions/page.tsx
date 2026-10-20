@@ -2,6 +2,8 @@
 
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft, ClipboardList } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import CensusDetailsDialog from "../census-details-dialog";
@@ -28,14 +30,46 @@ function CensusSubmissionReviewContent() {
   }, [highlightedCensusId, censusId, censuses]);
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
-      <Button type="button" variant="outline" onClick={() => router.push("/sibat")}>
-        ← Back to Overview
-      </Button>
+    <>
       <PageHeader
-        title="Census Submissions"
-        subtitle="Review quarterly livestock census submissions."
+        title={
+          <>
+            <span className="hidden sm:inline">Quarterly Census Submissions</span>
+            <span className="sm:hidden">Census Submissions</span>
+          </>
+        }
+        subtitle={
+          <>
+            <span className="hidden sm:inline">Review quarterly livestock census submissions from registered farmers.</span>
+            <span className="sm:hidden">Review quarterly census submissions.</span>
+          </>
+        }
+        variant="farmer"
+        maxWidthClass="w-full"
+        icon={<ClipboardList className="size-5 text-white" />}
+        hideIconOnMobile
+        showTutorialToggle={false}
+        mobileActionsInline
+        action={
+          <button
+            type="button"
+            onClick={() => router.push("/sibat")}
+            aria-label="Back to overview"
+            title="Back to overview"
+            className="relative shrink-0 flex items-center justify-center h-11 w-11 sm:w-auto sm:px-3.5 rounded-xl sm:rounded-2xl border border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all duration-150 active:scale-95 cursor-pointer backdrop-blur-xs shadow-xs gap-1.5"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back to overview</span>
+          </button>
+        }
       />
+
+      <main className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+          <Link href="/sibat" className="hover:text-slate-900 transition-colors">SmartLivestock</Link>
+          <span>/</span>
+          <span className="text-slate-900 font-semibold">Census Submissions</span>
+        </div>
       {isLoading ? <p className="text-sm text-slate-600">Loading the selected submission…</p> : null}
       {isError ? <p role="alert" className="text-sm text-rose-700">The census submission could not be loaded. Please try again.</p> : null}
       {!isLoading && !submission && censusId ? (
@@ -88,6 +122,7 @@ function CensusSubmissionReviewContent() {
         onRevise={(item) => router.push(`/sibat/census/submit?revise=${item.id}`)}
       />
     </main>
+    </>
   );
 }
 
