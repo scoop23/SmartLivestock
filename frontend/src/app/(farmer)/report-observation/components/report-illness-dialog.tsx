@@ -380,41 +380,47 @@ function ReportIllnessDialogContent({
   const isDisease = reportType === "DISEASE";
 
   return (
-    <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-2xl border-0 shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[90dvh] sm:rounded-3xl">
-        {/* Header uses the report type selected from the observation page. */}
-        <div
-          className={`p-4 text-white transition-colors relative overflow-hidden sm:p-6 ${
-            isDisease
-              ? "bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800"
-              : "bg-gradient-to-br from-rose-950 via-rose-800 to-rose-700"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md">
-                {isDisease ? (
-                  <Stethoscope className="size-6 text-emerald-200" />
-                ) : (
-                  <Skull className="size-6 text-rose-200" />
-                )}
-              </div>
-              <div>
-                <DialogTitle className="break-words text-base font-black text-white tracking-tight sm:text-lg">
-                  {isEditMode
-                    ? `Edit ${isDisease ? "Disease Report" : "Mortality Report"}`
-                    : isDisease
-                      ? "Report Sick or Injured Animal"
-                      : "Report Deceased Animal"}
-                </DialogTitle>
-                <DialogDescription className="text-xs text-white/80 font-medium mt-0.5">
-                  {isEditMode
-                    ? "Update the existing declaration and return it to the review queue."
-                    : "Send this report to the local livestock team for follow-up."}
-                </DialogDescription>
-              </div>
+    <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[90dvh]">
+        {/* Header - Clean white style matching design guide */}
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`size-10 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border ${
+                isDisease
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+                  : "bg-rose-50 text-rose-800 border-rose-200/80"
+              }`}
+            >
+              {isDisease ? (
+                <Stethoscope className="size-5 text-[#2D5A27]" />
+              ) : (
+                <Skull className="size-5 text-rose-700" />
+              )}
             </div>
-
+            <div className="min-w-0">
+              <DialogTitle className="break-words text-base font-black text-slate-900 tracking-tight sm:text-lg">
+                {isEditMode
+                  ? `Edit ${isDisease ? "Disease Report" : "Mortality Report"}`
+                  : isDisease
+                    ? "Report Sick or Injured Animal"
+                    : "Report Deceased Animal"}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 font-medium mt-0.5">
+                {isEditMode
+                  ? "Update the existing declaration and return it to the review queue."
+                  : "Send this report to the local livestock team for follow-up."}
+              </DialogDescription>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="size-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+          >
+            <X className="size-4" />
+            <span className="sr-only">Close</span>
+          </button>
         </div>
 
         {isEditMode && existingReport?.reviewRemarks && (
