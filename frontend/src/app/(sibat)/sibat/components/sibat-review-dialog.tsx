@@ -2,45 +2,59 @@
 
 import { httpError } from "@/lib/http-error";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-Dialog,
-DialogContent,
-DialogDescription,
-DialogFooter,
-DialogHeader,
-DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import {
-Baby,
-Calendar,
-CheckCircle2,
-Clock,
-Info,
-Layers,
-MapPin,
-RotateCcw,
-Save,
-ShieldCheck,
-Sparkles,
-Tag,
-User
+  LivestockSilhouettePath,
+  resolveSpeciesKey,
+} from "@/app/(farmer)/livestock-inventory/components/livestock-silhouette-paths";
+import { cowHead } from "@lucide/lab";
+import {
+  Baby,
+  BarChart2,
+  Beef,
+  Calendar,
+  Check,
+  CheckCircle2,
+  ClipboardCheck,
+  Egg,
+  FileText,
+  Icon,
+  Info,
+  Layers,
+  MapPin,
+  MessageSquare,
+  Milk,
+  Pencil,
+  RotateCcw,
+  Save,
+  Scissors,
+  Send,
+  ShoppingBag,
+  Sparkles,
+  Sprout,
+  User,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect,useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
-useReviewSubmission,
-useUpdateSubmissionData,
-type UnifiedSubmissionItem,
+  useReviewSubmission,
+  useUpdateSubmissionData,
+  type UnifiedSubmissionItem,
 } from "../sibat-analytics";
-import SibatStatusBadge from "./sibat-status-badge";
 
 interface SibatReviewDialogProps {
   submission: UnifiedSubmissionItem | null;
@@ -63,11 +77,23 @@ function getReviewErrorMessage(error: unknown): string | null {
   return null;
 }
 
+function formatReviewDate(value: string | null | undefined): string {
+  if (!value) return "N/A";
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.slice(0, 10));
+  if (!match) return value;
+  const [, year, month, day] = match;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(Number(year), Number(month) - 1, Number(day))).replace(",", "");
+}
+
 function AnimalPhoto({ submission }: { submission: UnifiedSubmissionItem }) {
   const [failed, setFailed] = useState(false);
   const emoji = submission.livestockTypeName?.toLowerCase().includes("cattle") ? "🐄" : "🐾";
   return (
-    <div className="relative w-full max-h-64 aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-amber-50 flex items-center justify-center">
+    <div className="relative w-full max-h-48 aspect-[16/9] overflow-hidden rounded-xl border border-slate-200 bg-amber-50 flex items-center justify-center mb-3">
       {submission.photoUrl && !failed ? (
         <Image
           src={submission.photoUrl}
@@ -79,10 +105,80 @@ function AnimalPhoto({ submission }: { submission: UnifiedSubmissionItem }) {
           className="size-full object-cover"
         />
       ) : (
-        <span className="text-5xl" aria-label="Livestock photo unavailable">{emoji}</span>
+        <span className="text-4xl" aria-label="Livestock photo unavailable">{emoji}</span>
       )}
     </div>
   );
+}
+
+function getHeaderIconMeta(submission: UnifiedSubmissionItem) {
+  const pType = (
+    submission.productionType ||
+    (submission.submissionTypeLabel?.toLowerCase().includes("milk") ? "milk" : "") ||
+    (submission.submissionTypeLabel?.toLowerCase().includes("meat") ? "meat" : "") ||
+    (submission.submissionTypeLabel?.toLowerCase().includes("carcass") ? "meat" : "") ||
+    (submission.submissionTypeLabel?.toLowerCase().includes("slaughter") ? "meat" : "") ||
+    (submission.submissionTypeLabel?.toLowerCase().includes("egg") ? "eggs" : "") ||
+    (submission.submissionTypeLabel?.toLowerCase().includes("wool") ? "wool" : "") ||
+    ""
+  ).toLowerCase();
+
+  if (submission.sourceType === "PRODUCTION" || pType) {
+    if (pType.includes("milk")) {
+      return {
+        icon: Milk,
+        containerClass: "bg-blue-50 text-blue-700 border border-blue-200/60",
+      };
+    }
+    if (pType.includes("meat") || pType.includes("carcass") || pType.includes("slaughter")) {
+      return {
+        icon: Beef,
+        containerClass: "bg-rose-50 text-rose-700 border border-rose-200/60",
+      };
+    }
+    if (pType.includes("egg")) {
+      return {
+        icon: Egg,
+        containerClass: "bg-amber-50 text-amber-700 border border-amber-200/60",
+      };
+    }
+    if (pType.includes("wool")) {
+      return {
+        icon: Scissors,
+        containerClass: "bg-sky-50 text-sky-700 border border-sky-200/60",
+      };
+    }
+    return {
+      icon: Sprout,
+      containerClass: "bg-[#eaf5ed] text-[#2e7d4c]",
+    };
+  }
+
+  if (submission.sourceType === "SALE") {
+    return {
+      icon: ShoppingBag,
+      containerClass: "bg-emerald-50 text-emerald-800 border border-emerald-200/60",
+    };
+  }
+
+  if (submission.sourceType === "CALVING") {
+    return {
+      icon: Baby,
+      containerClass: "bg-pink-50 text-pink-700 border border-pink-200/60",
+    };
+  }
+
+  if (submission.sourceType === "BATCH" || submission.entryType === "BATCH") {
+    return {
+      icon: Layers,
+      containerClass: "bg-teal-50 text-teal-800 border border-teal-200/60",
+    };
+  }
+
+  return {
+    icon: Sprout,
+    containerClass: "bg-[#eaf5ed] text-[#2e7d4c]",
+  };
 }
 
 export default function SibatReviewDialog(props: SibatReviewDialogProps) {
@@ -99,7 +195,7 @@ function SibatReviewDialogContent({
   const [isEditing, setIsEditing] = useState(false);
   const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
 
-  // Edit fields state
+  // Edit fields state for inventory / batch corrections
   const [editTagNumber, setEditTagNumber] = useState(submission?.tagNumber || "");
   const [editBreed, setEditBreed] = useState(submission?.breed || "");
   const [editSex, setEditSex] = useState(submission?.sex || "Female");
@@ -111,20 +207,55 @@ function SibatReviewDialogContent({
   const reviewMutation = useReviewSubmission();
   const updateMutation = useUpdateSubmissionData();
 
-
-
   if (!submission) return null;
+
+  const headerIconMeta = getHeaderIconMeta(submission);
+  const HeaderIcon = headerIconMeta.icon;
 
   const isPending = submission.status === "PENDING";
   const isVerified = submission.status === "VERIFIED";
   const isApproved = submission.status === "APPROVED";
-  // Either reviewer can return a record. The farmer acts next; only resubmission
-  // makes it PENDING and actionable by SIBAT again. Status alone cannot identify the reviewer.
   const isReturned = submission.status === "SUBJECT_TO_REVISION" || submission.status === "SUBJECT_FOR_REVISION";
-  const returnedBySibat = isReturned && submission.reviewedByRole === "SIBAT";
-  const returnedByMao = isReturned && submission.reviewedByRole === "MAO";
   const isRejected = submission.status === "REJECTED";
   const isBatch = submission.sourceType === "BATCH" || submission.entryType === "BATCH";
+
+  // Compute animal banner info (e.g. "1 animal · PG-MAN-200-04", "Leaves active inventory after MAO approval.")
+  let animalCount = 1;
+  let animalTagLabel = submission.tagNumber || "";
+  let animalNotice = "Leaves active inventory after MAO approval.";
+
+  if (submission.slaughterDetails?.animals?.length) {
+    animalCount = submission.slaughterDetails.quantity || submission.slaughterDetails.animals.length;
+    animalTagLabel = submission.slaughterDetails.animals
+      .map((a) => a.tag_number || `#${a.id}`)
+      .join(", ");
+    animalNotice = "Leaves active inventory after MAO approval.";
+  } else if (submission.tagNumber) {
+    animalCount = 1;
+    animalTagLabel = submission.tagNumber;
+    animalNotice =
+      submission.sourceType === "SALE" || submission.sourceType === "PRODUCTION"
+        ? "Leaves active inventory after MAO approval."
+        : "Recorded in verified farm inventory.";
+  } else if (submission.calfTag) {
+    animalCount = 1;
+    animalTagLabel = submission.calfTag;
+    animalNotice = `Mother Dam: ${submission.damTag || "Registered Dam"}`;
+  } else if (submission.batchCode) {
+    animalCount = submission.quantity || 1;
+    animalTagLabel = `Batch ${submission.batchCode}`;
+    animalNotice = "Enrolled in cooperative herd roster.";
+  } else if (submission.sourceType === "PRODUCTION") {
+    animalCount = submission.quantity || 1;
+    animalTagLabel = submission.detailsTitle || `${submission.livestockTypeName} Yield`;
+    animalNotice = "Leaves active inventory after MAO approval.";
+  }
+
+  // Farmer remarks resolution
+  const farmerRemarks =
+    submission.notes?.trim() ||
+    (submission.salePurpose ? `Purpose: ${submission.salePurpose}` : null) ||
+    "No additional remarks submitted by farmer.";
 
   const handleSaveEdits = async () => {
     try {
@@ -154,9 +285,17 @@ function SibatReviewDialogContent({
   };
 
   const handleReviewAction = async (newStatus: "VERIFIED" | "SUBJECT_TO_REVISION") => {
+    if (newStatus === "SUBJECT_TO_REVISION" && !remarks.trim()) {
+      toast.error("Revision remarks required", {
+        description: "Please enter verification remarks explaining what the farmer needs to clarify or correct.",
+      });
+      return;
+    }
+
     if (isEditing) {
       await handleSaveEdits();
     }
+
     reviewMutation.mutate(
       {
         item: submission,
@@ -184,7 +323,7 @@ function SibatReviewDialogContent({
               onOpenChange(false);
             }, 1200);
           } else {
-            toast.success("Submission returned to raiser for revision & clarification.");
+            toast.success("Submission returned to farmer for revision & clarification.");
             if (onReviewSuccess) onReviewSuccess();
             onOpenChange(false);
           }
@@ -201,13 +340,13 @@ function SibatReviewDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white text-slate-900 border border-slate-200 shadow-2xl w-[calc(100vw-1rem)] sm:w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl sm:rounded-3xl">
+      <DialogContent className="bg-white text-slate-900 border border-slate-200/90 shadow-2xl w-[calc(100vw-1rem)] sm:w-full sm:max-w-4xl max-h-[96dvh] sm:max-h-[92vh] overflow-y-auto p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl gap-3 sm:gap-3.5">
         {/* Validation Success Animation Overlay */}
         {isSuccessAnimated && (
           <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
             <div className="relative mb-4">
               <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping-subtle opacity-75" />
-              <div className="relative size-20 rounded-full bg-linear-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-xl shadow-emerald-600/30 animate-pop-bounce">
+              <div className="relative size-20 rounded-full bg-linear-to-tr from-[#1b4332] to-emerald-600 text-white flex items-center justify-center shadow-xl shadow-emerald-900/30 animate-pop-bounce">
                 <CheckCircle2 className="size-11 stroke-[2.5]" />
               </div>
             </div>
@@ -224,29 +363,30 @@ function SibatReviewDialogContent({
           </div>
         )}
 
-        <DialogHeader className="border-b border-slate-100 pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-[#1A365D]/10 text-[#1A365D] flex items-center justify-center font-bold shrink-0">
-                <ShieldCheck className="size-5" />
+        {/* ═══ Header ═══ */}
+        <DialogHeader className="pb-0 text-left">
+          <div className="flex items-start justify-between gap-2.5 pr-8 sm:pr-6">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className={`size-9 sm:size-11 rounded-xl flex items-center justify-center shrink-0 ${headerIconMeta.containerClass}`}>
+                <HeaderIcon className="size-5 sm:size-5.5" />
               </div>
-              <div>
-                <DialogTitle className="text-lg font-black text-slate-900">
+              <div className="min-w-0">
+                <DialogTitle className="text-base sm:text-xl font-bold tracking-tight text-slate-900 leading-snug truncate">
                   {submission.sourceType === "SALE"
-                ? "Review Live Animal Sale"
-                : submission.sourceType === "CALVING"
+                    ? "Review Live Animal Sale"
+                    : submission.sourceType === "CALVING"
                     ? "Verify Calving & Birthing Event"
-                    : isBatch
-                    ? "Review Herd"
                     : submission.sourceType === "PRODUCTION"
                     ? "Review Harvest & Yield Log"
+                    : isBatch
+                    ? "Review Herd"
                     : "Review Animal Submission"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500 font-medium">
+                <DialogDescription className="text-[11px] sm:text-xs font-medium text-slate-500 mt-0.5 truncate">
                   {submission.sourceType === "SALE"
-                ? "Live Animal Sale"
-                : submission.sourceType === "CALVING"
-                    ? `Dam Tag #${submission.damTag || "N/A"} • Calf Tag #${submission.calfTag || "Unassigned"}`
+                    ? "Live Animal Sale"
+                    : submission.sourceType === "CALVING"
+                    ? "Calving & Birthing Event"
                     : submission.sourceType === "PRODUCTION"
                     ? "Production Yield Log"
                     : isBatch
@@ -256,136 +396,230 @@ function SibatReviewDialogContent({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {(submission.batchCode || submission.batchId) && !isBatch && (
-                <Button
-                  asChild
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2.5 rounded-lg text-xs font-bold text-teal-900 bg-teal-50 border-teal-300 hover:bg-teal-100 hover:text-teal-950 cursor-pointer shadow-2xs gap-1.5"
-                  title="Review entire herd roster in batches drilldown"
+            {(submission.batchCode || submission.batchId) && !isBatch && (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="hidden sm:inline-flex h-7 px-2.5 rounded-lg text-xs font-bold text-teal-900 bg-teal-50 border-teal-300 hover:bg-teal-100 hover:text-teal-950 cursor-pointer shadow-2xs gap-1 shrink-0"
+                title="Review entire herd roster in batches drilldown"
+              >
+                <Link
+                  href={`/sibat/batches?batchId=${encodeURIComponent(submission.batchId || submission.batchCode || "")}&animalId=${submission.rawId}&tag=${encodeURIComponent(submission.tagNumber || "")}`}
                 >
-                  <Link
-                    href={`/sibat/batches?batchId=${encodeURIComponent(submission.batchId || submission.batchCode || "")}&animalId=${submission.rawId}&tag=${encodeURIComponent(submission.tagNumber || "")}`}
-                  >
-                    <Layers className="size-3 text-teal-700" />
-                    Review Herd
-                  </Link>
-                </Button>
-              )}
-              <SibatStatusBadge status={submission.status} />
-            </div>
+                  <Layers className="size-3 text-teal-700" />
+                  Review Herd
+                </Link>
+              </Button>
+            )}
           </div>
         </DialogHeader>
 
-
-        {/* ═══ Content: Two-Column Operational View ═══ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-          {/* LEFT COLUMN: Farmer Submitted Information (Editable by SIBAT) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-100">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                <Layers className="size-3.5 text-[#1A365D]" />
-                <span>{submission.sourceType === "CALVING" ? "Birthing & Pedigree Information" : isBatch ? "Herd Information" : "Animal Identification"}</span>
-              </div>
+        {/* ═══ Top Stepper / Progress Bar ═══ */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-2.5 sm:p-3.5">
+          <div className="relative grid grid-cols-4 gap-1">
+            {/* Connecting lines between centers of circles */}
+            <div className="absolute top-3.5 left-[12.5%] right-[12.5%] h-[2px] -translate-y-1/2 flex pointer-events-none">
+              {/* Line 1 -> 2: solid forest green */}
+              <div className="h-full flex-1 bg-[#1b4332]" />
+              {/* Line 2 -> 3: solid if verified/approved, else dashed gray */}
+              <div
+                className={`h-full flex-1 ${
+                  isVerified || isApproved ? "bg-[#1b4332]" : "border-t-2 border-dashed border-slate-300"
+                }`}
+              />
+              {/* Line 3 -> 4: solid if approved, else dashed gray */}
+              <div
+                className={`h-full flex-1 ${
+                  isApproved ? "bg-[#1b4332]" : "border-t-2 border-dashed border-slate-300"
+                }`}
+              />
             </div>
 
-            {!isBatch && submission.sourceType === "INVENTORY" && (
-              <AnimalPhoto key={`${submission.id}-${submission.photoUrl || "no-photo"}`} submission={submission} />
-            )}
+            {/* Step 1: Farmer Submitted */}
+            <div className="relative z-10 flex flex-col items-center text-center min-w-0">
+              <div className="size-7 rounded-full bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
+                <Check className="size-3.5 stroke-[3]" />
+              </div>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-900 mt-1 truncate max-w-full">
+                <span className="hidden sm:inline">1. Farmer Submitted</span>
+                <span className="sm:hidden">1. Submitted</span>
+              </span>
+              <span className="text-[9.5px] sm:text-[11px] text-slate-500 mt-0.5 truncate max-w-full">
+                {formatReviewDate(submission.createdAt || submission.recordDate)}
+              </span>
+            </div>
 
-            <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 space-y-3 text-xs">
-              {/* Farmer & Barangay */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-400 block">Farmer Name</span>
-                  <span className="font-bold text-slate-900 flex items-center gap-1.5 pt-0.5">
-                    <User className="size-3.5 text-slate-500" />
-                    {submission.farmerName}
-                  </span>
+            {/* Step 2: SIBAT Field Check */}
+            <div className="relative z-10 flex flex-col items-center text-center min-w-0">
+              <div
+                className={`size-7 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs shrink-0 ${
+                  isVerified || isApproved
+                    ? "bg-[#1b4332] text-white"
+                    : isReturned
+                    ? "bg-amber-600 text-white"
+                    : isRejected
+                    ? "bg-rose-600 text-white"
+                    : "bg-[#1b4332] text-white"
+                }`}
+              >
+                {isVerified || isApproved ? (
+                  <Check className="size-3.5 stroke-[3]" />
+                ) : isReturned ? (
+                  <RotateCcw className="size-3" />
+                ) : (
+                  "2"
+                )}
+              </div>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-900 mt-1 truncate max-w-full">
+                <span className="hidden sm:inline">2. SIBAT Field Check</span>
+                <span className="sm:hidden">2. Field Check</span>
+              </span>
+              {isPending ? (
+                <span className="inline-block mt-0.5 px-1.5 sm:px-2 py-0.2 rounded-full bg-[#fef3c7] text-[#92400e] text-[9px] sm:text-[10px] font-semibold truncate max-w-full">
+                  Pending review
+                </span>
+              ) : isReturned ? (
+                <span className="inline-block mt-0.5 px-1.5 sm:px-2 py-0.2 rounded-full bg-amber-100 text-amber-900 text-[9px] sm:text-[10px] font-semibold truncate max-w-full">
+                  Revision requested
+                </span>
+              ) : isVerified || isApproved ? (
+                <span className="inline-block mt-0.5 px-1.5 sm:px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] sm:text-[10px] font-semibold truncate max-w-full">
+                  Completed
+                </span>
+              ) : isRejected ? (
+                <span className="inline-block mt-0.5 px-1.5 sm:px-2 py-0.2 rounded-full bg-rose-100 text-rose-800 text-[9px] sm:text-[10px] font-semibold truncate max-w-full">
+                  Rejected
+                </span>
+              ) : (
+                <span className="text-[9.5px] sm:text-[11px] text-slate-400 mt-0.5 truncate max-w-full">Upcoming</span>
+              )}
+            </div>
+
+            {/* Step 3: Forwarded to MAO */}
+            <div className="relative z-10 flex flex-col items-center text-center min-w-0">
+              <div
+                className={`size-7 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs shrink-0 ${
+                  isVerified || isApproved ? "bg-[#1b4332] text-white" : "bg-slate-200 text-slate-600"
+                }`}
+              >
+                {isApproved ? <Check className="size-3.5 stroke-[3]" /> : "3"}
+              </div>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-900 mt-1 truncate max-w-full">
+                <span className="hidden sm:inline">3. Forwarded to MAO</span>
+                <span className="sm:hidden">3. To MAO</span>
+              </span>
+              <span className="text-[9.5px] sm:text-[11px] text-slate-400 mt-0.5 truncate max-w-full">
+                {isVerified ? "In MAO Queue" : isApproved ? "Forwarded" : "Upcoming"}
+              </span>
+            </div>
+
+            {/* Step 4: MAO Decision */}
+            <div className="relative z-10 flex flex-col items-center text-center min-w-0">
+              <div
+                className={`size-7 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs shrink-0 ${
+                  isApproved ? "bg-[#1b4332] text-white" : "bg-slate-200 text-slate-600"
+                }`}
+              >
+                {isApproved ? <Check className="size-3.5 stroke-[3]" /> : "4"}
+              </div>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-900 mt-1 truncate max-w-full">
+                <span className="hidden sm:inline">4. MAO Decision</span>
+                <span className="sm:hidden">4. Decision</span>
+              </span>
+              <span className="text-[9.5px] sm:text-[11px] text-slate-400 mt-0.5 truncate max-w-full">
+                {isApproved ? "Approved" : "Upcoming"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ Main 2-Column Grid ═══ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 items-start">
+          {/* LEFT COLUMN: Record details */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="size-8 rounded-lg bg-[#eaf5ed] text-[#2e7d4c] flex items-center justify-center shrink-0">
+                    <FileText className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">Record details</h3>
+                    <p className="text-[11px] text-slate-500 truncate">Information submitted by the farmer.</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-400 block">Barangay Sector</span>
-                  <span className="font-bold text-slate-900 flex items-center gap-1.5 pt-0.5">
-                    <MapPin className="size-3.5 text-slate-500" />
-                    {submission.barangayName}
-                  </span>
-                </div>
+
+                {/* Edit toggle for individual animal or batch inventory */}
+                {isPending && (!isBatch && submission.sourceType === "INVENTORY" || isBatch) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="h-6.5 text-[11px] text-slate-600 hover:text-slate-900 gap-1 px-2 rounded-md shrink-0"
+                  >
+                    <Pencil className="size-2.5" />
+                    {isEditing ? "Cancel" : "Edit"}
+                  </Button>
+                )}
               </div>
 
-              {/* Livestock Type & Details */}
-              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/50">
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-400 block">Livestock Enterprise</span>
-                  <span className="font-bold text-slate-900 block pt-0.5">
-                    {submission.livestockTypeName}
-                  </span>
+              {!isBatch && submission.sourceType === "INVENTORY" && !isEditing && (
+                <div className="pt-2">
+                  <AnimalPhoto key={`${submission.id}-${submission.photoUrl || "no-photo"}`} submission={submission} />
                 </div>
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-400 block">Reported Yield / Quantity</span>
-                  <span className="font-bold text-emerald-800 text-sm block pt-0.5">
-                    {submission.quantityDisplay}
-                  </span>
-                </div>
-              </div>
+              )}
 
-              {submission.slaughterDetails && <div className="rounded-xl bg-amber-50 p-3 text-xs space-y-1">
-                <p className="font-semibold">Slaughter event: {submission.slaughterDetails.quantity} animals</p>
-                <p>{submission.slaughterDetails.animals.map(animal => animal.tag_number || `Animal #${animal.id}`).join(", ")}</p>
-                <p>Only these animals leave active inventory after MAO approval.</p>
-              </div>}
-
-              {/* Specific Metadata for Individual Animals */}
-              {!isBatch && submission.sourceType === "INVENTORY" && (
-                <div className="pt-2 border-t border-slate-200/50 space-y-2.5">
-                  {isEditing ? (
-                    <div className="space-y-2 bg-white p-3 rounded-xl border border-emerald-200">
-                      <p className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">
+              {/* Editable form mode (for inventory / batch records) */}
+              {isEditing ? (
+                <div className="pt-2.5 space-y-2.5">
+                  {!isBatch ? (
+                    <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-emerald-200">
+                      <p className="text-[10.5px] font-bold uppercase text-emerald-800 tracking-wider">
                         Edit Animal Identification
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-[10px] font-bold text-slate-600">Ear Tag #</Label>
+                          <Label className="text-[10.5px] font-bold text-slate-600">Ear Tag #</Label>
                           <Input
                             value={editTagNumber}
                             onChange={(e) => setEditTagNumber(e.target.value)}
                             placeholder="e.g. SWN-01-05"
-                            className="h-7 text-xs rounded-lg mt-0.5"
+                            className="h-7.5 text-xs rounded-lg mt-0.5"
                           />
                         </div>
                         <LivestockBreedField
-                            id="sibat-review-breed"
-                            species={submission.livestockTypeName}
-                            label="Breed"
-                            value={editBreed}
-                            onChange={setEditBreed}
-                            placeholder="Select breed"
-                            controlClassName="h-7 rounded-lg text-xs"
-                          />
+                          id="sibat-review-breed"
+                          species={submission.livestockTypeName}
+                          label="Breed"
+                          value={editBreed}
+                          onChange={setEditBreed}
+                          placeholder="Select breed"
+                          controlClassName="h-7.5 rounded-lg text-xs"
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-[10px] font-bold text-slate-600">Sex</Label>
+                          <Label className="text-[10.5px] font-bold text-slate-600">Sex</Label>
                           <select
                             value={editSex}
                             onChange={(e) => setEditSex(e.target.value)}
-                            className="h-7 w-full text-xs rounded-lg border border-slate-200 bg-white px-2 mt-0.5 font-medium"
+                            className="h-7.5 w-full text-xs rounded-lg border border-slate-200 bg-white px-2 mt-0.5 font-medium"
                           >
                             <option value="Female">Female</option>
                             <option value="Male">Male</option>
-
-
                           </select>
                         </div>
                         <div>
-                          <Label className="text-[10px] font-bold text-slate-600">Body Weight (kg)</Label>
+                          <Label className="text-[10.5px] font-bold text-slate-600">Body Weight (kg)</Label>
                           <Input
                             type="number"
                             step="0.1"
                             value={editWeight}
                             onChange={(e) => setEditWeight(e.target.value)}
                             placeholder="65.0"
-                            className="h-7 text-xs rounded-lg mt-0.5"
+                            className="h-7.5 text-xs rounded-lg mt-0.5"
                           />
                         </div>
                       </div>
@@ -394,187 +628,46 @@ function SibatReviewDialogContent({
                         size="sm"
                         onClick={handleSaveEdits}
                         disabled={updateMutation.isPending}
-                        className="w-full h-7 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg mt-1 gap-1"
+                        className="w-full h-7.5 text-xs bg-[#1b4332] hover:bg-[#143326] text-white font-bold rounded-lg mt-1 gap-1.5"
                       >
                         <Save className="size-3" />
                         {updateMutation.isPending ? "Saving..." : "Save Animal Updates"}
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {submission.tagNumber && (
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-400 block">Ear Tag Number</span>
-                          <span className="font-bold text-slate-800 flex items-center gap-1 pt-0.5">
-                            <Tag className="size-3 text-emerald-600" />
-                            {submission.tagNumber}
-                          </span>
-                        </div>
-                      )}
-                      {submission.breed && (
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-400 block">Breed</span>
-                          <span className="font-bold text-slate-800 block pt-0.5">
-                            {submission.breed}
-                          </span>
-                        </div>
-                      )}
-                      {submission.sex && (
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-400 block">Sex</span>
-                          <span className="font-bold text-slate-800 block pt-0.5">
-                            {submission.sex}
-                          </span>
-                        </div>
-                      )}
-                      {submission.sourceType === "INVENTORY" && (
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-400 block">Birth Date · Age / Class</span>
-                          <span className="font-bold text-slate-800 block pt-0.5">
-                            {formatCalendarDate(submission.birthDate)} · {formatLivestockAge(submission.age)} · {formatAgeClassification(submission.ageClassification)}
-                          </span>
-                        </div>
-                      )}
-                      {submission.weight && (
-                        <div>
-                          <span className="text-[11px] font-semibold text-slate-400 block">Body Weight</span>
-                          <span className="font-bold text-slate-800 block pt-0.5">
-                            {submission.weight} kg
-                          </span>
-                        </div>
-                      )}
-
-                      {(submission.batchCode || submission.batchId) && (
-                        <div className="col-span-2 mt-2 p-2.5 rounded-xl bg-teal-50/90 border border-teal-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
-                          <div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-teal-800 block">
-                              Enrolled in Herd Roster
-                            </span>
-                            <span className="font-bold text-xs text-teal-950 flex items-center gap-1.5 pt-0.5">
-                              <Layers className="size-3.5 text-teal-700 shrink-0" />
-                              {submission.batchName ? `${submission.batchName} (${submission.batchCode || `#${submission.batchId}`})` : submission.batchCode || `Herd #${submission.batchId}`}
-                            </span>
-                          </div>
-                          <Button
-                            asChild
-                            size="sm"
-                            className="h-7 px-3 rounded-lg text-xs font-bold bg-[#1A365D] text-white hover:bg-[#132742] shrink-0 gap-1.5 cursor-pointer shadow-2xs"
-                          >
-                            <Link
-                              href={`/sibat/batches?batchId=${encodeURIComponent(submission.batchId || submission.batchCode || "")}&animalId=${submission.rawId}&tag=${encodeURIComponent(submission.tagNumber || "")}`}
-                            >
-                              <Layers className="size-3" />
-                              Review Herd
-                            </Link>
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Specific Metadata for Calving & Birthing Events */}
-              {submission.sourceType === "CALVING" && (
-                <div className="pt-2 border-t border-slate-200/50 space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-400 block">Mother Cow / Dam Tag</span>
-                      <span className="font-bold text-slate-800 flex items-center gap-1 pt-0.5">
-                        <Tag className="size-3 text-sky-600" />
-                        {submission.damTag || "Registered Dam"}
-                      </span>
-                    </div>
-                    {submission.damBreed && (
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-400 block">Dam Breed</span>
-                        <span className="font-bold text-slate-800 block pt-0.5">
-                          {submission.damBreed}
-                        </span>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-400 block">Calf Ear Tag</span>
-                      <span className="font-bold text-emerald-800 flex items-center gap-1 pt-0.5">
-                        <Baby className="size-3 text-emerald-600" />
-                        {submission.calfTag || "Pending Tag"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-400 block">Calf Sex</span>
-                      <span className="font-bold text-slate-800 block pt-0.5">
-                        {submission.calfSex || "Female"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-400 block">Birth Weight</span>
-                      <span className="font-bold text-slate-800 block pt-0.5">
-                        {submission.birthWeight ? `${submission.birthWeight} kg` : "Not recorded"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-400 block">Calving Ease</span>
-                      <span className="font-bold text-slate-800 block pt-0.5">
-                        {submission.calvingEase || "Normal / Unassisted"}
-                      </span>
-                    </div>
-                    {submission.sireTag && (
-                      <div className="col-span-2">
-                        <span className="text-[11px] font-semibold text-slate-400 block">Sire / Father Reference</span>
-                        <span className="font-bold text-slate-800 block pt-0.5">
-                          {submission.sireTag}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {submission.sourceType === "SALE" && (
-                <div className="space-y-2 border-t border-slate-200/50 pt-2 text-sm">
-                  <p>Destination: {submission.saleDestination || "Not recorded"}</p>
-                  <p>Purpose: {submission.salePurpose || "Not recorded"}</p>
-                  <p>Recorded sale price: {submission.saleTotalPrice == null ? "Not recorded" : new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(submission.saleTotalPrice)}</p>
-                </div>
-              )}
-
-              {/* Specific Metadata for Herds */}
-              {isBatch && (
-                <div className="pt-2 border-t border-slate-200/50 space-y-2.5">
-                  {isEditing ? (
-                    <div className="space-y-2 bg-white p-3 rounded-xl border border-emerald-200">
-                      <p className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">
-                        Edit Batch Housing & Target
+                    <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-emerald-200">
+                      <p className="text-[10.5px] font-bold uppercase text-emerald-800 tracking-wider">
+                        Edit Herd Housing & Target
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-[10px] font-bold text-slate-600">Housing / Pen</Label>
+                          <Label className="text-[10.5px] font-bold text-slate-600">Housing / Pen</Label>
                           <Input
                             value={editHousingPen}
                             onChange={(e) => setEditHousingPen(e.target.value)}
                             placeholder="e.g. Pen 3 Fattening"
-                            className="h-7 text-xs rounded-lg mt-0.5"
+                            className="h-7.5 text-xs rounded-lg mt-0.5"
                           />
                         </div>
                         <div>
-                          <Label className="text-[10px] font-bold text-slate-600">Feed Ration</Label>
+                          <Label className="text-[10.5px] font-bold text-slate-600">Feed Ration</Label>
                           <Input
                             value={editFeedType}
                             onChange={(e) => setEditFeedType(e.target.value)}
                             placeholder="e.g. Commercial Grower"
-                            className="h-7 text-xs rounded-lg mt-0.5"
+                            className="h-7.5 text-xs rounded-lg mt-0.5"
                           />
                         </div>
                       </div>
                       <div>
-                        <Label className="text-[10px] font-bold text-slate-600">Target Weight (kg)</Label>
+                        <Label className="text-[10.5px] font-bold text-slate-600">Target Weight (kg)</Label>
                         <Input
                           type="number"
                           step="0.5"
                           value={editTargetWeight}
                           onChange={(e) => setEditTargetWeight(e.target.value)}
                           placeholder="90"
-                          className="h-7 text-xs rounded-lg mt-0.5"
+                          className="h-7.5 text-xs rounded-lg mt-0.5"
                         />
                       </div>
                       <Button
@@ -582,265 +675,244 @@ function SibatReviewDialogContent({
                         size="sm"
                         onClick={handleSaveEdits}
                         disabled={updateMutation.isPending}
-                        className="w-full h-7 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg mt-1 gap-1"
+                        className="w-full h-7.5 text-xs bg-[#1b4332] hover:bg-[#143326] text-white font-bold rounded-lg mt-1 gap-1.5"
                       >
                         <Save className="size-3" />
-                        {updateMutation.isPending ? "Saving..." : "Save Batch Updates"}
+                        {updateMutation.isPending ? "Saving..." : "Save Herd Updates"}
                       </Button>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-400 block">Batch Code</span>
-                        <span className="font-bold text-emerald-800 flex items-center gap-1 pt-0.5">
-                          <Layers className="size-3 text-emerald-600" />
-                          {submission.tagNumber || submission.batchCode}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-400 block">Housing Pen</span>
-                        <span className="font-bold text-slate-800 block pt-0.5">
-                          {submission.housingPen || "Standard Pen"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-400 block">Feed Formulation</span>
-                        <span className="font-bold text-slate-800 block pt-0.5">
-                          {submission.feedType || "—"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold text-slate-400 block">Target Weight</span>
-                        <span className="font-bold text-slate-800 block pt-0.5">
-                          {submission.targetWeight ? `${submission.targetWeight} kg` : "N/A"}
-                        </span>
-                      </div>
-                    </div>
                   )}
+                </div>
+              ) : (
+                /* Standard Display List */
+                <div className="divide-y divide-slate-100">
+                  {/* Farmer */}
+                  <div className="flex items-center justify-between gap-2 py-1.5">
+                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                      <User className="size-3.5 text-slate-400" />
+                      <span className="text-[11px] sm:text-xs font-medium">Farmer</span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                      {submission.farmerName}
+                    </span>
+                  </div>
 
-                  {/* Child animals roster count */}
-                  {submission.animals && submission.animals.length > 0 && (
-                    <div className="pt-2 border-t border-slate-200/50">
-                      <span className="text-[11px] font-semibold text-slate-500 block mb-1">
-                        Animals Linked to this Herd ({submission.animals.length} heads):
-                      </span>
-                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                        {submission.animals.map((a) => (
-                          <Badge
-                            key={a.id}
-                            variant="secondary"
-                            className="text-[10px] font-mono font-bold bg-white border border-slate-200"
-                          >
-                            {a.tag_number || `#${a.id}`} • {a.weight ? `${a.weight}kg` : a.sex}
-                          </Badge>
-                        ))}
-                      </div>
+                  {/* Barangay */}
+                  <div className="flex items-center justify-between gap-2 py-1.5">
+                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                      <MapPin className="size-3.5 text-slate-400" />
+                      <span className="text-[11px] sm:text-xs font-medium">Barangay</span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                      {submission.barangayName}
+                    </span>
+                  </div>
+
+                  {/* Enterprise */}
+                  <div className="flex items-center justify-between gap-2 py-1.5">
+                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                      <Icon iconNode={cowHead} className="size-3.5 text-slate-400" />
+                      <span className="text-[11px] sm:text-xs font-medium">Enterprise</span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                      {submission.livestockTypeName || "Livestock"}
+                    </span>
+                  </div>
+
+                  {/* Reported yield */}
+                  <div className="flex items-center justify-between gap-2 py-1.5">
+                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                      <BarChart2 className="size-3.5 text-slate-400" />
+                      <span className="text-[11px] sm:text-xs font-medium">Reported yield</span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                      {submission.quantityDisplay}
+                    </span>
+                  </div>
+
+                  {/* Record date */}
+                  <div className="flex items-center justify-between gap-2 py-1.5">
+                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                      <Calendar className="size-3.5 text-slate-400" />
+                      <span className="text-[11px] sm:text-xs font-medium">Record date</span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                      {formatReviewDate(submission.recordDate || submission.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Highlighted Animal Box (Warm Amber Tint) */}
+              {!isEditing && animalTagLabel && (
+                <div className="rounded-xl bg-[#fff8ed] border border-[#fed7aa]/70 p-2 sm:p-2.5 flex items-center gap-2.5 sm:gap-3 my-1.5 min-w-0">
+                  <div className="size-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 600 420" className="size-5 text-[#b45309] fill-current">
+                      <LivestockSilhouettePath species={resolveSpeciesKey(submission.livestockTypeName)} />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-xs font-bold text-[#78350f] truncate">
+                      {animalCount} {animalCount === 1 ? "animal" : "animals"} · {animalTagLabel}
+                    </p>
+                    <p className="text-[10px] sm:text-[11px] text-[#92400e]/80 truncate">
+                      {animalNotice}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Specific metadata for Calving / Birthing */}
+              {!isEditing && submission.sourceType === "CALVING" && (
+                <div className="rounded-xl bg-sky-50/70 border border-sky-100 p-2 text-xs text-sky-950 space-y-0.5 my-1.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-sky-700">Calf Ear Tag:</span>
+                    <span className="font-bold truncate">{submission.calfTag || "Pending"}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-sky-700">Dam (Mother):</span>
+                    <span className="font-bold truncate">{submission.damTag || "Registered Dam"}</span>
+                  </div>
+                  {submission.birthWeight && (
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-sky-700">Birth Weight:</span>
+                      <span className="font-bold">{submission.birthWeight} kg</span>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Date of Record */}
-              <div className="pt-1 border-t border-slate-200/50 flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Date of Record:</span>
-                <span className="font-bold text-slate-700 flex items-center gap-1">
-                  <Calendar className="size-3 text-slate-400" />
-                  {submission.recordDate}
-                </span>
-              </div>
+              {/* Specific metadata for Animal Sale */}
+              {!isEditing && submission.sourceType === "SALE" && submission.saleTotalPrice != null && (
+                <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-2 text-xs text-emerald-950 flex justify-between items-center my-1.5">
+                  <span className="text-emerald-700 text-[11px]">Recorded Sale Price:</span>
+                  <span className="font-bold text-xs sm:text-sm">
+                    {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(
+                      submission.saleTotalPrice
+                    )}
+                  </span>
+                </div>
+              )}
 
-              {/* Farmer Notes */}
-              <div className="pt-2 border-t border-slate-200/50">
-                <span className="text-[11px] font-semibold text-slate-400 block mb-1">
-                  Farmer Observation / Remarks
-                </span>
-                <div className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 italic text-[11px] min-h-[40px]">
-                  {submission.notes ? `"${submission.notes}"` : "No additional remarks submitted by farmer."}
+              {/* Farmer remarks */}
+              {!isEditing && (
+                <div className="flex items-start justify-between gap-2 pt-1.5 border-t border-slate-100">
+                  <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                    <MessageSquare className="size-3.5 text-slate-400" />
+                    <span className="text-[11px] sm:text-xs font-medium">Farmer remarks</span>
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-900 text-right max-w-[60%] break-words">
+                    {farmerRemarks}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Field Verification */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-0.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="size-8 rounded-lg bg-[#eaf5ed] text-[#2e7d4c] flex items-center justify-center shrink-0">
+                    <ClipboardCheck className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">Field Verification</h3>
+                    <p className="text-[10.5px] sm:text-[11px] text-slate-500 truncate sm:whitespace-normal">Validate the information through in-person assessment.</p>
+                  </div>
+                </div>
+                <div className="self-start sm:self-auto shrink-0">
+                  {isPending ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] text-[#92400e] text-[10.5px] sm:text-[11px] font-semibold border border-amber-200/60 whitespace-nowrap">
+                      Pending SIBAT review
+                    </span>
+                  ) : isVerified ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10.5px] sm:text-[11px] font-semibold border border-emerald-200 whitespace-nowrap">
+                      Verified by SIBAT
+                    </span>
+                  ) : isApproved ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 text-[10.5px] sm:text-[11px] font-semibold border border-emerald-300 whitespace-nowrap">
+                      Approved by MAO
+                    </span>
+                  ) : isReturned ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 text-[10.5px] sm:text-[11px] font-semibold border border-rose-200 whitespace-nowrap">
+                      Revision Requested
+                    </span>
+                  ) : (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10.5px] sm:text-[11px] font-semibold border border-slate-200 whitespace-nowrap">
+                      {submission.status}
+                    </span>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
 
-
-          {/* RIGHT COLUMN: SIBAT Field Validation Action */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 pb-1 border-b border-slate-100">
-              <ShieldCheck className="size-3.5 text-[#1A365D]" />
-              <span>Field Verification</span>
-            </div>
-
-            {/* Workflow status box */}
-            <div className={`p-4 rounded-2xl border text-xs space-y-2 ${
-              isPending
-                ? "bg-amber-50/70 border-amber-200 text-amber-900"
-                : isVerified
-                ? "bg-sky-50/70 border-sky-200 text-sky-900"
-                : isApproved
-                ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
-                : "bg-rose-50/70 border-rose-200 text-rose-900"
-            }`}>
-              <div className="flex items-center gap-2 font-bold text-xs">
-                <Info className="size-4 shrink-0" />
-                <span>Verification Guidelines</span>
+              {/* Guidelines callout */}
+              <div className="rounded-xl bg-[#f0f9f4] border border-[#cbe7d6] p-2.5 sm:p-3 flex items-start gap-2">
+                <Info className="size-4 text-[#2d6a4f] shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <h4 className="text-[11px] sm:text-xs font-bold text-[#1b4332]">Guidelines</h4>
+                  <p className="text-[10.5px] sm:text-[11px] text-[#2d6a4f] mt-0.5 leading-relaxed">
+                    Confirm this submission against barangay logs before forwarding to MAO.
+                  </p>
+                </div>
               </div>
-              <p className="text-[11px] leading-relaxed opacity-90">
-                {isPending
-                  ? "As SIBAT field officer, inspect this submission against local barangay logs. Clicking 'Verify & Forward' forwards the record directly into the Municipal Agriculture Office (MAO) approval queue."
-                  : isVerified
-                  ? "This submission has been field-verified by SIBAT and is queued for final municipal certification by MAO."
-                  : isApproved
-                  ? "This submission is officially approved by the Municipal Agriculture Office."
-                  : isReturned
-                  ? "Returned for revision: awaiting farmer corrections and resubmission. SIBAT will review it again once its status returns to Pending."
-                  : "This submission is rejected. No review action is available."}
-              </p>
-            </div>
 
-            {/* SIBAT Remarks Textarea */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                <span>{isPending ? "Verification Remarks" : "Reviewer Remarks"}</span>
-                {isPending && <span className="text-[10px] text-slate-500 font-normal">Optional</span>}
-              </Label>
-              <Textarea
-                placeholder="Enter field observation notes, ear tag confirmation, or validation remarks..."
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                disabled={!isPending || reviewMutation.isPending}
-                className="text-xs min-h-[90px] rounded-xl bg-white focus-visible:ring-emerald-500/30"
-              />
-            </div>
-
-            {/* Previous Review Info if Available */}
-            {(submission.reviewedByName || submission.reviewedAt) && (
-              <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-0.5">
-                <span className="font-semibold text-slate-700 block">Last Review Log:</span>
-                {submission.reviewedByName && (
-                  <div>Reviewed By: <strong className="text-slate-800">{submission.reviewedByName}</strong></div>
-                )}
-                {submission.reviewedAt && (
-                  <div>Timestamp: {new Date(submission.reviewedAt).toLocaleString()}</div>
-                )}
+              {/* Remarks Textarea */}
+              <div>
+                <Label className="text-[11px] sm:text-xs font-semibold text-slate-700 block mb-1">
+                  Verification Remarks (Optional)
+                </Label>
+                <Textarea
+                  placeholder="Enter field observations or validation remarks..."
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  disabled={!isPending || reviewMutation.isPending}
+                  className="min-h-[75px] sm:min-h-[85px] w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#1b4332] focus-visible:border-[#1b4332] resize-none shadow-2xs"
+                />
+                <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed">
+                  Include observations on actual stock, weights, documents, or any discrepancies noted during the field check.
+                </p>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* ═══ Bottom: Workflow Step Trail ═══ */}
-        <div className="border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-3">
-            Current Verification Workflow
-          </span>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-            {/* Step 1: Farmer Submitted */}
-            <div aria-current={isReturned ? "step" : undefined} className={`p-2.5 rounded-xl border ${isReturned
-              ? "bg-amber-50 border-amber-300 text-amber-900"
-              : "bg-emerald-50 border-emerald-200 text-emerald-900"}`}>
-              <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
-                {isReturned ? <RotateCcw className="size-3.5 text-amber-700" /> : <CheckCircle2 className="size-3.5 text-emerald-700" />}
-                <span>{isReturned ? "1. Farmer Revision Required" : "1. Farmer Submitted"}</span>
-              </div>
-              <span className="text-[10px] opacity-80 block mt-0.5">
-                {isReturned ? "Awaiting corrections & resubmission" : submission.recordDate}
-              </span>
-            </div>
-
-            {/* Step 2: SIBAT Review */}
-            <div aria-current={isPending ? "step" : undefined} className={`p-2.5 rounded-xl border ${
-              isPending
-                ? "bg-amber-50 border-amber-300 text-amber-900 font-bold"
-                : returnedBySibat
-                ? "bg-rose-50 border-rose-300 text-rose-950"
-                : isVerified || isApproved || returnedByMao
-                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                : "bg-slate-50 border-slate-200 text-slate-400"
-            }`}>
-              <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
-                {isPending ? (
-                  <Clock className="size-3.5 text-amber-700 animate-pulse" />
-                ) : isVerified || isApproved ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-700" />
-                ) : (
-                  <div className="size-3 rounded-full border border-slate-300" />
-                )}
-                <span>2. SIBAT Field Check</span>
-              </div>
-              <span className="text-[10px] opacity-80 block mt-0.5">
-                {isPending ? "Pending SIBAT Review" : returnedBySibat ? "Returned by SIBAT for revision" : returnedByMao ? "Verified before MAO review" : isReturned ? "Review after resubmission" : isRejected ? "Review closed" : "Completed"}
-              </span>
-            </div>
-
-            {/* Step 3: SIBAT Verified */}
-            <div className={`p-2.5 rounded-xl border ${
-              isVerified
-                ? "bg-sky-50 border-sky-300 text-sky-900 font-bold"
-                : isApproved
-                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                : "bg-slate-50 border-slate-200 text-slate-400"
-            }`}>
-              <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
-                {isVerified || isApproved ? (
-                  <CheckCircle2 className="size-3.5 text-sky-700" />
-                ) : (
-                  <div className="size-3 rounded-full border border-slate-300" />
-                )}
-                <span>3. Forwarded to MAO</span>
-              </div>
-              <span className="text-[10px] opacity-80 block mt-0.5">
-                {isVerified || isApproved || returnedByMao ? "Forwarded" : returnedBySibat ? "Not forwarded — SIBAT requested revision" : isReturned ? "Requires SIBAT re-verification" : isRejected ? "Review closed" : "Pending Verification"}
-              </span>
-            </div>
-
-            {/* Step 4: MAO Final Decision */}
-            <div aria-current={isVerified ? "step" : undefined} className={`p-2.5 rounded-xl border ${
-              isApproved
-                ? "bg-emerald-100 border-emerald-300 text-emerald-950 font-bold"
-                : returnedByMao
-                ? "bg-rose-50 border-rose-300 text-rose-950 font-bold"
-                : isVerified
-                ? "bg-sky-50 border-sky-300 text-sky-900 font-bold"
-                : "bg-slate-50 border-slate-200 text-slate-400"
-            }`}>
-              <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
-                {isApproved ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-700" />
-                ) : isVerified ? (
-                  <Clock className="size-3.5 text-sky-700" />
-                ) : (
-                  <div className="size-3 rounded-full border border-slate-300" />
-                )}
-                <span>4. MAO Decision</span>
-              </div>
-              <span className="text-[10px] opacity-80 block mt-0.5">
-                {isApproved ? "Approved" : returnedByMao ? "Returned by MAO for revision" : returnedBySibat ? "Not reached — awaiting SIBAT verification" : isVerified ? "Awaiting MAO Decision" : isReturned ? "Awaiting resubmission & verification" : isRejected ? "Record rejected" : "Awaiting SIBAT Verification"}
-              </span>
+              {/* Previous Review Info if Available */}
+              {(submission.reviewedByName || submission.reviewedAt) && (
+                <div className="text-[10.5px] text-slate-500 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-0.5 mt-1.5">
+                  <div className="truncate">
+                    Reviewed By: <strong className="text-slate-700">{submission.reviewedByName}</strong> ({submission.reviewedByRole || "SIBAT"})
+                  </div>
+                  {submission.reviewedAt && (
+                    <div>Timestamp: {new Date(submission.reviewedAt).toLocaleString()}</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ═══ Dialog Actions ═══ */}
-        <DialogFooter className="border-t border-slate-100 pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+        {/* ═══ Footer ═══ */}
+        <DialogFooter className="border-t border-slate-100 pt-2.5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={reviewMutation.isPending}
-            className="text-xs font-semibold rounded-xl w-full sm:w-auto"
+            className="h-8.5 px-3.5 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-50 font-medium text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto"
           >
+            <X className="size-3.5" />
             Close
           </Button>
 
           {isPending ? (
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleReviewAction("SUBJECT_TO_REVISION")}
-                disabled={reviewMutation.isPending || !remarks.trim()}
-                className="border-rose-300 text-rose-900 hover:bg-rose-50 font-bold text-xs rounded-xl gap-1.5 flex-1 sm:flex-initial"
+                disabled={reviewMutation.isPending}
+                className="h-8.5 px-3.5 rounded-xl border-slate-800 text-slate-800 hover:bg-slate-100 font-semibold text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto"
               >
-                <RotateCcw className="size-3.5 text-rose-700" />
+                <RotateCcw className="size-3 text-slate-800" />
                 Return for Revision
               </Button>
 
@@ -848,20 +920,16 @@ function SibatReviewDialogContent({
                 type="button"
                 onClick={() => handleReviewAction("VERIFIED")}
                 disabled={reviewMutation.isPending}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl gap-1.5 shadow-sm shadow-emerald-950/20 flex-1 sm:flex-initial"
+                className="h-8.5 px-4.5 rounded-xl bg-[#1b4332] hover:bg-[#143326] text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs w-full sm:w-auto"
               >
-                <CheckCircle2 className="size-3.5" />
+                <Send className="size-3" />
                 {reviewMutation.isPending
                   ? "Forwarding..."
-                  : submission.sourceType === "SALE"
-                ? "Verify Sale & Forward to MAO"
-                : submission.sourceType === "CALVING"
-                  ? "Verify Calving & Forward to MAO"
                   : "Verify & Forward to MAO"}
               </Button>
             </div>
           ) : (
-            <span className="text-xs text-slate-500 font-medium italic">
+            <span className="text-xs text-slate-500 font-medium italic text-center sm:text-right">
               {isReturned
                 ? "Awaiting farmer resubmission. SIBAT review becomes available when Pending."
                 : isVerified

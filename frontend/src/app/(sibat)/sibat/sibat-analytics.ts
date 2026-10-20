@@ -21,6 +21,7 @@ export interface UnifiedSubmissionItem {
   id: string; // composite key e.g. "prod-1", "inv-2", "batch-3", "calving-4"
   rawId: number;
   sourceType: "PRODUCTION" | "INVENTORY" | "BATCH" | "CALVING" | "SALE";
+  productionType?: string;
   submissionTypeLabel: string;
   farmerName: string;
   barangayName: string;
@@ -213,6 +214,7 @@ export const mapProductionToUnified = (p: ProductionRecordItem): UnifiedSubmissi
     id: `prod-${p.id}`,
     rawId: p.id,
     sourceType: "PRODUCTION",
+    productionType: p.productionType,
     submissionTypeLabel: typeLabels[p.productionType] || "Production Yield",
     farmerName: p.farmerName || "Farmer",
     barangayName: p.barangayName || "General Sector",
