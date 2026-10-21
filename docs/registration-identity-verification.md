@@ -49,6 +49,39 @@ The session and decision API contracts are documented in [Create Session](https:
 
 Install backend requirements (including `pypdf`), run the migration after review, configure persistent private storage, and deploy the backend/frontend together. No production database migration was executed during this task.
 
+## Registration steps and local testing
+
+With identity enrollment enabled, the form shows four steps: credentials, farm,
+documents, then ID/selfie. Step 3 saves one pending application and opens Step 4;
+it no longer presents this as completed registration. Step 4 opens Didit and offers
+final confirmation after a result, or an explicit request for MAO assistance.
+Assistance requests are recorded against the authenticated owner's attempt and
+notify reviewers; they do not alter provider results or grant approval. The
+account exists as pending before capture. The final button does not create
+another account or introduce a new approval status. Manual registration remains
+available when enrollment is disabled.
+
+For local frontend and backend testing:
+
+1. Copy `frontend/.env.local.example` to `frontend/.env.local` and restart Next.
+2. Add the Didit and identity settings to `backend/.env`, with
+   `FRONTEND_URL=http://localhost:3000` and `IDENTITY_ENVIRONMENT=sandbox`.
+   Complete the notice/provider privacy configuration before enabling enrollment.
+   Render variables do not configure your local Django process.
+3. From `backend`, install requirements, run `python manage.py migrate`, then
+   `python manage.py runserver`, using your project's Python environment.
+4. Point Didit's webhook to an HTTPS tunnel to local port 8000:
+   `https://YOUR-TUNNEL/api/users/identity/webhook/`. Include the tunnel hostname
+   in Django's `ALLOWED_HOSTS` environment setting. Keep `FRONTEND_URL` on the same
+   localhost origin/port where registration began so its token remains available.
+   The result-refresh button can also fetch provider results server-side.
+5. Use provider-approved sandbox test data. Do not create another account to retry
+   an existing registration. This change does not recover tokens for accounts
+   created while identity enrollment was disabled.
+
+Local testing still requires internet for Didit. Sandbox is not real identity or
+liveness verification. These step-order changes have not been live-provider tested.
+
 ## Storage, retention, failure and recovery
 
 New local registration documents use `PRIVATE_DOCUMENT_ROOT`, outside `MEDIA_ROOT`, with opaque filenames and no storage URL. Existing local document references retain a read fallback, so authorized historical previews continue to work. Existing legacy files are not moved or deleted automatically. A production reverse proxy/CDN must deny `/media/user_documents/` and avoid exposing `PRIVATE_DOCUMENT_ROOT`; migrate/remove legacy public copies under an approved operational plan. R2 continues to use the existing private bucket backend. Actual deployed bucket/proxy policy still needs verification.
