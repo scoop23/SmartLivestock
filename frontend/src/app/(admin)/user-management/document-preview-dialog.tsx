@@ -25,7 +25,7 @@ DialogContent,
 DialogHeader,
 DialogTitle,
 } from '@/components/ui/dialog';
-import api from '@/lib/axios';
+import { fetchRegistrationDocumentBlob } from '@/lib/registration-documents';
 import {
 AlertTriangle,
 Download,
@@ -73,14 +73,11 @@ function DocumentPreviewDialogContent({
     const fetchDocument = async () => {
       setErrorMessage(null);
       try {
-        const response = await api.get(`/api/users/documents/${doc.id}/view/`, {
-          responseType: 'blob',
-        });
+        const { blob, contentType: mime } = await fetchRegistrationDocumentBlob(doc.id);
 
         if (!isMounted) return;
 
-        const mime = response.headers['content-type'] || response.data?.type || 'application/octet-stream';
-        const url = URL.createObjectURL(response.data);
+        const url = URL.createObjectURL(blob);
         createdUrl = url;
 
         setBlobUrl(url);

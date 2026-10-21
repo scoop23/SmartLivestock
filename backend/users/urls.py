@@ -21,8 +21,12 @@ urlpatterns = [
     path("pending/", views.pending_users_list, name="pending_users_list"),
     path("directory/", views.all_users_list, name="all_users_list"),
     path("", views.all_users_list, name="users_list"),
+    path("<int:pk>/", views.delete_pending_user, name="delete_pending_user"),
     path("<int:pk>/assignment/", views.update_sibat_assignment, name="update_sibat_assignment"),
     path("<int:pk>/status/", views.update_user_status, name="update_user_status"),
+    path("documents/", views.own_registration_documents, name="own_registration_documents"),
+    path("documents/session/", views.establish_document_revision_session, name="establish_document_revision_session"),
+    path("documents/<int:pk>/resubmit/", views.resubmit_user_document, name="resubmit_user_document"),
     path("documents/<int:pk>/verification/", views.verify_user_document, name="verify_user_document"),
     path("documents/<int:pk>/view/", views.view_user_document, name="user_document_view"),
 ]

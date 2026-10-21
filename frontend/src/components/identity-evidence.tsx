@@ -31,10 +31,54 @@ interface EvidenceRow {
 }
 
 export function IdentityChecks({ attempt }: { attempt: IdentityAttempt | null }) {
-  return <dl className="grid grid-cols-1 gap-2 rounded-xl border p-3 text-sm sm:grid-cols-3">
-    {[["Provider ID check", attempt?.document_result], ["Selfie-to-ID face match", attempt?.face_result], ["Liveness check", attempt?.liveness_result]].map(([label, value]) =>
-      <div key={label} className="min-w-0"><dt className="font-semibold">{label}</dt><dd className="break-words">{(value || "NOT_COMPLETED").replaceAll("_", " ")}{attempt?.environment === "sandbox" ? " (sandbox)" : ""}</dd></div>)}
-  </dl>;
+  return (
+    <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+      {(
+        [
+          ["Provider ID check", attempt?.document_result],
+          ["Selfie-to-ID face match", attempt?.face_result],
+          ["Liveness check", attempt?.liveness_result],
+        ] as const
+      ).map(([label, value]) => {
+        const raw = value || "NOT_COMPLETED";
+        const isPassed = raw === "PASSED" || raw === "APPROVED";
+        const isWarning = raw === "INCONCLUSIVE" || raw === "REVIEW_REQUIRED" || raw === "RETRY_REQUIRED";
+        const isFailed = raw === "FAILED" || raw === "DECLINED" || raw === "REJECTED";
+        const cardStyle = isPassed
+          ? "border-emerald-200 bg-emerald-50/70 text-emerald-950"
+          : isWarning
+            ? "border-amber-200 bg-amber-50/70 text-amber-950"
+            : isFailed
+              ? "border-rose-200 bg-rose-50/70 text-rose-950"
+              : "border-slate-200 bg-slate-50/80 text-slate-800";
+        const dotStyle = isPassed
+          ? "bg-emerald-500"
+          : isWarning
+            ? "bg-amber-500"
+            : isFailed
+              ? "bg-rose-500"
+              : "bg-slate-400";
+
+        return (
+          <div
+            key={label}
+            className={`min-w-0 rounded-2xl border p-3.5 transition-colors ${cardStyle}`}
+          >
+            <dt className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+              {label}
+            </dt>
+            <dd className="mt-1.5 flex items-center gap-2 break-words font-mono text-xs font-black uppercase tracking-tight">
+              <span className={`size-2 shrink-0 rounded-full ${dotStyle}`} aria-hidden />
+              <span>
+                {raw.replaceAll("_", " ")}
+                {attempt?.environment === "sandbox" ? " (sandbox)" : ""}
+              </span>
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
 }
 
 export function IdentityEvidencePanel({ userId, canAssess = false }: { userId: number; canAssess?: boolean }) {

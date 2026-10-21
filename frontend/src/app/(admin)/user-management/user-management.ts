@@ -1,4 +1,5 @@
-import api from "@/lib/axios";
+import api, { LOCAL_API_URL, getActiveApiUrl } from "@/lib/axios";
+import axios from "axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -164,6 +165,34 @@ export function useVerifyUserDocument() {
   return useMutation({
     mutationFn: verifyUserDocument,
     onSuccess: (updatedDoc) => {
+      queryClient.setQueriesData<ApiUser[]>(
+        { queryKey: USER_MANAGEMENT_QUERY_KEYS.all },
+        (oldUsers) => {
+          if (!oldUsers) return oldUsers;
+          return oldUsers.map((user) => {
+            if (!user.documents?.some((d) => d.id === updatedDoc.id)) return user;
+            const nextDocs = user.documents.map((d) =>
+              d.id === updatedDoc.id ? updatedDoc : d
+            );
+            const anyNeedsRevision = nextDocs.some(
+              (d) => d.verification_status === "SUBJECT_TO_REVISION"
+            );
+            const nextStatus: UserAccountStatus =
+              updatedDoc.verification_status === "SUBJECT_TO_REVISION" &&
+              user.account_status === "PENDING"
+                ? "SUBJECT_TO_REVISION"
+                : !anyNeedsRevision && user.account_status === "SUBJECT_TO_REVISION"
+                ? "PENDING"
+                : user.account_status;
+            return {
+              ...user,
+              account_status: nextStatus,
+              documents: nextDocs,
+            };
+          });
+        }
+      );
+
       queryClient.invalidateQueries({
         queryKey: USER_MANAGEMENT_QUERY_KEYS.all,
       });
@@ -207,6 +236,58 @@ export function useUpdateSibatAssignment() {
     onError: (error: unknown) => {
       const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;
       toast.error(data ? Object.values(data).flat().join(" ") : "Could not save barangay assignment.");
+    },
+  });
+}
+
+export async function deletePendingUser(userId: number): Promise<void> {
+  try {
+    await api.delete(`/api/users/${userId}/`);
+  } catch (err) {
+    // If frontend is pointed at Render before this new endpoint is deployed,
+    // fall back to local Django server (which shares the same PostgreSQL DB).
+    if (
+      axios.isAxiosError(err) &&
+      err.response?.status === 404 &&
+      getActiveApiUrl() !== LOCAL_API_URL &&
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ) {
+      const token = localStorage.getItem("access");
+      await axios.delete(`${LOCAL_API_URL}/api/users/${userId}/`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      return;
+    }
+    throw err;
+  }
+}
+
+export function useDeletePendingUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deletePendingUser,
+    onSuccess: (_data, userId) => {
+      queryClient.setQueryData<ApiUser[]>(USER_MANAGEMENT_QUERY_KEYS.all, (old) =>
+        old ? old.filter((u) => u.id !== userId) : old
+      );
+      queryClient.invalidateQueries({ queryKey: USER_MANAGEMENT_QUERY_KEYS.all });
+      toast.success("Pending registration permanently deleted.");
+    },
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
+      let errMsg = "Failed to delete pending registration.";
+      if (data && typeof data === "object") {
+        if (typeof data.detail === "string") {
+          errMsg = data.detail;
+        } else {
+          const strings = Object.values(data)
+            .flat()
+            .filter((v): v is string => typeof v === "string");
+          if (strings.length > 0) errMsg = strings.join(" ");
+        }
+      }
+      toast.error(errMsg);
     },
   });
 }

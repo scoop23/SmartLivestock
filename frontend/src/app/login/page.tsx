@@ -39,6 +39,8 @@ DialogTitle,
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import api from '@/lib/axios';
+import { IDENTITY_TOKEN_KEY } from '@/lib/identity-verification';
+import { establishDocumentRevisionSession } from '@/lib/registration-documents';
 import { isAxiosError } from 'axios';
 
 interface DecodedJWT {
@@ -161,7 +163,11 @@ export default function LoginPage() {
         router.push('/farmer');
       }
     } catch (err: unknown) {
-      const response = isAxiosError<{ account_status?: string | string[]; detail?: string }>(err)
+      const response = isAxiosError<{
+        account_status?: string | string[];
+        registration_token?: string | string[];
+        detail?: string;
+      }>(err)
         ? err.response : undefined;
       const status = response?.status;
       const data = response?.data;
@@ -175,6 +181,12 @@ export default function LoginPage() {
           ? data.account_status[0]
           : '';
 
+      const regTokenStr = typeof data?.registration_token === 'string'
+        ? data.registration_token
+        : Array.isArray(data?.registration_token)
+          ? data.registration_token[0]
+          : '';
+
       const detailStr = typeof data?.detail === 'string' ? data.detail : '';
 
       if (
@@ -183,14 +195,48 @@ export default function LoginPage() {
         detailStr.toUpperCase().includes('PENDING') ||
         detailStr.toLowerCase().includes('approved')
       ) {
-        setAuthError({
-          type: 'PENDING',
-          title: 'Account Awaiting MAO Approval',
-          message: 'Your account registration has been received and is currently under review by the Municipal Agriculture Office. You will be notified once approved.',
-        });
-        toast.info('Account Pending Verification', {
-          description: 'Your registration is awaiting approval by the MAO office.',
-        });
+        if (regTokenStr) {
+          try {
+            sessionStorage.setItem(IDENTITY_TOKEN_KEY, regTokenStr);
+          } catch {
+            // Ignore storage errors
+          }
+        }
+
+        let hasRevisionRequest = false;
+        try {
+          const docSession = await establishDocumentRevisionSession(
+            email.trim().toLowerCase(),
+            password
+          );
+          hasRevisionRequest = docSession.documents.some(
+            (doc) => doc.verification_status === 'SUBJECT_TO_REVISION'
+          );
+        } catch {
+          // Non-fatal if session lookup fails
+        }
+
+        if (hasRevisionRequest) {
+          setAuthError({
+            type: 'PENDING',
+            title: 'Document Revision Requested by MAO',
+            message:
+              'The Municipal Agriculture Office requested a correction to your registration documents. Open your registration status page below to view MAO’s reason and upload a replacement file.',
+          });
+          toast.warning('Document Revision Required', {
+            description: 'Upload your replacement document so MAO can approve your account.',
+          });
+        } else {
+          setAuthError({
+            type: 'PENDING',
+            title: 'Account Awaiting MAO Approval',
+            message:
+              'Your account registration has been received and is currently under review by the Municipal Agriculture Office. You will be notified once approved.',
+          });
+          toast.info('Account Pending Verification', {
+            description: 'Your registration is awaiting approval by the MAO office.',
+          });
+        }
         return;
       }
 
@@ -551,7 +597,7 @@ export default function LoginPage() {
                       onClick={() => router.push('/pending')}
                       className="inline-flex items-center gap-1 text-xs font-black text-amber-800 hover:text-amber-950 underline underline-offset-2 cursor-pointer"
                     >
-                      View Registration Status Details →
+                      View Registration Status &amp; Resubmit Documents →
                     </button>
                   </div>
                 )}

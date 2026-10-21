@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { RegistrationDocumentsPanel } from '@/components/registration-documents-panel';
 import { cowHead } from '@lucide/lab';
 import {
   AlertCircle,
@@ -118,15 +119,15 @@ export default function PendingPage() {
 
       {/* ── Top Floating Navigation Header ── */}
       <header className="border-b border-emerald-500/15 bg-black/40 backdrop-blur-xl px-4 sm:px-8 py-3.5 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/25 border border-emerald-300/30">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="size-9 sm:size-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/25 border border-emerald-300/30">
               <Icon iconNode={cowHead} className="size-5 text-slate-950" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-black tracking-tight text-white">SmartLivestock</span>
-                <span className="font-mono text-[10px] text-amber-300 font-extrabold uppercase tracking-widest bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-sm sm:text-base font-black tracking-tight text-white truncate">SmartLivestock</span>
+                <span className="shrink-0 whitespace-nowrap font-mono text-[9px] sm:text-[10px] text-amber-300 font-extrabold uppercase tracking-wider sm:tracking-widest bg-amber-500/15 border border-amber-500/30 px-1.5 sm:px-2 py-0.5 rounded-md">
                   AUDIT QUEUE
                 </span>
               </div>
@@ -136,7 +137,7 @@ export default function PendingPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <span className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 font-bold tracking-wider">
               <span className="relative flex size-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -147,24 +148,25 @@ export default function PendingPage() {
 
             <Link
               href="/login"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3.5 py-2 rounded-xl border border-white/10 hover:border-emerald-500/40 bg-white/[0.04] hover:bg-emerald-500/10 transition-all shadow-xs"
+              className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-white/10 hover:border-emerald-500/40 bg-white/[0.04] hover:bg-emerald-500/10 transition-all shadow-xs"
             >
-              <ArrowLeft className="size-3.5" />
-              <span>Back to Sign In</span>
+              <ArrowLeft className="size-3.5 shrink-0" />
+              <span className="sm:hidden">Sign In</span>
+              <span className="hidden sm:inline">Back to Sign In</span>
             </Link>
           </div>
         </div>
       </header>
 
       {/* ── Main Viewport Container ── */}
-      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex-1 flex flex-col justify-center relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-12 flex-1 flex flex-col justify-center relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
           {/* ═════════════════════════════════════════════════════════════
               LEFT COLUMN: TELEMETRY & AUDIT RADAR (Desktop Sidebar)
              ═════════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-5 space-y-6">
+          <div className="lg:col-span-5 space-y-4 sm:space-y-6">
             {/* Holographic Authority Card */}
-            <div className="rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-white/[0.08] to-white/[0.02] backdrop-blur-2xl p-6 sm:p-7 text-white shadow-2xl relative overflow-hidden">
+            <div className="rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-white/[0.08] to-white/[0.02] backdrop-blur-2xl p-5 sm:p-7 text-white shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono font-bold tracking-wider">
@@ -181,11 +183,11 @@ export default function PendingPage() {
               </p>
 
               {/* Status Pulse Visual Indicator */}
-              <div className="mt-6 p-4 rounded-2xl bg-black/40 border border-emerald-500/20 flex items-center gap-4">
-                <div className="relative size-14 shrink-0 flex items-center justify-center">
+              <div className="mt-5 sm:mt-6 p-3.5 sm:p-4 rounded-2xl bg-black/40 border border-emerald-500/20 flex items-center gap-3.5 sm:gap-4">
+                <div className="relative size-12 sm:size-14 shrink-0 flex items-center justify-center">
                   <div className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping opacity-60" />
-                  <div className="relative size-12 rounded-2xl bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-400/40 flex items-center justify-center text-amber-300 shadow-lg shadow-amber-950/40">
-                    <Clock className="size-6 animate-pulse" />
+                  <div className="relative size-11 sm:size-12 rounded-2xl bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-400/40 flex items-center justify-center text-amber-300 shadow-lg shadow-amber-950/40">
+                    <Clock className="size-5 sm:size-6 animate-pulse" />
                   </div>
                 </div>
                 <div className="min-w-0">
@@ -199,7 +201,7 @@ export default function PendingPage() {
               </div>
 
               {/* Live Telemetry Diagnostics */}
-              <div className="mt-6 pt-5 border-t border-white/10 grid grid-cols-3 gap-2 text-center">
+              <div className="mt-5 sm:mt-6 pt-4 sm:pt-5 border-t border-white/10 grid grid-cols-3 gap-2 text-center">
                 <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
                   <p className="font-mono text-xs sm:text-sm font-black text-emerald-400">RA 10173</p>
                   <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-0.5">Compliant</p>
@@ -216,14 +218,14 @@ export default function PendingPage() {
             </div>
 
             {/* Support Desk Quick Card */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-slate-300 flex items-center justify-between gap-4 backdrop-blur-md">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 text-slate-300 flex items-center justify-between gap-3 sm:gap-4 backdrop-blur-md">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="size-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-center shrink-0">
                   <Phone className="size-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-white truncate">Need urgent verification?</p>
-                  <p className="text-[11px] text-slate-400 truncate mt-0.5">MAO desk hotlines are open weekdays</p>
+                  <p className="text-xs font-bold text-white leading-snug">Need urgent verification?</p>
+                  <p className="text-[11px] text-slate-400 leading-snug mt-0.5">MAO desk hotlines are open weekdays</p>
                 </div>
               </div>
               <Button
@@ -242,14 +244,14 @@ export default function PendingPage() {
               RIGHT COLUMN: AUDIT PIPELINE TERMINAL CARD
              ═════════════════════════════════════════════════════════════ */}
           <div className="lg:col-span-7">
-            <div className="rounded-[2.5rem] border border-emerald-500/25 bg-white shadow-2xl shadow-black/50 overflow-hidden relative">
+            <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-emerald-500/25 bg-white shadow-2xl shadow-black/50 overflow-hidden relative">
               {/* Glowing Top Progress Line */}
               <div className="h-1.5 w-full bg-slate-100 relative overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 w-3/4 transition-all duration-500 shadow-sm shadow-emerald-500/50" />
               </div>
 
               {/* Terminal Header Banner */}
-              <div className="p-6 sm:p-8 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="p-5 sm:p-8 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
@@ -259,7 +261,7 @@ export default function PendingPage() {
                       Municipal Desk Audit
                     </span>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5">
+                  <h2 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5">
                     Registration Lifecycle Pipeline
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -271,7 +273,7 @@ export default function PendingPage() {
                   type="button"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 bg-white hover:bg-emerald-50/50 text-slate-600 hover:text-emerald-800 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                  className="self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 bg-white hover:bg-emerald-50/50 text-slate-600 hover:text-emerald-800 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
                   title="Check latest status"
                 >
                   <RefreshCw className={`size-3.5 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
@@ -280,7 +282,7 @@ export default function PendingPage() {
               </div>
 
               {/* Terminal Pipeline Content */}
-              <div className="p-6 sm:p-8 space-y-6">
+              <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
                 {/* Steps List */}
                 <div className="space-y-3">
                   {auditSteps.map((step) => {
@@ -289,7 +291,7 @@ export default function PendingPage() {
                     return (
                       <div
                         key={step.num}
-                        className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-3.5 ${
+                        className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-start gap-3 sm:gap-3.5 ${
                           step.current
                             ? 'bg-amber-50/80 border-amber-200/90 shadow-xs'
                             : step.completed
@@ -297,48 +299,49 @@ export default function PendingPage() {
                             : 'bg-slate-50/60 border-slate-200/60 opacity-60'
                         }`}
                       >
-                        <div className="flex items-start gap-3.5 min-w-0">
-                          <div
-                            className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs ${
-                              step.current
-                                ? 'bg-amber-500 text-white shadow-amber-500/20'
-                                : step.completed
-                                ? 'bg-[#2D5A27] text-white shadow-emerald-900/20'
-                                : 'bg-slate-200 text-slate-500'
-                            }`}
-                          >
-                            <StepIcon className="size-4.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-[10px] text-slate-400 font-bold">
-                                STEP {step.num}
-                              </span>
-                              <p className="text-xs sm:text-sm font-black text-slate-900 truncate">
-                                {step.title}
-                              </p>
-                            </div>
-                            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed font-medium">
-                              {step.desc}
-                            </p>
-                          </div>
-                        </div>
-
-                        <span
-                          className={`text-[9px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 ${
+                        <div
+                          className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs ${
                             step.current
-                              ? 'bg-amber-500/20 text-amber-800 border border-amber-300'
+                              ? 'bg-amber-500 text-white shadow-amber-500/20'
                               : step.completed
-                              ? 'bg-emerald-600/15 text-emerald-800 border border-emerald-300'
+                              ? 'bg-[#2D5A27] text-white shadow-emerald-900/20'
                               : 'bg-slate-200 text-slate-500'
                           }`}
                         >
-                          {step.status}
-                        </span>
+                          <StepIcon className="size-4.5" />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-[10px] text-slate-400 font-bold">
+                              STEP {step.num}
+                            </span>
+                            <span
+                              className={`text-[9px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 ${
+                                step.current
+                                  ? 'bg-amber-500/20 text-amber-800 border border-amber-300'
+                                  : step.completed
+                                  ? 'bg-emerald-600/15 text-emerald-800 border border-emerald-300'
+                                  : 'bg-slate-200 text-slate-500'
+                              }`}
+                            >
+                              {step.status}
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm font-black text-slate-900 leading-snug mt-0.5">
+                            {step.title}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed font-medium">
+                            {step.desc}
+                          </p>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {/* Registration Document Status & MAO Revision Replacement Flow */}
+                <RegistrationDocumentsPanel variant="pending" />
 
                 {/* Biometric / Identity Verification Callout */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-xs">
@@ -358,7 +361,7 @@ export default function PendingPage() {
 
                   <Link
                     href="/farmer-registration/identity"
-                    className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-black transition-colors shadow-xs cursor-pointer"
+                    className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-2 rounded-xl bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-black transition-colors shadow-xs cursor-pointer"
                   >
                     <span>Resume Session</span>
                     <ArrowRight className="size-3.5" />
@@ -366,10 +369,10 @@ export default function PendingPage() {
                 </div>
 
                 {/* Data Privacy RA 10173 Card */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-slate-700">
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-slate-700">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <ShieldCheck className="size-5 text-[#2D5A27] shrink-0" />
-                    <p className="text-xs text-slate-600 truncate font-medium">
+                    <p className="text-xs text-slate-600 leading-snug font-medium">
                       Records protected under <strong className="text-slate-900">RA 10173 (Data Privacy Act)</strong>.
                     </p>
                   </div>

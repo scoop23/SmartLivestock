@@ -39,9 +39,22 @@ class MyTokenSerializer(TokenObtainPairSerializer):
         user = cast(User, self.user)
 
         if user.account_status != User.AccountStatus.APPROVED:
-            raise serializers.ValidationError(
-                {"account_status": "Your account is not approved yet."}
-            )
+            error_payload: dict[str, object] = {
+                "account_status": "Your account is not approved yet."
+            }
+            if (
+                getattr(user, "role", None)
+                and user.role.role_name == "FARMER"
+                and user.account_status
+                in (
+                    User.AccountStatus.PENDING,
+                    User.AccountStatus.SUBJECT_TO_REVISION,
+                )
+            ):
+                from .identity_service import registration_token
+
+                error_payload["registration_token"] = registration_token(user)
+            raise serializers.ValidationError(error_payload)
 
         data = cast(dict, data)
 
@@ -399,6 +412,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     assigned_barangay_id = serializers.IntegerField(read_only=True)
     assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
     farmer_id = serializers.SerializerMethodField()
+    documents = UserDocumentSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -408,6 +422,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "last_name",
             "email",
             "role",
+            "account_status",
             "profile_image",
             "phone_number",
             "barangay",
@@ -415,8 +430,9 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "assigned_barangay_name",
             "access_scope",
             "farmer_id",
+            "documents",
         )
-        read_only_fields = ("id", "role", "barangay", "access_scope")
+        read_only_fields = ("id", "role", "account_status", "barangay", "access_scope", "documents")
 
     def get_role(self, obj):
         if hasattr(obj, "role") and obj.role:

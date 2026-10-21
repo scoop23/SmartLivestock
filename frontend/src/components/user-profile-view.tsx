@@ -1,6 +1,7 @@
 "use client";
 
 import { QrCodePass } from "@/components/qr-code-pass";
+import { RegistrationDocumentsPanel } from "@/components/registration-documents-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
@@ -1114,6 +1115,22 @@ export function UserProfileView() {
                   </form>
                 </CardContent>
               </Card>
+
+              {isFarmer && (
+                <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+                  <CardContent className="p-5 sm:p-7 space-y-4">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-900">
+                        Registration &amp; Accreditation Documents
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Review your submitted Government ID and RSBSA files or upload a replacement if MAO requested a correction.
+                      </p>
+                    </div>
+                    <RegistrationDocumentsPanel variant="profile" />
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="text-size" className="space-y-4 mt-0">
