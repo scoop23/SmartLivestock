@@ -76,8 +76,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProgramSchedule | null>(null);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
-  const [startTime, setStartTime] = useState(PROGRAM_TIME_SLOTS[0]);
-  const [endTime, setEndTime] = useState(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1]);
+  const [startTime, setStartTime] = useState<string>(PROGRAM_TIME_SLOTS[0]);
+  const [endTime, setEndTime] = useState<string>(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1]);
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
   const [bookingCancelTarget, setBookingCancelTarget] = useState<ProgramBooking | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -940,7 +940,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700"><Zap className="size-4" /> Activity Actions</p>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" disabled={busy} onClick={() => startEdit(selected)} className="h-10 font-bold text-blue-700"><Pencil className="mr-2 size-4" /> Edit Activity</Button>
-                      {selected.publication_status === "PUBLISHED" && selected.date <= todayIso() ? <Button type="button" variant="outline" disabled={busy || selected.publication_status === "COMPLETED" || selected.publication_status === "CANCELLED"} onClick={() => setPendingAction({ schedule: selected, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
+                      {selected.publication_status === "PUBLISHED" && selected.date <= todayIso() ? <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction({ schedule: selected, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
                       <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction({ schedule: selected, action: "delete" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50"><Trash2 className="mr-2 size-4" /> Delete</Button>
                     </div>
                   </div>
