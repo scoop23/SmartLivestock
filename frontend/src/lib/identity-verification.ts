@@ -92,10 +92,17 @@ export function identityError(error: unknown): string {
     return "Didit could not start the automated check because of a billing or credit limit. No ID, face-match, or liveness check was completed. You can continue by requesting MAO manual review below.";
   }
   const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  const detail = axios.isAxiosError(error)
+    ? (error.response?.data as { detail?: unknown } | undefined)?.detail
+    : undefined;
+  if (status === undefined && axios.isAxiosError(error)) {
+    return "Could not reach the verification server. Check your connection and try again.";
+  }
   if (status === 401) return "The saved registration session could not be authenticated. Sign in with your registered email and password below to resume; do not register again.";
   if (status === 429) return "Too many attempts. Wait before retrying or contact MAO.";
   if (status === 403) return "You are not authorized to access this identity evidence.";
   if (status === 400) return "Check your consent and current privacy notice, then try again.";
+  if (status !== undefined && status >= 500 && typeof detail === "string" && detail.trim()) return detail;
   return "Verification is unavailable or interrupted. Retry later or contact MAO. Your registration has not been automatically approved or rejected.";
 }
 
@@ -103,6 +110,12 @@ export function isDiditBillingLimit(error: unknown): boolean {
   if (!axios.isAxiosError(error)) return false;
   const data = error.response?.data as { code?: unknown } | undefined;
   return data?.code === "DIDIT_BILLING_LIMIT";
+}
+
+export function isManualReviewAvailable(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  const data = error.response?.data as { manual_review_available?: unknown } | undefined;
+  return isDiditBillingLimit(error) || data?.manual_review_available === true;
 }
 
 export function providerCaptureUrl(value: string): string {

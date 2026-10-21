@@ -31,6 +31,7 @@ import {
   identityError,
   identityMessage,
   isDiditBillingLimit,
+  isManualReviewAvailable,
   providerCaptureUrl,
   type IdentityAttempt,
   type IdentityConfig,
@@ -90,6 +91,7 @@ export default function RegistrationIdentityPage() {
   const [billingFallback, setBillingFallback] = useState(false);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
+  const [providerResultNotice, setProviderResultNotice] = useState("");
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryPassword, setRecoveryPassword] = useState("");
   const [sessionVersion, setSessionVersion] = useState(0);
@@ -148,6 +150,7 @@ export default function RegistrationIdentityPage() {
         })
       ).data,
     onSuccess: (data) => {
+      setProviderResultNotice("");
       if (data.url) {
         try {
           window.location.assign(providerCaptureUrl(data.url));
@@ -160,20 +163,31 @@ export default function RegistrationIdentityPage() {
     },
     onError: (failure) => {
       const billingLimit = isDiditBillingLimit(failure);
+      const manualReviewAvailable = isManualReviewAvailable(failure);
       setBillingFallback(billingLimit);
-      setManualReview(billingLimit);
+      setManualReview(manualReviewAvailable);
       setError(identityError(failure));
       void status.refetch();
     },
   });
 
   const refresh = useMutation({
-    mutationFn: () => identityClient(token!).post("/api/users/identity/refresh/", {}),
-    onSuccess: () => {
+    mutationFn: async () =>
+      (await identityClient(token!).post<{ attempt: IdentityAttempt }>("/api/users/identity/refresh/", {})).data,
+    onSuccess: ({ attempt: refreshedAttempt }) => {
       setError("");
+      setProviderResultNotice(
+        [refreshedAttempt.document_result, refreshedAttempt.face_result, refreshedAttempt.liveness_result]
+          .every((result) => result === "NOT_COMPLETED")
+          ? "No provider result is available yet. Complete the ID and selfie steps with Didit, then check again."
+          : "",
+      );
       void status.refetch();
     },
-    onError: (failure) => setError(identityError(failure)),
+    onError: (failure) => {
+      setProviderResultNotice("");
+      setError(identityError(failure));
+    },
   });
 
   const attempt = status.data?.attempt ?? null;
@@ -652,6 +666,7 @@ export default function RegistrationIdentityPage() {
                         disabled={!consent || start.isPending || attempt?.state === "COMPLETED"}
                         onClick={() => {
                           setError("");
+                          setProviderResultNotice("");
                           setBillingFallback(false);
                           setManualReview(false);
                           start.mutate(retry);
@@ -679,6 +694,15 @@ export default function RegistrationIdentityPage() {
                         <span>{refresh.isPending ? "Checking…" : "Check provider result"}</span>
                       </Button>
                     </div>
+                    {!attempt?.provider_reference ? (
+                      <p role="status" className="text-xs leading-relaxed text-slate-500">
+                        No provider result is available yet. Start or resume the Didit ID and selfie steps first.
+                      </p>
+                    ) : providerResultNotice ? (
+                      <p role="status" className="text-xs leading-relaxed text-amber-800">
+                        {providerResultNotice}
+                      </p>
+                    ) : null}
                   </section>
                 ) : null}
 
