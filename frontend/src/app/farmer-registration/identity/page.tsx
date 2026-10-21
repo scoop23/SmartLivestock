@@ -616,10 +616,10 @@ export default function RegistrationIdentityPage() {
 
                     {/* Biometric Privacy & Retention Notice Box (Matches Step 3 RA 10173 Card) */}
                     <div className="p-4 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 space-y-2.5 text-xs text-slate-700 leading-relaxed">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Shield className="size-4 text-[#2D5A27] shrink-0" />
-                          <span className="text-[11px] font-black uppercase tracking-wider text-[#2D5A27]">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Shield className="size-4 text-[#2D5A27] shrink-0 mt-0.5" />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-[#2D5A27] leading-snug">
                             Biometric Processing & Privacy Notice
                           </span>
                         </div>
@@ -627,10 +627,10 @@ export default function RegistrationIdentityPage() {
                           href="https://didit.me/terms/privacy-policy/"
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] underline hover:text-emerald-900 shrink-0"
+                          className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] underline hover:text-emerald-900 shrink-0 pl-6 sm:pl-0"
                         >
                           <span>Didit privacy policy</span>
-                          <ExternalLink className="size-3" />
+                          <ExternalLink className="size-3 shrink-0" />
                         </a>
                       </div>
 

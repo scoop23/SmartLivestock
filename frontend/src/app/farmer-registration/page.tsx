@@ -1511,20 +1511,20 @@ export default function FarmerRegistrationPage() {
 
                     {/* Data Privacy Act Agreement Card */}
                     <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Shield className="size-4.5 text-[#2D5A27] shrink-0" />
-                          <h3 className="text-xs font-black uppercase tracking-wider text-[#2D5A27]">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Shield className="size-4.5 text-[#2D5A27] shrink-0 mt-0.5" />
+                          <h3 className="text-xs font-black uppercase tracking-wider text-[#2D5A27] leading-snug">
                             Data Privacy Act of 2012 (RA 10173) Consent
                           </h3>
                         </div>
                         <button
                           type="button"
                           onClick={() => setPrivacyDialogOpen(true)}
-                          className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] hover:underline cursor-pointer shrink-0"
+                          className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] hover:underline cursor-pointer shrink-0 pl-6.5 sm:pl-0 self-start"
                         >
                           <span>Read Policy</span>
-                          <ExternalLink className="size-3" />
+                          <ExternalLink className="size-3 shrink-0" />
                         </button>
                       </div>
 
